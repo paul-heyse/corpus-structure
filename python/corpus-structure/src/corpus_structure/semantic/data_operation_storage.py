@@ -73,11 +73,11 @@ def native_protocol_sources(
     from .data_claim_batch_native import claim_batch_native_sql
     from .data_claim_native import claim_native_sql
     from .data_completion_settlement_native import completion_settlement_native_sql
+    from .data_derivation_native import data_derivation_sql
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_compiler_native import compiler_native_sql
     from .data_operation_cpu_basis import cpu_input_basis_native_sql
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
-    from .data_operation_protocol import recordable_fate_sql
     from .data_operation_renewal import renewal_native_sql
     from .data_operation_source_native import source_native_sources
     from .data_operation_subjects import subject_scope_values
@@ -85,9 +85,14 @@ def native_protocol_sources(
         ORIGINAL_SUPPORT_REFERENCE_SCHEMA,
         original_support_reference_schema,
     )
+    from .data_operation_value_native import data_operation_value_sql
     from .data_operation_wire_native import wire_native_sources
     from .data_read_boundary_native import read_boundary_native_sql
+    from .data_validity_native import data_validity_sql
     from .definition_admission_native import definition_admission_native_sql
+    from .demand_authority_native import demand_authority_sql
+    from .demand_registration_native import demand_intent_sql
+    from .demand_result_native import demand_result_sql
     from .established_validity import product_validation_native_sql
     from .execution_evidence_leaf import (
         execution_evidence_leaf_native_sql,
@@ -112,6 +117,7 @@ def native_protocol_sources(
     from .rich_admission_native import rich_admission_native_sql
     from .source_value_native import source_value_native_sources
     from .structural_admission_native import structural_admission_native_sql
+    from .support_trust_native import support_scope_sql, support_trust_native_sql
 
     if physical_sources is None:
         physical_sources = physical_source_closure(
@@ -130,7 +136,64 @@ def native_protocol_sources(
     from .data_operation_projections import capture_projection_sources
 
     logical = native_logical_sources() if logical_sources is None else logical_sources
+    lowering_marker = "__DDO_LOWERING_DIGEST__"
+    kernel_marker = "__DDO_SOURCE_DIGEST__"
+    programs = (
+        ("demand-values", "data_operation_value_native.py", data_operation_value_sql()),
+        ("demand-validity", "data_validity_native.py", data_validity_sql(target_metadata)),
+        ("demand-trust", "support_trust_native.py", support_trust_native_sql(target_metadata)),
+        (
+            "demand-authority",
+            "demand_authority_native.py",
+            demand_authority_sql(
+                target_metadata,
+                lowering_digest=lowering_marker,
+                subject_scopes=subject_scope_values(),
+            ),
+        ),
+        (
+            "demand-intent",
+            "demand_registration_native.py",
+            demand_intent_sql(
+                target_metadata,
+                lowering_digest=lowering_marker,
+                protocol=protocol,
+            ),
+        ),
+        (
+            "demand-result",
+            "demand_result_native.py",
+            demand_result_sql(
+                target_metadata,
+                kernel_digest=kernel_marker,
+            ),
+        ),
+        (
+            "demand-derivation",
+            "data_derivation_native.py",
+            data_derivation_sql(
+                target_metadata,
+                kernel_digest=kernel_marker,
+            ),
+        ),
+    )
     return (
+        *(
+            artifact
+            for name, module, program in programs
+            for artifact in (
+                SourceArtifact(f"native/{name}.sql", program.encode()),
+                SourceArtifact(f"native/{name}.py", Path(__file__).with_name(module).read_bytes()),
+            )
+        ),
+        SourceArtifact(
+            "native/data-operation-value-identity.py",
+            Path(__file__).with_name("data_operation_identity.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-operation-definition-projection.py",
+            Path(__file__).with_name("native_definition_projection.py").read_bytes(),
+        ),
         *capture_projection_sources(
             physical_sources=physical_sources,
             linkml_types=linkml_types,
@@ -339,10 +402,7 @@ def native_protocol_sources(
             "native/data-operation-execution-evidence.py",
             Path(__file__).with_name("data_operation_execution_evidence.py").read_bytes(),
         ),
-        SourceArtifact(
-            "native/data-operation-protocol.yaml",
-            protocol,
-        ),
+        SourceArtifact("native/data-operation-protocol.yaml", protocol),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
         SourceArtifact(
             "native/data-operation-compiler.sql",
@@ -416,7 +476,7 @@ def native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-support-scopes.sql",
-            _SQL.with_name("data_operation_support_scopes.sql").read_bytes(),
+            support_scope_sql(target_metadata).encode(),
         ),
         SourceArtifact(
             "native/contextual-neighborhood.sql",
@@ -429,9 +489,6 @@ def native_protocol_sources(
         SourceArtifact(
             "native/external-execution-native.py",
             Path(__file__).with_name("external_execution_native.py").read_bytes(),
-        ),
-        SourceArtifact(
-            "native/data-operation-recordable-fates.sql", recordable_fate_sql(protocol).encode()
         ),
         SourceArtifact(
             "native/data-operation-protocol.py",
@@ -500,6 +557,21 @@ def _captured(sources) -> dict[str, bytes]:
         raise ValueError("duplicate captured native protocol source")
     required = {
         "native/data-operation-protocol.yaml",
+        *(
+            f"native/{name}.{extension}"
+            for name in (
+                "demand-values",
+                "demand-validity",
+                "demand-trust",
+                "demand-authority",
+                "demand-intent",
+                "demand-result",
+                "demand-derivation",
+            )
+            for extension in ("py", "sql")
+        ),
+        "native/data-operation-value-identity.py",
+        "native/data-operation-definition-projection.py",
         "native/pdf-source-search.sql",
         "native/pdf-source-search-contract.json",
         "native/data-operations.sql",
@@ -578,7 +650,6 @@ def _captured(sources) -> dict[str, bytes]:
             "native/data-operation-graph-runtime.py",
             "native/data-operation-graph-execution.json",
             "native/data-operation-protocol.py",
-            "native/data-operation-recordable-fates.sql",
             "native/data-operation-original-support-reference.json",
             "native/data-operation-json.py",
             "native/data-operation-projections.py",
@@ -670,6 +741,15 @@ def native_sql(sources=None) -> str:
             "native/data-operation-source-values.sql",
             "native/data-operation-cpu-basis.sql",
             "native/data-operation-record-grade-native.sql",
+            "native/demand-values.sql",
+            "native/demand-validity.sql",
+            "native/demand-trust.sql",
+            "native/demand-authority.sql",
+            "native/demand-intent.sql",
+            "native/demand-result.sql",
+            "native/demand-derivation.sql",
+            "native/data-read-boundary.sql",
+            "native/data-completion-settlement.sql",
             # SQL-language structural helpers resolve the tagged-value functions
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
@@ -699,17 +779,10 @@ def native_sql(sources=None) -> str:
             "native/data-operation-support-scopes.sql",
         )
     )
-    sql = sql.replace(
-        "__DDO_READ_BOUNDARY_PROGRAMS__", bodies["native/data-read-boundary.sql"].decode()
-    )
     sql += "\n" + bodies["native/data-operation-external.sql"].decode()
     from .pdf_source_search import search_projection_sql
 
     sql += "\n" + search_projection_sql(captured)
-    sql = sql.replace(
-        "__DDO_COMPLETION_SETTLEMENT_PROGRAMS__",
-        bodies["native/data-completion-settlement.sql"].decode(),
-    )
     # Every private completion guard attests the same captured native kernel.
     sql = sql.replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     sql = sql.replace(
@@ -722,11 +795,6 @@ def native_sql(sources=None) -> str:
             _captured(captured)["native/data-operation-subject-scopes.json"]
             .decode()
             .replace("'", "''"),
-        )
-    if "__DDO_RECORDABLE_FATES__" in sql:
-        sql = sql.replace(
-            "'__DDO_RECORDABLE_FATES__'",
-            _captured(captured)["native/data-operation-recordable-fates.sql"].decode(),
         )
     if "__DDO_CORE_" in sql:
         products = json.loads(_captured(captured)["native/data-operation-projections.json"])

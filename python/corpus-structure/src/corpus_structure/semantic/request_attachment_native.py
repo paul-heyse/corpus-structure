@@ -41,6 +41,7 @@ from .native_program import (
     function,
     pg_type,
 )
+from .support_trust_native import locked_support_changed
 
 
 def _object(**fields):
@@ -1569,9 +1570,7 @@ def attachment_native_sql(model, protocol: bytes):
             )
         ),
         _check(
-            ~func.ops.ddo_trust_snapshot_meaning(j["read_trust"], type_=JSONB()).bool_op("@>")(
-                func.ops.ddo_trust_snapshot_meaning(j["snapshot"])
-            ),
+            locked_support_changed(j["read_trust"], j["snapshot"]),
             "binding trust snapshot changed after support locking",
             "23514",
         ),

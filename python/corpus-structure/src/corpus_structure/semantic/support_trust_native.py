@@ -4,6 +4,7 @@ from typing import get_args, get_type_hints
 
 from sqlalchemy import (
     Boolean,
+    MetaData,
     Numeric,
     Text,
     and_,
@@ -23,6 +24,7 @@ from sqlalchemy.dialects.postgresql import JSONB, array, insert
 from .binding_recursive_native import _check, _each, _elements, _json, _value
 from .data_operation_projections import lock_support_scopes
 from .native_definition_projection import NativeKindProjection
+from .native_objects import native_sql_script
 from .native_program import (
     Assign,
     Block,
@@ -307,3 +309,42 @@ def support_trust_native_sql(model):
         + ";\n"
     )
     return "\n".join((authorize, scope, meaning, locked, completion, freeze, matches))
+
+
+def support_scope_sql(model: MetaData) -> str:
+    """Generate the shared SQL-language scope projection after its domain providers."""
+    result = pg_type("record")
+    result.setof = True
+    return native_sql_script(
+        (
+            sql_function(
+                "ops",
+                "ddo_support_scopes",
+                parameters=(
+                    Parameter("project", pg_type("text")),
+                    Parameter("source", pg_type("text")),
+                    Parameter("support", pg_type("jsonb")),
+                ),
+                returns=result,
+                table_columns=(("scope", pg_type("text")),),
+                body=lock_support_scopes(model),
+                volatility="stable",
+                security_definer=True,
+                search_path=("pg_catalog", "pg_temp"),
+            ),
+        )
+    )
+
+
+def trust_snapshot_changed(expected, observed):
+    """Compare the explicit nonzero scope epochs of two acquisitions."""
+    return func.ops.ddo_trust_snapshot_meaning(expected).is_distinct_from(
+        func.ops.ddo_trust_snapshot_meaning(observed)
+    )
+
+
+def locked_support_changed(pinned, locked):
+    """Require every positively observed lock epoch to match its pinned scope."""
+    return ~func.ops.ddo_trust_snapshot_meaning(pinned, type_=JSONB()).contains(
+        func.ops.ddo_trust_snapshot_meaning(locked)
+    )

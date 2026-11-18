@@ -1,6 +1,5 @@
 """Native replicate policy is closed and independently enforces fresh-sample custody."""
 
-from importlib.resources import files
 from typing import get_args
 
 import pytest
@@ -10,11 +9,17 @@ from sqlalchemy.exc import DBAPIError
 
 @pytest.mark.db
 def test_native_policy_has_three_explicit_modes_and_refuses_unknown(semantic_bare_engine):
-    source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
-    start = source.index("CREATE OR REPLACE FUNCTION ops.ddo_replicate_required(")
-    end = source.index("END $$;", start) + len("END $$;")
-    helper = source[start:end].replace(
-        "ops.ddo_replicate_required", "pg_temp.ddo_replicate_required"
+    from corpus_structure.semantic.data_operation_subjects import subject_scope_values
+    from corpus_structure.semantic.demand_authority_native import demand_authority_sql
+    from corpus_structure.semantic.metadata import metadata
+    from semantic.native_program_support import temporary_routine
+
+    helper = temporary_routine(
+        demand_authority_sql(
+            metadata, lowering_digest="checked", subject_scopes=subject_scope_values()
+        ),
+        "ops",
+        "ddo_replicate_required",
     )
     with semantic_bare_engine.connect() as connection:
         transaction = connection.begin()

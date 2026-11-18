@@ -1,7 +1,6 @@
 """Exact scope JSON; independent literals retain fractional context meaning."""
 
 from decimal import Decimal
-from importlib.resources import files
 
 import pytest
 from sqlalchemy import bindparam, cast, select, text
@@ -82,10 +81,10 @@ def test_exact_json_refuses_nonfinite_numbers(invalid):
 
 @pytest.mark.db
 def test_native_jsonb_preserves_fraction_and_context_key_meaning(native_rollback):
-    source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
-    start = source.index("CREATE OR REPLACE FUNCTION data.ddo_json_meaning(")
-    end = source.index("CREATE OR REPLACE FUNCTION data.ddo_identity(", start)
-    helper = source[start:end].replace("data.ddo_json_meaning", "pg_temp.ddo_json_meaning")
+    from corpus_structure.semantic.data_operation_value_native import data_operation_value_sql
+    from semantic.native_program_support import temporary_routine
+
+    helper = temporary_routine(data_operation_value_sql(), "data", "ddo_json_meaning")
     connection = native_rollback.connection
     connection.exec_driver_sql(helper)
     # The production DDO column binder/result type crosses actual JSONB.

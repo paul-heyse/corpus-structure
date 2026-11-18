@@ -117,11 +117,10 @@ def test_native_frame_matches_independent_literal_vectors(native_rollback):
 def test_json_subject_context_encoding_matches_literals_and_python(native_rollback):
     from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_operation_value_native import data_operation_value_sql
+    from semantic.native_program_support import temporary_routine
 
-    source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
-    start = source.index("CREATE OR REPLACE FUNCTION data.ddo_json_meaning(")
-    end = source.index("CREATE OR REPLACE FUNCTION data.ddo_identity(", start)
-    helper = source[start:end].replace("data.ddo_json_meaning", "pg_temp.ddo_json_meaning")
+    helper = temporary_routine(data_operation_value_sql(), "data", "ddo_json_meaning")
     vectors = JSON_MEANING_VECTORS
     connection = native_rollback.connection
     connection.exec_driver_sql(helper)

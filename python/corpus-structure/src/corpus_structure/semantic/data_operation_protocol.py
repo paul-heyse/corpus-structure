@@ -45,14 +45,6 @@ def protocol_value_sets(content: bytes) -> dict[str, tuple[str, ...]]:
     return result
 
 
-def recordable_fate_sql(content: bytes) -> str:
-    """Compile a finite literal list, with SQL quoting independent of its values."""
-    return ",".join(
-        "'" + value.replace("'", "''") + "'"
-        for value in protocol_value_sets(content)["RecordableFate"]
-    )
-
-
 def generated_fate_source(content: bytes) -> str:
     """Static typing consumes the same protocol bytes as native/physical derivation."""
     return (

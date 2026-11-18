@@ -1,7 +1,6 @@
 """Epoch-zero materialization preserves pins; positive revocation remains fenced."""
 
 import json
-from importlib.resources import files
 from typing import cast as typing_cast
 
 import pytest
@@ -16,19 +15,33 @@ from semantic.data_operation_kernel_support import STORAGE
 
 @pytest.fixture
 def snapshot_connection(semantic_bare_engine):
-    source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
-    start = source.index("CREATE OR REPLACE FUNCTION ops.ddo_trust_snapshot_meaning(")
-    end = source.index("END $$;", start) + len("END $$;")
-    helper = source[start:end].replace(
-        "ops.ddo_trust_snapshot_meaning", "pg_temp.ddo_trust_snapshot_meaning"
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.support_trust_native import support_trust_native_sql
+    from semantic.native_program_support import temporary_routine
+
+    function = temporary_routine(
+        support_trust_native_sql(metadata), "ops", "ddo_trust_snapshot_meaning"
     )
     with semantic_bare_engine.connect() as connection:
         transaction = connection.begin()
         try:
-            connection.exec_driver_sql(helper)
+            connection.exec_driver_sql(function)
             yield connection
         finally:
             transaction.rollback()
+
+
+def _test_local_snapshot(query):
+    from sqlalchemy import func
+    from sqlalchemy.sql.functions import Function
+    from sqlalchemy.sql.visitors import replacement_traverse
+
+    def temporary(node):
+        if isinstance(node, Function) and node.name == "ddo_trust_snapshot_meaning":
+            return func.pg_temp.ddo_trust_snapshot_meaning(*node.clauses, type_=node.type)
+        return None
+
+    return replacement_traverse(query, {}, temporary)
 
 
 @pytest.mark.db
@@ -49,37 +62,15 @@ def test_native_read_and_binding_snapshot_comparisons_preserve_epoch_meaning(
     current,
     changed,
 ):
-    source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
-    start = source.index(
-        " IF snapshot IS DISTINCT FROM ops.ddo_trust_snapshot_meaning(p_trust)"
-    ) + len(" IF ")
-    end = source.index(" THEN RAISE EXCEPTION 'binding trust snapshot changed'", start)
-    binding_guard = source[start:end].replace(
-        "ops.ddo_trust_snapshot_meaning", "pg_temp.ddo_trust_snapshot_meaning"
+    from sqlalchemy import literal, select
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from corpus_structure.semantic.support_trust_native import trust_snapshot_changed
+
+    query = select(
+        trust_snapshot_changed(literal(pinned, type_=JSONB()), literal(current, type_=JSONB()))
     )
-    read_guard = (
-        "pg_temp.ddo_trust_snapshot_meaning(boundary.trust_snapshot) IS DISTINCT FROM snapshot"
-    )
-    sql = text(
-        """WITH arguments AS (
- SELECT pg_temp.ddo_trust_snapshot_meaning(CAST(:current AS jsonb)) snapshot,
- CAST(:pinned AS jsonb) p_trust),
- boundary AS (SELECT 'read:one' AS id,CAST(:pinned AS jsonb) trust_snapshot)
- SELECT """
-        + read_guard
-        + ","
-        + binding_guard
-        + " FROM arguments,boundary"
-    )
-    assert tuple(
-        snapshot_connection.execute(
-            sql,
-            {
-                "current": json.dumps(current),
-                "pinned": json.dumps(pinned),
-            },
-        ).one()
-    ) == (changed, changed)
+    assert snapshot_connection.scalar(_test_local_snapshot(query)) is changed
 
 
 @pytest.mark.db
@@ -123,20 +114,15 @@ def test_native_attachment_checks_locked_positive_epochs_against_full_read_pins(
     locked,
     changed,
 ):
-    source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
-    start = source.index(" IF NOT (ops.ddo_trust_snapshot_meaning(read_trust)") + len(" IF ")
-    end = source.index(" THEN", start)
-    guard = source[start:end].replace(
-        "ops.ddo_trust_snapshot_meaning", "pg_temp.ddo_trust_snapshot_meaning"
+    from sqlalchemy import literal, select
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from corpus_structure.semantic.support_trust_native import locked_support_changed
+
+    query = select(
+        locked_support_changed(literal(pinned, type_=JSONB()), literal(locked, type_=JSONB()))
     )
-    actual = snapshot_connection.scalar(
-        text(
-            "WITH arguments AS (SELECT CAST(:pinned AS jsonb) read_trust,"
-            "CAST(:locked AS jsonb) snapshot) SELECT " + guard + " FROM arguments"
-        ),
-        {"pinned": json.dumps(pinned), "locked": json.dumps(locked)},
-    )
-    assert actual is changed
+    assert snapshot_connection.scalar(_test_local_snapshot(query)) is changed
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])

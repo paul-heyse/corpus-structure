@@ -1,11 +1,10 @@
 """Production completion guard evaluates extraction before JSON key subtraction."""
 
-import json
-from importlib.resources import files
 from typing import Any
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import literal, select
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 @pytest.mark.db
@@ -26,10 +25,10 @@ def test_execution_evidence_guard_checks_exact_fence_after_removing_receipt_fiel
     change,
     invalid,
 ):
-    source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
-    start = source.index(" IF p->'completion' ? 'execution_evidence' AND ") + len(" IF ")
-    end = source.index(" THEN RAISE EXCEPTION 'execution evidence differs", start)
-    predicate = source[start:end]
+    from corpus_structure.semantic.data_completion_settlement_native import (
+        execution_evidence_differs,
+    )
+
     fence = {
         "request_id": "request:one",
         "generation": 1,
@@ -50,13 +49,9 @@ def test_execution_evidence_guard_checks_exact_fence_after_removing_receipt_fiel
     elif change == "wrong-generation":
         evidence["generation"] = 2
     completion = {} if change == "absent" else {"execution_evidence": evidence}
+    query = select(
+        execution_evidence_differs(literal({**fence, "completion": completion}, type_=JSONB()))
+    )
     with semantic_bare_engine.connect() as connection:
-        actual = connection.scalar(
-            text(
-                "WITH arguments AS (SELECT CAST(:payload AS jsonb) p) SELECT "
-                + predicate
-                + " FROM arguments"
-            ),
-            {"payload": json.dumps({**fence, "completion": completion})},
-        )
+        actual = connection.scalar(query)
     assert actual is invalid

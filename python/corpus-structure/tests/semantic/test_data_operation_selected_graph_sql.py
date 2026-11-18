@@ -1,10 +1,8 @@
 """Execute the production selected-graph predicate on PostgreSQL JSON values."""
 
-import json
-from importlib.resources import files
-
 import pytest
-from sqlalchemy import text
+from sqlalchemy import literal, select
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 @pytest.mark.db
@@ -30,26 +28,15 @@ def test_selected_dependency_guard_preserves_declared_required_and_alternative_e
     selected,
     invalid,
 ):
-    source = files("corpus_structure.semantic").joinpath("sql/data_operations.sql").read_text()
-    start = source.index("AND (NOT (coalesce(operation->'dependencies'") + len("AND (")
-    end = source.index(
-        "\n OR EXISTS(SELECT FROM jsonb_array_elements(p->'selection'->'operations') selected"
-        "\n CROSS JOIN LATERAL",
-        start,
-    )
-    predicate = source[start:end].removesuffix("))")
-    # Only the predicate is selected: no native function/table/authorization bypass
-    # is installed, and the actual PostgreSQL operator parser evaluates it.
-    query = text(
-        "WITH arguments AS (SELECT CAST(:declared AS jsonb) AS operation, "
-        "CAST(:selected AS jsonb) AS selected) SELECT " + predicate + " FROM arguments"
+    from corpus_structure.semantic.demand_registration_native import dependency_selection_differs
+
+    query = select(
+        dependency_selection_differs(
+            literal(declared.get("dependencies", []), type_=JSONB()),
+            literal(declared.get("potential_dependencies", []), type_=JSONB()),
+            literal(selected, type_=JSONB()),
+        )
     )
     with semantic_bare_engine.connect() as connection:
-        actual = connection.scalar(
-            query,
-            {
-                "declared": json.dumps(declared),
-                "selected": json.dumps({"dependencies": selected}),
-            },
-        )
+        actual = connection.scalar(query)
     assert actual is invalid
