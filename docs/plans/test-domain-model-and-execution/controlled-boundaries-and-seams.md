@@ -1,9 +1,7 @@
 # Controlled boundaries and production seams
 
-**Status:** Proposed design companion; not started. The
-[coordinator](../test-domain-model-and-execution_2026-11-17.md) owns the series' combined target,
-the package queue, package state, finding dispositions, shared contracts, rejected options and
-external context. **Created:** 2026-11-17. **Revised:** 2026-11-18. Writing this plan authorizes no
+**Status:** In execution. The PDF, executor and native startup seams are implemented.
+**Created:** 2026-11-17. **Revised:** 2026-11-18. Writing this plan authorizes no
 implementation.
 
 This companion owns the detailed design of four packages:
@@ -988,9 +986,6 @@ with TDM-10, so its population-close item follows TDM-10 and the rest is free.
 
 ## State
 
-| Package | State |
-|---|---|
-| TDM-09 | Not started; partly delivered by the conversion (`1d22c41cb`, `8a5c074f0`), remaining scope above |
-| TDM-10 | Not started |
-| TDM-11 | Not started |
-| TDM-12 | Not started |
+The executor's native I/O collaborator returns whole admission records so its existing release,
+runtime and implementation checks stay together. The controlled cases use the public executor and
+wire-validated replies. The coordinator owns [scoped results and unresolved consumers](../test-domain-model-and-execution_2026-11-17.md#implementation-evidence).

@@ -1,6 +1,5 @@
 """The actual statistics domain must survive the release boundary, not just a toy."""
 
-
 import pytest
 from pydantic import ValidationError
 from statistics_pack_support import statistics_bundle

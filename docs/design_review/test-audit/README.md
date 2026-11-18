@@ -28,6 +28,47 @@ from stored results with their run id
 ([evidence](../evidence/2026-11-17_joint-audit-refresh/README.md)). No product behavior is
 labelled Tested by this audit, and no speedup is measured.
 
+<a id="tdm-refresh-2026-11-18"></a>
+
+## TDM refresh of 2026-11-18
+
+**Interface-checked by source inspection, 2026-11-18.** Source
+`024225499d16de218829d45e601f8a6e1ff67089` on `main`. The refresh began at `455405a8d` and includes
+the subsequent fixture, capture and affinity corrections. The two concurrent PDF test edits
+outside that commit were excluded. Applied core 3.3, efficient-architecture heuristics 1.0,
+test-assessment 1.3, and code-intelligence 1.4 where applicable. This change-led refresh traces
+the TDM packages and their affected production boundaries. The previous broad test baseline
+and untouched findings retain their earlier dates and scope. The
+[TDM coordinator](../../plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence)
+owns observed test outcomes, incomplete qualification and remaining dispositions.
+
+The inspected preparation routes now distinguish pure preparation, a frozen publication seed,
+a consumer's writable binding and the installed head. Equal content can reuse a published stage
+while each consumer receives its own database. The migrated consumers check the existing
+capture and discovery receipts under the stage's document key before use. A recipe requiring a writable binding cannot
+use the sealed route. Deployment identity includes executed migration sources, pinned content
+and observed role policy. The independent counterexamples alter content at fixed size and
+timestamp, mutate role memberships, move a workspace and force re-acquisition after a stale
+head. This addresses responsibility and lifecycle boundaries as well as the amount of repeated
+preparation (FP-01, FP-02, FP-05, FP-07). Incremental head assembly remains separately deferred.
+The refresh establishes no runtime benefit figure.
+
+The PDF and executor controls replace the intended provider and native I/O boundaries through
+the production protocols. Same-request settlement, typed claims, original-source admission,
+independent identity frames and paired native refusal controls make the ownership and
+discrimination explicit (FP-03, FP-04, FP-06). The deployed oracle controls observe the exact
+receipt and actual validation rows. Where a later test still assumes an input that the selected
+operation never declares, such as document composition's discovery input, the test remains
+evidence of an open production prerequisite. Scoped results do not qualify the whole suite.
+
+| Finding lineage | Current source observation |
+|---|---|
+| DTA-037, DTA-047 | Fixture metadata is resolved per item. The named stale SQL readers use their generating owners, and the installed or rollback-backed tests no longer build fresh databases for those semantics. The fresh and forward paths still use bare databases where those states are the test subject. |
+| DTA-038, DTA-039, DTA-040 | The deployed key and role replay use the production migration chain and structured observed facts. Per-consumer preparation has its own binding. Memo eviction drops the memo's reference while the live caller's resources retain their owner. |
+| DTA-041, DTA-042, DTA-043 | PDF doubles converge on the same producer protocol. Kernel assembly uses the selected release's acquired model, and the executor tests build the public object with controlled native I/O. The native composition consumer remains at the readiness boundary. |
+| DTA-001, DTA-033, DTA-034, DTA-044, DTA-045, DTA-046 | Reviewed independent vectors, real-peer profile refusal, wire validation, encoder realignment, and comparable positive/refusal pairs. Test obligations that depend on finer production identity or validity remain tied to the production owner. |
+| DTA-009, DTA-048 | Cross-directory support moved into fixture/support modules. The ordinary GPU-lock test exercises its own temporary path and retains the separate file-lock wait observation. |
+
 <a id="delta-1afa63f88"></a>
 
 ## Delta of 2026-11-17 at `1afa63f88`

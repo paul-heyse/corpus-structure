@@ -1,7 +1,6 @@
 # Reuse and refusal evidence
 
-**Status:** Proposed companion of the
-[test domain-model and execution plan](../test-domain-model-and-execution_2026-11-17.md); not started.
+**Status:** In execution. Reuse perturbations and exact native refusals have scoped receipts.
 **Created:** 2026-11-17. Writing this plan authorizes no implementation.
 
 This companion owns the designs of TDM-13 (a perturbation table for every production mechanism
@@ -681,7 +680,5 @@ before it knows a prior receipt qualifies; the cache not reporting whether it an
 
 ## State
 
-| Package | State |
-|---|---|
-| TDM-13 | Not started |
-| TDM-14 | Not started |
+The coordinator owns [current receipts and disposition](../test-domain-model-and-execution_2026-11-17.md#implementation-evidence).
+Production-gated precision controls retain the triggers in this companion.

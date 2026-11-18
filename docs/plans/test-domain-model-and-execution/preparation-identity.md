@@ -1,7 +1,6 @@
 # Preparation identity: the head key, recipes and bindings, and the completed-capture seed
 
-**Status:** Proposed design companion of the
-[test domain-model and execution plan](../test-domain-model-and-execution_2026-11-17.md); not started.
+**Status:** In execution. Native keying, per-consumer acquisition and shared PDF capture are implemented.
 **Created:** 2026-11-17. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **TDM-06** (the deployment key covers what the build runs),
@@ -776,6 +775,11 @@ the coordinator records it: TDM-08 is delivered and its stage holds; the extensi
 the same rules, and it needs TDM-09's data-described content for that support module's converter
 and TDM-07's location-free recipe.
 
+The sibling capture stage is implemented. It serializes capture of the four controlled originals
+because they share stream parts. The
+[coordinator](../test-domain-model-and-execution_2026-11-17.md#implementation-evidence) records
+the subsequent rich-admission readiness block and the consumer's open acceptance.
+
 ## What the superseding records must say
 
 TDM-00 writes the records. For this companion's packages to be sound they must state the
@@ -828,8 +832,5 @@ timestamp case, belong to TDM-13.
 
 ## State
 
-| Package | State |
-|---|---|
-| TDM-06 | Not started |
-| TDM-07 | Not started |
-| TDM-08 | Not started |
+The prepared head, bound memo, and sealed/direct PDF routes are implemented.
+The coordinator owns [capture and qualification evidence](../test-domain-model-and-execution_2026-11-17.md#implementation-evidence).

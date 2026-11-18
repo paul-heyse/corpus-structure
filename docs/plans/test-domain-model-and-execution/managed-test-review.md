@@ -1,6 +1,6 @@
 # Managed test review
 
-**Status:** Proposed design companion; not started. **Created:** 2026-11-18.
+**Status:** Implemented and scoped verification recorded. **Created:** 2026-11-18.
 This companion owns the design and acceptance of TDM-19. The
 [coordinator](../test-domain-model-and-execution_2026-11-17.md#tdm-19) owns its state and
 the disposition of [I06](../../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I06)
@@ -21,7 +21,7 @@ view can reuse their classifications and custody checks without a second record 
 
 ## TDM-19 — Review an original selection and its attempts
 
-**Proposed.** Add read-only `ci test review ORIGINAL [ATTEMPT...]`, with result IDs in caller order.
+**Implemented.** Use read-only `ci test review ORIGINAL [ATTEMPT...]`, with result IDs in caller order.
 The original supplies the required lanes and selection. Assess supplemental attempts using the
 existing coverage rules. Use shared Typer options for a bounded page and continuation and for
 `--json`. Compose the typed reports in the CLI, extracting reusable report builders where a command

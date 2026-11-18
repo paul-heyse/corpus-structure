@@ -1,13 +1,14 @@
 # Status
 
-_Updated 2026-11-18. The owned stage and canonical development database run model-built N13. Development registered and read-verified 29 originals. Whole-book execution and DDO-12 qualification remain open._
+_Updated 2026-11-18. The test-domain implementation is integrated on main, with scoped verification and open native consumer evidence. The owned stage and canonical development database run model-built N13. Whole-book execution and DDO-12 qualification remain open._
 
 ## Current owners
 
 - The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#generated-ddo-acquisition-settlement-and-inspection--2026-11-18) owns deployment, scoped failures and qualification. The [PostgreSQL companion](docs/plans/declared-data-operations/postgresql-realization-and-retirement.md#model-owned-sql-authoring) owns typed SQL authoring under [ADR-0131](docs/adr/0131-model-owned-postgresql-programs.md).
 - N12 generated the protected PDF companion, observation, export, proof, identity and correspondence paths. N13 generates DDO compiler, acquisition, reads, settlement, external packet custody, grading and operation-event publication. The handwritten DDO operation bundle and its string fragment substitutions are retired.
 - The [adoption companion](docs/plans/declared-data-operations/preservation-adoption-and-qualification.md#actual-preservation-basis) owns original custody and regeneration.
-- The [test-domain plan](docs/plans/test-domain-model-and-execution_2026-11-17.md#improvement-disposition) integrates the November 18 review. Execution remains unstarted. TDM-00 re-reads affected consumers and retained receipts before targeted setup repairs. TDM-19 schedules managed test review before final TDM qualification.
+- The [test-domain coordinator](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence) owns TDM implementation, observed native results and qualification. Model-bound fixtures, deployment identity, sealed capture, PDF and executor protocols, and `ci test review` are integrated. The registered TDM PDF native successor supplies the test head.
+- The [test audit refresh](docs/design_review/test-audit/README.md#tdm-refresh-2026-11-18) records the scope inspected against the integrated source. The coordinator owns the outstanding composition and rich admission results.
 
 - [Library-discovery tooling](tooling/docs/plans/library-discovery-tooling_2026-11-17.md#current-state) (LDT series, [ADR-0132](docs/adr/0132-tooling-package.md)) is implemented for LDT-00–08: the `tooling library` commands `baseline`, `selection`, `metadata`, `inventory`, `census`, `compare` and `overview`, with the discovery guide and skill pointing to them. Verified 2026-11-17: `uv run ci test -- tooling/tests tests/scripts/test_test_receipts.py` passed (`8cd3bc5aa2b24d5a9e5d8d4c4a69270b`, 302 tests) and `uv run ci check` passed (`34811b452107403d90e5035f8a2e0550`); the full product suite is `not_run` for this series (no product change). Conditional LDT-C1–C3 are unstarted and wait for their triggers; the series owns known limits and next work.
 
@@ -19,7 +20,12 @@ _Updated 2026-11-18. The owned stage and canonical development database run mode
 - **Passed:** 17 construction grammar controls, including the bounded production-region comparator. Its actual-book inputs and full comparison remain open.
 - **Passed:** `uv run ci check --only types` (`e9fe0c43827c47e2a9cee897e5325e66`) and `uv run ci check --only lint` (`6dd3dda0b0a744c4a5dcd0925c0a22b4`).
 
+- **Passed:** TDM `uv run ci test collect` selected 8,824 identities (`4df04e0f488641be913bfdded8b03c2b`). `uv run ci check` passed (`3b9a6705cafb44a4a3232d36e3fb0d20`), including pyrefly and Ruff.
+- **Passed:** TDM installed deployment-key and certification controls, 45 tests (`976fbbba198c4e2f96731d3af1840f20`), prepared-batch native computation, adoption and detached export (`118f4565f6524642950d0e2add0b3667`), and the real Docling provider spool-resume test (`5fc23c205c7f406599ba81df4c1c1a26`). Source-discovery and cursor controls passed in a [mixed receipt](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence).
+- **Open:** TDM-18 qualification is open. Native composition and rich admission await declared inputs. Public structural reads, visual observation submission, and event CPU reply typing encounter production contract failures. The real PM2 literal-model and empty-source cases passed (`149a296834074df48871df92edc498d8`); the two-region provider run exceeded the 15-minute limit (`1a2dfbc649724fffb723c8c4d8ab1c06`).
+
 ## Next execution
 
+- Resolve the native consumer prerequisites recorded by TDM, then reconcile the qualification union with `ci test review`. See the [TDM closeout](docs/plans/test-domain-model-and-execution_2026-11-17.md#tdm-18).
 - Verify the remaining binding refusal matrix and corrected E5 and NCE paths against the current source. Reacquire the latest stage application when current-source correspondence is required.
 - Run the full 518-page book demand through committed progress, interruption, same-demand resume and repeat. Use its current source, formal and sentence products for PE-S33. Complete the required native, provider, public, fault and repository-check union for DDO-12. Chandra OCR remains excluded.

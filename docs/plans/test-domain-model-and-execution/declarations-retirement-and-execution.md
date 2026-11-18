@@ -1,7 +1,6 @@
 # Declarations, retirement and execution: fixture declarations, SQL from its owner, and the host lock
 
-**Status:** Proposed design companion of the
-[test domain-model and execution plan](../test-domain-model-and-execution_2026-11-17.md); not started.
+**Status:** In execution. Fixture declarations, reusable SQL subjects and private lock controls are implemented.
 **Created:** 2026-11-17. **Revised:** 2026-11-18. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **TDM-15** (preparation declarations at the fixture and the
@@ -703,8 +702,4 @@ commit-class consumers of a seed and the rejection of change-based test selectio
 
 ## State
 
-| Package | State |
-|---|---|
-| TDM-15 | Not started |
-| TDM-16 | Not started; source half partly delivered by the conversion, remaining scope above |
-| TDM-17 | Not started |
+The coordinator owns [scoped results and qualification](../test-domain-model-and-execution_2026-11-17.md#implementation-evidence).

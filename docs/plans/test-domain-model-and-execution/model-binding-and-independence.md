@@ -1,7 +1,6 @@
 # Model binding and independence
 
-**Status:** Proposed companion of the
-[test domain-model and execution plan](../test-domain-model-and-execution_2026-11-17.md); not started.
+**Status:** In execution. Model-bound preparation, authored identity controls and semantic SQL checks are implemented.
 **Created:** 2026-11-17. Writing this plan authorizes no implementation.
 
 This companion owns the designs of TDM-02 (the model-binding rule written into the
@@ -813,9 +812,5 @@ selection digest having no pure function.
 
 ## State
 
-| Package | State |
-|---|---|
-| TDM-02 | Not started |
-| TDM-03 | Not started |
-| TDM-04 | Not started |
-| TDM-05 | Not started |
+Model binding, composition, identity vectors and independent SQL evidence are integrated.
+The coordinator owns [receipt scope and state](../test-domain-model-and-execution_2026-11-17.md#implementation-evidence).
