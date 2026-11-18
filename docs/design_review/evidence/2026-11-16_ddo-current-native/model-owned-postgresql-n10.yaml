@@ -1,0 +1,4 @@
+# Model-owned PDF inventory, contract folds, seal receipt projection, and source proofs.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n9
+native_revision: semantic_ddo_pe_n10
