@@ -34,6 +34,10 @@ def test_native_binding_source_closure_and_helper_syntax():
     assert set(sources) == {
         "native/data-operation-bindings.sql",
         "native/data-operation-binding-native.py",
+        "native/source_set_native.py",
+        "native/data_operation_source_sets.py",
+        "native/selected_support.py",
+        "native/data_product_reference.py",
     }
     prepared = prepare_sql(binding_native_sql(), source="binding-test")
     names = []
