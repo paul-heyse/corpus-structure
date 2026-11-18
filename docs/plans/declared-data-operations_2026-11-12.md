@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-17. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N11 with its matching application active at generation 12. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
+**Status · 2026-11-18. DDO-00–11 implementation remains incomplete. The effective interpretation is v9 with demand-intent-v2/CPU-input-basis-3, compiler24 and boundary13. Model-owned PostgreSQL authoring is partially implemented. The owned stage is at N12 with its matching application active at generation 13. Remaining consumer qualification, development adoption, complete legacy retirement and DDO-12 assembled qualification stay open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -364,6 +364,37 @@ The N10 fixture retry `e06d03c1fab64c1592e32126c5ab0e9c` passed the materializat
 transformation journeys. The NCE list-host journey reached the downstream structural demand.
 Its characterization CPU worker returned `'str' object has no attribute 'get'`. That case remains
 open under structural production acceptance. Its PDF capture and custody had completed.
+
+### Protected PDF authoring and readers · 2026-11-18
+
+N12 generates companion adoption, observation projection and publication, the shared frozen and
+published keyset reader, context selection and pages, native and companion export event relations,
+selected-source events, materialization bounds, proof reads, scalar and record identity, and access
+correspondence from the captured models. SQLAlchemy Core owns physical relations, scope and
+query composition. The PostgreSQL compiler supplies protected procedural framing and CYCLE.
+The old authored observation, context, identity, proof and correspondence SQL files and the
+export CTE text extraction paths were retired. N12 also captures generated binding predicates,
+protected binding admission, selected population and source acquisition, and PDF completion.
+
+The [N12 request](../design_review/evidence/2026-11-16_ddo-current-native/model-owned-postgresql-n12.yaml)
+preview `edbc2f2e46fe4f01a6e81cea20cf57e1`, apply `833f5d1c066d4423b319d614f7a152c2`,
+rollback candidate `a29a19ded90e48abb4b90139a2910414`, registration
+`9d47f06c13eb4ecf8ef68ab0ba3e4e66` and deployment `41e3ad85978548d1be0370c96038d04d` passed.
+The first rollback candidate `f19f41a2b02d49b3aa178c74ee0d15ff` exposed a leftover context SQL
+loader that was removed before the replacement preview. Replay covered 72 native transitions
+with zero ordinary or privilege transitions. On N12, `ci test --workers 2` passed the 73 selected
+PDF identity, access, context, observation, export and selected-source controls in
+`f6544d5c3bee4cb5af0360c23596e8b8`. The earlier protected runs on N11 retain their setup
+failures against the newer prepared source.
+
+Matching application preview `f874e8eb6bb8460c95471cc0422a7c98`, apply
+`b4d8019e629c4fa3b56d7440b3e84e4a`, candidate `e7a0c7442e32416da65cf4bcc398d1e1` and
+deployment `156dff9e2222484fb155e6698fd894a7` passed for
+`release:277ac7aa76aef92b6b4c3420d30ac9b92b4ca188f26cf82e1dcd2cc3f62ed3c8` and
+`runtime:49fb593354acd452fc50fa198fb12adf90aa400c2f3c29a06fc6f511de6a4d48`.
+Separate `ci db check --release` and `ci release check --project ddo-current-pdf-bounded --release`
+passed. Compare-and-swap activation and independent reads confirmed generation 13, the same
+stage database OID, 15 PDF products, 361 verified streams and 376 parts.
 
 ## Production-efficiency integration · 2026-11-17
 
