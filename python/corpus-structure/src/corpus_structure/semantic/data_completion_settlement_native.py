@@ -486,6 +486,19 @@ def completion_settlement_native_sql(model: MetaData) -> str:
     return native_sql_script(output) + "\n"
 
 
+def _completion_seal_value(rf, obj, *, payload_digest, runtime, snapshot):
+    return obj(
+        kernel=_KERNEL,
+        request=rf("id"),
+        generation=rf("generation"),
+        release=rf("release_id"),
+        recipe=rf("recipe"),
+        runtime=runtime,
+        payload=payload_digest,
+        trust=snapshot,
+    )
+
+
 def _completion_proofs(model, output, routine, row, rf, obj, items, reject, lookup):
     tables = model.tables
     request, definition, producing_table, intent, receipt, reads = (
@@ -517,15 +530,12 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
             volatility="immutable",
             search_path=("pg_catalog", "pg_temp"),
             body=select(
-                obj(
-                    kernel=_KERNEL,
-                    request=rf("id"),
-                    generation=rf("generation"),
-                    release=rf("release_id"),
-                    recipe=rf("recipe"),
+                _completion_seal_value(
+                    rf,
+                    obj,
+                    payload_digest=func.ops.ddo_digest(payload),
                     runtime=runtime,
-                    payload=func.ops.ddo_digest(payload),
-                    trust=snapshot,
+                    snapshot=snapshot,
                 )
             ),
         )
@@ -881,6 +891,7 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
     p = core_variable("p", JSONB())
     completion = p["completion"]
     snapshot, key = core_variable("snapshot", JSONB()), core_variable("key", Text())
+    payload_digest = core_variable("payload_digest_", Text())
     evidence = completion["execution_evidence"]
     provider = items(
         func.coalesce(evidence["provider_receipts"], cast(literal("[]"), JSONB())),
@@ -1014,6 +1025,7 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
                     )
                 ),
             ),
+            Assign("payload_digest_", func.ops.ddo_digest(completion)),
             Sql(
                 insert(intent)
                 .values(
@@ -1025,10 +1037,14 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
                     producer_holder=tf("claimed_by"),
                     runtime_id=p["runtime_id"].astext,
                     payload=completion,
-                    payload_digest=func.ops.ddo_digest(completion),
+                    payload_digest=payload_digest,
                     created_at=func.clock_timestamp(),
-                    validation_seal=func.ops.ddo_completion_seal(
-                        rf(), completion, p["runtime_id"].astext, snapshot
+                    validation_seal=_completion_seal_value(
+                        rf,
+                        obj,
+                        payload_digest=payload_digest,
+                        runtime=p["runtime_id"].astext,
+                        snapshot=snapshot,
                     ),
                 )
                 .on_conflict_do_nothing()
@@ -1051,6 +1067,7 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
             Local("t", task),
             Local("snapshot", pg_type("jsonb")),
             Local("key", pg_type("text")),
+            Local("payload_digest_", pg_type("text")),
             Local("old", intent),
         ),
         returns="jsonb",

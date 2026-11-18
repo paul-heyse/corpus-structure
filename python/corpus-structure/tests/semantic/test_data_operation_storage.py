@@ -6,6 +6,7 @@ import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
+from hashlib import sha256
 from threading import Barrier
 from typing import Any
 from typing import cast as typing_cast
@@ -2899,10 +2900,15 @@ def test_native_completion_receipt_records_actual_validator_not_release_expectat
     fence = claim(ddo_kernel, attached)
     intent = retain(ddo_kernel, fence)
     with ddo_kernel["engine"].begin() as connection:
-        seal = connection.scalar(
-            text("SELECT validation_seal FROM ops.data_completion_intent WHERE id=:id"),
+        payload, payload_digest, seal = connection.execute(
+            text(
+                "SELECT CAST(payload AS text), payload_digest, validation_seal "
+                "FROM ops.data_completion_intent WHERE id=:id"
+            ),
             {"id": intent["intent_id"]},
-        )
+        ).one()
+        assert payload_digest == sha256(canonical_bytes(json_loads(payload))).hexdigest()
+        assert seal["payload"] == intent["payload_digest"] == payload_digest
         assert seal["request"] == fence["request_id"]
         assert seal["generation"] == fence["generation"]
         assert seal["runtime"] == ddo_kernel["runtime"]

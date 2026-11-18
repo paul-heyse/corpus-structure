@@ -1,0 +1,4 @@
+# Reuse the server-computed completion digest in the validation seal.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n26
+native_revision: semantic_ddo_pe_n27
