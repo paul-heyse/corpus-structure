@@ -212,7 +212,9 @@ def _serve_demand_query(connection, request, implementation):
         )
         entry = SELECTED_QUERY_CACHE.get(key)
         if entry is None:
-            whole_request = dict(wire_json_loads(page.request), view="products")
+            whole_request = dict(
+                wire_json_loads(page.request), view="products", read_id=native["read_id"]
+            )
             whole_request.pop("recheck_bodies", None)
             whole = read_demand_result(
                 connection,
