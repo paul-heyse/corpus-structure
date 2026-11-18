@@ -256,7 +256,7 @@ def native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-definition-admission.sql",
-            definition_admission_native_sql().encode(),
+            definition_admission_native_sql(target_metadata=target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-definition-admission.py",
@@ -264,7 +264,7 @@ def native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-artifact-admission.sql",
-            artifact_admission_native_sql().encode(),
+            artifact_admission_native_sql(target_metadata=target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-artifact-admission.py",

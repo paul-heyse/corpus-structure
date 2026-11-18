@@ -1,66 +1,239 @@
-"""Artifact CPU result correspondence, using the existing execution authority owner."""
+"""Compile artifact CPU result correspondence over captured physical contracts."""
+
+from pglast.stream import RawStream
+from sqlalchemy import MetaData, Text, cast, column, func, literal, or_, select
+from sqlalchemy.dialects.postgresql import JSONB
+
+from .metadata import metadata
+from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_program import (
+    Assign,
+    Block,
+    CatchDependencyInvalidity,
+    ForQuery,
+    If,
+    Local,
+    Parameter,
+    Perform,
+    Raise,
+    Return,
+    SelectInto,
+    column_type,
+    core_relation_row,
+    core_variable,
+    function,
+    pg_type,
+)
 
 
-def artifact_admission_native_sql() -> str:
-    return r"""
-CREATE OR REPLACE FUNCTION ops.ddo_require_artifact_producer(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $artifact$
-DECLARE definition sem.data_operation_definition;
-BEGIN
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- IF r.operation_id IS DISTINCT FROM 'structure.artifact_identity/declared'
- OR definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM
- 'corpus_structure.methods.artifact_identity_declared.ArtifactIdentityOperation.acquire_port'
- OR (definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
- OR (definition.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
- OR definition.profile IS DISTINCT FROM 'derivation' OR definition.recipe IS DISTINCT FROM r.recipe
- OR definition.support_contract->'capabilities'->'forms' IS DISTINCT FROM '["scalar"]'::jsonb
- OR definition.support_contract->'capabilities'->>'preparation' IS DISTINCT FROM 'resource'
- OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
- OR completion->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
- OR jsonb_array_length(coalesce(completion->'execution_evidence'->'cpu_receipts','[]'))<>1 THEN
- RAISE EXCEPTION 'artifact completion lacks its actual captured scalar CPU producer' USING ERRCODE='23514'; END IF;
-END $artifact$;
+def artifact_admission_native_sql(*, target_metadata: MetaData | None = None) -> str:
+    model = metadata if target_metadata is None else target_metadata
+    definition = model.tables["sem.data_operation_definition"]
+    request = model.tables["ops.data_request"]
+    episode = model.tables["ops.data_derivation"]
+    intent = model.tables["ops.data_completion_intent"]
 
-CREATE OR REPLACE FUNCTION ops.ddo_require_artifact_completion(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $artifact$
-DECLARE definition sem.data_operation_definition; output jsonb; actual jsonb; expected jsonb; result_field text;
-BEGIN
- IF r.operation_id IS DISTINCT FROM 'structure.artifact_identity/declared' THEN RETURN; END IF;
- PERFORM ops.ddo_require_artifact_producer(r,completion);
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- actual:=ops.ddo_cpu_reply_output(r,completion);
- IF jsonb_typeof(definition.support_contract->'result_fields') IS DISTINCT FROM 'object' THEN
- RAISE EXCEPTION 'artifact output lacks its actual admitted result-field projection' USING ERRCODE='23514'; END IF;
- FOR output IN SELECT value FROM jsonb_array_elements(completion->'outputs') LOOP
- expected:=actual;
- IF definition.support_contract->'result_fields'<>'{}'::jsonb THEN
- result_field:=definition.support_contract->'result_fields'->> (output->>'role');
- IF result_field IS NULL THEN RAISE EXCEPTION 'artifact output lacks its exact admitted result field' USING ERRCODE='23514'; END IF;
- expected:=data.ddo_field(actual,result_field);
- ELSIF jsonb_array_length(definition.output_roles)<>1 OR definition.output_roles->0->>'name' IS DISTINCT FROM output->>'role' THEN
- RAISE EXCEPTION 'artifact CPU reply requires its actual admitted single output contract' USING ERRCODE='23514'; END IF;
- IF expected IS DISTINCT FROM data.ddo_normalize(output->'product'->'body') THEN
- RAISE EXCEPTION 'artifact publication differs from its actual exact-input CPU reply' USING ERRCODE='23514'; END IF;
- END LOOP;
-END $artifact$;
+    def row(name, table, field=None):
+        return core_variable(
+            name, table.table_valued().type if field is None else table.c[field].type, field
+        )
 
-CREATE OR REPLACE FUNCTION ops.ddo_artifact_dependencies_valid(episode_id text)
-RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $artifact$
-DECLARE episode ops.data_derivation; r ops.data_request; intent ops.data_completion_intent;
-BEGIN
- SELECT * INTO STRICT episode FROM ops.data_derivation WHERE id=episode_id;
- SELECT * INTO STRICT r FROM ops.data_request WHERE id=episode.request_id;
- IF r.operation_id IS DISTINCT FROM 'structure.artifact_identity/declared' THEN RETURN true; END IF;
- IF episode.outcome<>'success' THEN RETURN false; END IF;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=episode.intent_id
- AND request_id=episode.request_id AND generation=episode.generation;
- r:=ops.ddo_require_episode_correspondence(episode,intent);
- -- Original body correspondence is immutable; common support recursion owns
- -- later validity of the exact source/navigation premises. No scoring replay.
- RETURN true;
- EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
-END $artifact$;
-REVOKE ALL ON FUNCTION ops.ddo_require_artifact_producer(ops.data_request,jsonb),
- ops.ddo_require_artifact_completion(ops.data_request,jsonb),ops.ddo_artifact_dependencies_valid(text) FROM PUBLIC;
-"""
+    def lookup(name, table, *conditions):
+        return SelectInto(
+            select(core_relation_row(table)).select_from(table).where(*conditions),
+            (name,),
+            strict=True,
+        )
+
+    def json(value):
+        return cast(literal(value), JSONB())
+
+    def reject(condition, message):
+        return If(condition, (Raise(message, "23514"),))
+
+    def r(field=None):
+        return row("r", request, field)
+
+    def d(field):
+        return row("definition", definition, field)
+
+    def e(field=None):
+        return row("episode", episode, field)
+
+    completion = core_variable("completion", JSONB())
+    actual = core_variable("actual", JSONB())
+    expected = core_variable("expected", JSONB())
+    output = core_variable("output", JSONB())
+    result_field = core_variable("result_field", Text())
+    support = d("support_contract")
+    factory = support["capabilities"]["prepared_factory"]
+    request_parameters = (
+        Parameter("r", pg_type(str(request.schema), request.name)),
+        Parameter("completion", pg_type("jsonb")),
+    )
+    definition_lookup = lookup(
+        "definition",
+        definition,
+        definition.c.release_id == r("release_id"),
+        definition.c.operation_id == r("operation_id"),
+    )
+    programs: list[str] = []
+
+    def add(name, parameters, steps, locals_=(), *, returns="void"):
+        programs.append(
+            function(
+                "ops",
+                name,
+                parameters=parameters,
+                returns=pg_type(returns),
+                body=Block(tuple(steps), tuple(locals_)),
+                security_definer=True,
+                volatility="stable",
+                search_path=("pg_catalog", "pg_temp"),
+            )
+        )
+        programs.append(
+            native_privilege_sql(
+                NativeIdentity(
+                    "function", "ops", name, tuple(RawStream()(p.type_) for p in parameters)
+                ),
+                "PUBLIC",
+                grant=False,
+            )
+        )
+
+    add(
+        "ddo_require_artifact_producer",
+        request_parameters,
+        (
+            definition_lookup,
+            reject(
+                or_(
+                    r("operation_id").is_distinct_from("structure.artifact_identity/declared"),
+                    factory["entrypoint"].astext.is_distinct_from(
+                        "corpus_structure.methods.artifact_identity_declared.ArtifactIdentityOperation.acquire_port"
+                    ),
+                    factory["source_digest"].astext.op("~")("^[0-9a-f]{64}$").is_not(True),
+                    d("implementation_revision").like("implementation-slice:%").is_not(True),
+                    d("profile").is_distinct_from("derivation"),
+                    d("recipe").is_distinct_from(r("recipe")),
+                    support["capabilities"]["forms"].is_distinct_from(json('["scalar"]')),
+                    support["capabilities"]["preparation"].astext.is_distinct_from("resource"),
+                    support["effects"].is_distinct_from(json("[]")),
+                    completion["implementation_revision"].astext.is_distinct_from(
+                        d("implementation_revision")
+                    ),
+                    func.jsonb_array_length(
+                        func.coalesce(completion["execution_evidence"]["cpu_receipts"], json("[]"))
+                    )
+                    != 1,
+                ),
+                "artifact completion lacks its actual captured scalar CPU producer",
+            ),
+        ),
+        (Local("definition", definition),),
+    )
+
+    outputs = (
+        func.jsonb_array_elements(completion["outputs"])
+        .table_valued(column("value", JSONB()))
+        .render_derived(name="outputs_")
+    )
+    add(
+        "ddo_require_artifact_completion",
+        request_parameters,
+        (
+            If(
+                r("operation_id").is_distinct_from("structure.artifact_identity/declared"),
+                (Return(),),
+            ),
+            Perform(func.ops.ddo_require_artifact_producer(r(), completion)),
+            definition_lookup,
+            Assign("actual", func.ops.ddo_cpu_reply_output(r(), completion, type_=JSONB())),
+            reject(
+                func.jsonb_typeof(support["result_fields"]).is_distinct_from("object"),
+                "artifact output lacks its actual admitted result-field projection",
+            ),
+            ForQuery(
+                ("output",),
+                select(outputs.c.value),
+                (
+                    Assign("expected", actual),
+                    If(
+                        support["result_fields"] != json("{}"),
+                        (
+                            Assign(
+                                "result_field",
+                                support["result_fields"][output["role"].astext].astext,
+                            ),
+                            reject(
+                                result_field.is_(None),
+                                "artifact output lacks its exact admitted result field",
+                            ),
+                            Assign(
+                                "expected", func.data.ddo_field(actual, result_field, type_=JSONB())
+                            ),
+                        ),
+                        (
+                            reject(
+                                or_(
+                                    func.jsonb_array_length(d("output_roles")) != 1,
+                                    d("output_roles")[0]["name"].astext.is_distinct_from(
+                                        output["role"].astext
+                                    ),
+                                ),
+                                "artifact CPU reply requires its actual admitted single output contract",
+                            ),
+                        ),
+                    ),
+                    reject(
+                        expected.is_distinct_from(
+                            func.data.ddo_normalize(output["product"]["body"], type_=JSONB())
+                        ),
+                        "artifact publication differs from its actual exact-input CPU reply",
+                    ),
+                ),
+            ),
+        ),
+        (
+            Local("definition", definition),
+            Local("output", pg_type("jsonb")),
+            Local("actual", pg_type("jsonb")),
+            Local("expected", pg_type("jsonb")),
+            Local("result_field", pg_type("text")),
+        ),
+    )
+
+    episode_id = core_variable("episode_id", episode.c.id.type)
+    add(
+        "ddo_artifact_dependencies_valid",
+        (Parameter("episode_id", column_type(episode.c.id)),),
+        (
+            CatchDependencyInvalidity(
+                (
+                    lookup("episode", episode, episode.c.id == episode_id),
+                    lookup("r", request, request.c.id == e("request_id")),
+                    If(
+                        r("operation_id").is_distinct_from("structure.artifact_identity/declared"),
+                        (Return(literal(True)),),
+                    ),
+                    If(e("outcome") != "success", (Return(literal(False)),)),
+                    lookup(
+                        "intent",
+                        intent,
+                        intent.c.id == e("intent_id"),
+                        intent.c.request_id == e("request_id"),
+                        intent.c.generation == e("generation"),
+                    ),
+                    Assign(
+                        "r", func.ops.ddo_require_episode_correspondence(e(), row("intent", intent))
+                    ),
+                    Return(literal(True)),
+                ),
+                (Return(literal(False)),),
+            ),
+        ),
+        (Local("episode", episode), Local("r", request), Local("intent", intent)),
+        returns="bool",
+    )
+    return native_sql_script(programs) + "\n"

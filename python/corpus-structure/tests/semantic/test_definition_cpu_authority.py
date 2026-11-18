@@ -19,7 +19,21 @@ from corpus_structure.semantic.data_operation_model import (
 )
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 from semantic.test_contextual_workflow_preparation import prepared_workflow as prepared_workflow
+
+
+@pytest.fixture(autouse=True)
+def fresh_authority_worker(monkeypatch):
+    from corpus_structure.semantic.data_operation_cpu import _load_descriptor
+
+    # These in-process ingress controls stand in for distinct worker lifetimes.
+    # Restore no acquired runtime across tests that install different projectors;
+    # within each case the original authenticated descriptor cache remains active.
+    # Depending on monkeypatch keeps this cleanup inside its fixture lifetime.
+    _load_descriptor.cache_clear()
+    yield
+    _load_descriptor.cache_clear()
 
 
 def selected_roles(names, *, sequences=()):
@@ -50,6 +64,9 @@ def selected_roles(names, *, sequences=()):
                     position=position,
                     subject_definition=context.subject_definition,
                     support_references=support,
+                    producer_output=ProducerOutputOccurrence(
+                        member_id=None, role=f"emitted:{name}", position=position, multiplicity=1
+                    ),
                 )
             )
             values.append(dict(role=name, position=position))
@@ -206,6 +223,26 @@ def test_definition_wrappers_bind_actual_values_parameters_and_support_before_di
         invoke(
             arguments,
             (altered_role, *roles[1:]),
+            context,
+            basis,
+            prepared=prepared_workflow,
+            check_active=lambda: None,
+        )
+    emitted = roles[0].members[0].producer_output
+    assert emitted is not None
+    altered_output = replace(
+        roles[0],
+        members=(
+            replace(
+                roles[0].members[0],
+                producer_output=emitted.model_copy(update={"position": emitted.position + 1}),
+            ),
+        ),
+    )
+    with pytest.raises(ValueError, match="exact input basis"):
+        invoke(
+            arguments,
+            (altered_output, *roles[1:]),
             context,
             basis,
             prepared=prepared_workflow,

@@ -86,6 +86,36 @@ def test_artifact_native_helper_declares_exact_private_completion_and_validity_s
     }
 
 
+@pytest.mark.parametrize("owner", ["artifact", "definition"])
+def test_admission_native_compilers_follow_captured_episode_identifier_type(owner):
+    from sqlalchemy import MetaData, String
+
+    from corpus_structure.semantic.definition_admission_native import (
+        definition_admission_native_sql,
+    )
+    from corpus_structure.semantic.metadata import metadata
+
+    captured = MetaData()
+    for table in metadata.tables.values():
+        table.to_metadata(captured)
+    captured.tables["ops.data_derivation"].c.id.type = String(127)
+    render = (
+        artifact_admission_native_sql if owner == "artifact" else definition_admission_native_sql
+    )
+    statements = prepare_sql(render(target_metadata=captured), source="captured-admission-type")
+    dependency = next(
+        statement.stmt
+        for statement in statements.statements
+        if isinstance(statement.stmt, ast.CreateFunctionStmt)
+        and statement.stmt.funcname
+        and statement.stmt.funcname[-1].sval == f"ddo_{owner}_dependencies_valid"
+    )
+    assert dependency.parameters
+    parameter = dependency.parameters[0].argType
+    assert parameter.names[-1].sval == "varchar"
+    assert parameter.typmods[0].val.ival == 127
+
+
 def test_artifact_wrapper_binds_complete_role_values_support_and_typed_policy(
     monkeypatch, artifact_schema
 ):
@@ -138,7 +168,14 @@ def test_artifact_wrapper_binds_complete_role_values_support_and_typed_policy(
         )
     altered = replace(
         roles[0],
-        members=(replace(roles[0].members[0], support_references=(), support_episodes=()),),
+        members=(
+            replace(
+                roles[0].members[0],
+                support_references=(),
+                support_episodes=(),
+                producer_output=None,
+            ),
+        ),
     )
     with pytest.raises(ValueError, match="exact input basis"):
         artifact_kernel(
