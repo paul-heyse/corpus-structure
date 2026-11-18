@@ -8,18 +8,30 @@ from pglast import ast
 
 from .native_objects import NativeDefinition, definition_from_sql
 from .prepared_sql import prepare_sql
+from .source_capture_native import source_capture_native_sql
 from .types import SourceArtifact
 
 _SQL = Path(__file__).with_name("sql") / "data_operation_source_admission.sql"
 
 
 def source_native_sources(
-    *, physical_sources=None, linkml_types=None
+    *, physical_sources=None, linkml_types=None, target_metadata=None
 ) -> tuple[SourceArtifact, ...]:
     from .data_operation_visual_read import visual_read_sources
     from .original_document_contracts import source_admission_sources
 
+    if target_metadata is None:
+        if physical_sources is None:
+            from .metadata import metadata
+
+            target_metadata = metadata
+        else:
+            from corpus_structure.schema.physical import compile_physical
+
+            target_metadata = compile_physical(physical_sources, linkml_types=linkml_types)
     return (
+        SourceArtifact("native/data-operation-source-capture.sql", source_capture_native_sql(target_metadata).encode()),
+        SourceArtifact("native/source-capture-native.py", Path(__file__).with_name("source_capture_native.py").read_bytes()),
         *source_admission_sources(physical_sources=physical_sources, linkml_types=linkml_types),
         *visual_read_sources(),
         SourceArtifact("native/data-operation-source-admission.sql", _SQL.read_bytes()),
@@ -45,6 +57,13 @@ def source_native_sql(sources=None) -> str:
         + "\n"
         + visual_read_sql(sources)
     )
+    if selected is None:
+        from .metadata import metadata
+
+        capture_sql = source_capture_native_sql(metadata)
+    else:
+        capture_sql = selected["native/data-operation-source-capture.sql"].decode()
+    sql = sql.replace("__DDO_SOURCE_CAPTURE_PROGRAMS__", capture_sql)
     return _rename_native_entrypoints(sql, {item["name"] for item in wire_operations(sources)})
 
 
