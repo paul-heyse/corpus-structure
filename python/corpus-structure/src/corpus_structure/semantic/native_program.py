@@ -190,6 +190,7 @@ class SelectInto:
 class Raise:
     message: str | Expression
     sqlstate: str
+    detail: Expression | None = None
 
 
 @dataclass(frozen=True)
@@ -334,7 +335,7 @@ def _step(statement: Statement, nested: str) -> str:
             # PL/pgSQL allows INTO after the query clauses. This leaves Core
             # in charge of projection, correlation, and precedence.
             return _statement(query) + " INTO " + ("STRICT " if strict else "") + _targets(targets)
-        case Raise(message, state):
+        case Raise(message, state, detail):
             if (
                 len(state) != 5
                 or not state.isascii()
@@ -343,7 +344,8 @@ def _step(statement: Statement, nested: str) -> str:
             ):
                 raise ValueError("procedural refusal requires an explicit SQLSTATE")
             expression = literal(message) if isinstance(message, str) else message
-            return f"RAISE EXCEPTION USING MESSAGE = {_render(expression)}, ERRCODE = '{state}'"
+            rendered = f"RAISE EXCEPTION USING MESSAGE = {_render(expression)}, ERRCODE = '{state}'"
+            return rendered if detail is None else rendered + ", DETAIL = " + _render(detail)
         case If(condition, then, otherwise):
             body = _statements(then, nested)
             if otherwise:

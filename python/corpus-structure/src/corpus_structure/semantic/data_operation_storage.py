@@ -106,6 +106,7 @@ def native_protocol_sources(
         record_policy_grade_schema,
         record_policy_native_sql,
     )
+    from .request_attachment_native import request_attachment_native_sql
     from .rich_admission_native import rich_admission_native_sql
     from .source_value_native import source_value_native_sources
     from .structural_admission_native import structural_admission_native_sql
@@ -372,6 +373,14 @@ def native_protocol_sources(
             population_acquisition_native_sql(target_metadata).encode(),
         ),
         SourceArtifact(
+            "native/request-attachment.sql",
+            request_attachment_native_sql(target_metadata, protocol).encode(),
+        ),
+        SourceArtifact(
+            "native/request-attachment.py",
+            Path(__file__).with_name("request_attachment_native.py").read_bytes(),
+        ),
+        SourceArtifact(
             "native/population-acquisition.py",
             Path(__file__).with_name("population_acquisition_native.py").read_bytes(),
         ),
@@ -559,6 +568,8 @@ def _captured(sources) -> dict[str, bytes]:
             "native/external-execution-native.py",
             "native/population-acquisition.sql",
             "native/population-acquisition.py",
+            "native/request-attachment.sql",
+            "native/request-attachment.py",
         }
     )
     if not required <= result.keys():
@@ -642,6 +653,7 @@ def native_sql(sources=None) -> str:
             # SQL-language structural helpers resolve the tagged-value functions
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
+            "native/request-attachment.sql",
             "native/population-acquisition.sql",
             "native/data-claim.sql",
             "native/data-claim-batch.sql",
