@@ -1662,8 +1662,8 @@ def _whole_piece(product, piece):
 
 
 def _siblings(items, node):
-    parent = items.get((node.get("parent") or {}).get("$ref"), {})
-    children = tuple(ref["$ref"] for ref in parent.get("children", ()))
+    parent = items.get(node.get("parent"), {})
+    children = tuple(parent.get("children", ()))
     pointer = node["self_ref"]
     if children.count(pointer) != 1:
         return (), -1
@@ -1711,7 +1711,7 @@ def recognize_cross_block(frame, annotations, selected, hosts, population, nativ
             return CrossBlockQualifier(product, cue, (), None)
         group = siblings[index + 1]
         group_node = items.get(group, {})
-        children = tuple(ref["$ref"] for ref in group_node.get("children", ()))
+        children = tuple(group_node.get("children", ()))
         following = position[product.block_id] + 1
         if (
             group not in selected_items
@@ -1748,7 +1748,7 @@ def recognize_cross_block(frame, annotations, selected, hosts, population, nativ
             if (
                 host.annotation.kind == "list_item"
                 and child.get("label") == "list_item"
-                and child.get("parent") == {"$ref": group}
+                and child.get("parent") == group
                 and complete_block(host.annotation)
             ):
                 targets.append(host)
