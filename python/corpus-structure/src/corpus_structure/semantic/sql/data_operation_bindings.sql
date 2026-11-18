@@ -3,18 +3,7 @@
 -- may bind its declared identifier property to the consuming operation subject.
 
 
-CREATE OR REPLACE FUNCTION ops.ddo_binding_assignments(node jsonb,context jsonb) RETURNS SETOF jsonb
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE names text[]:=ops.ddo_binding_roles(jsonb_set(node,'{children}','[]'));
-BEGIN
- RETURN QUERY WITH RECURSIVE combinations(n,roles) AS (
- SELECT 0,context->'roles'
- UNION ALL
- SELECT c.n+1,jsonb_set(c.roles,ARRAY[names[c.n+1]],jsonb_build_array(item.value))
- FROM combinations c CROSS JOIN LATERAL jsonb_array_elements(coalesce(context->'roles'->names[c.n+1],'[]')) item
- WHERE c.n<cardinality(names)
- ) SELECT jsonb_set(context,'{roles}',c.roles) FROM combinations c WHERE c.n=cardinality(names);
-END $$;
+
 
 
 
@@ -175,107 +164,26 @@ $$;
 
 
 -- Inputs are authenticated population table fields, never a portable caller witness.
-CREATE OR REPLACE FUNCTION ops.ddo_project_population(identity text,complete boolean,members jsonb,evidence jsonb,project text,projection text) RETURNS jsonb
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE projected jsonb; result jsonb;
-BEGIN
- IF projection='qualified-context' THEN
- SELECT coalesce(jsonb_agg(jsonb_build_object('project_id',project,'subject',value->'subject','subject_definition',value->'subject_definition','original_source',value->'original_source','analyzed_scope',value->'analyzed_scope') ORDER BY n),'[]') INTO projected FROM jsonb_array_elements(members) WITH ORDINALITY entry(value,n);
- ELSIF projection='member' THEN
- SELECT coalesce(jsonb_agg(value->'member_id' ORDER BY n),'[]') INTO projected FROM jsonb_array_elements(members) WITH ORDINALITY entry(value,n);
- ELSE RAISE EXCEPTION 'unknown population projection'; END IF;
- result:=jsonb_build_object('identity',identity,'complete',complete,'members',projected,'evidence',evidence);
- IF projection='qualified-context' THEN result:=result||jsonb_build_object('projection',projection); END IF;
- RETURN result;
-END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_binding_population_meaning(witness jsonb,require_episode boolean) RETURNS jsonb
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE result jsonb; episode text;
-BEGIN
- IF witness->>'reason'='unselected-declared-branch' THEN RETURN witness; END IF;
- IF jsonb_typeof(witness) IS DISTINCT FROM 'object' OR jsonb_typeof(witness->'identity') IS DISTINCT FROM 'string' OR nullif(witness->>'identity','') IS NULL
- OR jsonb_typeof(witness->'complete') IS DISTINCT FROM 'boolean' OR jsonb_typeof(witness->'members') IS DISTINCT FROM 'array' OR jsonb_typeof(witness->'evidence') IS DISTINCT FROM 'object'
- OR (coalesce(witness->>'projection','member')='member' AND EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m WHERE jsonb_typeof(m) IS DISTINCT FROM 'string' OR m#>>'{}'=''))
- OR (witness->>'projection'='qualified-context' AND EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m WHERE jsonb_typeof(m)<>'object' OR nullif(m->>'project_id','') IS NULL OR nullif(m->>'subject','') IS NULL OR nullif(m->>'subject_definition','') IS NULL OR NOT m ? 'original_source' OR jsonb_typeof(m->'original_source') NOT IN ('string','null') OR NOT m ? 'analyzed_scope' OR (SELECT count(*) FROM jsonb_object_keys(m))<>5))
- OR coalesce(witness->>'projection','member') NOT IN ('member','qualified-context')
- OR EXISTS(SELECT FROM jsonb_array_elements(witness->'members') m GROUP BY m HAVING count(*)<>1) THEN RAISE EXCEPTION 'invalid structured native population witness'; END IF;
- result:=jsonb_build_object('identity',witness->'identity','complete',witness->'complete','members',witness->'members');
- IF witness->>'projection'='qualified-context' THEN result:=result||jsonb_build_object('projection','qualified-context'); END IF;
- IF require_episode THEN
- episode:=nullif(witness->'evidence'->>'derivation_id',''); IF episode IS NULL THEN RAISE EXCEPTION 'population episode identity is unavailable'; END IF;
- result:=result||jsonb_build_object('support_episodes',jsonb_build_array(episode));
- END IF;
- RETURN result;
-END $$;
+
+
 
 -- Physical ledger slots are not source occurrence positions or unordered input
 -- meaning. The original authenticated manifest remains in request/intent binding.
-CREATE OR REPLACE FUNCTION ops.ddo_derivation_input_positions(inputs jsonb,roledefs jsonb)
-RETURNS TABLE(input_record jsonb,physical_position integer)
-LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
- SELECT input,CASE WHEN roledef->>'collection'='sequence' THEN (input->>'position')::integer
- ELSE (row_number() OVER (PARTITION BY input->>'role' ORDER BY input->>'product_id',input->>'member_id' NULLS FIRST,input->'position',input,ordinal)-1)::integer END
- FROM jsonb_array_elements(inputs) WITH ORDINALITY values_(input,ordinal)
- JOIN LATERAL jsonb_array_elements(roledefs) roledef ON roledef->>'name'=input->>'role'
-$$;
+
 
 -- A complete selected set is explicit even for original/authored inputs ([]).
 -- It is not inferred from sibling inputs sharing a product or source position.
-CREATE OR REPLACE FUNCTION ops.ddo_input_support_selection(input_record jsonb) RETURNS jsonb
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE selected jsonb:=input_record->'support_derivation_ids'; canonical jsonb;
-BEGIN
- IF jsonb_typeof(selected) IS DISTINCT FROM 'array' OR EXISTS(
- SELECT FROM jsonb_array_elements(selected) value WHERE jsonb_typeof(value) IS DISTINCT FROM 'string' OR value#>>'{}'='') THEN
- RAISE EXCEPTION 'input support requires an explicit canonical episode set' USING ERRCODE='23514'; END IF;
- SELECT coalesce(jsonb_agg(value ORDER BY (value#>>'{}') COLLATE "C"),'[]') INTO canonical
- FROM (SELECT DISTINCT value FROM jsonb_array_elements(selected)) unique_values;
- IF selected IS DISTINCT FROM canonical THEN RAISE EXCEPTION 'input support episode set is duplicated or unordered' USING ERRCODE='23514'; END IF;
- RETURN selected;
-END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_single_input_support_episode(input_record jsonb) RETURNS text
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE selected jsonb:=ops.ddo_input_support_selection(input_record);
-BEGIN
- IF jsonb_array_length(selected)<>1 THEN RAISE EXCEPTION 'input requires exactly one selected producing episode' USING ERRCODE='23514'; END IF;
- RETURN selected->>0;
-END $$;
+
+
 
 -- Equal product/member/position values may have independent genuine producers.
 -- Authenticate the complete set on this exact manifest input, never their union.
 -- Qualify the selected support value: admissions have their own reference column.
-CREATE OR REPLACE FUNCTION ops.ddo_input_support_refs(binding jsonb,input_record jsonb)
-RETURNS SETOF jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE selected jsonb:=ops.ddo_input_support_selection(input_record); matched jsonb; episodes jsonb;
-BEGIN
- IF NOT EXISTS(SELECT FROM jsonb_array_elements(binding->'inputs') actual WHERE actual=input_record) THEN
- RAISE EXCEPTION 'support selection is not an exact manifest input' USING ERRCODE='23514'; END IF;
- SELECT coalesce(jsonb_agg(selected_support.value),'[]') INTO matched FROM jsonb_array_elements(binding->'support') selected_support(value)
- WHERE selected_support.value->>'role'=input_record->>'role'
- AND selected_support.value->'position' IS NOT DISTINCT FROM input_record->'position'
- AND ((coalesce(selected_support.value->>'kind','computation')='computation' AND selected ? (selected_support.value->>'derivation_id')
- AND EXISTS(SELECT FROM ops.data_derivation_output output
- WHERE output.derivation_id=selected_support.value->>'derivation_id' AND output.product_id=input_record->>'product_id'
- AND (output.member_id IS NULL OR output.member_id IS NOT DISTINCT FROM input_record->>'member_id')))
- OR (selected_support.value->>'kind' IN ('original-source','authored') AND selected='[]'::jsonb
- AND input_record->>'member_id' IS NULL AND EXISTS(SELECT FROM ops.original_source_admission admission
- WHERE admission.id=selected_support.value->>'admission_id' AND admission.product_id=input_record->>'product_id'
- AND admission.source_reference=selected_support.value->>'source_reference')));
- SELECT coalesce(jsonb_agg(episode ORDER BY episode COLLATE "C"),'[]') INTO episodes FROM (
- SELECT DISTINCT selected_support.value->>'derivation_id' episode FROM jsonb_array_elements(matched) selected_support(value)
- WHERE coalesce(selected_support.value->>'kind','computation')='computation') known;
- IF episodes IS DISTINCT FROM selected THEN RAISE EXCEPTION 'selected input episode set lacks exact authentic output support' USING ERRCODE='23514'; END IF;
- RETURN QUERY SELECT value FROM jsonb_array_elements(matched);
-END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_input_support_episodes(binding jsonb,input_record jsonb)
-RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
- SELECT coalesce(jsonb_agg(episode ORDER BY episode COLLATE "C"),'[]') FROM (
- SELECT DISTINCT reference->>'derivation_id' episode FROM ops.ddo_input_support_refs(binding,input_record) reference
- WHERE coalesce(reference->>'kind','computation')='computation') selected
-$$;
+
+
 
 CREATE OR REPLACE FUNCTION ops.ddo_require_binding(p_demand text,p_operation text,p_subject text,p_request_meaning jsonb,p_binding jsonb,p_trust jsonb,p_read_checked boolean DEFAULT false) RETURNS void
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$

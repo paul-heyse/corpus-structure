@@ -25,6 +25,7 @@ from .native_program import (
     Perform,
     Raise,
     Return,
+    ReturnQuery,
     SelectInto,
     core_variable,
     function,
@@ -571,3 +572,260 @@ def pg_type_array():
     result = pg_type("text")
     result.arrayBounds = (ast.Integer(ival=-1),)
     return result
+
+
+def binding_population_native_sql():
+    node, context = (_value(name, JSONB()) for name in ("node", "context"))
+    names = _value("names", ARRAY(Text()))
+    combinations = select(literal(0).label("n"), context["roles"].label("roles")).cte(
+        "combinations", recursive=True
+    )
+    candidates = _elements(
+        func.coalesce(context["roles"][names[combinations.c.n + 1]], _json("[]")), "candidate"
+    )
+    combinations = combinations.union_all(
+        select(
+            (combinations.c.n + 1).label("n"),
+            func.jsonb_set(
+                combinations.c.roles,
+                array([names[combinations.c.n + 1]]),
+                func.jsonb_build_array(candidates.c.value),
+            ).label("roles"),
+        )
+        .select_from(combinations.join(candidates, literal(True)))
+        .where(combinations.c.n < func.cardinality(names))
+    )
+    assignments_type = pg_type("jsonb")
+    assignments_type.setof = True
+    out = [
+        function(
+            "ops",
+            "ddo_binding_assignments",
+            parameters=(
+                Parameter("node", pg_type("jsonb")),
+                Parameter("context", pg_type("jsonb")),
+            ),
+            returns=assignments_type,
+            body=Block(
+                (
+                    ReturnQuery(
+                        select(
+                            func.jsonb_set(context, array(["roles"]), combinations.c.roles)
+                        ).where(combinations.c.n == func.cardinality(names))
+                    ),
+                ),
+                (
+                    Local(
+                        "names",
+                        pg_type_array(),
+                        func.ops.ddo_binding_roles(
+                            func.jsonb_set(node, array(["children"]), _json("[]"))
+                        ),
+                    ),
+                ),
+            ),
+            strict=True,
+            volatility="immutable",
+            search_path=("pg_catalog", "pg_temp"),
+        )
+        + ";\n"
+    ]
+    members, evidence, result = (
+        _value(name, JSONB()) for name in ("members", "evidence", "result")
+    )
+    identity, project, projection = (_value(name) for name in ("identity", "project", "projection"))
+    complete = _value("complete", Boolean())
+    entries = (
+        func.jsonb_array_elements(members)
+        .table_valued(column("value", JSONB()), with_ordinality="ordinal")
+        .render_derived(name="member")
+    )
+    projected_context = func.jsonb_build_object(
+        "project_id",
+        project,
+        "subject",
+        entries.c.value["subject"],
+        "subject_definition",
+        entries.c.value["subject_definition"],
+        "original_source",
+        entries.c.value["original_source"],
+        "analyzed_scope",
+        entries.c.value["analyzed_scope"],
+    )
+    projected = _value("projected", JSONB())
+    out.append(
+        _routine(
+            "ddo_project_population",
+            (
+                If(
+                    projection == "qualified-context",
+                    (
+                        SelectInto(
+                            select(
+                                func.coalesce(
+                                    func.jsonb_agg(
+                                        aggregate_order_by(projected_context, entries.c.ordinal)
+                                    ),
+                                    _json("[]"),
+                                )
+                            ),
+                            ("projected",),
+                        ),
+                    ),
+                    (
+                        If(
+                            projection == "member",
+                            (
+                                SelectInto(
+                                    select(
+                                        func.coalesce(
+                                            func.jsonb_agg(
+                                                aggregate_order_by(
+                                                    entries.c.value["member_id"], entries.c.ordinal
+                                                )
+                                            ),
+                                            _json("[]"),
+                                        )
+                                    ),
+                                    ("projected",),
+                                ),
+                            ),
+                            (Raise("unknown population projection", "P0001"),),
+                        ),
+                    ),
+                ),
+                Assign(
+                    "result",
+                    func.jsonb_build_object(
+                        "identity",
+                        identity,
+                        "complete",
+                        complete,
+                        "members",
+                        projected,
+                        "evidence",
+                        evidence,
+                    ),
+                ),
+                If(
+                    projection == "qualified-context",
+                    (
+                        Assign(
+                            "result",
+                            result.op("||")(func.jsonb_build_object("projection", projection)),
+                        ),
+                    ),
+                ),
+                Return(result),
+            ),
+            (Local("projected", pg_type("jsonb")), Local("result", pg_type("jsonb"))),
+            parameters=(
+                ("identity", "text"),
+                ("complete", "bool"),
+                ("members", "jsonb"),
+                ("evidence", "jsonb"),
+                ("project", "text"),
+                ("projection", "text"),
+            ),
+        )
+    )
+    witness = _value("witness", JSONB())
+    episode = _value("episode")
+    require_episode = _value("require_episode", Boolean())
+    members_ = _elements(witness["members"], "population_member")
+    member = members_.c.value
+    keys = (
+        func.jsonb_object_keys(member)
+        .table_valued(column("key", Text()))
+        .render_derived(name="member_key")
+    )
+    bad_plain = (
+        select(member)
+        .where(
+            or_(
+                func.jsonb_typeof(member).is_distinct_from("string"),
+                member.op("#>>", return_type=Text())(array([], type_=Text())) == "",
+            )
+        )
+        .exists()
+    )
+    bad_context = (
+        select(member)
+        .where(
+            or_(
+                func.jsonb_typeof(member) != "object",
+                func.nullif(member["project_id"].astext, "").is_(None),
+                func.nullif(member["subject"].astext, "").is_(None),
+                func.nullif(member["subject_definition"].astext, "").is_(None),
+                ~member.bool_op("?")("original_source"),
+                ~func.jsonb_typeof(member["original_source"]).in_(("string", "null")),
+                ~member.bool_op("?")("analyzed_scope"),
+                select(func.count()).select_from(keys).correlate(members_).scalar_subquery() != 5,
+            )
+        )
+        .exists()
+    )
+    invalid = or_(
+        func.jsonb_typeof(witness).is_distinct_from("object"),
+        func.jsonb_typeof(witness["identity"]).is_distinct_from("string"),
+        func.nullif(witness["identity"].astext, "").is_(None),
+        func.jsonb_typeof(witness["complete"]).is_distinct_from("boolean"),
+        func.jsonb_typeof(witness["members"]).is_distinct_from("array"),
+        func.jsonb_typeof(witness["evidence"]).is_distinct_from("object"),
+        (func.coalesce(witness["projection"].astext, "member") == "member") & bad_plain,
+        (witness["projection"].astext == "qualified-context") & bad_context,
+        ~func.coalesce(witness["projection"].astext, "member").in_(("member", "qualified-context")),
+        select(member).group_by(member).having(func.count() != 1).exists(),
+    )
+    out.append(
+        _routine(
+            "ddo_binding_population_meaning",
+            (
+                If(witness["reason"].astext == "unselected-declared-branch", (Return(witness),)),
+                _check(invalid, "invalid structured native population witness"),
+                Assign(
+                    "result",
+                    func.jsonb_build_object(
+                        "identity",
+                        witness["identity"],
+                        "complete",
+                        witness["complete"],
+                        "members",
+                        witness["members"],
+                    ),
+                ),
+                If(
+                    witness["projection"].astext == "qualified-context",
+                    (
+                        Assign(
+                            "result",
+                            result.op("||")(
+                                func.jsonb_build_object("projection", "qualified-context")
+                            ),
+                        ),
+                    ),
+                ),
+                If(
+                    require_episode,
+                    (
+                        Assign(
+                            "episode", func.nullif(witness["evidence"]["derivation_id"].astext, "")
+                        ),
+                        _check(episode.is_(None), "population episode identity is unavailable"),
+                        Assign(
+                            "result",
+                            result.op("||")(
+                                func.jsonb_build_object(
+                                    "support_episodes", func.jsonb_build_array(episode)
+                                )
+                            ),
+                        ),
+                    ),
+                ),
+                Return(result),
+            ),
+            (Local("result", pg_type("jsonb")), Local("episode", pg_type("text"))),
+            parameters=(("witness", "jsonb"), ("require_episode", "bool")),
+        )
+    )
+    return "\n".join(out)

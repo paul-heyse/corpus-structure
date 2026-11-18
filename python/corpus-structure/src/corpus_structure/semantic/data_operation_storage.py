@@ -441,7 +441,7 @@ def native_protocol_sources(
             "native/data-operation-physical.yaml",
             physical,
         ),
-        *binding_native_sources(),
+        *binding_native_sources(target_metadata=target_metadata),
         *wire_native_sources(logical["data-operation-wire-types.yaml"]),
         *search_projection_sources(target_metadata=target_metadata, pdf_domain=pdf_domain),
         *source_native_sources(
