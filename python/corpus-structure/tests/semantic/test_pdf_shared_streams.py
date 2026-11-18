@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic.native_objects import native_owner
 from corpus_structure.semantic.pdf_record_identity import (
     ArtifactPart,
     ArtifactPin,
@@ -78,6 +79,19 @@ def count_content(connection):
             )
         ).one()
     )
+
+
+def _expire_task(connection, task_id):
+    # The test advances a controlled clock boundary under the fixture's
+    # publisher authority; the worker must still observe the expired fence.
+    with native_owner(connection, "corpus_sem_publisher"):
+        changed = connection.execute(
+            text(
+                "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
+            ),
+            {"task": task_id},
+        )
+        assert changed.rowcount == 1
 
 
 def test_part_wire_remains_model_owned_without_a_per_build_part_store():
@@ -164,12 +178,7 @@ def test_live_pending_owner_refuses_and_expired_owner_reclaim_preserves_fences(
         assert getattr(refused.value.orig, "sqlstate", None) == "55P03"
     with commit_db_engine.begin() as connection:
         assert count_content(connection) == (1, 1, 0)
-        connection.execute(
-            text(
-                "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
-            ),
-            dict(task=first.task_id),
-        )
+        _expire_task(connection, first.task_id)
     with commit_writer_engine.begin() as connection:
         with pytest.raises(DBAPIError) as refused, connection.begin_nested():
             adopt_pdf_batch(
@@ -411,12 +420,7 @@ def test_pending_reclaim_does_not_race_a_locked_original_append_fence(
         )
         adopt_pdf_batch(connection, first, "partial", packet("artifact_part", part_rows(first)[:1]))
     with commit_db_engine.begin() as connection:
-        connection.execute(
-            text(
-                "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
-            ),
-            dict(task=first.task_id),
-        )
+        _expire_task(connection, first.task_id)
     # A genuinely concurrent connection holds the old task fence. Reclaim must
     # refuse NOWAIT; it cannot infer retirement merely from an earlier timestamp.
     with commit_db_engine.connect() as blocker, blocker.begin():
@@ -511,12 +515,7 @@ def test_same_build_new_attempt_replays_exact_receipts_after_pending_reclaim(
             connection, build, "prefix", packet("artifact_part", part_rows(build)[:1])
         )
     with commit_db_engine.begin() as connection:
-        connection.execute(
-            text(
-                "UPDATE ops.task SET lease_until=clock_timestamp()-interval '1 second' WHERE id=:task"
-            ),
-            dict(task=build.task_id),
-        )
+        _expire_task(connection, build.task_id)
     with commit_writer_engine.begin() as connection:
         claimed = create_private_build.reclaim(connection, build, holder="next-byte-owner")
         resumed = resume_pdf_build(
