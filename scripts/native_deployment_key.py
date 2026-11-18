@@ -6,6 +6,7 @@ import ast
 import importlib.machinery
 import importlib.util
 import json
+import re
 import sys
 from collections.abc import Mapping
 from hashlib import sha256
@@ -15,7 +16,7 @@ from typing import TypedDict
 
 class DeploymentKeyComponents(TypedDict):
     chain: list[tuple[str, str]]
-    artifacts: list[tuple[str, int, int]]
+    artifacts: list[tuple[str, str]]
     module_imports: list[tuple[str, str]]
     construction: list[tuple[str, str]]
     lockfile: str
@@ -72,6 +73,7 @@ def import_closure(
     search: tuple[Path, ...],
     allowed: tuple[Path, ...],
     nested: bool,
+    nested_dependencies: bool = True,
 ) -> tuple[Path, ...]:
     """Read selected local source imports to a fixed point, including package initializers."""
     pending = [(module, path, nested) for module, path in sources]
@@ -101,7 +103,11 @@ def import_closure(
                     # Initializer side effects stay module-level through their imports.
                     # A directly selected implementation may inspect its nested helpers.
                     pending.append(
-                        (dependency, source, implementation and index == len(resolved) - 1)
+                        (
+                            dependency,
+                            source,
+                            nested_dependencies and implementation and index == len(resolved) - 1,
+                        )
                     )
     return tuple(sorted(visited))
 
@@ -115,7 +121,7 @@ def deployment_key(
     lockfile: Path,
     server: Mapping[str, object],
 ) -> tuple[str, DeploymentKeyComponents]:
-    """Hash the declared narrow inputs; frozen bulk artifacts contribute file metadata."""
+    """Hash construction inputs and checked declarations of frozen artifacts."""
     repository, chain, package, construction, lockfile = (
         path.resolve() for path in (repository, chain, package, construction, lockfile)
     )
@@ -127,12 +133,38 @@ def deployment_key(
         path for path in chain.rglob("*") if path.is_file() and "__pycache__" not in path.parts
     )
     source = [path for path in chain_files if path.suffix in {".py", ".mako"}]
-    artifacts = [path for path in chain_files if path.suffix not in {".py", ".mako", ".pyc"}]
+    pinned = set()
+    bodies = []
+    for path in source:
+        if path.suffix != ".py":
+            continue
+        constants = {
+            target.id: node.value.value
+            for node in ast.parse(path.read_bytes(), filename=str(path)).body
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
+            for target in node.targets
+            if isinstance(target, ast.Name) and isinstance(node.value.value, str)
+        }
+        for name, value in constants.items():
+            digest = constants.get(name.removesuffix("_FILE") + "_SHA256", "")
+            if name.endswith("_FILE") and re.fullmatch(r"[0-9a-f]{64}", digest):
+                pinned.add(path.with_name(value))
+        if "NATIVE_UPGRADE_FILE" in constants:
+            body = path.with_name(constants["NATIVE_UPGRADE_FILE"])
+            # The closure parses this executed body even when the revision pins its digest.
+            bodies.append(body)
+    source.extend(bodies)
+    artifacts = [
+        path
+        for path in chain_files
+        if path.suffix not in {".py", ".mako", ".pyc"} and path not in pinned and path not in bodies
+    ]
     closure = import_closure(
-        tuple(("", path) for path in source if path.suffix == ".py"),
+        tuple(("", path) for path in source if path.suffix != ".mako"),
         search=(package.parent,),
         allowed=(package,),
-        nested=False,
+        nested=True,
+        nested_dependencies=False,
     )
     construction_closure = import_closure(
         ((construction.stem, construction),),
@@ -142,10 +174,8 @@ def deployment_key(
     )
     # The chain files already have their own component; their imported package files do not.
     components: DeploymentKeyComponents = {
-        "chain": [(relative(path), _digest(path)) for path in source],
-        "artifacts": [
-            (relative(path), path.stat().st_size, path.stat().st_mtime_ns) for path in artifacts
-        ],
+        "chain": [(relative(path), _digest(path)) for path in sorted(source)],
+        "artifacts": [(relative(path), _digest(path)) for path in artifacts],
         "module_imports": [
             (relative(path), _digest(path)) for path in closure if path.is_relative_to(package)
         ],

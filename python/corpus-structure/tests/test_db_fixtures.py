@@ -364,3 +364,16 @@ def test_current_template_cold_build_is_sealed_and_disposed(db_support, db_serve
     assert server.exists(template_name)
     assert template_name in server.sweep().dropped
     assert not server.exists(template_name)
+
+
+def test_settings_only_has_no_database_mark(request, native_settings):
+    assert request.node.get_closest_marker("db") is None
+
+
+@pytest.mark.usefixtures("observed_store_checkouts")
+def test_indirect_store_preparation_has_database_mark(request):
+    assert request.node.get_closest_marker("db") is not None
+
+
+def test_commit_fixture_has_database_mark(request, commit_db_engine):
+    assert request.node.get_closest_marker("db") is not None

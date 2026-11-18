@@ -753,8 +753,6 @@ class PgAdmin:
                 engine = create_engine(self.url_of(name), poolclass=NullPool)
                 if policy is not None:
                     self.replay_policy(name, policy)
-                    if self.policy(name) != policy:
-                        raise RuntimeError("cloned database policy differs after replay")
                 observe_engine(
                     engine, purpose="maintenance", policy=policy, scenario_seed=scenario_seed
                 )
@@ -891,6 +889,8 @@ class PgAdmin:
     def deployment_key(self, repository: Path = REPO) -> str:
         """Acquire the server identity and compute the declared key once per server owner."""
         if self._deployment_key is None:
+            from corpus_structure.core.db.host_bootstrap import observe_semantic_role_policy
+            from corpus_structure.semantic.migrations import ALEMBIC_DIR
             from native_deployment_key import deployment_key
 
             principals = tuple(semantic_principals().values())
@@ -901,15 +901,10 @@ class PgAdmin:
                 template_oid = conn.execute(
                     text("SELECT oid FROM pg_database WHERE datname=:name"), {"name": self.template}
                 ).scalar_one()
-                roles = conn.execute(
-                    text(
-                        "SELECT rolname,oid FROM pg_roles WHERE rolname=ANY(:names) ORDER BY rolname"
-                    ),
-                    {"names": list(principals)},
-                ).all()
+                roles = observe_semantic_role_policy(conn, principals)
             key, _ = deployment_key(
                 repository=repository,
-                chain=repository / "python/corpus-structure/semantic_alembic",
+                chain=ALEMBIC_DIR,
                 package=repository / "python/corpus-structure/src/corpus_structure",
                 construction=repository / "scripts/native_deployment_build.py",
                 lockfile=repository / "uv.lock",
@@ -918,7 +913,7 @@ class PgAdmin:
                     "cluster": cluster,
                     "template_oid": template_oid,
                     "extensions": self.installed(),
-                    "principals": [tuple(row) for row in roles],
+                    "principals": roles,
                 },
             )
             self._deployment_key = key

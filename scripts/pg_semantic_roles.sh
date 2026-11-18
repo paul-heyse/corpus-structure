@@ -5,16 +5,11 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 render() { uv run --project "$ROOT" --no-sync python -m corpus_structure.core.db.host_bootstrap "$@"; }
 
-# Machine-readable inventory is safe even on hosts without PostgreSQL or sudo.
-if [[ $# == 1 && "$1" == --principals ]]; then
-  render principals
-  exit 0
-fi
 FITTER_ONLY=false
 if [[ $# == 1 && "$1" == --fitter-only ]]; then
   FITTER_ONLY=true
 elif [[ $# != 0 ]]; then
-  echo 'usage: pg_semantic_roles.sh [--principals|--fitter-only]' >&2
+  echo 'usage: pg_semantic_roles.sh [--fitter-only]' >&2
   exit 2
 fi
 

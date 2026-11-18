@@ -1,6 +1,12 @@
 """Declared deployment-key boundaries on independent source trees."""
 
+import os
+import runpy
+import subprocess
+from contextlib import contextmanager
+from hashlib import sha256
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -85,15 +91,21 @@ def test_key_ignores_unrelated_package_and_sweep_changes(source_tree, target):
     assert later == components
 
 
-def test_chain_function_body_import_stays_outside_module_level_closure(source_tree):
+def test_revision_function_import_counts_but_package_lazy_import_does_not(source_tree):
     path = source_tree["chain"] / "revision.py"
     path.write_text(
         path.read_text() + "\ndef upgrade():\n    from corpus_structure import unrelated\n"
     )
     before, components = deployment_key(**source_tree)
     (source_tree["package"] / "unrelated.py").write_text("VALUE = 2\n")
+    assert deployment_key(**source_tree)[0] != before
+    assert any(name.endswith("unrelated.py") for name, _ in components["module_imports"])
+    (source_tree["package"] / "unrelated.py").write_text("def lazy():\n    from . import unused\n")
+    unused = source_tree["package"] / "unused.py"
+    unused.write_text("VALUE = 1\n")
+    before, _ = deployment_key(**source_tree)
+    unused.write_text("VALUE = 2\n")
     assert deployment_key(**source_tree)[0] == before
-    assert not any(name.endswith("unrelated.py") for name, _ in components["module_imports"])
 
 
 def test_module_resolution_never_executes_selected_package_initializers(source_tree):
@@ -135,10 +147,12 @@ def test_direct_constructor_helper_keeps_its_nested_local_dependency(source_tree
 
 
 def test_real_chain_closure_contains_known_direct_machinery():
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR
+
     root = Path(__file__).resolve().parents[2]
     _, components = deployment_key(
         repository=root,
-        chain=root / "python/corpus-structure/semantic_alembic",
+        chain=ALEMBIC_DIR,
         package=root / "python/corpus-structure/src/corpus_structure",
         construction=root / "scripts/native_deployment_build.py",
         lockfile=root / "uv.lock",
@@ -149,11 +163,118 @@ def test_real_chain_closure_contains_known_direct_machinery():
         "native_objects.py",
         "alembic_native.py",
         "alembic_defaults.py",
-        "alembic_indexes.py",
-        "metadata.py",
-        "migrations.py",
-        "relational.py",
+        "alembic_privileges.py",
     } <= selected
+    assert {"metadata.py", "relational.py"}.isdisjoint(selected)
+    assert not any("semantic_alembic/" in name for name, _ in components["chain"])
     construction = {Path(name).name for name, _ in components["construction"]}
     assert {"native_deployment_build.py", "extensions.py", "migrations.py"} <= construction
     assert "native_test_support.py" not in construction
+
+
+def test_executed_body_imports_and_bytes_are_construction_inputs(source_tree):
+    body = source_tree["chain"] / "upgrade.txt"
+    body.write_text("from corpus_structure import unrelated\ndef upgrade():\n    pass\n")
+    revision = source_tree["chain"] / "revision.py"
+    revision.write_text("NATIVE_UPGRADE_FILE = 'upgrade.txt'\n")
+    before, components = deployment_key(**source_tree)
+    assert any(name.endswith("unrelated.py") for name, _ in components["module_imports"])
+    (source_tree["package"] / "unrelated.py").write_text("VALUE = 3\n")
+    assert deployment_key(**source_tree)[0] != before
+    body.unlink()
+    with pytest.raises(FileNotFoundError):
+        deployment_key(**source_tree)
+
+
+def test_timestamp_changes_do_not_change_key(source_tree):
+    before, components = deployment_key(**source_tree)
+    for path in source_tree["chain"].iterdir():
+        os.utime(path, ns=(1000000000, 1000000000))
+    assert deployment_key(**source_tree) == (before, components)
+
+
+def test_pinned_artifact_identity_uses_checked_declaration(source_tree):
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR
+
+    artifact = source_tree["chain"] / "state.json"
+    expected = sha256(artifact.read_bytes()).hexdigest()
+    revision = source_tree["chain"] / "revision.py"
+    revision.write_text(f"NATIVE_STATE_FILE = 'state.json'\nNATIVE_STATE_SHA256 = {expected!r}\n")
+    before, components = deployment_key(**source_tree)
+    assert components["artifacts"] == []
+    artifact.write_text("altered bytes")
+    assert deployment_key(**source_tree)[0] == before
+    namespace = runpy.run_path(str(ALEMBIC_DIR / "versions" / "semantic_ddo_current_root.py"))
+    load = namespace["_read"]
+    load.__globals__["__file__"] = str(revision)
+    with pytest.raises(RuntimeError, match="frozen native artifact differs"):
+        load("state.json", expected)
+
+
+@pytest.mark.parametrize(
+    "attribute",
+    [
+        "rolcanlogin",
+        "rolinherit",
+        "rolsuper",
+        "rolcreatedb",
+        "rolcreaterole",
+        "rolreplication",
+        "rolbypassrls",
+        "set_option",
+        "inherit_option",
+        "admin_option",
+    ],
+)
+def test_observed_role_policy_changes_key_with_stable_identity(source_tree, attribute):
+    source_tree["server"]["principals"] = {"name": "reader", "oid": 91, attribute: False}
+    before, _ = deployment_key(**source_tree)
+    source_tree["server"]["principals"][attribute] = True
+    assert deployment_key(**source_tree)[0] != before
+
+
+def test_retired_principal_shell_mode_refuses_before_host_access():
+    root = Path(__file__).resolve().parents[2]
+    result = subprocess.run(
+        ["bash", str(root / "scripts/pg_semantic_roles.sh"), "--principals"],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "usage: pg_semantic_roles.sh [--fitter-only]" in result.stderr
+
+
+def test_server_owner_selects_production_migration_directory(source_tree, monkeypatch):
+    import native_deployment_key
+    from corpus_structure.core.db import host_bootstrap
+    from corpus_structure.semantic import migrations
+    from native_test_support import PgAdmin
+
+    class Connection:
+        def exec_driver_sql(self, statement):
+            return SimpleNamespace(one=lambda: (180000, "cluster"))
+
+        def execute(self, statement, parameters):
+            return SimpleNamespace(scalar_one=lambda: 17)
+
+    @contextmanager
+    def connect(self):
+        yield Connection()
+
+    selected = []
+
+    def compute(**inputs):
+        selected.append(inputs)
+        return "selected-chain-key", {}
+
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", source_tree["chain"])
+    monkeypatch.setattr(PgAdmin, "connect", connect)
+    monkeypatch.setattr(PgAdmin, "installed", lambda self: {})
+    monkeypatch.setattr(host_bootstrap, "observe_semantic_role_policy", lambda conn, names: {})
+    monkeypatch.setattr(native_deployment_key, "deployment_key", compute)
+    server = PgAdmin("postgresql+psycopg:///unused", "template0", expected={})
+    assert server.deployment_key(source_tree["repository"]) == "selected-chain-key"
+    assert selected[0]["chain"] == source_tree["chain"]
+    assert server.deployment_key(source_tree["repository"]) == "selected-chain-key"
+    assert len(selected) == 1

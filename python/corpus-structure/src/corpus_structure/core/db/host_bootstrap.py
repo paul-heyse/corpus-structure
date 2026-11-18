@@ -10,10 +10,11 @@ import argparse
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypedDict, cast
 
 from pglast import ast, enums
 from pglast.stream import RawStream
-from sqlalchemy import Boolean, Text, column, exists, func, literal, or_, select, table
+from sqlalchemy import Boolean, Connection, Text, column, exists, func, literal, or_, select, table
 from sqlalchemy.dialects.postgresql import OID, aggregate_order_by, dialect
 
 from corpus_structure.semantic.alembic_privileges import (
@@ -64,9 +65,85 @@ ROLES = _catalog(
     rolreplication=Boolean,
     rolbypassrls=Boolean,
 )
-MEMBERS = _catalog("pg_auth_members", member=OID)
+MEMBERS = _catalog(
+    "pg_auth_members",
+    member=OID,
+    roleid=OID,
+    grantor=OID,
+    admin_option=Boolean,
+    inherit_option=Boolean,
+    set_option=Boolean,
+)
 DATABASES = _catalog("pg_database", datname=Text)
 EXTENSIONS = _catalog("pg_extension", extname=Text, extversion=Text)
+
+
+class RoleObservation(TypedDict):
+    oid: int
+    rolname: str
+    rolcanlogin: bool
+    rolinherit: bool
+    rolsuper: bool
+    rolcreatedb: bool
+    rolcreaterole: bool
+    rolreplication: bool
+    rolbypassrls: bool
+
+
+class MembershipObservation(TypedDict):
+    member: int
+    roleid: int
+    grantor: int
+    admin_option: bool
+    inherit_option: bool
+    set_option: bool
+    member_name: str
+    role_name: str
+    grantor_name: str
+
+
+class SemanticRolePolicy(TypedDict):
+    roles: list[RoleObservation]
+    memberships: list[MembershipObservation]
+
+
+def observe_semantic_role_policy(
+    connection: Connection, names: tuple[str, ...]
+) -> SemanticRolePolicy:
+    """Observe provisioned capability and membership policy in both membership directions."""
+    roles = (
+        connection.execute(
+            select(ROLES).where(ROLES.c.rolname.in_(names)).order_by(ROLES.c.rolname)
+        )
+        .mappings()
+        .all()
+    )
+    member = ROLES.alias("member_role")
+    granted = ROLES.alias("granted_role")
+    grantor = ROLES.alias("grantor_role")
+    memberships = (
+        connection.execute(
+            select(
+                MEMBERS,
+                member.c.rolname.label("member_name"),
+                granted.c.rolname.label("role_name"),
+                grantor.c.rolname.label("grantor_name"),
+            )
+            .select_from(
+                MEMBERS.join(member, MEMBERS.c.member == member.c.oid)
+                .join(granted, MEMBERS.c.roleid == granted.c.oid)
+                .join(grantor, MEMBERS.c.grantor == grantor.c.oid)
+            )
+            .where(or_(member.c.rolname.in_(names), granted.c.rolname.in_(names)))
+            .order_by(MEMBERS.c.member, MEMBERS.c.roleid, MEMBERS.c.grantor)
+        )
+        .mappings()
+        .all()
+    )
+    return {
+        "roles": [cast(RoleObservation, dict(row)) for row in roles],
+        "memberships": [cast(MembershipObservation, dict(row)) for row in memberships],
+    }
 
 
 def _options(values):
