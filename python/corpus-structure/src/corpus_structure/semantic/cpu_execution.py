@@ -11,6 +11,7 @@ from collections.abc import Callable, Generator
 from concurrent.futures import Future, ProcessPoolExecutor, TimeoutError
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
+from functools import partial
 from hashlib import sha256
 from time import monotonic
 from typing import Any, Literal, cast
@@ -225,7 +226,6 @@ class CPUReply:
 _WORKER_RELEASES: dict[str, PreparedRelease] = {}
 _WORKER_STOP: Any = None
 _WORKER_CANCELLATION: Any = None
-_WORKER_REQUEST: tuple[int, int] | None = None
 _WORKER_NATIVE_THREADS: int | None = None
 
 
@@ -290,17 +290,18 @@ def _initialize(capsule: bytes | None, stop, cancellation=None, native_threads: 
     _WORKER_CANCELLATION = cancellation
 
 
-def _worker_active() -> None:
+def _worker_active(slot: int = -1, generation: int = 0) -> None:
     if _WORKER_STOP is not None and _WORKER_STOP.is_set():
         raise CPURequestCancelled("CPU invocation cancelled")
-    if _WORKER_CANCELLATION is not None and _WORKER_REQUEST is not None:
-        slot, generation = _WORKER_REQUEST
+    if _WORKER_CANCELLATION is not None and slot >= 0:
         with _WORKER_CANCELLATION.get_lock():
             if _WORKER_CANCELLATION[slot * 2] != generation or _WORKER_CANCELLATION[slot * 2 + 1]:
                 raise CPURequestCancelled("CPU logical request cancelled")
 
 
-def _compute_formal(content: bytes, max_reply_bytes: int, request_digest: str) -> CPUReply:
+def _compute_formal(
+    content: bytes, max_reply_bytes: int, request_digest: str, check_active: Callable[[], None]
+) -> CPUReply:
     """Private prepared target work, never a fabricated legacy task or Reader."""
     import os
 
@@ -324,7 +325,7 @@ def _compute_formal(content: bytes, max_reply_bytes: int, request_digest: str) -
     options = FormalEvidenceOptions.model_validate_json(packet["options"])
     _apply_native_thread_limits()
     content_value = formal_product_values(
-        source, options, packet["member_contracts"], check_active=_worker_active
+        source, options, packet["member_contracts"], check_active=check_active
     )
     result = canonical_bytes(content_value)
     result_bytes = len(result)
@@ -332,7 +333,7 @@ def _compute_formal(content: bytes, max_reply_bytes: int, request_digest: str) -
         raise CapacityExceeded(
             f"CPU formal result uses {result_bytes} bytes, exceeding the {max_reply_bytes}-byte reply limit"
         )
-    _worker_active()
+    check_active()
     return CPUReply(
         request_digest,
         result,
@@ -355,16 +356,15 @@ def _dispatch(
     import os
 
     content, request_digest = packet.content, packet.digest
-    global _WORKER_REQUEST
-    _WORKER_REQUEST = None if slot < 0 else (slot, generation)
+    check_active = partial(_worker_active, slot, generation)
     releases = _WORKER_RELEASES
     try:
-        _worker_active()
+        check_active()
         if capsule is not None:
             prepared = _worker_release(capsule)
             releases = {prepared.release_id: prepared}
         if profile == "formal-source-native":
-            return _compute_formal(content, max_reply_bytes, request_digest)
+            return _compute_formal(content, max_reply_bytes, request_digest, check_active)
         if profile in {"closed-python", "closed-python-stream"}:
             from .data_operation_cpu import execute_python_call
 
@@ -375,7 +375,7 @@ def _dispatch(
                 result = execute_python_stream(
                     content,
                     stream_connection,
-                    _worker_active,
+                    check_active,
                     _apply_native_thread_limits,
                     max_reply_bytes,
                     {"slot": slot, "generation": generation},
@@ -385,7 +385,7 @@ def _dispatch(
             else:
                 result = execute_python_call(
                     content,
-                    _worker_active,
+                    check_active,
                     _apply_native_thread_limits,
                     prepared_releases=releases,
                 )

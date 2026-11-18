@@ -200,12 +200,11 @@ def _gated_compute(
 
     from corpus_structure.semantic import cpu_execution
 
-    cpu_execution._WORKER_REQUEST = (slot, generation)
     if json.loads(content.content)["request_id"] == "slow":
         started.set()
         deadline = monotonic() + 60
         while not release.wait(0.05):
-            cpu_execution._worker_active()
+            cpu_execution._worker_active(slot, generation)
             if monotonic() > deadline:
                 raise RuntimeError("test synchronization did not release CPU worker")
     return cpu_execution._dispatch(
@@ -376,7 +375,7 @@ def test_owned_dispatch_carries_sealed_packet_digest_without_rehashing(monkeypat
         raise AssertionError("worker rehashed established request bytes")
 
     monkeypatch.setattr(cpu_execution, "sha256", forbidden)
-    monkeypatch.setattr(cpu_execution, "_worker_active", lambda: None)
+    monkeypatch.setattr(cpu_execution, "_worker_active", lambda *_: None)
     monkeypatch.setattr(cpu_execution, "_apply_native_thread_limits", lambda: None)
     monkeypatch.setattr(
         data_operation_cpu, "execute_python_call", lambda *args, **kwargs: b"result"

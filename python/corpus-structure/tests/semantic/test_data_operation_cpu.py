@@ -282,3 +282,82 @@ def test_prepared_kernel_injects_only_owned_cooperative_control(tmp_path, monkey
         assert reply.content == b'"7"'
     finally:
         cpu.close()
+
+
+def test_prepared_kernel_reuses_worker_with_request_bound_cancellation(tmp_path, monkeypatch):
+    import importlib
+    import inspect
+    from pathlib import Path
+
+    from corpus_structure.semantic import cpu_execution
+    from corpus_structure.semantic.cpu_execution import CPURequestCancelled
+    from corpus_structure.semantic.data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
+
+    name = "request_bound_kernel_" + tmp_path.name.replace("-", "_")
+    source = (
+        "import os\nimport time\nfrom pathlib import Path\n"
+        "from collections.abc import Callable\n"
+        "def run(value: int, started_path: str, *, check_active: Callable[[], None]) -> str:\n"
+        "    if value < 0:\n"
+        "        Path(started_path).write_text(str(os.getpid()))\n"
+        "        while True:\n            check_active()\n            time.sleep(0.01)\n"
+        "    check_active()\n    return str(value)\n"
+    )
+    path = tmp_path / (name + ".py")
+    path.write_text(source)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    signature = inspect.signature(importlib.import_module(name).run)
+    cpu_path = Path(cpu_execution.__file__).resolve()
+    descriptor = PythonCPUDescriptor(
+        (
+            (name, str(path), source.encode()),
+            (cpu_execution.__name__, str(cpu_path), cpu_path.read_bytes()),
+        ),
+        name + ".run",
+        (),
+        verification="prepared-kernel",
+        control_parameter="check_active",
+    )
+    cpu = scope()
+
+    def invoke(value):
+        return drive_prepared_work(
+            plan_cpu_call(
+                descriptor,
+                signature.bind(value=value, started_path="", check_active=lambda: None),
+                signature,
+                verify=lambda: None,
+                execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
+                check_active=lambda: None,
+            ),
+            lambda: None,
+        )
+
+    try:
+        first = invoke(4)
+        second = invoke(5)
+        assert (first.content, second.content) == (b'"4"', b'"5"')
+        assert first.pid == second.pid and first.pid != os.getpid()
+        started = tmp_path / "started"
+        admission = cpu.try_admit()
+        assert admission is not None
+        handle = cpu.submit_closed_python(
+            admission, descriptor.packet({"value": -1, "started_path": str(started)}, signature)
+        )
+        deadline = time.monotonic() + 30
+        while not started.exists() and time.monotonic() < deadline:
+            if handle.future.done():
+                handle.collect()
+            time.sleep(0.01)
+        assert started.exists(), "cooperative kernel did not enter its actual child loop"
+        assert int(started.read_text()) == first.pid
+        handle.cancel()
+        assert handle.future.result(timeout=10).error_type == "CPURequestCancelled"
+        with pytest.raises(CPURequestCancelled):
+            handle.collect()
+        assert handle.retire()
+        final = invoke(6)
+        assert final.content == b'"6"' and final.pid == first.pid
+    finally:
+        cpu.close()
+    assert cpu.budget.used_bytes == 0
