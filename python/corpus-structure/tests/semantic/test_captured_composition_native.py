@@ -14,10 +14,7 @@ from corpus_structure.semantic.data_operation_demands import (
     freeze_demand,
 )
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.data_operation_service import (
-    DemandOperationSelection,
-    execute_data_demand,
-)
+from corpus_structure.semantic.data_operation_service import DemandOperationSelection
 from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.original_documents import acquire_original_document_selection
@@ -160,17 +157,13 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
                 frozen, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
             )["demand_id"]
-        # One sweep reuses the already published capture/discovery. No regional
-        # provider executes before its source population has been expanded.
-        execute_data_demand(
-            kernel.purpose("write"),
-            demand,
-            source_root=ROOT,
-            admission_engine=kernel.purpose("admit"),
-            project_id=PROJECT,
-            database_capacity=6,
-            max_rounds=1,
-        )
+        # Native attachment reuses the published two-step capture/discovery
+        # chain; this binding regression needs no analytical provider resources.
+        for _ in range(2):
+            with kernel.purpose("write").begin() as connection:
+                planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+                ready = planner.ready(planner.resume(demand), authorization=b"{}")
+                assert not ready
         with kernel.purpose("write").begin() as connection:
             snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
         obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
