@@ -2,9 +2,11 @@
 
 from dataclasses import replace
 from hashlib import sha256
+from typing import cast
 
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection, pm2_selection
+from corpus_structure.semantic._data_operation_wire import WireReasonSelection
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
     OperationSelection,
@@ -179,7 +181,5 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             if obligations[use["obligation_id"]]["operation_id"] == target
         ]
         assert composition["fate"] == "awaiting-inputs"
-        selection = composition["selection"]
-        assert "reasons" in selection
-        reasons = selection["reasons"]
+        reasons = cast(WireReasonSelection, composition["selection"]).get("reasons")
         assert reasons and {row["code"] for row in reasons} == {"binding-covers"}
