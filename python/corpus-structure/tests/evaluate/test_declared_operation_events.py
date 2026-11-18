@@ -38,6 +38,7 @@ from corpus_structure.evaluate.selected_operation_events import (
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.operation_policy import (
     OperationEventAlgorithm,
+    OperationEventScore,
     score_operation_event,
 )
 
@@ -62,7 +63,7 @@ def fitted(profile):
     )
 
 
-def test_current_frame_fit_and_issuer_compile_with_existing_component_and_parameter_kinds():
+def test_current_frame_fit_and_issuer_compile_with_existing_component_and_parameter_kinds(monkeypatch):
     from semantic.operation_event_feature_fixture import operation_sources as feature_sources
 
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
@@ -79,6 +80,9 @@ def test_current_frame_fit_and_issuer_compile_with_existing_component_and_parame
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = structural_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
+    sources = combine_primary_sources(
+        operation_event_operation_sources(), operation_score_sources(), feature_sources()
+    )
     model = compile_data_operations(
         bundle,
         declarations=(
@@ -86,9 +90,7 @@ def test_current_frame_fit_and_issuer_compile_with_existing_component_and_parame
             *operation_score_inputs(),
             operation_event_kind_declarations(),
         ),
-        python_sources=combine_primary_sources(
-            operation_event_operation_sources(), operation_score_sources(), feature_sources()
-        ),
+        python_sources=sources,
     )
     operations = [
         model.operation("operation_event." + name) for name in ("frame", "fit", "authorize")
@@ -113,8 +115,18 @@ def test_current_frame_fit_and_issuer_compile_with_existing_component_and_parame
     assert score.capabilities.prepared_factory is not None
     assert (
         score.capabilities.prepared_factory.entrypoint
-        == "corpus_structure.semantic.operation_policy.acquire_operation_event_score_port"
+        == "corpus_structure.semantic.operation_policy.OperationEventScore.acquire_port"
     )
+    from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
+    from corpus_structure.semantic.data_operation_ports import PortRefusal
+
+    # Resolve through the real original-static-method custody boundary. The old
+    # top-level factory declaration failed here before the scorer could execute.
+    assert callable(resolve_prepared_factory(model, sources, score.semantic_id))
+    with monkeypatch.context() as changed:
+        changed.setattr(OperationEventScore, "acquire_port", lambda *args, **kwargs: None)
+        with pytest.raises(PortRefusal, match="original static method"):
+            resolve_prepared_factory(model, sources, score.semantic_id)
     assert next(role for role in score.roles if role.name == "features").collection == "sequence"
     assert set(json.loads(score.parameters)) == {
         "corpus_id",
@@ -151,6 +163,14 @@ def test_finite_parameter_value_keeps_real_algorithm_provenance_and_shared_scori
         event_version=actual.event_version,
         producer_version=actual.producer_version,
     )
+    assert OperationEventScore().run(
+        parameters,
+        actual.observations[0].features,
+        corpus_id=actual.corpus_id,
+        event=actual.event,
+        event_version=actual.event_version,
+        producer_version=actual.producer_version,
+    ) == first
     assert 0 <= first <= 1
     assert first == pytest.approx(fit.result.predictions[0].fitted_probability)
     assert "judgments" not in parameters.model_dump_json()

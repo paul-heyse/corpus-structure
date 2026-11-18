@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from math import log1p
-from typing import Literal, Self
+from typing import ClassVar, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, model_validator
 
@@ -197,201 +197,219 @@ def score_operation_event(
     producer_version: str,
     event: OperationEvent = DEFAULT_OPERATION_EVENT,
 ) -> float:
-    import numpy as np
-    from scipy.special import expit
-
-    policy = parameters.numerical
-    if policy != operation_score_numerical_policy():
-        raise ValueError(
-            "operation score numerical policy differs from the selected native libraries"
-        )
-    if (corpus_id, event, event_version, producer_version) != (
-        parameters.corpus_id,
-        parameters.event,
-        parameters.event_version,
-        parameters.producer_version,
-    ):
-        raise ValueError("operation score applicability differs from fitted corpus/event/producer")
-    if len(features) != len(parameters.feature_names) or not np.isfinite(features).all():
-        raise ValueError("operation feature shape or finite values differ")
-    with np.errstate(
-        over=policy.overflow, invalid=policy.invalid, divide=policy.divide, under=policy.underflow
-    ):
-        x = (np.asarray(features, dtype=policy.dtype) - parameters.means) / parameters.scales
-        linear = np.dot(x, parameters.coefficients) + parameters.intercept
-        result = float(expit(linear))
-    if not np.isfinite(result) or not 0 <= result <= 1:
-        raise ValueError("operation score is not a finite probability")
-    return result
-
-
-# Domain meaning is colocated with the typed callable. The closed compiler reads
-# this literal without importing this module or NumPy/SciPy.
-score_operation_event__data_operation__ = {
-    "id": "urn:corpus:operation:score-operation-event",
-    "profile": "derivation",
-    "subject": "fitted-operation-event",
-    "subject_definition": {
-        "id": "fitted-operation-event",
-        "identifier_kind": "string",
-        "scope": "project",
-    },
-    "discovery_relation": "role-associated",
-    "context": ["corpus_id", "event", "event_version", "producer_version"],
-    "roles": [
-        {
-            "name": "parameters",
-            "parameter": "parameters",
-            "kind": "urn:corpus:kind:operation-event:parameters",
-            "direction": "input",
-            "minimum": 1,
-            "maximum": 1,
-            "collection": "scalar",
-            "presence": "required",
-            "support": {
-                "provenance": "exact",
-                "identity_requirements": ["episode"],
-                "source": "frozen-source-set",
-                "source_set": "operation-event-parameters",
-                "coverage": {"role": "parameters", "description": "ordered-feature-schema"},
-            },
-        },
-        {
-            "name": "features",
-            "parameter": "features",
-            "kind": "float",
-            "direction": "input",
-            "minimum": 1,
-            "maximum": None,
-            "collection": "sequence",
-            "presence": "required",
-            "support": {
-                "provenance": "value_substitution",
-                "source": "same-event-subject",
-                "coverage": {"role": "features", "description": "all-fitted-features"},
-            },
-        },
-        {
-            "name": "probability",
-            "kind": "float",
-            "direction": "output",
-            "minimum": 1,
-            "maximum": 1,
-            "collection": "scalar",
-            "presence": "required",
-        },
-    ],
-    "applicability": [
-        {
-            "kind": "binding",
-            "reference": "urn:corpus:operation:score-operation-event/binding",
-            "interpretation": "binding-expression-v1",
-            "parameters": {},
-        },
-        {"kind": "documentation", "text": "exact-fitted-corpus-event-version-producer"},
-    ],
-    "invariants": [
-        {"kind": "documentation", "text": "finite-features"},
-        {"kind": "documentation", "text": "matching-feature-shape"},
-        {"kind": "documentation", "text": "probability-in-unit-interval"},
-    ],
-    "coverage": {
-        "binding": "self",
-        "result_owners": [{"kind": "implementation", "reference": "self"}],
-        "description": "one-score-for-complete-feature-vector",
-    },
-    "outcomes": ["scored", "invalid-applicability", "invalid-feature-shape", "numerical-failure"],
-    "state_dimensions": [{"name": "completion", "values": ["pending", "success", "failed"]}],
-    "transitions": [
-        {"dimension": "completion", "before": "pending", "after": "success", "outcome": "scored"},
-        {
-            "dimension": "completion",
-            "before": "pending",
-            "after": "failed",
-            "outcome": "invalid-applicability",
-        },
-        {
-            "dimension": "completion",
-            "before": "pending",
-            "after": "failed",
-            "outcome": "invalid-feature-shape",
-        },
-        {
-            "dimension": "completion",
-            "before": "pending",
-            "after": "failed",
-            "outcome": "numerical-failure",
-        },
-    ],
-    "precision_description": None,
-    "numerical_policy": {
-        "asset": "operation-score/numerical-policy",
-        "pointer": "/policy",
-        "kind": "urn:corpus:kind:operation-event:OperationScoreNumericalPolicy",
-    },
-    "assets": [
-        {
-            "reference": "operation-score-policy",
-            "contract": "operation-score/numerical-policy",
-            "role": "numerical-policy",
-        }
-    ],
-    "dependencies": [],
-    "effects": [],
-    "capabilities": {
-        "forms": ["scalar"],
-        "preparation": "resource",
-        "prepared_factory": "acquire_operation_event_score_port",
-        "cancellation": "cooperative",
-        "ownership": "invocation-owned-cpu",
-    },
-    "behavior": "operation-event-logistic-score-v1",
-    "parameters": {
-        "corpus_id": {"value_type": "string", "required": True},
-        "event_version": {"value_type": "string", "required": True},
-        "producer_version": {"value_type": "string", "required": True},
-        "event": {"value_type": "string", "default": "defined_by_correctness"},
-    },
-    "binding": {"operator": "scan", "roles": ["parameters", "features"]},
-    "opaque": [
-        {
-            "reference": "corpus_structure.semantic.operation_policy.operation_score_numerical_policy",
-            "contract": "operation-score/numerical-policy",
-            "role": "checked-native-arithmetic-policy",
-        },
-        {
-            "reference": "numpy",
-            "contract": "numpy-float64-array-arithmetic-v1",
-            "role": "numerical-algorithm",
-        },
-        {
-            "reference": "scipy.special.expit",
-            "contract": "scipy-expit-v1",
-            "role": "numerical-algorithm",
-        },
-        {
-            "reference": "pydantic",
-            "contract": "pydantic2-operation-event-ingress-v1",
-            "role": "typed-validation",
-        },
-        {"reference": "typing", "contract": "python-3.14-typing-v1", "role": "type-interpretation"},
-    ],
-    "bound_inputs": ["parameters"],
-}
-
-
-def acquire_operation_event_score_port(
-    prepared, model, operation, *, identity, authorize, custody, sources
-):
-    """Acquire the existing typed numerical callable with exact native issuer custody."""
-    from corpus_structure.evaluate.declared_operation_events import acquire_score_port
-
-    return acquire_score_port(
-        prepared,
-        model,
-        operation,
-        identity=identity,
-        authorize=authorize,
-        custody=custody,
-        sources=sources,
+    return OperationEventScore().run(
+        parameters,
+        features,
+        corpus_id=corpus_id,
+        event_version=event_version,
+        producer_version=producer_version,
+        event=event,
     )
+
+
+class OperationEventScore:
+    """Declared score owner with its original static native acquisition method."""
+
+    __data_operation__: ClassVar[dict] = {
+        "id": "urn:corpus:operation:score-operation-event",
+        "profile": "derivation",
+        "subject": "fitted-operation-event",
+        "subject_definition": {
+            "id": "fitted-operation-event",
+            "identifier_kind": "string",
+            "scope": "project",
+        },
+        "discovery_relation": "role-associated",
+        "context": ["corpus_id", "event", "event_version", "producer_version"],
+        "entrypoints": ["run"],
+        "roles": [
+            {
+                "name": "parameters",
+                "parameter": "parameters",
+                "kind": "urn:corpus:kind:operation-event:parameters",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+                "support": {
+                    "provenance": "exact",
+                    "identity_requirements": ["episode"],
+                    "source": "frozen-source-set",
+                    "source_set": "operation-event-parameters",
+                    "coverage": {"role": "parameters", "description": "ordered-feature-schema"},
+                },
+            },
+            {
+                "name": "features",
+                "parameter": "features",
+                "kind": "float",
+                "direction": "input",
+                "minimum": 1,
+                "maximum": None,
+                "collection": "sequence",
+                "presence": "required",
+                "support": {
+                    "provenance": "value_substitution",
+                    "source": "same-event-subject",
+                    "coverage": {"role": "features", "description": "all-fitted-features"},
+                },
+            },
+            {
+                "name": "probability",
+                "kind": "float",
+                "direction": "output",
+                "minimum": 1,
+                "maximum": 1,
+                "collection": "scalar",
+                "presence": "required",
+            },
+        ],
+        "applicability": [
+            {
+                "kind": "binding",
+                "reference": "urn:corpus:operation:score-operation-event/binding",
+                "interpretation": "binding-expression-v1",
+                "parameters": {},
+            },
+            {"kind": "documentation", "text": "exact-fitted-corpus-event-version-producer"},
+        ],
+        "invariants": [
+            {"kind": "documentation", "text": "finite-features"},
+            {"kind": "documentation", "text": "matching-feature-shape"},
+            {"kind": "documentation", "text": "probability-in-unit-interval"},
+        ],
+        "coverage": {
+            "binding": "self",
+            "result_owners": [{"kind": "implementation", "reference": "self"}],
+            "description": "one-score-for-complete-feature-vector",
+        },
+        "outcomes": ["scored", "invalid-applicability", "invalid-feature-shape", "numerical-failure"],
+        "state_dimensions": [{"name": "completion", "values": ["pending", "success", "failed"]}],
+        "transitions": [
+            {"dimension": "completion", "before": "pending", "after": "success", "outcome": "scored"},
+            {
+                "dimension": "completion",
+                "before": "pending",
+                "after": "failed",
+                "outcome": "invalid-applicability",
+            },
+            {
+                "dimension": "completion",
+                "before": "pending",
+                "after": "failed",
+                "outcome": "invalid-feature-shape",
+            },
+            {
+                "dimension": "completion",
+                "before": "pending",
+                "after": "failed",
+                "outcome": "numerical-failure",
+            },
+        ],
+        "precision_description": None,
+        "numerical_policy": {
+            "asset": "operation-score/numerical-policy",
+            "pointer": "/policy",
+            "kind": "urn:corpus:kind:operation-event:OperationScoreNumericalPolicy",
+        },
+        "assets": [
+            {
+                "reference": "operation-score-policy",
+                "contract": "operation-score/numerical-policy",
+                "role": "numerical-policy",
+            }
+        ],
+        "dependencies": [],
+        "effects": [],
+        "capabilities": {
+            "forms": ["scalar"],
+            "preparation": "resource",
+            "prepared_factory": "acquire_port",
+            "cancellation": "cooperative",
+            "ownership": "invocation-owned-cpu",
+        },
+        "behavior": "operation-event-logistic-score-v1",
+        "parameters": {
+            "corpus_id": {"value_type": "string", "required": True},
+            "event_version": {"value_type": "string", "required": True},
+            "producer_version": {"value_type": "string", "required": True},
+            "event": {"value_type": "string", "default": "defined_by_correctness"},
+        },
+        "binding": {"operator": "scan", "roles": ["parameters", "features"]},
+        "opaque": [
+            {
+                "reference": "corpus_structure.semantic.operation_policy.operation_score_numerical_policy",
+                "contract": "operation-score/numerical-policy",
+                "role": "checked-native-arithmetic-policy",
+            },
+            {
+                "reference": "numpy",
+                "contract": "numpy-float64-array-arithmetic-v1",
+                "role": "numerical-algorithm",
+            },
+            {
+                "reference": "scipy.special.expit",
+                "contract": "scipy-expit-v1",
+                "role": "numerical-algorithm",
+            },
+            {
+                "reference": "pydantic",
+                "contract": "pydantic2-operation-event-ingress-v1",
+                "role": "typed-validation",
+            },
+            {"reference": "typing", "contract": "python-3.14-typing-v1", "role": "type-interpretation"},
+        ],
+        "bound_inputs": ["parameters"],
+    }
+
+    def run(
+        self,
+        parameters: OperationEventParameters,
+        features: tuple[float, ...],
+        *,
+        corpus_id: str,
+        event_version: str,
+        producer_version: str,
+        event: OperationEvent = DEFAULT_OPERATION_EVENT,
+    ) -> float:
+        import numpy as np
+        from scipy.special import expit
+
+        policy = parameters.numerical
+        if policy != operation_score_numerical_policy():
+            raise ValueError(
+                "operation score numerical policy differs from the selected native libraries"
+            )
+        if (corpus_id, event, event_version, producer_version) != (
+            parameters.corpus_id,
+            parameters.event,
+            parameters.event_version,
+            parameters.producer_version,
+        ):
+            raise ValueError("operation score applicability differs from fitted corpus/event/producer")
+        if len(features) != len(parameters.feature_names) or not np.isfinite(features).all():
+            raise ValueError("operation feature shape or finite values differ")
+        with np.errstate(
+            over=policy.overflow, invalid=policy.invalid, divide=policy.divide, under=policy.underflow
+        ):
+            x = (np.asarray(features, dtype=policy.dtype) - parameters.means) / parameters.scales
+            linear = np.dot(x, parameters.coefficients) + parameters.intercept
+            result = float(expit(linear))
+        if not np.isfinite(result) or not 0 <= result <= 1:
+            raise ValueError("operation score is not a finite probability")
+        return result
+
+    @staticmethod
+    def acquire_port(prepared, model, operation, *, identity, authorize, custody, sources):
+        from corpus_structure.evaluate.declared_operation_events import acquire_score_port
+
+        return acquire_score_port(
+            prepared,
+            model,
+            operation,
+            identity=identity,
+            authorize=authorize,
+            custody=custody,
+            sources=sources,
+        )

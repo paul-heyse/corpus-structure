@@ -738,7 +738,7 @@ class EventScorePlan:
 
 def acquire_score_port(prepared, model, operation, *, identity, authorize, custody, sources):
     from corpus_structure.semantic.data_operation_prepared_call import PreparedOriginalCallPort
-    from corpus_structure.semantic.operation_policy import score_operation_event
+    from corpus_structure.semantic.operation_policy import OperationEventScore
     from corpus_structure.semantic.operation_score_sources import operation_score_sources
 
     selected = model.operation(operation)
@@ -747,7 +747,7 @@ def acquire_score_port(prepared, model, operation, *, identity, authorize, custo
         or selected.effects
         or selected.capabilities.prepared_factory is None
         or selected.capabilities.prepared_factory.entrypoint
-        != "corpus_structure.semantic.operation_policy.acquire_operation_event_score_port"
+        != "corpus_structure.semantic.operation_policy.OperationEventScore.acquire_port"
     ):
         raise SemanticRefusal(
             "operation event score requires its exact current pure callable/factory"
@@ -759,7 +759,7 @@ def acquire_score_port(prepared, model, operation, *, identity, authorize, custo
         selected,
         sources,
         custody,
-        score_operation_event,
+        OperationEventScore().run,
         plan.plan,
         "corpus_structure.evaluate.declared_operation_events.EventScorePlan.plan",
         authorize,

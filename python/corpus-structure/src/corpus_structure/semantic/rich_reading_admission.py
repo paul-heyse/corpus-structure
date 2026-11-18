@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from .identity import canonical_bytes
 from .rich_cpu_inputs import RichKernelInputs
 from .rich_knowledge_contracts import (
     DdoRichReadingDecision,
@@ -29,7 +30,10 @@ def rich_reading_decisions(prepared, model, *, inputs: RichKernelInputs, consoli
     )
 
     policies = tuple(
-        (inputs.reference(role), DdoRecordPolicyAuthorization.model_validate(role.body))
+        (
+            inputs.reference(role),
+            DdoRecordPolicyAuthorization.model_validate_json(canonical_bytes(role.body)),
+        )
         for role in inputs.selected("policy_authorizations")
     )
     assertions = tuple(

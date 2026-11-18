@@ -1223,7 +1223,7 @@ def _completion(p):
             case(
                 (
                     is_score,
-                    "corpus_structure.semantic.operation_policy.acquire_operation_event_score_port",
+                    "corpus_structure.semantic.operation_policy.OperationEventScore.acquire_port",
                 ),
                 else_=literal("corpus_structure.methods.operation_events.")
                 + case((is_frame, "OperationEventFrame"), else_="OperationEventFit")
