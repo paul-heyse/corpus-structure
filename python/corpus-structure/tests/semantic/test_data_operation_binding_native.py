@@ -41,6 +41,7 @@ def test_native_binding_source_closure_and_helper_syntax():
         "native/binding_scalar_native.py",
         "native/binding_primitives.py",
         "native/binding_operand_native.py",
+        "native/binding_recursive_native.py",
         "native/data_operation_model.py",
     }
     prepared = prepare_sql(binding_native_sql(), source="binding-test")

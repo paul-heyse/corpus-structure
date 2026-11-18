@@ -12,6 +12,7 @@ from sqlalchemy import Connection
 
 from .binding_operand_native import binding_parameter_native_sql, binding_values_native_sql
 from .binding_scalar_native import scalar_binding_native_sql
+from .binding_recursive_native import binding_branch_native_sql, binding_exact_float_sql
 from .native_objects import NativeDefinition, definition_from_sql
 from .prepared_sql import prepare_sql
 from .source_set_native import binding_source_native_sql, source_set_native_sql
@@ -34,6 +35,7 @@ def binding_native_sources() -> tuple[SourceArtifact, ...]:
                 "binding_scalar_native.py",
                 "binding_primitives.py",
                 "binding_operand_native.py",
+                "binding_recursive_native.py",
                 "data_operation_model.py",
             )
         ),
@@ -52,6 +54,8 @@ def binding_native_sql() -> str:
         + "\n"
         + binding_values_native_sql()
         + "\n"
+        + binding_exact_float_sql()
+        + binding_branch_native_sql()
         + _SQL.read_text()
     )
 

@@ -1,24 +1,7 @@
 -- Trusted finite interpreter of the frozen shared binding AST. No candidate SQL.
 -- Subject association retains the producing member's original subject. A role
 -- may bind its declared identifier property to the consuming operation subject.
-CREATE OR REPLACE FUNCTION ops.ddo_binding_float(value text) RETURNS numeric
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE digits text; fraction integer; exponent integer; result numeric:=0; digit integer; i integer; signum integer:=1; shift integer; exact_text text;
-BEGIN
- PERFORM data.require_float_lexical(value);
- IF left(value,1)='-' THEN signum:=-1; value:=substring(value FROM 2); END IF;
- exponent:=split_part(value,'p',2)::integer;
- digits:=substring(split_part(value,'p',1) FROM 3); fraction:=length(split_part(digits,'.',2)); digits:=replace(digits,'.','');
- FOR i IN 1..length(digits) LOOP digit:=strpos('0123456789abcdef',substring(digits FROM i FOR 1))-1; result:=result*16+digit; END LOOP;
- shift:=exponent-4*fraction;
- IF shift>=0 THEN RETURN signum*result*power(2::numeric,shift); END IF;
- -- Construct a finite exact decimal; numeric division/power at a negative
- -- exponent would round tiny or adjacent float values to a working scale.
- result:=result*power(5::numeric,-shift); exact_text:=lpad(trunc(result)::text,-shift+1,'0');
- IF length(trunc(result)::text)>-shift+1 THEN exact_text:=trunc(result)::text; END IF;
- exact_text:=substring(exact_text FROM 1 FOR length(exact_text)+shift)||'.'||substring(exact_text FROM length(exact_text)+shift+1);
- RETURN signum*exact_text::numeric;
-END $$;
+
 
 CREATE OR REPLACE FUNCTION ops.ddo_binding_assignments(node jsonb,context jsonb) RETURNS SETOF jsonb
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
@@ -33,20 +16,7 @@ BEGIN
  ) SELECT jsonb_set(context,'{roles}',c.roles) FROM combinations c WHERE c.n=cardinality(names);
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_binding_missing(node jsonb,context jsonb) RETURNS boolean
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE item jsonb; missing boolean:=false; definition jsonb;
-BEGIN
- FOR item IN SELECT value FROM jsonb_array_elements(coalesce(node->'operands','[]')) WHERE value->>'kind'='parameter' LOOP
- IF NOT context->'parameters' ? (item->>'name') THEN
- definition:=context->'parameterdefs'->(item->>'name');
- IF definition IS NULL OR coalesce(definition->>'required','true')<>'false' THEN RAISE EXCEPTION 'missing required frozen native parameter'; END IF;
- missing:=true;
- END IF;
- END LOOP;
- FOR item IN SELECT value FROM jsonb_array_elements(coalesce(node->'children','[]')) LOOP missing:=ops.ddo_binding_missing(item,context) OR missing; END LOOP;
- RETURN missing;
-END $$;
+
 
 CREATE OR REPLACE FUNCTION ops.ddo_binding_test(node jsonb,context jsonb) RETURNS boolean
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
@@ -175,63 +145,9 @@ BEGIN
  RETURN true;
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_binding_inactive(node jsonb,context jsonb) RETURNS text[]
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE result text[]:=ARRAY[]::text[]; child jsonb; selected jsonb; choice text; matches integer:=0; active text[]; role text;
-BEGIN
- IF node->>'operator'='choice' THEN
- choice:=coalesce(node->>'selected',context->'choices'->>(node->>'choice_parameter'));
- FOR child IN SELECT value FROM jsonb_array_elements(node->'children') LOOP
- IF choice=ANY(ops.ddo_binding_roles(child)) THEN selected:=child; matches:=matches+1; END IF;
- END LOOP;
- IF matches<>1 THEN RAISE EXCEPTION 'native branch choice is not uniquely frozen'; END IF;
- active:=ops.ddo_binding_roles(selected);
- FOR child IN SELECT value FROM jsonb_array_elements(node->'children') LOOP
- IF child<>selected THEN
- FOREACH role IN ARRAY ops.ddo_binding_roles(child) LOOP IF NOT role=ANY(active) THEN result:=array_append(result,role); END IF; END LOOP;
- END IF;
- END LOOP;
- RETURN result||ops.ddo_binding_inactive(selected,context);
- END IF;
- FOR child IN SELECT value FROM jsonb_array_elements(coalesce(node->'children','[]')) LOOP result:=result||ops.ddo_binding_inactive(child,context); END LOOP;
- RETURN ARRAY(SELECT DISTINCT name FROM unnest(result) name ORDER BY name);
-END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_binding_population_refs(node jsonb,context jsonb) RETURNS jsonb
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE result jsonb:='{}'; child jsonb; names text[]; name text; population text; operand jsonb; refs jsonb; entry record; choice text; matched integer:=0;
-BEGIN
- IF node->>'operator'='choice' THEN
- choice:=coalesce(node->>'selected',context->'choices'->>(node->>'choice_parameter'));
- FOR child IN SELECT value FROM jsonb_array_elements(node->'children') LOOP
- IF choice=ANY(ops.ddo_binding_roles(child)) THEN result:=ops.ddo_binding_population_refs(child,context); matched:=matched+1; END IF;
- END LOOP;
- IF matched<>1 THEN RAISE EXCEPTION 'population scope branch is not uniquely frozen'; END IF;
- RETURN result;
- END IF;
- IF node->>'operator' IN ('forall','absent') THEN
- names:=ARRAY(SELECT value#>>'{}' FROM jsonb_array_elements(node->'roles'));
- IF cardinality(names)=0 THEN names:=ARRAY(SELECT r->>'name' FROM jsonb_array_elements(context->'roledefs') r); END IF;
- FOREACH name IN ARRAY names LOOP result:=jsonb_set(result,ARRAY[name],node->'population'); END LOOP;
- END IF;
- FOR operand IN SELECT value FROM jsonb_array_elements(coalesce(node->'operands','[]')) WHERE value->>'kind'='population' LOOP
- IF node->>'operator' NOT IN ('membership','covers') THEN RAISE EXCEPTION 'unsupported population operand scope'; END IF;
- names:=ops.ddo_binding_roles(jsonb_set(node,'{children}','[]'));
- IF cardinality(names)=0 THEN RAISE EXCEPTION 'population operand lacks an identity-bearing role'; END IF;
- FOREACH name IN ARRAY names LOOP
- IF result ? name AND result->>name IS DISTINCT FROM operand->>'name' THEN RAISE EXCEPTION 'one role cannot carry two population scopes'; END IF;
- result:=jsonb_set(result,ARRAY[name],operand->'name');
- END LOOP;
- END LOOP;
- FOR child IN SELECT value FROM jsonb_array_elements(coalesce(node->'children','[]')) LOOP
- refs:=ops.ddo_binding_population_refs(child,context);
- FOR entry IN SELECT * FROM jsonb_each(refs) LOOP
- IF result ? entry.key AND result->entry.key IS DISTINCT FROM entry.value THEN RAISE EXCEPTION 'one role cannot carry two population scopes'; END IF;
- result:=jsonb_set(result,ARRAY[entry.key],entry.value);
- END LOOP;
- END LOOP;
- RETURN result;
-END $$;
+
+
 
 -- Potential graph edges do not confer admission; only frozen selected
 -- dependencies and explicitly frozen discovery relations extend the consumed
@@ -256,35 +172,7 @@ LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
  ) SELECT coalesce(array_agg(id ORDER BY id),ARRAY[]::text[]) FROM allowed
 $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_binding_population_projection(node jsonb,context jsonb,role text) RETURNS text
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE child jsonb; operand jsonb; result text; candidate text; choice text;
-BEGIN
- IF node->>'operator'='choice' THEN
- choice:=coalesce(node->>'selected',context->'choices'->>(node->>'choice_parameter'));
- FOR child IN SELECT value FROM jsonb_array_elements(node->'children') LOOP
- IF choice=ANY(ops.ddo_binding_roles(child)) THEN RETURN ops.ddo_binding_population_projection(child,context,role); END IF;
- END LOOP;
- RAISE EXCEPTION 'population projection branch is not frozen';
- END IF;
- IF role=ANY(ops.ddo_binding_roles(node-'children')) THEN
- IF node->>'operator' IN ('forall','absent') THEN result:='member'; END IF;
- FOR operand IN SELECT value FROM jsonb_array_elements(coalesce(node->'operands','[]')) WHERE value->>'kind'='population' LOOP
- candidate:=coalesce(operand->>'population_projection','member');
- IF candidate NOT IN ('member','qualified-context') OR (candidate='qualified-context' AND operand->>'value_type' IS DISTINCT FROM 'subject-context') THEN RAISE EXCEPTION 'invalid population projection'; END IF;
- IF result IS NOT NULL AND result<>candidate THEN RAISE EXCEPTION 'conflicting population projections'; END IF;
- result:=candidate;
- END LOOP;
- END IF;
- FOR child IN SELECT value FROM jsonb_array_elements(coalesce(node->'children','[]')) LOOP
- candidate:=ops.ddo_binding_population_projection(child,context,role);
- IF candidate IS NOT NULL THEN
- IF result IS NOT NULL AND result<>candidate THEN RAISE EXCEPTION 'conflicting population projections'; END IF;
- result:=candidate;
- END IF;
- END LOOP;
- RETURN result;
-END $$;
+
 
 -- Inputs are authenticated population table fields, never a portable caller witness.
 CREATE OR REPLACE FUNCTION ops.ddo_project_population(identity text,complete boolean,members jsonb,evidence jsonb,project text,projection text) RETURNS jsonb
