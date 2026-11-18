@@ -438,7 +438,9 @@ def privilege_acl(kind, name, *, columns=False, owner_columns=None):
         target = relation.join(attribute, attribute.c.attrelid == relation.c.oid)
         acl = attribute.c.attacl
     else:
-        acl = func.coalesce(acl, pg.acldefault(cast(code, _CatalogType('"char"')), owner))
+        acl = func.coalesce(
+            acl, pg.acldefault(cast(literal(code, Text()), _CatalogType('"char"')), owner)
+        )
     edges = (
         pg.aclexplode(acl)
         .table_valued("grantor", "grantee", "privilege_type", "is_grantable")

@@ -1,7 +1,5 @@
 """Model-bound release, catalog and native admission receipt programs."""
 
-from pglast import ast, parse_sql, scan
-from pglast.stream import RawStream
 from sqlalchemy import (
     Boolean,
     Integer,
@@ -19,15 +17,25 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, array
 
-from .native_program import Assign, If, Perform, Raise, SelectInto, _statements, core_variable
+from .native_program import (
+    Assign,
+    Block,
+    Comment,
+    If,
+    Local,
+    Parameter,
+    Perform,
+    Raise,
+    SelectInto,
+    core_variable,
+    function,
+    pg_type,
+)
 
+CATALOG_START = "native catalog checks begin"
 CATALOG_END = " -- native catalog checks complete"
 PHYSICAL_CATALOG_START = " -- native physical catalog checks begin"
 PHYSICAL_CATALOG_END = " -- native physical catalog checks complete"
-_PHYSICAL_PROGRAM = " -- generated physical catalog checks"
-_TRIGGER_PROGRAM = " -- generated trigger catalog checks"
-_INDEX_PROGRAM = " -- generated index catalog checks"
-_CHECK_PROGRAM = " -- generated native CHECK catalog checks"
 
 
 def release_preconditions(metadata):
@@ -332,67 +340,73 @@ def native_check_catalog_checks():
     )
 
 
-def admission_kernel(source: str, metadata) -> str:
-    """Compose typed programs at the body boundaries of the retained SQL guard."""
-    statements = parse_sql(source)
-    declarations = [raw.stmt for raw in statements if isinstance(raw.stmt, ast.CreateFunctionStmt)]
-    if len(declarations) != 1:
-        raise ValueError("admission source requires one enforcing function")
-    declaration = declarations[0]
-    if tuple(part.sval for part in declaration.funcname or ()) != (
-        "data",
-        "require_execution_release",
-    ):
-        raise ValueError("admission source names another enforcing function")
-    options = [option for option in declaration.options or () if option.defname == "as"]
-    if len(options) != 1 or not isinstance(options[0].arg, tuple) or len(options[0].arg) != 1:
-        raise ValueError("admission source requires one retained function body")
-    (body_literal,) = options[0].arg
-    if not isinstance(body_literal, ast.String):
-        raise ValueError("admission source requires a literal retained body")
-    body = body_literal.sval
-    if not isinstance(body, str):
-        raise ValueError("admission source requires retained body text")
-    tokens = scan(body)
-    openings = [token for token in tokens if token.name == "BEGIN_P"]
-    endings = [token for token in tokens if token.name == "END_P"]
-    if not openings or not endings:
-        raise ValueError("admission source lacks its outer procedural body")
-    first, last = openings[0], endings[-1]
-    if last.start <= first.end or body[last.end + 1 :].strip() not in {"", ";"}:
-        raise ValueError("admission source has an invalid outer procedural body")
-    programs = (
-        (
-            _PHYSICAL_PROGRAM,
-            "\n".join(
-                (
-                    PHYSICAL_CATALOG_START,
-                    _statements(physical_catalog_checks(metadata), " "),
-                    PHYSICAL_CATALOG_END,
-                )
+def admission_kernel(metadata) -> str:
+    """Generate the execution guard and its fixed purpose-role grants."""
+    from .alembic_privileges import PUBLISHER, privilege_admission_checks
+    from .native_admission_functions import function_catalog_checks
+    from .native_admission_principals import principal_catalog_checks, restricted_principal_checks
+    from .native_admission_tables import reader_catalog_checks, table_catalog_checks
+    from .native_catalog import namespace_owner
+    from .native_objects import (
+        NativeIdentity,
+        native_owner_sql,
+        native_privilege_sql,
+        native_sql_script,
+    )
+
+    guard = NativeIdentity("function", "data", "require_execution_release", ("text",))
+    descriptor = NativeIdentity("function", "data", "execution_contract_descriptor")
+    body = function(
+        guard.schema,
+        guard.name,
+        parameters=(Parameter("r", pg_type("text")),),
+        returns=pg_type("void"),
+        volatility="volatile",
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                *release_preconditions(metadata),
+                SelectInto(namespace_owner(), ("owner_name",)),
+                Comment(CATALOG_START),
+                *physical_catalog_checks(metadata),
+                *function_catalog_checks(),
+                *trigger_catalog_checks(),
+                *table_catalog_checks(),
+                *reader_catalog_checks(),
+                *index_catalog_checks(),
+                *privilege_admission_checks(),
+                *principal_catalog_checks(),
+                *native_check_catalog_checks(),
+                *restricted_principal_checks(),
+                Comment(CATALOG_END.removeprefix(" -- ")),
+                *release_semantic_checks(metadata),
+                *native_receipt_admission(metadata),
+            ),
+            (
+                Local("expected", pg_type("jsonb")),
+                Local("spec", pg_type("jsonb")),
+                Local("owner_name", pg_type("text")),
             ),
         ),
-        (_TRIGGER_PROGRAM, _statements(trigger_catalog_checks(), " ")),
-        (_INDEX_PROGRAM, _statements(index_catalog_checks(), " ")),
-        (_CHECK_PROGRAM, _statements(native_check_catalog_checks(), " ")),
     )
-    retained = body[first.end + 1 : last.start]
-    for marker, program in programs:
-        if retained.count(marker) != 1:
-            raise ValueError("admission source requires one declared catalog program position")
-        retained = retained.replace(marker, program, 1)
-    body_literal.sval = "\n".join(
+    return native_sql_script(
         (
-            body[: first.end + 1],
-            _statements(release_preconditions(metadata), " "),
-            retained,
-            CATALOG_END,
-            _statements(release_semantic_checks(metadata), " "),
-            _statements(native_receipt_admission(metadata), " "),
-            body[last.start :],
+            body,
+            native_owner_sql(guard, PUBLISHER),
+            native_privilege_sql(guard, "PUBLIC", grant=False),
+            *(
+                native_privilege_sql(guard, role, "EXECUTE")
+                for role in (
+                    "corpus_sem_writer",
+                    "corpus_sem_reader",
+                    "corpus_sem_evaluator",
+                    "corpus_sem_admitter",
+                )
+            ),
+            native_privilege_sql(descriptor, "corpus_sem_admitter", "EXECUTE"),
         )
     )
-    return RawStream()(statements) + ";"
 
 
 def _decoded_json(content):

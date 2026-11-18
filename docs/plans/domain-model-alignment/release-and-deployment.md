@@ -108,6 +108,6 @@ connection-lifecycle refusal. Qualify a frozen non-head candidate with
 authored SQL, independently verify its physical identity, admission and
 unchanged selection, then exercise the explicit activation path.
 [Deploy sequencing](../../../python/corpus-structure/src/corpus_structure/schema/model_deployment.py#L516) ·
-[Full native admission](../../../python/corpus-structure/src/corpus_structure/semantic/sql/admission.sql#L92) ·
+[Full native admission](../../../python/corpus-structure/src/corpus_structure/semantic/native_admission_release.py) ·
 [Authored SQL analysis](../../../python/corpus-structure/src/corpus_structure/semantic/authored_sql.py#L300) ·
 [Explicit activation](../../../python/corpus-structure/src/corpus_structure/cli/operations.py#L511)

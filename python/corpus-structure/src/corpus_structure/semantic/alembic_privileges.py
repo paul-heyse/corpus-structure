@@ -566,27 +566,95 @@ def render_owned_operations(context, operation):
     )
 
 
-def admission_comparison_sql():
-    roles_sql = ",".join("('" + role + "')" for role in PURPOSE_ROLES)
-    return """
- IF EXISTS(
- SELECT FROM jsonb_array_elements(expected->'privileges') policy
- CROSS JOIN (VALUES __PURPOSE_ROLES__) principal(name)
- WHERE policy->>'kind'='schema' AND has_schema_privilege(principal.name,policy->>'name','CREATE')
- ) THEN RAISE EXCEPTION 'purpose principal has effective schema CREATE' USING ERRCODE='42501'; END IF;
- IF EXISTS(
- SELECT FROM jsonb_array_elements(expected->'privileges') policy
- WHERE (CASE WHEN policy->>'kind'='table' THEN
-   (SELECT coalesce(jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable) ORDER BY (CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END) COLLATE "C",a.privilege_type COLLATE "C",a.is_grantable),'[]'::jsonb)
-    FROM pg_class c CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE c.oid=to_regclass(policy->>'name') AND a.grantee<>c.relowner)
-   IS DISTINCT FROM policy->'acl'
-   OR EXISTS(SELECT FROM pg_attribute at CROSS JOIN LATERAL aclexplode(at.attacl) a WHERE at.attrelid=to_regclass(policy->>'name') AND at.attnum>0 AND NOT at.attisdropped)
- ELSE
-   (SELECT coalesce(jsonb_agg(jsonb_build_array(CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable) ORDER BY (CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END) COLLATE "C",a.privilege_type COLLATE "C",a.is_grantable),'[]'::jsonb)
-    FROM pg_namespace n CROSS JOIN LATERAL aclexplode(coalesce(n.nspacl,acldefault('n',n.nspowner))) a WHERE n.nspname=policy->>'name' AND a.grantee<>n.nspowner)
-   IS DISTINCT FROM (SELECT coalesce(jsonb_agg(entry ORDER BY (entry->>0) COLLATE "C",(entry->>1) COLLATE "C",(entry->>2)::boolean),'[]'::jsonb) FROM jsonb_array_elements(policy->'acl') entry WHERE entry->>0 IS DISTINCT FROM (SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname=policy->>'name')) END)
- ) THEN RAISE EXCEPTION 'declared table/schema privilege policy differs' USING ERRCODE='42501'; END IF;
-""".replace("__PURPOSE_ROLES__", roles_sql)
+def privilege_admission_checks():
+    """Compare the declared ACL to live role, table, column and schema facts."""
+    from sqlalchemy import Boolean, Text, case, cast, column, func, literal, true, values
+    from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
+
+    from .native_admission_release import _json_items
+    from .native_program import If, Raise, core_variable
+
+    expected = core_variable("expected", JSONB())
+    policies = _json_items(expected["privileges"], "policy")
+    policy = policies.c.value
+    name = policy["name"].astext
+    principal = values(column("name", Text()), name="principal").data(
+        [(role,) for role in PURPOSE_ROLES]
+    )
+    pg = catalog_queries.pg
+    empty = cast(literal("[]"), JSONB())
+
+    def observed_acl(kind):
+        edges = catalog_queries.privilege_acl(kind, name).correlate(policies).subquery("edges")
+        return (
+            select(
+                func.coalesce(
+                    pg.jsonb_agg(
+                        aggregate_order_by(
+                            pg.jsonb_build_array(
+                                edges.c.grantee, edges.c.privilege, edges.c.grantable
+                            ),
+                            edges.c.grantee.collate("C"),
+                            edges.c.privilege.collate("C"),
+                            edges.c.grantable,
+                        )
+                    ),
+                    empty,
+                )
+            )
+            .select_from(edges)
+            .correlate(policies)
+            .scalar_subquery()
+        )
+
+    schema_owner = catalog_queries.namespace_owner(name).correlate(policies).scalar_subquery()
+    entries = _json_items(policy["acl"], "entry")
+    entry = entries.c.value
+    expected_schema_acl = (
+        select(
+            func.coalesce(
+                pg.jsonb_agg(
+                    aggregate_order_by(
+                        entry,
+                        entry[0].astext.collate("C"),
+                        entry[1].astext.collate("C"),
+                        cast(entry[2].astext, Boolean()),
+                    )
+                ),
+                empty,
+            )
+        )
+        .select_from(entries)
+        .where(entry[0].astext.is_distinct_from(schema_owner))
+        .correlate(policies)
+        .scalar_subquery()
+    )
+    has_column_grant = (
+        catalog_queries.privilege_acl("table", name, columns=True).correlate(policies).exists()
+    )
+    acl_differs = case(
+        (
+            policy["kind"].astext == "table",
+            or_(observed_acl("table").is_distinct_from(policy["acl"]), has_column_grant),
+        ),
+        else_=observed_acl("schema").is_distinct_from(expected_schema_acl),
+    )
+    return (
+        If(
+            select(1)
+            .select_from(policies.join(principal, true()))
+            .where(
+                policy["kind"].astext == "schema",
+                pg.has_schema_privilege(principal.c.name, name, "CREATE"),
+            )
+            .exists(),
+            (Raise("purpose principal has effective schema CREATE", "42501"),),
+        ),
+        If(
+            select(1).select_from(policies).where(acl_differs).exists(),
+            (Raise("declared table/schema privilege policy differs", "42501"),),
+        ),
+    )
 
 
 def compare_table_policy(context, changes, schema, name, reflected, declared):

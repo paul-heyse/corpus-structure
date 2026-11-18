@@ -146,7 +146,7 @@ def test_catalog_extraction_retains_exact_old_and_current_catalog_area():
         body = function_bodies(source)["data.require_execution_release"]
         checks = catalog_checks(body)
         assert "sem.physical_contract" in checks
-        assert "jsonb_array_elements(expected->'functions')" in checks
+        assert "jsonb_array_elements" in checks and "'functions'" in checks
         assert "sem.record_deployment_admission" not in checks
         assert "release is not finalized" not in checks
 

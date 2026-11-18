@@ -208,24 +208,16 @@ def body_source(statement: ast.CreateFunctionStmt) -> str:
     return "BEGIN ATOMIC " + RawStream()(statement.sql_body[0]) + "; END"
 
 
-def dependency_query(oid: str) -> str:
-    """Render the same typed catalog expression used by independent observation."""
-    from sqlalchemy import literal_column
-    from sqlalchemy.dialects.postgresql import OID
-
-    from .native_catalog import dependencies, render
-
-    return render(dependencies(literal_column(oid, type_=OID)))
-
-
 @contextmanager
 def catalog_path(connection):
     """Deparse against an explicit path and restore the caller's setting."""
-    from sqlalchemy import text
+    from sqlalchemy import select
     from sqlalchemy.exc import DBAPIError
 
-    previous = connection.scalar(text("SELECT current_setting('search_path')"))
-    connection.execute(text("SELECT set_config('search_path','pg_catalog,pg_temp',true)"))
+    from .native_catalog import pg
+
+    previous = connection.scalar(select(pg.current_setting("search_path")))
+    connection.execute(select(pg.set_config("search_path", "pg_catalog,pg_temp", True)))
     failed = False
     try:
         yield
@@ -234,26 +226,40 @@ def catalog_path(connection):
         raise
     finally:
         if not failed:
-            connection.execute(
-                text("SELECT set_config('search_path',:previous,true)"), {"previous": previous}
-            )
+            connection.execute(select(pg.set_config("search_path", previous, True)))
 
 
-def admission_body_comparison() -> str:
-    """Compare v1 AS bodies and v2 bound SQL bodies without a permissive fallback."""
-    dependencies = dependency_query("p.oid")
-    comparison = f"""CASE WHEN item.value ? 'body_profile' THEN
- item.value->>'body_profile' IS DISTINCT FROM '{SQL_STANDARD_PROFILE}'
- OR item.value->>'body_kind' IS DISTINCT FROM 'sql_standard'
- OR item.value->>'server_major' IS DISTINCT FROM '{SQL_STANDARD_MAJOR}'
- OR (current_setting('server_version_num')::integer/10000)<>({SQL_STANDARD_MAJOR})
- OR p.prosqlbody IS NULL
- OR encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')
- IS DISTINCT FROM item.value->>'body_sha256'
- OR ({dependencies}) IS DISTINCT FROM item.value->'dependencies'
- ELSE p.prosqlbody IS NOT NULL OR
- encode(sha256(convert_to(p.prosrc,'UTF8')),'hex')
- IS DISTINCT FROM item.value->>'body_sha256' END"""
+def admission_body_comparison(item, procedure):
+    """Compare stored AS bodies and server-bound SQL bodies through catalog facts."""
+    from sqlalchemy import Integer, case, cast, literal, or_
 
-    # Canonicalize current deparser whitespace before authoring a new guarded body.
-    return "\n".join(line.rstrip() for line in comparison.splitlines())
+    from .native_catalog import dependencies, pg
+
+    columns = procedure.c
+
+    def body_hash(definition):
+        return pg.encode(pg.sha256(pg.convert_to(definition, "UTF8")), "hex")
+
+    major = cast(pg.current_setting("server_version_num"), Integer()).op(
+        "/", return_type=Integer()
+    )(literal(10000))
+    observed_dependencies = dependencies(columns.oid).correlate(procedure).scalar_subquery()
+    expected_hash = item["body_sha256"].astext
+    return case(
+        (
+            item.has_key("body_profile"),
+            or_(
+                item["body_profile"].astext.is_distinct_from(SQL_STANDARD_PROFILE),
+                item["body_kind"].astext.is_distinct_from("sql_standard"),
+                item["server_major"].astext.is_distinct_from(str(SQL_STANDARD_MAJOR)),
+                major != SQL_STANDARD_MAJOR,
+                columns.prosqlbody.is_(None),
+                body_hash(pg.pg_get_functiondef(columns.oid)).is_distinct_from(expected_hash),
+                observed_dependencies.is_distinct_from(item["dependencies"]),
+            ),
+        ),
+        else_=or_(
+            columns.prosqlbody.is_not(None),
+            body_hash(columns.prosrc).is_distinct_from(expected_hash),
+        ),
+    )

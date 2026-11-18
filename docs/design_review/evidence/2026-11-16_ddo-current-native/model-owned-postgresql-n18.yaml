@@ -1,0 +1,4 @@
+# Generate native execution admission from model relations and observed catalog facts.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n17
+native_revision: semantic_ddo_pe_n18

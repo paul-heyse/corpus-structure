@@ -8,7 +8,20 @@ from hashlib import sha256
 import pytest
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
-from sqlalchemy import Column, Integer, MetaData, Table, Text, literal, literal_column, select, text
+from sqlalchemy import (
+    Column,
+    Integer,
+    MetaData,
+    Table,
+    Text,
+    bindparam,
+    cast,
+    literal,
+    literal_column,
+    select,
+    text,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.semantic.alembic_native import NativeTransitionOp
 from corpus_structure.semantic.native_objects import (
@@ -93,11 +106,14 @@ LANGUAGE sql AS $$ SELECT 'unrelated overload'::text $$""")
             for key in ("body_kind", "body_profile", "server_major", "dependencies")
         }
         descriptor["body_sha256"] = sha256(target.catalog["body"].encode()).hexdigest()
-        comparison = text(
-            "SELECT "
-            + admission_body_comparison()
-            + " FROM pg_proc p CROSS JOIN (SELECT CAST(:spec AS jsonb) value) item"
-            + " WHERE p.oid=CAST(:signature AS regprocedure)"
+        from corpus_structure.semantic.native_catalog import pg, procedure
+
+        observed = procedure.alias("p")
+        specification = cast(bindparam("spec", type_=Text()), JSONB())
+        comparison = (
+            select(admission_body_comparison(specification, observed))
+            .select_from(observed)
+            .where(observed.c.oid == pg.to_regprocedure(bindparam("signature", type_=Text())))
         )
 
         def body_differs(spec):

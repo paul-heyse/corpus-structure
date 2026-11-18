@@ -295,9 +295,10 @@ roles, and treatment of privileges outside that universe. Verification must enfo
 boundary rather than assume the existing read-role check covers every ACL detail. Share default
 role policy with generated admission SQL instead of repeating role strings.
 
-`native_products.py` currently records table owner/read_roles, not schema usage or a complete ACL;
-`sql/admission.sql` checks selected roles and PUBLIC. Therefore I04's no-baseline argument holds
-only for existing normalized table-read policy. Define deterministic interpretation of older frozen
+The I04 review baseline recorded table owner and read roles. Its admission guarded those roles
+and PUBLIC. The current model generates complete schema and table ACL expectations and compares
+them to typed PostgreSQL catalog observations. The older no-baseline argument applies to the
+existing normalized table-read policy. Define deterministic interpretation of older frozen
 declarations for the additional governed facts, or an explicit declared baseline through the normal
 successor route where those facts cannot be derived. Do not infer desired/before policy from stray
 live grants. Any unavailable predecessor fact must be resolved or refused explicitly, not called an

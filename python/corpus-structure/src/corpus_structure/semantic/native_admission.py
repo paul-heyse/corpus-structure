@@ -41,27 +41,36 @@ def recorded_authoring_provenance(admission: str) -> NativeAuthoringProvenance:
 
 def catalog_checks(body: str) -> str:
     """Reuse the immutable guard's catalog checks without its release reads or writes."""
-    from .native_admission_release import CATALOG_END, PHYSICAL_CATALOG_END, PHYSICAL_CATALOG_START
+    from .native_admission_release import (
+        CATALOG_END,
+        CATALOG_START,
+        PHYSICAL_CATALOG_END,
+        PHYSICAL_CATALOG_START,
+    )
 
-    receipt_boundary = (
-        CATALOG_END
-        if CATALOG_END in body
-        else " IF NOT EXISTS(SELECT FROM sem.deployment_admission "
-    )
-    boundaries = (
-        (
-            PHYSICAL_CATALOG_START
-            if PHYSICAL_CATALOG_START in body
-            else " IF NOT EXISTS(SELECT FROM sem.physical_contract ",
-            PHYSICAL_CATALOG_END
-            if PHYSICAL_CATALOG_END in body
-            else " IF EXISTS(SELECT FROM sem.release archived CROSS JOIN LATERAL",
-        ),
-        (
-            " SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions')",
-            receipt_boundary,
-        ),
-    )
+    marker = " -- " + CATALOG_START
+    if marker in body:
+        boundaries = ((marker, CATALOG_END),)
+    else:
+        receipt_boundary = (
+            CATALOG_END
+            if CATALOG_END in body
+            else " IF NOT EXISTS(SELECT FROM sem.deployment_admission "
+        )
+        boundaries = (
+            (
+                PHYSICAL_CATALOG_START
+                if PHYSICAL_CATALOG_START in body
+                else " IF NOT EXISTS(SELECT FROM sem.physical_contract ",
+                PHYSICAL_CATALOG_END
+                if PHYSICAL_CATALOG_END in body
+                else " IF EXISTS(SELECT FROM sem.release archived CROSS JOIN LATERAL",
+            ),
+            (
+                " SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions')",
+                receipt_boundary,
+            ),
+        )
     checks = []
     for first, following in boundaries:
         if body.count(first) != 1 or body.count(following) != 1:
@@ -71,107 +80,6 @@ def catalog_checks(body: str) -> str:
             raise ValueError("frozen native guard has invalid catalog check boundaries")
         checks.append(body[start:end])
     return "\n".join(checks)
-
-
-def _normalized_function_checks(item, procedure, owner):
-    """Generate normalized function and complete ACL correspondence expressions."""
-    from sqlalchemy import Boolean, Text, and_, case, cast, func, literal, or_, select
-    from sqlalchemy.dialects.postgresql import JSONB, REAL, aggregate_order_by
-
-    from .native_catalog import _CatalogType, acl_rows
-
-    p = procedure.c
-    empty = cast(literal("[]", Text()), JSONB())
-    config = func.unnest(p.proconfig).table_valued("value").render_derived("configuration")
-    sorted_config = (
-        select(
-            func.coalesce(func.jsonb_agg(aggregate_order_by(config.c.value, config.c.value)), empty)
-        )
-        .select_from(config)
-        .correlate(procedure)
-        .scalar_subquery()
-    )
-    configuration = case(
-        (item.bool_op("?")("result_definition"), sorted_config),
-        else_=func.coalesce(func.to_jsonb(p.proconfig), empty),
-    )
-    rows = (
-        acl_rows(p.proacl, literal("f"), p.proowner).correlate(procedure).subquery("observed_acl")
-    )
-    observed_acl = (
-        select(
-            func.coalesce(
-                func.jsonb_agg(aggregate_order_by(func.jsonb_build_array(*rows.c), *rows.c)), empty
-            )
-        )
-        .select_from(rows)
-        .correlate(procedure)
-        .scalar_subquery()
-    )
-    entries = (
-        func.jsonb_array_elements(item["catalog_acl"]).table_valued("value").render_derived("entry")
-    )
-    entry = cast(entries.c.value, JSONB())
-    grantee = case(
-        (entry[0].astext == "$migration_owner", cast(owner, Text())), else_=entry[0].astext
-    )
-    privilege = entry[1].astext
-    bound_acl = (
-        select(
-            grantee.label("grantee"),
-            privilege.label("privilege"),
-            func.bool_or(cast(entry[2].astext, Boolean())).label("grantable"),
-        )
-        .select_from(entries)
-        .group_by(grantee, privilege)
-        .subquery("bound_acl")
-    )
-    expected_acl = (
-        select(
-            func.coalesce(
-                func.jsonb_agg(
-                    aggregate_order_by(func.jsonb_build_array(*bound_acl.c), *bound_acl.c)
-                ),
-                empty,
-            )
-        )
-        .select_from(bound_acl)
-        .scalar_subquery()
-    )
-    checks = (
-        ("result_definition", func.pg_get_function_result(p.oid)),
-        ("argument_definition", func.pg_get_function_arguments(p.oid)),
-        ("argument_defaults", func.pg_get_expr(p.proargdefaults, 0)),
-        ("support", cast(cast(p.prosupport, _CatalogType("regproc")), Text())),
-    )
-    return configuration, or_(
-        *(
-            and_(item.bool_op("?")(name), observed.is_distinct_from(item[name].astext))
-            for name, observed in checks
-        ),
-        *(
-            and_(
-                item.bool_op("?")(name), observed.is_distinct_from(cast(item[name].astext, REAL()))
-            )
-            for name, observed in (("cost", p.procost), ("rows", p.prorows))
-        ),
-        and_(item.bool_op("?")("catalog_acl"), observed_acl.is_distinct_from(expected_acl)),
-    )
-
-
-def _normalized_function_sql():
-    from sqlalchemy import Text
-    from sqlalchemy.dialects.postgresql import JSONB
-
-    from .native_catalog import procedure, render
-    from .native_program import core_variable
-
-    configuration, predicate = _normalized_function_checks(
-        core_variable("item", JSONB(), "value"),
-        procedure.alias("p"),
-        core_variable("owner_name", Text()),
-    )
-    return render(configuration), render(predicate)
 
 
 def _descriptor_sql(descriptor):
@@ -398,7 +306,7 @@ def native_admission_sql(
                 elif column["default"] is not None:
                     column["default"] = defaults[column["name"]]
     descriptor["tables"] = sorted(tables.values(), key=lambda item: item["relation"])
-    from .alembic_privileges import admission_comparison_sql, desired_policies
+    from .alembic_privileges import desired_policies
 
     descriptor["privileges"] = list(desired_policies(target_metadata, native_objects))
     for policy in descriptor["privileges"]:
@@ -417,35 +325,8 @@ def native_admission_sql(
             [(role, "USAGE", False) for role in roles] + [("corpus_sem_publisher", "CREATE", False)]
         )
     required = admission_kernel(target_metadata=target_metadata)
-    policy_marker = " IF EXISTS(SELECT FROM pg_roles WHERE rolname='corpus_sem_evaluator'"
-    if policy_marker not in required:
-        raise ValueError("missing privilege admission insertion boundary")
-    required = required.replace(policy_marker, admission_comparison_sql() + policy_marker, 1)
-    from .native_sql_body import admission_body_comparison
-
-    body_comparison = (
-        "encode(sha256(convert_to(p.prosrc,'UTF8')),'hex') IS DISTINCT FROM "
-        "item.value->>'body_sha256'"
-    )
-    if body_comparison not in required:
-        raise ValueError("missing native body admission comparison boundary")
-    required = required.replace(body_comparison, admission_body_comparison(), 1)
     if any("body_profile" in item and "dependencies" not in item for item in functions.values()):
         raise ValueError("SQL-standard admission requires a server-bound normalized native object")
-    # The current descriptor additionally protects normalized TABLE/OUT result columns
-    # and complete ACL/grant options for series-owned functions. Historical descriptors
-    # lack these keys and retain their original admitted meaning.
-    if native_objects:
-        marker = " OR p.proretset IS DISTINCT FROM (item.value->>'setof')::boolean"
-        if marker not in required:
-            raise ValueError("missing function admission comparison boundary")
-        configuration, predicate = _normalized_function_sql()
-        required = required.replace(
-            "COALESCE(to_jsonb(p.proconfig),'[]'::jsonb)",
-            configuration,
-            1,
-        )
-        required = required.replace(marker, marker + "\n OR (" + predicate + ")", 1)
     from .native_products import function_bodies
 
     # Admission protects its own exact enforcing body too. The descriptor literal

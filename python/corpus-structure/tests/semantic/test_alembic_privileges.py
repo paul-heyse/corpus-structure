@@ -103,6 +103,23 @@ def test_owned_ddl_rendering_preserves_upgrade_caller_without_ast_repair():
     compile("def upgrade():\n" + rendered, "candidate.py", "exec")
 
 
+def _privilege_guard(policy):
+    from sqlalchemy import Text, cast, literal
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from corpus_structure.semantic.alembic_privileges import privilege_admission_checks
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.native_program import Block, Do, Local, pg_type
+
+    expected = canonical_bytes({"privileges": [policy]}).decode()
+    return Do(
+        Block(
+            privilege_admission_checks(),
+            (Local("expected", pg_type("jsonb"), cast(literal(expected, Text()), JSONB())),),
+        )
+    )
+
+
 def test_live_normalization_exact_transition_stale_before_and_role_restore(infrastructure_rollback):
     schema = "privilege_" + uuid4().hex[:12]
     conn = infrastructure_rollback
@@ -130,17 +147,8 @@ def test_live_normalization_exact_transition_stale_before_and_role_restore(infra
     changed = dict(policy, acl=[])
     operations.invoke(PrivilegeTransitionOp(policy, changed))
     admit_privileges(conn, [changed])
-    from corpus_structure.semantic.alembic_privileges import admission_comparison_sql
-    from corpus_structure.semantic.identity import canonical_bytes
 
-    expected = canonical_bytes({"privileges": [changed]}).decode().replace("'", "''")
-    conn.exec_driver_sql(
-        "DO $test$ DECLARE expected jsonb := '"
-        + expected
-        + "'::jsonb; BEGIN "
-        + admission_comparison_sql()
-        + " END $test$;"
-    )
+    conn.exec_driver_sql(_privilege_guard(changed))
     with pytest.raises(NativeAuthoringError, match="stale privilege before-state"):
         operations.invoke(PrivilegeTransitionOp(policy, changed))
     conn.exec_driver_sql(f'DROP SCHEMA "{schema}" CASCADE')
@@ -148,9 +156,6 @@ def test_live_normalization_exact_transition_stale_before_and_role_restore(infra
 
 def test_live_schema_normalization_and_frozen_guard_reject_grant_options(infrastructure_rollback):
     from sqlalchemy.exc import DBAPIError
-
-    from corpus_structure.semantic.alembic_privileges import admission_comparison_sql
-    from corpus_structure.semantic.identity import canonical_bytes
 
     schema = "schema_acl_" + uuid4().hex[:10]
     conn = infrastructure_rollback
@@ -172,14 +177,7 @@ def test_live_schema_normalization_and_frozen_guard_reject_grant_options(infrast
         PrivilegeTransitionOp(None, policy, normalization=True)
     )
     admit_privileges(conn, [policy])
-    expected = canonical_bytes({"privileges": [policy]}).decode().replace("'", "''")
-    guard = (
-        "DO $test$ DECLARE expected jsonb := '"
-        + expected
-        + "'::jsonb; BEGIN "
-        + admission_comparison_sql()
-        + " END $test$;"
-    )
+    guard = _privilege_guard(policy)
     conn.exec_driver_sql(guard)
     with conn.begin_nested():
         conn.exec_driver_sql(
@@ -195,9 +193,6 @@ def test_schema_policy_refuses_effective_create_despite_owner_acl_filter(
     infrastructure_rollback, drift
 ):
     from sqlalchemy.exc import DBAPIError
-
-    from corpus_structure.semantic.alembic_privileges import admission_comparison_sql
-    from corpus_structure.semantic.identity import canonical_bytes
 
     schema = "schema_owner_" + uuid4().hex[:10]
     policy = {
@@ -216,14 +211,7 @@ def test_schema_policy_refuses_effective_create_despite_owner_acl_filter(
     Operations(MigrationContext.configure(conn)).invoke(
         PrivilegeTransitionOp(None, policy, normalization=True)
     )
-    expected = canonical_bytes({"privileges": [policy]}).decode().replace("'", "''")
-    guard = (
-        "DO $test$ DECLARE expected jsonb := '"
-        + expected
-        + "'::jsonb; BEGIN "
-        + admission_comparison_sql()
-        + " END $test$;"
-    )
+    guard = _privilege_guard(policy)
     conn.exec_driver_sql(guard)
     with conn.begin_nested() as drift_scope:
         if drift == "reader-owner":

@@ -174,6 +174,11 @@ class Local:
 
 
 @dataclass(frozen=True)
+class Comment:
+    text: str
+
+
+@dataclass(frozen=True)
 class Sql:
     statement: Expression
 
@@ -311,6 +316,7 @@ type Statement = (
     | CatchDataConversion
     | CatchDependencyInvalidity
     | Sql
+    | Comment
     | Continue
     | Exit
     | CatchCheckViolation
@@ -344,13 +350,22 @@ def _targets(targets: tuple[str, ...]) -> str:
 
 def _statements(statements: tuple[Statement, ...], indent: str) -> str:
     return (
-        "\n".join(indent + _step(statement, indent + " ") + ";" for statement in statements)
+        "\n".join(
+            indent
+            + _step(statement, indent + " ")
+            + ("" if isinstance(statement, Comment) else ";")
+            for statement in statements
+        )
         or indent + "NULL;"
     )
 
 
 def _step(statement: Statement, nested: str) -> str:
     match statement:
+        case Comment(value):
+            if not value or "\n" in value or "\r" in value:
+                raise ValueError("native program comment must be one nonempty line")
+            return "-- " + value
         case Sql(sql):
             # Native effects have no client to receive an implicitly returned identity.
             return _statement(sql.inline() if isinstance(sql, Insert) else sql)

@@ -142,6 +142,9 @@ def capture_native_authoring_inputs(
                 "data_operation_runtime.py",
                 "native_admission.py",
                 "native_admission_release.py",
+                "native_admission_functions.py",
+                "native_admission_tables.py",
+                "native_admission_principals.py",
                 "native_authoring.py",
                 "alembic_checks.py",
                 "alembic_defaults.py",
@@ -183,7 +186,7 @@ def capture_native_authoring_inputs(
         SourceArtifact("authoring/scientific-layout.sql", scientific_layout_sql(selected).encode()),
         SourceArtifact(
             "authoring/admission.sql",
-            Path(__file__).with_name("sql").joinpath("admission.sql").read_bytes(),
+            admission_kernel(target_metadata=selected).encode(),
         ),
         SourceArtifact(
             "authoring/data-operation-task-guard.sql",
@@ -384,8 +387,7 @@ def current_admission_fields(
 
 
 def admission_kernel(*, target_metadata: MetaData | None = None) -> str:
-    """Compose the current guard with model-bound release and receipt programs."""
-    from pathlib import Path
+    """Generate the current admitted catalog, release and receipt program."""
 
     from .native_admission_release import admission_kernel as compile_admission
 
@@ -393,5 +395,4 @@ def admission_kernel(*, target_metadata: MetaData | None = None) -> str:
         from .metadata import metadata
 
         target_metadata = metadata
-    retained = Path(__file__).with_name("sql").joinpath("admission.sql").read_text()
-    return compile_admission(retained, target_metadata)
+    return compile_admission(target_metadata)

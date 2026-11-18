@@ -5,7 +5,8 @@ import json
 from sqlalchemy import Text, cast, literal, select
 from sqlalchemy.dialects.postgresql import JSONB
 
-from corpus_structure.semantic.native_admission import _descriptor_sql, _normalized_function_checks
+from corpus_structure.semantic.native_admission import _descriptor_sql
+from corpus_structure.semantic.native_admission_functions import _normalized_function_checks
 from corpus_structure.semantic.native_catalog import procedure
 from corpus_structure.semantic.native_products import literal_json_descriptor
 
