@@ -239,6 +239,11 @@ def authority_connection(cpu_basis_connection, actual_cpu_fit):
             input_roles=[],
             output_roles=[],
             support_contract={"capabilities": {"forms": ["scalar"]}},
+            binding_expression={"operator": "all", "children": []},
+            definition_identity="definition:controlled",
+            eligibility_identity="eligibility:controlled",
+            quantified=False,
+            dependencies=[],
         )
     )
     inputs = []
@@ -269,6 +274,7 @@ def authority_connection(cpu_basis_connection, actual_cpu_fit):
                 "position": member.position,
                 "multiplicity": member.multiplicity,
                 "support_derivation_ids": sorted(member.support_episodes),
+                "producer_output": None,
             }
         )
     request = {
@@ -298,6 +304,7 @@ def completion(actual, *, reply=None):
                 product_id=member.product,
                 member_id=member.member,
                 support_derivation_ids=sorted(member.support_episodes),
+                producer_output=None,
             )
             for role in actual.binding.roles
             for member in role.members
@@ -434,3 +441,238 @@ def test_other_stored_input_basis_cannot_reuse_real_worker_reply(
     ] = replacement_product
     with pytest.raises(DBAPIError, match="exact native input basis"):
         native_output(connection, different, changed_completion)
+
+
+@pytest.fixture
+def original_cpu_connection(cpu_basis_connection):
+    """Private controlled runtime/decoder seams; these do not grant native admission."""
+    from sqlalchemy import Column, MetaData, Table
+    from sqlalchemy.schema import CreateTable
+
+    connection = cpu_basis_connection
+    scratch = MetaData()
+    for name in ("ops.data_completion_intent", "ops.task", "sem.runtime_binding"):
+        source = table(name)
+        relation = Table(
+            source.name,
+            scratch,
+            *(Column(c.name, c.type) for c in source.columns),
+            schema=source.schema,
+        )
+        connection.execute(CreateTable(relation))
+    connection.exec_driver_sql("""
+        CREATE FUNCTION sem.require_runtime_binding(text,text) RETURNS void LANGUAGE plpgsql AS $$
+        BEGIN IF $1 <> 'release:original' OR $2 <> 'runtime:submitted' THEN
+          RAISE EXCEPTION 'controlled runtime admission refused' USING ERRCODE='23514';
+        END IF; END $$;
+        CREATE FUNCTION ops.ddo_require_provider_profile(text,text,text) RETURNS void LANGUAGE plpgsql AS $$
+        BEGIN IF $1 <> 'release:original' OR $2 <> 'operation:original' OR $3 <> 'runtime:submitted' THEN
+          RAISE EXCEPTION 'controlled provider admission refused' USING ERRCODE='23514';
+        END IF; END $$;
+        CREATE OR REPLACE FUNCTION ops.ddo_cpu_reply_value(completion jsonb)
+        RETURNS jsonb LANGUAGE sql AS $$ SELECT completion->'controlled_reply' $$;
+    """)
+    source = prepare_sql(cpu_input_basis_native_sql(), source="private-original-producer-control")
+    for index, statement in enumerate(source.statements):
+        node = statement.stmt
+        if (
+            isinstance(node, ast.CreateFunctionStmt)
+            and node.funcname
+            and node.funcname[-1].sval == "ddo_cpu_original_producer"
+        ):
+            connection.exec_driver_sql(
+                source.excerpt(index), execution_options={"no_parameters": True}
+            )
+    context = SubjectContext(
+        "project:original", "subject:original", None, b"{}", subject_definition="subject:knowledge"
+    )
+    request = {
+        **context.record,
+        "id": "request:original",
+        "generation": 2,
+        "live_task_id": 42,
+        "release_id": "release:original",
+        "operation_id": "operation:original",
+        "recipe": "recipe:original",
+        "runtime_id": "runtime:creation-is-provenance",
+        "replicate": None,
+        "binding": {
+            "inputs": [],
+            "support": [],
+            "execution_profile": "profile:original",
+            "parameters": semantic_value({"parameters": {}, "replicate": None}),
+        },
+    }
+    connection.execute(
+        table("sem.data_operation_definition")
+        .insert()
+        .values(
+            release_id=request["release_id"],
+            operation_id=request["operation_id"],
+            subject_definition=context.subject_definition,
+            recipe=request["recipe"],
+            profile="derivation",
+            implementation_revision="implementation:original",
+            input_roles=[],
+            output_roles=[],
+            support_contract={"capabilities": {"forms": ["batch"]}},
+            binding_expression={"operator": "all", "children": []},
+            definition_identity="definition:original",
+            eligibility_identity="eligibility:original",
+            quantified=False,
+            dependencies=[],
+        )
+    )
+    connection.execute(
+        scratch.tables["ops.task"]
+        .insert()
+        .values(
+            id=42,
+            data_request_id=request["id"],
+            data_generation=2,
+            status="running",
+            attempt=3,
+            claimed_by="holder:original",
+            lease_until=text("clock_timestamp()+interval '1 hour'"),
+        )
+    )
+    connection.execute(
+        scratch.tables["sem.runtime_binding"]
+        .insert()
+        .values(
+            release_id=request["release_id"],
+            runtime_id="runtime:submitted",
+            manifest_bytes=b'{"execution_profile":"profile:original"}',
+        )
+    )
+    fence = dict(
+        request_id=request["id"], generation=2, task_id=42, attempt=3, holder="holder:original"
+    )
+    payload = {
+        "inputs": [],
+        "support": [],
+        "execution_evidence": {**fence, "runtime_id": "runtime:submitted"},
+    }
+    from corpus_structure.semantic.data_operation_cpu_basis import cpu_input_basis
+
+    recipe = request["recipe"]
+    assert isinstance(recipe, str)
+    basis = cpu_input_basis(
+        recipe,
+        context,
+        (),
+        parameters=canonical_bytes(semantic_value({})),
+        replicate=None,
+    )
+    return connection, request, payload, fence, basis, scratch
+
+
+def test_original_cpu_producer_keeps_live_lease_and_immutable_replay_authority(
+    original_cpu_connection,
+):
+    connection, request, payload, fence, _, scratch = original_cpu_connection
+
+    def producer(r, completion):
+        return connection.scalar(
+            text(
+                "SELECT ops.ddo_cpu_original_producer(jsonb_populate_record(NULL::ops.data_request,CAST(:r AS jsonb)),CAST(:c AS jsonb))"
+            ),
+            {"r": json_bytes(r).decode(), "c": json_bytes(completion).decode()},
+        )
+
+    assert producer(request, payload) == fence
+    changed = deepcopy(payload)
+    changed["execution_evidence"]["runtime_id"] = "runtime:foreign"
+    with (
+        pytest.raises(DBAPIError, match="controlled runtime admission refused"),
+        connection.begin_nested(),
+    ):
+        producer(request, changed)
+    runtime = scratch.tables["sem.runtime_binding"]
+    with connection.begin_nested() as savepoint:
+        connection.execute(runtime.update().values(manifest_bytes=b'{"execution_profile":"other"}'))
+        with (
+            pytest.raises(DBAPIError, match="runtime execution profile differs"),
+            connection.begin_nested(),
+        ):
+            producer(request, payload)
+        savepoint.rollback()
+    task = scratch.tables["ops.task"]
+    connection.execute(
+        task.update().values(lease_until=text("clock_timestamp()-interval '1 second'"))
+    )
+    with pytest.raises(DBAPIError) as failure, connection.begin_nested():
+        producer(request, payload)
+    assert getattr(failure.value.orig, "sqlstate", None) == "P0002"
+    digest = connection.scalar(
+        text("SELECT ops.ddo_digest(CAST(:p AS jsonb))"), {"p": json_bytes(payload).decode()}
+    )
+    connection.execute(
+        scratch.tables["ops.data_completion_intent"]
+        .insert()
+        .values(
+            request_id=request["id"],
+            generation=2,
+            payload=payload,
+            payload_digest=digest,
+            runtime_id="runtime:submitted",
+            producer_task_id=42,
+            producer_attempt=3,
+            producer_holder="holder:original",
+        )
+    )
+    # Retained evidence authenticates the original owner, independently of the current lease/runtime.
+    replay_request = {**request, "generation": 3, "live_task_id": 99, "runtime_id": "runtime:later"}
+    assert producer(replay_request, payload) == fence
+    changed = deepcopy(payload)
+    changed["execution_evidence"]["attempt"] = 4
+    with (
+        pytest.raises(DBAPIError, match="immutable original intent digest/payload"),
+        connection.begin_nested(),
+    ):
+        producer(request, changed)
+    changed = deepcopy(payload)
+    changed["execution_evidence"]["generation"] = 1
+    with (
+        pytest.raises(DBAPIError, match="immutable original retained intent"),
+        connection.begin_nested(),
+    ):
+        producer(request, changed)
+
+
+def test_native_batch_scatter_keeps_exact_member_fence_basis_and_output(original_cpu_connection):
+    from corpus_structure.semantic.data_operation_cpu_basis import cpu_authority_batch_reply
+
+    connection, request, payload, fence, basis, _ = original_cpu_connection
+    logical_members = (
+        {
+            "member": "other",
+            "producer": {**fence, "request_id": "request:other", "task_id": 43},
+            "input_basis": basis,
+        },
+        {"member": "selected", "producer": fence, "input_basis": basis},
+    )
+    reply = cpu_authority_batch_reply(
+        logical_members, ({"value": 0}, {"value": Decimal("0.125"), "zero": -0.0})
+    )
+    payload = {**payload, "controlled_reply": reply}
+    assert native_output(connection, request, payload) == semantic_value(
+        {"value": Decimal("0.125"), "zero": -0.0}
+    )
+    changes = []
+    duplicate_member = deepcopy(reply)
+    duplicate_member["members"][0]["member"] = "selected"
+    changes.append((duplicate_member, "repeats a logical member"))
+    duplicate_producer = deepcopy(reply)
+    duplicate_producer["members"][0]["producer"] = fence
+    changes.append((duplicate_producer, "repeats a logical member"))
+    different_basis = deepcopy(reply)
+    different_basis["members"][1]["input_basis_digest"] = "0" * 64
+    changes.append((different_basis, "original producer fence/exact input basis"))
+    extra_field = deepcopy(reply)
+    extra_field["members"][1]["extra"] = None
+    changes.append((extra_field, "lacks its exact original producer/basis/output"))
+    for changed, message in changes:
+        with pytest.raises(DBAPIError, match=message) as failure, connection.begin_nested():
+            native_output(connection, request, {**payload, "controlled_reply": changed})
+        assert getattr(failure.value.orig, "sqlstate", None) == "23514"

@@ -247,7 +247,8 @@ def native_protocol_sources(
             record_grade_native_sql(target_metadata).encode(),
         ),
         SourceArtifact(
-            "native/data-operation-cpu-basis.sql", cpu_input_basis_native_sql().encode()
+            "native/data-operation-cpu-basis.sql",
+            cpu_input_basis_native_sql(target_metadata=target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-cpu-basis.py",
