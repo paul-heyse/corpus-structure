@@ -622,6 +622,11 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
         },
         "opaque": [
             {
+                "reference": "corpus_structure.semantic.enriched_document_products.ordered_captured_composition_inputs",
+                "contract": "characterization/view-assets",
+                "role": "captured-source-coordinate-ordering",
+            },
+            {
                 "reference": "corpus_structure.semantic.characterization_ports.execute_view_profile",
                 "contract": "characterization/view-assets",
                 "role": "prepared-view-resources",

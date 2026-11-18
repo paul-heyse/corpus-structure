@@ -1141,6 +1141,18 @@ def captured_document_view_operation_sources(
     from .primary_operations import combine_primary_sources
 
     own = _operation_sources("captured_document_composition", "view")
+    composition = Path(__file__).with_name("enriched_document_products.py")
+    own = replace(
+        own,
+        sources=(
+            *own.sources,
+            PythonSource(
+                "corpus_structure.semantic.enriched_document_products",
+                composition.read_bytes(),
+                str(composition),
+            ),
+        ),
+    )
     base = full_document_view_operation_sources(include_dependencies=False)
     if not include_dependencies:
         return combine_primary_sources(base, own)

@@ -1,5 +1,6 @@
 """Captured document fan-in over independently published native source members."""
 
+import json
 from dataclasses import replace
 from hashlib import sha256
 from typing import cast
@@ -29,6 +30,31 @@ from semantic.current_pdf_source_support import (
     published_pdf_source_factory as published_pdf_source_factory,
 )
 from semantic.data_operation_kernel_support import CapturedKernelInputs, split_captured_operations
+
+
+def test_captured_composition_closes_its_coordinate_ordering_dependency():
+    from corpus_structure.semantic.characterization_ports import (
+        captured_document_view_operation_sources,
+    )
+    from corpus_structure.semantic.python_operation_sources import ClosedPythonSources
+
+    sources = captured_document_view_operation_sources(include_dependencies=False)
+    assert any(
+        source.module == "corpus_structure.semantic.enriched_document_products"
+        for source in sources.sources
+    )
+    (composition,) = (
+        operation
+        for operation in ClosedPythonSources(sources).operations()
+        if json.loads(operation.metadata).get("id") == "text.compose_view/captured-full-native"
+    )
+    assert composition.implementation.complete, composition.implementation.unknowns
+    assert any(
+        boundary.reference
+        == "corpus_structure.semantic.enriched_document_products.ordered_captured_composition_inputs"
+        and boundary.contract == "characterization/view-assets"
+        for boundary in composition.implementation.boundaries
+    )
 
 
 def captured_recipe(directory):
