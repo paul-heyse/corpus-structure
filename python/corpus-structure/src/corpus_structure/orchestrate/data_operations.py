@@ -974,14 +974,15 @@ class NativeDemandExecutor:
                     decode_semantic_value(wire_json_loads(value.meaning))
                 )
             validate_output_witnesses(operation, bodies, physical.binding_rows[ready.obligation])
-        if (
-            sum(
-                len(value.content) + len(value.meaning or b"") + sum(map(len, value.members))
-                for value in answer.outputs
+        output_bytes = sum(
+            len(value.content) + len(value.meaning or b"") + sum(map(len, value.members))
+            for value in answer.outputs
+        )
+        if output_bytes > self.policy.max_reply_bytes:
+            raise ValueError(
+                f"Completion outputs use {output_bytes} bytes, exceeding the "
+                f"{self.policy.max_reply_bytes}-byte reply limit"
             )
-            > self.policy.max_reply_bytes
-        ):
-            raise ValueError("completion reply exceeds owned reply capacity")
         if answer.outcome not in context.model.operation(ready.operation).outcomes:
             raise PortRefusal("completion outcome is outside the declared operation")
         outputs = []
@@ -1036,8 +1037,12 @@ class NativeDemandExecutor:
                 pdf_observation_content=answer.pdf_observation_evidence,
                 provider_content=answer.provider_execution_evidence,
             )
-        if len(json_bytes(completion)) > self.policy.max_reply_bytes:
-            raise ValueError("completion exceeds owned draft capacity")
+        draft_bytes = len(json_bytes(completion))
+        if draft_bytes > self.policy.max_reply_bytes:
+            raise ValueError(
+                f"Completion draft uses {draft_bytes} bytes, exceeding the "
+                f"{self.policy.max_reply_bytes}-byte reply limit"
+            )
 
         def retain(calls):
             return calls.retain_data_completion_intent(

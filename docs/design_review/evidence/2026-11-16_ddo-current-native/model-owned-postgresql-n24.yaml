@@ -1,0 +1,4 @@
+# Capture typed rich and structural correspondence and the current execution custody.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n23
+native_revision: semantic_ddo_pe_n24

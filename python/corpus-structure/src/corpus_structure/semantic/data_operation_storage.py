@@ -335,7 +335,8 @@ def native_protocol_sources(
             Path(__file__).with_name("cpu_receipts.py").read_bytes(),
         ),
         SourceArtifact(
-            "native/data-operation-rich-admission.sql", rich_admission_native_sql(target_metadata=target_metadata).encode()
+            "native/data-operation-rich-admission.sql",
+            rich_admission_native_sql(target_metadata=target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-rich-admission.py",

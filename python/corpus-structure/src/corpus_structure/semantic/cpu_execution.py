@@ -327,8 +327,11 @@ def _compute_formal(content: bytes, max_reply_bytes: int, request_digest: str) -
         source, options, packet["member_contracts"], check_active=_worker_active
     )
     result = canonical_bytes(content_value)
-    if len(result) > max_reply_bytes:
-        raise CapacityExceeded("CPU formal result exceeds admitted reply byte capacity")
+    result_bytes = len(result)
+    if result_bytes > max_reply_bytes:
+        raise CapacityExceeded(
+            f"CPU formal result uses {result_bytes} bytes, exceeding the {max_reply_bytes}-byte reply limit"
+        )
     _worker_active()
     return CPUReply(
         request_digest,
