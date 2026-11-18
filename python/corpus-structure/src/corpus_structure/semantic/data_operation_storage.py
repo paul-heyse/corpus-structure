@@ -72,6 +72,7 @@ def native_protocol_sources(
     from .data_attempt_release_native import attempt_release_native_sql
     from .data_claim_batch_native import claim_batch_native_sql
     from .data_claim_native import claim_native_sql
+    from .data_completion_settlement_native import completion_settlement_native_sql
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_cpu_basis import cpu_input_basis_native_sql
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
@@ -342,6 +343,8 @@ def native_protocol_sources(
             protocol,
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
+        SourceArtifact("native/data-completion-settlement.sql", completion_settlement_native_sql(target_metadata).encode()),
+        SourceArtifact("native/data-completion-settlement-native.py", Path(__file__).with_name("data_completion_settlement_native.py").read_bytes()),
         SourceArtifact(
             "native/data-claim-batch.sql", claim_batch_native_sql(target_metadata).encode()
         ),
@@ -686,6 +689,7 @@ def native_sql(sources=None) -> str:
     from .pdf_source_search import search_projection_sql
 
     sql += "\n" + search_projection_sql(captured)
+    sql = sql.replace("__DDO_COMPLETION_SETTLEMENT_PROGRAMS__", bodies["native/data-completion-settlement.sql"].decode())
     # Every private completion guard attests the same captured native kernel.
     sql = sql.replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     sql = sql.replace(
