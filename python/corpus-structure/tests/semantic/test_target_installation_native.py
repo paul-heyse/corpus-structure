@@ -473,7 +473,12 @@ def test_actual_target_successor_uses_registered_state_and_preserves_installatio
     )
     with engine.begin() as connection:
         verify_target(connection, target, purpose="maintenance")
-        assert upgrade(connection, revision.revision, script_location=location) == [
+        assert upgrade(
+            connection,
+            revision.revision,
+            script_location=location,
+            expected_predecessor=root_revision.revision,
+        ) == [
             {"revision": revision.revision, "direction": "upgrade"},
         ]
         assert connection.execute(

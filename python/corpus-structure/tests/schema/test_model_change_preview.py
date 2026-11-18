@@ -358,12 +358,14 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         # This single isolated definition has no installed dependencies. Preserve
         # the real ordering path before exercising the failing CREATE statement.
         query = str(statement)
+        if "CURRENT_USER" in query:
+            return SimpleNamespace(scalar_one=lambda: "owner")
         assert "native_scope" in query and "pg_depend" in query
         return ()
 
     connection = SimpleNamespace(
         execute=dependency_rows,
-        scalar=lambda statement: "none" if "current_setting('role')" in str(statement) else "owner",
+        scalar=lambda statement: "none" if "current_setting" in str(statement) else "owner",
         begin_nested=lambda: SimpleNamespace(rollback=lambda: events.append("rollback")),
     )
 
@@ -371,7 +373,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         if statement.startswith("CREATE"):
             events.append("create")
             raise original
-        assert statement == "SET LOCAL ROLE publisher"
+        assert statement == native_objects.native_role_sql("publisher")
         events.append("set owner")
 
     def refuse_author(*_args, **_kwargs):
