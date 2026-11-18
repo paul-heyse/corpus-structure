@@ -102,15 +102,22 @@ def test_generated_stage_ownership_preserves_absence_and_private_entrypoints(nat
         execute_native_sql(connection, stage_lifecycle_sql(metadata))
     assert connection.scalar(text("SELECT ops.pdf_stage_owner_current(-1,1,'holder')")) is False
     assert connection.execute(text("SELECT * FROM ops.pdf_task_context(NULL)")).all() == []
-    with pytest.raises(DBAPIError, match="stale private PDF build owner") as failure, connection.begin_nested():
+    with (
+        pytest.raises(DBAPIError, match="stale private PDF build owner") as failure,
+        connection.begin_nested(),
+    ):
         connection.execute(text("SELECT * FROM ops.require_pdf_stage_owner(NULL,NULL,NULL)")).all()
     assert getattr(failure.value.orig, "sqlstate", None) == "P0004"
     with native_owner(connection, "corpus_sem_writer"):
         with pytest.raises(DBAPIError) as failure, connection.begin_nested():
-            connection.execute(text("SELECT * FROM ops.begin_pdf_build(NULL,NULL,NULL,NULL,NULL,NULL,NULL)")).all()
+            connection.execute(
+                text("SELECT * FROM ops.begin_pdf_build(NULL,NULL,NULL,NULL,NULL,NULL,NULL)")
+            ).all()
         assert getattr(failure.value.orig, "sqlstate", None) == "P0004"
         with pytest.raises(DBAPIError) as failure, connection.begin_nested():
-            connection.execute(text("SELECT * FROM ops.pdf_stage_owner_current(-1,1,'holder')")).all()
+            connection.execute(
+                text("SELECT * FROM ops.pdf_stage_owner_current(-1,1,'holder')")
+            ).all()
         assert getattr(failure.value.orig, "sqlstate", None) == "42501"
 
 
@@ -157,17 +164,40 @@ def test_native_payload_extent_keeps_actual_bytes_and_null_bitmap(native_rollbac
         native_payload_size_sql,
     )
 
-    fixture = Table("payload_extent", MetaData(), Column("word", Text()), Column("body", BYTEA()),
-        Column("document", JSONB()), Column("number", Numeric()), Column("flag", Boolean()),
-        Column("integer", BigInteger()), Column("real", Double()), schema="pg_temp", prefixes=["TEMPORARY"])
+    fixture = Table(
+        "payload_extent",
+        MetaData(),
+        Column("word", Text()),
+        Column("body", BYTEA()),
+        Column("document", JSONB()),
+        Column("number", Numeric()),
+        Column("flag", Boolean()),
+        Column("integer", BigInteger()),
+        Column("real", Double()),
+        schema="pg_temp",
+        prefixes=["TEMPORARY"],
+    )
     connection = native_rollback.connection
     connection.execute(CreateTable(fixture))
-    connection.execute(fixture.insert(), [
-        {"word": "é", "body": b"abc", "document": {"x": 1}, "number": Decimal("1.25"), "flag": True, "integer": 9, "real": 1.0},
-        {field.name: None for field in fixture.c},
-    ])
+    connection.execute(
+        fixture.insert(),
+        [
+            {
+                "word": "é",
+                "body": b"abc",
+                "document": {"x": 1},
+                "number": Decimal("1.25"),
+                "flag": True,
+                "integer": 9,
+                "real": 1.0,
+            },
+            {field.name: None for field in fixture.c},
+        ],
+    )
     connection.execute(fixture.insert().values({field: null() for field in fixture.c}))
     extent = native_payload_size_expression(fixture)
     assert connection.scalars(select(extent).order_by(extent)).all() == [1, 9, 51]
     rendered = native_payload_size_sql(fixture)
-    assert connection.scalars(text("SELECT " + rendered + " AS extent FROM pg_temp.payload_extent s ORDER BY extent")).all() == [1, 9, 51]
+    assert connection.scalars(
+        text("SELECT " + rendered + " AS extent FROM pg_temp.payload_extent s ORDER BY extent")
+    ).all() == [1, 9, 51]

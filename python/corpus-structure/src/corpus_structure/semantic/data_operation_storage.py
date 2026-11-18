@@ -337,12 +337,29 @@ def native_protocol_sources(
             protocol,
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
-        SourceArtifact("native/data-claim-batch.sql", claim_batch_native_sql(target_metadata).encode()),
-        SourceArtifact("native/data-claim-batch.py", Path(__file__).with_name("data_claim_batch_native.py").read_bytes()),
-        SourceArtifact("native/data-claim.sql", claim_native_sql(target_metadata, protocol).encode()),
-        SourceArtifact("native/data-claim.py", Path(__file__).with_name("data_claim_native.py").read_bytes()),
-        SourceArtifact("native/data-attempt-release.sql", attempt_release_native_sql(target_metadata, protocol, execution_evidence_schema()).encode()),
-        SourceArtifact("native/data-attempt-release.py", Path(__file__).with_name("data_attempt_release_native.py").read_bytes()),
+        SourceArtifact(
+            "native/data-claim-batch.sql", claim_batch_native_sql(target_metadata).encode()
+        ),
+        SourceArtifact(
+            "native/data-claim-batch.py",
+            Path(__file__).with_name("data_claim_batch_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/data-claim.sql", claim_native_sql(target_metadata, protocol).encode()
+        ),
+        SourceArtifact(
+            "native/data-claim.py", Path(__file__).with_name("data_claim_native.py").read_bytes()
+        ),
+        SourceArtifact(
+            "native/data-attempt-release.sql",
+            attempt_release_native_sql(
+                target_metadata, protocol, execution_evidence_schema()
+            ).encode(),
+        ),
+        SourceArtifact(
+            "native/data-attempt-release.py",
+            Path(__file__).with_name("data_attempt_release_native.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-renewal.sql",
             renewal_native_sql(target_metadata, protocol).encode(),

@@ -43,9 +43,11 @@ def native_payload_size_expression(relation):
 
 def native_payload_size_sql(relation, *, alias="s") -> str:
     """Render the shared extent expression for the remaining companion owner."""
-    return str(native_payload_size_expression(relation.alias(alias)).compile(
-        dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}
-    ))
+    return str(
+        native_payload_size_expression(relation.alias(alias)).compile(
+            dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}
+        )
+    )
 
 
 def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
@@ -87,10 +89,15 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
     sql += part_wire_contract_sql(selected) + shared_streams_sql(selected)
     specs = pdf_stage_scratch_specs(selected)
     build_relation = selected.tables["ops.pdf_stage_build"]
-    prepare_parameters = tuple(Parameter(name, column_type(field)) for name, field in (
-        ("p_build", build_relation.c.build_id), ("p_task", build_relation.c.task_id),
-        ("p_attempt", build_relation.c.attempt), ("p_holder", build_relation.c.holder),
-    ))
+    prepare_parameters = tuple(
+        Parameter(name, column_type(field))
+        for name, field in (
+            ("p_build", build_relation.c.build_id),
+            ("p_task", build_relation.c.task_id),
+            ("p_attempt", build_relation.c.attempt),
+            ("p_holder", build_relation.c.holder),
+        )
+    )
     sql += (
         function(
             "ops",
@@ -131,19 +138,35 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
     sql += stage_lifecycle_sql(selected)
     prepare_identity = ast.ObjectWithArgs(
         objname=(ast.String(sval="ops"), ast.String(sval="prepare_pdf_stage")),
-        objargs=tuple(parameter.type_ for parameter in prepare_parameters), args_unspecified=False,
+        objargs=tuple(parameter.type_ for parameter in prepare_parameters),
+        args_unspecified=False,
     )
     for allowed, grantee in (
         (False, ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC)),
-        (True, ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer")),
+        (
+            True,
+            ast.RoleSpec(
+                roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"
+            ),
+        ),
     ):
-        sql += RawStream()(ast.GrantStmt(
-            is_grant=allowed, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-            objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(prepare_identity,),
-            privileges=(ast.AccessPriv(priv_name="execute"),) if allowed else None,
-            grantees=(grantee,), grant_option=False, behavior=enums.DropBehavior.DROP_RESTRICT,
-        )) + ";\n"
+        sql += (
+            RawStream()(
+                ast.GrantStmt(
+                    is_grant=allowed,
+                    targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+                    objtype=enums.ObjectType.OBJECT_FUNCTION,
+                    objects=(prepare_identity,),
+                    privileges=(ast.AccessPriv(priv_name="execute"),) if allowed else None,
+                    grantees=(grantee,),
+                    grant_option=False,
+                    behavior=enums.DropBehavior.DROP_RESTRICT,
+                )
+            )
+            + ";\n"
+        )
     from .pdf_spool_native import pdf_spool_native_sql
+
     sql += pdf_spool_native_sql()
     return sql
 
@@ -246,7 +269,18 @@ def stage_lifecycle_sql(model):
             )
         )
 
-    def routine(name, parameters, returns, statements, locals_, *, output=(), writer=True, stable=False, strict=False):
+    def routine(
+        name,
+        parameters,
+        returns,
+        statements,
+        locals_,
+        *,
+        output=(),
+        writer=True,
+        stable=False,
+        strict=False,
+    ):
         declaration = parse_sql(
             function(
                 "ops",
@@ -310,6 +344,7 @@ def stage_lifecycle_sql(model):
 
     out = []
     owner_local = Local("owner", pg_type("record"))
+
     def physical_row(name, relation, field):
         return core_variable(name, relation.c[field].type, field)
 
@@ -323,77 +358,364 @@ def stage_lifecycle_sql(model):
         return core_variable("context", owner_fields[field], field)
 
     context_outputs = (
-        ("project_id", request.c.project_id), ("release_id", task.c.release_id),
-        ("request_id", request.c.id), ("generation", task.c.data_generation),
-        ("document_id", document.c.id), ("source_digest", document.c.content_hash),
+        ("project_id", request.c.project_id),
+        ("release_id", task.c.release_id),
+        ("request_id", request.c.id),
+        ("generation", task.c.data_generation),
+        ("document_id", document.c.id),
+        ("source_digest", document.c.content_hash),
     )
     context_type = pg_type("record")
     context_type.setof = True
-    out.append(routine("pdf_task_context", (fence_parameters[0],), context_type, (
-        SelectInto(select(task).where(task.c.id == p_task), ("job",), True),
-        If(job("data_request_id").is_(None), (Raise("PDF task has no declared data request", "23514"),)),
-        SelectInto(select(request).where(request.c.id == job("data_request_id")), ("request",), True),
-        SelectInto(select(document).where(document.c.project_id == request_value("project_id"), document.c.key == request_value("original_source"), document.c.mime == "application/pdf"), ("document",), True),
-        ReturnQuery(select(request_value("project_id"), job("release_id"), request_value("id"), cast(job("data_generation"), BigInteger()), physical_row("document", document, "id"), physical_row("document", document, "content_hash"))),
-    ), (Local("job", task), Local("request", request), Local("document", document)), output=context_outputs, writer=False, stable=True, strict=True))
+    out.append(
+        routine(
+            "pdf_task_context",
+            (fence_parameters[0],),
+            context_type,
+            (
+                SelectInto(select(task).where(task.c.id == p_task), ("job",), True),
+                If(
+                    job("data_request_id").is_(None),
+                    (Raise("PDF task has no declared data request", "23514"),),
+                ),
+                SelectInto(
+                    select(request).where(request.c.id == job("data_request_id")),
+                    ("request",),
+                    True,
+                ),
+                SelectInto(
+                    select(document).where(
+                        document.c.project_id == request_value("project_id"),
+                        document.c.key == request_value("original_source"),
+                        document.c.mime == "application/pdf",
+                    ),
+                    ("document",),
+                    True,
+                ),
+                ReturnQuery(
+                    select(
+                        request_value("project_id"),
+                        job("release_id"),
+                        request_value("id"),
+                        cast(job("data_generation"), BigInteger()),
+                        physical_row("document", document, "id"),
+                        physical_row("document", document, "content_hash"),
+                    )
+                ),
+            ),
+            (Local("job", task), Local("request", request), Local("document", document)),
+            output=context_outputs,
+            writer=False,
+            stable=True,
+            strict=True,
+        )
+    )
     current_conditions = and_(
         request_value("generation").is_not_distinct_from(job("data_generation")),
         request_value("live_task_id").is_not_distinct_from(job("id")),
         request_value("release_id").is_not_distinct_from(job("release_id")),
-        exists(select(1).select_from(definition).where(definition.c.release_id == request_value("release_id"), definition.c.operation_id == request_value("operation_id"), func.coalesce(definition.c.command_class == "pdf", False))),
-        exists(select(1).select_from(uses).where(uses.c.request_id == request_value("id"), uses.c.generation == request_value("generation"), uses.c.fate == "attached", func.ops.ddo_demand_active(uses.c.demand_id))),
-        func.ops.ddo_support_available(core_variable("request", JSONB()), request_value("binding")["support"]),
-        ~exists(select(1).select_from(revoked).where(revoked.c.scope == func.ops.ddo_scope(request_value("project_id"), request_value("original_source")), or_(
-            and_(revoked.c.selector_kind == "runtime", revoked.c.selector == request_value("runtime_id")),
-            and_(revoked.c.selector_kind == "recipe", revoked.c.selector == request_value("recipe")),
-        ))),
+        exists(
+            select(1)
+            .select_from(definition)
+            .where(
+                definition.c.release_id == request_value("release_id"),
+                definition.c.operation_id == request_value("operation_id"),
+                func.coalesce(definition.c.command_class == "pdf", False),
+            )
+        ),
+        exists(
+            select(1)
+            .select_from(uses)
+            .where(
+                uses.c.request_id == request_value("id"),
+                uses.c.generation == request_value("generation"),
+                uses.c.fate == "attached",
+                func.ops.ddo_demand_active(uses.c.demand_id),
+            )
+        ),
+        func.ops.ddo_support_available(
+            core_variable("request", JSONB()), request_value("binding")["support"]
+        ),
+        ~exists(
+            select(1)
+            .select_from(revoked)
+            .where(
+                revoked.c.scope
+                == func.ops.ddo_scope(
+                    request_value("project_id"), request_value("original_source")
+                ),
+                or_(
+                    and_(
+                        revoked.c.selector_kind == "runtime",
+                        revoked.c.selector == request_value("runtime_id"),
+                    ),
+                    and_(
+                        revoked.c.selector_kind == "recipe",
+                        revoked.c.selector == request_value("recipe"),
+                    ),
+                ),
+            )
+        ),
     )
-    out.append(routine("pdf_stage_owner_current", fence_parameters, pg_type("boolean"), (
-        SelectInto(select(task).where(task.c.id == p_task), ("job",)),
-        If(or_(not_(core_variable("found", Boolean())), p_attempt.is_(None), func.nullif(p_holder, "").is_(None),
-            job("attempt").is_distinct_from(p_attempt), job("claimed_by").is_distinct_from(p_holder), job("status") != "running", job("lease_until").is_(None), job("lease_until") <= func.clock_timestamp()), (Return(literal(False)),)),
-        If(job("data_request_id").is_(None), (Return(literal(False)),)),
-        SelectInto(select(request).where(request.c.id == job("data_request_id")), ("request",)),
-        If(not_(core_variable("found", Boolean())), (Return(literal(False)),)),
-        Perform(func.ops.ddo_authorize_request(core_variable("request", JSONB()))), Return(current_conditions),
-    ), (Local("job", task), Local("request", request)), writer=False, stable=True))
-    context_rows = func.ops.pdf_task_context(p_task).table_valued(*(column(name, type_) for name, type_ in owner_fields.items()))
-    demand_locks = select(literal(1)).select_from(demand).where(exists(select(1).select_from(uses).where(
-        uses.c.demand_id == demand.c.id, uses.c.request_id == request_value("id"), uses.c.generation == request_value("generation"), uses.c.fate == "attached",
-    ))).order_by(demand.c.id).with_for_update(read=True)
-    out.append(routine("require_pdf_stage_owner", fence_parameters, context_type, (
-        If(or_(p_task.is_(None), p_attempt.is_(None), p_holder.is_(None), p_holder == ""), (Raise("stale private PDF build owner", "P0004"),)),
-        SelectInto(select(context_rows), ("context",), True),
-        SelectInto(select(request).where(request.c.id == context_value("request_id")), ("request",), True),
-        Perform(func.ops.ddo_lock_support(request_value("project_id"), request_value("original_source"), request_value("binding")["support"])),
-        PerformQuery(demand_locks),
-        SelectInto(select(request).where(request.c.id == context_value("request_id")).with_for_update(), ("request",), True),
-        SelectInto(select(task).where(task.c.id == p_task).with_for_update(), ("job",), True),
-        If(not_(func.ops.pdf_stage_owner_current(p_task, p_attempt, p_holder)), (Raise("stale private PDF build owner/capability/support", "P0004"),)),
-        ReturnQuery(select(*(context_value(name) for name in owner_fields))),
-    ), (Local("job", task), Local("request", request), Local("context", pg_type("record"))), output=context_outputs, writer=False))
+    out.append(
+        routine(
+            "pdf_stage_owner_current",
+            fence_parameters,
+            pg_type("boolean"),
+            (
+                SelectInto(select(task).where(task.c.id == p_task), ("job",)),
+                If(
+                    or_(
+                        not_(core_variable("found", Boolean())),
+                        p_attempt.is_(None),
+                        func.nullif(p_holder, "").is_(None),
+                        job("attempt").is_distinct_from(p_attempt),
+                        job("claimed_by").is_distinct_from(p_holder),
+                        job("status") != "running",
+                        job("lease_until").is_(None),
+                        job("lease_until") <= func.clock_timestamp(),
+                    ),
+                    (Return(literal(False)),),
+                ),
+                If(job("data_request_id").is_(None), (Return(literal(False)),)),
+                SelectInto(
+                    select(request).where(request.c.id == job("data_request_id")), ("request",)
+                ),
+                If(not_(core_variable("found", Boolean())), (Return(literal(False)),)),
+                Perform(func.ops.ddo_authorize_request(core_variable("request", JSONB()))),
+                Return(current_conditions),
+            ),
+            (Local("job", task), Local("request", request)),
+            writer=False,
+            stable=True,
+        )
+    )
+    context_rows = func.ops.pdf_task_context(p_task).table_valued(
+        *(column(name, type_) for name, type_ in owner_fields.items())
+    )
+    demand_locks = (
+        select(literal(1))
+        .select_from(demand)
+        .where(
+            exists(
+                select(1)
+                .select_from(uses)
+                .where(
+                    uses.c.demand_id == demand.c.id,
+                    uses.c.request_id == request_value("id"),
+                    uses.c.generation == request_value("generation"),
+                    uses.c.fate == "attached",
+                )
+            )
+        )
+        .order_by(demand.c.id)
+        .with_for_update(read=True)
+    )
+    out.append(
+        routine(
+            "require_pdf_stage_owner",
+            fence_parameters,
+            context_type,
+            (
+                If(
+                    or_(p_task.is_(None), p_attempt.is_(None), p_holder.is_(None), p_holder == ""),
+                    (Raise("stale private PDF build owner", "P0004"),),
+                ),
+                SelectInto(select(context_rows), ("context",), True),
+                SelectInto(
+                    select(request).where(request.c.id == context_value("request_id")),
+                    ("request",),
+                    True,
+                ),
+                Perform(
+                    func.ops.ddo_lock_support(
+                        request_value("project_id"),
+                        request_value("original_source"),
+                        request_value("binding")["support"],
+                    )
+                ),
+                PerformQuery(demand_locks),
+                SelectInto(
+                    select(request)
+                    .where(request.c.id == context_value("request_id"))
+                    .with_for_update(),
+                    ("request",),
+                    True,
+                ),
+                SelectInto(
+                    select(task).where(task.c.id == p_task).with_for_update(), ("job",), True
+                ),
+                If(
+                    not_(func.ops.pdf_stage_owner_current(p_task, p_attempt, p_holder)),
+                    (Raise("stale private PDF build owner/capability/support", "P0004"),),
+                ),
+                ReturnQuery(select(*(context_value(name) for name in owner_fields))),
+            ),
+            (Local("job", task), Local("request", request), Local("context", pg_type("record"))),
+            output=context_outputs,
+            writer=False,
+        )
+    )
     from .pdf_staging import stage_upload_profile
 
     profile = stage_upload_profile(physical_sources=model.info["physical_sources"])
-    p_source, p_recipe, p_schema, p_key = (core_variable(name, Text()) for name in ("p_source", "p_recipe", "p_schema", "p_key"))
-    accepted_source = exists(select(1).select_from(sources).where(sources.c.task_id == p_task, sources.c.release_id == owner_value("release_id"), sources.c.artifact_digest == p_source, or_(
-        sources.c.recipe_digest == p_recipe, exists(select(1).select_from(stage_recipe).where(stage_recipe.c.task_id == p_task, stage_recipe.c.source_digest == p_source, stage_recipe.c.root_recipe_digest == sources.c.recipe_digest, stage_recipe.c.stage_recipe_digest == p_recipe)),
-    )))
+    p_source, p_recipe, p_schema, p_key = (
+        core_variable(name, Text()) for name in ("p_source", "p_recipe", "p_schema", "p_key")
+    )
+    accepted_source = exists(
+        select(1)
+        .select_from(sources)
+        .where(
+            sources.c.task_id == p_task,
+            sources.c.release_id == owner_value("release_id"),
+            sources.c.artifact_digest == p_source,
+            or_(
+                sources.c.recipe_digest == p_recipe,
+                exists(
+                    select(1)
+                    .select_from(stage_recipe)
+                    .where(
+                        stage_recipe.c.task_id == p_task,
+                        stage_recipe.c.source_digest == p_source,
+                        stage_recipe.c.root_recipe_digest == sources.c.recipe_digest,
+                        stage_recipe.c.stage_recipe_digest == p_recipe,
+                    )
+                ),
+            ),
+        )
+    )
     build_type = pg_type(build.schema, build.name)
     build_type.setof = True
-    out.append(routine("begin_pdf_build", (*fence_parameters, *(Parameter(name, pg_type("text")) for name in ("p_source", "p_recipe", "p_schema", "p_key"))), build_type, (
-        require_owner,
-        If(exists(select(1).select_from(request.join(definition, and_(definition.c.release_id == request.c.release_id, definition.c.operation_id == request.c.operation_id))).where(request.c.id == owner_value("request_id"), definition.c.support_contract["effects"][0]["name"].astext == "retain_pdf_observations")), (Raise("recognition retention cannot stage a sealed PDF publication", "23514"),)),
-        require_operation("begin_pdf_build"),
-        If(or_(p_source.is_(None), p_recipe.is_(None), p_schema.is_distinct_from(func.encode(func.sha256(func.ops.pdf_contract_input(owner_value("release_id"), "implementation/pdf/docling-validation.schema.json")), "hex")),
-            p_key.is_(None), p_key == "", func.octet_length(p_key) > profile["max_replay_key_bytes"], ~accepted_source, p_source.is_distinct_from(owner_value("source_digest")),
-            ~exists(select(1).select_from(document).where(document.c.id == owner_value("document_id"), document.c.project_id == owner_value("project_id"), document.c.content_hash == p_source))), (Raise("private PDF build source custody differs", "23514"),)),
-        Assign("id", func.encode(func.sha256(func.convert_to(cast(func.jsonb_build_array(p_task, p_source, p_recipe, p_schema, p_key), Text()), "UTF8")), "hex")),
-        Sql(insert(build).values({build.c.build_id: core_variable("id", build.c.build_id.type), build.c.task_id: p_task, build.c.release_id: owner_value("release_id"), build.c.source_digest: p_source, build.c.recipe_digest: p_recipe, build.c.schema_digest: p_schema, build.c.replay_key: p_key, build.c.attempt: p_attempt, build.c.holder: p_holder, build.c.state: "open"}).on_conflict_do_nothing(index_elements=(build.c.task_id, build.c.replay_key))),
-        SelectInto(select(build).where(build.c.task_id == p_task, build.c.replay_key == p_key), ("build",), True),
-        If(or_(build_value("build_id").is_distinct_from(core_variable("id", build.c.build_id.type)), build_value("attempt").is_distinct_from(p_attempt), build_value("holder").is_distinct_from(p_holder), build_value("state") != "open"), (Raise("private PDF build replay differs or requires explicit resume", "23514"),)),
-        ReturnQuery(select(*(build_value(field.name) for field in build.c))),
-    ), (owner_local, Local("build", build), Local("id", pg_type("text")))))
+    out.append(
+        routine(
+            "begin_pdf_build",
+            (
+                *fence_parameters,
+                *(
+                    Parameter(name, pg_type("text"))
+                    for name in ("p_source", "p_recipe", "p_schema", "p_key")
+                ),
+            ),
+            build_type,
+            (
+                require_owner,
+                If(
+                    exists(
+                        select(1)
+                        .select_from(
+                            request.join(
+                                definition,
+                                and_(
+                                    definition.c.release_id == request.c.release_id,
+                                    definition.c.operation_id == request.c.operation_id,
+                                ),
+                            )
+                        )
+                        .where(
+                            request.c.id == owner_value("request_id"),
+                            definition.c.support_contract["effects"][0]["name"].astext
+                            == "retain_pdf_observations",
+                        )
+                    ),
+                    (
+                        Raise(
+                            "recognition retention cannot stage a sealed PDF publication", "23514"
+                        ),
+                    ),
+                ),
+                require_operation("begin_pdf_build"),
+                If(
+                    or_(
+                        p_source.is_(None),
+                        p_recipe.is_(None),
+                        p_schema.is_distinct_from(
+                            func.encode(
+                                func.sha256(
+                                    func.ops.pdf_contract_input(
+                                        owner_value("release_id"),
+                                        "implementation/pdf/docling-validation.schema.json",
+                                    )
+                                ),
+                                "hex",
+                            )
+                        ),
+                        p_key.is_(None),
+                        p_key == "",
+                        func.octet_length(p_key) > profile["max_replay_key_bytes"],
+                        ~accepted_source,
+                        p_source.is_distinct_from(owner_value("source_digest")),
+                        ~exists(
+                            select(1)
+                            .select_from(document)
+                            .where(
+                                document.c.id == owner_value("document_id"),
+                                document.c.project_id == owner_value("project_id"),
+                                document.c.content_hash == p_source,
+                            )
+                        ),
+                    ),
+                    (Raise("private PDF build source custody differs", "23514"),),
+                ),
+                Assign(
+                    "id",
+                    func.encode(
+                        func.sha256(
+                            func.convert_to(
+                                cast(
+                                    func.jsonb_build_array(
+                                        p_task, p_source, p_recipe, p_schema, p_key
+                                    ),
+                                    Text(),
+                                ),
+                                "UTF8",
+                            )
+                        ),
+                        "hex",
+                    ),
+                ),
+                Sql(
+                    insert(build)
+                    .values(
+                        {
+                            build.c.build_id: core_variable("id", build.c.build_id.type),
+                            build.c.task_id: p_task,
+                            build.c.release_id: owner_value("release_id"),
+                            build.c.source_digest: p_source,
+                            build.c.recipe_digest: p_recipe,
+                            build.c.schema_digest: p_schema,
+                            build.c.replay_key: p_key,
+                            build.c.attempt: p_attempt,
+                            build.c.holder: p_holder,
+                            build.c.state: "open",
+                        }
+                    )
+                    .on_conflict_do_nothing(index_elements=(build.c.task_id, build.c.replay_key))
+                ),
+                SelectInto(
+                    select(build).where(build.c.task_id == p_task, build.c.replay_key == p_key),
+                    ("build",),
+                    True,
+                ),
+                If(
+                    or_(
+                        build_value("build_id").is_distinct_from(
+                            core_variable("id", build.c.build_id.type)
+                        ),
+                        build_value("attempt").is_distinct_from(p_attempt),
+                        build_value("holder").is_distinct_from(p_holder),
+                        build_value("state") != "open",
+                    ),
+                    (
+                        Raise(
+                            "private PDF build replay differs or requires explicit resume", "23514"
+                        ),
+                    ),
+                ),
+                ReturnQuery(select(*(build_value(field.name) for field in build.c))),
+            ),
+            (owner_local, Local("build", build), Local("id", pg_type("text"))),
+        )
+    )
 
     build_local = Local("build", build)
     out.append(
@@ -910,22 +1232,43 @@ def stage_batch_adoption_sql(model):
     build = model.tables["ops.pdf_stage_build"]
     receipt = model.tables["ops.pdf_stage_receipt"]
     p_build, p_task, p_attempt, p_holder, p_key = (
-        core_variable(name, field.type) for name, field in (
-            ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt),
-            ("p_holder", build.c.holder), ("p_key", receipt.c.replay_key),
+        core_variable(name, field.type)
+        for name, field in (
+            ("p_build", build.c.build_id),
+            ("p_task", build.c.task_id),
+            ("p_attempt", build.c.attempt),
+            ("p_holder", build.c.holder),
+            ("p_key", receipt.c.replay_key),
         )
     )
-    n, size, total, total_bytes = (core_variable(name, BigInteger()) for name in ("n", "bytes", "total", "total_bytes"))
+    n, size, total, total_bytes = (
+        core_variable(name, BigInteger()) for name in ("n", "bytes", "total", "total_bytes")
+    )
     hashes, digest = core_variable("hashes", Text()), core_variable("digest", Text())
     statements: list[Statement] = [
         Assign("build", func.ops.require_pdf_build(p_build, p_task, p_attempt, p_holder)),
-        Perform(func.ops.require_pdf_operation(core_variable("build", build.c.release_id.type, "release_id"), "adopt_pdf_batch")),
-        If(or_(p_key.is_(None), p_key == "", func.octet_length(p_key) > profile["max_replay_key_bytes"]), (Raise("invalid private replay key", "23514"),)),
+        Perform(
+            func.ops.require_pdf_operation(
+                core_variable("build", build.c.release_id.type, "release_id"), "adopt_pdf_batch"
+            )
+        ),
+        If(
+            or_(
+                p_key.is_(None),
+                p_key == "",
+                func.octet_length(p_key) > profile["max_replay_key_bytes"],
+            ),
+            (Raise("invalid private replay key", "23514"),),
+        ),
     ]
     scratch_tables = {
-        spec.source.name: Table(spec.name, MetaData(), *(
-            Column(field.name, field.type, nullable=field.nullable) for field in spec.source.c
-        ), schema="pg_temp") for spec in specs
+        spec.source.name: Table(
+            spec.name,
+            MetaData(),
+            *(Column(field.name, field.type, nullable=field.nullable) for field in spec.source.c),
+            schema="pg_temp",
+        )
+        for spec in specs
     }
     for spec in sorted(specs, key=lambda spec: spec.source.fullname):
         relation = spec.source
@@ -933,70 +1276,247 @@ def stage_batch_adoption_sql(model):
         keys = tuple(scratch.c[field.name] for field in relation.primary_key)
         if not keys:
             raise ValueError("PDF incoming scratch requires its declared replay key")
-        prototype = func.ops.pdf_part_upload_contract() if relation.name == "pdf_stage_artifact_part" else cast(literal(relation.fullname), REGCLASS())
-        statements.extend((
-            Perform(func.ops.require_pdf_stage_scratch(spec.name, prototype)),
-            SelectInto(select(func.count(), func.coalesce(func.sum(native_payload_size_expression(scratch)), 0)).select_from(scratch), ("n", "bytes")),
-            Assign("total", total + n), Assign("total_bytes", total_bytes + size),
-            If(or_(total > profile["max_rows"], total_bytes > profile["max_native_bytes"]), (Raise("private PDF upload profile exceeded", "23514"),)),
-            If(or_(exists(select(1).select_from(scratch).where(or_(scratch.c.product_id.is_distinct_from(p_build), scratch.c.revision_id.is_distinct_from(p_build)))),
-                exists(select(1).select_from(scratch).group_by(*keys).having(func.count() > 1))),
-                (Raise("private PDF upload ownership or duplicate key differs", "23514"),)),
-            SelectInto(select(hashes + relation.fullname + ":" + func.encode(func.sha256(func.convert_to(
-                func.coalesce(func.string_agg(cast(func.to_jsonb(scratch.table_valued()), Text()), literal("\n")).aggregate_order_by(*keys), ""), "UTF8")), "hex")).select_from(scratch), ("hashes",)),
-        ))
+        prototype = (
+            func.ops.pdf_part_upload_contract()
+            if relation.name == "pdf_stage_artifact_part"
+            else cast(literal(relation.fullname), REGCLASS())
+        )
+        statements.extend(
+            (
+                Perform(func.ops.require_pdf_stage_scratch(spec.name, prototype)),
+                SelectInto(
+                    select(
+                        func.count(),
+                        func.coalesce(func.sum(native_payload_size_expression(scratch)), 0),
+                    ).select_from(scratch),
+                    ("n", "bytes"),
+                ),
+                Assign("total", total + n),
+                Assign("total_bytes", total_bytes + size),
+                If(
+                    or_(total > profile["max_rows"], total_bytes > profile["max_native_bytes"]),
+                    (Raise("private PDF upload profile exceeded", "23514"),),
+                ),
+                If(
+                    or_(
+                        exists(
+                            select(1)
+                            .select_from(scratch)
+                            .where(
+                                or_(
+                                    scratch.c.product_id.is_distinct_from(p_build),
+                                    scratch.c.revision_id.is_distinct_from(p_build),
+                                )
+                            )
+                        ),
+                        exists(
+                            select(1).select_from(scratch).group_by(*keys).having(func.count() > 1)
+                        ),
+                    ),
+                    (Raise("private PDF upload ownership or duplicate key differs", "23514"),),
+                ),
+                SelectInto(
+                    select(
+                        hashes
+                        + relation.fullname
+                        + ":"
+                        + func.encode(
+                            func.sha256(
+                                func.convert_to(
+                                    func.coalesce(
+                                        func.string_agg(
+                                            cast(func.to_jsonb(scratch.table_valued()), Text()),
+                                            literal("\n"),
+                                        ).aggregate_order_by(*keys),
+                                        "",
+                                    ),
+                                    "UTF8",
+                                )
+                            ),
+                            "hex",
+                        )
+                    ).select_from(scratch),
+                    ("hashes",),
+                ),
+            )
+        )
     document = scratch_tables["pdf_stage_document"]
-    statements.extend((
-        If(exists(select(1).select_from(document).where(or_(
-            document.c.release_id.is_distinct_from(core_variable("build", build.c.release_id.type, "release_id")),
-            document.c.source_digest.is_distinct_from(core_variable("build", build.c.source_digest.type, "source_digest")),
-            document.c.native_schema_digest.is_distinct_from(core_variable("build", build.c.schema_digest.type, "schema_digest")),
-        ))), (Raise("private PDF header binding differs", "23514"),)),
-        Assign("digest", func.encode(func.sha256(func.convert_to(hashes, "UTF8")), "hex")),
-        SelectInto(select(receipt).where(receipt.c.build_id == p_build, receipt.c.replay_key == p_key), ("receipt",)),
-        If(core_variable("found", Boolean()), (
-            If(or_(core_variable("receipt", receipt.c.content_digest.type, "content_digest").is_distinct_from(digest),
-                   core_variable("receipt", receipt.c.row_count.type, "row_count").is_distinct_from(total)),
-               (Raise("private PDF batch replay differs", "23514"),)),
-        )),
-    ))
+    statements.extend(
+        (
+            If(
+                exists(
+                    select(1)
+                    .select_from(document)
+                    .where(
+                        or_(
+                            document.c.release_id.is_distinct_from(
+                                core_variable("build", build.c.release_id.type, "release_id")
+                            ),
+                            document.c.source_digest.is_distinct_from(
+                                core_variable("build", build.c.source_digest.type, "source_digest")
+                            ),
+                            document.c.native_schema_digest.is_distinct_from(
+                                core_variable("build", build.c.schema_digest.type, "schema_digest")
+                            ),
+                        )
+                    )
+                ),
+                (Raise("private PDF header binding differs", "23514"),),
+            ),
+            Assign("digest", func.encode(func.sha256(func.convert_to(hashes, "UTF8")), "hex")),
+            SelectInto(
+                select(receipt).where(receipt.c.build_id == p_build, receipt.c.replay_key == p_key),
+                ("receipt",),
+            ),
+            If(
+                core_variable("found", Boolean()),
+                (
+                    If(
+                        or_(
+                            core_variable(
+                                "receipt", receipt.c.content_digest.type, "content_digest"
+                            ).is_distinct_from(digest),
+                            core_variable(
+                                "receipt", receipt.c.row_count.type, "row_count"
+                            ).is_distinct_from(total),
+                        ),
+                        (Raise("private PDF batch replay differs", "23514"),),
+                    ),
+                ),
+            ),
+        )
+    )
     for spec in specs:
         relation = spec.source
         scratch = scratch_tables[relation.name]
         if relation.name == "pdf_stage_artifact_part":
-            statements.append(Perform(func.ops.pdf_adopt_shared_stream_parts(p_build, cast(literal(scratch.fullname), REGCLASS()))))
+            statements.append(
+                Perform(
+                    func.ops.pdf_adopt_shared_stream_parts(
+                        p_build, cast(literal(scratch.fullname), REGCLASS())
+                    )
+                )
+            )
             continue
         if relation.name == "pdf_stage_artifact_stream":
-            statements.append(Perform(func.ops.pdf_adopt_shared_stream_descriptors(p_build, cast(literal(scratch.fullname), REGCLASS()))))
-        statements.extend((
-            Sql(insert(relation).from_select(tuple(relation.c.keys()), select(*(scratch.c[field.name] for field in relation.c))).on_conflict_do_nothing()),
-            If(exists(select(*(scratch.c[field.name] for field in relation.c)).except_(select(relation))), (Raise("changed private record duplicate", "23514"),)),
-        ))
-    touched = select(scratch_tables["pdf_stage_artifact_stream"].c.stream_id).union(
-        select(scratch_tables["pdf_stage_artifact_part"].c.stream_id)
-    ).subquery("touched")
-    statements.extend((
-        PerformQuery(select(func.ops.pdf_verify_shared_stream(p_build, touched.c.stream_id, False))),
-        If(core_variable("receipt", receipt.c.build_id.type, "build_id").is_(None), (
-            SelectInto(insert(receipt).values({receipt.c.build_id: p_build, receipt.c.replay_key: p_key, receipt.c.content_digest: digest, receipt.c.row_count: total}).returning(*receipt.c), ("receipt",)),
-        )),
-        ReturnQuery(select(*(core_variable("receipt", field.type, field.name) for field in receipt.c))),
-    ))
-    parameters = tuple(Parameter(name, column_type(field)) for name, field in (
-        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder), ("p_key", receipt.c.replay_key),
-    ))
+            statements.append(
+                Perform(
+                    func.ops.pdf_adopt_shared_stream_descriptors(
+                        p_build, cast(literal(scratch.fullname), REGCLASS())
+                    )
+                )
+            )
+        statements.extend(
+            (
+                Sql(
+                    insert(relation)
+                    .from_select(
+                        tuple(relation.c.keys()),
+                        select(*(scratch.c[field.name] for field in relation.c)),
+                    )
+                    .on_conflict_do_nothing()
+                ),
+                If(
+                    exists(
+                        select(*(scratch.c[field.name] for field in relation.c)).except_(
+                            select(relation)
+                        )
+                    ),
+                    (Raise("changed private record duplicate", "23514"),),
+                ),
+            )
+        )
+    touched = (
+        select(scratch_tables["pdf_stage_artifact_stream"].c.stream_id)
+        .union(select(scratch_tables["pdf_stage_artifact_part"].c.stream_id))
+        .subquery("touched")
+    )
+    statements.extend(
+        (
+            PerformQuery(
+                select(func.ops.pdf_verify_shared_stream(p_build, touched.c.stream_id, False))
+            ),
+            If(
+                core_variable("receipt", receipt.c.build_id.type, "build_id").is_(None),
+                (
+                    SelectInto(
+                        insert(receipt)
+                        .values(
+                            {
+                                receipt.c.build_id: p_build,
+                                receipt.c.replay_key: p_key,
+                                receipt.c.content_digest: digest,
+                                receipt.c.row_count: total,
+                            }
+                        )
+                        .returning(*receipt.c),
+                        ("receipt",),
+                    ),
+                ),
+            ),
+            ReturnQuery(
+                select(*(core_variable("receipt", field.type, field.name) for field in receipt.c))
+            ),
+        )
+    )
+    parameters = tuple(
+        Parameter(name, column_type(field))
+        for name, field in (
+            ("p_build", build.c.build_id),
+            ("p_task", build.c.task_id),
+            ("p_attempt", build.c.attempt),
+            ("p_holder", build.c.holder),
+            ("p_key", receipt.c.replay_key),
+        )
+    )
     returns = pg_type(receipt.schema, receipt.name)
     returns.setof = True
-    declaration = function("ops", "adopt_pdf_batch", parameters=parameters, returns=returns, security_definer=True,
-        search_path=("pg_catalog", "pg_temp"), body=Block(tuple(statements), (
-            Local("build", build), Local("receipt", receipt), Local("n", pg_type("bigint")), Local("bytes", pg_type("bigint")),
-            Local("total", pg_type("bigint"), literal(0)), Local("total_bytes", pg_type("bigint"), literal(0)),
-            Local("hashes", pg_type("text"), literal("")), Local("digest", pg_type("text")),
-        )))
-    identity = ast.ObjectWithArgs(objname=(ast.String(sval="ops"), ast.String(sval="adopt_pdf_batch")), objargs=tuple(parameter.type_ for parameter in parameters), args_unspecified=False)
-    revoke = ast.GrantStmt(is_grant=False, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT, objtype=enums.ObjectType.OBJECT_FUNCTION,
-        objects=(identity,), grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),), grant_option=False, behavior=enums.DropBehavior.DROP_RESTRICT)
-    grant = ast.GrantStmt(is_grant=True, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT, objtype=enums.ObjectType.OBJECT_FUNCTION,
-        objects=(identity,), privileges=(ast.AccessPriv(priv_name="execute"),),
-        grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"),), behavior=enums.DropBehavior.DROP_RESTRICT)
+    declaration = function(
+        "ops",
+        "adopt_pdf_batch",
+        parameters=parameters,
+        returns=returns,
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            tuple(statements),
+            (
+                Local("build", build),
+                Local("receipt", receipt),
+                Local("n", pg_type("bigint")),
+                Local("bytes", pg_type("bigint")),
+                Local("total", pg_type("bigint"), literal(0)),
+                Local("total_bytes", pg_type("bigint"), literal(0)),
+                Local("hashes", pg_type("text"), literal("")),
+                Local("digest", pg_type("text")),
+            ),
+        ),
+    )
+    identity = ast.ObjectWithArgs(
+        objname=(ast.String(sval="ops"), ast.String(sval="adopt_pdf_batch")),
+        objargs=tuple(parameter.type_ for parameter in parameters),
+        args_unspecified=False,
+    )
+    revoke = ast.GrantStmt(
+        is_grant=False,
+        targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+        objtype=enums.ObjectType.OBJECT_FUNCTION,
+        objects=(identity,),
+        grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
+        grant_option=False,
+        behavior=enums.DropBehavior.DROP_RESTRICT,
+    )
+    grant = ast.GrantStmt(
+        is_grant=True,
+        targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+        objtype=enums.ObjectType.OBJECT_FUNCTION,
+        objects=(identity,),
+        privileges=(ast.AccessPriv(priv_name="execute"),),
+        grantees=(
+            ast.RoleSpec(
+                roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"
+            ),
+        ),
+        behavior=enums.DropBehavior.DROP_RESTRICT,
+    )
     return declaration + ";\n" + RawStream()(revoke) + ";\n" + RawStream()(grant) + ";\n"

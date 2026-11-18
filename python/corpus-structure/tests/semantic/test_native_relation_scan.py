@@ -70,7 +70,9 @@ def test_native_perform_query_executes_every_selected_effect_row(semantic_bare_e
     from corpus_structure.semantic.native_program import PerformQuery
 
     rows = func.generate_series(1, 3).table_valued("ordinal")
-    query = select(func.nextval(cast(sql_literal("pg_temp.effect_counter"), REGCLASS()))).select_from(rows)
+    query = select(
+        func.nextval(cast(sql_literal("pg_temp.effect_counter"), REGCLASS()))
+    ).select_from(rows)
     program = function(
         "checker_test",
         "consume_rows",

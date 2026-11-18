@@ -160,7 +160,7 @@ It addresses FP-04/05/07, DP-02/07/08/12, CI-05/08 and A2/A4/G6.
 
 **Interface-checked diagnosis, 2026-11-10.** Current `compile_attachment_policies()` and
 `validate_released_attachment_rule()` authenticate released basis schemas. The
-[native characterization guard](../../../python/corpus-structure/src/corpus_structure/semantic/sql/characterization.sql)
+[historical native characterization guard](../../README.md#historical-recovery) (`characterization.sql` before its retirement)
 checks that schema and reference existence. Those checks alone do not establish that the
 supplied host/member corresponds to the rule's actual witness bindings. Existing
 [`predicate_argument_inventory`](https://github.com/paul-heyse/corpus-structure/blob/1bb87f8b2/python/corpus-structure/src/corpus_structure/semantic/sql/source_contributions.sql)

@@ -1,0 +1,4 @@
+# Model-owned PDF staging, claims and attempt release, plus contextual scoring.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n6
+native_revision: semantic_ddo_pe_n7
