@@ -41,6 +41,9 @@ def recorded_authoring_provenance(admission: str) -> NativeAuthoringProvenance:
 
 def catalog_checks(body: str) -> str:
     """Reuse the immutable guard's catalog checks without its release reads or writes."""
+    from .native_admission_release import CATALOG_END
+
+    receipt_boundary = CATALOG_END if CATALOG_END in body else " IF NOT EXISTS(SELECT FROM sem.deployment_admission "
     boundaries = (
         (
             " IF NOT EXISTS(SELECT FROM sem.physical_contract ",
@@ -48,7 +51,7 @@ def catalog_checks(body: str) -> str:
         ),
         (
             " SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions')",
-            " IF NOT EXISTS(SELECT FROM sem.deployment_admission ",
+            receipt_boundary,
         ),
     )
     checks = []
@@ -405,7 +408,7 @@ def native_admission_sql(
         policy["acl"] = sorted(
             [(role, "USAGE", False) for role in roles] + [("corpus_sem_publisher", "CREATE", False)]
         )
-    required = admission_kernel()
+    required = admission_kernel(target_metadata=target_metadata)
     policy_marker = " IF EXISTS(SELECT FROM pg_roles WHERE rolname='corpus_sem_evaluator'"
     if policy_marker not in required:
         raise ValueError("missing privilege admission insertion boundary")

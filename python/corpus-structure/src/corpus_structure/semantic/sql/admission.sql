@@ -1,10 +1,6 @@
 CREATE OR REPLACE FUNCTION data.require_execution_release(r text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $admission$
 DECLARE expected jsonb; spec jsonb; owner_name text; invalid_inference boolean; json_value_classes text[]; current_json_projection boolean;
 BEGIN
- -- {finalized_release}
- PERFORM sem.require_execution_projection(r);
- IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r) THEN RAISE EXCEPTION 'unknown execution release' USING ERRCODE='23514'; END IF;
- expected:=data.execution_contract_descriptor();
  IF NOT EXISTS(SELECT FROM sem.physical_contract WHERE physical_id=expected->>'physical_id' AND source_digest=expected->>'physical_checks_source_digest') THEN
   RAISE EXCEPTION 'physical CHECK contract is unavailable' USING ERRCODE='23514'; END IF;
  SELECT item.value INTO spec FROM sem.physical_contract artifact CROSS JOIN LATERAL jsonb_array_elements(artifact.checks) item
@@ -181,7 +177,6 @@ BEGIN
  IF EXISTS(SELECT FROM (VALUES('corpus_sem_writer'),('corpus_sem_reader'),('corpus_sem_admitter'),('corpus_sem_evaluator')) principal(name)
   WHERE has_database_privilege(principal.name,current_database(),'TEMP') OR pg_has_role(principal.name,'corpus_sem_publisher','MEMBER') OR pg_has_role(principal.name,owner_name,'MEMBER')) THEN
   RAISE EXCEPTION 'privileged runtime principal' USING ERRCODE='42501'; END IF;
- -- {record_native_admission}
 END
 $admission$;
 ALTER FUNCTION data.require_execution_release(text) OWNER TO corpus_sem_publisher;

@@ -137,6 +137,7 @@ def capture_native_authoring_inputs(
                 "runtime_binding_native.py",
                 "data_operation_runtime.py",
                 "native_admission.py",
+                "native_admission_release.py",
                 "native_authoring.py",
                 "alembic_checks.py",
                 "alembic_defaults.py",
@@ -376,30 +377,15 @@ def current_admission_fields(
     return descriptor
 
 
-def admission_kernel() -> str:
-    """Current enforcement kernel; this does not prepare native deployment products."""
+def admission_kernel(*, target_metadata: MetaData | None = None) -> str:
+    """Compose the current guard with model-bound release and receipt programs."""
     from pathlib import Path
 
-    required = Path(__file__).with_name("sql").joinpath("admission.sql").read_text()
-    required = required.replace(
-        "-- {finalized_release}",
-        (
-            "IF NOT EXISTS(SELECT FROM sem.release_finalization WHERE release_id=r) THEN RAISE "
-            "EXCEPTION 'release is not finalized' USING ERRCODE='23514'; END IF;"
-        ),
-    )
-    required = required.replace(
-        "-- {record_native_admission}",
-        (
-            "IF NOT EXISTS(SELECT FROM sem.deployment_admission WHERE release_id=r AND physical"
-            "_id=expected->>'physical_id' AND deployment_id=encode(sha256(convert_to(expected::"
-            "text,'UTF8')),'hex') AND kind='native' AND content=convert_to(expected::text,'UTF8"
-            "')) THEN\n IF NOT (pg_has_role(session_user,'corpus_sem_admitter','USAGE') OR pg_h"
-            "as_role(session_user,owner_name,'MEMBER')) THEN RAISE EXCEPTION 'native admission "
-            "requires restricted admission phase' USING ERRCODE='42501'; END IF;\n PERFORM sem."
-            "record_deployment_admission(r,expected->>'physical_id',encode(sha256(convert_to(ex"
-            "pected::text,'UTF8')),'hex'),'native',convert_to(expected::text,'UTF8'));\n END IF"
-            ";"
-        ),
-    )
-    return required
+    from .native_admission_release import admission_kernel as compile_admission
+
+    if target_metadata is None:
+        from .metadata import metadata
+
+        target_metadata = metadata
+    retained = Path(__file__).with_name("sql").joinpath("admission.sql").read_text()
+    return compile_admission(retained, target_metadata)
