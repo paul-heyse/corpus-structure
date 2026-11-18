@@ -573,43 +573,55 @@ def test_rich_consumes_exact_sealed_policy_authority_without_reentering_issuance
     )
 
     body = function_bodies(rich_admission_native_sql())["ops.ddo_require_rich_admission_completion"]
-    start = body.index("SELECT producer.id INTO STRICT authorization_episode")
-    end = body.index(";", start)
+    import re
+
+    into = body.index("INTO STRICT authorization_episode")
+    start = body.rfind(";", 0, into) + 1
+    end = body.index(";", into)
     query = body[start:end].replace("INTO STRICT authorization_episode", "", 1)
-    expected = """SELECT producer.id FROM ops.data_derivation producer
-    JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
-    WHERE producer.request_id=authorization_request.id AND EXISTS(
-      SELECT FROM jsonb_array_elements(reference->'support_references') support
-      WHERE support->>'derivation_id'=producer.id)"""
+    expected = """SELECT ops.data_derivation.id FROM ops.data_derivation
+    JOIN ops.data_completion_intent ON ops.data_completion_intent.id=ops.data_derivation.intent_id
+    WHERE ops.data_derivation.request_id=authorization_request.id AND EXISTS(
+      SELECT 1 FROM jsonb_array_elements(reference['support_references']) AS support(value)
+      WHERE support.value->>'derivation_id'=ops.data_derivation.id)"""
     assert parse_sql(query)[0].stmt == parse_sql(expected)[0].stmt
-    guard = body[body.index("IF ops.ddo_policy_authority_leaf", end) :].split("END IF;", 1)[0]
-    condition = guard.split("IF ", 1)[1].split(" THEN", 1)[0]
-    assert (
-        parse_sql("SELECT " + condition)[0].stmt
-        == parse_sql("SELECT ops.ddo_policy_authority_leaf(authorization_episode) IS NOT TRUE")[
-            0
-        ].stmt
-    )
-    assert "'rich policy lacks its authentic issued public authorization'" in guard
-    assert "ERRCODE='23514'" in guard
+
+    def condition_before(message):
+        position = body.index(message)
+        beginning = body.rfind("IF ", 0, position) + len("IF ")
+        return body[beginning:body.index(" THEN", beginning)]
+
+    condition = condition_before("rich policy lacks its authentic issued public authorization")
+    assert parse_sql("SELECT " + condition)[0].stmt == parse_sql(
+        "SELECT ops.ddo_policy_authority_leaf(authorization_episode) IS NOT TRUE"
+    )[0].stmt
+    guard_start = body.rfind("IF ", 0, body.index("rich policy lacks its authentic issued public authorization"))
+    guard = body[guard_start:].split("END IF;", 1)[0]
+    assert re.search(r"ERRCODE\s*=\s*'23514'", guard)
     assert "ddo_require_policy_authorization_completion" not in body
-    # The consumer still selects its exact bound public body and native issuer
-    # before authenticating the sealed output. It receives no issuer capability.
-    assert (
-        body.index("policy_meaning:=ops.ddo_rich_selected_value")
-        < body.index("authorization_request:=ops.ddo_rich_producing_request")
-        < start
-        < body.index("IF ops.ddo_policy_authority_leaf", end)
-    )
-    assert "'record_policy.authorize'" in body
-    assert (
-        "'corpus_structure.methods.record_policy.RecordPolicyAuthorization.acquire_port','authorization',false"
-        in body
-    )
-    assert (
-        "kind.kind='https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization' AND kind.universe='ordinary'"
-        in body
-    )
+
+    def assignment(name):
+        assignment_start = body.index(name + " :=")
+        expression_start = body.index(":=", assignment_start) + len(":=")
+        return assignment_start, body[expression_start:body.index(";", expression_start)]
+
+    selected_at, selected = assignment("policy_meaning")
+    issuer_at, producing = assignment("authorization_request")
+    assert selected_at < issuer_at < start < guard_start
+    assert parse_sql("SELECT " + selected)[0].stmt == parse_sql(
+        "SELECT ops.ddo_rich_selected_value(r.project_id,basis,'policy_authorizations',reference)"
+    )[0].stmt
+    assert parse_sql("SELECT " + producing)[0].stmt == parse_sql(
+        "SELECT ops.ddo_rich_producing_request(r.project_id,reference,'record_policy.authorize',"
+        "'corpus_structure.methods.record_policy.RecordPolicyAuthorization.acquire_port','authorization',false)"
+    )[0].stmt
+    public_kind = condition_before("rich policy is not the actual public authorization contract")
+    assert parse_sql("SELECT " + public_kind)[0].stmt == parse_sql(
+        "SELECT NOT EXISTS(SELECT 1 FROM sem.data_kind_contract WHERE "
+        "sem.data_kind_contract.kind_contract=reference->>'kind_contract' AND "
+        "sem.data_kind_contract.kind='https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization' "
+        "AND sem.data_kind_contract.universe='ordinary')"
+    )[0].stmt
     issuer = function_bodies(record_policy_completion_native_sql(metadata))[
         "ops.ddo_require_policy_authorization_completion"
     ]
@@ -631,6 +643,7 @@ def test_generated_rich_producer_authority_binds_actual_native_model(native_roll
         "ops.ddo_rich_require_preparation_producer(ops.data_request,jsonb)",
         "ops.ddo_require_rich_preparation_completion(ops.data_request,jsonb)",
         "ops.ddo_rich_require_proposal_inputs(text,jsonb)",
+        "ops.ddo_require_rich_admission_completion(ops.data_request,jsonb)",
         "ops.ddo_rich_require_admission_producer(ops.data_request,jsonb)",
         "ops.ddo_rich_admission_dependencies_valid(text)",
     )
@@ -660,8 +673,9 @@ def test_rich_authority_resolves_the_explicit_captured_relations():
     captured.tables["ops.data_derivation"].name = "captured_rich_episode"
     captured.tables["kb.data_product"].name = "captured_rich_product"
     bodies = function_bodies(rich_admission_native_sql(target_metadata=captured))
-    for name in ("ddo_rich_producing_request", "ddo_rich_admission_dependencies_valid"):
+    for name in ("ddo_rich_producing_request", "ddo_rich_admission_dependencies_valid", "ddo_rich_require_proposal_inputs", "ddo_require_rich_admission_completion"):
         assert "ops.captured_rich_episode" in bodies["ops." + name]
         assert re.search(r"\bops\.data_derivation\b", bodies["ops." + name]) is None
-    assert "kb.captured_rich_product" in bodies["ops.ddo_rich_selected_value"]
-    assert "kb.data_product " not in bodies["ops.ddo_rich_selected_value"]
+    for name in ("ddo_rich_selected_value", "ddo_require_rich_admission_completion"):
+        assert "kb.captured_rich_product" in bodies["ops." + name]
+        assert re.search(r"\bkb\.data_product\b", bodies["ops." + name]) is None

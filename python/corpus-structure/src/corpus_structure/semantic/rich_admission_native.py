@@ -18,6 +18,7 @@ from .native_program import (
     Assign,
     Block,
     CatchDependencyInvalidity,
+    Continue,
     ForQuery,
     If,
     Local,
@@ -270,248 +271,126 @@ def _rich_preparation_programs(p):
     ))
 
 
+def _rich_admission_program(p):
+    definitions, episodes, intents, products, members, kinds = (p.table(name) for name in ("sem.data_operation_definition", "ops.data_derivation", "ops.data_completion_intent", "kb.data_product", "kb.data_product_member", "sem.data_kind_contract"))
+    json_names = ("basis", "admission_meaning", "admission", "consolidated_meaning", "consolidated", "consolidation_basis", "selected", "resolution_basis", "reference", "decision", "raw_meaning", "resolved_meaning", "raw_record", "resolved_record", "resolution_meaning", "report", "policy_meaning", "policy", "events", "event", "item", "packet", "raw_comparison", "resolved_comparison", "assertion", "known_meaning", "known_graph")
+    basis, admission_meaning, admission, consolidated_meaning, consolidated, consolidation_basis, selected = (_value(name) for name in json_names[:7])
+    resolution_basis, reference, decision, raw_meaning, resolved_meaning, raw_record, resolved_record, resolution_meaning, report, policy_meaning, policy, events, event, item, packet, raw_comparison, resolved_comparison, assertion, known_meaning, known_graph = (_value(name) for name in json_names[7:])
+    reports, raw_reports, policies, known_packets = (_value(name) for name in ("reports", "raw_reports", "policies", "known_packets"))
+    request = p.row("r", "ops.data_request")
+    project = p.row("r", "ops.data_request", "project_id")
+    completion = _value("completion")
+
+    def headers(value, name="header"):
+        return func.ops.ddo_rich_role_headers(value).table_valued(column("value", JSONB())).render_derived(name=name)
+
+    def role_population(left, right, role):
+        return func.ops.ddo_rich_role_population(left, role).is_distinct_from(func.ops.ddo_rich_role_population(right, role))
+
+    def producer_episode(request_name, target, *, with_intent=False):
+        support = _items(reference["support_references"], "support")
+        relation = episodes.join(intents, intents.c.id == episodes.c.intent_id) if with_intent else episodes
+        return SelectInto(select(episodes.c.id).select_from(relation).where(episodes.c.request_id == p.row(request_name, "ops.data_request", "id"), select(1).select_from(support).where(support.c.value["derivation_id"].astext == episodes.c.id).exists()), (target,), strict=True)
+
+    bound = headers(consolidation_basis)
+    known_members = _items(_field(known_meaning, "members")[1], "known_member")
+    admission_members = _items(_field(admission_meaning, "members")[1], "admitted_member")
+    original_members = _items(_field(consolidated_meaning, "members")[1], "original_member")
+    plain_members = _items(admission["members"], "member")
+    policy_refs = _items(admission["policy_authorizations"], "policy_reference")
+    event_rows = _items(events, "event_row")
+    resolution_headers = headers(resolution_basis, "resolution_header")
+    judgments = _items(admission["reading_decisions"], "judgment")
+    report_inputs = _items(report["inputs"], "input")
+    raw_pairs = _items(raw_meaning[1], "raw_pair")
+    resolved_pairs = _items(resolved_meaning[1], "resolved_pair")
+    dependencies = _items(_field(raw_meaning, "computation_dependencies")[1], "dependency")
+    retained = _items(_field(resolved_meaning, "computation_dependencies")[1], "retained")
+    selected_ids = func.jsonb_array_elements_text(admission["selected_reading_ids"]).table_valued(column("value", Text())).render_derived(name="selected_id")
+    effects = _items(definitions.c.support_contract["effects"], "effect")
+    foreign_effect = select(1).select_from(definitions.join(effects, literal(True))).where(definitions.c.release_id == p.row("r", "ops.data_request", "release_id"), definitions.c.operation_id == p.row("r", "ops.data_request", "operation_id"), effects.c.value["name"].astext == "native-rich-knowledge-admission").exists()
+    census = []
+    for role, endpoint, message in (("records", "original", "rich decision census omits or duplicates actual raw records"), ("readings", "resolved", "rich decision census omits or duplicates actual resolved records")):
+        missing = select(func.count()).select_from(judgments).where(judgments.c.value[endpoint]["product_id"].astext == members.c.product_id, judgments.c.value[endpoint]["member_id"].astext == members.c.member_id).correlate(members).scalar_subquery() != 1
+        census.append(_reject(select(1).select_from(bound.join(members, members.c.product_id == bound.c.value["product_id"].astext)).where(bound.c.value["role"].astext == role, _field(members.c.body, "candidate_type") == _json(["string", "record"]), missing).exists(), message))
+    p.add("ddo_require_rich_admission_completion", (("r", "ops.data_request"), ("completion", "jsonb")), (
+        If(p.row("r", "ops.data_request", "operation_id").is_distinct_from("rich.admit"), (_reject(foreign_effect, "rich admission effect requires its actual operation owner"), Return())),
+        Perform(func.ops.ddo_rich_require_admission_producer(request, completion)),
+        Assign("basis", func.ops.ddo_cpu_input_basis(request)), Assign("admission_meaning", func.data.ddo_normalize(completion["outputs"][0]["product"]["body"])),
+        _reject(func.ops.ddo_cpu_reply_output(request, completion).is_distinct_from(admission_meaning), "rich admission differs from exact CPU decision and graph projection"),
+        Assign("admission", _plain(admission_meaning)), Assign("consolidated_meaning", func.ops.ddo_rich_selected_value(project, basis, "consolidation", admission["consolidation"])), Assign("consolidated", _plain(consolidated_meaning)),
+        Assign("consolidation_request", func.ops.ddo_rich_producing_request(project, admission["consolidation"], "rich.consolidate", "corpus_structure.methods.rich_knowledge.RichKnowledgeConsolidation.acquire_port", "consolidated", True)),
+        _retained_completion(p, "consolidation_request", admission["consolidation"]),
+        _reject(func.ops.ddo_cpu_reply_output(p.row("consolidation_request", "ops.data_request"), item).is_distinct_from(consolidated_meaning), "rich consolidation differs from actual original CPU graph reply"),
+        Assign("consolidation_basis", func.ops.ddo_cpu_input_basis(p.row("consolidation_request", "ops.data_request"))),
+        _reject(or_(consolidated["version"].astext.is_distinct_from("rich-consolidation-1"), consolidated["standing"].astext.is_distinct_from("private-consolidated"), admission["version"].astext.is_distinct_from("rich-admission-1"), admission["standing"].astext.is_distinct_from("accepted"), *(role_population(basis, consolidation_basis, role) for role in ("records", "readings"))), "rich admission changes actual consolidated records/readings population or producer custody"),
+        _reject(or_(admission["eligibility_policy_digest"].astext.is_(None), admission["eligibility_policy_digest"].astext.op("!~")("^[0-9a-f]{64}$"), admission["eligibility_policy_digest"].astext.is_distinct_from(consolidated["eligibility"]["eligibility_policy_digest"].astext), *(admission[key].is_distinct_from(consolidated["eligibility"][key]) for key in ("selected_fact_ids", "selected_occurrence_ids", "scientific_representatives"))), "rich admission changes actual rule eligibility or its checked policy basis"),
+        Perform(func.ops.ddo_rich_require_proposal_inputs(project, consolidation_basis)),
+        ForQuery(("selected",), select(bound.c.value).where(bound.c.value["role"].astext == "known_universe"), (
+            Assign("reference", _selected_reference(selected)), Assign("known_request", func.ops.ddo_rich_producing_request(project, reference, "rich.admit", "corpus_structure.methods.rich_knowledge.RichKnowledgeAdmission.acquire_port", "admission", False)),
+            producer_episode("known_request", "known_episode"),
+            _reject(~func.ops.ddo_rich_admission_dependencies_valid(_value("known_episode", Text())), "rich known universe lacks actual sealed native admission authority"),
+            SelectInto(select(products.c.canonical_body).where(products.c.id == reference["product_id"].astext, products.c.project_id == project), ("known_meaning",), strict=True), Assign("known_graph", _plain(known_meaning)),
+            _reject(or_(known_graph["eligibility_policy_digest"].astext.is_distinct_from(admission["eligibility_policy_digest"].astext), func.jsonb_typeof(known_graph["selected_reading_ids"]).is_distinct_from("array")), "rich known eligibility requires its actual current policy basis and selection"),
+            ForQuery(("packet",), select(known_members.c.value).where(_field(known_members.c.value, "body", "member_type") == _json(["string", "source-reading-assertion"]), known_graph["selected_reading_ids"].has_key(_text(known_members.c.value, "member_id"))), (Assign("known_packets", known_packets.op("||")(func.jsonb_build_object(func.ops.ddo_digest(func.data.ddo_normalize(packet)), func.data.ddo_normalize(packet)))),)),
+        )),
+        _reject(or_(select(1).select_from(admission_members).where(~select(1).select_from(original_members).where(func.data.ddo_normalize(original_members.c.value) == func.data.ddo_normalize(admission_members.c.value)).correlate(admission_members).exists()).exists(), select(1).select_from(plain_members).group_by(plain_members.c.value["member_id"].astext).having(func.count() != 1).exists()), "rich admission changes actual consolidated graph members"),
+        _reject(func.jsonb_array_length(admission["policy_authorizations"]).is_distinct_from(func.jsonb_array_length(func.ops.ddo_rich_role_population(basis, "policy_authorizations"))), "rich policy population differs from actual declared authorizations"),
+        ForQuery(("reference",), select(policy_refs.c.value), (
+            _reject(or_(reference["member_id"].astext.is_not(None), policies.has_key(reference["product_id"].astext)), "rich policy requires unique whole issued authorizations"),
+            Assign("policy_meaning", func.ops.ddo_rich_selected_value(project, basis, "policy_authorizations", reference)),
+            Assign("authorization_request", func.ops.ddo_rich_producing_request(project, reference, "record_policy.authorize", "corpus_structure.methods.record_policy.RecordPolicyAuthorization.acquire_port", "authorization", False)),
+            _reject(~select(1).select_from(kinds).where(kinds.c.kind_contract == reference["kind_contract"].astext, kinds.c.kind == "https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization", kinds.c.universe == "ordinary").exists(), "rich policy is not the actual public authorization contract"),
+            producer_episode("authorization_request", "authorization_episode", with_intent=True),
+            _reject(func.ops.ddo_policy_authority_leaf(_value("authorization_episode", Text())).is_not(True), "rich policy lacks its authentic issued public authorization"),
+            Assign("policies", policies.op("||")(func.jsonb_build_object(reference["product_id"].astext, func.jsonb_build_object("reference", reference, "body", _plain(policy_meaning))))),
+        )),
+        ForQuery(("selected",), select(bound.c.value).where(bound.c.value["role"].astext == "records"), (
+            Assign("reference", _selected_reference(selected)), Perform(func.ops.ddo_rich_producing_request(project, reference, literal(None), literal(None), literal(None), True)),
+            SelectInto(select(func.ops.ddo_digest(products.c.canonical_body)).where(products.c.id == selected["product_id"].astext, products.c.project_id == project), ("raw_digest",), strict=True),
+            Assign("raw_reports", raw_reports.op("||")(func.jsonb_build_object(selected["product_id"].astext, _value("raw_digest", Text())))),
+        )),
+        ForQuery(("selected",), select(bound.c.value).where(bound.c.value["role"].astext == "readings"), (
+            Assign("reference", _selected_reference(selected)), Assign("resolution_request", func.ops.ddo_rich_producing_request(project, reference, "resolve.m1_readings/declared", "corpus_structure.methods.reading_resolution.ReadingResolutionOperation.acquire_port", "result", True)),
+            Assign("resolution_basis", func.ops.ddo_cpu_input_basis(p.row("resolution_request", "ops.data_request"))), Assign("resolution_meaning", func.ops.ddo_rich_selected_value(project, consolidation_basis, "readings", reference)), _retained_completion(p, "resolution_request", reference),
+            _reject(func.ops.ddo_cpu_reply_output(p.row("resolution_request", "ops.data_request"), item).is_distinct_from(resolution_meaning), "rich final-event report differs from actual original reading CPU reply"), Assign("report", _plain(resolution_meaning)), Assign("events", cast(report["diagnostics_json"].astext, JSONB())["record_policy_events"]),
+            _reject(or_(func.jsonb_typeof(events).is_distinct_from("array"), select(1).select_from(event_rows).group_by(event_rows.c.value["record_id"].astext, event_rows.c.value["interpretation_id"].astext).having(func.count() != 1).exists()), "rich resolution requires unique actual final-event attribution"),
+            SelectInto(select(func.coalesce(func.jsonb_object_agg(func.data.canonical_json(func.jsonb_build_array(event_rows.c.value["record_id"].astext, event_rows.c.value["interpretation_id"].astext)), event_rows.c.value), _json({}))), ("events",)),
+            Assign("reports", reports.op("||")(func.jsonb_build_object(reference["product_id"].astext, func.jsonb_build_object("inputs", select(func.coalesce(func.jsonb_agg(resolution_headers.c.value), _json([]))).scalar_subquery(), "release_id", p.row("resolution_request", "ops.data_request", "release_id"), "recipe", p.row("resolution_request", "ops.data_request", "recipe"), "events", events)))),
+        )),
+        *census,
+        ForQuery(("decision",), select(judgments.c.value), (
+            Assign("raw_meaning", func.ops.ddo_rich_selected_value(project, consolidation_basis, "records", decision["original"])), Assign("raw_record", _plain(raw_meaning)),
+            _reject(or_(raw_record["candidate_type"].astext.is_distinct_from("record"), decision["original"]["member_id"].astext.is_(None), raw_record["record_id"].astext.is_distinct_from(decision["record_id"].astext), raw_record["interpretation_id"].astext.is_distinct_from(decision["source_interpretation_id"].astext)), "rich decision relabels actual original record attribution"),
+            If(or_(decision["resolution"] == _json(None), decision["resolved"] == _json(None)), (
+                _reject(or_(decision["resolution"].is_distinct_from(_json(None)), decision["resolved"].is_distinct_from(_json(None)), decision["outcome"].astext.is_distinct_from("not-checkable"), decision["reason_code"].astext.is_distinct_from("resolution-unavailable"), decision["assertion_member_id"].astext.is_not(None)), "rich missing resolution must remain explicitly uncheckable"), Continue(),
+            )),
+            Assign("resolved_meaning", func.ops.ddo_rich_selected_value(project, consolidation_basis, "readings", decision["resolved"])), Perform(func.ops.ddo_rich_selected_value(project, consolidation_basis, "readings", decision["resolution"])), Assign("resolved_record", _plain(resolved_meaning)), Assign("report", reports[decision["resolution"]["product_id"].astext]),
+            _reject(or_(report.is_(None), decision["resolved"]["product_id"].astext.is_distinct_from(decision["resolution"]["product_id"].astext), decision["resolution"]["member_id"].astext.is_not(None), decision["original"]["member_id"].astext.is_(None), decision["resolved"]["member_id"].astext.is_(None), raw_record["candidate_type"].astext.is_distinct_from("record"), resolved_record["candidate_type"].astext.is_distinct_from("record"), *(record["record_id"].astext.is_distinct_from(decision["record_id"].astext) for record in (raw_record, resolved_record)), raw_record["interpretation_id"].astext.is_distinct_from(decision["source_interpretation_id"].astext), resolved_record["interpretation_id"].astext.is_distinct_from(decision["interpretation_id"].astext), ~select(1).select_from(report_inputs).where(report_inputs.c.value["role"].astext == "candidates", report_inputs.c.value["product_id"].astext == decision["original"]["product_id"].astext, report_inputs.c.value["member_id"].astext.is_(None), func.ops.ddo_rich_support_population(report_inputs.c.value["support"]) == func.ops.ddo_rich_support_population(decision["original"]["support_references"])).exists()), "rich decision relabels actual raw/resolved member and producing report custody"),
+            SelectInto(select(func.jsonb_build_array("mapping", func.jsonb_agg(aggregate_order_by(raw_pairs.c.value, raw_pairs.c.value[0].astext.collate("C"))))).where(raw_pairs.c.value[0].astext.not_in(("interpretation_id", "computation_dependencies"))), ("raw_comparison",)),
+            SelectInto(select(func.jsonb_build_array("mapping", func.jsonb_agg(aggregate_order_by(resolved_pairs.c.value, resolved_pairs.c.value[0].astext.collate("C"))))).where(resolved_pairs.c.value[0].astext.not_in(("interpretation_id", "computation_dependencies"))), ("resolved_comparison",)),
+            _reject(or_(raw_comparison.is_distinct_from(resolved_comparison), ~_field(resolved_meaning, "computation_dependencies")[1].contains(func.jsonb_build_array(func.jsonb_build_array("string", literal("raw-candidate-result:") + raw_reports[decision["original"]["product_id"].astext].astext))), select(1).select_from(dependencies).where(~select(1).select_from(retained).where(retained.c.value == dependencies.c.value).correlate(dependencies).exists()).exists()), "rich resolved reading changes complete original fields/evidence/alternatives"),
+            _reject(and_(decision["authorization"] != _json(None), decision["authorization"].is_distinct_from(policies[decision["authorization"]["product_id"].astext]["reference"])), "rich decision references authority outside actual declared issuer population"),
+            If(decision["outcome"].astext.in_(("accepted", "below-threshold")), (
+                Assign("policy", policies[decision["authorization"]["product_id"].astext]["body"]), Assign("event", report["events"][func.data.canonical_json(func.jsonb_build_array(decision["record_id"].astext, decision["interpretation_id"].astext))]), Assign("family_contract", func.ops.ddo_rich_family_contract(report["release_id"].astext, resolved_record["contract"].astext)),
+                _reject(or_(policy.is_(None), decision["authorization"].is_distinct_from(policies[decision["authorization"]["product_id"].astext]["reference"]), event.is_(None), event["outcome"].astext.is_distinct_from("completed"), *(event[key].astext.is_distinct_from(decision[key].astext) for key in ("feature_input_digest", "feature_instance_digest", "event_procedure")), *(policy[key].astext.is_distinct_from(decision[key].astext) for key in ("feature_instance_digest", "event_procedure")), policy["family"].astext.is_distinct_from(resolved_record["family"].astext), policy["family_contract"].astext.is_distinct_from(_value("family_contract", Text())), _value("family_contract", Text()).is_distinct_from(func.ops.ddo_rich_family_contract(p.row("r", "ops.data_request", "release_id"), resolved_record["contract"].astext)), policy["reading_recipe"].astext.is_distinct_from(report["recipe"].astext), policy["applicability"]["project_id"].astext.is_distinct_from(project), func.encode(func.sha256(func.convert_to(event["feature_input_canonical_json"].astext, "UTF8")), "hex").is_distinct_from(event["feature_input_digest"].astext)), "rich decision lacks exact issued policy/current family/recipe and unique sealed feature event"),
+            )),
+            If(decision["outcome"].astext == "accepted", (
+                SelectInto(select(plain_members.c.value).where(plain_members.c.value["member_id"].astext == decision["assertion_member_id"].astext), ("assertion",), strict=True),
+                _reject(or_(assertion["body"]["member_type"].astext.is_distinct_from("source-reading-assertion"), *(assertion["body"][key].is_distinct_from(decision[key]) for key in ("original", "resolution", "resolved")), *(assertion["body"][key].astext.is_distinct_from(decision[key].astext) for key in ("record_id", "source_interpretation_id", "interpretation_id"))), "rich accepted assertion differs from actual complete reading decision"),
+            ), (_reject(decision["assertion_member_id"].astext.is_not(None), "rich rejected reading cannot retain an accepted assertion"),)),
+        )),
+        _reject(select(1).select_from(admission_members).where(_field(admission_members.c.value, "body", "member_type") == _json(["string", "source-reading-assertion"]), select(func.count()).select_from(judgments).where(judgments.c.value["outcome"].astext == "accepted", judgments.c.value["assertion_member_id"].astext == _text(admission_members.c.value, "member_id")).correlate(admission_members).scalar_subquery() != 1, ~func.ops.ddo_rich_carried_reading(admission_members.c.value, known_packets)).exists(), "rich accepted graph has no exact actual reading decision"),
+        _reject(or_(func.jsonb_typeof(admission["selected_reading_ids"]).is_distinct_from("array"), select(func.coalesce(func.jsonb_agg(aggregate_order_by(plain_members.c.value["member_id"].astext, plain_members.c.value["member_id"].astext.collate("C"))), _json([]))).where(plain_members.c.value["body"]["member_type"].astext == "source-reading-assertion").scalar_subquery().is_distinct_from(select(func.coalesce(func.jsonb_agg(aggregate_order_by(selected_ids.c.value, selected_ids.c.value.collate("C"))), _json([]))).scalar_subquery())), "rich selected readings differ from actual retained assertion packets"),
+    ), (
+        *(p.local(name) for name in json_names), *(p.local(name, initial=_json({})) for name in ("reports", "raw_reports", "policies", "known_packets")), *(p.local(name, "ops.data_request") for name in ("consolidation_request", "authorization_request", "resolution_request", "known_request")), *(p.local(name, "text") for name in ("authorization_episode", "known_episode", "raw_digest", "family_contract")),
+    ))
+
+
 def rich_admission_native_sql(*, target_metadata=None) -> str:
     programs = _RichPrograms(target_metadata)
     _rich_input_programs(programs)
     _rich_producer_programs(programs)
     _rich_preparation_programs(programs)
-    return native_sql_script((*programs.output, _rich_completion_sql()))
-
-
-def _rich_completion_sql() -> str:
-    """Remaining exact completion traversals; input and producer authority is model-owned."""
-    return r"""
-
-
-
-
-CREATE OR REPLACE FUNCTION ops.ddo_require_rich_admission_completion(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
-DECLARE basis jsonb; admission_meaning jsonb; admission jsonb; consolidated_meaning jsonb; consolidated jsonb;
- consolidation_request ops.data_request; consolidation_basis jsonb; selected jsonb; authorization_request ops.data_request;
- resolution_request ops.data_request; known_request ops.data_request; authorization_episode text;
- resolution_basis jsonb; reference jsonb; decision jsonb; raw_meaning jsonb; resolved_meaning jsonb; known_episode text;
- raw_record jsonb; resolved_record jsonb; resolution_meaning jsonb; report jsonb; policy_meaning jsonb; policy jsonb;
- events jsonb; event jsonb; reports jsonb:='{}'; raw_reports jsonb:='{}'; policies jsonb:='{}'; known_packets jsonb:='{}'; item jsonb; packet jsonb; raw_digest text;
- raw_comparison jsonb; resolved_comparison jsonb; assertion jsonb; family_contract text;
- known_meaning jsonb; known_graph jsonb;
-BEGIN
- IF r.operation_id IS DISTINCT FROM 'rich.admit' THEN
- IF EXISTS(SELECT FROM sem.data_operation_definition definition CROSS JOIN LATERAL jsonb_array_elements(definition.support_contract->'effects') effect
- WHERE definition.release_id=r.release_id AND definition.operation_id=r.operation_id AND effect->>'name'='native-rich-knowledge-admission') THEN
- RAISE EXCEPTION 'rich admission effect requires its actual operation owner' USING ERRCODE='23514'; END IF;
- RETURN; END IF;
- PERFORM ops.ddo_rich_require_admission_producer(r,completion);
- basis:=ops.ddo_cpu_input_basis(r);
- admission_meaning:=data.ddo_normalize(completion->'outputs'->0->'product'->'body');
- -- The shared owner authenticates original bytes against result_digest and the
- -- child's independently reconstructed typed basis. No free accepted flag,
- -- regenerated reply text, or preserved receipt with another body is sufficient.
- IF ops.ddo_cpu_reply_output(r,completion) IS DISTINCT FROM admission_meaning THEN
- RAISE EXCEPTION 'rich admission differs from exact CPU decision and graph projection' USING ERRCODE='23514'; END IF;
- admission:=data.ddo_json(admission_meaning);
- consolidated_meaning:=ops.ddo_rich_selected_value(r.project_id,basis,'consolidation',admission->'consolidation');
- consolidated:=data.ddo_json(consolidated_meaning);
- consolidation_request:=ops.ddo_rich_producing_request(r.project_id,admission->'consolidation','rich.consolidate',
- 'corpus_structure.methods.rich_knowledge.RichKnowledgeConsolidation.acquire_port','consolidated',true);
- SELECT intent.payload INTO STRICT item FROM ops.data_derivation producer
- JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
- WHERE producer.request_id=consolidation_request.id AND EXISTS(SELECT FROM jsonb_array_elements(admission->'consolidation'->'support_references') support WHERE support->>'derivation_id'=producer.id);
- IF ops.ddo_cpu_reply_output(consolidation_request,item) IS DISTINCT FROM consolidated_meaning THEN
- RAISE EXCEPTION 'rich consolidation differs from actual original CPU graph reply' USING ERRCODE='23514'; END IF;
- consolidation_basis:=ops.ddo_cpu_input_basis(consolidation_request);
- IF consolidated->>'version' IS DISTINCT FROM 'rich-consolidation-1' OR consolidated->>'standing' IS DISTINCT FROM 'private-consolidated'
- OR admission->>'version' IS DISTINCT FROM 'rich-admission-1' OR admission->>'standing' IS DISTINCT FROM 'accepted'
- OR ops.ddo_rich_role_population(basis,'records') IS DISTINCT FROM ops.ddo_rich_role_population(consolidation_basis,'records')
- OR ops.ddo_rich_role_population(basis,'readings') IS DISTINCT FROM ops.ddo_rich_role_population(consolidation_basis,'readings') THEN
- RAISE EXCEPTION 'rich admission changes actual consolidated records/readings population or producer custody' USING ERRCODE='23514'; END IF;
- IF admission->>'eligibility_policy_digest' IS NULL
- OR admission->>'eligibility_policy_digest' !~ '^[0-9a-f]{64}$'
- OR admission->>'eligibility_policy_digest' IS DISTINCT FROM consolidated->'eligibility'->>'eligibility_policy_digest'
- OR admission->'selected_fact_ids' IS DISTINCT FROM consolidated->'eligibility'->'selected_fact_ids'
- OR admission->'selected_occurrence_ids' IS DISTINCT FROM consolidated->'eligibility'->'selected_occurrence_ids'
- OR admission->'scientific_representatives' IS DISTINCT FROM consolidated->'eligibility'->'scientific_representatives' THEN
- RAISE EXCEPTION 'rich admission changes actual rule eligibility or its checked policy basis' USING ERRCODE='23514'; END IF;
- PERFORM ops.ddo_rich_require_proposal_inputs(r.project_id,consolidation_basis);
- FOR selected IN SELECT value FROM ops.ddo_rich_role_headers(consolidation_basis) header(value) WHERE value->>'role'='known_universe' LOOP
- reference:=jsonb_build_object('product_id',selected->>'product_id','member_id',NULL,'kind_contract',selected->>'kind_contract','support_references',selected->'support');
- known_request:=ops.ddo_rich_producing_request(r.project_id,reference,'rich.admit',
- 'corpus_structure.methods.rich_knowledge.RichKnowledgeAdmission.acquire_port','admission',false);
- SELECT producer.id INTO STRICT known_episode FROM ops.data_derivation producer
- WHERE producer.request_id=known_request.id AND EXISTS(SELECT FROM jsonb_array_elements(reference->'support_references') support WHERE support->>'derivation_id'=producer.id);
- IF NOT ops.ddo_rich_admission_dependencies_valid(known_episode) THEN
- RAISE EXCEPTION 'rich known universe lacks actual sealed native admission authority' USING ERRCODE='23514'; END IF;
- SELECT canonical_body INTO STRICT known_meaning FROM kb.data_product
- WHERE id=reference->>'product_id' AND project_id=r.project_id;
- known_graph:=data.ddo_json(known_meaning);
- IF known_graph->>'eligibility_policy_digest' IS DISTINCT FROM admission->>'eligibility_policy_digest'
- OR jsonb_typeof(known_graph->'selected_reading_ids') IS DISTINCT FROM 'array' THEN
- RAISE EXCEPTION 'rich known eligibility requires its actual current policy basis and selection' USING ERRCODE='23514'; END IF;
- -- A previous accepted graph retains its own source/interpretation/support
- -- attribution. Index only exact reading packets after genuine native authority
- -- has been established; these are not new current raw/resolved decisions.
- FOR packet IN SELECT value FROM jsonb_array_elements(data.ddo_field(known_meaning,'members')->1)
- WHERE data.ddo_field(data.ddo_field(value,'body'),'member_type')='["string","source-reading-assertion"]'::jsonb
- AND known_graph->'selected_reading_ids' ? (data.ddo_field(value,'member_id')->>1) LOOP
- known_packets:=known_packets||jsonb_build_object(ops.ddo_digest(data.ddo_normalize(packet)),data.ddo_normalize(packet));
- END LOOP;
- END LOOP;
- -- Exact tagged packet membership preserves every retained field, evidence,
- -- alternative and context. The approved CPU graph owner selects closed
- -- dependencies; native does not implement a second lowering algorithm.
- IF EXISTS(SELECT FROM jsonb_array_elements(data.ddo_field(admission_meaning,'members')->1) member
- WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(data.ddo_field(consolidated_meaning,'members')->1) original
- WHERE data.ddo_normalize(original)=data.ddo_normalize(member)))
- OR EXISTS(SELECT FROM jsonb_array_elements(admission->'members') member GROUP BY member->>'member_id' HAVING count(*)<>1) THEN
- RAISE EXCEPTION 'rich admission changes actual consolidated graph members' USING ERRCODE='23514'; END IF;
- IF jsonb_array_length(admission->'policy_authorizations') IS DISTINCT FROM jsonb_array_length(ops.ddo_rich_role_population(basis,'policy_authorizations')) THEN
- RAISE EXCEPTION 'rich policy population differs from actual declared authorizations' USING ERRCODE='23514'; END IF;
- FOR reference IN SELECT value FROM jsonb_array_elements(admission->'policy_authorizations') LOOP
- IF reference->>'member_id' IS NOT NULL OR policies ? (reference->>'product_id') THEN
- RAISE EXCEPTION 'rich policy requires unique whole issued authorizations' USING ERRCODE='23514'; END IF;
- policy_meaning:=ops.ddo_rich_selected_value(r.project_id,basis,'policy_authorizations',reference);
- authorization_request:=ops.ddo_rich_producing_request(r.project_id,reference,'record_policy.authorize',
- 'corpus_structure.methods.record_policy.RecordPolicyAuthorization.acquire_port','authorization',false);
- IF NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=reference->>'kind_contract'
- AND kind.kind='https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization' AND kind.universe='ordinary') THEN
- RAISE EXCEPTION 'rich policy is not the actual public authorization contract' USING ERRCODE='23514'; END IF;
- SELECT producer.id INTO STRICT authorization_episode FROM ops.data_derivation producer
- JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
- WHERE producer.request_id=authorization_request.id AND EXISTS(SELECT FROM jsonb_array_elements(reference->'support_references') support WHERE support->>'derivation_id'=producer.id);
- -- Consume the sealed public conclusion under its exact selected native issuer.
- -- The evaluator-only completion guard authorizes new issuance, not consumption.
- IF ops.ddo_policy_authority_leaf(authorization_episode) IS NOT TRUE THEN
- RAISE EXCEPTION 'rich policy lacks its authentic issued public authorization' USING ERRCODE='23514'; END IF;
- policies:=policies||jsonb_build_object(reference->>'product_id',jsonb_build_object('reference',reference,'body',data.ddo_json(policy_meaning)));
- END LOOP;
- FOR selected IN SELECT value FROM ops.ddo_rich_role_headers(consolidation_basis) header(value) WHERE value->>'role'='records' LOOP
- reference:=jsonb_build_object('product_id',selected->>'product_id','member_id',NULL,'kind_contract',selected->>'kind_contract','support_references',selected->'support');
- PERFORM ops.ddo_rich_producing_request(r.project_id,reference,NULL,NULL,NULL,true);
- SELECT ops.ddo_digest(canonical_body) INTO STRICT raw_digest FROM kb.data_product WHERE id=selected->>'product_id' AND project_id=r.project_id;
- raw_reports:=raw_reports||jsonb_build_object(selected->>'product_id',raw_digest);
- END LOOP;
- -- Prepare each distinct whole resolution report/event index once. All these
- -- dependencies are declared roles and enter the existing canonical lock union.
- FOR selected IN SELECT value FROM ops.ddo_rich_role_headers(consolidation_basis) header(value) WHERE value->>'role'='readings' LOOP
- reference:=jsonb_build_object('product_id',selected->>'product_id','member_id',NULL,'kind_contract',selected->>'kind_contract','support_references',selected->'support');
- resolution_request:=ops.ddo_rich_producing_request(r.project_id,reference,'resolve.m1_readings/declared',
- 'corpus_structure.methods.reading_resolution.ReadingResolutionOperation.acquire_port','result',true);
- resolution_basis:=ops.ddo_cpu_input_basis(resolution_request);
- resolution_meaning:=ops.ddo_rich_selected_value(r.project_id,consolidation_basis,'readings',reference);
- SELECT intent.payload INTO STRICT item FROM ops.data_derivation producer
- JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
- WHERE producer.request_id=resolution_request.id AND EXISTS(SELECT FROM jsonb_array_elements(reference->'support_references') support WHERE support->>'derivation_id'=producer.id);
- IF ops.ddo_cpu_reply_output(resolution_request,item) IS DISTINCT FROM resolution_meaning THEN
- RAISE EXCEPTION 'rich final-event report differs from actual original reading CPU reply' USING ERRCODE='23514'; END IF;
- report:=data.ddo_json(resolution_meaning);
- events:=(report->>'diagnostics_json')::jsonb->'record_policy_events';
- IF jsonb_typeof(events) IS DISTINCT FROM 'array'
- OR EXISTS(SELECT FROM jsonb_array_elements(events) event_row GROUP BY event_row->>'record_id',event_row->>'interpretation_id' HAVING count(*)<>1) THEN
- RAISE EXCEPTION 'rich resolution requires unique actual final-event attribution' USING ERRCODE='23514'; END IF;
- SELECT coalesce(jsonb_object_agg(data.canonical_json(jsonb_build_array(event_row->>'record_id',event_row->>'interpretation_id')),event_row),'{}') INTO events FROM jsonb_array_elements(events) event_row;
- reports:=reports||jsonb_build_object(reference->>'product_id',jsonb_build_object(
- 'inputs',(SELECT coalesce(jsonb_agg(header),'[]') FROM ops.ddo_rich_role_headers(resolution_basis) header),'release_id',resolution_request.release_id,'recipe',resolution_request.recipe,'events',events));
- END LOOP;
- -- The decision census covers every actual raw record AND resolved record,
- -- including explicit unavailable resolutions and uncheckable/low-score events.
- -- An empty report has no fake record member.
- IF EXISTS(SELECT FROM ops.ddo_rich_role_headers(consolidation_basis) bound
- JOIN kb.data_product_member member ON member.product_id=bound->>'product_id'
- WHERE bound->>'role'='records' AND data.ddo_field(member.body,'candidate_type')='["string","record"]'::jsonb
- AND (SELECT count(*) FROM jsonb_array_elements(admission->'reading_decisions') judgment
- WHERE judgment->'original'->>'product_id'=member.product_id AND judgment->'original'->>'member_id'=member.member_id)<>1) THEN
- RAISE EXCEPTION 'rich decision census omits or duplicates actual raw records' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM ops.ddo_rich_role_headers(consolidation_basis) bound
- JOIN kb.data_product_member member ON member.product_id=bound->>'product_id'
- WHERE bound->>'role'='readings' AND data.ddo_field(member.body,'candidate_type')='["string","record"]'::jsonb
- AND (SELECT count(*) FROM jsonb_array_elements(admission->'reading_decisions') judgment
- WHERE judgment->'resolved'->>'product_id'=member.product_id AND judgment->'resolved'->>'member_id'=member.member_id)<>1) THEN
- RAISE EXCEPTION 'rich decision census omits or duplicates actual resolved records' USING ERRCODE='23514'; END IF;
- FOR decision IN SELECT value FROM jsonb_array_elements(admission->'reading_decisions') LOOP
- raw_meaning:=ops.ddo_rich_selected_value(r.project_id,consolidation_basis,'records',decision->'original');
- raw_record:=data.ddo_json(raw_meaning);
- IF raw_record->>'candidate_type' IS DISTINCT FROM 'record' OR decision->'original'->>'member_id' IS NULL
- OR raw_record->>'record_id' IS DISTINCT FROM decision->>'record_id'
- OR raw_record->>'interpretation_id' IS DISTINCT FROM decision->>'source_interpretation_id' THEN
- RAISE EXCEPTION 'rich decision relabels actual original record attribution' USING ERRCODE='23514'; END IF;
- IF decision->'resolution'='null'::jsonb OR decision->'resolved'='null'::jsonb THEN
- IF decision->'resolution' IS DISTINCT FROM 'null'::jsonb OR decision->'resolved' IS DISTINCT FROM 'null'::jsonb
- OR decision->>'outcome' IS DISTINCT FROM 'not-checkable' OR decision->>'reason_code' IS DISTINCT FROM 'resolution-unavailable'
- OR decision->>'assertion_member_id' IS NOT NULL THEN
- RAISE EXCEPTION 'rich missing resolution must remain explicitly uncheckable' USING ERRCODE='23514'; END IF;
- CONTINUE; END IF;
- resolved_meaning:=ops.ddo_rich_selected_value(r.project_id,consolidation_basis,'readings',decision->'resolved');
- PERFORM ops.ddo_rich_selected_value(r.project_id,consolidation_basis,'readings',decision->'resolution');
- resolved_record:=data.ddo_json(resolved_meaning);
- report:=reports->(decision->'resolution'->>'product_id');
- IF report IS NULL OR decision->'resolved'->>'product_id' IS DISTINCT FROM decision->'resolution'->>'product_id'
- OR decision->'resolution'->>'member_id' IS NOT NULL OR decision->'original'->>'member_id' IS NULL OR decision->'resolved'->>'member_id' IS NULL
- OR raw_record->>'candidate_type' IS DISTINCT FROM 'record' OR resolved_record->>'candidate_type' IS DISTINCT FROM 'record'
- OR raw_record->>'record_id' IS DISTINCT FROM decision->>'record_id' OR resolved_record->>'record_id' IS DISTINCT FROM decision->>'record_id'
- OR raw_record->>'interpretation_id' IS DISTINCT FROM decision->>'source_interpretation_id'
- OR resolved_record->>'interpretation_id' IS DISTINCT FROM decision->>'interpretation_id'
- OR NOT EXISTS(SELECT FROM jsonb_array_elements(report->'inputs') input
- WHERE input->>'role'='candidates' AND input->>'product_id'=decision->'original'->>'product_id'
- AND input->>'member_id' IS NULL
- AND ops.ddo_rich_support_population(input->'support')=ops.ddo_rich_support_population(decision->'original'->'support_references')) THEN
- RAISE EXCEPTION 'rich decision relabels actual raw/resolved member and producing report custody' USING ERRCODE='23514'; END IF;
- SELECT jsonb_build_array('mapping',jsonb_agg(pair ORDER BY (pair->>0) COLLATE "C")) INTO raw_comparison FROM jsonb_array_elements(raw_meaning->1) pair WHERE pair->>0 NOT IN ('interpretation_id','computation_dependencies');
- SELECT jsonb_build_array('mapping',jsonb_agg(pair ORDER BY (pair->>0) COLLATE "C")) INTO resolved_comparison FROM jsonb_array_elements(resolved_meaning->1) pair WHERE pair->>0 NOT IN ('interpretation_id','computation_dependencies');
- IF raw_comparison IS DISTINCT FROM resolved_comparison
- OR NOT (data.ddo_field(resolved_meaning,'computation_dependencies')->1 @>
- jsonb_build_array(jsonb_build_array('string','raw-candidate-result:'||(raw_reports->>(decision->'original'->>'product_id')))))
- OR EXISTS(
- SELECT FROM jsonb_array_elements(data.ddo_field(raw_meaning,'computation_dependencies')->1) dependency
- WHERE NOT EXISTS(SELECT FROM jsonb_array_elements(data.ddo_field(resolved_meaning,'computation_dependencies')->1) retained WHERE retained=dependency)) THEN
- RAISE EXCEPTION 'rich resolved reading changes complete original fields/evidence/alternatives' USING ERRCODE='23514'; END IF;
- IF decision->'authorization'<>'null'::jsonb
- AND decision->'authorization' IS DISTINCT FROM policies->(decision->'authorization'->>'product_id')->'reference' THEN
- RAISE EXCEPTION 'rich decision references authority outside actual declared issuer population' USING ERRCODE='23514'; END IF;
- IF decision->>'outcome' IN ('accepted','below-threshold') THEN
- policy:=policies->(decision->'authorization'->>'product_id')->'body';
- event:=report->'events'->data.canonical_json(jsonb_build_array(decision->>'record_id',decision->>'interpretation_id'));
- family_contract:=ops.ddo_rich_family_contract(report->>'release_id',resolved_record->>'contract');
- IF policy IS NULL OR decision->'authorization' IS DISTINCT FROM policies->(decision->'authorization'->>'product_id')->'reference'
- OR event IS NULL OR event->>'outcome' IS DISTINCT FROM 'completed'
- OR event->>'feature_input_digest' IS DISTINCT FROM decision->>'feature_input_digest'
- OR event->>'feature_instance_digest' IS DISTINCT FROM decision->>'feature_instance_digest'
- OR event->>'event_procedure' IS DISTINCT FROM decision->>'event_procedure'
- OR policy->>'feature_instance_digest' IS DISTINCT FROM decision->>'feature_instance_digest'
- OR policy->>'event_procedure' IS DISTINCT FROM decision->>'event_procedure'
- OR policy->>'family' IS DISTINCT FROM resolved_record->>'family'
- OR policy->>'family_contract' IS DISTINCT FROM family_contract
- OR family_contract IS DISTINCT FROM ops.ddo_rich_family_contract(r.release_id,resolved_record->>'contract')
- OR policy->>'reading_recipe' IS DISTINCT FROM report->>'recipe'
- OR policy->'applicability'->>'project_id' IS DISTINCT FROM r.project_id
- OR encode(sha256(convert_to(event->>'feature_input_canonical_json','UTF8')),'hex') IS DISTINCT FROM event->>'feature_input_digest' THEN
- RAISE EXCEPTION 'rich decision lacks exact issued policy/current family/recipe and unique sealed feature event' USING ERRCODE='23514'; END IF;
- END IF;
- IF decision->>'outcome'='accepted' THEN
- SELECT member INTO STRICT assertion FROM jsonb_array_elements(admission->'members') member WHERE member->>'member_id'=decision->>'assertion_member_id';
- IF assertion->'body'->>'member_type' IS DISTINCT FROM 'source-reading-assertion'
- OR assertion->'body'->'original' IS DISTINCT FROM decision->'original'
- OR assertion->'body'->'resolution' IS DISTINCT FROM decision->'resolution'
- OR assertion->'body'->'resolved' IS DISTINCT FROM decision->'resolved'
- OR assertion->'body'->>'record_id' IS DISTINCT FROM decision->>'record_id'
- OR assertion->'body'->>'source_interpretation_id' IS DISTINCT FROM decision->>'source_interpretation_id'
- OR assertion->'body'->>'interpretation_id' IS DISTINCT FROM decision->>'interpretation_id' THEN
- RAISE EXCEPTION 'rich accepted assertion differs from actual complete reading decision' USING ERRCODE='23514'; END IF;
- ELSIF decision->>'assertion_member_id' IS NOT NULL THEN
- RAISE EXCEPTION 'rich rejected reading cannot retain an accepted assertion' USING ERRCODE='23514'; END IF;
- END LOOP;
- IF EXISTS(SELECT FROM jsonb_array_elements(data.ddo_field(admission_meaning,'members')->1) member_meaning
- WHERE data.ddo_field(data.ddo_field(member_meaning,'body'),'member_type')='["string","source-reading-assertion"]'::jsonb
- AND (SELECT count(*) FROM jsonb_array_elements(admission->'reading_decisions') judgment WHERE judgment->>'outcome'='accepted' AND judgment->>'assertion_member_id'=data.ddo_field(member_meaning,'member_id')->>1)<>1
- AND NOT ops.ddo_rich_carried_reading(member_meaning,known_packets)) THEN
- RAISE EXCEPTION 'rich accepted graph has no exact actual reading decision' USING ERRCODE='23514'; END IF;
- IF jsonb_typeof(admission->'selected_reading_ids') IS DISTINCT FROM 'array'
- OR (SELECT coalesce(jsonb_agg(member->>'member_id' ORDER BY (member->>'member_id') COLLATE "C"),'[]')
- FROM jsonb_array_elements(admission->'members') member
- WHERE member->'body'->>'member_type'='source-reading-assertion') IS DISTINCT FROM
- (SELECT coalesce(jsonb_agg(value ORDER BY value COLLATE "C"),'[]')
- FROM jsonb_array_elements_text(admission->'selected_reading_ids')) THEN
- RAISE EXCEPTION 'rich selected readings differ from actual retained assertion packets' USING ERRCODE='23514'; END IF;
-END $rich$;
-
-REVOKE ALL ON FUNCTION ops.ddo_require_rich_admission_completion(ops.data_request,jsonb) FROM PUBLIC;
-"""
+    _rich_admission_program(programs)
+    return native_sql_script(programs.output)
