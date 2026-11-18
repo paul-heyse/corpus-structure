@@ -110,7 +110,7 @@ def test_native_support_keeps_actual_raw_resolution_and_admission_producers(
         query_publication(
             selected, SourceReadingsQuery(name="source_readings"), cursor=page["cursor"]
         )
-    assert rejected.value.orig.sqlstate == "23514"
+    assert getattr(rejected.value.orig, "sqlstate", None) == "23514"
 
 
 def test_native_large_diagnostics_remain_in_actual_support_without_forcing_public_body(
