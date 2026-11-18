@@ -1,17 +1,6 @@
 -- Trusted finite interpreter of the frozen shared binding AST. No candidate SQL.
 -- Subject association retains the producing member's original subject. A role
 -- may bind its declared identifier property to the consuming operation subject.
-CREATE OR REPLACE FUNCTION ops.ddo_binding_roles(node jsonb) RETURNS text[]
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE names text[]:=ARRAY[]::text[]; child jsonb; item jsonb;
-BEGIN
- FOR item IN SELECT value FROM jsonb_array_elements(coalesce(node->'roles','[]')) LOOP names:=array_append(names,item#>>'{}'); END LOOP;
- FOR item IN SELECT value FROM jsonb_array_elements(coalesce(node->'fields','[]')) LOOP names:=array_append(names,item->>'role'); END LOOP;
- FOR item IN SELECT value FROM jsonb_array_elements(coalesce(node->'operands','[]')) WHERE value->>'kind'='field' LOOP names:=array_append(names,item->'field'->>'role'); END LOOP;
- FOR child IN SELECT value FROM jsonb_array_elements(coalesce(node->'children','[]')) LOOP names:=names||ops.ddo_binding_roles(child); END LOOP;
- RETURN ARRAY(SELECT DISTINCT x FROM unnest(names) x ORDER BY x);
-END $$;
-
 CREATE OR REPLACE FUNCTION ops.ddo_binding_float(value text) RETURNS numeric
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE digits text; fraction integer; exponent integer; result numeric:=0; digit integer; i integer; signum integer:=1; shift integer; exact_text text;
@@ -29,40 +18,6 @@ BEGIN
  IF length(trunc(result)::text)>-shift+1 THEN exact_text:=trunc(result)::text; END IF;
  exact_text:=substring(exact_text FROM 1 FOR length(exact_text)+shift)||'.'||substring(exact_text FROM length(exact_text)+shift+1);
  RETURN signum*exact_text::numeric;
-END $$;
-
-CREATE OR REPLACE FUNCTION ops.ddo_validate_parameters(operation jsonb,selection jsonb,model jsonb) RETURNS void
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE definitions jsonb:=operation->'parameters'->'json'; name text; definition jsonb; value jsonb; item jsonb; kind text;
-BEGIN
- IF jsonb_typeof(selection->'parameters') IS DISTINCT FROM 'object'
- OR selection->'parameter_meaning' IS NULL
- OR data.ddo_json(data.ddo_normalize(selection->'parameter_meaning')) IS DISTINCT FROM selection->'parameters' THEN
- RAISE EXCEPTION 'frozen parameter display differs from exact typed meaning'; END IF;
- IF EXISTS(SELECT FROM jsonb_each(definitions) d WHERE d.value ? 'kind')
- AND EXISTS(SELECT FROM jsonb_each(selection->'parameters') p WHERE NOT definitions ? p.key) THEN
- RAISE EXCEPTION 'undeclared frozen nominal operation parameter'; END IF;
- FOR name,definition IN SELECT entry.key,entry.value FROM jsonb_each(definitions) entry LOOP
- IF NOT (definition ? 'kind' OR definition ? 'value_type') THEN CONTINUE; END IF;
- IF NOT selection->'parameters' ? name THEN
- IF definition ? 'default' OR coalesce(definition->>'required','true')='true' THEN
- RAISE EXCEPTION 'missing frozen demand parameter %',name; END IF;
- CONTINUE; END IF;
- value:=data.ddo_field(selection->'parameter_meaning',name);
- IF definition ? 'kind' THEN
- IF jsonb_typeof(definition->'body_schema') IS DISTINCT FROM 'object'
- OR jsonb_typeof(definition->'meaning_schema') IS DISTINCT FROM 'object'
- OR NOT public.json_matches_schema((definition->'body_schema')::json,(selection->'parameters'->name)::json)
- OR NOT public.json_matches_schema((definition->'meaning_schema')::json,value::json) THEN
- RAISE EXCEPTION 'nominal frozen parameter violates captured schema: %',name; END IF;
- ELSE
- kind:=ops.ddo_binding_type(jsonb_build_object('model',model),definition->>'value_type');
- IF coalesce(definition->>'many','false')='true' THEN
- IF value->>0 IS DISTINCT FROM 'sequence' THEN RAISE EXCEPTION 'frozen parameter must be a typed sequence'; END IF;
- FOR item IN SELECT entry.value FROM jsonb_array_elements(value->1) entry LOOP PERFORM ops.ddo_binding_typed(item,kind); END LOOP;
- ELSE PERFORM ops.ddo_binding_typed(value,kind); END IF;
- END IF;
- END LOOP;
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_binding_values(operand jsonb,context jsonb) RETURNS jsonb

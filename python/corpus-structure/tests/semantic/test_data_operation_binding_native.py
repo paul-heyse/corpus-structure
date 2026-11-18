@@ -40,6 +40,7 @@ def test_native_binding_source_closure_and_helper_syntax():
         "native/data_product_reference.py",
         "native/binding_scalar_native.py",
         "native/binding_primitives.py",
+        "native/binding_operand_native.py",
     }
     prepared = prepare_sql(binding_native_sql(), source="binding-test")
     names = []
@@ -843,3 +844,43 @@ def test_native_scalar_null_type_refusal_keeps_exact_diagnostic(
         binding_native_connection.execute(text(statement))
     assert getattr(refusal.value.orig, "sqlstate", None) == "23514"
     assert message in str(refusal.value)
+
+
+def test_native_binding_roles_recurses_and_keeps_sorted_distinct_null(binding_native_connection):
+    node = {
+        "roles": ["z", "a", "a"],
+        "fields": [{"role": "b"}, {}],
+        "operands": [{"kind": "field", "field": {"role": "c"}}, {"kind": "literal"}],
+        "children": [{"roles": ["d", "a"]}, {"children": [{"roles": ["e"]}]}],
+    }
+    query = text("SELECT ops.ddo_binding_roles(CAST(:node AS jsonb))")
+    assert binding_native_connection.scalar(query, {"node": json.dumps(node)}) == ["a", "b", "c", "d", "e", "z", None]
+    assert binding_native_connection.scalar(query, {"node": "{}"}) == []
+
+
+@pytest.mark.parametrize("case", ["valid", "display", "missing", "default", "sequence", "tag"])
+def test_native_primitive_parameters_preserve_exact_meaning_and_required_policy(binding_native_connection, case):
+    from corpus_structure.semantic.data_operation_identity import semantic_value
+
+    parameters: dict[str, Any] = {"values": [1, 2]}
+    definitions: dict[str, dict[str, Any]] = {"values": {"value_type": "primitive:integer", "many": True}, "optional": {"value_type": "primitive:string", "required": False}}
+    if case in {"missing", "default"}:
+        definitions["absent"] = {"value_type": "primitive:string", "required": case == "missing"}
+        if case == "default":
+            definitions["absent"]["default"] = "default-is-materialized-before-freezing"
+    elif case == "sequence":
+        parameters["values"] = 1
+    elif case == "tag":
+        parameters["values"] = [True]
+    selection: dict[str, Any] = {"parameters": parameters, "parameter_meaning": semantic_value(parameters)}
+    if case == "display":
+        selection["parameters"] = {"values": [2, 1]}
+    query = text("SELECT ops.ddo_validate_parameters(CAST(:operation AS jsonb),CAST(:selection AS jsonb),'{}'::jsonb)")
+    values = {"operation": json.dumps({"parameters": {"json": definitions}}), "selection": json.dumps(selection)}
+    if case == "valid":
+        binding_native_connection.execute(query, values)
+    else:
+        with pytest.raises(DBAPIError) as refusal, binding_native_connection.begin_nested():
+            binding_native_connection.execute(query, values)
+        message = {"display": "display differs", "missing": "missing frozen demand parameter absent", "default": "missing frozen demand parameter absent", "sequence": "typed sequence", "tag": "tag differs"}[case]
+        assert message in str(refusal.value)
