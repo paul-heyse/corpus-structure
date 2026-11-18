@@ -158,10 +158,13 @@ def test_release_semantic_guards_follow_explicit_physical_relations():
     from corpus_structure.semantic.metadata import metadata
     from corpus_structure.semantic.native_admission_release import release_semantic_checks
 
-    captured_artifact = metadata.tables["sem.artifact"].to_metadata(MetaData(), name="captured_artifact")
+    captured_artifact = metadata.tables["sem.artifact"].to_metadata(
+        MetaData(), name="captured_artifact"
+    )
     proposed = SimpleNamespace(tables={**metadata.tables, "sem.artifact": captured_artifact})
     source = function(
-        "public", "captured_release_semantics",
+        "public",
+        "captured_release_semantics",
         parameters=(Parameter("r", pg_type("text")), Parameter("expected", pg_type("jsonb"))),
         returns=pg_type("void"),
         body=Block(release_semantic_checks(proposed)),

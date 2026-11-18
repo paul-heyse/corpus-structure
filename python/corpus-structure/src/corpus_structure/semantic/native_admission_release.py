@@ -120,7 +120,11 @@ def _decoded_json(content):
 def _json_items(value, name):
     from sqlalchemy import column
 
-    return func.jsonb_array_elements(value).table_valued(column("value", JSONB())).render_derived(name=name)
+    return (
+        func.jsonb_array_elements(value)
+        .table_valued(column("value", JSONB()))
+        .render_derived(name=name)
+    )
 
 
 def _refuse(condition, message):
@@ -135,7 +139,9 @@ def _release_asset_checks(metadata):
     admissions = metadata.tables["sem.sql_admission"]
     selected = core_variable("r", Text())
     expected = core_variable("expected", JSONB())
-    diagnostic = _json_items(_decoded_json(release.c.prepared_bytes)["products"]["diagnostics"], "diagnostic")
+    diagnostic = _json_items(
+        _decoded_json(release.c.prepared_bytes)["products"]["diagnostics"], "diagnostic"
+    )
     item = diagnostic.c.value
     rejected_diagnostic = (
         select(1)
@@ -146,7 +152,10 @@ def _release_asset_checks(metadata):
                 item["outcome"].astext.in_(("unsupported", "unresolved")),
                 and_(
                     item["outcome"].astext == "unchecked",
-                    ~and_(item["code"].astext == "unchecked_term", item["message"].astext == "not4curation:unchecked"),
+                    ~and_(
+                        item["code"].astext == "unchecked_term",
+                        item["message"].astext == "not4curation:unchecked",
+                    ),
                 ),
             ),
         )
@@ -155,12 +164,17 @@ def _release_asset_checks(metadata):
     admitted = _decoded_json(admissions.c.content)
     invalid_authored_sql = (
         select(1)
-        .select_from(inputs.outerjoin(admissions, and_(
-            admissions.c.release_id == inputs.c.release_id,
-            admissions.c.input_kind == inputs.c.input_kind,
-            admissions.c.input_name == inputs.c.input_name,
-            admissions.c.physical_id == expected["physical_id"].astext,
-        )))
+        .select_from(
+            inputs.outerjoin(
+                admissions,
+                and_(
+                    admissions.c.release_id == inputs.c.release_id,
+                    admissions.c.input_kind == inputs.c.input_kind,
+                    admissions.c.input_name == inputs.c.input_name,
+                    admissions.c.physical_id == expected["physical_id"].astext,
+                ),
+            )
+        )
         .where(
             inputs.c.release_id == selected,
             inputs.c.input_kind == "dependency",
@@ -168,10 +182,16 @@ def _release_asset_checks(metadata):
             or_(
                 func.right(inputs.c.input_name, 4) != ".sql",
                 func.length(inputs.c.input_name) <= func.length("authored-sql/.sql"),
-                func.encode(func.sha256(inputs.c.content), "hex").is_distinct_from(inputs.c.content_digest),
+                func.encode(func.sha256(inputs.c.content), "hex").is_distinct_from(
+                    inputs.c.content_digest
+                ),
                 admissions.c.release_id.is_(None),
-                func.encode(func.sha256(admissions.c.content), "hex").is_distinct_from(admissions.c.content_digest),
-                admitted["sql"].astext.is_distinct_from(func.convert_from(inputs.c.content, "UTF8")),
+                func.encode(func.sha256(admissions.c.content), "hex").is_distinct_from(
+                    admissions.c.content_digest
+                ),
+                admitted["sql"].astext.is_distinct_from(
+                    func.convert_from(inputs.c.content, "UTF8")
+                ),
                 admitted["release_id"].astext.is_distinct_from(selected),
                 admitted["physical_id"].astext.is_distinct_from(expected["physical_id"].astext),
             ),
@@ -180,7 +200,9 @@ def _release_asset_checks(metadata):
     )
     return (
         _refuse(rejected_diagnostic, "release contains unresolved or unchecked required semantics"),
-        _refuse(invalid_authored_sql, "required authored SQL lacks exact current physical admission"),
+        _refuse(
+            invalid_authored_sql, "required authored SQL lacks exact current physical admission"
+        ),
     )
 
 
@@ -197,10 +219,15 @@ def _native_constraint_checks(metadata):
     descriptor = cast(func.sem.data_operation_native_descriptor(), JSONB())
     archived = (
         select(native_value.label("projection"), model_value.label("model"))
-        .select_from(native.join(model, and_(
-            model.c.release_id == native.c.release_id,
-            model.c.artifact_name == "data_operations.json",
-        )))
+        .select_from(
+            native.join(
+                model,
+                and_(
+                    model.c.release_id == native.c.release_id,
+                    model.c.artifact_name == "data_operations.json",
+                ),
+            )
+        )
         .where(
             native.c.release_id == selected,
             native.c.artifact_name == "data_operation_native_definitions.json",
@@ -213,38 +240,65 @@ def _native_constraint_checks(metadata):
     declared = _json_items(archived.c.model["kinds"], "declared_kind")
     roots = (
         select(classes.c.class_id)
-        .select_from(archived.join(projected, literal(True)).join(classes, and_(
-            classes.c.release_id == selected,
-            classes.c.class_id == projected.c.value["kind"].astext,
-        )))
-        .where(select(1).select_from(declared).where(
-            declared.c.value["semantic_id"].astext == classes.c.class_id,
-            declared.c.value["category"].astext == "class",
-        ).correlate(archived, classes).exists())
+        .select_from(
+            archived.join(projected, literal(True)).join(
+                classes,
+                and_(
+                    classes.c.release_id == selected,
+                    classes.c.class_id == projected.c.value["kind"].astext,
+                ),
+            )
+        )
+        .where(
+            select(1)
+            .select_from(declared)
+            .where(
+                declared.c.value["semantic_id"].astext == classes.c.class_id,
+                declared.c.value["category"].astext == "class",
+            )
+            .correlate(archived, classes)
+            .exists()
+        )
         .cte("native_constraint_json_roots")
     )
     edges = union(
         select(applicability.c.class_id.label("source"), classes.c.class_id.label("target"))
-        .select_from(applicability.join(classes, and_(
-            classes.c.release_id == applicability.c.release_id,
-            classes.c.name == applicability.c.range_name,
-        )))
-        .where(applicability.c.release_id == selected, func.coalesce(cast(applicability.c.constraints["inlined"].astext, Boolean()), False)),
-        select(hierarchy.c.class_id, hierarchy.c.ancestor_id).where(hierarchy.c.release_id == selected),
+        .select_from(
+            applicability.join(
+                classes,
+                and_(
+                    classes.c.release_id == applicability.c.release_id,
+                    classes.c.name == applicability.c.range_name,
+                ),
+            )
+        )
+        .where(
+            applicability.c.release_id == selected,
+            func.coalesce(cast(applicability.c.constraints["inlined"].astext, Boolean()), False),
+        ),
+        select(hierarchy.c.class_id, hierarchy.c.ancestor_id).where(
+            hierarchy.c.release_id == selected
+        ),
     ).cte("native_constraint_json_edges")
     owned = select(roots.c.class_id).cte("native_constraint_json_classes", recursive=True)
-    owned = owned.union(select(edges.c.target).select_from(owned.join(edges, edges.c.source == owned.c.class_id)))
+    owned = owned.union(
+        select(edges.c.target).select_from(owned.join(edges, edges.c.source == owned.c.class_id))
+    )
     empty = cast(literal("[]"), JSONB())
     null_value = cast(literal("null"), JSONB())
     invalid = (
-        select(1).select_from(applicability).where(
+        select(1)
+        .select_from(applicability)
+        .where(
             applicability.c.release_id == selected,
             or_(
                 applicability.c.constraint_scope.not_in(("shape", "accepted_value")),
                 and_(
                     or_(
                         applicability.c.constraints["pattern"].astext.is_not(None),
-                        func.coalesce(applicability.c.constraints["patterns"], empty).not_in((empty, null_value)),
+                        func.coalesce(applicability.c.constraints["patterns"], empty).not_in(
+                            (empty, null_value)
+                        ),
                     ),
                     ~and_(
                         applicability.c.constraint_scope == "shape",
@@ -252,16 +306,28 @@ def _native_constraint_checks(metadata):
                     ),
                 ),
             ),
-        ).exists()
+        )
+        .exists()
     )
     missing_projection = and_(
         ~select(1).select_from(archived).exists(),
-        select(1).select_from(artifacts).where(artifacts.c.release_id == selected, artifacts.c.artifact_name == "data_operations.json").exists(),
+        select(1)
+        .select_from(artifacts)
+        .where(
+            artifacts.c.release_id == selected, artifacts.c.artifact_name == "data_operations.json"
+        )
+        .exists(),
     )
-    return If(invalid, (
-        _refuse(missing_projection, "archived DDO native constraint projection is missing or incompatible with installed descriptor"),
-        Raise("unsupported required native constraint scope or pattern", "23514"),
-    ))
+    return If(
+        invalid,
+        (
+            _refuse(
+                missing_projection,
+                "archived DDO native constraint projection is missing or incompatible with installed descriptor",
+            ),
+            Raise("unsupported required native constraint scope or pattern", "23514"),
+        ),
+    )
 
 
 def _native_inference_check(metadata):
@@ -272,13 +338,20 @@ def _native_inference_check(metadata):
     classes = metadata.tables["sem.class_definition"]
     hierarchy = metadata.tables["sem.class_hierarchy"]
     selected = core_variable("r", Text())
-    rules = select(_decoded_json(registry.c.body).label("rule")).where(
-        registry.c.release_id == selected, registry.c.kind == "inference_rule",
-    ).cte("admitted_inference_rules")
+    rules = (
+        select(_decoded_json(registry.c.body).label("rule"))
+        .where(
+            registry.c.release_id == selected,
+            registry.c.kind == "inference_rule",
+        )
+        .cte("admitted_inference_rules")
+    )
     signatures = select(
         rules.c.rule["kind"].astext.label("kind"),
         rules.c.rule["predicate"].astext.label("predicate"),
-        func.coalesce(func.nullif(rules.c.rule["target"].astext, ""), rules.c.rule["predicate"].astext).label("target"),
+        func.coalesce(
+            func.nullif(rules.c.rule["target"].astext, ""), rules.c.rule["predicate"].astext
+        ).label("target"),
     ).cte("admitted_inference_signatures")
     source_range = classes.alias("source_range")
     target_range = classes.alias("target_range")
@@ -286,62 +359,157 @@ def _native_inference_check(metadata):
     inverse = applicability.alias("inverse")
 
     def declared_property(identity):
-        return select(1).select_from(applicability).where(applicability.c.release_id == selected, applicability.c.property_id == identity).exists()
+        return (
+            select(1)
+            .select_from(applicability)
+            .where(applicability.c.release_id == selected, applicability.c.property_id == identity)
+            .exists()
+        )
 
-    malformed = select(literal(1).label("invalid")).select_from(signatures).where(or_(
-        signatures.c.kind.is_(None), signatures.c.predicate.is_(None), signatures.c.target.is_(None),
-        signatures.c.kind.not_in(("inverse", "symmetric", "transitive", "subproperty")),
-        ~declared_property(signatures.c.predicate), ~declared_property(signatures.c.target),
-    ))
-    expected_range = case((signatures.c.kind.in_(("subproperty", "transitive")), source_range.c.class_id), else_=applicability.c.class_id)
+    malformed = (
+        select(literal(1).label("invalid"))
+        .select_from(signatures)
+        .where(
+            or_(
+                signatures.c.kind.is_(None),
+                signatures.c.predicate.is_(None),
+                signatures.c.target.is_(None),
+                signatures.c.kind.not_in(("inverse", "symmetric", "transitive", "subproperty")),
+                ~declared_property(signatures.c.predicate),
+                ~declared_property(signatures.c.target),
+            )
+        )
+    )
+    expected_range = case(
+        (signatures.c.kind.in_(("subproperty", "transitive")), source_range.c.class_id),
+        else_=applicability.c.class_id,
+    )
     incompatible = (
         select(literal(1))
-        .select_from(signatures.join(applicability, and_(
-            applicability.c.release_id == selected, applicability.c.property_id == signatures.c.predicate,
-        )).outerjoin(source_range, and_(source_range.c.release_id == selected, source_range.c.name == applicability.c.range_name))
-        .outerjoin(target, and_(
-            target.c.release_id == selected, target.c.property_id == signatures.c.target,
-            target.c.class_id == case((signatures.c.kind == "subproperty", applicability.c.class_id), else_=source_range.c.class_id),
-        )).outerjoin(target_range, and_(target_range.c.release_id == selected, target_range.c.name == target.c.range_name)))
-        .where(or_(
-            func.coalesce(cast(applicability.c.constraints["inlined"].astext, Boolean()), False),
-            source_range.c.class_id.is_(None), target.c.property_id.is_(None),
-            func.coalesce(cast(target.c.constraints["inlined"].astext, Boolean()), False), target_range.c.class_id.is_(None),
-            ~or_(target_range.c.class_id == expected_range, select(1).select_from(hierarchy).where(
-                hierarchy.c.release_id == selected, hierarchy.c.ancestor_id == target_range.c.class_id,
-                hierarchy.c.class_id == expected_range,
-            ).correlate(signatures, applicability, source_range, target_range).exists()),
-        ))
+        .select_from(
+            signatures.join(
+                applicability,
+                and_(
+                    applicability.c.release_id == selected,
+                    applicability.c.property_id == signatures.c.predicate,
+                ),
+            )
+            .outerjoin(
+                source_range,
+                and_(
+                    source_range.c.release_id == selected,
+                    source_range.c.name == applicability.c.range_name,
+                ),
+            )
+            .outerjoin(
+                target,
+                and_(
+                    target.c.release_id == selected,
+                    target.c.property_id == signatures.c.target,
+                    target.c.class_id
+                    == case(
+                        (signatures.c.kind == "subproperty", applicability.c.class_id),
+                        else_=source_range.c.class_id,
+                    ),
+                ),
+            )
+            .outerjoin(
+                target_range,
+                and_(
+                    target_range.c.release_id == selected,
+                    target_range.c.name == target.c.range_name,
+                ),
+            )
+        )
+        .where(
+            or_(
+                func.coalesce(
+                    cast(applicability.c.constraints["inlined"].astext, Boolean()), False
+                ),
+                source_range.c.class_id.is_(None),
+                target.c.property_id.is_(None),
+                func.coalesce(cast(target.c.constraints["inlined"].astext, Boolean()), False),
+                target_range.c.class_id.is_(None),
+                ~or_(
+                    target_range.c.class_id == expected_range,
+                    select(1)
+                    .select_from(hierarchy)
+                    .where(
+                        hierarchy.c.release_id == selected,
+                        hierarchy.c.ancestor_id == target_range.c.class_id,
+                        hierarchy.c.class_id == expected_range,
+                    )
+                    .correlate(signatures, applicability, source_range, target_range)
+                    .exists(),
+                ),
+            )
+        )
     )
-    flags = values(column("name", Text())).data([("symmetric",), ("transitive",)]).alias("inference_flag")
+    flags = (
+        values(column("name", Text()))
+        .data([("symmetric",), ("transitive",)])
+        .alias("inference_flag")
+    )
     missing_flag = (
-        select(literal(1)).select_from(applicability.join(flags, literal(True)))
+        select(literal(1))
+        .select_from(applicability.join(flags, literal(True)))
         .where(
             applicability.c.release_id == selected,
             func.coalesce(cast(applicability.c.constraints[flags.c.name].astext, Boolean()), False),
-            ~select(1).select_from(signatures).where(
-                signatures.c.kind == flags.c.name, signatures.c.predicate == applicability.c.property_id,
+            ~select(1)
+            .select_from(signatures)
+            .where(
+                signatures.c.kind == flags.c.name,
+                signatures.c.predicate == applicability.c.property_id,
                 signatures.c.target == applicability.c.property_id,
-            ).correlate(applicability, flags).exists(),
+            )
+            .correlate(applicability, flags)
+            .exists(),
         )
     )
     inverse_target = (
-        select(func.count(inverse.c.property_id.distinct()).label("count"), func.min(inverse.c.property_id).label("target"))
-        .where(inverse.c.release_id == selected, or_(
-            inverse.c.property_id == applicability.c.constraints["inverse"].astext,
-            inverse.c.constraints["name"].astext == applicability.c.constraints["inverse"].astext,
-        )).correlate(applicability).lateral("inverse_target")
+        select(
+            func.count(inverse.c.property_id.distinct()).label("count"),
+            func.min(inverse.c.property_id).label("target"),
+        )
+        .where(
+            inverse.c.release_id == selected,
+            or_(
+                inverse.c.property_id == applicability.c.constraints["inverse"].astext,
+                inverse.c.constraints["name"].astext
+                == applicability.c.constraints["inverse"].astext,
+            ),
+        )
+        .correlate(applicability)
+        .lateral("inverse_target")
     )
-    missing_inverse = select(literal(1)).select_from(applicability.outerjoin(inverse_target, literal(True))).where(
-        applicability.c.release_id == selected,
-        func.nullif(applicability.c.constraints["inverse"].astext, "").is_not(None),
-        or_(inverse_target.c.count != 1, ~select(1).select_from(signatures).where(
-            signatures.c.kind == "inverse", signatures.c.predicate == applicability.c.property_id,
-            signatures.c.target == inverse_target.c.target,
-        ).correlate(applicability, inverse_target).exists()),
+    missing_inverse = (
+        select(literal(1))
+        .select_from(applicability.outerjoin(inverse_target, literal(True)))
+        .where(
+            applicability.c.release_id == selected,
+            func.nullif(applicability.c.constraints["inverse"].astext, "").is_not(None),
+            or_(
+                inverse_target.c.count != 1,
+                ~select(1)
+                .select_from(signatures)
+                .where(
+                    signatures.c.kind == "inverse",
+                    signatures.c.predicate == applicability.c.property_id,
+                    signatures.c.target == inverse_target.c.target,
+                )
+                .correlate(applicability, inverse_target)
+                .exists(),
+            ),
+        )
     )
-    invalid = union_all(malformed, incompatible, missing_flag, missing_inverse).subquery("invalid_native_inference")
-    return _refuse(select(1).select_from(invalid).exists(), "unsupported required native binary inference profile")
+    invalid = union_all(malformed, incompatible, missing_flag, missing_inverse).subquery(
+        "invalid_native_inference"
+    )
+    return _refuse(
+        select(1).select_from(invalid).exists(),
+        "unsupported required native binary inference profile",
+    )
 
 
 def release_semantic_checks(metadata):
@@ -355,9 +523,41 @@ def release_semantic_checks(metadata):
     return (
         *_release_asset_checks(metadata),
         _native_constraint_checks(metadata),
-        _refuse(~select(1).select_from(release).where(release.c.release_id == selected, release.c.profile == "semantic-2").exists(), "execution requires a current composed release"),
+        _refuse(
+            ~select(1)
+            .select_from(release)
+            .where(release.c.release_id == selected, release.c.profile == "semantic-2")
+            .exists(),
+            "execution requires a current composed release",
+        ),
         _native_inference_check(metadata),
-        _refuse(~select(1).select_from(release).where(release.c.release_id == selected, _decoded_json(release.c.manifest_bytes).has_key("data_operation_model")).exists(), "native execution requires the current declared data operation model"),
-        _refuse(select(1).select_from(registry).where(registry.c.release_id == selected, registry.c.kind == "execution_model").exists(), "target archive contains legacy execution model"),
-        If(select(1).select_from(artifact).where(and_(artifact.c.release_id == selected, artifact.c.artifact_name == "operation/scientific-policy.json")).exists(), (Perform(func.sem.require_scientific_layout(selected)),)),
+        _refuse(
+            ~select(1)
+            .select_from(release)
+            .where(
+                release.c.release_id == selected,
+                _decoded_json(release.c.manifest_bytes).has_key("data_operation_model"),
+            )
+            .exists(),
+            "native execution requires the current declared data operation model",
+        ),
+        _refuse(
+            select(1)
+            .select_from(registry)
+            .where(registry.c.release_id == selected, registry.c.kind == "execution_model")
+            .exists(),
+            "target archive contains legacy execution model",
+        ),
+        If(
+            select(1)
+            .select_from(artifact)
+            .where(
+                and_(
+                    artifact.c.release_id == selected,
+                    artifact.c.artifact_name == "operation/scientific-policy.json",
+                )
+            )
+            .exists(),
+            (Perform(func.sem.require_scientific_layout(selected)),),
+        ),
     )
