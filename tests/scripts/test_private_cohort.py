@@ -596,3 +596,17 @@ def test_recovery_refuses_uncertain_settlement_or_nonempty_residue(
     with pytest.raises(ValueError):
         recover_private_temporary(receipt)
     assert temporary.is_dir() and not (receipt / "private-host-cleanup-recovery.json").exists()
+
+
+def test_private_principal_inventory_needs_no_shell_tool_path(monkeypatch):
+    from native_test_support import semantic_principals
+
+    monkeypatch.setenv("PATH", "/absent-private-tools")
+    assert semantic_principals() == {
+        "publisher": "corpus_sem_publisher",
+        "write": "corpus_sem_writer",
+        "read": "corpus_sem_reader",
+        "evaluate": "corpus_sem_evaluator",
+        "fit": "corpus_sem_fitter",
+        "admit": "corpus_sem_admitter",
+    }

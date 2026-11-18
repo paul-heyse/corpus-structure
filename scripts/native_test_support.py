@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 import sys
 import threading
 import time
@@ -395,14 +394,10 @@ class SemanticDeployment:
 
 
 def semantic_principals() -> dict[str, str]:
-    """The provisioning script owns canonical role names, without probing the host."""
-    result = subprocess.run(
-        ["bash", str(REPO / "scripts/pg_semantic_roles.sh"), "--principals"],
-        text=True,
-        capture_output=True,
-        check=True,
-    )
-    return dict(line.split() for line in result.stdout.splitlines())
+    """Read the provisioning renderer's typed role owner without shell startup."""
+    from corpus_structure.core.db.host_bootstrap import PRINCIPALS
+
+    return {principal.purpose: principal.name for principal in PRINCIPALS}
 
 
 class PgAdmin:
