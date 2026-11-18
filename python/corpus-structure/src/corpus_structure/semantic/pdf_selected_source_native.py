@@ -6,8 +6,8 @@ from importlib.resources import files
 import yaml
 from pglast import ast, parse_sql
 from pglast.stream import RawStream
-from sqlalchemy import MetaData, Text, column, select, table
-from sqlalchemy.dialects.postgresql import array, dialect
+from sqlalchemy import MetaData, Text, case, column, func, select, table, true, union_all
+from sqlalchemy.dialects.postgresql import JSONB, array, dialect
 
 from .native_program import core_variable
 from .pdf_record_reader_native import pdf_companion_event_ctes, pdf_native_event_ctes
@@ -55,8 +55,61 @@ def selected_membership_relations(metadata: MetaData, *, section=None):
     return access, subtree, selected, ancestors
 
 
-def _selected_membership_sql(metadata: MetaData):
+def selected_content_relations(metadata: MetaData, selected, ancestors):
+    """Follow pinned native children and select contextual native metadata."""
+    native = metadata.tables["kb.pdf_record_native"].alias("n")
+    published = table("published", column("build_id", native.c.product_id.type))
+    contained = select(native.c.record_id).select_from(
+        native.join(published, (native.c.product_id == published.c.build_id)
+                    & (native.c.revision_id == published.c.build_id))
+        .join(selected, selected.c.pointer == native.c.native_address)
+    ).cte("contained", recursive=True)
+    source = metadata.tables["kb.pdf_record_native"].alias("contained_native")
+    fields = func.jsonb_each(source.c.structure_json["fields"]).table_valued(
+        column("key", Text()), column("value", JSONB())
+    ).lateral("f")
+    members = metadata.tables["kb.pdf_record_membership"].alias("m")
+    children = union_all(
+        select(fields.c.value["target"].astext.label("record_id"))
+        .select_from(fields).where(fields.c.value["kind"].astext == "object")
+        .correlate(source, published),
+        select(members.c.record_id).where(
+            members.c.product_id == published.c.build_id,
+            members.c.revision_id == published.c.build_id,
+            members.c.parent_id == source.c.record_id, members.c.value_kind == "record",
+        ).correlate(source, published),
+    ).lateral("child")
+    contained = contained.union(
+        select(children.c.record_id).select_from(
+            contained.join(source, source.c.record_id == contained.c.record_id)
+            .join(published, (source.c.product_id == published.c.build_id)
+                  & (source.c.revision_id == published.c.build_id))
+            .join(children, true())
+        )
+    )
+    companion = metadata.tables["kb.pdf_record_companion"].alias("c")
+    selected_pointers = select(selected.c.pointer)
+    coverage_pointer = func.ops.pdf_companion_body(
+        companion.c.product_id, companion.c.revision_id, companion.c.family,
+        companion.c.local_id, companion.c.body, type_=JSONB(),
+    )["value"]["section_pointer"].astext
+    contextual_pointers = selected_pointers.union(select(ancestors.c.pointer))
+    selected_metadata = select(companion).join(
+        published, (companion.c.product_id == published.c.build_id)
+        & (companion.c.revision_id == published.c.build_id)
+    ).where(
+        companion.c.family == "native_metadata",
+        case({
+            "formula_outcomes": companion.c.body["pointer"].astext.in_(selected_pointers),
+            "recognition_coverage": coverage_pointer.in_(contextual_pointers),
+        }, value=companion.c.body["kind"].astext, else_=False),
+    ).cte("selected_metadata").prefix_with("MATERIALIZED")
+    return contained, selected_metadata
+
+
+def _selected_relational_sql(metadata: MetaData):
     access, subtree, selected, ancestors = selected_membership_relations(metadata)
+    contained_records, selected_metadata = selected_content_relations(metadata, selected, ancestors)
     nodes = table(
         "nodes",
         column("record_id", metadata.tables["kb.pdf_record_native"].c.record_id.type),
@@ -65,7 +118,7 @@ def _selected_membership_sql(metadata: MetaData):
     statement = (
         select(nodes.c.record_id, array([selected.c.ordinal]).label("path"))
         .join(selected, nodes.c.native_address == selected.c.pointer)
-        .add_cte(access, subtree, selected, ancestors)
+        .add_cte(access, subtree, selected, ancestors, contained_records, selected_metadata)
     )
     rendered = str(
         statement.compile(
@@ -82,7 +135,6 @@ def _selected_membership_sql(metadata: MetaData):
     ctes = ",".join(RawStream()(item) for item in parsed.stmt.withClause.ctes)
     parsed.stmt.withClause = None
     roots = RawStream()(parsed.stmt)
-    # The containment relation is supplied by the native event composition below.
     contained = table("contained", column("record_id", nodes.c.record_id.type))
     predicate = nodes.c.record_id.in_(select(contained.c.record_id))
     return (
@@ -101,38 +153,11 @@ def selected_source_reader_sql(*, target_metadata: MetaData | None = None) -> st
         from .metadata import metadata
 
         target_metadata = metadata
-    membership_ctes, roots, node_filter = _selected_membership_sql(target_metadata)
+    selection_ctes, roots, node_filter = _selected_relational_sql(target_metadata)
     ctes = pdf_native_event_ctes(
         published_sql="SELECT * FROM ops.read_pdf_published_revision(p_task,p_native_product,p_digest)",
         roots_sql=roots,
-        additional_ctes=membership_ctes
-        + """, contained(record_id) AS (
- SELECT n.record_id FROM kb.pdf_record_native n JOIN published p
- ON n.product_id=p.build_id AND n.revision_id=p.build_id
- JOIN selected a ON a.pointer=n.native_address
- UNION
- SELECT child.record_id FROM contained parent JOIN kb.pdf_record_native n
- ON n.record_id=parent.record_id JOIN published p
- ON n.product_id=p.build_id AND n.revision_id=p.build_id
- CROSS JOIN LATERAL (
- SELECT f.value->>'target' AS record_id FROM jsonb_each(n.structure_json->'fields') f
- WHERE f.value->>'kind'='object'
- UNION ALL
- SELECT m.record_id FROM kb.pdf_record_membership m
- WHERE m.product_id=p.build_id AND m.revision_id=p.build_id
- AND m.parent_id=n.record_id AND m.value_kind='record'
- ) child
- ), selected_metadata AS MATERIALIZED (
- SELECT c.* FROM kb.pdf_record_companion c JOIN published p
- ON c.product_id=p.build_id AND c.revision_id=p.build_id
- WHERE c.family='native_metadata' AND CASE c.body->>'kind'
- WHEN 'formula_outcomes' THEN c.body->>'pointer' IN (SELECT pointer FROM selected)
- WHEN 'recognition_coverage' THEN
- (ops.pdf_companion_body(c.product_id,c.revision_id,c.family,c.local_id,c.body)
- ->'value'->>'section_pointer') IN
- (SELECT pointer FROM selected UNION SELECT pointer FROM ancestors)
- ELSE false END
- )""",
+        additional_ctes=selection_ctes,
         node_filter_sql=node_filter,
     )
     metadata_ctes = pdf_companion_event_ctes(
