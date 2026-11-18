@@ -13,6 +13,7 @@ from evaluate.declared_record_native_support import (
     PROJECT,
     ROOT,
     CurrentRecordPolicyJourney,
+    FittedJourney,
     ReadingPopulation,
     authored,
     current_record_policy_journey,
@@ -88,6 +89,25 @@ def current_rich_policy(scenario_seeds, tmp_path, monkeypatch):
 def selected_entry(row):
     """Use the retained selected packet, never recover support from product identity."""
     (entry,) = row["_selected_entries"]
+    return entry
+
+
+def selected_policy_authorization(fitted: FittedJourney) -> SelectedSourceSetEntry:
+    from corpus_structure.semantic.demand_results import read_demand_result
+
+    scope = {
+        "operation_id": "record_policy.authorize",
+        "product_ids": [fitted.authorization_product_id],
+    }
+    with fitted.journey.kernel.purpose("write").begin() as connection:
+        page = read_demand_result(connection, fitted.demand_id, project_id=PROJECT, scope=scope)
+    (header,) = page.members()
+    assert header["product_id"] == fitted.authorization_product_id
+    assert header["body"] == fitted.authorization
+    assert page.cut.record["scope"] == scope
+    assert page.cut.record["selection"]["version"] == "data-demand-public-selection-v1"
+    entry = SelectedSourceSetEntry.from_selected_header(header, page.cut)
+    assert entry.read.cut_id == page.cut.identity
     return entry
 
 

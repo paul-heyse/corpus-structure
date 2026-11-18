@@ -14,6 +14,7 @@ from evaluate.declared_record_native_support import (
 from evaluate.declared_rich_native_support import NAMESPACE, rich_policy_recipe
 
 from corpus_structure.semantic.data_operation_identity import canonical_identity
+from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
 from corpus_structure.semantic.rich_knowledge_contracts import (
     DdoRichAdmission,
     DdoRichAuthoredBody,
@@ -311,7 +312,7 @@ def publish_readings(
     *,
     source,
     inference,
-    authorization=None,
+    authorization: SelectedSourceSetEntry | None = None,
     include_resolution=True,
     page_rows=100,
     max_bytes=8 * 1024**2,
@@ -366,7 +367,7 @@ def publish_readings(
             ),
             FrozenSourceSet.from_selected(
                 "rich-policy-authorizations",
-                () if authorization is None else (selected_entry(authorization),),
+                () if authorization is None else (authorization,),
             ),
         ),
         inference=inference,

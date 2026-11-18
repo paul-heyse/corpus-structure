@@ -26,6 +26,7 @@ def test_native_support_keeps_actual_raw_resolution_and_admission_producers(
 ):
     from evaluate.declared_record_native_support import complete_policy_fit
     from evaluate.declared_rich_native_journey_test_support import verify_completion_refusals
+    from evaluate.declared_rich_native_support import selected_policy_authorization
 
     from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 
@@ -33,12 +34,7 @@ def test_native_support_keeps_actual_raw_resolution_and_admission_producers(
 
     with verify_completion_refusals(journey, monkeypatch):
         fitted = complete_policy_fit(journey)
-        _, products, *_ = journey.selected_products(
-            journey.kernel.purpose("read"),
-            fitted.demand_id,
-            kind="https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization",
-        )
-        ((authorization, _),) = products
+        authorization = selected_policy_authorization(fitted)
         source = next(
             source
             for source in journey.sources
