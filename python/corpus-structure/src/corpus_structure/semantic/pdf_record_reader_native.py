@@ -1,137 +1,30 @@
 """Published-only bounded record access, composed into forward native authoring."""
 
+from sqlalchemy import BigInteger, MetaData, Numeric, Table, Text, cast, column, func, or_, select
+from sqlalchemy.dialects.postgresql import JSONB
 
-def pdf_record_reader_sql() -> str:
-    families = {
-        "header": ("ops.pdf_record_document", ("product_id",), ()),
-        "native": ("kb.pdf_record_native", ("record_id",), ("record_id", "native_address")),
-        "membership": (
-            "kb.pdf_record_membership",
-            ("parent_id", "field_name", "ordinal"),
-            ("parent_id", "field_name"),
-        ),
-        "reference": ("kb.pdf_record_reference", ("reference_id",), ("source_id", "target_id")),
-        "artifact_stream": ("ops.pdf_artifact_stream", ("stream_id",), ("stream_id", "stream_ids")),
-        "artifact_part": (
-            "ops.pdf_artifact_parts(published.build_id,published.build_id,false,selected_stream_ids)",
-            ("stream_id", "ordinal"),
-            ("stream_id", "stream_ids"),
-        ),
-        "companion": (
-            "kb.pdf_record_companion",
-            ("family", "local_id"),
-            ("family", "local_id", "kind", "pointer", "page_nos"),
-        ),
-        "companion_field": (
-            "kb.pdf_record_companion_field",
-            ("family", "local_id", "field_name"),
-            ("family", "local_id", "field_name"),
-        ),
-        "endpoint": (
-            "kb.pdf_record_endpoint",
-            ("relation_id", "ordinal"),
-            ("relation_id", "occurrence_id"),
-        ),
-    }
-    cases = []
-    for family, (relation, key, filters) in families.items():
-        if family == "companion":
-            key = ("family", "ordinal", "local_id")
-        cursor = "jsonb_build_array(" + ",".join("r." + name for name in key) + ")"
-        order = ",".join("r." + name + (" NULLS LAST" if name == "ordinal" else "") for name in key)
-        actual = "ROW(" + ",".join("r." + name for name in key) + ")"
-        boundary = (
-            "ROW("
-            + ",".join(
-                "(p_after->>" + str(i) + ")" + ("::bigint" if name == "ordinal" else "")
-                for i, name in enumerate(key)
-            )
-            + ")"
-        )
-        seek = actual + ">" + boundary
-        if family == "companion":
-            seek = (
-                (
-                    "((p_after->1='null'::jsonb AND (r.family>p_after->>0 OR "
-                    "r.family=p_after->>0 AND r.ordinal IS NULL AND "
-                    "r.local_id>p_after->>2)) OR (p_after->1<>'null'::jsonb AND ("
-                )
-                + seek
-                + " OR r.family=p_after->>0 AND r.ordinal IS NULL)))"
-            )
-        allowed = "ARRAY[" + ",".join("'" + name + "'" for name in filters) + "]::text[]"
-        conditions = (
-            " AND ".join(
-                "(NOT p_filters ? '" + name + "' OR r." + name + "=p_filters->>'" + name + "')"
-                for name in filters
-                if name not in {"kind", "pointer", "page_nos", "stream_ids"}
-            )
-            or "true"
-        )
-        if family in {"artifact_stream", "artifact_part"}:
-            conditions += " AND (NOT p_filters ? 'stream_ids' OR r.stream_id IN (SELECT value FROM jsonb_array_elements_text(p_filters->'stream_ids')))"
-        if family == "companion":
-            conditions += (
-                " AND (NOT p_filters ? 'kind' OR "
-                "r.body->'kind'=p_filters->'kind') AND (NOT p_filters ? 'pointer' "
-                "OR r.body->'pointer'=p_filters->'pointer')"
-                " AND (NOT p_filters ? 'page_nos' OR r.body->'page_no' IN "
-                "(SELECT value FROM jsonb_array_elements(p_filters->'page_nos')))"
-            )
-        output = f"to_jsonb(r)||jsonb_build_object('_cursor',{cursor})"
-        if family == "companion":
-            output += (
-                "||jsonb_build_object('_fields',COALESCE((SELECT "
-                "jsonb_agg(jsonb_build_object('field_name',cf.field_name,'stream_i"
-                "d',cf.stream_id,'scalar_kind',cf.scalar_kind,'encoding_profile',"
-                "s.encoding_profile) ORDER BY "
-                "cf.field_name) FROM kb.pdf_record_companion_field cf "
-                "JOIN ops.pdf_artifact_stream s USING(product_id,revision_id,stream_id) WHERE "
-                "cf.product_id=r.product_id AND cf.revision_id=r.revision_id AND "
-                "cf.family=r.family AND cf.local_id=r.local_id),'[]'::jsonb))"
-            )
-        cases.append(f"""WHEN '{family}' THEN
- IF EXISTS(SELECT FROM jsonb_object_keys(p_filters) k WHERE NOT k=ANY({allowed})) THEN
- RAISE EXCEPTION 'unsupported published record filter' USING ERRCODE='22023'; END IF;
- IF p_filters ? 'stream_ids' AND (jsonb_typeof(p_filters->'stream_ids') IS DISTINCT FROM 'array'
- OR jsonb_array_length(p_filters->'stream_ids') NOT BETWEEN 1 AND 512
- OR EXISTS(SELECT FROM jsonb_array_elements(p_filters->'stream_ids') value WHERE jsonb_typeof(value)<>'string')) THEN
- RAISE EXCEPTION 'published stream set requires 1..512 exact IDs' USING ERRCODE='22023'; END IF;
- selected_stream_ids:=CASE WHEN p_filters ? 'stream_id' THEN ARRAY[p_filters->>'stream_id']
- WHEN p_filters ? 'stream_ids' THEN ARRAY(SELECT jsonb_array_elements_text(p_filters->'stream_ids')) ELSE NULL END;
- RETURN QUERY SELECT {output} FROM {relation} r
- WHERE r.product_id=published.build_id AND r.revision_id=published.build_id
- AND ({conditions}) AND (p_after IS NULL OR {seek})
- ORDER BY {order} LIMIT p_limit;""")
-    return (
-        """
-CREATE OR REPLACE FUNCTION ops.read_pdf_record_rows(p_task bigint,p_product text,p_digest text,
- p_family text,p_filters jsonb,p_after jsonb,p_limit integer)
-RETURNS SETOF jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $reader$
-DECLARE published ops.pdf_published_revision; selected_stream_ids text[];
-BEGIN
- IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 1000 OR p_filters IS NULL OR
- jsonb_typeof(p_filters)<>'object' OR (p_after IS NOT NULL AND jsonb_typeof(p_after)<>'array') THEN
- RAISE EXCEPTION 'invalid published record page' USING ERRCODE='22023'; END IF;
- SELECT * INTO STRICT published FROM ops.read_pdf_published_revision(p_task,p_product,p_digest);
- CASE p_family
-"""
-        + "\n".join(cases)
-        + (
-            "\n"
-            " ELSE RAISE EXCEPTION 'unknown published record family' USING "
-            "ERRCODE='22023';\n"
-            " END CASE;\n"
-            "END $reader$;\n"
-            "REVOKE ALL ON FUNCTION "
-            "ops.read_pdf_record_rows(bigint,text,text,text,jsonb,jsonb,intege"
-            "r) FROM PUBLIC;\n"
-            "GRANT EXECUTE ON FUNCTION "
-            "ops.read_pdf_record_rows(bigint,text,text,text,jsonb,jsonb,intege"
-            "r)\n"
-            " TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;\n"
-        )
-    ) + pdf_materialization_bound_sql()
+from .metadata import metadata
+from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_program import (
+    Block,
+    If,
+    Local,
+    Parameter,
+    Raise,
+    Return,
+    SelectInto,
+    column_type,
+    core_relation_row,
+    core_variable,
+    function,
+    pg_type,
+)
+from .pdf_record_pages_native import pdf_record_page_sql
+
+
+def pdf_record_reader_sql(*, target_metadata: MetaData | None = None) -> str:
+    model = metadata if target_metadata is None else target_metadata
+    return pdf_record_page_sql(model) + pdf_materialization_bound_sql(model)
 
 
 def pdf_record_context_sql() -> str:
@@ -421,53 +314,112 @@ def pdf_companion_event_ctes(*, companions_sql: str, prefix: str) -> str:
     return source
 
 
-def pdf_materialization_bound_sql() -> str:
-    """Conservative encoded input bound, authenticated before whole-value transfer."""
-    return r"""
-CREATE OR REPLACE FUNCTION ops.read_pdf_materialization_bound(p_task bigint,p_product text,p_digest text)
-RETURNS bigint LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $bound$
-DECLARE published ops.pdf_published_revision; total numeric;
-BEGIN
- SELECT * INTO STRICT published FROM ops.read_pdf_published_revision(p_task,p_product,p_digest);
- -- JSON string escaping expands each source byte by at most six bytes. Count
- -- stream uses in the native export as well as the separately consumed companion
- -- payloads. Repeated stream references therefore cannot evade this bound.
- WITH events AS MATERIALIZED (
-   SELECT event FROM ops.read_pdf_native_events(p_task,p_product,p_digest) event
- ), event_bytes AS (
-   SELECT coalesce(sum(octet_length(event::text)::numeric),0)*6 AS bytes FROM events
- ), native_stream_bytes AS (
-   SELECT coalesce(sum(stream.byte_length::numeric),0)*6 AS bytes
-   FROM events JOIN ops.pdf_artifact_stream stream
-   ON stream.product_id=published.build_id AND stream.revision_id=published.build_id
-   AND stream.stream_id=events.event->>'value'
-   WHERE events.event->>'kind' IN ('parts','key_parts','extension')
- ), companion_stream_bytes AS (
-   SELECT coalesce(sum(byte_length::numeric),0)*6 AS bytes FROM ops.pdf_artifact_stream
-   WHERE product_id=published.build_id AND revision_id=published.build_id
- ), companion_bytes AS (
-   SELECT coalesce(sum(octet_length(to_jsonb(row_)::text)::numeric),0)*6 AS bytes
-   FROM kb.pdf_record_companion row_ WHERE product_id=published.build_id AND revision_id=published.build_id
- ), companion_field_bytes AS (
-   SELECT coalesce(sum(octet_length(to_jsonb(row_)::text)::numeric),0)*6 AS bytes
-   FROM kb.pdf_record_companion_field row_ WHERE product_id=published.build_id AND revision_id=published.build_id
- ), membership_bytes AS (
-   SELECT coalesce(sum(octet_length(to_jsonb(row_)::text)::numeric),0)*6 AS bytes
-   FROM kb.pdf_record_membership row_ WHERE product_id=published.build_id AND revision_id=published.build_id
- ), artifact_bytes AS (
-   SELECT coalesce(sum(octet_length(content)::numeric),0) AS bytes FROM kb.source_artifact
-   WHERE artifact_digest IN (published.source_digest,published.schema_digest,published.recipe_digest)
- )
- SELECT event_bytes.bytes+native_stream_bytes.bytes+companion_stream_bytes.bytes+
- companion_bytes.bytes+companion_field_bytes.bytes+membership_bytes.bytes+artifact_bytes.bytes
- INTO total FROM event_bytes,native_stream_bytes,companion_stream_bytes,companion_bytes,
- companion_field_bytes,membership_bytes,artifact_bytes;
- IF total IS NULL OR total<0 OR total>9223372036854775807::numeric THEN
-   RAISE EXCEPTION 'PDF materialization bound exceeds signed integer capacity' USING ERRCODE='22003';
- END IF;
- RETURN total::bigint;
-END $bound$;
-REVOKE ALL ON FUNCTION ops.read_pdf_materialization_bound(bigint,text,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ops.read_pdf_materialization_bound(bigint,text,text)
- TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;
-"""
+def pdf_materialization_bound_sql(model: MetaData) -> str:
+    """Conservatively bound native and companion encoded inputs before transfer."""
+    placement = model.tables["ops.pdf_published_revision"]
+    task, product, digest = (
+        core_variable(name, field.type)
+        for name, field in (
+            ("p_task", placement.c.task_id),
+            ("p_product", placement.c.product_key),
+            ("p_digest", placement.c.logical_digest),
+        )
+    )
+    build = core_variable("published", placement.c.build_id.type, "build_id")
+    rows = (
+        func.ops.read_pdf_published_revision(task, product, digest)
+        .table_valued(*(column(field.name, field.type) for field in placement.c))
+        .alias("placement")
+    )
+    read_placement = SelectInto(
+        select(core_relation_row(Table("placement", MetaData()))).select_from(rows),
+        ("published",),
+        strict=True,
+    )
+    exported = (
+        func.ops.read_pdf_native_events(task, product, digest)
+        .table_valued(column("event", JSONB()))
+        .render_derived()
+    )
+    events = select(exported.c.event).cte("events").prefix_with("MATERIALIZED")
+
+    def byte_count(value):
+        return func.coalesce(func.sum(cast(value, Numeric())), 0)
+
+    def placed(row):
+        return row.c.product_id == build, row.c.revision_id == build
+
+    artifacts = model.tables["kb.source_artifact"]
+    streams = model.tables["ops.pdf_artifact_stream"]
+    event_bytes = select(byte_count(func.octet_length(cast(events.c.event, Text()))))
+    # Count repeated native stream uses individually, including escaped JSON strings.
+    native_bytes = (
+        select(byte_count(streams.c.byte_length))
+        .select_from(events.join(streams, streams.c.stream_id == events.c.event["value"].astext))
+        .where(
+            *placed(streams), events.c.event["kind"].astext.in_(("parts", "key_parts", "extension"))
+        )
+    )
+    companion_stream_bytes = select(byte_count(streams.c.byte_length)).where(*placed(streams))
+    record_bytes = []
+    for name in ("companion", "companion_field", "membership"):
+        row = model.tables[f"kb.pdf_record_{name}"]
+        size = func.octet_length(cast(func.to_jsonb(row.table_valued()), Text()))
+        record_bytes.append(select(byte_count(size)).where(*placed(row)))
+    raw_bytes = select(byte_count(func.octet_length(artifacts.c.content))).where(
+        artifacts.c.artifact_digest.in_(
+            tuple(
+                core_variable("published", placement.c[name].type, name)
+                for name in ("source_digest", "schema_digest", "recipe_digest")
+            )
+        )
+    )
+    # A JSON string may take six encoded bytes per input byte.
+    escaped = (
+        sum(
+            query.scalar_subquery()
+            for query in (event_bytes, native_bytes, companion_stream_bytes, *record_bytes)
+        )
+        * 6
+    )
+    total = core_variable("total", Numeric())
+    name = "read_pdf_materialization_bound"
+    definition = function(
+        "ops",
+        name,
+        parameters=(
+            Parameter("p_task", column_type(placement.c.task_id)),
+            Parameter("p_product", column_type(placement.c.product_key)),
+            Parameter("p_digest", column_type(placement.c.logical_digest)),
+        ),
+        returns=pg_type("int8"),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        volatility="stable",
+        body=Block(
+            (
+                read_placement,
+                SelectInto(select(escaped + raw_bytes.scalar_subquery()), ("total",)),
+                If(
+                    or_(total.is_(None), total < 0, total > 2**63 - 1),
+                    (Raise("PDF materialization bound exceeds signed integer capacity", "22003"),),
+                ),
+                Return(cast(total, BigInteger())),
+            ),
+            (Local("published", placement), Local("total", pg_type("numeric"))),
+        ),
+    )
+    identity = NativeIdentity("function", "ops", name, ("bigint", "text", "text"))
+    return (
+        native_sql_script(
+            (
+                definition,
+                native_privilege_sql(identity, "PUBLIC", grant=False),
+                *(
+                    native_privilege_sql(identity, role, "execute")
+                    for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+                ),
+            )
+        )
+        + "\n"
+    )

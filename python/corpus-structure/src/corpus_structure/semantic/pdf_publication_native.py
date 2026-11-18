@@ -645,6 +645,7 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         pdf_record_scope_health_sql,
         pdf_reference_bytes_equal_sql,
     )
+    from .pdf_record_pages_native import pdf_record_page_sql
     from .pdf_record_reader_native import (
         pdf_companion_export_sql,
         pdf_native_export_sql,
@@ -691,43 +692,12 @@ b.state='published'
 $$;
 """
     reader = (
-        pdf_record_reader_sql()
+        pdf_record_reader_sql(target_metadata=metadata)
         + pdf_record_context_sql()
         + pdf_native_export_sql()
         + pdf_companion_export_sql()
     )
-    private = pdf_record_reader_sql()
-    private = private[: private.index("REVOKE ALL")]
-    private = private.replace(
-        "ops.read_pdf_record_rows(p_task bigint,p_product text,p_digest text,",
-        "ops.read_pdf_frozen_rows(p_build text,p_task bigint,p_attempt bigint,p_holder \
-text,p_frozen text,",
-    )
-    private = private.replace(
-        "p_family text,p_filters jsonb,p_after jsonb,p_limit integer)",
-        "p_family text,p_after jsonb,p_limit integer,p_filters jsonb DEFAULT '{}'::jsonb)",
-    )
-    private = private.replace(
-        "DECLARE published ops.pdf_published_revision;",
-        "DECLARE published ops.pdf_stage_build;",
-    )
-    private = private.replace(
-        "SELECT * INTO STRICT published FROM ops.read_pdf_published_revision(p_task,p_product,p_d\
-igest);",
-        "published:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);",
-    )
-    # A callback needs native reconstruction and selected metadata, not the
-    # independent SQL validator's complete relational inventory. Use the same
-    # keyed reader and a bounded set of actual referenced stream identities.
-    private = private.replace(
-        "ARRAY['stream_id']::text[]", "ARRAY['stream_id','stream_ids']::text[]"
-    ).replace(
-        "(NOT p_filters ? 'stream_id' OR r.stream_id=p_filters->>'stream_id')",
-        "(NOT p_filters ? 'stream_id' OR r.stream_id=p_filters->>'stream_id') "
-        "AND (NOT p_filters ? 'stream_ids' OR r.stream_id=ANY(ARRAY(SELECT "
-        "jsonb_array_elements_text(p_filters->'stream_ids'))))",
-    )
-    sql += private
+    sql += pdf_record_page_sql(metadata, frozen=True)
     validation_programs = pdf_validation_native_programs(metadata, pdf_domain=pdf_domain)
     sql += (
         validation_programs["validation_contract"]
@@ -809,7 +779,6 @@ uator;
         "prepare_pdf_companions()",
         "adopt_pdf_companions(text,bigint,bigint,text,text)",
         "prepare_pdf_build(text,bigint,bigint,text,text)",
-        "read_pdf_frozen_rows(text,bigint,bigint,text,text,text,jsonb,integer,jsonb)",
         "read_pdf_published_revision(bigint,text,text)",
         "read_pdf_published_validation(bigint,text,text)",
     ]
