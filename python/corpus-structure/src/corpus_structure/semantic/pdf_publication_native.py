@@ -2157,6 +2157,16 @@ def pdf_inventory_native_sql(model):
         .table_valued(column("value", JSONB()))
         .lateral("children")
     )
+    access_edges = (
+        select(
+            parent.c.pointer.label("parent_pointer"),
+            children.c.value["$ref"].astext.label("child_pointer"),
+        )
+        .select_from(parent.join(children, true()))
+        .where(scope(parent))
+        .cte("access_edges")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
     missing_child = exists(
         select(1)
         .select_from(
@@ -2173,8 +2183,11 @@ def pdf_inventory_native_sql(model):
             scope(parent),
             ~exists(
                 select(1)
-                .select_from(children)
-                .where(children.c.value["$ref"].astext == child.c.pointer)
+                .select_from(access_edges)
+                .where(
+                    access_edges.c.parent_pointer == parent.c.pointer,
+                    access_edges.c.child_pointer == child.c.pointer,
+                )
                 .correlate(parent, child)
             ),
         )
@@ -2182,20 +2195,20 @@ def pdf_inventory_native_sql(model):
     wrong_parent = exists(
         select(1)
         .select_from(
-            parent.join(children, true()).outerjoin(
-                child, and_(scope(child), child.c.pointer == children.c.value["$ref"].astext)
+            access_edges.outerjoin(
+                child, and_(scope(child), child.c.pointer == access_edges.c.child_pointer)
             )
         )
         .where(
-            scope(parent),
             or_(
-                child.c.pointer.is_(None), child.c.parent_pointer.is_distinct_from(parent.c.pointer)
+                child.c.pointer.is_(None),
+                child.c.parent_pointer.is_distinct_from(access_edges.c.parent_pointer),
             ),
         )
     )
     statements.append(
         If(
-            or_(missing_child, wrong_parent),
+            select(or_(missing_child, wrong_parent)).add_cte(access_edges).scalar_subquery(),
             (Raise("native parent/child backpointer differs", "23514"),),
         )
     )

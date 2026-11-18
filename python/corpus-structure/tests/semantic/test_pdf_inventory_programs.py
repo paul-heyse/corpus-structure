@@ -33,6 +33,13 @@ from corpus_structure.semantic.pdf_records import iter_native_records
         ("disconnected-cycle", "native containment cycle or unreachable record", "23514"),
         ("scalar-gap", "native ordered membership incomplete", "23514"),
         ("access-parent", "native parent/child backpointer differs", "23514"),
+        ("access-missing-child", "native parent/child backpointer differs", "23514"),
+        ("access-missing-children", "native parent/child backpointer differs", "23514"),
+        ("access-dangling-child", "native parent/child backpointer differs", "23514"),
+        ("access-malformed-child", "native parent/child backpointer differs", "23514"),
+        ("access-null-children", "cannot extract elements from a scalar", "22023"),
+        ("access-duplicate-child", None, None),
+        ("access-absent-parent", None, None),
         (
             "duplicate-address",
             "duplicate native address including overflow representation",
@@ -110,6 +117,35 @@ def test_generated_inventory_retains_independent_containment_expectations(
         next(row for row in rows["access"] if row["pointer"] == "#/texts/0")["parent_pointer"] = (
             "#/furniture"
         )
+    elif defect in {
+        "access-missing-child",
+        "access-missing-children",
+        "access-dangling-child",
+        "access-malformed-child",
+        "access-null-children",
+        "access-duplicate-child",
+        "access-absent-parent",
+    }:
+        parent = next(row for row in rows["access"] if row["pointer"] == "#/body")
+        children = parent["native_json"]["children"]
+        if defect in {"access-missing-child", "access-absent-parent"}:
+            children.clear()
+            if defect == "access-absent-parent":
+                # The inventory guard compares reciprocal links only for
+                # present parents. This keeps its existing scope explicit.
+                next(row for row in rows["access"] if row["pointer"] == "#/texts/0")[
+                    "parent_pointer"
+                ] = "#/absent"
+        elif defect == "access-missing-children":
+            del parent["native_json"]["children"]
+        elif defect == "access-dangling-child":
+            children.append({"$ref": "#/absent"})
+        elif defect == "access-malformed-child":
+            children.append({})
+        elif defect == "access-null-children":
+            parent["native_json"]["children"] = None
+        else:
+            children.append(dict(children[0]))
     elif defect == "duplicate-address":
         rows["native"][1]["native_address"] = rows["native"][0]["native_address"]
     elif defect == "reference-spelling":
