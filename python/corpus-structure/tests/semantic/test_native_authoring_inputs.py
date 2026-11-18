@@ -148,3 +148,31 @@ def test_visual_native_lowering_uses_captured_sql_and_artifact_schema(monkeypatc
     assert "captured visual schema marker" in integrated
     assert "captured_visual_candidate_rows" in integrated
     assert "ops.ddo_impl_read_selected_visual_evidence" in integrated
+
+
+@pytest.mark.parametrize("owner", ["admission", "definition", "witness"])
+def test_contextual_guards_resolve_the_explicit_captured_relation(owner):
+    from sqlalchemy import MetaData
+
+    from corpus_structure.semantic.contextual_admission_native import (
+        contextual_admission_native_sql,
+    )
+    from corpus_structure.semantic.contextual_definition_native import (
+        contextual_definition_native_sql,
+    )
+    from corpus_structure.semantic.contextual_witness_native import contextual_witness_native_sql
+    from corpus_structure.semantic.metadata import metadata
+
+    captured = MetaData()
+    for relation in metadata.sorted_tables:
+        relation.to_metadata(captured)
+    captured.tables["ops.data_derivation"].name = "captured_contextual_episode"
+    build = {
+        "admission": contextual_admission_native_sql,
+        "definition": contextual_definition_native_sql,
+        "witness": contextual_witness_native_sql,
+    }[owner]
+    generated = build(target_metadata=captured)
+    assert "ops.captured_contextual_episode" in generated
+    assert "ops.data_derivation " not in generated
+    assert "ops.data_derivation;" not in generated

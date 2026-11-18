@@ -185,3 +185,60 @@ def test_unicode_target_ids_use_canonical_c_ties_for_all_native_channels(native_
             numerical_policy=numerics,
         )
     )
+
+
+def test_generated_contextual_guards_bind_captured_rows_and_keep_private_custody(native_rollback):
+    from sqlalchemy import text
+
+    from corpus_structure.semantic.contextual_admission_native import (
+        contextual_admission_native_sql,
+    )
+    from corpus_structure.semantic.contextual_definition_native import (
+        contextual_definition_native_sql,
+    )
+    from corpus_structure.semantic.contextual_witness_native import contextual_witness_native_sql
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
+
+    connection = native_rollback.connection
+    execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
+    signatures = (
+        "ops.ddo_require_contextual_producer(ops.data_request,jsonb)",
+        "ops.ddo_contextual_scoring_inputs(ops.data_request,jsonb)",
+        "ops.ddo_require_contextual_completion(ops.data_request,jsonb)",
+        "ops.ddo_contextual_dependencies_valid(text)",
+        "ops.ddo_contextual_origin_basis(jsonb,text)",
+        "ops.ddo_require_contextual_definition_lineage(ops.data_request,jsonb)",
+        "ops.ddo_contextual_input_reference(jsonb,boolean)",
+        "ops.ddo_contextual_witness_inputs(ops.data_request,jsonb)",
+    )
+    with native_owner(connection, "corpus_sem_publisher"):
+        for build in (contextual_admission_native_sql, contextual_definition_native_sql, contextual_witness_native_sql):
+            execute_native_sql(connection, build(target_metadata=metadata))
+        for signature in signatures:
+            errors = connection.execute(text(
+                "SELECT message FROM public.plpgsql_check_function_tb(CAST(:signature AS regprocedure),fatal_errors=>false) WHERE level='error'"
+            ), {"signature": signature}).scalars().all()
+            assert errors == [], (signature, errors)
+            assert connection.scalar(text(
+                "SELECT has_function_privilege('corpus_sem_writer',CAST(:signature AS regprocedure),'EXECUTE')"
+            ), {"signature": signature}) is False
+        observed = dict(
+            product_id="retained-cue", member_id=None, kind_contract="cue-kind",
+            context=dict(project_id="project", subject="subject", subject_definition="subject-v1", original_source="source-v1", analyzed_scope={}),
+            body=dict(contribution_id="actual-occurrence"),
+        )
+        expected = dict(
+            product_id="retained-cue", kind_contract="cue-kind", project_id="project",
+            subject="subject", subject_definition="subject-v1", original_source="source-v1",
+            analyzed_scope_meaning='["mapping",[]]',
+        )
+        for contribution in (False, True):
+            actual = connection.scalar(select(func.ops.ddo_contextual_input_reference(
+                bindparam("row", semantic_value(observed), type_=JSONB), contribution
+            )))
+            assert actual == {**expected, **({"contribution_id": "actual-occurrence"} if contribution else {})}
+        assert connection.scalar(select(func.ops.ddo_contextual_dependencies_valid("missing-contextual-episode"))) is False
+        with pytest.raises(DBAPIError, match="finite declared producers") as refused, connection.begin_nested():
+            connection.scalar(select(func.ops.ddo_contextual_origin_basis(bindparam("selection", {}, type_=JSONB), "foreign-producer")))
+        assert getattr(refused.value.orig, "sqlstate", None) == "23514"

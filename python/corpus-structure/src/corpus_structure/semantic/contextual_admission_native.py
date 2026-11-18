@@ -6,234 +6,294 @@ Retrieval requires a separately authenticated native scoring input; it is not
 silently treated as a CPU result by the declared encoder/selection guard.
 """
 
+from __future__ import annotations
 
-def contextual_admission_native_sql() -> str:
-    return r"""
-CREATE OR REPLACE FUNCTION ops.ddo_require_contextual_producer(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $contextual$
-DECLARE operation sem.data_operation_definition; factory text;
-BEGIN
- IF r.operation_id NOT IN ('retrieve.contextual_query/declared','retrieve.contextual_query/selected-context',
- 'retrieve.contextual_target_vector/declared','retrieve.contextual_vectors/selection',
- 'retrieve.contextual_targets/curated','retrieve.contextual_targets/components',
- 'retrieve.contextual_target/declared','retrieve.contextual_inventory/declared',
- 'retrieve.contextual_scores/declared','retrieve.contextual/declared',
- 'retrieve.contextual_witnesses/declared','retrieve.contextual/with-witnesses') THEN RETURN; END IF;
- SELECT * INTO STRICT operation FROM sem.data_operation_definition
- WHERE release_id=r.release_id AND operation_id=r.operation_id;
- factory:=CASE r.operation_id
- WHEN 'retrieve.contextual_query/declared' THEN 'corpus_structure.methods.contextual_encoding.ContextualEncodingOperation.acquire_port'
- WHEN 'retrieve.contextual_query/selected-context' THEN 'corpus_structure.methods.contextual_encoding.SelectedContextEncodingOperation.acquire_port'
- WHEN 'retrieve.contextual_target_vector/declared' THEN 'corpus_structure.methods.contextual_encoding.ContextualTargetEncodingOperation.acquire_port'
- WHEN 'retrieve.contextual_vectors/selection' THEN 'corpus_structure.methods.contextual_targets.ContextualVectorSelectionOperation.acquire_port'
- WHEN 'retrieve.contextual_targets/curated' THEN 'corpus_structure.methods.contextual_targets.CuratedContextualTargetsOperation.acquire_port'
- WHEN 'retrieve.contextual_targets/components' THEN 'corpus_structure.methods.contextual_targets.SourceContextualTargetsOperation.acquire_port'
- WHEN 'retrieve.contextual_target/declared' THEN 'corpus_structure.methods.contextual_targets.ContextualTargetOperation.acquire_port'
- WHEN 'retrieve.contextual_inventory/declared' THEN 'corpus_structure.methods.contextual_declared.ContextualInventoryOperation.acquire_port'
- WHEN 'retrieve.contextual_scores/declared' THEN 'corpus_structure.methods.contextual_scoring.ContextualScoringOperation.acquire_port'
- WHEN 'retrieve.contextual/declared' THEN 'corpus_structure.methods.contextual_declared.ContextualRetrievalOperation.acquire_port'
- WHEN 'retrieve.contextual_witnesses/declared' THEN 'corpus_structure.methods.contextual_witnesses.ContextualWitnessOperation.acquire_port'
- WHEN 'retrieve.contextual/with-witnesses' THEN 'corpus_structure.methods.contextual_witnesses.ContextualWitnessedRetrievalOperation.acquire_port' END;
- IF operation.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM factory
- OR (operation.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
- OR (operation.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
- OR operation.profile IS DISTINCT FROM (CASE WHEN r.operation_id IN
- ('retrieve.contextual_targets/curated','retrieve.contextual_targets/components') THEN 'discovery' ELSE 'derivation' END)
- OR operation.recipe IS DISTINCT FROM r.recipe
- OR operation.support_contract->'capabilities'->'forms' IS DISTINCT FROM
- (CASE WHEN r.operation_id IN ('retrieve.contextual_query/declared',
- 'retrieve.contextual_query/selected-context','retrieve.contextual_target_vector/declared')
- THEN '["batch"]'::jsonb ELSE '["scalar"]'::jsonb END)
- OR operation.support_contract->'capabilities'->>'preparation' IS DISTINCT FROM 'resource'
- OR operation.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
- OR jsonb_array_length(coalesce(completion->'execution_evidence'->'cpu_receipts','[]'))<>
- (CASE WHEN r.operation_id='retrieve.contextual_scores/declared' THEN 0 ELSE 1 END)
- OR completion->>'implementation_revision' IS DISTINCT FROM operation.implementation_revision THEN
- RAISE EXCEPTION 'contextual completion lacks its actual admitted captured producer' USING ERRCODE='23514'; END IF;
-END $contextual$;
+import json
 
-CREATE OR REPLACE FUNCTION ops.ddo_contextual_scoring_inputs(r ops.data_request,completion jsonb)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $contextual$
-DECLARE original ops.data_request:=r; basis jsonb; item jsonb; role_name text; result jsonb:='{}';
- episode ops.data_derivation; producing ops.data_request; intent ops.data_completion_intent;
- producer_basis jsonb; scores_episode ops.data_derivation; scores_request ops.data_request;
- witness_episode ops.data_derivation; witness_request ops.data_request;
- vectors_episode ops.data_derivation; vectors_request ops.data_request; query_episode ops.data_derivation; vector_query jsonb; query_context jsonb;
- definition sem.data_operation_definition; score_definition sem.data_operation_definition;
-BEGIN
- original.binding:=r.binding||jsonb_build_object('inputs',completion->'inputs','support',completion->'support');
- basis:=ops.ddo_cpu_input_basis(original);
- FOR item IN SELECT value FROM jsonb_array_elements(data.ddo_field(basis,'roles')->1) LOOP
- role_name:=data.ddo_field(item,'role')->>1;
- IF result ? role_name OR role_name NOT IN ('query','inventory','vectors','policy','scores','witnesses')
- OR data.ddo_field(item,'member_id') IS DISTINCT FROM '["null"]'::jsonb
- OR data.ddo_field(item,'multiplicity') IS DISTINCT FROM '["integer","1"]'::jsonb THEN
- RAISE EXCEPTION 'native contextual scoring requires exact distinct whole role products' USING ERRCODE='23514'; END IF;
- result:=result||jsonb_build_object(role_name,data.ddo_json(data.ddo_field(item,'body')));
- IF role_name='policy' THEN CONTINUE; END IF;
- SELECT d.* INTO STRICT episode FROM ops.data_derivation d
- JOIN ops.data_derivation_output output ON output.derivation_id=d.id
- JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=d.id AND receipt.intent_id=d.intent_id
- WHERE output.product_id=data.ddo_field(item,'product_id')->>1 AND output.member_id IS NULL AND output.multiplicity=1
- AND EXISTS(SELECT FROM jsonb_array_elements(data.ddo_json(data.ddo_field(item,'support'))) reference
- WHERE reference->>'kind'='computation' AND reference->>'derivation_id'=d.id);
- SELECT * INTO STRICT producing FROM ops.data_request WHERE id=episode.request_id AND project_id=r.project_id;
- IF (role_name='query' AND producing.operation_id NOT IN ('retrieve.contextual_query/declared','retrieve.contextual_query/selected-context'))
- OR (role_name='inventory' AND producing.operation_id<>'retrieve.contextual_inventory/declared')
- OR (role_name='vectors' AND producing.operation_id<>'retrieve.contextual_vectors/selection')
- OR (role_name='scores' AND producing.operation_id<>'retrieve.contextual_scores/declared')
- OR (role_name='witnesses' AND producing.operation_id<>'retrieve.contextual_witnesses/declared')
- OR NOT ops.ddo_contextual_dependencies_valid(episode.id) THEN
- RAISE EXCEPTION 'native contextual input lacks its actual declared producer/common receipt' USING ERRCODE='23514'; END IF;
- IF role_name='witnesses' THEN witness_episode:=episode; witness_request:=producing;
- ELSIF role_name='scores' THEN scores_episode:=episode; scores_request:=producing;
- ELSIF role_name='vectors' THEN vectors_episode:=episode; vectors_request:=producing;
- ELSIF role_name='query' THEN query_episode:=episode; query_context:=data.ddo_field(item,'context'); END IF;
- END LOOP;
- IF (SELECT array_agg(key ORDER BY key) FROM jsonb_object_keys(result) key) IS DISTINCT FROM
- (CASE WHEN r.operation_id='retrieve.contextual_scores/declared' THEN ARRAY['inventory','policy','query','vectors']
- WHEN r.operation_id='retrieve.contextual/with-witnesses' THEN ARRAY['inventory','policy','query','scores','vectors','witnesses']
- ELSE ARRAY['inventory','policy','query','scores','vectors'] END) THEN
- RAISE EXCEPTION 'native contextual input population is incomplete or foreign' USING ERRCODE='23514'; END IF;
- IF query_context IS DISTINCT FROM data.ddo_field(basis,'context')
- OR result->'query'->'source_pin'->>'project_id' IS DISTINCT FROM r.project_id
- OR result->'query'->'source_pin'->>'original_source' IS DISTINCT FROM r.original_source THEN
- RAISE EXCEPTION 'native contextual query differs from selected product/original context' USING ERRCODE='23514'; END IF;
- -- The assembly's actual inventory and query-vector producer are custody,
- -- not merely matching labels/vector IDs in independently supplied bodies.
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=vectors_episode.intent_id;
- vectors_request.release_id:=vectors_episode.release_id; vectors_request.runtime_id:=vectors_episode.runtime_id;
- vectors_request.recipe:=vectors_episode.recipe; vectors_request.generation:=vectors_episode.generation;
- vectors_request.binding:=vectors_request.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
- producer_basis:=ops.ddo_cpu_input_basis(vectors_request);
- IF ops.ddo_rich_role_population(basis,'inventory') IS DISTINCT FROM ops.ddo_rich_role_population(producer_basis,'inventory') THEN
- RAISE EXCEPTION 'native scoring inventory differs from actual selected vector assembly' USING ERRCODE='23514'; END IF;
- SELECT value INTO STRICT vector_query FROM jsonb_array_elements(data.ddo_field(producer_basis,'roles')->1)
- WHERE data.ddo_field(value,'role')->>1='query';
- IF NOT EXISTS(SELECT FROM jsonb_array_elements(data.ddo_json(data.ddo_field(vector_query,'support'))) reference
- JOIN ops.data_derivation_output output ON output.derivation_id=reference->>'derivation_id'
- WHERE reference->>'kind'='computation' AND output.derivation_id=query_episode.id
- AND output.product_id=data.ddo_field(vector_query,'product_id')->>1
- AND output.member_id IS NULL AND output.role='vector' AND output.multiplicity=1) THEN
- RAISE EXCEPTION 'native scoring query and assembly vector have different original encoder episodes' USING ERRCODE='23514'; END IF;
- IF scores_episode.id IS NOT NULL THEN
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=scores_episode.intent_id;
- scores_request.release_id:=scores_episode.release_id; scores_request.runtime_id:=scores_episode.runtime_id;
- scores_request.recipe:=scores_episode.recipe; scores_request.generation:=scores_episode.generation;
- scores_request.binding:=scores_request.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
- producer_basis:=ops.ddo_cpu_input_basis(scores_request);
- FOREACH role_name IN ARRAY ARRAY['query','inventory','vectors','policy'] LOOP
- IF ops.ddo_rich_role_population(basis,role_name) IS DISTINCT FROM ops.ddo_rich_role_population(producer_basis,role_name) THEN
- RAISE EXCEPTION 'native scores belong to another exact selected input/support population' USING ERRCODE='23514'; END IF;
- END LOOP;
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- SELECT * INTO STRICT score_definition FROM sem.data_operation_definition
- WHERE release_id=scores_episode.release_id AND operation_id=scores_request.operation_id;
- IF definition.support_contract->'numerical_policy' IS DISTINCT FROM score_definition.support_contract->'numerical_policy' THEN
- RAISE EXCEPTION 'native scores and CPU reduction have different captured numerical policies' USING ERRCODE='23514'; END IF;
- END IF;
- IF witness_episode.id IS NOT NULL THEN
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=witness_episode.intent_id;
- witness_request.release_id:=witness_episode.release_id; witness_request.runtime_id:=witness_episode.runtime_id;
- witness_request.recipe:=witness_episode.recipe; witness_request.generation:=witness_episode.generation;
- witness_request.binding:=witness_request.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
- producer_basis:=ops.ddo_cpu_input_basis(witness_request);
- FOREACH role_name IN ARRAY ARRAY['query','inventory'] LOOP
- IF ops.ddo_rich_role_population(basis,role_name) IS DISTINCT FROM ops.ddo_rich_role_population(producer_basis,role_name) THEN
- RAISE EXCEPTION 'contextual witness binding belongs to another exact query/inventory support population' USING ERRCODE='23514'; END IF;
- END LOOP;
- END IF;
- RETURN result;
-END $contextual$;
+from sqlalchemy import Text, and_, case, cast, column, func, literal, or_, select
+from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array
+from sqlalchemy.types import NullType
 
-CREATE OR REPLACE FUNCTION ops.ddo_require_contextual_completion(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $contextual$
-DECLARE actual jsonb; expected jsonb; item jsonb; values_ jsonb; definition sem.data_operation_definition;
- failure_ jsonb; code_ jsonb; detail_ jsonb;
-BEGIN
- IF r.operation_id NOT IN ('retrieve.contextual_query/declared','retrieve.contextual_query/selected-context',
- 'retrieve.contextual_target_vector/declared','retrieve.contextual_vectors/selection',
- 'retrieve.contextual_targets/curated','retrieve.contextual_targets/components',
- 'retrieve.contextual_target/declared','retrieve.contextual_inventory/declared',
- 'retrieve.contextual_scores/declared','retrieve.contextual/declared',
- 'retrieve.contextual_witnesses/declared','retrieve.contextual/with-witnesses') THEN RETURN; END IF;
- PERFORM ops.ddo_require_contextual_producer(r,completion);
- IF r.operation_id IN ('retrieve.contextual_scores/declared','retrieve.contextual/declared','retrieve.contextual/with-witnesses') THEN
- values_:=ops.ddo_contextual_scoring_inputs(r,completion);
- ELSIF r.operation_id='retrieve.contextual_witnesses/declared' THEN
- PERFORM ops.ddo_contextual_witness_inputs(r,completion);
- ELSIF r.operation_id='retrieve.contextual_targets/components' THEN
- DECLARE original ops.data_request:=r; source_basis jsonb; report_row jsonb;
- BEGIN
- original.binding:=r.binding||jsonb_build_object('inputs',completion->'inputs','support',completion->'support');
- source_basis:=ops.ddo_cpu_input_basis(original);
- SELECT value INTO STRICT report_row FROM jsonb_array_elements(data.ddo_field(source_basis,'roles')->1)
- WHERE data.ddo_field(value,'role')->>1='report';
- PERFORM ops.ddo_definition_component_basis(report_row);
- END;
- END IF;
- IF r.operation_id='retrieve.contextual_scores/declared' THEN
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- actual:=ops.ddo_contextual_score_meaning(ops.ddo_contextual_native_scores(values_->'query',values_->'inventory',
- values_->'vectors',values_->'policy',definition.support_contract->'numerical_policy'->'body'->'json'));
- ELSE actual:=ops.ddo_cpu_reply_output(r,completion); END IF;
- IF r.operation_id IN ('retrieve.contextual_query/declared',
- 'retrieve.contextual_query/selected-context','retrieve.contextual_target_vector/declared') THEN
- failure_:=data.ddo_field(actual,'encoder_member_failure');
- IF failure_ IS NOT NULL THEN
- code_:=data.ddo_field(failure_,'code'); detail_:=data.ddo_field(failure_,'detail');
- IF actual->>0 IS DISTINCT FROM 'mapping' OR jsonb_array_length(actual->1)<>1
- OR failure_->>0 IS DISTINCT FROM 'mapping' OR jsonb_array_length(failure_->1)<>3
- OR data.ddo_field(failure_,'version') IS DISTINCT FROM
- '["string","contextual-encoder-member-failure-1"]'::jsonb
- OR code_->>0 IS DISTINCT FROM 'string'
- OR COALESCE(code_->>1,'') NOT IN ('source-coordinate-mismatch','selected-context-unavailable',
- 'token-core-limit','invalid-vector')
- OR detail_->>0 IS DISTINCT FROM 'string' OR length(detail_->>1)>1024
- OR completion->>'outcome' IS DISTINCT FROM 'failed'
- OR completion->'outputs' IS DISTINCT FROM '[]'::jsonb THEN
- RAISE EXCEPTION 'encoder failure completion differs from its authenticated member slot' USING ERRCODE='23514'; END IF;
- RETURN;
- ELSIF completion->>'outcome' IS DISTINCT FROM 'success' THEN
- RAISE EXCEPTION 'encoder failure lacks its authenticated native member failure' USING ERRCODE='23514';
- END IF;
- END IF;
- FOR item IN SELECT value FROM jsonb_array_elements(completion->'outputs') LOOP
- expected:=CASE WHEN r.operation_id IN ('retrieve.contextual_query/declared','retrieve.contextual_query/selected-context')
- THEN data.ddo_field(actual,item->>'role') ELSE actual END;
- IF expected IS DISTINCT FROM data.ddo_normalize(item->'product'->'body') THEN
- RAISE EXCEPTION 'contextual publication differs from its actual processed CPU reply' USING ERRCODE='23514'; END IF;
- END LOOP;
-END $contextual$;
-CREATE OR REPLACE FUNCTION ops.ddo_contextual_dependencies_valid(episode_id text)
-RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $contextual$
-DECLARE r ops.data_request; episode ops.data_derivation; intent ops.data_completion_intent;
-BEGIN
- SELECT * INTO STRICT episode FROM ops.data_derivation WHERE id=episode_id;
- SELECT * INTO STRICT r FROM ops.data_request WHERE id=episode.request_id;
- IF r.operation_id NOT IN ('retrieve.contextual_query/declared','retrieve.contextual_query/selected-context',
- 'retrieve.contextual_target_vector/declared','retrieve.contextual_vectors/selection',
- 'retrieve.contextual_targets/curated','retrieve.contextual_targets/components',
- 'retrieve.contextual_target/declared','retrieve.contextual_inventory/declared',
- 'retrieve.contextual_scores/declared','retrieve.contextual/declared',
- 'retrieve.contextual_witnesses/declared','retrieve.contextual/with-witnesses') THEN RETURN true; END IF;
- -- Immutable correspondence was checked at retention and publication by this
- -- captured native kernel. Ordinary support recursion rechecks mutable premises;
- -- do not replay the whole reply/model/scoring graph on every support read.
- IF episode.outcome<>'success' THEN RETURN false; END IF;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=episode.intent_id
- AND request_id=episode.request_id AND generation=episode.generation;
- r:=ops.ddo_require_episode_correspondence(episode,intent);
- -- Preserve original authentic score bits. Only known SQL-visible linguistic
- -- premises are compared; this neither rescores nor observes external file bytes.
- IF r.operation_id='retrieve.contextual_scores/declared' AND NOT EXISTS (
- SELECT FROM jsonb_array_elements(intent.payload->'outputs') output
- WHERE output->'product'->'body' IS NOT NULL
- AND data.ddo_field(data.ddo_normalize(output->'product'->'body'),'linguistic_observation') IS NOT DISTINCT FROM
- data.record_json_meaning(data.record_json_source(ops.ddo_contextual_linguistic_context()))) THEN RETURN false; END IF;
- RETURN true;
- EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
-END $contextual$;
-REVOKE ALL ON FUNCTION ops.ddo_require_contextual_producer(ops.data_request,jsonb),
- ops.ddo_require_contextual_completion(ops.data_request,jsonb),ops.ddo_contextual_scoring_inputs(ops.data_request,jsonb),ops.ddo_contextual_dependencies_valid(text) FROM PUBLIC;
-"""
+from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_program import (
+    Assign,
+    Block,
+    CatchDependencyInvalidity,
+    Continue,
+    ForQuery,
+    If,
+    Local,
+    Parameter,
+    Perform,
+    Raise,
+    Return,
+    SelectInto,
+    core_relation_row,
+    core_variable,
+    function,
+    pg_type,
+)
+
+
+def _json(value):
+    return cast(literal(json.dumps(value, separators=(",", ":"))), JSONB())
+
+
+def _field(value, *path):
+    for name in path:
+        value = func.data.ddo_field(value, name, type_=JSONB())
+    return value
+
+
+def _text(value, *path):
+    return _field(value, *path)[1].astext
+
+
+def _plain(value):
+    return func.data.ddo_json(value, type_=JSONB())
+
+
+def _object(**fields):
+    return func.jsonb_build_object(*(part for key, value in fields.items() for part in (key, value)), type_=JSONB())
+
+
+def _items(value, name="item"):
+    return func.jsonb_array_elements(value).table_valued(column("value", JSONB())).render_derived(name=name)
+
+
+def _value(name, type_=None):
+    return core_variable(name, JSONB() if type_ is None else type_)
+
+
+def _reject(condition, message):
+    return If(condition, (Raise(message, "23514"),))
+
+
+class _ContextualPrograms:
+    """Shared typed framing and captured row lookups for the contextual guards."""
+
+    def __init__(self, metadata=None):
+        if metadata is None:
+            from .metadata import metadata
+        self.model = metadata
+        self.output = []
+
+    def table(self, name):
+        return self.model.tables[name]
+
+    def row(self, name, relation, field=None):
+        return core_variable(name, NullType() if field is None else self.table(relation).c[field].type, field)
+
+    def local(self, name, kind="jsonb", initial=None):
+        return Local(name, self.table(kind) if kind in self.model.tables else pg_type(kind), initial)
+
+    def lookup(self, target, relation, *conditions):
+        selected = self.table(relation)
+        return SelectInto(select(core_relation_row(selected)).select_from(selected).where(*conditions), (target,), strict=True)
+
+    def role(self, basis, role, target):
+        rows = _items(_field(basis, "roles")[1], "selected_role")
+        return SelectInto(select(rows.c.value).where(_text(rows.c.value, "role") == role), (target,), strict=True)
+
+    def bind(self, original="original", request="r", completion="completion"):
+        return Assign((original, "binding"), self.row(request, "ops.data_request", "binding").op("||")(
+            _object(inputs=_value(completion)["inputs"], support=_value(completion)["support"])
+        ))
+
+    def restore(self, request, episode, intent):
+        payload = self.row(intent, "ops.data_completion_intent", "payload")
+        return (
+            *(Assign((request, name), self.row(episode, "ops.data_derivation", name)) for name in ("release_id", "runtime_id", "recipe", "generation")),
+            Assign((request, "binding"), self.row(request, "ops.data_request", "binding").op("||")(_object(inputs=payload["inputs"], support=payload["support"]))),
+        )
+
+    def add(self, name, parameters, statements, locals_=(), *, returns="void", immutable=False, strict=False, definer=True):
+        arguments = tuple(Parameter(key, pg_type(*kind.split("."))) for key, kind in parameters)
+        self.output.extend((
+            function("ops", name, parameters=arguments, returns=pg_type(*returns.split(".")),
+                     body=Block(tuple(statements), tuple(locals_)), volatility="immutable" if immutable else "stable",
+                     strict=strict, security_definer=definer, search_path=("pg_catalog", "pg_temp")),
+            native_privilege_sql(NativeIdentity("function", "ops", name, tuple(kind for _, kind in parameters)), "PUBLIC", grant=False),
+        ))
+
+    def script(self):
+        return native_sql_script(self.output)
+
+
+def contextual_admission_native_sql(*, target_metadata=None) -> str:
+    p = _ContextualPrograms(target_metadata)
+    requests, episodes, intents, outputs, receipts, definitions = (
+        p.table(name) for name in (
+            "ops.data_request", "ops.data_derivation", "ops.data_completion_intent",
+            "ops.data_derivation_output", "ops.data_publication_receipt", "sem.data_operation_definition",
+        )
+    )
+    factories = {
+        "retrieve.contextual_query/declared": "corpus_structure.methods.contextual_encoding.ContextualEncodingOperation.acquire_port",
+        "retrieve.contextual_query/selected-context": "corpus_structure.methods.contextual_encoding.SelectedContextEncodingOperation.acquire_port",
+        "retrieve.contextual_target_vector/declared": "corpus_structure.methods.contextual_encoding.ContextualTargetEncodingOperation.acquire_port",
+        "retrieve.contextual_vectors/selection": "corpus_structure.methods.contextual_targets.ContextualVectorSelectionOperation.acquire_port",
+        "retrieve.contextual_targets/curated": "corpus_structure.methods.contextual_targets.CuratedContextualTargetsOperation.acquire_port",
+        "retrieve.contextual_targets/components": "corpus_structure.methods.contextual_targets.SourceContextualTargetsOperation.acquire_port",
+        "retrieve.contextual_target/declared": "corpus_structure.methods.contextual_targets.ContextualTargetOperation.acquire_port",
+        "retrieve.contextual_inventory/declared": "corpus_structure.methods.contextual_declared.ContextualInventoryOperation.acquire_port",
+        "retrieve.contextual_scores/declared": "corpus_structure.methods.contextual_scoring.ContextualScoringOperation.acquire_port",
+        "retrieve.contextual/declared": "corpus_structure.methods.contextual_declared.ContextualRetrievalOperation.acquire_port",
+        "retrieve.contextual_witnesses/declared": "corpus_structure.methods.contextual_witnesses.ContextualWitnessOperation.acquire_port",
+        "retrieve.contextual/with-witnesses": "corpus_structure.methods.contextual_witnesses.ContextualWitnessedRetrievalOperation.acquire_port",
+    }
+    op = p.row("r", "ops.data_request", "operation_id")
+    request = p.row("r", "ops.data_request")
+    completion = _value("completion")
+    contract = p.row("operation", "sem.data_operation_definition", "support_contract")
+    batch = ("retrieve.contextual_query/declared", "retrieve.contextual_query/selected-context", "retrieve.contextual_target_vector/declared")
+    p.add(
+        "ddo_require_contextual_producer", (("r", "ops.data_request"), ("completion", "jsonb")),
+        (
+            If(op.not_in(tuple(factories)), (Return(),)),
+            p.lookup("operation", "sem.data_operation_definition", definitions.c.release_id == p.row("r", "ops.data_request", "release_id"), definitions.c.operation_id == op),
+            Assign("factory", case(factories, value=op)),
+            _reject(or_(
+                contract["capabilities"]["prepared_factory"]["entrypoint"].astext.is_distinct_from(_value("factory", Text())),
+                contract["capabilities"]["prepared_factory"]["source_digest"].astext.op("~")("^[0-9a-f]{64}$").is_not(True),
+                p.row("operation", "sem.data_operation_definition", "implementation_revision").like("implementation-slice:%").is_not(True),
+                p.row("operation", "sem.data_operation_definition", "profile").is_distinct_from(case((op.in_(("retrieve.contextual_targets/curated", "retrieve.contextual_targets/components")), "discovery"), else_="derivation")),
+                p.row("operation", "sem.data_operation_definition", "recipe").is_distinct_from(p.row("r", "ops.data_request", "recipe")),
+                contract["capabilities"]["forms"].is_distinct_from(case((op.in_(batch), _json(["batch"])), else_=_json(["scalar"]))),
+                contract["capabilities"]["preparation"].astext.is_distinct_from("resource"),
+                contract["effects"].is_distinct_from(_json([])),
+                func.jsonb_array_length(func.coalesce(completion["execution_evidence"]["cpu_receipts"], _json([]))) != case((op == "retrieve.contextual_scores/declared", 0), else_=1),
+                completion["implementation_revision"].astext.is_distinct_from(p.row("operation", "sem.data_operation_definition", "implementation_revision")),
+            ), "contextual completion lacks its actual admitted captured producer"),
+        ),
+        (p.local("operation", "sem.data_operation_definition"), p.local("factory", "text")),
+    )
+    basis, item, result = (_value(name) for name in ("basis", "item", "result"))
+    role = _value("role_name", Text())
+    support = _items(_plain(_field(item, "support")), "reference")
+    producer = episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(receipts, and_(receipts.c.derivation_id == episodes.c.id, receipts.c.intent_id == episodes.c.intent_id))
+    rows = _items(_field(basis, "roles")[1], "role_row")
+    producer_basis, vector_query, query_context = (_value(name) for name in ("producer_basis", "vector_query", "query_context"))
+    vector_support = _items(_plain(_field(vector_query, "support")), "reference")
+    role_keys = func.jsonb_object_keys(result).table_valued(column("key", Text())).render_derived(name="keys")
+    expected = case(
+        (op == "retrieve.contextual_scores/declared", array(["inventory", "policy", "query", "vectors"])),
+        (op == "retrieve.contextual/with-witnesses", array(["inventory", "policy", "query", "scores", "vectors", "witnesses"])),
+        else_=array(["inventory", "policy", "query", "scores", "vectors"]),
+    )
+    role_operations = {
+        "query": ("retrieve.contextual_query/declared", "retrieve.contextual_query/selected-context"),
+        "inventory": ("retrieve.contextual_inventory/declared",),
+        "vectors": ("retrieve.contextual_vectors/selection",),
+        "scores": ("retrieve.contextual_scores/declared",),
+        "witnesses": ("retrieve.contextual_witnesses/declared",),
+    }
+    p.add(
+        "ddo_contextual_scoring_inputs", (("r", "ops.data_request"), ("completion", "jsonb")),
+        (
+            p.bind(), Assign("basis", func.ops.ddo_cpu_input_basis(p.row("original", "ops.data_request"))),
+            ForQuery(("item",), select(rows.c.value), (
+                Assign("role_name", _text(item, "role")),
+                _reject(or_(result.has_key(role), role.not_in(("query", "inventory", "vectors", "policy", "scores", "witnesses")), _field(item, "member_id").is_distinct_from(_json(["null"])), _field(item, "multiplicity").is_distinct_from(_json(["integer", "1"]))), "native contextual scoring requires exact distinct whole role products"),
+                Assign("result", result.op("||")(func.jsonb_build_object(role, _plain(_field(item, "body"))))),
+                If(role == "policy", (Continue(),)),
+                SelectInto(select(core_relation_row(episodes)).select_from(producer).where(
+                    outputs.c.product_id == _text(item, "product_id"), outputs.c.member_id.is_(None), outputs.c.multiplicity == 1,
+                    select(1).select_from(support).where(support.c.value["kind"].astext == "computation", support.c.value["derivation_id"].astext == episodes.c.id).exists(),
+                ), ("episode",), strict=True),
+                p.lookup("producing", "ops.data_request", requests.c.id == p.row("episode", "ops.data_derivation", "request_id"), requests.c.project_id == p.row("r", "ops.data_request", "project_id")),
+                _reject(or_(
+                    *(and_(role == name, p.row("producing", "ops.data_request", "operation_id").not_in(allowed)) for name, allowed in role_operations.items()),
+                    ~func.ops.ddo_contextual_dependencies_valid(p.row("episode", "ops.data_derivation", "id")),
+                ), "native contextual input lacks its actual declared producer/common receipt"),
+                *(If(role == name, (Assign(f"{prefix}_episode", p.row("episode", "ops.data_derivation")), Assign(f"{prefix}_request", p.row("producing", "ops.data_request")))) for name, prefix in (("witnesses", "witness"), ("scores", "scores"), ("vectors", "vectors"))),
+                If(role == "query", (Assign("query_episode", p.row("episode", "ops.data_derivation")), Assign("query_context", _field(item, "context")))),
+            )),
+            _reject(select(func.array_agg(aggregate_order_by(role_keys.c.key, role_keys.c.key))).scalar_subquery().is_distinct_from(expected), "native contextual input population is incomplete or foreign"),
+            _reject(or_(query_context.is_distinct_from(_field(basis, "context")), result["query"]["source_pin"]["project_id"].astext.is_distinct_from(p.row("r", "ops.data_request", "project_id")), result["query"]["source_pin"]["original_source"].astext.is_distinct_from(p.row("r", "ops.data_request", "original_source"))), "native contextual query differs from selected product/original context"),
+            p.lookup("intent", "ops.data_completion_intent", intents.c.id == p.row("vectors_episode", "ops.data_derivation", "intent_id")),
+            *p.restore("vectors_request", "vectors_episode", "intent"),
+            Assign("producer_basis", func.ops.ddo_cpu_input_basis(p.row("vectors_request", "ops.data_request"))),
+            _reject(func.ops.ddo_rich_role_population(basis, "inventory").is_distinct_from(func.ops.ddo_rich_role_population(producer_basis, "inventory")), "native scoring inventory differs from actual selected vector assembly"),
+            p.role(producer_basis, "query", "vector_query"),
+            _reject(~select(1).select_from(vector_support.join(outputs, outputs.c.derivation_id == vector_support.c.value["derivation_id"].astext)).where(
+                vector_support.c.value["kind"].astext == "computation", outputs.c.derivation_id == p.row("query_episode", "ops.data_derivation", "id"), outputs.c.product_id == _text(vector_query, "product_id"), outputs.c.member_id.is_(None), outputs.c.role == "vector", outputs.c.multiplicity == 1,
+            ).exists(), "native scoring query and assembly vector have different original encoder episodes"),
+            If(p.row("scores_episode", "ops.data_derivation", "id").is_not(None), (
+                p.lookup("intent", "ops.data_completion_intent", intents.c.id == p.row("scores_episode", "ops.data_derivation", "intent_id")),
+                *p.restore("scores_request", "scores_episode", "intent"), Assign("producer_basis", func.ops.ddo_cpu_input_basis(p.row("scores_request", "ops.data_request"))),
+                *(_reject(func.ops.ddo_rich_role_population(basis, name).is_distinct_from(func.ops.ddo_rich_role_population(producer_basis, name)), "native scores belong to another exact selected input/support population") for name in ("query", "inventory", "vectors", "policy")),
+                p.lookup("definition", "sem.data_operation_definition", definitions.c.release_id == p.row("r", "ops.data_request", "release_id"), definitions.c.operation_id == op),
+                p.lookup("score_definition", "sem.data_operation_definition", definitions.c.release_id == p.row("scores_episode", "ops.data_derivation", "release_id"), definitions.c.operation_id == p.row("scores_request", "ops.data_request", "operation_id")),
+                _reject(p.row("definition", "sem.data_operation_definition", "support_contract")["numerical_policy"].is_distinct_from(p.row("score_definition", "sem.data_operation_definition", "support_contract")["numerical_policy"]), "native scores and CPU reduction have different captured numerical policies"),
+            )),
+            If(p.row("witness_episode", "ops.data_derivation", "id").is_not(None), (
+                p.lookup("intent", "ops.data_completion_intent", intents.c.id == p.row("witness_episode", "ops.data_derivation", "intent_id")),
+                *p.restore("witness_request", "witness_episode", "intent"), Assign("producer_basis", func.ops.ddo_cpu_input_basis(p.row("witness_request", "ops.data_request"))),
+                *(_reject(func.ops.ddo_rich_role_population(basis, name).is_distinct_from(func.ops.ddo_rich_role_population(producer_basis, name)), "contextual witness binding belongs to another exact query/inventory support population") for name in ("query", "inventory")),
+            )),
+            Return(result),
+        ),
+        (
+            p.local("original", "ops.data_request", request), *(p.local(name) for name in ("basis", "item", "producer_basis", "vector_query", "query_context")),
+            p.local("result", initial=_json({})), p.local("role_name", "text"), p.local("episode", "ops.data_derivation"), p.local("producing", "ops.data_request"), p.local("intent", "ops.data_completion_intent"),
+            *(p.local(f"{name}_episode", "ops.data_derivation") for name in ("scores", "witness", "vectors", "query")),
+            *(p.local(f"{name}_request", "ops.data_request") for name in ("scores", "witness", "vectors")),
+            p.local("definition", "sem.data_operation_definition"), p.local("score_definition", "sem.data_operation_definition"),
+        ), returns="jsonb",
+    )
+    actual, expected_value, values = (_value(name) for name in ("actual", "expected", "values_"))
+    failure, code, detail = (_value(name) for name in ("failure_", "code_", "detail_"))
+    output_rows = _items(completion["outputs"], "output_row")
+    p.add(
+        "ddo_require_contextual_completion", (("r", "ops.data_request"), ("completion", "jsonb")),
+        (
+            If(op.not_in(tuple(factories)), (Return(),)), Perform(func.ops.ddo_require_contextual_producer(request, completion)),
+            If(op.in_(("retrieve.contextual_scores/declared", "retrieve.contextual/declared", "retrieve.contextual/with-witnesses")), (Assign("values_", func.ops.ddo_contextual_scoring_inputs(request, completion)),), (
+                If(op == "retrieve.contextual_witnesses/declared", (Perform(func.ops.ddo_contextual_witness_inputs(request, completion)),), (
+                    If(op == "retrieve.contextual_targets/components", (p.bind(), Assign("source_basis", func.ops.ddo_cpu_input_basis(p.row("original", "ops.data_request"))), p.role(_value("source_basis"), "report", "report_row"), Perform(func.ops.ddo_definition_component_basis(_value("report_row"))))),
+                )),
+            )),
+            If(op == "retrieve.contextual_scores/declared", (
+                p.lookup("definition", "sem.data_operation_definition", definitions.c.release_id == p.row("r", "ops.data_request", "release_id"), definitions.c.operation_id == op),
+                Assign("actual", func.ops.ddo_contextual_score_meaning(func.ops.ddo_contextual_native_scores(values["query"], values["inventory"], values["vectors"], values["policy"], p.row("definition", "sem.data_operation_definition", "support_contract")["numerical_policy"]["body"]["json"]))),
+            ), (Assign("actual", func.ops.ddo_cpu_reply_output(request, completion)),)),
+            If(op.in_(batch), (
+                Assign("failure_", _field(actual, "encoder_member_failure")),
+                If(failure.is_not(None), (
+                    Assign("code_", _field(failure, "code")), Assign("detail_", _field(failure, "detail")),
+                    _reject(or_(
+                        actual[0].astext.is_distinct_from("mapping"), func.jsonb_array_length(actual[1]) != 1,
+                        failure[0].astext.is_distinct_from("mapping"), func.jsonb_array_length(failure[1]) != 3,
+                        _field(failure, "version").is_distinct_from(_json(["string", "contextual-encoder-member-failure-1"])),
+                        code[0].astext.is_distinct_from("string"), func.coalesce(code[1].astext, "").not_in(("source-coordinate-mismatch", "selected-context-unavailable", "token-core-limit", "invalid-vector")),
+                        detail[0].astext.is_distinct_from("string"), func.length(detail[1].astext) > 1024,
+                        completion["outcome"].astext.is_distinct_from("failed"), completion["outputs"].is_distinct_from(_json([])),
+                    ), "encoder failure completion differs from its authenticated member slot"), Return(),
+                ), (_reject(completion["outcome"].astext.is_distinct_from("success"), "encoder failure lacks its authenticated native member failure"),)),
+            )),
+            ForQuery(("item",), select(output_rows.c.value), (
+                Assign("expected", case((op.in_(batch[:2]), _field(actual, item["role"].astext)), else_=actual)),
+                _reject(expected_value.is_distinct_from(func.data.ddo_normalize(item["product"]["body"])), "contextual publication differs from its actual processed CPU reply"),
+            )),
+        ),
+        (*(p.local(name) for name in ("actual", "expected", "item", "values_", "failure_", "code_", "detail_", "source_basis", "report_row")), p.local("definition", "sem.data_operation_definition"), p.local("original", "ops.data_request", request)),
+    )
+    evidence_outputs = _items(p.row("intent", "ops.data_completion_intent", "payload")["outputs"], "output_row")
+    p.add(
+        "ddo_contextual_dependencies_valid", (("episode_id", "text"),),
+        (CatchDependencyInvalidity((
+            p.lookup("episode", "ops.data_derivation", episodes.c.id == _value("episode_id", Text())),
+            p.lookup("r", "ops.data_request", requests.c.id == p.row("episode", "ops.data_derivation", "request_id")),
+            If(op.not_in(tuple(factories)), (Return(literal(True)),)),
+            If(p.row("episode", "ops.data_derivation", "outcome") != "success", (Return(literal(False)),)),
+            p.lookup("intent", "ops.data_completion_intent", intents.c.id == p.row("episode", "ops.data_derivation", "intent_id"), intents.c.request_id == p.row("episode", "ops.data_derivation", "request_id"), intents.c.generation == p.row("episode", "ops.data_derivation", "generation")),
+            Assign("r", func.ops.ddo_require_episode_correspondence(p.row("episode", "ops.data_derivation"), p.row("intent", "ops.data_completion_intent"))),
+            If(and_(op == "retrieve.contextual_scores/declared", ~select(1).select_from(evidence_outputs).where(
+                evidence_outputs.c.value["product"]["body"].is_not(None), _field(func.data.ddo_normalize(evidence_outputs.c.value["product"]["body"], type_=JSONB()), "linguistic_observation").is_not_distinct_from(func.data.record_json_meaning(func.data.record_json_source(func.ops.ddo_contextual_linguistic_context()))),
+            ).exists()), (Return(literal(False)),)),
+            Return(literal(True)),
+        ), (Return(literal(False)),)),),
+        (p.local("r", "ops.data_request"), p.local("episode", "ops.data_derivation"), p.local("intent", "ops.data_completion_intent")), returns="boolean",
+    )
+    return p.script()

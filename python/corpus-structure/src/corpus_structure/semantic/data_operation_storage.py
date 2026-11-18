@@ -272,7 +272,7 @@ def native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-contextual-definition.sql",
-            contextual_definition_native_sql().encode(),
+            contextual_definition_native_sql(target_metadata=target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-contextual-definition.py",
@@ -280,7 +280,7 @@ def native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-contextual-admission.sql",
-            contextual_admission_native_sql().encode(),
+            contextual_admission_native_sql(target_metadata=target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-contextual-admission.py",
@@ -310,7 +310,7 @@ def native_protocol_sources(
             Path(__file__).with_name("contextual_retrieval.py").read_bytes(),
         ),
         SourceArtifact(
-            "native/data-operation-contextual-witness.sql", contextual_witness_native_sql().encode()
+            "native/data-operation-contextual-witness.sql", contextual_witness_native_sql(target_metadata=target_metadata).encode()
         ),
         SourceArtifact(
             "native/data-operation-contextual-witness.py",
