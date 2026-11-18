@@ -167,7 +167,7 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
         )
     from .pdf_spool_native import pdf_spool_native_sql
 
-    sql += pdf_spool_native_sql()
+    sql += pdf_spool_native_sql(target_metadata=selected)
     return sql
 
 

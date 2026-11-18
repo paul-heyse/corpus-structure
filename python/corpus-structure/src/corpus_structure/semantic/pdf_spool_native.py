@@ -1,140 +1,605 @@
-"""Fenced original PDF producer and immutable recovery contributor custody."""
+"""Model-owned original producer and immutable recovery contributor custody."""
+
+from pglast.stream import RawStream
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    MetaData,
+    Table,
+    Text,
+    and_,
+    cast,
+    column,
+    exists,
+    func,
+    literal,
+    not_,
+    or_,
+    select,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, insert
+
+from .metadata import metadata
+from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_program import (
+    Assign,
+    Block,
+    ForQuery,
+    If,
+    Local,
+    Parameter,
+    Perform,
+    Raise,
+    Return,
+    ReturnQuery,
+    SelectInto,
+    Sql,
+    column_type,
+    core_relation_row,
+    core_variable,
+    function,
+    pg_type,
+    sql_function,
+)
 
 
-def pdf_spool_native_sql() -> str:
-    return """
-CREATE OR REPLACE FUNCTION ops.register_pdf_spool_producer(p_build text,p_task bigint,
- p_attempt bigint,p_holder text,p_runtime text,p_device bigint,p_inode bigint,p_premises bytea)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; basis_ record; premises_ jsonb; id_ text;
- prior ops.pdf_spool_producer;
-BEGIN
- b:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
- PERFORM ops.require_pdf_operation(b.release_id,'stage_pdf_producer');
- SELECT * INTO STRICT basis_ FROM ops.read_pdf_producer_basis(p_task,p_attempt,p_holder,p_runtime);
- premises_:=convert_from(p_premises,'UTF8')::jsonb;
- IF p_device IS NULL OR p_device<0 OR p_inode IS NULL OR p_inode<1
- OR premises_->'producer' IS DISTINCT FROM to_jsonb(basis_)
- OR premises_->>'source_digest' IS DISTINCT FROM b.source_digest
- OR premises_->>'native_recipe_digest' IS DISTINCT FROM b.recipe_digest
- OR premises_->>'native_schema_digest' IS DISTINCT FROM b.schema_digest
- OR COALESCE(premises_->>'payload_schema_digest','') !~ '^[0-9a-f]{64}$'
- OR jsonb_typeof(premises_->'packages') IS DISTINCT FROM 'array'
- OR jsonb_array_length(premises_->'packages')=0 THEN
- RAISE EXCEPTION 'PDF spool producer premises differ from admitted native basis' USING ERRCODE='23514';
- END IF;
- id_:=encode(sha256(convert_to(jsonb_build_array(p_build,p_task,p_attempt,p_holder,
- p_device,p_inode)::text,'UTF8')),'hex');
- INSERT INTO ops.pdf_spool_producer(producer_id,build_id,task_id,attempt,holder,
- writer_device,writer_inode,premises_bytes)
- VALUES(id_,p_build,p_task,p_attempt,p_holder,p_device,p_inode,p_premises)
- ON CONFLICT DO NOTHING;
- SELECT * INTO STRICT prior FROM ops.pdf_spool_producer WHERE producer_id=id_;
- IF prior.premises_bytes IS DISTINCT FROM p_premises THEN
- RAISE EXCEPTION 'PDF spool producer replay differs' USING ERRCODE='23514'; END IF;
- RETURN id_;
-END $$;
-CREATE OR REPLACE FUNCTION ops.register_pdf_spool_contributor(p_build text,p_task bigint,
- p_attempt bigint,p_holder text,p_runtime text,p_producer text,p_manifest bytea,p_selected bytea)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; producer_ ops.pdf_spool_producer; current_ record;
- original_ jsonb; current_basis_ jsonb; current_premises_ jsonb; header_ jsonb; declaration_ jsonb;
- lines_ text[]; line_ text; entry_ jsonb; selected_ jsonb; replay_ jsonb;
- inventory_ jsonb:='[]'::jsonb; id_ text; manifest_ text; selection_ text;
- prior ops.pdf_spool_contributor;
-BEGIN
- b:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
- PERFORM ops.require_pdf_operation(b.release_id,'stage_pdf_producer');
- SELECT * INTO STRICT current_ FROM ops.read_pdf_producer_basis(p_task,p_attempt,p_holder,p_runtime);
- SELECT * INTO STRICT producer_ FROM ops.pdf_spool_producer WHERE producer_id=p_producer;
- original_:=convert_from(producer_.premises_bytes,'UTF8')::jsonb;
- current_basis_:=to_jsonb(current_)-'runtime_id'-'runtime_manifest_digest';
- SELECT convert_from(premises_bytes,'UTF8')::jsonb INTO STRICT current_premises_
- FROM ops.pdf_spool_producer WHERE build_id=p_build AND attempt=p_attempt AND holder=p_holder;
- IF producer_.build_id IS DISTINCT FROM p_build OR producer_.task_id IS DISTINCT FROM p_task
- OR producer_.attempt>p_attempt OR (producer_.attempt=p_attempt AND producer_.holder<>p_holder)
- OR ((original_->'producer')-'runtime_id'-'runtime_manifest_digest') IS DISTINCT FROM current_basis_
- OR original_->>'source_digest' IS DISTINCT FROM b.source_digest
- OR original_->>'native_recipe_digest' IS DISTINCT FROM b.recipe_digest
- OR original_->>'native_schema_digest' IS DISTINCT FROM b.schema_digest
- OR (original_-'producer') IS DISTINCT FROM (current_premises_-'producer') THEN
- RAISE EXCEPTION 'PDF spool contributor has no matching original producer' USING ERRCODE='23514'; END IF;
- IF p_manifest IS NULL OR octet_length(p_manifest)=0 OR right(convert_from(p_manifest,'UTF8'),1)<>E'\\n' THEN
- RAISE EXCEPTION 'PDF spool manifest has no durable complete entries' USING ERRCODE='23514'; END IF;
- lines_:=string_to_array(rtrim(convert_from(p_manifest,'UTF8'),E'\\n'),E'\\n');
- IF cardinality(lines_)<2 THEN RAISE EXCEPTION 'PDF spool manifest lacks producer declaration'; END IF;
- header_:=lines_[1]::jsonb; declaration_:=lines_[2]::jsonb;
- IF header_->>'version' IS DISTINCT FROM 'pdf-build-spool-1'
- OR header_->>'build_id' IS DISTINCT FROM p_build
- OR (header_->>'task_id')::bigint IS DISTINCT FROM producer_.task_id
- OR (header_->>'attempt')::bigint IS DISTINCT FROM producer_.attempt
- OR header_->>'holder' IS DISTINCT FROM producer_.holder
- OR (header_->'writer'->>'device')::bigint IS DISTINCT FROM producer_.writer_device
- OR (header_->'writer'->>'inode')::bigint IS DISTINCT FROM producer_.writer_inode
- OR declaration_->>'producer_id' IS DISTINCT FROM p_producer
- OR declaration_->'premises' IS DISTINCT FROM original_ THEN
- RAISE EXCEPTION 'PDF manifest differs from immutable original producer custody' USING ERRCODE='23514'; END IF;
- FOREACH line_ IN ARRAY lines_[3:] LOOP
- entry_:=line_::jsonb;
- IF entry_ ? 'replay' THEN inventory_:=inventory_||jsonb_build_array(entry_->'replay');
- ELSIF NOT entry_ ? 'completion' THEN
- RAISE EXCEPTION 'PDF spool manifest entry is not declared'; END IF;
- END LOOP;
- selected_:=convert_from(p_selected,'UTF8')::jsonb;
- IF jsonb_typeof(selected_) IS DISTINCT FROM 'array' OR jsonb_array_length(selected_)=0 THEN
- RAISE EXCEPTION 'PDF spool contributor selected no files'; END IF;
- FOR replay_ IN SELECT value FROM jsonb_array_elements(selected_) LOOP
- IF NOT EXISTS(SELECT FROM jsonb_array_elements(inventory_) member WHERE member.value=replay_)
- OR COALESCE(replay_->>'digest','') !~ '^[0-9a-f]{64}$'
- OR (replay_->>'byte_length')::bigint<0
- OR nullif(replay_->>'path','') IS NULL THEN
- RAISE EXCEPTION 'selected PDF replay differs from original manifest membership' USING ERRCODE='23514'; END IF;
- END LOOP;
- IF jsonb_array_length(selected_) IS DISTINCT FROM (
- SELECT count(DISTINCT value->>'path') FROM jsonb_array_elements(selected_)) THEN
- RAISE EXCEPTION 'PDF spool contributor repeats a selected path'; END IF;
- manifest_:=encode(sha256(p_manifest),'hex'); selection_:=encode(sha256(p_selected),'hex');
- id_:=encode(sha256(convert_to(jsonb_build_array(p_build,p_producer,manifest_,selection_)::text,'UTF8')),'hex');
- INSERT INTO ops.pdf_spool_contributor(contributor_id,build_id,producer_id,manifest_digest,
- selection_digest,manifest_bytes,selected_replays,adopter_attempt,adopter_holder)
- VALUES(id_,p_build,p_producer,manifest_,selection_,p_manifest,p_selected,p_attempt,p_holder)
- ON CONFLICT DO NOTHING;
- SELECT * INTO STRICT prior FROM ops.pdf_spool_contributor WHERE contributor_id=id_;
- IF prior.manifest_bytes IS DISTINCT FROM p_manifest OR prior.selected_replays IS DISTINCT FROM p_selected THEN
- RAISE EXCEPTION 'PDF contributor replay differs'; END IF;
- RETURN id_;
-END $$;
-CREATE OR REPLACE FUNCTION ops.pdf_spool_contributors(p_build text)
-RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $$
- SELECT COALESCE(jsonb_agg(jsonb_build_object(
- 'producer_id',p.producer_id,'task_id',p.task_id,'producer_attempt',p.attempt,
- 'producer_holder',p.holder,'runtime_id',convert_from(p.premises_bytes,'UTF8')::jsonb->'producer'->>'runtime_id',
- 'runtime_manifest_digest',convert_from(p.premises_bytes,'UTF8')::jsonb->'producer'->>'runtime_manifest_digest',
- 'manifest_digest',c.manifest_digest,'selection_digest',c.selection_digest,
- 'adopter_attempt',c.adopter_attempt,'adopter_holder',c.adopter_holder
- ) ORDER BY p.producer_id,c.manifest_digest,c.selection_digest),'[]'::jsonb)
- FROM ops.pdf_spool_contributor c JOIN ops.pdf_spool_producer p USING(producer_id)
- WHERE c.build_id=p_build
-$$;
-CREATE OR REPLACE FUNCTION ops.read_pdf_spool_contributors(p_build text,p_task bigint,p_attempt bigint,p_holder text)
-RETURNS TABLE(producer_id text,task_id bigint,producer_attempt bigint,producer_holder text,
- runtime_id text,runtime_manifest_digest text,manifest_digest text,selection_digest text,
- adopter_attempt bigint,adopter_holder text)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-BEGIN
- PERFORM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- IF NOT EXISTS(SELECT FROM ops.pdf_stage_build b WHERE b.build_id=p_build AND b.task_id=p_task) THEN
- RAISE EXCEPTION 'PDF contributor read has no owned build'; END IF;
- RETURN QUERY SELECT * FROM jsonb_to_recordset(ops.pdf_spool_contributors(p_build)) AS r(
- producer_id text,task_id bigint,producer_attempt bigint,producer_holder text,
- runtime_id text,runtime_manifest_digest text,manifest_digest text,selection_digest text,
- adopter_attempt bigint,adopter_holder text) ORDER BY r.producer_id,r.manifest_digest,r.selection_digest;
-END $$;
-REVOKE ALL ON FUNCTION ops.pdf_spool_contributors(text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION ops.register_pdf_spool_producer(text,bigint,bigint,text,text,bigint,bigint,bytea) FROM PUBLIC;
-REVOKE ALL ON FUNCTION ops.register_pdf_spool_contributor(text,bigint,bigint,text,text,text,bytea,bytea) FROM PUBLIC;
-REVOKE ALL ON FUNCTION ops.read_pdf_spool_contributors(text,bigint,bigint,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ops.register_pdf_spool_producer(text,bigint,bigint,text,text,bigint,bigint,bytea),
- ops.register_pdf_spool_contributor(text,bigint,bigint,text,text,text,bytea,bytea),
- ops.read_pdf_spool_contributors(text,bigint,bigint,text) TO corpus_sem_writer;
-"""
+def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
+    """Compile current spool fences from the supplied captured physical model."""
+    model = metadata if target_metadata is None else target_metadata
+    build = model.tables["ops.pdf_stage_build"]
+    producers = model.tables["ops.pdf_spool_producer"]
+    contributors = model.tables["ops.pdf_spool_contributor"]
+    runtime = model.tables["sem.runtime_binding"]
+    inputs = model.tables["sem.input"]
+
+    def value(name, field):
+        return core_variable(name, field.type)
+
+    def row(name, relation, field):
+        return core_variable(name, relation.c[field].type, field)
+
+    def obj(**pairs):
+        return func.jsonb_build_object(
+            *(part for name, item in pairs.items() for part in (literal(name), item))
+        )
+
+    def digest(raw):
+        return func.encode(func.sha256(raw), "hex")
+
+    def json_digest(*parts):
+        return digest(func.convert_to(cast(func.jsonb_build_array(*parts), Text()), "UTF8"))
+
+    def json_bytes(raw):
+        return cast(func.convert_from(raw, "UTF8"), JSONB())
+
+    def refuse(condition, message, state="P0001"):
+        return If(condition, (Raise(message, state),))
+
+    empty_array = cast(literal("[]"), JSONB())
+    p_build, p_task, p_attempt, p_holder, p_runtime = (
+        value(name, field)
+        for name, field in (
+            ("p_build", build.c.build_id),
+            ("p_task", build.c.task_id),
+            ("p_attempt", build.c.attempt),
+            ("p_holder", build.c.holder),
+            ("p_runtime", runtime.c.runtime_id),
+        )
+    )
+    fence_fields = (
+        ("p_build", build.c.build_id),
+        ("p_task", build.c.task_id),
+        ("p_attempt", build.c.attempt),
+        ("p_holder", build.c.holder),
+    )
+    runtime_field = ("p_runtime", runtime.c.runtime_id)
+    programs, identities = [], []
+
+    def routine(name, fields, statements, locals_, *, result=None, output=()):
+        parameters = tuple(Parameter(name, column_type(field)) for name, field in fields)
+        identities.append(
+            NativeIdentity("function", "ops", name, tuple(RawStream()(p.type_) for p in parameters))
+        )
+        programs.append(
+            function(
+                "ops",
+                name,
+                parameters=parameters,
+                returns=result or column_type(producers.c.producer_id),
+                table_columns=tuple((name, column_type(field)) for name, field in output),
+                body=Block(tuple(statements), tuple(locals_)),
+                security_definer=True,
+                search_path=("pg_catalog", "pg_temp"),
+            )
+        )
+
+    # The native producer-basis routine owns its composite output. SELECT alias.*
+    # retains every admitted field, including additions, without a second codec.
+    basis = (
+        func.ops.read_pdf_producer_basis(p_task, p_attempt, p_holder, p_runtime)
+        .table_valued()
+        .alias("spool_basis")
+    )
+    basis_row = core_relation_row(Table("spool_basis", MetaData()))
+    require_build = Assign("b", func.ops.require_pdf_build(p_build, p_task, p_attempt, p_holder))
+    require_operation = Perform(
+        func.ops.require_pdf_operation(row("b", build, "release_id"), "stage_pdf_producer")
+    )
+    device, inode, premises_bytes = (
+        value(name, field)
+        for name, field in (
+            ("p_device", producers.c.writer_device),
+            ("p_inode", producers.c.writer_inode),
+            ("p_premises", producers.c.premises_bytes),
+        )
+    )
+    premises, identity = core_variable("premises_", JSONB()), value("id_", producers.c.producer_id)
+    routine(
+        "register_pdf_spool_producer",
+        (
+            *fence_fields,
+            runtime_field,
+            ("p_device", producers.c.writer_device),
+            ("p_inode", producers.c.writer_inode),
+            ("p_premises", producers.c.premises_bytes),
+        ),
+        (
+            require_build,
+            require_operation,
+            SelectInto(select(basis_row).select_from(basis), ("basis_",), strict=True),
+            Assign("premises_", json_bytes(premises_bytes)),
+            refuse(
+                or_(
+                    device.is_(None),
+                    device < 0,
+                    inode.is_(None),
+                    inode < 1,
+                    premises["producer"].is_distinct_from(
+                        func.to_jsonb(core_variable("basis_", JSONB()))
+                    ),
+                    premises["source_digest"].astext.is_distinct_from(
+                        row("b", build, "source_digest")
+                    ),
+                    premises["native_recipe_digest"].astext.is_distinct_from(
+                        row("b", build, "recipe_digest")
+                    ),
+                    premises["native_schema_digest"].astext.is_distinct_from(
+                        row("b", build, "schema_digest")
+                    ),
+                    func.coalesce(premises["payload_schema_digest"].astext, "").bool_op("!~")(
+                        "^[0-9a-f]{64}$"
+                    ),
+                    func.jsonb_typeof(premises["packages"]).is_distinct_from("array"),
+                    func.jsonb_array_length(premises["packages"]) == 0,
+                ),
+                "PDF spool producer premises differ from admitted native basis",
+                "23514",
+            ),
+            Assign("id_", json_digest(p_build, p_task, p_attempt, p_holder, device, inode)),
+            Sql(
+                insert(producers)
+                .values(
+                    producer_id=identity,
+                    build_id=p_build,
+                    task_id=p_task,
+                    attempt=p_attempt,
+                    holder=p_holder,
+                    writer_device=device,
+                    writer_inode=inode,
+                    premises_bytes=premises_bytes,
+                )
+                .on_conflict_do_nothing()
+            ),
+            SelectInto(
+                select(core_relation_row(producers)).where(producers.c.producer_id == identity),
+                ("prior",),
+                strict=True,
+            ),
+            refuse(
+                row("prior", producers, "premises_bytes").is_distinct_from(premises_bytes),
+                "PDF spool producer replay differs",
+                "23514",
+            ),
+            Return(identity),
+        ),
+        (
+            Local("b", build),
+            Local("basis_", pg_type("record")),
+            Local("premises_", pg_type("jsonb")),
+            Local("id_", column_type(producers.c.producer_id)),
+            Local("prior", producers),
+        ),
+    )
+    p_producer, manifest_bytes, selected_bytes = (
+        value(name, field)
+        for name, field in (
+            ("p_producer", producers.c.producer_id),
+            ("p_manifest", contributors.c.manifest_bytes),
+            ("p_selected", contributors.c.selected_replays),
+        )
+    )
+    (
+        original,
+        current_basis,
+        current_premises,
+        header,
+        declaration,
+        entry,
+        selected,
+        replay,
+        inventory,
+    ) = (
+        core_variable(name, JSONB())
+        for name in (
+            "original_",
+            "current_basis_",
+            "current_premises_",
+            "header_",
+            "declaration_",
+            "entry_",
+            "selected_",
+            "replay_",
+            "inventory_",
+        )
+    )
+    lines, line = core_variable("lines_", ARRAY(Text())), core_variable("line_", Text())
+    manifest_text = func.convert_from(manifest_bytes, "UTF8")
+    manifest_digest, selection_digest, contributor_id = (
+        value(name, field)
+        for name, field in (
+            ("manifest_", contributors.c.manifest_digest),
+            ("selection_", contributors.c.selection_digest),
+            ("id_", contributors.c.contributor_id),
+        )
+    )
+    manifest_lines = (
+        func.unnest(lines)
+        .table_valued(column("value", Text()), with_ordinality="ordinal")
+        .render_derived(name="manifest_line")
+    )
+    selected_rows = (
+        func.jsonb_array_elements(selected)
+        .table_valued(column("value", JSONB()))
+        .render_derived(name="selected_replay")
+    )
+    inventory_rows = (
+        func.jsonb_array_elements(inventory)
+        .table_valued(column("value", JSONB()))
+        .render_derived(name="inventory_member")
+    )
+
+    def strip_runtime(producer):
+        return producer.op("-")("runtime_id").op("-")("runtime_manifest_digest")
+
+    routine(
+        "register_pdf_spool_contributor",
+        (
+            *fence_fields,
+            runtime_field,
+            ("p_producer", producers.c.producer_id),
+            ("p_manifest", contributors.c.manifest_bytes),
+            ("p_selected", contributors.c.selected_replays),
+        ),
+        (
+            require_build,
+            require_operation,
+            SelectInto(select(basis_row).select_from(basis), ("current_",), strict=True),
+            SelectInto(
+                select(core_relation_row(producers)).where(producers.c.producer_id == p_producer),
+                ("producer_",),
+                strict=True,
+            ),
+            Assign("original_", json_bytes(row("producer_", producers, "premises_bytes"))),
+            Assign(
+                "current_basis_", strip_runtime(func.to_jsonb(core_variable("current_", JSONB())))
+            ),
+            SelectInto(
+                select(json_bytes(producers.c.premises_bytes)).where(
+                    producers.c.build_id == p_build,
+                    producers.c.attempt == p_attempt,
+                    producers.c.holder == p_holder,
+                ),
+                ("current_premises_",),
+                strict=True,
+            ),
+            refuse(
+                or_(
+                    row("producer_", producers, "build_id").is_distinct_from(p_build),
+                    row("producer_", producers, "task_id").is_distinct_from(p_task),
+                    row("producer_", producers, "attempt") > p_attempt,
+                    and_(
+                        row("producer_", producers, "attempt") == p_attempt,
+                        row("producer_", producers, "holder") != p_holder,
+                    ),
+                    strip_runtime(original["producer"]).is_distinct_from(current_basis),
+                    original["source_digest"].astext.is_distinct_from(
+                        row("b", build, "source_digest")
+                    ),
+                    original["native_recipe_digest"].astext.is_distinct_from(
+                        row("b", build, "recipe_digest")
+                    ),
+                    original["native_schema_digest"].astext.is_distinct_from(
+                        row("b", build, "schema_digest")
+                    ),
+                    original.op("-")("producer").is_distinct_from(
+                        current_premises.op("-")("producer")
+                    ),
+                ),
+                "PDF spool contributor has no matching original producer",
+                "23514",
+            ),
+            refuse(
+                or_(
+                    manifest_bytes.is_(None),
+                    func.octet_length(manifest_bytes) == 0,
+                    func.right(manifest_text, 1) != "\n",
+                ),
+                "PDF spool manifest has no durable complete entries",
+                "23514",
+            ),
+            Assign("lines_", func.string_to_array(func.rtrim(manifest_text, "\n"), "\n")),
+            refuse(func.cardinality(lines) < 2, "PDF spool manifest lacks producer declaration"),
+            Assign("header_", cast(lines[1], JSONB())),
+            Assign("declaration_", cast(lines[2], JSONB())),
+            refuse(
+                or_(
+                    header["version"].astext.is_distinct_from("pdf-build-spool-1"),
+                    header["build_id"].astext.is_distinct_from(p_build),
+                    *(
+                        cast(header[key].astext, field.type).is_distinct_from(
+                            row("producer_", producers, field.name)
+                        )
+                        for key, field in (
+                            ("task_id", producers.c.task_id),
+                            ("attempt", producers.c.attempt),
+                        )
+                    ),
+                    header["holder"].astext.is_distinct_from(row("producer_", producers, "holder")),
+                    *(
+                        cast(header["writer"][key].astext, field.type).is_distinct_from(
+                            row("producer_", producers, field.name)
+                        )
+                        for key, field in (
+                            ("device", producers.c.writer_device),
+                            ("inode", producers.c.writer_inode),
+                        )
+                    ),
+                    declaration["producer_id"].astext.is_distinct_from(p_producer),
+                    declaration["premises"].is_distinct_from(original),
+                ),
+                "PDF manifest differs from immutable original producer custody",
+                "23514",
+            ),
+            # Ordered UNNEST is the original FOREACH over lines_[3:], retaining
+            # duplicate manifest entries and the no-entry termination case.
+            ForQuery(
+                ("line_",),
+                select(manifest_lines.c.value)
+                .where(manifest_lines.c.ordinal >= 3)
+                .order_by(manifest_lines.c.ordinal),
+                (
+                    Assign("entry_", cast(line, JSONB())),
+                    If(
+                        entry.bool_op("?")("replay"),
+                        (
+                            Assign(
+                                "inventory_",
+                                inventory.concat(func.jsonb_build_array(entry["replay"])),
+                            ),
+                        ),
+                        (
+                            refuse(
+                                not_(entry.bool_op("?")("completion")),
+                                "PDF spool manifest entry is not declared",
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            Assign("selected_", json_bytes(selected_bytes)),
+            refuse(
+                or_(
+                    func.jsonb_typeof(selected).is_distinct_from("array"),
+                    func.jsonb_array_length(selected) == 0,
+                ),
+                "PDF spool contributor selected no files",
+            ),
+            ForQuery(
+                ("replay_",),
+                select(selected_rows.c.value),
+                (
+                    refuse(
+                        or_(
+                            not_(
+                                exists(
+                                    select(1)
+                                    .select_from(inventory_rows)
+                                    .where(inventory_rows.c.value == replay)
+                                )
+                            ),
+                            func.coalesce(replay["digest"].astext, "").bool_op("!~")(
+                                "^[0-9a-f]{64}$"
+                            ),
+                            cast(replay["byte_length"].astext, BigInteger()) < 0,
+                            func.nullif(replay["path"].astext, "").is_(None),
+                        ),
+                        "selected PDF replay differs from original manifest membership",
+                        "23514",
+                    ),
+                ),
+            ),
+            refuse(
+                func.jsonb_array_length(selected).is_distinct_from(
+                    select(
+                        func.count(selected_rows.c.value["path"].astext.distinct())
+                    ).scalar_subquery()
+                ),
+                "PDF spool contributor repeats a selected path",
+            ),
+            Assign("manifest_", digest(manifest_bytes)),
+            Assign("selection_", digest(selected_bytes)),
+            Assign("id_", json_digest(p_build, p_producer, manifest_digest, selection_digest)),
+            Sql(
+                insert(contributors)
+                .values(
+                    contributor_id=contributor_id,
+                    build_id=p_build,
+                    producer_id=p_producer,
+                    manifest_digest=manifest_digest,
+                    selection_digest=selection_digest,
+                    manifest_bytes=manifest_bytes,
+                    selected_replays=selected_bytes,
+                    adopter_attempt=p_attempt,
+                    adopter_holder=p_holder,
+                )
+                .on_conflict_do_nothing()
+            ),
+            SelectInto(
+                select(core_relation_row(contributors)).where(
+                    contributors.c.contributor_id == contributor_id
+                ),
+                ("prior",),
+                strict=True,
+            ),
+            refuse(
+                or_(
+                    row("prior", contributors, "manifest_bytes").is_distinct_from(manifest_bytes),
+                    row("prior", contributors, "selected_replays").is_distinct_from(selected_bytes),
+                ),
+                "PDF contributor replay differs",
+            ),
+            Return(contributor_id),
+        ),
+        (
+            Local("b", build),
+            Local("producer_", producers),
+            Local("current_", pg_type("record")),
+            *(
+                Local(name, pg_type("jsonb"))
+                for name in (
+                    "original_",
+                    "current_basis_",
+                    "current_premises_",
+                    "header_",
+                    "declaration_",
+                    "entry_",
+                    "selected_",
+                    "replay_",
+                )
+            ),
+            Local("inventory_", pg_type("jsonb"), empty_array),
+            Local("lines_", column_type(Column("lines_", ARRAY(Text())))),
+            Local("line_", pg_type("text")),
+            Local("id_", column_type(contributors.c.contributor_id)),
+            Local("manifest_", column_type(contributors.c.manifest_digest)),
+            Local("selection_", column_type(contributors.c.selection_digest)),
+            Local("prior", contributors),
+        ),
+    )
+    output = (
+        ("producer_id", producers.c.producer_id),
+        ("task_id", producers.c.task_id),
+        ("producer_attempt", producers.c.attempt),
+        ("producer_holder", producers.c.holder),
+        ("runtime_id", runtime.c.runtime_id),
+        ("runtime_manifest_digest", inputs.c.content_digest),
+        ("manifest_digest", contributors.c.manifest_digest),
+        ("selection_digest", contributors.c.selection_digest),
+        ("adopter_attempt", contributors.c.adopter_attempt),
+        ("adopter_holder", contributors.c.adopter_holder),
+    )
+    producer_json = json_bytes(producers.c.premises_bytes)["producer"]
+    summary = obj(
+        producer_id=producers.c.producer_id,
+        task_id=producers.c.task_id,
+        producer_attempt=producers.c.attempt,
+        producer_holder=producers.c.holder,
+        runtime_id=producer_json["runtime_id"].astext,
+        runtime_manifest_digest=producer_json["runtime_manifest_digest"].astext,
+        manifest_digest=contributors.c.manifest_digest,
+        selection_digest=contributors.c.selection_digest,
+        adopter_attempt=contributors.c.adopter_attempt,
+        adopter_holder=contributors.c.adopter_holder,
+    )
+    aggregate = (
+        select(
+            func.coalesce(
+                func.jsonb_agg(
+                    aggregate_order_by(
+                        summary,
+                        producers.c.producer_id,
+                        contributors.c.manifest_digest,
+                        contributors.c.selection_digest,
+                    )
+                ),
+                empty_array,
+            )
+        )
+        .select_from(
+            contributors.join(producers, producers.c.producer_id == contributors.c.producer_id)
+        )
+        .where(contributors.c.build_id == p_build)
+    )
+    summary_parameters = (Parameter("p_build", column_type(build.c.build_id)),)
+    programs.append(
+        sql_function(
+            "ops",
+            "pdf_spool_contributors",
+            parameters=summary_parameters,
+            returns=pg_type("jsonb"),
+            body=aggregate,
+            volatility="stable",
+            search_path=("pg_catalog", "pg_temp"),
+        )
+    )
+    identities.append(
+        NativeIdentity(
+            "function", "ops", "pdf_spool_contributors", (RawStream()(summary_parameters[0].type_),)
+        )
+    )
+    returned = (
+        func.jsonb_to_recordset(func.ops.pdf_spool_contributors(p_build))
+        .table_valued(*(column(name, field.type) for name, field in output))
+        .render_derived(name="r", with_types=True)
+    )
+    result = pg_type("record")
+    result.setof = True
+    routine(
+        "read_pdf_spool_contributors",
+        fence_fields,
+        (
+            Perform(func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder)),
+            refuse(
+                not_(
+                    exists(
+                        select(1)
+                        .select_from(build)
+                        .where(build.c.build_id == p_build, build.c.task_id == p_task)
+                    )
+                ),
+                "PDF contributor read has no owned build",
+            ),
+            ReturnQuery(
+                select(returned).order_by(
+                    returned.c.producer_id, returned.c.manifest_digest, returned.c.selection_digest
+                )
+            ),
+        ),
+        (),
+        result=result,
+        output=output,
+    )
+    return (
+        native_sql_script(
+            (
+                *programs,
+                *(native_privilege_sql(identity, "PUBLIC", grant=False) for identity in identities),
+                *(
+                    native_privilege_sql(identity, "corpus_sem_writer", "execute")
+                    for identity in identities
+                    if identity.name != "pdf_spool_contributors"
+                ),
+            )
+        )
+        + "\n"
+    )
