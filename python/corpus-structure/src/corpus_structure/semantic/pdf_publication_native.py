@@ -221,145 +221,6 @@ def _schema_json(schema: dict) -> str:
     return json.dumps(schema, default=exact_number, ensure_ascii=False, separators=(",", ":"))
 
 
-def _native_shape_guard() -> str:
-    """Generate declared-field/required/primitive guards from the retained schema."""
-    from .pdf_records import prepare_native_schema_mapping
-
-    schema = prepare_native_schema_mapping().schema
-
-    def resolve(node):
-        while "$ref" in node:
-            target = schema
-            for part in node["$ref"].removeprefix("#/").split("/"):
-                target = target[part]
-            node = target
-        return node
-
-    def choices(node):
-        node = resolve(node)
-        if "anyOf" in node or "oneOf" in node:
-            result = []
-            for n in node.get("anyOf", node.get("oneOf", [])):
-                result.extend(choices(n))
-            return result
-        return [node]
-
-    clauses = []
-    definitions = {schema.get("title", "DoclingDocument"): schema, **schema.get("$defs", {})}
-    for name, node in definitions.items():
-        props = node.get("properties")
-        if not props:
-            continue
-        tests = []
-        allowed = "ARRAY[" + ",".join(_quote(k) for k in props) + "]::text[]"
-        tests.append(
-            f"NOT EXISTS(SELECT FROM jsonb_object_keys(p_scalars||p_fields) k WHERE NOT \
-k=ANY({allowed}))"
-        )
-        for field in node.get("required", []):
-            tests.append(f"(p_scalars ? {_quote(field)} OR p_fields ? {_quote(field)})")
-        for field, description in props.items():
-            expr = f"p_scalars->{_quote(field)}"
-            tests_scalar = []
-            for alternative in choices(description):
-                typ = alternative.get("type")
-                if typ in ("object", "array"):
-                    continue
-                if typ == "number":
-                    check = f"(jsonb_typeof\
-({expr})='number' OR (jsonb_typeof\
-({expr})='object' AND\
- {expr} ? 'native_float64' AND ({expr}->>'native_float64') ~ '^[0-9a-f]{{16}}$'))"
-                elif typ == "integer":
-                    check = f"(jsonb_typeof({expr})='number' AND (({expr})::text) ~ '^-?[0-9]+$')"
-                elif typ in ("string", "boolean", "null"):
-                    check = f"jsonb_typeof({expr})={_quote(typ)}"
-                else:
-                    check = "true"
-                if "const" in alternative:
-                    check += f" AND {expr}={_quote(json.dumps(alternative['const']))}::jsonb"
-                if "enum" in alternative:
-                    check += (
-                        f" AND {expr} IN ("
-                        + ",".join(_quote(json.dumps(v)) + "::jsonb" for v in alternative["enum"])
-                        + ")"
-                    )
-                tests_scalar.append("(" + check + ")")
-            test = " OR ".join(tests_scalar) or "false"
-            tests.append(f"(NOT p_scalars ? {_quote(field)} OR ({test}))")
-        clauses.append(f"WHEN {_quote(name)} THEN RETURN " + " AND ".join(tests) + ";")
-    clauses.append("WHEN 'NativeArray' THEN RETURN p_fields ? 'items' AND p_scalars='{}'::jsonb;")
-    return (
-        """
-CREATE OR REPLACE FUNCTION ops.pdf_native_record_shape(p_type text,p_scalars jsonb,p_fields jsonb)
-RETURNS boolean LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-BEGIN CASE p_type
-"""
-        + "\n".join(clauses)
-        + """\nELSE RETURN false; END CASE; END $$;
-REVOKE ALL ON FUNCTION ops.pdf_native_record_shape(text,jsonb,jsonb) FROM PUBLIC;
-"""
-    )
-
-
-def _companion_field_sql() -> str:
-    return """
-CREATE OR REPLACE FUNCTION ops.pdf_companion_field_bytes(p_product text,p_revision text,p_stream \
-text,p_stage boolean DEFAULT false)
-RETURNS bytea LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE payload_ bytea;
-BEGIN
- -- Materialize only the explicitly requested semantic field, never a document envelope.
- SELECT string_agg(body,''::bytea ORDER BY ordinal) INTO payload_ FROM
- ops.pdf_artifact_parts(p_product,p_revision,p_stage,ARRAY[p_stream]) WHERE stream_id=p_stream;
- RETURN COALESCE(payload_,''::bytea);
-END $$;
-REVOKE ALL ON FUNCTION ops.pdf_companion_field_bytes(text,text,text,boolean) FROM PUBLIC;
-CREATE OR REPLACE FUNCTION ops.pdf_companion_restore_fields(p_product text,p_revision text, \
-p_family text,p_local text,p_body jsonb)
-RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE f record; body_ jsonb:=p_body; payload_ bytea;
-BEGIN
- FOR f IN SELECT * FROM kb.pdf_record_companion_field WHERE product_id=p_product AND \
-revision_id=p_revision
- AND family=p_family AND local_id=p_local ORDER BY field_name LOOP
- IF body_ ? f.field_name THEN
- RAISE EXCEPTION 'companion field has both inline and byte-owned values'; END IF;
- payload_:=ops.pdf_companion_field_bytes(p_product,p_revision,f.stream_id);
- body_:=body_||jsonb_build_object(f.field_name,CASE WHEN f.scalar_kind='y' THEN \
-convert_from(payload_,'UTF8')::jsonb ELSE to_jsonb(convert_from(payload_,'UTF8')) END);
- END LOOP;
- RETURN body_;
-END $$;
-REVOKE ALL ON FUNCTION ops.pdf_companion_restore_fields(text,text,text,text,jsonb) FROM PUBLIC;
-CREATE OR REPLACE FUNCTION ops.pdf_companion_body(p_product text,p_revision text,p_family \
-text,p_local text,p_body jsonb)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE f record; body_ jsonb:=p_body; payload_ bytea;
-BEGIN
- IF NOT EXISTS(SELECT FROM ops.pdf_published_revision p JOIN kb.pdf_record_companion c ON \
-c.product_id=p.build_id AND c.revision_id=p.build_id
- WHERE p.build_id=p_product AND p_revision=p_product AND c.family=p_family AND \
-c.local_id=p_local AND c.body=p_body) THEN
- RAISE EXCEPTION 'companion field is not in a published revision'; END IF;
- IF p_family='native_metadata' AND p_body->>'kind'<>'recognition_coverage' THEN
- RAISE EXCEPTION 'metadata value requires the lossless byte reader; SQL supports only typed \
-recognition coverage'; END IF;
- FOR f IN SELECT * FROM kb.pdf_record_companion_field WHERE product_id=p_product AND \
-revision_id=p_revision
- AND family=p_family AND local_id=p_local ORDER BY field_name LOOP
- payload_:=ops.pdf_companion_field_bytes(p_product,p_revision,f.stream_id);
- body_:=body_||jsonb_build_object(f.field_name,CASE WHEN f.scalar_kind='y' THEN \
-convert_from(payload_,'UTF8')::jsonb ELSE to_jsonb(convert_from(payload_,'UTF8')) END);
- END LOOP;
- RETURN body_;
-END $$;
-REVOKE ALL ON FUNCTION ops.pdf_companion_body(text,text,text,text,jsonb) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ops.pdf_companion_body(text,text,text,text,jsonb) TO \
-corpus_sem_reader,corpus_sem_evaluator,corpus_sem_writer;
-"""
-
-
 def _coverage_support_violation_sql(*, target_metadata=None) -> str:
     """Set-shaped resolution of the existing exact-pin support/complete rule."""
     metadata = default_metadata if target_metadata is None else target_metadata
@@ -807,6 +668,10 @@ BEGIN
 
 def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
     metadata = default_metadata if target_metadata is None else target_metadata
+    from .pdf_companion_read_native import (
+        pdf_companion_field_read_sql,
+        pdf_native_record_shape_sql,
+    )
     from .pdf_domain import pdf_call_bindings
     from .pdf_record_reader_native import (
         pdf_companion_export_sql,
@@ -824,8 +689,8 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         "region": "ops.pdf_stage_region",
     }
     sql = (
-        _native_shape_guard()
-        + _companion_field_sql()
+        pdf_native_record_shape_sql()
+        + pdf_companion_field_read_sql(metadata)
         + pdf_freeze_native_sql(metadata, stage, pdf_domain=pdf_domain)
     )
     sql += """

@@ -44,6 +44,7 @@ LOWERING_FILES = (
     "semantic/native_call_contracts.py",
     "semantic/pdf_certification_native.py",
     "semantic/pdf_publication_native.py",
+    "semantic/pdf_companion_read_native.py",
     "semantic/pdf_domain_native.py",
     "semantic/pdf_publication.py",
     "semantic/pdf_record_reader.py",
