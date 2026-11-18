@@ -51,7 +51,10 @@ def test_external_packet_custody_precedes_python_resolution(monkeypatch):
     assert not observed.live and not observed.receipts and not observed.failures
 
 
-def test_uncertain_publication_reconciles_exact_intent_without_recomputation(monkeypatch):
+@pytest.mark.parametrize("retained_at_claim", [True, False], ids=["retained", "changed-action"])
+def test_uncertain_publication_reconciles_exact_intent_without_recomputation(
+    monkeypatch, retained_at_claim
+):
     preparation = executor_preparation()
     computations, durable = [], {}
 
@@ -109,13 +112,41 @@ def test_uncertain_publication_reconciles_exact_intent_without_recomputation(mon
             native=canonical_bytes(
                 {
                     **json.loads(ready.native),
+                    "release_id": "release:" + "a" * 64,
+                    "runtime_id": "runtime:" + "b" * 64,
                     "action": "reconcile",
                     "retained_intent_id": "0",
                 }
             ),
         ),
     )
+
+    def forbidden_execution(*args, **options):
+        raise AssertionError("retained reconciliation must not resolve or hydrate executable code")
+
+    monkeypatch.setattr(executor, "_basis_context", forbidden_execution)
+    monkeypatch.setattr(executor, "_hydrate", forbidden_execution)
     executor.native_io.owner = Active(calls)
+    if not retained_at_claim:
+        claim_reply = calls.replies["claim_data_requests"]
+
+        def changed_action(payload):
+            result = claim_reply(payload)
+            claimed = result["items"][0]["result"]
+            claimed["action"] = "compute"
+            claimed["retained_intent_id"] = None
+            return result
+
+        calls.replies["claim_data_requests"] = changed_action
+        with pytest.raises(NativeDemandExecutionError) as caught:
+            executor.advance("controlled-demand")
+        assert "native reconciliation claim no longer has a retained intent" in str(
+            caught.value.failures[0]
+        )
+        assert publication_attempts == ["0"] and not adoptions
+        assert computations == [0] and not observed.live and len(observed.failures) == 1
+        return
+
     result = executor.advance("controlled-demand")
     assert result.receipt_count == 1
     assert json.loads(result.receipts[0])["replayed"] is True

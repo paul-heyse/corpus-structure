@@ -857,9 +857,9 @@ class NativeDemandExecutor:
 
     def _prepare_ready(self, ready, authorization):
         native = wire_json_loads(ready.native)
-        context = self._ready_context(ready)
         if native["action"] == "reconcile":
             return ready
+        context = self._ready_context(ready)
         if (
             native["release_id"] == self.prepared.release_id
             and native["runtime_id"] == self.runtime.runtime_id
@@ -1148,6 +1148,11 @@ class NativeDemandExecutor:
                 ):
                     prepared.error = PortRefusal(
                         "native claim differs from its prepared immutable generation basis"
+                    )
+                    continue
+                if expected["action"] == "reconcile" and claimed["action"] != "reconcile":
+                    prepared.error = PortRefusal(
+                        "native reconciliation claim no longer has a retained intent"
                     )
                     continue
                 if physical is None or claimed["action"] == "reconcile":
@@ -1743,9 +1748,10 @@ class NativeDemandExecutor:
                         pending[index] = queued
                     else:
                         ready = queued.ready
-                        self._physical.select_operations(
-                            (ready.operation,), self._ready_context(ready)
-                        )
+                        if wire_json_loads(ready.native)["action"] != "reconcile":
+                            self._physical.select_operations(
+                                (ready.operation,), self._ready_context(ready)
+                            )
                     return queued
 
                 while True:
@@ -1756,15 +1762,19 @@ class NativeDemandExecutor:
                     try:
                         first = prepare(0)
                         ready = first.ready
-                        context = self._ready_context(ready)
-                        operation = context.model.operation(ready.operation)
-                        port = (
-                            self._port(ready.operation, context)
-                            if operation.external is None
-                            else None
-                        )
-                        batch = port is not None and operation.capabilities.forms == ("batch",)
-                        item_limit = getattr(port, "batch_max_items", None) if batch else None
+                        first_native = wire_json_loads(ready.native)
+                        basis = first_native["release_id"], first_native["runtime_id"]
+                        batch, item_limit = False, None
+                        if first_native["action"] != "reconcile":
+                            context = self._ready_context(ready)
+                            operation = context.model.operation(ready.operation)
+                            batch = operation.external is None and operation.capabilities.forms == (
+                                "batch",
+                            )
+                            if batch:
+                                item_limit = getattr(
+                                    self._port(ready.operation, context), "batch_max_items", None
+                                )
                         if item_limit is not None and (
                             type(item_limit) is not int or item_limit < 1
                         ):
@@ -1787,7 +1797,8 @@ class NativeDemandExecutor:
                             if items and (
                                 not batch
                                 or item.operation != ready.operation
-                                or (native["release_id"], native["runtime_id"]) != context.basis.key
+                                or native["action"] == "reconcile"
+                                or (native["release_id"], native["runtime_id"]) != basis
                             ):
                                 break
                             is_fresh = not isinstance(queued, _ClaimedReady)

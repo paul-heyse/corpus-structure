@@ -329,7 +329,10 @@ def execution_case(monkeypatch, prepared, policy, requests, ports, **options):
             populations=[],
             continuation=None,
             intent={"discovery": []},
-            selection={"operations": [{"operation": name} for name in dict.fromkeys(requests)]},
+            selection={
+                "version": "data-demand-intent-v2",
+                "operations": [{"operation": name} for name in dict.fromkeys(requests)],
+            },
         ),
         bound_requests=bound_requests,
     )
