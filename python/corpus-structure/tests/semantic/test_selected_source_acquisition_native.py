@@ -223,8 +223,7 @@ def test_native_source_acquisition_distinguishes_anchor_from_actual_producing_us
             release=ddo_kernel["prepared"].release_id,
             runtime=ddo_kernel["runtime"],
         )
-        snapshot = planner.resume(other_demand["demand_id"])
-        planner.ready(snapshot, authorization=b"{}")
+    _ready(ddo_kernel, other_demand)
     unrelated = selected(ddo_kernel, other_demand)
     assert unrelated.proof.support.derivation_id == source_receipt["derivation_id"]
     assert unrelated.proof.support.admission_use_id != source.proof.support.admission_use_id
