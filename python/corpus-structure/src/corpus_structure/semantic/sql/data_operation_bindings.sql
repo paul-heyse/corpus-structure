@@ -12,46 +12,6 @@ BEGIN
  RETURN ARRAY(SELECT DISTINCT x FROM unnest(names) x ORDER BY x);
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_binding_type(context jsonb,declared text) RETURNS text
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE kind jsonb; facts jsonb; primitive text;
-BEGIN
- IF declared='subject-context' THEN RETURN declared; END IF;
- IF declared LIKE 'primitive:%' THEN primitive:=substring(declared FROM 11);
- ELSE
- SELECT value INTO kind FROM jsonb_array_elements(context->'model'->'kinds') WHERE value->>'semantic_id'=declared OR value->>'name'=declared;
- IF kind IS NULL THEN RAISE EXCEPTION 'unknown native binding type %',declared USING ERRCODE='23514'; END IF;
- facts:=kind->'facts'->'json'; primitive:=coalesce(facts->>'primitive',facts->>'effective_primitive');
- IF primitive IS NULL AND kind->>'category' IN ('class','enum') THEN primitive:='string'; END IF;
- END IF;
- primitive:=CASE primitive WHEN 'str' THEN 'string' WHEN 'int' THEN 'integer' WHEN 'bool' THEN 'boolean' WHEN 'Decimal' THEN 'decimal' ELSE primitive END;
- IF primitive IN ('string','uri','uriorcurie','integer','boolean','float','double','decimal','date','datetime','json','bytes') THEN RETURN primitive; END IF;
- RAISE EXCEPTION 'unsupported native binding type %',declared USING ERRCODE='23514';
-END $$;
-
-CREATE OR REPLACE FUNCTION ops.ddo_binding_scalar(value jsonb,kind text) RETURNS jsonb
-LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE lexical text; tag text:=kind;
-BEGIN
- IF value IS NULL OR value='null'::jsonb THEN RAISE EXCEPTION 'unknown or null binding operand' USING ERRCODE='23514'; END IF;
- IF kind IN ('uri','uriorcurie','bytes') THEN tag:='string'; END IF;
- IF kind='double' THEN tag:='float'; END IF;
- IF tag IN ('string','date','datetime','float') THEN
- IF jsonb_typeof(value)<>'string' THEN RAISE EXCEPTION 'typed binding string representation required' USING ERRCODE='23514'; END IF;
- lexical:=value#>>'{}';
- IF tag='float' THEN PERFORM data.require_float_lexical(lexical); END IF;
- RETURN data.ddo_normalize(jsonb_build_array(tag,lexical));
- ELSIF tag='boolean' THEN
- IF jsonb_typeof(value)<>'boolean' THEN RAISE EXCEPTION 'typed boolean operand required' USING ERRCODE='23514'; END IF;
- RETURN jsonb_build_array(tag,value);
- ELSIF tag IN ('integer','decimal') THEN
- IF jsonb_typeof(value)<>'number' OR (tag='integer' AND (value#>>'{}')::numeric<>trunc((value#>>'{}')::numeric)) THEN RAISE EXCEPTION 'typed numeric operand required' USING ERRCODE='23514'; END IF;
- RETURN data.ddo_normalize(jsonb_build_array(tag,value#>>'{}'));
- ELSIF tag='json' THEN RETURN jsonb_build_array('json',value);
- END IF;
- RAISE EXCEPTION 'unsupported native binding scalar type %',kind USING ERRCODE='23514';
-END $$;
-
 CREATE OR REPLACE FUNCTION ops.ddo_binding_float(value text) RETURNS numeric
 LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
 DECLARE digits text; fraction integer; exponent integer; result numeric:=0; digit integer; i integer; signum integer:=1; shift integer; exact_text text;
@@ -69,42 +29,6 @@ BEGIN
  IF length(trunc(result)::text)>-shift+1 THEN exact_text:=trunc(result)::text; END IF;
  exact_text:=substring(exact_text FROM 1 FOR length(exact_text)+shift)||'.'||substring(exact_text FROM length(exact_text)+shift+1);
  RETURN signum*exact_text::numeric;
-END $$;
-
-CREATE OR REPLACE FUNCTION ops.ddo_binding_compare(left_value jsonb,right_value jsonb,comparison text) RETURNS boolean
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $$
-DECLARE tag text:=left_value->>0; l numeric; r numeric; ordering integer;
-BEGIN
- IF left_value->>0='subject-context' OR right_value->>0='subject-context' THEN
- IF comparison<>'equal' OR left_value->>0 IS DISTINCT FROM 'subject-context' OR right_value->>0 IS DISTINCT FROM 'subject-context' THEN RAISE EXCEPTION 'context operands support equality only'; END IF;
- RETURN left_value->1=right_value->1;
- END IF;
- IF tag IS DISTINCT FROM right_value->>0 THEN RAISE EXCEPTION 'binding operand type mismatch' USING ERRCODE='23514'; END IF;
- IF comparison='equal' THEN
- IF tag='float' THEN RETURN ops.ddo_binding_float(left_value->>1)=ops.ddo_binding_float(right_value->>1); END IF;
- RETURN left_value=right_value;
- END IF;
- IF tag IN ('integer','decimal','float') THEN
- l:=CASE WHEN tag='float' THEN ops.ddo_binding_float(left_value->>1) ELSE (left_value->>1)::numeric END;
- r:=CASE WHEN tag='float' THEN ops.ddo_binding_float(right_value->>1) ELSE (right_value->>1)::numeric END;
- ordering:=CASE WHEN l<r THEN -1 WHEN l>r THEN 1 ELSE 0 END;
- ELSIF tag='date' THEN ordering:=CASE WHEN (left_value->>1)::date<(right_value->>1)::date THEN -1 WHEN (left_value->>1)::date>(right_value->>1)::date THEN 1 ELSE 0 END;
- ELSIF tag='datetime' THEN ordering:=CASE WHEN (left_value->>1)::timestamptz<(right_value->>1)::timestamptz THEN -1 WHEN (left_value->>1)::timestamptz>(right_value->>1)::timestamptz THEN 1 ELSE 0 END;
- ELSIF tag='string' THEN ordering:=CASE WHEN (left_value->>1) COLLATE "C"<(right_value->>1) COLLATE "C" THEN -1 WHEN (left_value->>1) COLLATE "C">(right_value->>1) COLLATE "C" THEN 1 ELSE 0 END;
- ELSE RAISE EXCEPTION 'binding range does not support type %',tag USING ERRCODE='23514'; END IF;
- IF comparison='lower' THEN RETURN ordering>=0; ELSIF comparison='upper' THEN RETURN ordering<=0; END IF;
- RAISE EXCEPTION 'unsupported native binding comparison' USING ERRCODE='23514';
-END $$;
-
-CREATE OR REPLACE FUNCTION ops.ddo_binding_typed(value jsonb,kind text) RETURNS jsonb
-LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $$
-DECLARE expected text:=CASE WHEN kind IN ('uri','uriorcurie','bytes') THEN 'string' WHEN kind='double' THEN 'float' ELSE kind END;
-BEGIN
- IF value IS NULL OR value->>0='null' THEN RAISE EXCEPTION 'unknown or null typed binding operand' USING ERRCODE='23514'; END IF;
- IF expected='json' THEN RETURN jsonb_build_array('json',data.ddo_json(value)); END IF;
- IF value->>0 IS DISTINCT FROM expected THEN RAISE EXCEPTION 'native binding literal/field tag differs from admitted type' USING ERRCODE='23514'; END IF;
- IF expected='float' THEN PERFORM data.require_float_lexical(value->>1); END IF;
- RETURN data.ddo_normalize(value);
 END $$;
 
 CREATE OR REPLACE FUNCTION ops.ddo_validate_parameters(operation jsonb,selection jsonb,model jsonb) RETURNS void

@@ -38,6 +38,8 @@ def test_native_binding_source_closure_and_helper_syntax():
         "native/data_operation_source_sets.py",
         "native/selected_support.py",
         "native/data_product_reference.py",
+        "native/binding_scalar_native.py",
+        "native/binding_primitives.py",
     }
     prepared = prepare_sql(binding_native_sql(), source="binding-test")
     names = []
@@ -819,3 +821,14 @@ def test_native_explicit_empty_source_set_is_valid_and_never_matches_a_row(
                 'SELECT ops.ddo_validate_source_sets(\'{"":{"entries":[],"acquisition":{"kind":"selected-support-v1","reads":[]}}}\'::jsonb,\'project\',\'{}\'::jsonb)'
             )
         )
+
+
+@pytest.mark.parametrize("statement,message", (
+    ("SELECT ops.ddo_binding_scalar('\"value\"'::jsonb,NULL)", "unsupported native binding scalar type <NULL>"),
+    ("SELECT ops.ddo_binding_compare('null'::jsonb,'null'::jsonb,'lower')", "binding range does not support type <NULL>"),
+))
+def test_native_scalar_null_type_refusal_keeps_exact_diagnostic(binding_native_connection, statement, message):
+    with pytest.raises(DBAPIError) as refusal, binding_native_connection.begin_nested():
+        binding_native_connection.execute(text(statement))
+    assert getattr(refusal.value.orig, "sqlstate", None) == "23514"
+    assert message in str(refusal.value)

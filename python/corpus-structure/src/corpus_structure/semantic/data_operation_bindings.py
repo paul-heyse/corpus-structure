@@ -10,8 +10,6 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from datetime import date, datetime
-from decimal import Decimal
 from enum import Enum
 from itertools import pairwise
 from typing import Any, Literal, cast
@@ -38,6 +36,7 @@ from sqlalchemy.sql import ColumnElement, FromClause, Select
 from sqlalchemy.sql.visitors import replacement_traverse
 
 from ._data_operation_fates import RecordableFate
+from .binding_primitives import BINDING_PRIMITIVE_ALIASES, BINDING_VALUE_TYPES
 from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_json import ContextJSONB, json_bytes, json_context_equal, wire_json_loads
 from .data_operation_kind_refinements import input_kind_contracts
@@ -238,19 +237,7 @@ def _typed(value: Any, value_type: str, *, many: bool = False) -> Any:
             raise ValueError("membership parameter must be a frozen sequence")
         return tuple(_typed(item, value_type) for item in value)
     primitive = value_type.removeprefix("primitive:")
-    expected = {
-        "string": str,
-        "uri": str,
-        "uriorcurie": str,
-        "integer": int,
-        "boolean": bool,
-        "float": float,
-        "double": float,
-        "decimal": Decimal,
-        "date": date,
-        "datetime": datetime,
-        "bytes": bytes,
-    }
+    expected = BINDING_VALUE_TYPES
     if primitive in expected and type(value) is not expected[primitive]:
         raise ValueError("operand does not match " + value_type)
     if value is None:
@@ -773,9 +760,7 @@ def compile_binding(
             primitive = "string"
         if not isinstance(primitive, str):
             raise ValueError("binding kind lacks an effective primitive: " + value_type)
-        return {"str": "string", "int": "integer", "bool": "boolean", "Decimal": "decimal"}.get(
-            primitive, primitive
-        )
+        return BINDING_PRIMITIVE_ALIASES.get(primitive, primitive)
 
     def population_product(name: str, population: PopulationBinding):
         if population.projection == "qualified-context":
