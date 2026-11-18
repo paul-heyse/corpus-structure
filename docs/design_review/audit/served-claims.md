@@ -1,19 +1,31 @@
 # Served claims
 
-**Interface-checked by source inspection, 2026-11-17**, source `fbd3f2a98`
-([baseline and limits](README.md#baseline)). Source paths omit
+**Interface-checked by source inspection.** The page was read as a whole on 2026-11-17 at
+source `fbd3f2a98` ([baseline and limits](README.md#baseline)). DA-076 and DA-077 were re-read
+on 2026-11-18 at source `d78c98765` ([refresh](README.md#refresh-2026-11-18)); the
+earlier-identity table keeps its 2026-11-17 date. Source paths omit
 `python/corpus-structure/src/corpus_structure/`.
 
 <a id="da-076"></a>
 
 ## DA-076 — The implementation identity of a served read is a hand-kept file list that leaves out modules that shape the answer
 
+**Refresh, 2026-11-18, source `d78c98765`.** Stands unchanged. No commit in
+`1afa63f88..d78c98765` touched `_query_custody.py` or `serve/rich_queries.py`. Current sites:
+the hand lists at `_query_custody.py:17–127` (docstring `:1–5`), the second list at
+`semantic/demand_queries.py:117–124`, and the statistics query names written again at
+`serve/rich_queries.py:39–66`. The identity is the listed file digests, nine library versions
+and the request JSON schema (`serve/rich_queries.py:71–105`); it does not include the native
+kernel. `semantic/releases.py`, `semantic/archive_reader.py`,
+`semantic/data_operation_admission.py` and the generated wire module remain unlisted. The
+conversion strengthened the contrary evidence for native SQL, as recorded below.
+
 **FP-04; DP-02, DP-04; CI-10, CI-13.**
 
 Every served read carries an `implementation` digest. It appears in cursors, in
 `resource_handle` replays and in the selected-query cache keys, and it is what lets a resumed
 page claim it comes from the same code. The digest covers only the files named in
-`_query_custody.py:17–117`, whose docstring says it "neither discovers dependencies" (`:1–5`);
+`_query_custody.py:17–127`, whose docstring says it "neither discovers dependencies" (`:1–5`);
 `semantic/demand_queries.py:117–124` keeps a second, separate list.
 
 Modules on the rich answer path that are not listed include `semantic/releases.py` and
@@ -25,12 +37,12 @@ are on other paths, so the closure is an upper bound, not the size of the gap. T
 kernel is not part of the identity.
 
 The six rich statistics query names are also written twice, once for dispatch
-(`semantic/rich_queries.py:460–470`) and once to choose which sources enter the identity
-(`serve/rich_queries.py:43–56`). A query added to the first and not the second would omit the
+(`semantic/rich_queries.py:460–470`, as read on 2026-11-17) and once to choose which sources
+enter the identity (`serve/rich_queries.py:39–66`). A query added to the first and not the second would omit the
 module that computes it.
 
 **Consequence.** Inside one MCP process this is harmless: custody refuses any reload
-(`_query_custody.py:142–176`). Across processes it is not. A CLI cursor, a `resource_handle` or
+(`_query_custody.py:136–200`). Across processes it is not. A CLI cursor, a `resource_handle` or
 an explicit pin survives an edit to an unlisted module, and the resumed request replays
 ordinals over a population derived by different code (`serve/rich_queries.py:170–187`;
 `semantic/selected_query_cache.py:163–165`). A continued page can then skip or duplicate rows
@@ -42,6 +54,14 @@ with stat-based drift detection, and that mechanism is implemented and sound. Th
 the list covers. Whether the identity is meant to cover the answer's whole code closure or only
 code likely to change answers is not stated in the ADR.
 
+The conversion narrowed the gap on the native side (2026-11-18). Answer-shaping native SQL now
+comes from generators that are not on the list (`semantic/demand_result_native.py`,
+`semantic/data_operation_read_native.py`, `semantic/data_operation_projections.py`), but their
+effect reaches an answer only after a kernel deployment, and a read acquired under another
+kernel is treated as not present (`semantic/data_read_boundary_native.py:84–92`). Pinned cuts
+also carry the release id, which covers the native capture. The residual gap is Python-side
+answer code, as before.
+
 **Footprint.** Established for the omission and the duplicated list; the paging consequence is
 likely.
 
@@ -49,10 +69,16 @@ likely.
 
 ## DA-077 — The archived scientific policy is a description of the comparison kernel, not derived from it
 
+**Refresh, 2026-11-18, source `d78c98765`.** Stands unchanged; the DuckDB rewrite did not
+touch it. Current sites: the recipe at `semantic/scientific_evidence.py:192–243`, the
+comparison at `:246–255`, and the kernel literal at `:1301`. A third comparison site was
+found, which also rebuilds the recipe on each call: `semantic/rich_policy_binding.py:22–30`
+(the artifact is written at `semantic/rich_knowledge_sources.py:81–82`).
+
 **FP-04; DP-02, DP-04; CI-13; H19.**
 
 `require_scientific_policy` requires a release's archived `operation/scientific-policy.json` to
-equal a recipe rebuilt in code (`semantic/scientific_evidence.py:246–259`). The recipe is a
+equal a recipe rebuilt in code (`semantic/scientific_evidence.py:246–255`). The recipe is a
 hand-written description of the kernel, for example `"bounds": [0.25, 3]` and the
 `numeric_method` strings (`:192–243`). The kernel uses its own literals
 (`rng.uniform(0.25, 3, …)`, `:1301`).
@@ -66,7 +92,8 @@ hand-written description of the kernel, for example `"bounds": [0.25, 3]` and th
 The recipe is also rebuilt on each call, including several schema generations, for each rule
 evaluation, each scientific evaluation, each new comparator per distinct macro set and each
 reference comparison scope (`semantic/rich_scientific.py:182, 260–264`;
-`scientific_evidence.py:940–943, 1129–1133`), although both the archived artifact and the
+`scientific_evidence.py:940–943, 1129–1133`, as read on 2026-11-17) and each rich context
+binding (`semantic/rich_policy_binding.py:22–30`), although both the archived artifact and the
 process code are fixed.
 
 **Contrary evidence.** Archiving the policy and refusing on mismatch is the right shape, and
