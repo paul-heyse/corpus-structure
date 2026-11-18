@@ -199,7 +199,8 @@ class PreparedDossierInputs:
     def members(self, name):
         selected = next(role for role in self.roles if role.role == name)
         if any(
-            member.member is not None or member.multiplicity != 1 for member in selected.members
+            member.multiplicity != 1 or (name != "sources" and member.member is not None)
+            for member in selected.members
         ):
             raise ValueError("dossier inputs require their exact whole native inventories")
         return selected.members

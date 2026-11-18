@@ -147,3 +147,45 @@ def test_declared_dossier_refuses_substituted_component_and_changed_passage_clos
             retained=((predecessor, {"report": report}),),
             relationships={},
         )
+
+
+def _prepared_dossier_role(role, *, member, multiplicity=1):
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding, SubjectContext
+    from corpus_structure.semantic.dossier_products import PreparedDossierInputs
+    from corpus_structure.semantic.types import PreparedRelease
+
+    # This control exercises the binding gate. Release schema interpretation is
+    # covered by the dossier producer and native journey, and is not entered here.
+    prepared = PreparedRelease(
+        release_id="release:binding-control", manifest=b"{}", definitions=(), vocabularies=(),
+        registry_rows=(), queries=(), artifacts=(), required_capabilities=(), diagnostics=(), _adapters=(),
+    )
+    bound = BoundRoleMember(
+        product="product:actual-source", kind_contract="kind:actual-source", subject="view:actual",
+        original_source="document:actual", analyzed_scope=b"{}", coverage=b"{}", support_episodes=(),
+        support_evidence=b"{}", subject_definition="original-source-view", support_references=(),
+        member=member, multiplicity=multiplicity,
+    )
+    return PreparedDossierInputs(
+        prepared=prepared, roles=(ResolvedRoleBinding(role, "present", (bound,)),),
+        context=SubjectContext("project", "view:actual", "document:actual", b"{}", subject_definition="original-source-view"),
+        check_active=lambda: None,
+    ), bound
+
+
+def test_dossier_keeps_actual_selected_source_member_and_unit_multiplicity():
+    inputs, source = _prepared_dossier_role("sources", member="selected:section")
+    assert inputs.members("sources") == (source,)
+    assert inputs.members("sources")[0].member == "selected:section"
+    repeated, _ = _prepared_dossier_role("sources", member="selected:section", multiplicity=2)
+    with pytest.raises(ValueError, match="whole native inventories"):
+        repeated.members("sources")
+
+
+@pytest.mark.parametrize("role", ["components", "definitions", "comparisons", "candidates", "relationships", "admissions"])
+def test_dossier_report_roles_still_require_whole_native_inventories(role):
+    selected, _ = _prepared_dossier_role(role, member="selected:report-fragment")
+    with pytest.raises(ValueError, match="whole native inventories"):
+        selected.members(role)
+    whole, report = _prepared_dossier_role(role, member=None)
+    assert whole.members(role) == (report,)
