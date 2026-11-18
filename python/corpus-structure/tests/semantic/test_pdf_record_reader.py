@@ -160,7 +160,7 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
             "CREATE TABLE ops.pdf_record_document(product_id text,revision_id text,root_id text)",
             (
                 "CREATE TABLE kb.pdf_record_native(product_id text,revision_id "
-                "text,record_id text,native_type text,scalars_json "
+                "text,record_id text,native_type text,native_address text,scalars_json "
                 "jsonb,structure_json jsonb)"
             ),
             (
@@ -187,6 +187,7 @@ def test_native_export_uses_one_ordered_sql_cursor(semantic_bare_engine, large):
                     "revision_id",
                     "record_id",
                     "native_type",
+                    "native_address",
                     "scalars_json",
                     "structure_json",
                 )

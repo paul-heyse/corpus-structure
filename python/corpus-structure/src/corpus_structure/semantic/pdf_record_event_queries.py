@@ -40,7 +40,13 @@ def native_event_relations(model, published, *, roots=None, node_ids=None, prefi
             relation.c.revision_id == published.c.build_id,
         )
 
-    node_query = select(native).join(published, placed(native))
+    node_query = select(
+        native.c.record_id,
+        native.c.native_type,
+        native.c.native_address,
+        native.c.scalars_json,
+        native.c.structure_json,
+    ).join(published, placed(native))
     if node_ids is not None:
         node_query = node_query.where(native.c.record_id.in_(node_ids))
     nodes = node_query.cte(prefix + "nodes").prefix_with("MATERIALIZED")

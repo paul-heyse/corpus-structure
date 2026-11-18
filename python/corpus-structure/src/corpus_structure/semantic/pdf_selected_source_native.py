@@ -1,23 +1,49 @@
 """Protected selected membership/context over the existing native event algebra."""
 
 import json
-from importlib.resources import files
 
 import yaml
-from pglast import ast, parse_sql
-from pglast.stream import RawStream
-from sqlalchemy import MetaData, Text, case, column, func, select, table, true, union_all
-from sqlalchemy.dialects.postgresql import JSONB, array, dialect
+from sqlalchemy import (
+    BigInteger,
+    Integer,
+    MetaData,
+    Table,
+    Text,
+    and_,
+    case,
+    cast,
+    column,
+    func,
+    literal,
+    or_,
+    select,
+    true,
+    tuple_,
+    union_all,
+)
+from sqlalchemy.dialects.postgresql import BYTEA, JSONB, aggregate_order_by, array
 
-from .native_program import core_variable
-from .pdf_record_reader_native import pdf_companion_event_ctes, pdf_native_event_ctes
+from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_program import (
+    Block,
+    If,
+    Local,
+    Parameter,
+    Raise,
+    ReturnQuery,
+    SelectInto,
+    core_relation_row,
+    core_variable,
+    function,
+    pg_type,
+)
+from .pdf_record_event_queries import companion_event_relation, native_event_relations
 
 
-def selected_membership_relations(metadata: MetaData, *, section=None):
+def selected_membership_relations(metadata: MetaData, *, published, section):
     """Pin access rows before traversing descendants and ancestors."""
     source = metadata.tables["kb.pdf_record_access"].alias("a")
-    published = table("published", column("build_id", source.c.product_id.type))
-    root = core_variable("p_section", Text()) if section is None else section
+    root = section
     access = (
         select(source)
         .join(
@@ -55,10 +81,9 @@ def selected_membership_relations(metadata: MetaData, *, section=None):
     return access, subtree, selected, ancestors
 
 
-def selected_content_relations(metadata: MetaData, selected, ancestors):
+def selected_content_relations(metadata: MetaData, selected, ancestors, *, published):
     """Follow pinned native children and select contextual native metadata."""
     native = metadata.tables["kb.pdf_record_native"].alias("n")
-    published = table("published", column("build_id", native.c.product_id.type))
     contained = (
         select(native.c.record_id)
         .select_from(
@@ -137,218 +162,492 @@ def selected_content_relations(metadata: MetaData, selected, ancestors):
     return contained, selected_metadata
 
 
-def _selected_relational_sql(metadata: MetaData):
-    access, subtree, selected, ancestors = selected_membership_relations(metadata)
-    contained_records, selected_metadata = selected_content_relations(metadata, selected, ancestors)
-    nodes = table(
-        "nodes",
-        column("record_id", metadata.tables["kb.pdf_record_native"].c.record_id.type),
-        column("native_address", access.c.pointer.type),
-    ).alias("n")
-    statement = (
-        select(nodes.c.record_id, array([selected.c.ordinal]).label("path"))
-        .join(selected, nodes.c.native_address == selected.c.pointer)
-        .add_cte(access, subtree, selected, ancestors, contained_records, selected_metadata)
-    )
-    rendered = str(
-        statement.compile(
-            dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}
+def _path(*parts):
+    return array(
+        tuple(
+            cast(literal(part), BigInteger()) if isinstance(part, int) else cast(part, BigInteger())
+            for part in parts
         )
     )
-    (parsed,) = parse_sql(rendered)
-    if (
-        not isinstance(parsed.stmt, ast.SelectStmt)
-        or parsed.stmt.withClause is None
-        or parsed.stmt.withClause.ctes is None
-    ):
-        raise ValueError("selected membership requires a recursive query")
-    ctes = ",".join(RawStream()(item) for item in parsed.stmt.withClause.ctes)
-    parsed.stmt.withClause = None
-    roots = RawStream()(parsed.stmt)
-    contained = table("contained", column("record_id", nodes.c.record_id.type))
-    predicate = nodes.c.record_id.in_(select(contained.c.record_id))
-    return (
-        ctes,
-        roots,
-        str(
-            predicate.compile(
-                dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}
+
+
+def _event(event, **values):
+    return func.jsonb_build_object(
+        "event", event, *(item for pair in values.items() for item in pair), type_=JSONB()
+    )
+
+
+def _utf8(text):
+    return func.convert_to(text, "UTF8", type_=BYTEA())
+
+
+def _qualified_target(task, key, digest, **attributes):
+    return func.jsonb_build_object(
+        "task_id",
+        task,
+        "product_key",
+        key,
+        "content_digest",
+        digest,
+        *(item for pair in attributes.items() for item in pair),
+        type_=JSONB(),
+    )
+
+
+def _output(phase, path, event, *, source=None):
+    query = select(literal(phase).label("phase"), path.label("path"), event.label("event"))
+    return query if source is None else query.select_from(source)
+
+
+def _selected_events(model, revision, section, part_bytes):
+    pin_table = model.tables["ops.pdf_published_revision"]
+    task, key, digest = (
+        core_variable(revision, pin_table.c[name].type, name)
+        for name in ("task_id", "product_key", "logical_digest")
+    )
+    published_rows = func.ops.read_pdf_published_revision(task, key, digest).table_valued(
+        column("build_id", pin_table.c.build_id.type)
+    )
+    published = select(published_rows.c.build_id).cte("published").prefix_with("MATERIALIZED")
+
+    def placed(row):
+        return and_(
+            row.c.product_id == published.c.build_id, row.c.revision_id == published.c.build_id
+        )
+
+    access, _, selected, ancestors = selected_membership_relations(
+        model, published=published, section=section
+    )
+    contained, metadata = selected_content_relations(
+        model, selected, ancestors, published=published
+    )
+
+    def roots(nodes):
+        return select(nodes.c.record_id, _path(selected.c.ordinal).label("path")).select_from(
+            nodes.join(selected, nodes.c.native_address == selected.c.pointer)
+        )
+
+    native = native_event_relations(
+        model, published, roots=roots, node_ids=select(contained.c.record_id)
+    )
+    events = native.events
+    metadata_events = companion_event_relation(model, metadata, prefix="metadata_")
+
+    selected_pointers = select(selected.c.pointer)
+    pointers = select(func.coalesce(func.array_agg(selected.c.pointer), array((), type_=Text())))
+    companions = model.tables["kb.pdf_record_companion"]
+    contexts = func.ops.pdf_record_context_rows(
+        task, key, digest, pointers.scalar_subquery(), section
+    ).table_valued(
+        *(
+            column(name, companions.c[name].type)
+            for name in ("family", "local_id", "ordinal", "body")
+        )
+    )
+    context = select(contexts).cte("selected_context").prefix_with("MATERIALIZED")
+    endpoints = model.tables["kb.pdf_record_endpoint"]
+
+    def endpoint_value(column, current):
+        return case((endpoints.c.target_task_id == 0, current), else_=column)
+
+    end_task = endpoint_value(endpoints.c.target_task_id, task)
+    end_key = endpoint_value(endpoints.c.target_product_key, key)
+    end_digest = endpoint_value(endpoints.c.target_content_digest, digest)
+    endpoint_id = endpoints.c.relation_id.op("||")(":").op("||")(cast(endpoints.c.ordinal, Text()))
+    endpoint_payload = func.jsonb_build_object(
+        "relation_id",
+        endpoints.c.relation_id,
+        "endpoint_ordinal",
+        endpoints.c.ordinal,
+        "role",
+        endpoints.c.role,
+        "target_task_id",
+        end_task,
+        "target_product_key",
+        end_key,
+        "target_content_digest",
+        end_digest,
+        "occurrence_id",
+        endpoints.c.occurrence_id,
+    )
+
+    def companion_rows(row):
+        return select(
+            row.c.family, row.c.local_id, row.c.ordinal, cast(row.c.body, Text()).label("payload")
+        )
+
+    companion = (
+        companion_rows(context)
+        .union_all(
+            companion_rows(companions)
+            .select_from(companions.join(published, placed(companions)))
+            .where(companions.c.family == "health"),
+            companion_rows(metadata),
+            select(
+                literal("endpoint"),
+                endpoint_id,
+                endpoints.c.ordinal,
+                cast(endpoint_payload, Text()),
             )
+            .select_from(endpoints.join(published, placed(endpoints)))
+            .where(
+                endpoints.c.relation_id.in_(
+                    select(context.c.local_id).where(context.c.family == "relation")
+                )
+            ),
+        )
+        .cte("companion")
+        .prefix_with("MATERIALIZED")
+    )
+    ordered = select(
+        companion,
+        func.row_number()
+        .over(
+            order_by=(
+                companion.c.family.collate("C"),
+                companion.c.ordinal,
+                companion.c.local_id.collate("C"),
+            )
+        )
+        .label("position"),
+    ).cte("companion_order")
+
+    refs = model.tables["kb.pdf_record_reference"]
+    origin = native.nodes.alias("origin")
+    target = native.nodes.alias("target")
+    reference_target = _qualified_target(task, key, digest).op("||")(
+        case(
+            (
+                refs.c.field_name.in_(("source_cell_id", "target_cell_id")),
+                func.jsonb_build_object(
+                    "address_space", "native_graph_cell", "cell_id_lexical", refs.c.native_pointer
+                ),
+            ),
+            else_=func.jsonb_build_object(
+                "address_space", "native_item", "pointer", refs.c.native_pointer
+            ),
+        )
+    )
+    reference = func.jsonb_build_object(
+        "from_pointer",
+        selected.c.pointer,
+        "field",
+        refs.c.field_name,
+        "reference_id",
+        refs.c.reference_id,
+        "source_id",
+        refs.c.source_id,
+        "native_address",
+        origin.c.native_address,
+        "source_ordinal",
+        selected.c.ordinal,
+        "source_order",
+        func.to_jsonb(native.walk.c.path),
+        "target",
+        reference_target,
+        "resolution",
+        "qualified_external",
+        type_=JSONB(),
+    )
+    end_reference = func.jsonb_build_object(
+        "relation_id",
+        endpoints.c.relation_id,
+        "endpoint_ordinal",
+        endpoints.c.ordinal,
+        "role",
+        endpoints.c.role,
+        "target",
+        _qualified_target(
+            end_task,
+            end_key,
+            end_digest,
+            occurrence_id=endpoints.c.occurrence_id,
+        ),
+        "resolution",
+        "qualified_external",
+        type_=JSONB(),
+    )
+    outside = (
+        select(reference.label("body"))
+        .select_from(
+            selected.join(native.walk, native.walk.c.path[1] == selected.c.ordinal)
+            .join(refs, refs.c.source_id == native.walk.c.record_id)
+            .join(origin, origin.c.record_id == refs.c.source_id)
+            .join(published, placed(refs))
+        )
+        .where(
+            refs.c.native_pointer.is_not(None),
+            ~select(1).select_from(target).where(target.c.record_id == refs.c.target_id).exists(),
+        )
+        .union_all(
+            select(end_reference)
+            .select_from(endpoints.join(published, placed(endpoints)))
+            .where(
+                endpoints.c.relation_id.in_(
+                    select(companion.c.local_id).where(companion.c.family == "relation")
+                ),
+                tuple_(
+                    endpoints.c.target_task_id,
+                    endpoints.c.target_product_key,
+                    endpoints.c.target_content_digest,
+                ).not_in((tuple_(task, key, digest), tuple_(0, "@self", "@self"))),
+                endpoints.c.occurrence_id.in_(
+                    select(companion.c.local_id).where(companion.c.family == "occurrence")
+                ),
+            )
+        )
+        .cte("external")
+    )
+
+    listing = (
+        selected.c.pointer.op("||")(func.chr(9))
+        .op("||")(cast(selected.c.ordinal, Text()))
+        .op("||")(func.chr(9))
+        .op("||")(func.coalesce(selected.c.parent_pointer, ""))
+        .op("||")(func.chr(10))
+    )
+    membership = (
+        select(
+            func.encode(
+                func.sha256(
+                    _utf8(
+                        func.coalesce(
+                            func.string_agg(
+                                listing, aggregate_order_by(literal(""), selected.c.ordinal)
+                            ),
+                            "",
+                        )
+                    )
+                ),
+                "hex",
+            )
+        )
+        .select_from(selected)
+        .scalar_subquery()
+    )
+    region = model.tables["kb.pdf_record_region"].alias("r")
+    payload = ordered.c.payload
+    size = func.octet_length(payload)
+    parts = (
+        func.generate_series(0, cast(size - 1, Integer()).op("/")(part_bytes))
+        .table_valued(column("part", BigInteger()))
+        .render_derived()
+        .lateral()
+    )
+    part_index = parts.c.part
+    ordinary = ordered.c.family != "native_metadata"
+    inline_fragment = func.jsonb_build_object(
+        "kind",
+        events.c.kind,
+        "value",
+        events.c.value,
+        "prefix",
+        events.c.prefix,
+    )
+    ord_ = ordered.c.position
+    output = union_all(
+        _output(
+            -1,
+            array((), type_=BigInteger()),
+            _event(
+                "selection_metadata",
+                selected_count=select(func.count()).select_from(selected).scalar_subquery(),
+                membership_sha256=membership,
+            ),
+        ),
+        _output(
+            0,
+            _path(selected.c.ordinal, -1),
+            _event(
+                "record_start",
+                pointer=selected.c.pointer,
+                record_id=native.nodes.c.record_id,
+                ordinal=selected.c.ordinal,
+                parent_pointer=selected.c.parent_pointer,
+                section_pointer=selected.c.section_pointer,
+                label=selected.c.label,
+                role="selected",
+            ),
+            source=selected.join(native.nodes, selected.c.pointer == native.nodes.c.native_address),
+        ),
+        _output(0, events.c.path, _event("native_fragment", native=inline_fragment)),
+        _output(0, _path(selected.c.ordinal, 3), _event("record_end", pointer=selected.c.pointer)),
+        _output(
+            1,
+            _path(access.c.ordinal),
+            _event(
+                "context",
+                kind="ancestor",
+                pointer=access.c.pointer,
+                ordinal=access.c.ordinal,
+                parent_pointer=access.c.parent_pointer,
+                label=access.c.label,
+                name=access.c.native_json["name"],
+            ),
+        ).where(access.c.pointer.in_(select(ancestors.c.pointer))),
+        _output(
+            2,
+            _path(func.row_number().over(order_by=(region.c.pointer, region.c.region_index))),
+            _event(
+                "context",
+                kind="frame",
+                body=func.to_jsonb(region.table_valued(), type_=JSONB())
+                - "product_id"
+                - "revision_id",
+            ),
+            source=region.join(published, placed(region)),
+        ).where(region.c.pointer.in_(selected_pointers)),
+        _output(
+            3,
+            _path(ord_, 0),
+            _event(
+                case((ordinary, "companion_start"), else_="companion_native_start"),
+                family=ordered.c.family,
+                local_id=ordered.c.local_id,
+                ordinal=ordered.c.ordinal,
+            ),
+        ),
+        _output(
+            3,
+            _path(ord_, 1, part_index),
+            _event(
+                "scalar_part",
+                part=part_index,
+                encoding="base64",
+                value=func.encode(
+                    func.substr(
+                        _utf8(payload), cast(part_index * part_bytes + 1, Integer()), part_bytes
+                    ),
+                    "base64",
+                ),
+                final=(part_index + 1) * part_bytes >= size,
+            ),
+            source=ordered.join(parts, true()),
+        ).where(ordinary),
+        _output(
+            3,
+            _path(ord_, 2),
+            _event(
+                "companion_end",
+                byte_length=size,
+                sha256=func.encode(func.sha256(_utf8(payload)), "hex"),
+            ),
+        ).where(ordinary),
+        _output(
+            3,
+            _path(
+                ord_,
+                1,
+                func.row_number().over(
+                    partition_by=ord_,
+                    order_by=(
+                        metadata_events.c.phase,
+                        metadata_events.c.field_name.collate("C"),
+                        metadata_events.c.subphase,
+                        metadata_events.c.part_ordinal,
+                    ),
+                ),
+            ),
+            _event("companion_native_fragment", fragment=metadata_events.c.event),
+            source=metadata_events.join(
+                ordered,
+                and_(~ordinary, ordered.c.local_id == metadata_events.c.local_id),
+            ),
+        ),
+        _output(3, _path(ord_, 2), _event("companion_native_end"), source=ordered).where(~ordinary),
+        _output(
+            4,
+            _path(func.row_number().over(order_by=cast(outside.c.body, Text()))),
+            _event(
+                "outside_reference",
+                body=outside.c.body,
+            ),
+        ),
+    ).subquery("output")
+    return select(output.c.event).order_by(output.c.phase, output.c.path)
+
+
+def selected_source_reader_sql(*, target_metadata: MetaData | None = None, pdf_domain=None) -> str:
+    from .metadata import metadata
+    from .pdf_contracts import trusted_pdf_context
+
+    model = metadata if target_metadata is None else target_metadata
+    domain = trusted_pdf_context().domain if pdf_domain is None else pdf_domain
+    declaration = yaml.safe_load(domain.source("logical/selected_source").content)
+    profile = json.loads(declaration["annotations"]["selected-source"])
+    (membership,) = declaration["enums"]["SourceMembership"]["permissible_values"]
+    names = (
+        "p_project",
+        "p_demand",
+        "p_read",
+        "p_use",
+        "p_product",
+        "p_derivation",
+        "p_section",
+        "p_membership",
+        "p_policy",
+    )
+    values = tuple(core_variable(name, Text()) for name in names)
+    section, membership_value, policy = values[-3:]
+    placement = model.tables["ops.pdf_published_revision"]
+    pin = (
+        func.ops.require_published_companion_pin(*values[:6])
+        .table_valued(*(column(field.name, field.type) for field in placement.c))
+        .alias("pinned")
+    )
+    access = model.tables["kb.pdf_record_access"]
+    build = core_variable("revision", placement.c.build_id.type, "build_id")
+    name = "read_pdf_selected_source_events"
+    result = pg_type("jsonb")
+    result.setof = True
+    definition = function(
+        "ops",
+        name,
+        parameters=tuple(Parameter(key, pg_type("text")) for key in names),
+        returns=result,
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        volatility="volatile",
+        body=Block(
+            (
+                If(
+                    or_(
+                        section.is_(None),
+                        membership_value.is_distinct_from(membership),
+                        policy.is_distinct_from(profile["context_policy"]),
+                    ),
+                    (Raise("invalid selected source selector/policy", "22023"),),
+                ),
+                SelectInto(
+                    select(core_relation_row(Table("pinned", MetaData()))).select_from(pin),
+                    ("revision",),
+                    strict=True,
+                ),
+                If(
+                    ~select(1)
+                    .select_from(access)
+                    .where(
+                        access.c.product_id == build,
+                        access.c.revision_id == build,
+                        access.c.pointer == section,
+                        access.c.label.in_(("section", "chapter")),
+                    )
+                    .exists(),
+                    (Raise("selected source root is not a published section", "22023"),),
+                ),
+                ReturnQuery(_selected_events(model, "revision", section, profile["part_bytes"])),
+            ),
+            (Local("revision", placement),),
         ),
     )
-
-
-def selected_source_reader_sql(*, target_metadata: MetaData | None = None) -> str:
-    if target_metadata is None:
-        from .metadata import metadata
-
-        target_metadata = metadata
-    selection_ctes, roots, node_filter = _selected_relational_sql(target_metadata)
-    ctes = pdf_native_event_ctes(
-        published_sql="SELECT * FROM ops.read_pdf_published_revision(p_task,p_native_product,p_digest)",
-        roots_sql=roots,
-        additional_ctes=selection_ctes,
-        node_filter_sql=node_filter,
-    )
-    metadata_ctes = pdf_companion_event_ctes(
-        companions_sql="SELECT * FROM selected_metadata",
-        prefix="metadata_",
-    )
-    ctes += "," + metadata_ctes
-    sql = (
-        """
-CREATE OR REPLACE FUNCTION ops.read_pdf_selected_source_events(
- p_project text,p_demand text,p_read text,p_use text,p_product text,p_derivation text,
- p_section text,p_membership text,p_policy text)
-RETURNS SETOF jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER
-SET search_path=pg_catalog,pg_temp AS $selected$
-DECLARE revision ops.pdf_published_revision; p_task bigint; p_native_product text; p_digest text;
-BEGIN
- IF p_section IS NULL OR p_membership IS DISTINCT FROM 'descendants'
- OR p_policy IS DISTINCT FROM 'section-source-context-v1' THEN
- RAISE EXCEPTION 'invalid selected source selector/policy' USING ERRCODE='22023'; END IF;
- SELECT * INTO STRICT revision FROM ops.require_published_companion_pin(
- p_project,p_demand,p_read,p_use,p_product,p_derivation);
- p_task:=revision.task_id; p_native_product:=revision.product_key; p_digest:=revision.logical_digest;
- IF NOT EXISTS(SELECT FROM kb.pdf_record_access a WHERE a.product_id=revision.build_id
- AND a.revision_id=revision.build_id AND a.pointer=p_section
- AND a.label IN ('section','chapter')) THEN
- RAISE EXCEPTION 'selected source root is not a published section' USING ERRCODE='22023'; END IF;
- RETURN QUERY
-"""
-        + ctes
-        + """,
- companion AS MATERIALIZED (
- SELECT c.family,c.local_id,c.ordinal,c.body::text AS payload
- FROM ops.pdf_record_context_rows(p_task,p_native_product,p_digest,
- ARRAY(SELECT pointer FROM selected),p_section) c
- UNION ALL SELECT c.family,c.local_id,c.ordinal,
- c.body::text
- FROM kb.pdf_record_companion c JOIN published p
- ON c.product_id=p.build_id AND c.revision_id=p.build_id
- WHERE c.family='health'
- UNION ALL SELECT c.family,c.local_id,c.ordinal,c.body::text FROM selected_metadata c
- UNION ALL SELECT 'endpoint',e.relation_id||':'||e.ordinal::text,e.ordinal,
- jsonb_build_object('relation_id',e.relation_id,'endpoint_ordinal',e.ordinal,'role',e.role,
- 'target_task_id',CASE WHEN e.target_task_id=0 THEN p_task ELSE e.target_task_id END,
- 'target_product_key',CASE WHEN e.target_task_id=0 THEN p_native_product ELSE e.target_product_key END,
- 'target_content_digest',CASE WHEN e.target_task_id=0
- THEN p_digest ELSE e.target_content_digest END,
- 'occurrence_id',e.occurrence_id)::text
- FROM kb.pdf_record_endpoint e JOIN published p
- ON e.product_id=p.build_id AND e.revision_id=p.build_id
- WHERE e.relation_id IN (SELECT c.local_id FROM ops.pdf_record_context_rows(
- p_task,p_native_product,p_digest,ARRAY(SELECT pointer FROM selected),p_section) c
- WHERE c.family='relation')
- ), companion_order AS (
- SELECT *,row_number() OVER(ORDER BY family COLLATE "C",ordinal,local_id COLLATE "C") AS position
- FROM companion
- ), external AS (
- SELECT jsonb_build_object('from_pointer',a.pointer,'field',r.field_name,
- 'reference_id',r.reference_id,'source_id',r.source_id,'native_address',origin.native_address,
- 'source_ordinal',a.ordinal,'source_order',to_jsonb(w.path),
- 'target',jsonb_build_object('task_id',p_task,'product_key',p_native_product,'content_digest',p_digest)||
- CASE WHEN r.field_name IN ('source_cell_id','target_cell_id')
- THEN jsonb_build_object('address_space','native_graph_cell','cell_id_lexical',r.native_pointer)
- ELSE jsonb_build_object('address_space','native_item','pointer',r.native_pointer) END,
- 'resolution','qualified_external') AS body
- FROM selected a JOIN walk w ON w.path[1]=a.ordinal
- JOIN kb.pdf_record_reference r ON r.source_id=w.record_id
- JOIN nodes origin ON origin.record_id=r.source_id
- JOIN published p ON r.product_id=p.build_id AND r.revision_id=p.build_id
- WHERE r.native_pointer IS NOT NULL AND NOT EXISTS(SELECT FROM nodes target
- WHERE target.record_id=r.target_id)
- UNION ALL
- SELECT jsonb_build_object('relation_id',e.relation_id,'endpoint_ordinal',e.ordinal,
- 'role',e.role,'target',jsonb_build_object('task_id',CASE WHEN e.target_task_id=0
- THEN p_task ELSE e.target_task_id END,
- 'product_key',CASE WHEN e.target_task_id=0 THEN p_native_product ELSE e.target_product_key END,
- 'content_digest',CASE WHEN e.target_task_id=0 THEN p_digest ELSE e.target_content_digest END,
- 'occurrence_id',e.occurrence_id),'resolution','qualified_external')
- FROM kb.pdf_record_endpoint e JOIN published p
- ON e.product_id=p.build_id AND e.revision_id=p.build_id
- WHERE e.relation_id IN (SELECT local_id FROM companion WHERE family='relation')
- AND NOT ((e.target_task_id,e.target_product_key,e.target_content_digest) IN
- ((p_task,p_native_product,p_digest),(0::bigint,'@self','@self'))
- AND e.occurrence_id IN (SELECT local_id FROM companion WHERE family='occurrence'))
- ), output(phase,path,event) AS (
- SELECT -1,ARRAY[]::bigint[],jsonb_build_object('event','selection_metadata',
- 'selected_count',(SELECT count(*) FROM selected),
- 'membership_sha256',(SELECT encode(sha256(convert_to(COALESCE(
- string_agg(pointer||chr(9)||ordinal::text||chr(9)||COALESCE(parent_pointer,'')||chr(10),''
- ORDER BY ordinal),'') ,'UTF8')),'hex') FROM selected))
- UNION ALL
- SELECT 0,ARRAY[a.ordinal,-1]::bigint[],jsonb_build_object('event','record_start',
- 'pointer',a.pointer,'record_id',n.record_id,'ordinal',a.ordinal,'parent_pointer',a.parent_pointer,
- 'section_pointer',a.section_pointer,'label',a.label,'role','selected')
- FROM selected a JOIN nodes n ON n.native_address=a.pointer
- UNION ALL
- SELECT 0,path,jsonb_build_object('event','native_fragment','native',
- jsonb_build_object('kind',kind,'value',value,'prefix',prefix)) FROM events
- UNION ALL
- SELECT 0,ARRAY[ordinal,3]::bigint[],jsonb_build_object('event','record_end','pointer',pointer)
- FROM selected
- UNION ALL
- SELECT 1,ARRAY[ordinal]::bigint[],jsonb_build_object('event','context','kind','ancestor',
- 'pointer',pointer,'ordinal',ordinal,'parent_pointer',parent_pointer,'label',label,
- 'name',native_json->'name') FROM access WHERE pointer IN (SELECT pointer FROM ancestors)
- UNION ALL
- SELECT 2,ARRAY[row_number() OVER(ORDER BY r.pointer,r.region_index)]::bigint[],
- jsonb_build_object('event','context','kind','frame','body',to_jsonb(r)-'product_id'-'revision_id')
- FROM kb.pdf_record_region r JOIN published p
- ON r.product_id=p.build_id AND r.revision_id=p.build_id
- WHERE r.pointer IN (SELECT pointer FROM selected)
- UNION ALL
- SELECT 3,ARRAY[position,0]::bigint[],jsonb_build_object('event',
- CASE WHEN family='native_metadata' THEN 'companion_native_start' ELSE 'companion_start' END,
- 'family',family,'local_id',local_id,'ordinal',ordinal) FROM companion_order
- UNION ALL
- SELECT 3,ARRAY[c.position,1,part]::bigint[],jsonb_build_object('event','scalar_part',
- 'part',part,'encoding','base64','value',encode(substring(convert_to(c.payload,'UTF8')
- FROM (part*32768+1)::integer FOR 32768),'base64'),'final',
- (part+1)*32768>=octet_length(c.payload)) FROM companion_order c
- CROSS JOIN LATERAL generate_series(0,(octet_length(c.payload)-1)/32768) part
- WHERE c.family<>'native_metadata'
- UNION ALL
- SELECT 3,ARRAY[position,2]::bigint[],jsonb_build_object('event','companion_end',
- 'byte_length',octet_length(payload),'sha256',encode(sha256(convert_to(payload,'UTF8')),'hex'))
- FROM companion_order WHERE family<>'native_metadata'
- UNION ALL
- SELECT 3,ARRAY[c.position,1,row_number() OVER(PARTITION BY c.position
- ORDER BY e.phase,e.field_name COLLATE "C",e.subphase,e.part_ordinal)]::bigint[],
- jsonb_build_object('event','companion_native_fragment','fragment',e.event)
- FROM metadata_events e JOIN companion_order c ON c.family='native_metadata'
- AND c.local_id=e.local_id
- UNION ALL
- SELECT 3,ARRAY[position,2]::bigint[],jsonb_build_object('event','companion_native_end')
- FROM companion_order WHERE family='native_metadata'
- UNION ALL
- SELECT 4,ARRAY[row_number() OVER(ORDER BY body::text)]::bigint[],
- jsonb_build_object('event','outside_reference','body',body) FROM external
- ) SELECT event FROM output ORDER BY phase,path;
-END $selected$;
-REVOKE ALL ON FUNCTION ops.read_pdf_selected_source_events(
- text,text,text,text,text,text,text,text,text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ops.read_pdf_selected_source_events(
- text,text,text,text,text,text,text,text,text)
- TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;
-"""
-    )
-
-    declaration = yaml.safe_load(
-        files("corpus_structure").joinpath("model/semantic/selected-source.yaml").read_bytes()
-    )
-    profile = json.loads(declaration["annotations"]["selected-source"])
-    memberships = declaration["enums"]["SourceMembership"]["permissible_values"]
-    if len(memberships) != 1:
-        raise ValueError("selected source native authoring requires one membership policy")
-    membership = next(iter(memberships))
-
-    def quote(value):
-        return "'" + str(value).replace("'", "''") + "'"
-
-    return (
-        sql.replace("'descendants'", quote(membership))
-        .replace("'section-source-context-v1'", quote(profile["context_policy"]))
-        .replace("32768", str(profile["part_bytes"]))
+    identity = NativeIdentity("function", "ops", name, ("text",) * len(names))
+    return native_sql_script(
+        (
+            definition,
+            native_privilege_sql(identity, "PUBLIC", grant=False),
+            *(
+                native_privilege_sql(identity, role, "execute")
+                for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")
+            ),
+        )
     )

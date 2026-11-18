@@ -59,12 +59,12 @@ def test_membership_traversals_are_pinned_and_keep_ancestor_scope(semantic_bare_
         connection.execute(access_table.insert(), rows)
         published = select(literal("build", Text()).label("build_id")).cte("published")
         _, _, selected, ancestors = selected_membership_relations(
-            access_table.metadata, section=literal("#/section", Text())
+            access_table.metadata, published=published, section=literal("#/section", Text())
         )
         query = union_all(
             select(literal("selected").label("kind"), selected.c.pointer),
             select(literal("ancestor").label("kind"), ancestors.c.pointer),
-        ).add_cte(published)
+        )
         assert set(connection.execute(query).all()) == {
             ("selected", "#/section"),
             ("selected", "#/child"),
@@ -258,13 +258,15 @@ def test_containment_and_metadata_keep_published_product_and_context_scope(seman
         )
         published = select(literal("build", Text()).label("build_id")).cte("published")
         _, _, selected, ancestors = selected_membership_relations(
-            metadata, section=literal("#/section", Text())
+            metadata, published=published, section=literal("#/section", Text())
         )
-        contained, selected_metadata = selected_content_relations(metadata, selected, ancestors)
+        contained, selected_metadata = selected_content_relations(
+            metadata, selected, ancestors, published=published
+        )
         query = union_all(
             select(literal("record").label("kind"), contained.c.record_id.label("id")),
             select(literal("metadata").label("kind"), selected_metadata.c.local_id.label("id")),
-        ).add_cte(published)
+        )
         assert set(connection.execute(query).all()) == {
             ("record", "root"),
             ("record", "nested"),

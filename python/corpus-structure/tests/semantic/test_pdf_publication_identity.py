@@ -9,7 +9,7 @@ from pydantic import JsonValue
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.pdf_publication_native import pdf_record_logical_identity_sql
+from corpus_structure.semantic.pdf_record_digest_native import pdf_record_logical_identity_sql
 from corpus_structure.semantic.pdf_record_identity import canonical_scalar
 from semantic.pdf_staging_support import create_private_build as create_private_build
 from semantic.pdf_staging_support import private_build as private_build

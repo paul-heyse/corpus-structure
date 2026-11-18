@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from pathlib import Path
 
 from sqlalchemy import MetaData, Table, case, func, select, union_all
 from sqlalchemy.dialects.postgresql import Insert, dialect, insert
@@ -469,8 +468,8 @@ $$;
     reader = (
         pdf_record_reader_sql(target_metadata=metadata)
         + pdf_record_context_page_sql(metadata)
-        + pdf_native_export_sql()
-        + pdf_companion_export_sql()
+        + pdf_native_export_sql(target_metadata=metadata)
+        + pdf_companion_export_sql(target_metadata=metadata)
     )
     sql += pdf_record_page_sql(metadata, frozen=True)
     validation_programs = pdf_validation_native_programs(metadata, pdf_domain=pdf_domain)
@@ -562,24 +561,6 @@ corpus_sem_reader,corpus_sem_evaluator;\n"
 corpus_sem_reader,corpus_sem_evaluator;\n"
     return sql.replace("'{pdf_payload_profile}'", _quote(PROFILE)).replace(
         "'{pdf_payload_family}'", _quote(FAMILY)
-    )
-
-
-def pdf_record_logical_identity_sql(*, target_metadata: MetaData | None = None) -> str:
-    """Compose the native scalar, lineage and ordered identity programs."""
-    from .native_objects import native_sql_script
-    from .pdf_payloads import FAMILY
-    from .pdf_record_digest_native import record_digest_parts
-    from .pdf_target_identity_native import logical_target_identity
-
-    model = default_metadata if target_metadata is None else target_metadata
-    scalars, fold = record_digest_parts(model)
-    ordered = (
-        Path(__file__).with_name("sql").joinpath("pdf_record_logical_identity.sql").read_text()
-    )
-    target = native_sql_script(logical_target_identity(model))
-    return (
-        scalars + target + "\n" + ordered.replace("'{pdf_payload_family}'", _quote(FAMILY)) + fold
     )
 
 

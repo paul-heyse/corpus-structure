@@ -55,7 +55,7 @@ def field_database(semantic_bare_engine):
             ),
             (
                 "CREATE TABLE ops.fixture_pdf_part(product_id text,revision_id text,stream_id text,ordinal bigint,byte_offset bigint,byte_length bigint,body bytea,sha256_digest text);"
-                "CREATE FUNCTION ops.pdf_artifact_parts(p_product text,p_revision text,p_stage boolean DEFAULT false) RETURNS SETOF ops.fixture_pdf_part LANGUAGE sql STABLE AS $$ SELECT * FROM ops.fixture_pdf_part WHERE product_id=p_product AND revision_id=p_revision $$"
+                "CREATE FUNCTION ops.pdf_artifact_parts(p_product text,p_revision text,p_stage boolean DEFAULT false,p_stream_ids text[] DEFAULT NULL) RETURNS SETOF ops.fixture_pdf_part LANGUAGE sql STABLE AS $$ SELECT * FROM ops.fixture_pdf_part WHERE product_id=p_product AND revision_id=p_revision AND (p_stream_ids IS NULL OR stream_id=ANY(p_stream_ids)) $$"
             ),
             (
                 "INSERT INTO kb.pdf_record_companion "

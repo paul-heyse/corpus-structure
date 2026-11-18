@@ -125,7 +125,8 @@ def target_pdf_sql(installation: TargetInstallation) -> str:
     from .pdf_contracts import _context_from_domain
     from .pdf_domain import CONTRACT, PdfDomainContract
     from .pdf_integrated_native import observation_publication_sql
-    from .pdf_publication_native import pdf_record_logical_identity_sql, publication_sql
+    from .pdf_publication_native import publication_sql
+    from .pdf_record_digest_native import pdf_record_logical_identity_sql
     from .pdf_record_proof_native import pdf_record_proof_sql
     from .pdf_selected_source_native import selected_source_reader_sql
     from .pdf_staging_native import stage_native_sql
@@ -165,7 +166,9 @@ def target_pdf_sql(installation: TargetInstallation) -> str:
                 if source.name == "authoring/pdf-captured-recognition.sql"
             ),
             pdf_completion_native_sql(),
-            selected_source_reader_sql(target_metadata=installation.metadata),
+            selected_source_reader_sql(
+                target_metadata=installation.metadata, pdf_domain=context.domain
+            ),
         )
     )
 

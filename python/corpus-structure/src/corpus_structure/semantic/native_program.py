@@ -219,6 +219,11 @@ class Return:
 
 
 @dataclass(frozen=True)
+class ReturnNext:
+    value: Expression
+
+
+@dataclass(frozen=True)
 class Continue:
     """Continue the enclosing native query loop."""
 
@@ -251,6 +256,7 @@ type Statement = (
     | ForQuery
     | ForRelation
     | ReturnQuery
+    | ReturnNext
     | Return
 )
 
@@ -348,6 +354,8 @@ def _step(statement: Statement, nested: str) -> str:
             )
         case Return(value):
             return "RETURN" if value is None else "RETURN " + _render(value)
+        case ReturnNext(value):
+            return "RETURN NEXT " + _render(value)
     assert_never(statement)
 
 
