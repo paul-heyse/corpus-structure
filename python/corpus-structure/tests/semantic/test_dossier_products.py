@@ -219,3 +219,90 @@ def test_dossier_report_roles_still_require_whole_native_inventories(role):
         selected.members(role)
     whole, report = _prepared_dossier_role(role, member=None)
     assert whole.members(role) == (report,)
+
+
+def _run_bound_dossier(monkeypatch, *, changed_pin=None):
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_model import ResolvedRoleBinding, json_context_meaning
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+
+    component, _, predecessor, report, _ = _predecessor()
+    (source,) = report.inputs.sources
+    (pin,) = report.sources_input
+    meaning = json_context_meaning(json_bytes({"scope": "selected"})).decode()
+    source = source.model_copy(update={"analyzed_scope_meaning": meaning})
+    pin = pin.model_copy(update={"analyzed_scope_meaning": meaning})
+    report = report.model_copy(update={
+        "sources_input": (pin,),
+        "inputs": report.inputs.model_copy(update={
+            "sources": (source,),
+            "passages": tuple(passage.model_copy(update={"source_ref": source.identity}) for passage in report.inputs.passages),
+        }),
+    })
+    selected, bound = _prepared_dossier_role("sources", member=pin.member_id)
+    source_member = replace(
+        bound, product=pin.product_id, kind_contract=pin.kind_contract,
+        subject=pin.subject, subject_definition=pin.subject_definition,
+        original_source=pin.original_source, analyzed_scope=json_bytes({"scope": "selected"}),
+    )
+    # A derived report keeps its own declared nominal context. Its source pin
+    # remains the exact original-source-view context acquired by native support.
+    output = replace(
+        source_member, product=predecessor.product_id, member=None,
+        kind_contract=predecessor.kind_contract, subject_definition="actual-focus-source",
+    )
+    members = {"sources": (source_member,), "components": (output,)}
+    selected = replace(
+        selected,
+        roles=tuple(
+            ResolvedRoleBinding(role, "present", members.get(role, ()))
+            for role in ("sources", "components", "definitions", "comparisons", "candidates", "relationships", "admissions")
+        ),
+    )
+    frame = SimpleNamespace(
+        pin=SimpleNamespace(source_key=source.source, values=lambda: source.model_dump(exclude_none=True)),
+        text="term def", selected_ranges=((0, 8),),
+    )
+    # This is a pure dossier consumer control; native acquisition and its proofs
+    # remain the responsibility of the actual structural journey.
+    monkeypatch.setattr(DeclaredNativeFrameSource, "acquire", lambda *args, **kw: frame)
+    if changed_pin is not None:
+        report = report.model_copy(update={"sources_input": (pin.model_copy(update=changed_pin),)})
+    return selected.run(
+        ({},), report.model_dump(mode="json"), (), (), (), (), (),
+        component_id=component.component_id,
+        candidate_selections="[]", comparison_selections="[]", extra_passages="[]",
+        question="Read exact retained root", scope="selected", inventory_id="inventory",
+        policy_id="policy", member_budget=12, representation_policy="supported-facet-greedy-1",
+    ), pin, output
+
+
+def test_dossier_authenticates_source_pins_without_relabelling_derived_output_context(monkeypatch):
+    from corpus_structure.semantic.structural_products import DeclaredDossierReport
+
+    raw, source_pin, output = _run_bound_dossier(monkeypatch)
+    report = DeclaredDossierReport.model_validate(raw)
+    assert report.sources_input == (source_pin,)
+    assert report.components_input.subject_definition == "actual-focus-source"
+    assert report.components_input.product_id == output.product
+    assert report.components_input.member_id is None
+    assert report.dossier.root_component.subject_definition == "actual-focus-source"
+    assert report.dossier.predecessors[0].subject_definition == "actual-focus-source"
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("product_id", "source:other"), ("member_id", "member:other"),
+        ("kind_contract", "kind:other"), ("project_id", "project:other"),
+        ("subject", "subject:other"), ("subject_definition", "actual-focus-source"),
+        ("original_source", "document:other"), ("analyzed_scope_meaning", '{"scope":"other"}'),
+        ("reference", '["source:other","member:other"]'),
+    ],
+)
+def test_dossier_refuses_each_source_pin_custody_or_context_substitution(monkeypatch, field, value):
+    with pytest.raises(ValueError, match="exact bound native source inputs"):
+        _run_bound_dossier(monkeypatch, changed_pin={field: value})

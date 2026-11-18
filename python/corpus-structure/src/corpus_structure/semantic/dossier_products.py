@@ -260,6 +260,12 @@ class PreparedDossierInputs:
             )
             for member, value in source_pairs
         }
+        source_pins = {
+            key(member): DeclaredStructuralInputPin.from_bound(
+                member, project=self.context.project_id
+            )
+            for member, _ in source_pairs
+        }
         source_refs = {
             frame.pin.source_key: DeclaredStructuralSource.model_validate(frame.pin.values())
             for frame in frames.values()
@@ -275,11 +281,14 @@ class PreparedDossierInputs:
             reference = DeclaredStructuralRef.from_bound(
                 member, project=self.context.project_id, structural_id=report.product_id
             )
-            if not report.sources_input or not any(
-                pin.context == reference.context for pin in report.sources_input
+            # A derived report and its original inputs have distinct declared
+            # subjects. Authenticate each complete source pin against the bound
+            # dossier sources; keep the output reference in its own native context.
+            if not report.sources_input or any(
+                source_pins.get(pin.reference) != pin for pin in report.sources_input
             ):
                 raise ValueError(
-                    "dossier predecessor differs from its actual native subject context"
+                    "dossier predecessor differs from its exact bound native source inputs"
                 )
             for source in report.inputs.sources:
                 original = source_refs.get(source.source)
