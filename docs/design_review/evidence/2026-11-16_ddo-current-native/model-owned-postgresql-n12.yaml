@@ -1,0 +1,4 @@
+# Realize model-owned PDF companion, identity and record reads on the owned stage.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n11
+native_revision: semantic_ddo_pe_n12

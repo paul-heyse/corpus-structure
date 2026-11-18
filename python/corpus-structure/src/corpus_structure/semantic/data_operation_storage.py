@@ -166,7 +166,8 @@ def native_protocol_sources(
             Path(__file__).with_name("external_receipts.py").read_bytes(),
         ),
         SourceArtifact(
-            "native/data-operation-pdf-completion.sql", pdf_completion_native_sql().encode()
+            "native/data-operation-pdf-completion.sql",
+            pdf_completion_native_sql(target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-pdf-effect-contract.py",

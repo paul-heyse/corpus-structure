@@ -58,6 +58,9 @@ LOWERING_FILES = (
     "semantic/pdf_record_proof_native.py",
     "semantic/pdf_record_digest_native.py",
     "semantic/pdf_identity_frames_native.py",
+    "semantic/pdf_record_access_native.py",
+    "semantic/pdf_binary_identity_native.py",
+    "semantic/pdf_completion_native.py",
     "semantic/pdf_target_identity_native.py",
     "semantic/pdf_records.py",
     "semantic/pdf_record_identity.py",
@@ -96,9 +99,6 @@ LOWERING_FILES = (
     "model/semantic/pdf-payloads.yaml",
     "model/semantic/core.yaml",
     "model/semantic/docling-validation.schema.json",
-    "semantic/sql/pdf_record_identity.sql",
-    "semantic/sql/pdf_record_artifact_identity.sql",
-    "semantic/sql/pdf_record_access_correspondence.sql",
 )
 
 

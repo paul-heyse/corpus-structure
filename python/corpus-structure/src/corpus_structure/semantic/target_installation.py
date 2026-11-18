@@ -53,6 +53,7 @@ def capture_target_installation(
     from .closure_native import closure_native_sql
     from .data_operation_storage import native_logical_sources
     from .native_products import capture_native_authoring_inputs
+    from .pdf_binary_identity_native import pdf_artifact_identity_sql, pdf_binary_identity_sql
     from .pdf_domain import PREFIX, pdf_domain_sources
 
     logical = native_logical_sources() if logical_sources is None else logical_sources
@@ -78,14 +79,11 @@ def capture_target_installation(
             ),
             SourceArtifact(
                 "authoring/pdf-record-identity.sql",
-                Path(__file__).with_name("sql").joinpath("pdf_record_identity.sql").read_bytes(),
+                pdf_binary_identity_sql().encode(),
             ),
             SourceArtifact(
                 "authoring/pdf-record-artifact-identity.sql",
-                Path(__file__)
-                .with_name("sql")
-                .joinpath("pdf_record_artifact_identity.sql")
-                .read_bytes(),
+                pdf_artifact_identity_sql(selected).encode(),
             ),
             SourceArtifact(
                 "authoring/pdf-captured-recognition.sql",
@@ -126,12 +124,12 @@ def target_pdf_sql(installation: TargetInstallation) -> str:
     from .pdf_domain import CONTRACT, PdfDomainContract
     from .pdf_integrated_native import observation_publication_sql
     from .pdf_publication_native import publication_sql
+    from .pdf_record_access_native import pdf_access_correspondence_sql
     from .pdf_record_digest_native import pdf_record_logical_identity_sql
     from .pdf_record_proof_native import pdf_record_proof_sql
     from .pdf_selected_source_native import selected_source_reader_sql
     from .pdf_staging_native import stage_native_sql
 
-    sql = Path(__file__).with_name("sql")
     contract = next(source for source in installation.pdf_sources if source.name == CONTRACT)
     context = _context_from_domain(
         None,
@@ -158,14 +156,14 @@ def target_pdf_sql(installation: TargetInstallation) -> str:
             publication_sql(target_metadata=installation.metadata, pdf_domain=context.domain),
             pdf_record_logical_identity_sql(target_metadata=installation.metadata),
             pdf_record_proof_sql(installation.metadata),
-            sql.joinpath("pdf_record_access_correspondence.sql").read_text(),
+            pdf_access_correspondence_sql(installation.metadata),
             observation_publication_sql(context, target_metadata=installation.metadata),
             next(
                 source.content.decode()
                 for source in installation.authoring_inputs.sources
                 if source.name == "authoring/pdf-captured-recognition.sql"
             ),
-            pdf_completion_native_sql(),
+            pdf_completion_native_sql(installation.metadata),
             selected_source_reader_sql(
                 target_metadata=installation.metadata, pdf_domain=context.domain
             ),

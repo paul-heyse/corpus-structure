@@ -509,15 +509,10 @@ def test_table_return_inventory_and_model_owned_read_roles(monkeypatch):
     from corpus_structure.semantic.native_products import relation_descriptor
 
     functions = {}
-    from pathlib import Path
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.pdf_binary_identity_native import pdf_artifact_identity_sql
 
-    update_function_inventory(
-        functions,
-        Path(__file__)
-        .parents[2]
-        .joinpath("src/corpus_structure/semantic/sql/pdf_record_artifact_identity.sql")
-        .read_text(),
-    )
+    update_function_inventory(functions, pdf_artifact_identity_sql(metadata))
     signature = "ops.pdf_identity_verify_artifact(text,text,text)"
     assert "ops.pdf_identity_verify_artifact(text,text,text,bytea)" not in functions
     assert functions[signature]["result"] == "pg_catalog.record"

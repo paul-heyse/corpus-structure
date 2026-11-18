@@ -1,13 +1,13 @@
 """Independent native rows and access projection correspondence on PostgreSQL."""
 
 import json
-from pathlib import Path
 
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.pdf_binary_identity_native import pdf_binary_identity_sql
 from corpus_structure.semantic.pdf_record_access_native import pdf_access_correspondence_sql
 from corpus_structure.semantic.pdf_record_identity import byte_root, emit_parts
 from semantic.pdf_record_reader_support import NativeRows, native
@@ -182,9 +182,8 @@ def access_database(semantic_bare_engine, request):
             "INSERT INTO kb.pdf_record_region "
             "VALUES('b','b','#/texts/0',1,2,200,300,10,30,40,50,'top_left')"
         )
-        sql_dir = Path(__file__).parents[2] / "src/corpus_structure/semantic/sql"
         conn.exec_driver_sql(
-            (sql_dir / "pdf_record_identity.sql").read_text(),
+            pdf_binary_identity_sql(),
             execution_options={"no_parameters": True},
         )
         conn.exec_driver_sql(

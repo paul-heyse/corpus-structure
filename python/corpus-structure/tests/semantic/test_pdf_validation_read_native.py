@@ -15,6 +15,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
+from corpus_structure.semantic.pdf_binary_identity_native import pdf_binary_identity_sql
 from corpus_structure.semantic.pdf_contracts import integrated_metadata_policy, trusted_pdf_context
 from corpus_structure.semantic.pdf_record_identity import IdentityFold
 from corpus_structure.semantic.pdf_validation_read_native import (
@@ -62,9 +63,9 @@ def validation_controls(semantic_bare_engine, request):
             controls.create_all(connection)
             source_root = files("corpus_structure").joinpath("semantic/sql")
             for source, selected in (
-                ("identity.sql", {"canonical_json"}),
+                (source_root.joinpath("identity.sql").read_text(), {"canonical_json"}),
                 (
-                    "pdf_record_identity.sql",
+                    pdf_binary_identity_sql(),
                     {
                         "pdf_identity_frame",
                         "pdf_identity_fold_start",
@@ -73,7 +74,7 @@ def validation_controls(semantic_bare_engine, request):
                     },
                 ),
             ):
-                for statement in parse_sql(source_root.joinpath(source).read_text()):
+                for statement in parse_sql(source):
                     node = statement.stmt
                     if (
                         isinstance(node, ast.CreateFunctionStmt)
