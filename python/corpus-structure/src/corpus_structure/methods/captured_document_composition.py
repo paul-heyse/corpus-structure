@@ -32,7 +32,7 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "sources",
                 "support": {
@@ -52,7 +52,7 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "annotations",
                 "support": {
@@ -72,7 +72,7 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "canonical",
                 "support": {
@@ -92,7 +92,7 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "hanlp",
                 "support": {
@@ -112,7 +112,7 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "formal",
                 "support": {
@@ -132,7 +132,7 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "constructions",
                 "support": {
@@ -152,7 +152,7 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "declaration_syntax",
                 "support": {
@@ -172,7 +172,7 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "contextual",
                 "support": {
@@ -226,18 +226,18 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
         "binding": {
             "operator": "all",
             "children": [
-                {"operator": "collection", "roles": ["sources"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["annotations"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["canonical"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["hanlp"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["formal"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["constructions"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["sources"], "collection": "set"},
+                {"operator": "collection", "roles": ["annotations"], "collection": "set"},
+                {"operator": "collection", "roles": ["canonical"], "collection": "set"},
+                {"operator": "collection", "roles": ["hanlp"], "collection": "set"},
+                {"operator": "collection", "roles": ["formal"], "collection": "set"},
+                {"operator": "collection", "roles": ["constructions"], "collection": "set"},
                 {
                     "operator": "collection",
                     "roles": ["declaration_syntax"],
-                    "collection": "sequence",
+                    "collection": "set",
                 },
-                {"operator": "collection", "roles": ["contextual"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["contextual"], "collection": "set"},
                 {
                     "operator": "membership",
                     "operands": [
@@ -698,7 +698,9 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
             *declaration_syntax,
             *contextual,
         )
-        return execute_view_profile(self, sources, products, products, profile)
+        return execute_view_profile(
+            self, sources, products, products, profile, canonical_order=True
+        )
 
 
 class ComposeCapturedDocumentOperation(ComposeCapturedDocumentFamily):

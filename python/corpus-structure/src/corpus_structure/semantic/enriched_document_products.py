@@ -171,6 +171,27 @@ def _covers(source, examined, requested):
     return found or requested in examined
 
 
+def ordered_captured_composition_inputs(sources, products):
+    """Present sets by authenticated source coordinate, without asserting reading order.
+
+    Source and manifest roots originate in independent derivations: their scalar
+    producer positions cannot establish a document-wide sequence.
+    """
+    ordered_sources = tuple(
+        sorted(sources, key=lambda source: canonical_bytes(source.value["source"]))
+    )
+    ordered_products = tuple(
+        sorted(
+            products,
+            key=lambda product: (
+                canonical_bytes(json.loads(product.content)["source"]),
+                product.semantic_id,
+            ),
+        )
+    )
+    return ordered_sources, ordered_products
+
+
 def compose_enriched_document_values(
     sources,
     products,

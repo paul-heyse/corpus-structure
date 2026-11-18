@@ -260,6 +260,46 @@ def test_multi_source_view_keeps_each_projection_local_coordinate(profiles):
     }
 
 
+def test_captured_composition_canonicalizes_sets_without_reordering_explicit_sequences(profiles):
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.characterization_ports import execute_view_profile
+    from corpus_structure.semantic.source_products import FrozenNativeSource
+
+    formal, construction = profiles
+    left = selected(formal, "All samples are finite.")
+    changed = selected(formal, "Every trial succeeds.").value
+    changed["source"]["section_pointer"] = "#/groups/1"
+    right = FrozenNativeSource.acquire(construction.prepared, changed)
+    products = tuple(
+        formal.run(source, FormalEvidenceOptions(), subject_context=publication_context(source))
+        for source in (left, right)
+    )
+    receiver = SimpleNamespace(profile=construction)
+    first = execute_view_profile(
+        receiver, (left, right), products, products, "selected_layers", canonical_order=True
+    )
+    second = execute_view_profile(
+        receiver,
+        (right, left),
+        products[::-1],
+        products[::-1],
+        "selected_layers",
+        canonical_order=True,
+    )
+    assert first.content == second.content
+    value = first.value.model_dump(mode="json")
+    assert {row["source"]["projection"] for row in value["sources"]} == {
+        left.value["source"]["projection"],
+        right.value["source"]["projection"],
+    }
+    assert {row["product_id"] for row in value["products"]} == {
+        product.semantic_id for product in products
+    }
+    explicit = execute_view_profile(receiver, (right, left), products[::-1], (), "selected_layers")
+    assert explicit.value.model_dump(mode="json")["sources"] == [right.value, left.value]
+
+
 def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(monkeypatch):
     from spacy.attrs import IS_ALPHA, IS_PUNCT, IS_QUOTE, IS_SPACE, LIKE_NUM, LOWER
     from spacy.tokens import Doc
