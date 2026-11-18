@@ -151,6 +151,13 @@ class Perform:
 
 
 @dataclass(frozen=True)
+class PerformQuery:
+    """Execute one structured SELECT for its effects without retaining rows."""
+
+    query: Expression
+
+
+@dataclass(frozen=True)
 class SelectInto:
     query: Expression
     targets: tuple[str, ...]
@@ -208,6 +215,7 @@ type Statement = (
     Sql
     | Assign
     | Perform
+    | PerformQuery
     | SelectInto
     | Raise
     | If
@@ -247,6 +255,17 @@ def _step(statement: Statement, nested: str) -> str:
             return f"{_identifier(target)} := {_render(value)}"
         case Perform(value):
             return "PERFORM " + _render(value)
+        case PerformQuery(query):
+            sql = _statement(query)
+            root = prepare_sql(sql, source="native perform query").statements[0].stmt
+            if (
+                not isinstance(root, ast.SelectStmt)
+                or root.withClause is not None
+                or root.op not in (None, enums.SetOperation.SETOP_NONE)
+                or not sql.startswith("SELECT ")
+            ):
+                raise ValueError("native PERFORM query requires one ordinary structured SELECT")
+            return "PERFORM" + sql[6:]
         case SelectInto(query, targets, strict):
             # PL/pgSQL allows INTO after the query clauses. This leaves Core
             # in charge of projection, correlation, and precedence.

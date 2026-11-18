@@ -33,13 +33,17 @@ STAGE_FAMILIES = {
 UPLOAD_STAGE_FAMILIES = {**STAGE_FAMILIES, "artifact_part": "ops.pdf_stage_artifact_part"}
 
 
-def stage_upload_profile() -> dict[str, int]:
+def stage_upload_profile(*, physical_sources: Mapping[str, bytes] | None = None) -> dict[str, int]:
     import json
     from importlib.resources import files
 
     import yaml
 
-    source = files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml").read_bytes()
+    source = (
+        files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml").read_bytes()
+        if physical_sources is None
+        else physical_sources["pdf-staging.yaml"]
+    )
     return json.loads(yaml.safe_load(source)["annotations"]["pds:upload_profile"])
 
 

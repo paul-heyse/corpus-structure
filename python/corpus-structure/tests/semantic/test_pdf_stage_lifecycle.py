@@ -88,3 +88,40 @@ def test_generated_scratch_authorization_checks_actual_owner_columns_and_checks(
         connection.begin_nested(),
     ):
         connection.execute(query, {"scratch": "wire_matching"}).all()
+
+
+def test_generated_stage_ownership_preserves_absence_and_private_entrypoints(native_rollback):
+    connection = native_rollback.connection
+    with native_owner(connection, "corpus_sem_publisher"):
+        execute_native_sql(connection, stage_lifecycle_sql(metadata))
+    assert connection.scalar(text("SELECT ops.pdf_stage_owner_current(-1,1,'holder')")) is False
+    assert connection.execute(text("SELECT * FROM ops.pdf_task_context(NULL)")).all() == []
+    with pytest.raises(DBAPIError, match="stale private PDF build owner") as failure, connection.begin_nested():
+        connection.execute(text("SELECT * FROM ops.require_pdf_stage_owner(NULL,NULL,NULL)")).all()
+    assert getattr(failure.value.orig, "sqlstate", None) == "P0004"
+    with native_owner(connection, "corpus_sem_writer"):
+        with pytest.raises(DBAPIError) as failure, connection.begin_nested():
+            connection.execute(text("SELECT * FROM ops.begin_pdf_build(NULL,NULL,NULL,NULL,NULL,NULL,NULL)")).all()
+        assert getattr(failure.value.orig, "sqlstate", None) == "P0004"
+        with pytest.raises(DBAPIError) as failure, connection.begin_nested():
+            connection.execute(text("SELECT * FROM ops.pdf_stage_owner_current(-1,1,'holder')")).all()
+        assert getattr(failure.value.orig, "sqlstate", None) == "42501"
+
+
+def test_begin_build_uses_the_supplied_physical_upload_profile():
+    import json
+    from types import SimpleNamespace
+
+    import yaml
+
+    from corpus_structure.semantic.pdf_staging import stage_upload_profile
+
+    sources = dict(metadata.info["physical_sources"])
+    declaration = yaml.safe_load(sources["pdf-staging.yaml"])
+    profile = json.loads(declaration["annotations"]["pds:upload_profile"])
+    profile["max_replay_key_bytes"] = 17
+    declaration["annotations"]["pds:upload_profile"] = json.dumps(profile)
+    sources["pdf-staging.yaml"] = yaml.safe_dump(declaration).encode()
+    supplied = SimpleNamespace(tables=metadata.tables, info={**metadata.info, "physical_sources": sources})
+    assert stage_upload_profile(physical_sources=sources)["max_replay_key_bytes"] == 17
+    assert "octet_length(p_key) > 17" in stage_lifecycle_sql(supplied)
