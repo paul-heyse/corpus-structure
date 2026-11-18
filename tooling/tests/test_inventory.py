@@ -18,11 +18,14 @@ from typer.testing import CliRunner
 
 from corpus_tooling.library import inventory
 from corpus_tooling.library.app import REGISTRATIONS, make_library_app
+from corpus_tooling.library.installed import Installation
+from corpus_tooling.library.inventory_items import InventorySelection, surface_inventory
 from corpus_tooling.library.surface import (
     PathResolution,
     load_offered_surface,
     resolve_written_path,
 )
+from corpus_tooling.library.target import read_environment
 from corpus_tooling.output import ToolFailure
 
 SITE = "lib/python3.12/site-packages"
@@ -216,6 +219,35 @@ class Error(Exception):
     """An error from another distribution."""
 '''
 
+DEMO_TOOL = '''\
+"""A module with a public function and a demo block."""
+
+LEVEL = 1
+
+
+def helper() -> int:
+    """Public API."""
+    return LEVEL
+
+
+if __name__ == "__main__":
+    import sys
+
+    class DemoThing:
+        """Demo only."""
+
+        def show(self) -> None:
+            """Demo only."""
+
+    def run_demo() -> None:
+        """Demo only."""
+
+    for count in range(2):
+        result = helper() + count
+    LEVEL = 2
+    sys.exit(0)
+'''
+
 FIXTURE_FILES = {
     "fixturepkg/__init__.py": INIT,
     "fixturepkg/_core.py": CORE,
@@ -245,6 +277,11 @@ SITE_FILES: dict[str, str] = {
     "otherpkg/__init__.py": OTHER,
     "other_dist-2.0.0.dist-info/METADATA": "Metadata-Version: 2.1\nName: other-dist\nVersion: 2.0.0\n",
     "other_dist-2.0.0.dist-info/RECORD": "otherpkg/__init__.py,,\n",
+    # Script code under a `__main__` guard is not offered API.
+    "demopkg/__init__.py": '"""Demo fixture."""\n',
+    "demopkg/tool.py": DEMO_TOOL,
+    "demo_pkg-0.1.0.dist-info/METADATA": "Metadata-Version: 2.1\nName: demo-pkg\nVersion: 0.1.0\n",
+    "demo_pkg-0.1.0.dist-info/RECORD": "demopkg/__init__.py,,\ndemopkg/tool.py,,\n",
     # A namespace package: two portions from two distributions, no `nsfix/__init__.py`.
     "nsfix/alpha/__init__.py": '"""Alpha portion."""\n\n\ndef alpha() -> int:\n    return 1\n',
     "nsfix/beta/__init__.py": '"""Beta portion."""\n\n\ndef beta() -> int:\n    return 2\n',
@@ -759,3 +796,54 @@ def test_resolve_written_path_on_the_tools_pinned_typer() -> None:
     surface = load_offered_surface(["typer"], [Path(sysconfig.get_paths()["purelib"])])
     resolution = resolve_written_path(surface, "typer.Option")
     assert (resolution.declared_path, resolution.unmatched_tail) == ("typer.params.Option", "")
+
+
+# --- script code under a `__main__` guard ------------------------------------------------------
+
+
+def test_names_bound_only_under_a_main_guard_are_not_offered(cli, project) -> None:
+    envelope = _envelope(cli, project, "demopkg", "--depth", "9")
+    # `LEVEL` is also bound outside the guard, so it stays; the demo class (and its method),
+    # function, loop variables and import are left out.
+    assert _paths(envelope) == [
+        "demopkg",
+        "demopkg.tool",
+        "demopkg.tool.LEVEL",
+        "demopkg.tool.helper",
+    ]
+    assert (
+        '5 names in 1 module are bound only under a __main__ guard (`if __name__ == "__main__":`) '
+        "and are not offered symbols; --view package lists them (main_guard_binding) and "
+        "--private shows them"
+    ) in envelope["notes"]
+    package = _envelope(cli, project, "demopkg", "--view", "package")
+    facts = [
+        (item["category"], item["name"], item["location"], item["distribution"])
+        for item in package["items"]
+    ]
+    assert facts == [
+        ("main_guard_binding", "demopkg.tool.DemoThing", "demopkg/tool.py:14", "demo-pkg"),
+        ("main_guard_binding", "demopkg.tool.count", "demopkg/tool.py:23", "demo-pkg"),
+        ("main_guard_binding", "demopkg.tool.result", "demopkg/tool.py:24", "demo-pkg"),
+        ("main_guard_binding", "demopkg.tool.run_demo", "demopkg/tool.py:20", "demo-pkg"),
+        ("main_guard_binding", "demopkg.tool.sys", "demopkg/tool.py:12", "demo-pkg"),
+    ]
+    private = _envelope(cli, project, "demopkg", "--depth", "9", "--private")
+    shown = {item["path"]: item["public"] for item in private["items"]}
+    assert shown["demopkg.tool.DemoThing"] is False
+    assert shown["demopkg.tool.DemoThing.show"] is False
+    assert shown["demopkg.tool.run_demo"] is False
+    assert shown["demopkg.tool.helper"] is True
+
+
+def test_compare_route_leaves_main_guard_bindings_out(project) -> None:
+    """`compare` builds its offered rows through `surface_inventory` at unbounded depth."""
+    surface = load_offered_surface(["demopkg"], [_site(project)])
+    installation = Installation(read_environment(project / ".venv"))
+    result = surface_inventory(surface, "demopkg", installation, InventorySelection(depth=None))
+    assert [symbol.path for symbol in result.symbols] == [
+        "demopkg",
+        "demopkg.tool",
+        "demopkg.tool.LEVEL",
+        "demopkg.tool.helper",
+    ]

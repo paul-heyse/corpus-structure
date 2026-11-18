@@ -118,14 +118,18 @@ class OfferedSymbol(Item):
     sort_fields: ClassVar = ("path",)
 
 
-FactCategory = Literal["env_var", "entry_point_group", "entry_point", "namespace_portion"]
+FactCategory = Literal[
+    "env_var", "entry_point_group", "entry_point", "namespace_portion", "main_guard_binding"
+]
 
 
 class PackageFact(Item):
     kind: Literal["package_fact"] = "package_fact"
     category: FactCategory
     """`env_var` / `entry_point_group`: read by the package's source; `entry_point`: declared
-    in its distribution's metadata; `namespace_portion`: a portion of a namespace package."""
+    in its distribution's metadata; `namespace_portion`: a portion of a namespace package;
+    `main_guard_binding`: a module-level name bound only under `if __name__ == "__main__":`,
+    left out of the offered symbols."""
     name: str
     symbol: str | None
     """The symbol the fact belongs to: the reading function, class, assignment or module; the

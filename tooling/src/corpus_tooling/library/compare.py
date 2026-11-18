@@ -578,7 +578,9 @@ def _compare_one(
         outcome.unavailable += inventory.unavailable_metadata
         modules |= {s.path for s in inventory.symbols if str(s.symbol_kind) == "module"}
         outcome.notes += [
-            f"project {label}: {note}" for note in inventory.notes if "no static binding" in note
+            f"project {label}: {note}"
+            for note in inventory.notes
+            if "no static binding" in note or "__main__ guard" in note
         ]
 
     records: list[tuple[Any, str]] = []

@@ -17,6 +17,7 @@ navigates the collection itself, since member and inherited paths exist only by 
 from __future__ import annotations
 
 import ast
+import logging
 import os
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -27,6 +28,9 @@ import griffe
 
 from corpus_tooling.envelope import SkippedInput
 from corpus_tooling.output import ToolFailure
+
+# Griffe warns about the inspected library's own docstring mistakes; they are not about this run.
+logging.getLogger("griffe").setLevel(logging.ERROR)
 
 GRIFFE_EXTENSIONS: tuple[str, ...] = (
     "griffe_public_redundant_aliases",

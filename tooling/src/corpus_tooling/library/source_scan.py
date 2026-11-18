@@ -13,7 +13,10 @@ Standard library only; nothing is imported or executed. For one module's source 
 - registration functions: a module- or class-level function named `register`/`register_*`, or
   one that (directly or through a nested function) stores a parameter it never rebinds into a
   container (a mutating method call) or a subscript or attribute, and returns that same
-  parameter: the shape of a registration decorator.
+  parameter: the shape of a registration decorator;
+- module-level names bound only inside an `if __name__ == "__main__":` block (at any depth
+  within it, not inside nested functions or classes) and nowhere else at module level: demo or
+  script code, never importable API.
 
 A name argument counts as literal when it is a string literal or a module-level name bound once
 to one (`GROUP = "g"`). Any other argument keeps `name=None` and its source text, so the caller
@@ -66,6 +69,8 @@ class ModuleScan:
     reads: list[SourceRead] = field(default_factory=list)
     gated: list[GatedBinding] = field(default_factory=list)
     registrations: list[Registration] = field(default_factory=list)
+    main_only: list[GatedBinding] = field(default_factory=list)
+    """Module-level names bound only under `if __name__ == "__main__":`, at their first line."""
 
 
 def _literal(node: ast.expr | None) -> str | None:
@@ -408,7 +413,72 @@ def scan_module(source: str, module: str) -> ModuleScan:
     scanner.constants = _string_constants(tree)
     for statement in tree.body:
         scanner.visit(statement)
+    scanner.result.main_only = [
+        GatedBinding(path=f"{module}.{name}", line=line) for name, line in _main_only(tree)
+    ]
     return scanner.result
+
+
+def _is_main_guard(statement: ast.stmt) -> bool:
+    """`if __name__ == "__main__":` (either operand order)."""
+    if not isinstance(statement, ast.If) or not isinstance(statement.test, ast.Compare):
+        return False
+    test = statement.test
+    if len(test.ops) != 1 or not isinstance(test.ops[0], ast.Eq):
+        return False
+    operands = (test.left, test.comparators[0])
+    return any(isinstance(o, ast.Name) and o.id == "__name__" for o in operands) and any(
+        _literal(o) == "__main__" for o in operands
+    )
+
+
+def _scope_bindings(statements: list[ast.stmt]) -> dict[str, int]:
+    """Names these statements bind in their own scope, at any block depth (loops, `with`,
+    `try`, `if`, `match`), with the first line of each. Function, class, lambda and
+    comprehension bodies are separate scopes and are not entered."""
+    bound: dict[str, int] = {}
+    pending: list[ast.AST] = list(reversed(statements))
+    while pending:
+        node = pending.pop()
+        line = getattr(node, "lineno", 0)
+        match node:
+            case (
+                ast.FunctionDef(name=name)
+                | ast.AsyncFunctionDef(name=name)
+                | ast.ClassDef(name=name)
+            ):
+                bound.setdefault(name, line)
+                continue
+            case (
+                ast.Lambda() | ast.ListComp() | ast.SetComp() | ast.DictComp() | ast.GeneratorExp()
+            ):
+                continue
+            case ast.Import(names=names):
+                for alias in names:
+                    bound.setdefault(alias.asname or alias.name.split(".")[0], line)
+            case ast.ImportFrom(names=names):
+                for alias in names:
+                    if alias.name != "*":
+                        bound.setdefault(alias.asname or alias.name, line)
+            case ast.Name(id=name, ctx=ast.Store()):
+                bound.setdefault(name, line)
+            case ast.ExceptHandler(name=str() as name):
+                bound.setdefault(name, line)
+            case ast.MatchAs(name=str() as name) | ast.MatchStar(name=str() as name):
+                bound.setdefault(name, line)
+            case _:
+                pass
+        pending.extend(reversed(list(ast.iter_child_nodes(node))))
+    return bound
+
+
+def _main_only(tree: ast.Module) -> list[tuple[str, int]]:
+    guards = [s for s in tree.body if isinstance(s, ast.If) and _is_main_guard(s)]
+    if not guards:
+        return []
+    elsewhere = _scope_bindings([s for s in tree.body if not _is_main_guard(s)])
+    inside = _scope_bindings([s for guard in guards for s in guard.body])
+    return sorted((name, line) for name, line in inside.items() if name not in elsewhere)
 
 
 def _string_constants(tree: ast.Module) -> dict[str, str]:

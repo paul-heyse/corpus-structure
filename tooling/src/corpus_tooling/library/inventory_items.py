@@ -113,6 +113,8 @@ class _SourceFacts:
     registrations: dict[str, Registration] = field(default_factory=dict)
     env_by_symbol: dict[str, list[SourceRead]] = field(default_factory=lambda: defaultdict(list))
     groups_by_symbol: dict[str, list[SourceRead]] = field(default_factory=lambda: defaultdict(list))
+    main_only: dict[str, tuple[GatedBinding, str]] = field(default_factory=dict)
+    """Module-level names bound only under `if __name__ == "__main__":`: not offered."""
     scanned: int = 0
 
 
@@ -139,6 +141,8 @@ def _scan_sources(surface: OfferedSurface, root: str) -> tuple[_SourceFacts, lis
             facts.gated.setdefault(binding.path, (binding, shown))
         for registration in scan.registrations:
             facts.registrations.setdefault(registration.path, registration)
+        for binding in scan.main_only:
+            facts.main_only.setdefault(binding.path, (binding, shown))
     return facts, skipped
 
 
@@ -339,9 +343,12 @@ class _Rows:
         private: bool,
         rows: list[_Row],
     ) -> None:
+        module = isinstance(obj, griffe.Module)
         for name in sorted(obj.members):
             member = obj.members[name]
-            member_public = public and member.is_public
+            # A name bound only under `if __name__ == "__main__":` is script code, not API.
+            demo = module and member.path in self.sources.main_only
+            member_public = public and member.is_public and not demo
             if not member_public and not private:
                 continue
             row = _Row(f"{path}.{name}", member, depth + 1, member_public)
@@ -617,6 +624,26 @@ def _facts(
                     distribution=distribution.normalized_name,
                 )
             )
+    sole = owners.of(None)  # the root's distribution when it has exactly one
+    for binding, shown in sources.main_only.values():
+        facts.append(
+            PackageFact(
+                category="main_guard_binding",
+                name=binding.path,
+                symbol=binding.path,
+                location=f"{shown}:{binding.line}",
+                detail='bound only under `if __name__ == "__main__":`; not an offered symbol',
+                distribution=sole.normalized_name if sole else None,
+            )
+        )
+    if sources.main_only:
+        modules = {path.rsplit(".", 1)[0] for path in sources.main_only}
+        notes.append(
+            f"{len(sources.main_only)} names in {len(modules)} "
+            f"module{'s' if len(modules) != 1 else ''} are bound only under a "
+            '__main__ guard (`if __name__ == "__main__":`) and are not offered symbols; '
+            "--view package lists them (main_guard_binding) and --private shows them"
+        )
     if module.is_namespace_package:
         portions = []
         for name in sorted(module.members):
