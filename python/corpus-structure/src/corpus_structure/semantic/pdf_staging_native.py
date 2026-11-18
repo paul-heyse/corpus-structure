@@ -5,40 +5,53 @@ from sqlalchemy.dialects.postgresql import dialect
 from .metadata import metadata
 
 
-def native_payload_size_sql(relation, *, alias="s") -> str:
-    """Size admitted native values from their declared types, never bytea's JSON hex.
-
-    Arrow transfer buffers and native logical extents have separate declared budgets.
-    Native extents include a row null bitmap and varlena headers, not TOAST compression.
-    Canonical replay hashing remains independent of this resource bound.
-    """
-    from sqlalchemy import BigInteger, Boolean, Float, Integer, Numeric, String
+def native_payload_size_expression(relation):
+    """Declared logical extent, including null bitmap and varlena headers."""
+    from sqlalchemy import (
+        BigInteger,
+        Boolean,
+        Float,
+        Integer,
+        Numeric,
+        String,
+        Text,
+        case,
+        cast,
+        func,
+        literal,
+    )
     from sqlalchemy.dialects.postgresql import BYTEA, JSONB
 
-    quote = dialect().identifier_preparer.quote
-    sizes = [str((len(relation.columns) + 7) // 8)]
-    for column in relation.columns:
-        value = f"{alias}.{quote(column.name)}"
-        kind = column.type
+    size = literal((len(relation.columns) + 7) // 8)
+    for field in relation.c:
+        kind = field.type
         if isinstance(kind, (BYTEA, String)):
-            size = f"4+octet_length({value})"
+            extent = 4 + func.octet_length(field)
         elif isinstance(kind, (JSONB, Numeric)):
-            size = f"4+octet_length(convert_to({value}::text,'UTF8'))"
+            extent = 4 + func.octet_length(func.convert_to(cast(field, Text()), "UTF8"))
         elif isinstance(kind, Boolean):
-            size = "1"
-        elif isinstance(kind, BigInteger):
-            size = "8"
+            extent = literal(1)
+        elif isinstance(kind, (BigInteger, Float)):
+            extent = literal(8)
         elif isinstance(kind, Integer):
-            size = "4"
-        elif isinstance(kind, Float):
-            size = "8"
+            extent = literal(4)
         else:
-            raise ValueError(f"unsupported native upload type: {column}")
-        sizes.append(f"CASE WHEN {value} IS NULL THEN 0 ELSE {size} END")
-    return "(" + "+".join(sizes) + ")"
+            raise ValueError(f"unsupported native upload type: {field}")
+        size = size + case((field.is_(None), 0), else_=extent)
+    return size
+
+
+def native_payload_size_sql(relation, *, alias="s") -> str:
+    """Render the shared extent expression for the remaining companion owner."""
+    return str(native_payload_size_expression(relation.alias(alias)).compile(
+        dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}
+    ))
 
 
 def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
+    from pglast import ast, enums
+    from pglast.stream import RawStream
+
     from .pdf_domain_native import pdf_domain_native_sql
 
     if target_metadata is not None and pdf_sources is None:
@@ -48,11 +61,7 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
             physical_sources=target_metadata.info["physical_sources"],
             linkml_types=target_metadata.info["physical_linkml_types"],
         )
-    sql = (
-        pdf_domain_native_sql(sources=pdf_sources)
-        + """
-"""
-    )
+    sql = pdf_domain_native_sql(sources=pdf_sources)
     selected = metadata if target_metadata is None else target_metadata
     from .native_program import (
         Assign,
@@ -61,13 +70,13 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
         Parameter,
         Perform,
         call,
+        column_type,
         function,
         literal,
         pg_type,
         variable,
     )
     from .pdf_shared_streams import (
-        part_template,
         part_wire_contract_sql,
         pdf_scratch_prepare,
         pdf_stage_scratch_specs,
@@ -77,21 +86,16 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
     sql += stage_scratch_authorization_sql()
     sql += part_wire_contract_sql(selected) + shared_streams_sql(selected)
     specs = pdf_stage_scratch_specs(selected)
-    relations = [spec.source for spec in specs]
-    pg = dialect()
+    build_relation = selected.tables["ops.pdf_stage_build"]
+    prepare_parameters = tuple(Parameter(name, column_type(field)) for name, field in (
+        ("p_build", build_relation.c.build_id), ("p_task", build_relation.c.task_id),
+        ("p_attempt", build_relation.c.attempt), ("p_holder", build_relation.c.holder),
+    ))
     sql += (
         function(
             "ops",
             "prepare_pdf_stage",
-            parameters=tuple(
-                Parameter(name, pg_type(kind))
-                for name, kind in (
-                    ("p_build", "text"),
-                    ("p_task", "bigint"),
-                    ("p_attempt", "bigint"),
-                    ("p_holder", "text"),
-                )
-            ),
+            parameters=prepare_parameters,
             returns=pg_type("void"),
             security_definer=True,
             search_path=("pg_catalog", "pg_temp"),
@@ -123,108 +127,25 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
         )
         + ";\n"
     )
-    sql += """
-CREATE OR REPLACE FUNCTION ops.adopt_pdf_batch(p_build text,p_task bigint,p_attempt bigint,
- p_holder text,p_key text)
-RETURNS SETOF ops.pdf_stage_receipt LANGUAGE plpgsql SECURITY DEFINER SET
- search_path=pg_catalog,pg_temp AS $stage$
-DECLARE build ops.pdf_stage_build; receipt ops.pdf_stage_receipt; n bigint; bytes bigint;
- total bigint:=0; total_bytes bigint:=0; hashes text:=''; digest text;
-BEGIN
- build:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
- PERFORM ops.require_pdf_operation(build.release_id,'adopt_pdf_batch');
- IF p_key IS NULL OR p_key='' OR octet_length(p_key)>1024 THEN
- RAISE EXCEPTION 'invalid private replay key'
- USING ERRCODE='23514'; END IF;
-"""
-    for relation in sorted(relations, key=lambda r: r.fullname):
-        scratch = "pg_temp.ps_" + relation.name
-        keys = ",".join(pg.identifier_preparer.quote(c.name) for c in relation.primary_key)
-        columns = ",".join(pg.identifier_preparer.quote(c.name) for c in relation.columns)
-        sql += f"""
- PERFORM ops.require_pdf_stage_scratch('ps_{relation.name}',{part_template(relation)});
- SELECT count(*),COALESCE(sum({native_payload_size_sql(relation)}),0) INTO n,bytes FROM {scratch} s;
- total:=total+n; total_bytes:=total_bytes+bytes;
- IF total>65536 OR total_bytes>67108864 THEN RAISE EXCEPTION
- 'private PDF upload profile exceeded' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM {scratch} WHERE product_id IS DISTINCT FROM p_build
- OR revision_id IS DISTINCT FROM p_build)
- OR EXISTS(SELECT FROM {scratch} GROUP BY {keys} HAVING count(*)>1) THEN
- RAISE EXCEPTION 'private PDF upload ownership or duplicate key differs' USING ERRCODE='23514';
- END IF;
- SELECT hashes||'{relation.fullname}:'||encode(sha256(convert_to(
- COALESCE(string_agg(to_jsonb(s)::text,E'\\n' ORDER BY {keys}),''),'UTF8')),'hex')
- INTO hashes FROM {scratch} s;
-"""
-    sql += """
- IF EXISTS(SELECT FROM pg_temp.ps_pdf_stage_document
- WHERE release_id IS DISTINCT FROM build.release_id
- OR source_digest IS DISTINCT FROM build.source_digest
- OR native_schema_digest IS DISTINCT FROM build.schema_digest) THEN
- RAISE EXCEPTION 'private PDF header binding differs' USING ERRCODE='23514'; END IF;
- digest:=encode(sha256(convert_to(hashes,'UTF8')),'hex');
- SELECT * INTO receipt FROM ops.pdf_stage_receipt WHERE build_id=p_build AND replay_key=p_key;
- IF FOUND THEN
-  IF receipt.content_digest IS DISTINCT FROM digest OR receipt.row_count IS DISTINCT FROM total THEN
-   RAISE EXCEPTION 'private PDF batch replay differs' USING ERRCODE='23514'; END IF;
-"""
-    sql += " END IF;\n"
-    for relation in relations:
-        scratch = "pg_temp.ps_" + relation.name
-        if relation.name == "pdf_stage_artifact_part":
-            sql += f"PERFORM ops.pdf_adopt_shared_stream_parts(p_build,'{scratch}'::regclass);\n"
-            continue
-        columns = ",".join(pg.identifier_preparer.quote(c.name) for c in relation.columns)
-        if relation.name == "pdf_stage_artifact_stream":
-            sql += (
-                f"PERFORM ops.pdf_adopt_shared_stream_descriptors(p_build,'{scratch}'::regclass);\n"
-            )
-        sql += (
-            f"INSERT INTO {relation.fullname}({columns}) SELECT {columns} "
-            f"FROM {scratch} ON CONFLICT DO NOTHING;\n"
-        )
-        retained = (
-            "ops.pdf_artifact_parts(p_build,p_build,true)"
-            if relation.name == "pdf_stage_artifact_part"
-            else relation.fullname
-        )
-        sql += (
-            f"IF EXISTS(SELECT {columns} FROM {scratch} "
-            f"EXCEPT SELECT {columns} FROM {retained}) THEN "
-            "RAISE EXCEPTION 'changed private record duplicate' USING ERRCODE='23514'; END IF;\n"
-        )
-    sql += """
- PERFORM ops.pdf_verify_shared_stream(p_build,stream_id,false) FROM (
- SELECT stream_id FROM pg_temp.ps_pdf_stage_artifact_stream
- UNION SELECT stream_id FROM pg_temp.ps_pdf_stage_artifact_part) touched;
- IF receipt.build_id IS NULL THEN
- INSERT INTO ops.pdf_stage_receipt VALUES(p_build,p_key,digest,total) RETURNING * INTO receipt;
- END IF;
- RETURN NEXT receipt;
-END $stage$;
-"""
+    sql += stage_batch_adoption_sql(selected)
     sql += stage_lifecycle_sql(selected)
-    for signature in (
-        "prepare_pdf_stage(text,bigint,bigint,text)",
-        "adopt_pdf_batch(text,bigint,bigint,text,text)",
-    ):
-        sql += (
-            f"REVOKE ALL ON FUNCTION ops.{signature} FROM PUBLIC; "
-            f"GRANT EXECUTE ON FUNCTION ops.{signature} TO corpus_sem_writer;\n"
-        )
-    from .pdf_spool_native import pdf_spool_native_sql
-    from .pdf_staging import stage_upload_profile
-
-    sql += pdf_spool_native_sql()
-    profile = stage_upload_profile()
-    return (
-        sql.replace("total>65536", "total>" + str(profile["max_rows"]))
-        .replace("total_bytes>67108864", "total_bytes>" + str(profile["max_native_bytes"]))
-        .replace(
-            "octet_length(p_key)>1024",
-            "octet_length(p_key)>" + str(profile["max_replay_key_bytes"]),
-        )
+    prepare_identity = ast.ObjectWithArgs(
+        objname=(ast.String(sval="ops"), ast.String(sval="prepare_pdf_stage")),
+        objargs=tuple(parameter.type_ for parameter in prepare_parameters), args_unspecified=False,
     )
+    for allowed, grantee in (
+        (False, ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC)),
+        (True, ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer")),
+    ):
+        sql += RawStream()(ast.GrantStmt(
+            is_grant=allowed, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+            objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(prepare_identity,),
+            privileges=(ast.AccessPriv(priv_name="execute"),) if allowed else None,
+            grantees=(grantee,), grant_option=False, behavior=enums.DropBehavior.DROP_RESTRICT,
+        )) + ";\n"
+    from .pdf_spool_native import pdf_spool_native_sql
+    sql += pdf_spool_native_sql()
+    return sql
 
 
 def stage_lifecycle_sql(model):
@@ -941,3 +862,141 @@ def stage_scratch_authorization_sql():
         behavior=enums.DropBehavior.DROP_RESTRICT,
     )
     return sql + ";\n" + RawStream()(revoke) + ";\n"
+
+
+def stage_batch_adoption_sql(model):
+    """Compile bounded, named-column scratch admission and exact replay once."""
+    from pglast import ast, enums
+    from pglast.stream import RawStream
+    from sqlalchemy import (
+        BigInteger,
+        Boolean,
+        Column,
+        MetaData,
+        Table,
+        Text,
+        cast,
+        exists,
+        func,
+        literal,
+        or_,
+        select,
+    )
+    from sqlalchemy.dialects.postgresql import REGCLASS, insert
+
+    from .native_program import (
+        Assign,
+        Block,
+        If,
+        Local,
+        Parameter,
+        Perform,
+        PerformQuery,
+        Raise,
+        ReturnQuery,
+        SelectInto,
+        Sql,
+        Statement,
+        column_type,
+        core_variable,
+        function,
+        pg_type,
+    )
+    from .pdf_shared_streams import pdf_stage_scratch_specs
+    from .pdf_staging import stage_upload_profile
+
+    profile = stage_upload_profile(physical_sources=model.info["physical_sources"])
+    specs = pdf_stage_scratch_specs(model)
+    build = model.tables["ops.pdf_stage_build"]
+    receipt = model.tables["ops.pdf_stage_receipt"]
+    p_build, p_task, p_attempt, p_holder, p_key = (
+        core_variable(name, field.type) for name, field in (
+            ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt),
+            ("p_holder", build.c.holder), ("p_key", receipt.c.replay_key),
+        )
+    )
+    n, size, total, total_bytes = (core_variable(name, BigInteger()) for name in ("n", "bytes", "total", "total_bytes"))
+    hashes, digest = core_variable("hashes", Text()), core_variable("digest", Text())
+    statements: list[Statement] = [
+        Assign("build", func.ops.require_pdf_build(p_build, p_task, p_attempt, p_holder)),
+        Perform(func.ops.require_pdf_operation(core_variable("build", build.c.release_id.type, "release_id"), "adopt_pdf_batch")),
+        If(or_(p_key.is_(None), p_key == "", func.octet_length(p_key) > profile["max_replay_key_bytes"]), (Raise("invalid private replay key", "23514"),)),
+    ]
+    scratch_tables = {
+        spec.source.name: Table(spec.name, MetaData(), *(
+            Column(field.name, field.type, nullable=field.nullable) for field in spec.source.c
+        ), schema="pg_temp") for spec in specs
+    }
+    for spec in sorted(specs, key=lambda spec: spec.source.fullname):
+        relation = spec.source
+        scratch = scratch_tables[relation.name].alias("s")
+        keys = tuple(scratch.c[field.name] for field in relation.primary_key)
+        if not keys:
+            raise ValueError("PDF incoming scratch requires its declared replay key")
+        prototype = func.ops.pdf_part_upload_contract() if relation.name == "pdf_stage_artifact_part" else cast(literal(relation.fullname), REGCLASS())
+        statements.extend((
+            Perform(func.ops.require_pdf_stage_scratch(spec.name, prototype)),
+            SelectInto(select(func.count(), func.coalesce(func.sum(native_payload_size_expression(scratch)), 0)).select_from(scratch), ("n", "bytes")),
+            Assign("total", total + n), Assign("total_bytes", total_bytes + size),
+            If(or_(total > profile["max_rows"], total_bytes > profile["max_native_bytes"]), (Raise("private PDF upload profile exceeded", "23514"),)),
+            If(or_(exists(select(1).select_from(scratch).where(or_(scratch.c.product_id.is_distinct_from(p_build), scratch.c.revision_id.is_distinct_from(p_build)))),
+                exists(select(1).select_from(scratch).group_by(*keys).having(func.count() > 1))),
+                (Raise("private PDF upload ownership or duplicate key differs", "23514"),)),
+            SelectInto(select(hashes + relation.fullname + ":" + func.encode(func.sha256(func.convert_to(
+                func.coalesce(func.string_agg(cast(func.to_jsonb(scratch.table_valued()), Text()), literal("\n")).aggregate_order_by(*keys), ""), "UTF8")), "hex")).select_from(scratch), ("hashes",)),
+        ))
+    document = scratch_tables["pdf_stage_document"]
+    statements.extend((
+        If(exists(select(1).select_from(document).where(or_(
+            document.c.release_id.is_distinct_from(core_variable("build", build.c.release_id.type, "release_id")),
+            document.c.source_digest.is_distinct_from(core_variable("build", build.c.source_digest.type, "source_digest")),
+            document.c.native_schema_digest.is_distinct_from(core_variable("build", build.c.schema_digest.type, "schema_digest")),
+        ))), (Raise("private PDF header binding differs", "23514"),)),
+        Assign("digest", func.encode(func.sha256(func.convert_to(hashes, "UTF8")), "hex")),
+        SelectInto(select(receipt).where(receipt.c.build_id == p_build, receipt.c.replay_key == p_key), ("receipt",)),
+        If(core_variable("found", Boolean()), (
+            If(or_(core_variable("receipt", receipt.c.content_digest.type, "content_digest").is_distinct_from(digest),
+                   core_variable("receipt", receipt.c.row_count.type, "row_count").is_distinct_from(total)),
+               (Raise("private PDF batch replay differs", "23514"),)),
+        )),
+    ))
+    for spec in specs:
+        relation = spec.source
+        scratch = scratch_tables[relation.name]
+        if relation.name == "pdf_stage_artifact_part":
+            statements.append(Perform(func.ops.pdf_adopt_shared_stream_parts(p_build, cast(literal(scratch.fullname), REGCLASS()))))
+            continue
+        if relation.name == "pdf_stage_artifact_stream":
+            statements.append(Perform(func.ops.pdf_adopt_shared_stream_descriptors(p_build, cast(literal(scratch.fullname), REGCLASS()))))
+        statements.extend((
+            Sql(insert(relation).from_select(tuple(relation.c.keys()), select(*(scratch.c[field.name] for field in relation.c))).on_conflict_do_nothing()),
+            If(exists(select(*(scratch.c[field.name] for field in relation.c)).except_(select(relation))), (Raise("changed private record duplicate", "23514"),)),
+        ))
+    touched = select(scratch_tables["pdf_stage_artifact_stream"].c.stream_id).union(
+        select(scratch_tables["pdf_stage_artifact_part"].c.stream_id)
+    ).subquery("touched")
+    statements.extend((
+        PerformQuery(select(func.ops.pdf_verify_shared_stream(p_build, touched.c.stream_id, False))),
+        If(core_variable("receipt", receipt.c.build_id.type, "build_id").is_(None), (
+            SelectInto(insert(receipt).values({receipt.c.build_id: p_build, receipt.c.replay_key: p_key, receipt.c.content_digest: digest, receipt.c.row_count: total}).returning(*receipt.c), ("receipt",)),
+        )),
+        ReturnQuery(select(*(core_variable("receipt", field.type, field.name) for field in receipt.c))),
+    ))
+    parameters = tuple(Parameter(name, column_type(field)) for name, field in (
+        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder), ("p_key", receipt.c.replay_key),
+    ))
+    returns = pg_type(receipt.schema, receipt.name)
+    returns.setof = True
+    declaration = function("ops", "adopt_pdf_batch", parameters=parameters, returns=returns, security_definer=True,
+        search_path=("pg_catalog", "pg_temp"), body=Block(tuple(statements), (
+            Local("build", build), Local("receipt", receipt), Local("n", pg_type("bigint")), Local("bytes", pg_type("bigint")),
+            Local("total", pg_type("bigint"), literal(0)), Local("total_bytes", pg_type("bigint"), literal(0)),
+            Local("hashes", pg_type("text"), literal("")), Local("digest", pg_type("text")),
+        )))
+    identity = ast.ObjectWithArgs(objname=(ast.String(sval="ops"), ast.String(sval="adopt_pdf_batch")), objargs=tuple(parameter.type_ for parameter in parameters), args_unspecified=False)
+    revoke = ast.GrantStmt(is_grant=False, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT, objtype=enums.ObjectType.OBJECT_FUNCTION,
+        objects=(identity,), grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),), grant_option=False, behavior=enums.DropBehavior.DROP_RESTRICT)
+    grant = ast.GrantStmt(is_grant=True, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT, objtype=enums.ObjectType.OBJECT_FUNCTION,
+        objects=(identity,), privileges=(ast.AccessPriv(priv_name="execute"),),
+        grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"),), behavior=enums.DropBehavior.DROP_RESTRICT)
+    return declaration + ";\n" + RawStream()(revoke) + ";\n" + RawStream()(grant) + ";\n"

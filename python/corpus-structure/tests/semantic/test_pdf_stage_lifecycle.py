@@ -6,13 +6,17 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
-from corpus_structure.semantic.pdf_staging_native import stage_lifecycle_sql
+from corpus_structure.semantic.pdf_staging_native import (
+    stage_batch_adoption_sql,
+    stage_lifecycle_sql,
+)
 
 
 def test_generated_lifecycle_preserves_writer_and_private_fences(native_rollback):
     connection = native_rollback.connection
     with native_owner(connection, "corpus_sem_publisher"):
         execute_native_sql(connection, stage_lifecycle_sql(metadata))
+        execute_native_sql(connection, stage_batch_adoption_sql(metadata))
     arguments = {
         "task": None,
         "attempt": None,
@@ -21,8 +25,10 @@ def test_generated_lifecycle_preserves_writer_and_private_fences(native_rollback
         "runtime": None,
         "original": None,
         "recipe": None,
+        "key": None,
     }
     calls = (
+        ("ops.adopt_pdf_batch(:build,:task,:attempt,:holder,:key)", "P0004"),
         ("ops.read_pdf_producer_basis(:task,:attempt,:holder,:runtime)", "P0004"),
         ("ops.retain_pdf_original(:task,:attempt,:holder,:original,:recipe)", "P0004"),
         ("ops.inspect_pdf_progress(:build,:task,:attempt,:holder)", "P0004"),
@@ -110,10 +116,10 @@ def test_generated_stage_ownership_preserves_absence_and_private_entrypoints(nat
 
 def test_begin_build_uses_the_supplied_physical_upload_profile():
     import json
-    from types import SimpleNamespace
 
     import yaml
 
+    from corpus_structure.schema.physical import compile_physical
     from corpus_structure.semantic.pdf_staging import stage_upload_profile
 
     sources = dict(metadata.info["physical_sources"])
@@ -122,6 +128,46 @@ def test_begin_build_uses_the_supplied_physical_upload_profile():
     profile["max_replay_key_bytes"] = 17
     declaration["annotations"]["pds:upload_profile"] = json.dumps(profile)
     sources["pdf-staging.yaml"] = yaml.safe_dump(declaration).encode()
-    supplied = SimpleNamespace(tables=metadata.tables, info={**metadata.info, "physical_sources": sources})
+    supplied = compile_physical(sources, linkml_types=metadata.info["physical_linkml_types"])
     assert stage_upload_profile(physical_sources=sources)["max_replay_key_bytes"] == 17
     assert "octet_length(p_key) > 17" in stage_lifecycle_sql(supplied)
+    assert "octet_length(p_key) > 17" in stage_batch_adoption_sql(supplied)
+
+
+def test_native_payload_extent_keeps_actual_bytes_and_null_bitmap(native_rollback):
+    from decimal import Decimal
+
+    from sqlalchemy import (
+        BigInteger,
+        Boolean,
+        Column,
+        Double,
+        MetaData,
+        Numeric,
+        Table,
+        Text,
+        null,
+        select,
+    )
+    from sqlalchemy.dialects.postgresql import BYTEA, JSONB
+    from sqlalchemy.schema import CreateTable
+
+    from corpus_structure.semantic.pdf_staging_native import (
+        native_payload_size_expression,
+        native_payload_size_sql,
+    )
+
+    fixture = Table("payload_extent", MetaData(), Column("word", Text()), Column("body", BYTEA()),
+        Column("document", JSONB()), Column("number", Numeric()), Column("flag", Boolean()),
+        Column("integer", BigInteger()), Column("real", Double()), schema="pg_temp", prefixes=["TEMPORARY"])
+    connection = native_rollback.connection
+    connection.execute(CreateTable(fixture))
+    connection.execute(fixture.insert(), [
+        {"word": "é", "body": b"abc", "document": {"x": 1}, "number": Decimal("1.25"), "flag": True, "integer": 9, "real": 1.0},
+        {field.name: None for field in fixture.c},
+    ])
+    connection.execute(fixture.insert().values({field: null() for field in fixture.c}))
+    extent = native_payload_size_expression(fixture)
+    assert connection.scalars(select(extent).order_by(extent)).all() == [1, 9, 51]
+    rendered = native_payload_size_sql(fixture)
+    assert connection.scalars(text("SELECT " + rendered + " AS extent FROM pg_temp.payload_extent s ORDER BY extent")).all() == [1, 9, 51]

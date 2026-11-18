@@ -60,3 +60,28 @@ def test_model_owned_dynamic_scan_quotes_percent_and_relation_names(semantic_bar
             )
             == 15
         )
+
+
+def test_native_perform_query_executes_every_selected_effect_row(semantic_bare_engine):
+    from sqlalchemy import cast, func, select
+    from sqlalchemy import literal as sql_literal
+    from sqlalchemy.dialects.postgresql import REGCLASS
+
+    from corpus_structure.semantic.native_program import PerformQuery
+
+    rows = func.generate_series(1, 3).table_valued("ordinal")
+    query = select(func.nextval(cast(sql_literal("pg_temp.effect_counter"), REGCLASS()))).select_from(rows)
+    program = function(
+        "checker_test",
+        "consume_rows",
+        parameters=(),
+        returns=pg_type("void"),
+        body=Block((PerformQuery(query),)),
+        search_path=("pg_catalog", "pg_temp"),
+    )
+    with semantic_bare_engine.begin() as connection:
+        connection.exec_driver_sql("CREATE SCHEMA checker_test")
+        connection.exec_driver_sql("CREATE TEMP SEQUENCE effect_counter")
+        execute_native_sql(connection, program)
+        connection.execute(text("SELECT checker_test.consume_rows()")).one()
+        assert connection.scalar(text("SELECT last_value FROM pg_temp.effect_counter")) == 3
