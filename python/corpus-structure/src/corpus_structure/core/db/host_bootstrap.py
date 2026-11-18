@@ -24,7 +24,7 @@ from corpus_structure.semantic.alembic_privileges import (
 from corpus_structure.semantic.native_objects import native_sql_script
 from corpus_structure.semantic.native_program import Block, Do, If, Raise, Sql
 
-from .extensions import EXTENSION_RECORD, expected_extensions
+from .extensions import expected_extensions
 
 
 @dataclass(frozen=True)
@@ -320,7 +320,7 @@ def main():
     )
     parser.add_argument("arguments", nargs="*")
     parser.add_argument("--fitter-only", action="store_true")
-    parser.add_argument("--record", type=Path, default=EXTENSION_RECORD)
+    parser.add_argument("--record", type=Path)
     args = parser.parse_args()
     arities = {
         "semantic-sql": 1,

@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 
 REPO = Path(__file__).resolve().parents[1]
-EXTENSION_RECORD = extensions.EXTENSION_RECORD
+EXTENSION_RECORD = REPO / extensions.EXTENSION_RECORD
 PROVISION = (
     "run `just db-provision` (the dedicated cluster 18/corpus with cs_template, D3 §13), "
     "or point CORPUS_DATABASE__URL at a server that has it"

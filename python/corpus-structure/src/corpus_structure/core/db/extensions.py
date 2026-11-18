@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
-EXTENSION_RECORD = Path(__file__).resolve().parents[6] / "ops" / "postgresql" / "extensions.txt"
+EXTENSION_RECORD = Path("ops/postgresql/extensions.txt")
 PROVISION = "run just db-provision, then clone the database from cs_template"
 FOUND = "SELECT extname, extversion FROM pg_extension"
 
@@ -29,8 +29,21 @@ class ExtensionVersionMismatch(RuntimeError):
         super().__init__(f"extensions differ from {EXTENSION_RECORD.name}: {listed}: {PROVISION}")
 
 
-def expected_extensions(path: Path = EXTENSION_RECORD) -> dict[str, str]:
+def expected_extensions(path: Path | None = None) -> dict[str, str]:
     """The record of expected extension versions: `<extension> <version>` per line."""
+    if path is None:
+        path = next(
+            (
+                record
+                for parent in Path(__file__).resolve().parents
+                if (record := parent / EXTENSION_RECORD).is_file()
+            ),
+            None,
+        )
+        if path is None:
+            raise FileNotFoundError(
+                f"PostgreSQL extension record is unavailable: {EXTENSION_RECORD}"
+            )
     expected: dict[str, str] = {}
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         fields = line.split("#", 1)[0].split()

@@ -279,17 +279,20 @@ def test_current_descriptor_and_projection_guard_do_not_inherit_obsolete_storage
 
 
 def test_explicit_pdf_metadata_controls_lossless_equality_and_native_read_types():
-    from sqlalchemy import Double
+    from sqlalchemy import Double, literal
+    from sqlalchemy.dialects.postgresql import dialect
 
-    from corpus_structure.semantic.pdf_publication_native import _validation_rows_equal_sql
+    from corpus_structure.semantic.pdf_validation_read_native import _equal_rows
     from corpus_structure.semantic.published_document import published_readers_sql
 
     target = prepared_target()
     # A deliberately changed physical type must reach both actual consumers;
     # an ambient model with the original bigint would choose different equality.
     target.tables["kb.pdf_record_access"].c.ordinal.type = Double()
-    equality = _validation_rows_equal_sql("kb.pdf_record_access", target_metadata=target)
-    assert 'float8send("ordinal"::double precision)' in equality
+    equality = _equal_rows(
+        target, literal("current"), literal("previous"), "kb.pdf_record_access"
+    ).compile(dialect=dialect(), compile_kwargs={"literal_binds": True})
+    assert "float8send(CAST(kb.pdf_record_access.ordinal AS DOUBLE PRECISION))" in str(equality)
     assert "ordinal DOUBLE PRECISION" in published_readers_sql(target_metadata=target)
 
 
