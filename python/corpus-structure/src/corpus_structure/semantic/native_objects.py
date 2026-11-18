@@ -12,10 +12,11 @@ from collections import Counter
 from collections.abc import Iterable
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
+from typing import Literal
 
 from pglast import ast, enums
 from pglast.stream import RawStream
-from sqlalchemy import Connection, Integer, cast, func, literal, select
+from sqlalchemy import Connection, Integer, Table, cast, func, literal, select
 from sqlalchemy.dialects.postgresql import OID, dialect
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import DBAPIError
@@ -148,6 +149,29 @@ def native_owner_sql(identity: NativeIdentity, owner: str) -> str:
     else:
         raise NativeAuthoringError("unsupported native ownership object")
     return RawStream()(statement)
+
+
+def native_before_trigger_sql(
+    relation: Table,
+    name: str,
+    routine: tuple[str, str],
+    *,
+    events: tuple[Literal["insert", "delete", "update", "truncate"], ...],
+    row: bool = False,
+) -> str:
+    """Build a PostgreSQL trigger on a captured physical relation."""
+    # PostgreSQL TRIGGER_TYPE_* bits used by CreateTrigStmt.
+    event_bits = {"insert": 4, "delete": 8, "update": 16, "truncate": 32}
+    return RawStream()(
+        ast.CreateTrigStmt(
+            trigname=name,
+            relation=ast.RangeVar(schemaname=relation.schema, relname=relation.name, inh=True),
+            funcname=tuple(ast.String(sval=part) for part in routine),
+            row=row,
+            timing=2,
+            events=sum(event_bits[event] for event in set(events)),
+        )
+    )
 
 
 @contextmanager

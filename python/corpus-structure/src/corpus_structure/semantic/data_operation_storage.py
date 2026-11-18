@@ -1845,7 +1845,7 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
     """Include every kernel function in normal server-normalized candidate custody."""
     from pglast import ast
 
-    from .native_objects import definition_from_sql
+    from .native_objects import definition_from_sql, native_before_trigger_sql
     from .prepared_sql import prepare_sql
 
     if sources is not None:
@@ -1936,9 +1936,12 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
         definitions.append(
             definition_from_sql(
                 connection,
-                "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON "
-                + connection.dialect.identifier_preparer.format_table(relation)
-                + " FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation()",
+                native_before_trigger_sql(
+                    relation,
+                    "semantic_immutable",
+                    ("sem", "refuse_immutable_mutation"),
+                    events=("update", "delete", "truncate"),
+                ),
                 source="data-operation physical immutability:forward",
                 owner="corpus_sem_publisher",
             )
@@ -1961,9 +1964,12 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
         definitions.append(
             definition_from_sql(
                 connection,
-                "CREATE TRIGGER ddo_read_frontier_guard BEFORE INSERT OR UPDATE OR DELETE OR TRUNCATE ON "
-                + connection.dialect.identifier_preparer.format_table(relation)
-                + " FOR EACH STATEMENT EXECUTE FUNCTION ops.ddo_refuse_post_acquisition_graph_write()",
+                native_before_trigger_sql(
+                    relation,
+                    "ddo_read_frontier_guard",
+                    ("ops", "ddo_refuse_post_acquisition_graph_write"),
+                    events=("insert", "update", "delete", "truncate"),
+                ),
                 source="data-operation pinned frontier:forward",
                 owner="corpus_sem_publisher",
             )

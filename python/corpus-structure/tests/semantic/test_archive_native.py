@@ -149,27 +149,34 @@ def test_generated_archive_program_executes_with_actual_admitter_custody(native_
     release = captured.prepared.release_id
     with native_owner(connection, "corpus_sem_admitter"):
         stage_exact_archive(connection, release)
-        assert connection.scalar(
-            text("SELECT sem.publish_release_archive(:r)"), {"r": release}
-        ) == release
+        assert (
+            connection.scalar(text("SELECT sem.publish_release_archive(:r)"), {"r": release})
+            == release
+        )
         # A second prepare truncates existing protected scratch; its exact
         # typed replay still succeeds after all source rows are streamed again.
         stage_exact_archive(connection, release)
-        assert connection.scalar(
-            text("SELECT sem.publish_release_archive(:r)"), {"r": release}
-        ) == release
+        assert (
+            connection.scalar(text("SELECT sem.publish_release_archive(:r)"), {"r": release})
+            == release
+        )
         with (
             pytest.raises(DBAPIError, match="scope/key differs"),
             connection.begin_nested(),
         ):
-            connection.execute(text(
-                "INSERT INTO pg_temp.cs_archive_input SELECT * FROM pg_temp.cs_archive_input LIMIT 1"
-            ))
+            connection.execute(
+                text(
+                    "INSERT INTO pg_temp.cs_archive_input SELECT * FROM pg_temp.cs_archive_input LIMIT 1"
+                )
+            )
             connection.execute(text("SELECT sem.publish_release_archive(:r)"), {"r": release})
     finalized = table("sem.release_finalization")
-    assert connection.scalar(
-        select(finalized.c.content_digest).where(finalized.c.release_id == release)
-    ) == expected_digest
+    assert (
+        connection.scalar(
+            select(finalized.c.content_digest).where(finalized.c.release_id == release)
+        )
+        == expected_digest
+    )
     with (
         pytest.raises(DBAPIError),
         connection.begin_nested(),

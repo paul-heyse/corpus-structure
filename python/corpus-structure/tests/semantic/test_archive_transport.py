@@ -70,11 +70,21 @@ def test_every_declared_projection_has_exact_typed_columns_and_binary_encoder():
     projections = _projection_rows(prepared)
     tables = archive_tables()
     assert {relation.fullname for relation in tables} == {
-        "sem.release", "sem.artifact", "sem.class_definition", "sem.input",
-        "sem.metric_definition", "sem.property_definition", "sem.registry_row",
-        "sem.scientific_decision_rule", "sem.vocabulary_member", "sem.class_hierarchy",
-        "sem.conditional_rule", "sem.identity_slot", "sem.property_applicability",
-        "sem.conditional_atom", "sem.operation_property_role",
+        "sem.release",
+        "sem.artifact",
+        "sem.class_definition",
+        "sem.input",
+        "sem.metric_definition",
+        "sem.property_definition",
+        "sem.registry_row",
+        "sem.scientific_decision_rule",
+        "sem.vocabulary_member",
+        "sem.class_hierarchy",
+        "sem.conditional_rule",
+        "sem.identity_slot",
+        "sem.property_applicability",
+        "sem.conditional_atom",
+        "sem.operation_property_role",
     }
     assert tables[0].fullname == "sem.release"
     assert "runtime_binding" not in {relation.name for relation in tables}
@@ -131,7 +141,6 @@ def test_archive_chunks_share_schema_and_preserve_rows_without_eager_consumption
     assert list(archive_batches(relation, profile, ())) == []
 
 
-
 def test_archive_native_consumes_exact_supplied_model_for_columns_keys_and_scratch(monkeypatch):
     from pglast import parse_plpgsql
     from pglast.visitors import Visitor
@@ -160,12 +169,14 @@ def test_archive_native_consumes_exact_supplied_model_for_columns_keys_and_scrat
     # The header remains first according to captured foreign-key dependency
     # ordering, and scratch creation uses the exact model-owned source relation.
     prepare = function_bodies(sql)["sem.prepare_release_archive"]
-    assert prepare.index("CREATE TEMPORARY TABLE cs_archive_release") < prepare.index("CREATE TEMPORARY TABLE cs_archive_input")
+    assert prepare.index("CREATE TEMPORARY TABLE cs_archive_release") < prepare.index(
+        "CREATE TEMPORARY TABLE cs_archive_input"
+    )
     assert "LIKE sem.input INCLUDING CONSTRAINTS" in prepare
     assert "ON COMMIT DROP" in prepare
     assert "TO corpus_sem_admitter" in prepare
     assert "FROM PUBLIC" in prepare
-    query = body[body.index("INSERT INTO sem.input"):].split(";", 1)[0]
+    query = body[body.index("INSERT INTO sem.input") :].split(";", 1)[0]
     ArchiveInserts()(prepare_sql(query, source="captured archive insert").statements)
     (insertion,) = inserts
     assert tuple(item.name for item in insertion.cols) == tuple(target.tables["sem.input"].c.keys())

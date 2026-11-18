@@ -941,12 +941,11 @@ def _require_fit(p):
 
 
 def _require_parameters(p):
-    r, issuing, issuer_request, intent = (
+    r, issuing, intent = (
         p.row(name, table)
         for name, table in (
             ("r", "ops.data_request"),
             ("issuing", "ops.data_derivation"),
-            ("issuer_request", "ops.data_request"),
             ("intent", "ops.data_completion_intent"),
         )
     )
@@ -1012,6 +1011,7 @@ def _require_parameters(p):
             outputs.c.position == 0,
             outputs.c.multiplicity == 1,
             producer.c.outcome == "success",
+            requests.c.operation_id == AUTHORIZATION_OPERATION,
             definitions.c.command_class == "operation_event",
             select(1)
             .select_from(support)
@@ -1040,9 +1040,6 @@ def _require_parameters(p):
                 ~protected_context, "event score parameters change exact selected event context"
             ),
             SelectInto(producer_query, ("issuing",), strict=True),
-            issuer_request.lookup(
-                requests.c.id == issuing("request_id"), requests.c.project_id == r("project_id")
-            ),
             intent.lookup(
                 intent.table.c.id == issuing("intent_id"),
                 intent.table.c.request_id == issuing("request_id"),
@@ -1052,9 +1049,9 @@ def _require_parameters(p):
                 p.fences(issuing, intent),
                 "event parameter issuer differs from original producer fences",
             ),
-            *p.restore(issuer_request, issuing, intent),
-            Perform(
-                func.ops.ddo_require_operation_event_completion(issuer_request(), intent("payload"))
+            _reject(
+                func.ops.ddo_policy_authority_leaf(issuing("id")).is_not(True),
+                "event score requires an authenticated published parameter issuer",
             ),
             _reject(
                 func.data.ddo_normalize(
@@ -1073,7 +1070,6 @@ def _require_parameters(p):
         (
             Local("chosen", pg_type("jsonb")),
             issuing.local(),
-            issuer_request.local(),
             intent.local(),
         ),
     )

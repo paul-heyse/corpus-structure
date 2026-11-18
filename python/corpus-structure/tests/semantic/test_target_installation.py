@@ -4,6 +4,7 @@ import json
 
 import pytest
 import yaml
+from pglast import ast, enums, parse_plpgsql, parse_sql
 
 from corpus_structure.schema.physical import compile_physical
 from corpus_structure.semantic.archive_native import archive_native_sql
@@ -77,8 +78,23 @@ def test_target_physical_model_keeps_request_pdf_and_release_custody_without_old
 
 def test_target_archive_uses_the_exact_supplied_metadata_and_pdf_actions():
     target = prepared_target()
-    assert all(relation.metadata is target for relation in archive_tables(target))
-    assert "CREATE TEMP TABLE" in archive_native_sql(target_metadata=target)
+    relations = archive_tables(target)
+    assert all(relation.metadata is target for relation in relations)
+    prepare_body = parse_plpgsql(archive_native_sql(target_metadata=target))[1]["PLpgSQL_function"][
+        "action"
+    ]["PLpgSQL_stmt_block"]["body"]
+    scratch = []
+    for item in prepare_body:
+        for effect in item.get("PLpgSQL_stmt_if", {}).get("then_body", ()):
+            if "PLpgSQL_stmt_execsql" in effect:
+                query = effect["PLpgSQL_stmt_execsql"]["sqlstmt"]["PLpgSQL_expr"]["query"]
+                statement = parse_sql(query)[0].stmt
+                if isinstance(statement, ast.CreateStmt):
+                    assert statement.relation.relpersistence == "t"
+                    assert statement.oncommit == enums.OnCommitAction.ONCOMMIT_DROP
+                    (like,) = statement.tableElts
+                    scratch.append((like.relation.schemaname, like.relation.relname))
+    assert scratch == [(relation.schema, relation.name) for relation in relations]
     sources = pdf_domain_sources(
         physical_sources=target.info["physical_sources"],
         linkml_types=target.info["physical_linkml_types"],
@@ -96,8 +112,6 @@ def test_target_archive_uses_the_exact_supplied_metadata_and_pdf_actions():
 
 
 def test_target_native_capture_and_shared_task_checks_have_no_legacy_task_branch():
-    from pglast import parse_plpgsql, parse_sql
-
     from corpus_structure.semantic.native_products import current_admission_fields
     from corpus_structure.semantic.target_installation import (
         capture_target_installation,

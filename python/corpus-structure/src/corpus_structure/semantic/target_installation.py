@@ -45,19 +45,14 @@ def target_task_guard_sql(protocol: bytes, *, target_metadata: MetaData) -> str:
 
 
 def _task_guard_trigger_sql(target: MetaData) -> str:
-    from pglast import ast
-    from pglast.stream import RawStream
+    from .native_objects import native_before_trigger_sql
 
-    task = target.tables["ops.task"]
-    return RawStream()(
-        ast.CreateTrigStmt(
-            trigname="zz_execution_task",
-            relation=ast.RangeVar(schemaname=task.schema, relname=task.name, inh=True),
-            funcname=(ast.String(sval="ops"), ast.String(sval="guard_execution_task")),
-            row=True,
-            timing=2,  # PostgreSQL TRIGGER_TYPE_BEFORE.
-            events=4 | 16,  # PostgreSQL TRIGGER_TYPE_INSERT | TRIGGER_TYPE_UPDATE.
-        )
+    return native_before_trigger_sql(
+        target.tables["ops.task"],
+        "zz_execution_task",
+        ("ops", "guard_execution_task"),
+        events=("insert", "update"),
+        row=True,
     )
 
 
@@ -216,7 +211,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
         _shape_definition,
         _task_call_definition,
     )
-    from .native_objects import definition_from_sql
+    from .native_objects import definition_from_sql, native_before_trigger_sql
     from .native_sql_body import published_revision_definition, published_validation_definition
     from .pdf_domain import CONTRACT, PdfDomainContract
     from .published_document import published_reader_definitions
@@ -354,7 +349,6 @@ def target_native_definitions(connection, installation: TargetInstallation):
         )
     )
     for relation in sorted(selected.tables.values(), key=lambda item: item.fullname):
-        quoted = connection.dialect.identifier_preparer.format_table(relation)
         if (
             relation.info.get("immutability") in {"intrinsic", "immutable", "deployment"}
             or relation.fullname == "sem.physical_contract"
@@ -364,29 +358,37 @@ def target_native_definitions(connection, installation: TargetInstallation):
             definitions.append(
                 definition_from_sql(
                     connection,
-                    "CREATE TRIGGER semantic_immutable BEFORE UPDATE OR DELETE OR TRUNCATE ON "
-                    + quoted
-                    + " FOR EACH STATEMENT EXECUTE FUNCTION sem.refuse_immutable_mutation()",
+                    native_before_trigger_sql(
+                        relation,
+                        "semantic_immutable",
+                        ("sem", "refuse_immutable_mutation"),
+                        events=("update", "delete", "truncate"),
+                    ),
                     source="target-current:physical immutability",
                     owner="corpus_sem_publisher",
                 )
             )
         if relation.fullname in {"ops.pdf_shared_stream", "ops.pdf_shared_stream_part"}:
-            for events, level, name in (
+            for events, row, name in (
                 (
-                    "INSERT OR UPDATE OR DELETE"
+                    ("insert", "update", "delete")
                     if relation.name == "pdf_shared_stream_part"
-                    else "UPDATE OR DELETE",
-                    "ROW",
+                    else ("update", "delete"),
+                    True,
                     "pdf_shared_content_mutation",
                 ),
-                ("TRUNCATE", "STATEMENT", "pdf_shared_content_truncate"),
+                (("truncate",), False, "pdf_shared_content_truncate"),
             ):
                 definitions.append(
                     definition_from_sql(
                         connection,
-                        f"CREATE TRIGGER {name} BEFORE {events} ON {quoted} "
-                        f"FOR EACH {level} EXECUTE FUNCTION ops.pdf_shared_stream_mutation_guard()",
+                        native_before_trigger_sql(
+                            relation,
+                            name,
+                            ("ops", "pdf_shared_stream_mutation_guard"),
+                            events=events,
+                            row=row,
+                        ),
                         source="target-current:pending and verified PDF bytes",
                         owner="corpus_sem_publisher",
                     )
@@ -395,9 +397,13 @@ def target_native_definitions(connection, installation: TargetInstallation):
             definitions.append(
                 definition_from_sql(
                     connection,
-                    "CREATE TRIGGER finalized_release BEFORE INSERT ON "
-                    + quoted
-                    + " FOR EACH ROW EXECUTE FUNCTION sem.guard_finalized_insert()",
+                    native_before_trigger_sql(
+                        relation,
+                        "finalized_release",
+                        ("sem", "guard_finalized_insert"),
+                        events=("insert",),
+                        row=True,
+                    ),
                     source="target-current:finalized archive",
                     owner="corpus_sem_publisher",
                 )
