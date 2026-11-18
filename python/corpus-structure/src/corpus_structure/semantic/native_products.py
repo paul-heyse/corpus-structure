@@ -77,6 +77,7 @@ def capture_native_authoring_inputs(
     )
     from .identity import canonical_bytes
     from .pdf_domain import CONTRACT, PdfDomainContract, pdf_domain_sources
+    from .runtime_binding_native import runtime_binding_sql
     from .types import SourceArtifact
 
     if target_metadata is None:
@@ -129,6 +130,8 @@ def capture_native_authoring_inputs(
             for name in (
                 "native_products.py",
                 "archive_projection_native.py",
+                "runtime_binding_native.py",
+                "data_operation_runtime.py",
                 "native_admission.py",
                 "native_authoring.py",
                 "native_objects.py",
@@ -159,7 +162,7 @@ def capture_native_authoring_inputs(
         ),
         SourceArtifact(
             "authoring/runtime-bindings.sql",
-            Path(__file__).with_name("sql").joinpath("runtime_bindings.sql").read_bytes(),
+            runtime_binding_sql(selected).encode(),
         ),
         SourceArtifact(
             "authoring/execution-projection-check.sql",

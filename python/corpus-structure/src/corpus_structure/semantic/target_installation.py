@@ -241,7 +241,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
         definitions.append(
             _task_call_definition(
                 connection,
-                sql.joinpath("runtime_bindings.sql").read_text(),
+                captured["authoring/runtime-bindings.sql"].decode(),
                 schema="sem",
                 name=name,
                 source="target-current:runtime binding",
