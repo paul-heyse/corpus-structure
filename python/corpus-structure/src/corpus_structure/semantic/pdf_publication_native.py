@@ -942,33 +942,6 @@ BEGIN
  END LOOP;
  RETURN encode(ops.pdf_identity_fold_finish(state_,count_,length_),'hex');
 END $$;
-CREATE OR REPLACE FUNCTION ops.stage_pdf_access_batch(p_build text,p_task bigint,p_attempt bigint,
- p_holder text,p_rows jsonb)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; row_ jsonb; body_ jsonb; family_ text;
-BEGIN
- b:=ops.require_pdf_build(p_build,p_task,p_attempt,p_holder);
- PERFORM ops.require_pdf_operation(b.release_id,'stage_pdf_producer');
- IF jsonb_typeof(p_rows) IS DISTINCT FROM 'array' OR jsonb_array_length(p_rows)>128
- OR octet_length(p_rows::text)>16777216 THEN RAISE EXCEPTION 'access projection batch exceeds profile'; END IF;
- FOR row_ IN SELECT value FROM jsonb_array_elements(p_rows) LOOP
- family_:=row_->>'family'; body_:=row_->'body';
- IF family_='access' THEN
- INSERT INTO ops.pdf_stage_access SELECT (jsonb_populate_record(NULL::ops.pdf_stage_access,
- body_||jsonb_build_object('product_id',p_build,'revision_id',p_build))).* ON CONFLICT DO NOTHING;
- IF NOT EXISTS(SELECT FROM ops.pdf_stage_access r WHERE r.product_id=p_build AND r.revision_id=p_build
- AND r.pointer=body_->>'pointer' AND to_jsonb(r)-'product_id'-'revision_id'=body_) THEN
- RAISE EXCEPTION 'changed access projection' USING ERRCODE='23514'; END IF;
- ELSIF family_='region' THEN
- INSERT INTO ops.pdf_stage_region SELECT (jsonb_populate_record(NULL::ops.pdf_stage_region,
- body_||jsonb_build_object('product_id',p_build,'revision_id',p_build))).* ON CONFLICT DO NOTHING;
- IF NOT EXISTS(SELECT FROM ops.pdf_stage_region r WHERE r.product_id=p_build AND r.revision_id=p_build
- AND r.pointer=body_->>'pointer' AND r.region_index=(body_->>'region_index')::bigint
- AND to_jsonb(r)-'product_id'-'revision_id'=body_) THEN
- RAISE EXCEPTION 'changed region projection' USING ERRCODE='23514'; END IF;
- ELSE RAISE EXCEPTION 'invalid projection family'; END IF;
- END LOOP;
-END $$;
 CREATE OR REPLACE FUNCTION ops.pdf_check_build_inventory(p_build text,p_source text,p_project text)
 RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 DECLARE bad_owner_ boolean; unreachable_ boolean;
@@ -1429,63 +1402,6 @@ GRANT SELECT ON ops.pdf_selected_product TO corpus_sem_writer,corpus_sem_reader,
 tor,corpus_sem_admitter;
 """
     sql += """
-CREATE OR REPLACE FUNCTION ops.lookup_pdf_build(p_task bigint,p_attempt bigint,p_holder \
-text,p_key text)
-RETURNS SETOF ops.pdf_stage_build LANGUAGE plpgsql SECURITY DEFINER SET \
-search_path=pg_catalog,pg_temp AS $$
-DECLARE owner record;
-BEGIN
- SELECT * INTO STRICT owner FROM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- PERFORM ops.require_pdf_operation(owner.release_id,'inspect_pdf_build');
- RETURN QUERY SELECT * FROM ops.pdf_stage_build WHERE task_id=p_task AND replay_key=p_key AND \
-release_id=owner.release_id;
-END $$;
-CREATE OR REPLACE FUNCTION ops.lookup_pdf_frozen_digest(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE value_ text;
-BEGIN
- PERFORM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- IF NOT EXISTS(SELECT FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task) THEN \
-RAISE EXCEPTION 'build outside task'; END IF;
- SELECT frozen_digest INTO value_ FROM ops.pdf_frozen_build WHERE build_id=p_build;
- RETURN value_;
-END $$;
-CREATE OR REPLACE FUNCTION ops.lookup_pdf_frozen_kind(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text)
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE value_ text;
-BEGIN
- PERFORM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- IF NOT EXISTS(SELECT FROM ops.pdf_stage_build WHERE build_id=p_build AND task_id=p_task) THEN \
-RAISE EXCEPTION 'build outside task'; END IF;
- SELECT kind INTO value_ FROM ops.pdf_frozen_build WHERE build_id=p_build;
- RETURN value_;
-END $$;
-CREATE OR REPLACE FUNCTION ops.lookup_pdf_validation(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text,p_frozen text)
-RETURNS SETOF ops.pdf_build_validation LANGUAGE plpgsql SECURITY DEFINER SET \
-search_path=pg_catalog,pg_temp AS $$
-DECLARE b ops.pdf_stage_build; native_contract_ text;
-BEGIN
- b:=ops.require_pdf_frozen(p_build,p_task,p_attempt,p_holder,p_frozen);
- native_contract_:=ops.pdf_validation_contract(b.release_id);
- IF EXISTS(SELECT FROM ops.pdf_build_validation v WHERE v.build_id=p_build
- AND v.frozen_digest=p_frozen AND v.native_contract_digest IS DISTINCT FROM native_contract_) THEN
- RAISE EXCEPTION USING ERRCODE='23514',
- MESSAGE='PDF validation profile differs; rebuild from retained evidence '
- ||'in a fresh current storage build; do not alter stored pins'; END IF;
- RETURN QUERY SELECT v.* FROM ops.pdf_build_validation v WHERE v.build_id=p_build AND
- v.frozen_digest=p_frozen AND v.native_callbacks AND v.native_contract_digest=native_contract_;
-END $$;
-CREATE OR REPLACE FUNCTION ops.lookup_pdf_published_build(p_build text,p_task bigint,p_attempt \
-bigint,p_holder text)
-RETURNS SETOF ops.pdf_published_revision LANGUAGE plpgsql SECURITY DEFINER SET \
-search_path=pg_catalog,pg_temp AS $$
-BEGIN
- PERFORM ops.require_pdf_stage_owner(p_task,p_attempt,p_holder);
- RETURN QUERY SELECT * FROM ops.pdf_published_revision WHERE build_id=p_build AND task_id=p_task;
-END $$;
 """
     sql += """
 CREATE OR REPLACE VIEW ops.pdf_published_coverage AS
@@ -1571,6 +1487,7 @@ REVOKE ALL ON FUNCTION ops.pdf_publication_projection(jsonb,bigint,bigint,text) 
 """
     from .pdf_certification_native import pdf_certification_native_sql
 
+    sql += pdf_publication_controls_sql(metadata)
     sql += pdf_certification_native_sql(target_metadata=metadata)
     sql += _published_validation_sql(target_metadata=metadata)
     sql += "REVOKE ALL ON FUNCTION ops.pdf_check_build_inventory(text,text,text) FROM PUBLIC;\n"
@@ -1578,16 +1495,10 @@ REVOKE ALL ON FUNCTION ops.pdf_publication_projection(jsonb,bigint,bigint,text) 
         "check_pdf_build(text,bigint,bigint,text,text,text)",
         "pdf_validation_contract(text)",
         "pdf_projection_contract(text,text)",
-        "lookup_pdf_validation(text,bigint,bigint,text,text)",
-        "lookup_pdf_build(bigint,bigint,text,text)",
-        "lookup_pdf_frozen_digest(text,bigint,bigint,text)",
-        "lookup_pdf_frozen_kind(text,bigint,bigint,text)",
-        "lookup_pdf_published_build(text,bigint,bigint,text)",
         "prepare_pdf_companions()",
         "adopt_pdf_companions(text,bigint,bigint,text,text)",
         "prepare_pdf_build(text,bigint,bigint,text,text)",
         "read_pdf_frozen_rows(text,bigint,bigint,text,text,text,jsonb,integer,jsonb)",
-        "stage_pdf_access_batch(text,bigint,bigint,text,jsonb)",
         "validate_pdf_build(text,bigint,bigint,text,text)",
         "seal_pdf_build(text,bigint,bigint,text,text,text)",
         "read_pdf_published_revision(bigint,text,text)",
@@ -1639,8 +1550,6 @@ def pdf_record_logical_identity_sql() -> str:
 
 def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
     """Compile exact frozen inventory custody with hashing outside the owner lock."""
-    from pglast import ast, enums, parse_sql
-    from pglast.stream import RawStream
     from sqlalchemy import (
         BigInteger,
         Boolean,
@@ -1659,7 +1568,6 @@ def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
 
     from .native_program import (
         Assign,
-        Block,
         ForQuery,
         If,
         Local,
@@ -1671,7 +1579,6 @@ def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
         Sql,
         Statement,
         column_type,
-        function,
         pg_type,
     )
     from .pdf_contracts import _context_from_domain, trusted_pdf_context
@@ -1717,25 +1624,9 @@ def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
         values = func.ops.pdf_task_context(p_task) if name == "inspect" else func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder)
         return SelectInto(select(values.table_valued(*(column(field, source.type) for field, source in owner_fields.items()))), ("owner",), True)
 
-    def routine(name, parameters, returns, statements, locals_, *, writer=True):
-        declaration = parse_sql(function("ops", name, parameters=parameters, returns=returns,
-            body=Block(tuple(statements), tuple(locals_)), security_definer=True,
-            search_path=("pg_catalog", "pg_temp")))[0].stmt
-        if not isinstance(declaration, ast.CreateFunctionStmt):
-            raise ValueError("PDF frozen custody requires a typed function declaration")
-        identity = ast.ObjectWithArgs(objname=(ast.String(sval="ops"), ast.String(sval=name)), objargs=tuple(parameter.type_ for parameter in parameters), args_unspecified=False)
-        statements_ = [declaration, ast.GrantStmt(is_grant=False, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-            objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(identity,),
-            grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),), grant_option=False, behavior=enums.DropBehavior.DROP_RESTRICT)]
-        if writer:
-            statements_.append(ast.GrantStmt(is_grant=True, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-                objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(identity,), privileges=(ast.AccessPriv(priv_name="execute"),),
-                grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"),), behavior=enums.DropBehavior.DROP_RESTRICT))
-        return ";\n".join(RawStream()(statement) for statement in statements_) + ";\n"
-
     p_recipe = core_variable("p_recipe", BYTEA())
     recipe_digest = core_variable("digest_", Text())
-    out = [routine("bind_pdf_stage_recipe", (*fence[1:], Parameter("p_recipe", column_type(artifacts.c.content))), pg_type("text"), (
+    out = [_publication_control_routine("bind_pdf_stage_recipe", (*fence[1:], Parameter("p_recipe", column_type(artifacts.c.content))), pg_type("text"), (
         require_owner_query("lock"), SelectInto(select(sources).where(sources.c.task_id == p_task, sources.c.release_id == owner("release_id")), ("root_",), True),
         Perform(func.ops.require_pdf_operation(owner("release_id"), "retain_pdf_stage_recipe")),
         Perform(cast(func.convert_from(p_recipe, "UTF8"), JSONB())),
@@ -1748,7 +1639,7 @@ def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
     ), (Local("owner", pg_type("record")), Local("root_", sources), Local("digest_", pg_type("text"))))]
 
     p_frozen = core_variable("p_frozen", frozen.c.frozen_digest.type)
-    out.append(routine("require_pdf_frozen", (*fence, Parameter("p_frozen", column_type(frozen.c.frozen_digest))), pg_type(build.schema, build.name), (
+    out.append(_publication_control_routine("require_pdf_frozen", (*fence, Parameter("p_frozen", column_type(frozen.c.frozen_digest))), pg_type(build.schema, build.name), (
         require_owner_query("inspect"),
         If(not_(func.ops.pdf_stage_owner_current(p_task, p_attempt, p_holder)), (Raise("stale frozen PDF owner", "P0004"),)),
         SelectInto(select(build).where(build.c.build_id == p_build, build.c.task_id == p_task), ("b",), True),
@@ -1821,10 +1712,141 @@ def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
             If(family_count.is_distinct_from(cast(inventory_value[family].astext, BigInteger())), (Raise("PDF freeze inventory changed; retry from the current private build", "40001"),))))
     statements.extend((Sql(insert(frozen).values({frozen.c.build_id: p_build, frozen.c.frozen_digest: digest, frozen.c.kind: p_kind})),
         Sql(update(build).values({build.c.state: "frozen"}).where(build.c.build_id == p_build)), Return(digest)))
-    out.append(routine("freeze_pdf_build", (*fence, Parameter("p_kind", column_type(frozen.c.kind))), pg_type("text"), statements, (
+    out.append(_publication_control_routine("freeze_pdf_build", (*fence, Parameter("p_kind", column_type(frozen.c.kind))), pg_type("text"), statements, (
         Local("b", build), Local("owner", pg_type("record")), Local("f", pg_type("text")),
         Local("state_", pg_type("bytea"), func.ops.pdf_identity_fold_start("pdf-frozen-inventory-v1")),
         Local("body_", pg_type("jsonb")), Local("payload", pg_type("bytea")), Local("count_", pg_type("bigint"), literal(0)),
         Local("total_", pg_type("bigint"), literal(0)), Local("family_count_", pg_type("bigint")), Local("inventory_", pg_type("jsonb"), cast(literal("{}"), JSONB())),
     )))
+    return "\n".join(out)
+
+
+def _publication_control_routine(name, parameters, returns, statements, locals_, *, writer=True):
+    from pglast import ast, enums, parse_sql
+    from pglast.stream import RawStream
+
+    from .native_program import Block, function
+
+    declaration = parse_sql(function("ops", name, parameters=parameters, returns=returns,
+        body=Block(tuple(statements), tuple(locals_)), security_definer=True,
+        search_path=("pg_catalog", "pg_temp")))[0].stmt
+    if not isinstance(declaration, ast.CreateFunctionStmt):
+        raise ValueError("PDF frozen custody requires a typed function declaration")
+    identity = ast.ObjectWithArgs(objname=(ast.String(sval="ops"), ast.String(sval=name)), objargs=tuple(parameter.type_ for parameter in parameters), args_unspecified=False)
+    statements_ = [declaration, ast.GrantStmt(is_grant=False, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+        objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(identity,),
+        grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),), grant_option=False, behavior=enums.DropBehavior.DROP_RESTRICT)]
+    if writer:
+        statements_.append(ast.GrantStmt(is_grant=True, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+            objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(identity,), privileges=(ast.AccessPriv(priv_name="execute"),),
+            grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename="corpus_sem_writer"),), behavior=enums.DropBehavior.DROP_RESTRICT))
+    return ";\n".join(RawStream()(statement) for statement in statements_) + ";\n"
+
+
+
+def pdf_publication_controls_sql(model):
+    """Generate bounded projection admission and exact private build lookup controls."""
+    from pglast import ast
+    from sqlalchemy import BigInteger, Text, cast, column, exists, or_
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from .native_program import (
+        Assign,
+        ForQuery,
+        If,
+        Local,
+        Parameter,
+        Perform,
+        Raise,
+        Return,
+        ReturnQuery,
+        SelectInto,
+        Sql,
+        call,
+        column_type,
+        pg_type,
+        variable,
+    )
+
+    build = model.tables["ops.pdf_stage_build"]
+    task = model.tables["ops.task"]
+    frozen = model.tables["ops.pdf_frozen_build"]
+    validation = model.tables["ops.pdf_build_validation"]
+    published = model.tables["ops.pdf_published_revision"]
+    access = model.tables["ops.pdf_stage_access"]
+    region = model.tables["ops.pdf_stage_region"]
+    p_build, p_task, p_attempt, p_holder = (core_variable(name, field.type) for name, field in (
+        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder),
+    ))
+    fence = tuple(Parameter(name, column_type(field)) for name, field in (
+        ("p_build", build.c.build_id), ("p_task", build.c.task_id), ("p_attempt", build.c.attempt), ("p_holder", build.c.holder),
+    ))
+    owner_rows = func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder).table_valued(
+        column("release_id", task.c.release_id.type)
+    )
+    require_owner = Perform(func.ops.require_pdf_stage_owner(p_task, p_attempt, p_holder))
+    require_build = Assign("b", func.ops.require_pdf_build(p_build, p_task, p_attempt, p_holder))
+    p_frozen = core_variable("p_frozen", frozen.c.frozen_digest.type)
+    body, row, family = (core_variable(name, type_) for name, type_ in (
+        ("body_", JSONB()), ("row_", JSONB()), ("family_", Text()),
+    ))
+    payload = core_variable("p_rows", JSONB())
+    incoming = func.jsonb_array_elements(payload).table_valued(column("value", JSONB()))
+
+    def projection_statements(relation, local, family_name):
+        alias = relation.alias("r")
+        row_equal = func.to_jsonb(alias.table_valued(), type_=JSONB()) - "product_id" - "revision_id"
+        conditions = [alias.c.product_id == p_build, alias.c.revision_id == p_build,
+                      alias.c.pointer == body["pointer"].astext, row_equal == body]
+        if family_name == "region":
+            conditions.append(alias.c.region_index == cast(body["region_index"].astext, BigInteger()))
+        return (
+            Assign(local, call("pg_catalog", "jsonb_populate_record",
+                ast.TypeCast(arg=ast.A_Const(isnull=True), typeName=pg_type(relation.schema, relation.name)), variable("owned_"))),
+            Sql(insert(relation).values({field: core_variable(local, field.type, field.name) for field in relation.c}).on_conflict_do_nothing()),
+            If(~exists(select(1).select_from(alias).where(*conditions)), (Raise("changed " + family_name + " projection", "23514"),)),
+        )
+
+    out = [_publication_control_routine("stage_pdf_access_batch", (*fence, Parameter("p_rows", pg_type("jsonb"))), pg_type("void"), (
+        require_build, Perform(func.ops.require_pdf_operation(core_variable("b", build.c.release_id.type, "release_id"), "stage_pdf_producer")),
+        If(or_(func.jsonb_typeof(payload).is_distinct_from("array"), func.jsonb_array_length(payload) > 128, func.octet_length(cast(payload, Text())) > 16777216), (Raise("access projection batch exceeds profile", "P0001"),)),
+        ForQuery(("row_",), select(incoming.c.value), (
+            Assign("family_", row["family"].astext), Assign("body_", row["body"]),
+            Assign("owned_", body.op("||")(func.jsonb_build_object("product_id", p_build, "revision_id", p_build))),
+            If(family == "access", projection_statements(access, "access_", "access"), (
+                If(family == "region", projection_statements(region, "region_", "region"), (Raise("invalid projection family", "P0001"),)),
+            )),
+        )),
+    ), (Local("b", build), Local("row_", pg_type("jsonb")), Local("body_", pg_type("jsonb")),
+        Local("family_", pg_type("text")), Local("owned_", pg_type("jsonb")), Local("access_", access), Local("region_", region)))]
+
+    build_type = pg_type(build.schema, build.name)
+    build_type.setof = True
+    out.append(_publication_control_routine("lookup_pdf_build", (*fence[1:], Parameter("p_key", column_type(build.c.replay_key))), build_type, (
+        SelectInto(select(owner_rows), ("owner",), True),
+        Perform(func.ops.require_pdf_operation(core_variable("owner", task.c.release_id.type, "release_id"), "inspect_pdf_build")),
+        ReturnQuery(select(build).where(build.c.task_id == p_task, build.c.replay_key == core_variable("p_key", build.c.replay_key.type), build.c.release_id == core_variable("owner", task.c.release_id.type, "release_id"))),
+    ), (Local("owner", pg_type("record")),)))
+    for name, field in (("lookup_pdf_frozen_digest", frozen.c.frozen_digest), ("lookup_pdf_frozen_kind", frozen.c.kind)):
+        out.append(_publication_control_routine(name, fence, column_type(field), (
+            require_owner,
+            If(~exists(select(1).select_from(build).where(build.c.build_id == p_build, build.c.task_id == p_task)), (Raise("build outside task", "P0001"),)),
+            SelectInto(select(field).where(frozen.c.build_id == p_build), ("value_",)),
+            Return(core_variable("value_", field.type)),
+        ), (Local("value_", column_type(field)),)))
+    contract = core_variable("native_contract_", validation.c.native_contract_digest.type)
+    validation_type = pg_type(validation.schema, validation.name)
+    validation_type.setof = True
+    out.append(_publication_control_routine("lookup_pdf_validation", (*fence, Parameter("p_frozen", column_type(frozen.c.frozen_digest))), validation_type, (
+        Assign("b", func.ops.require_pdf_frozen(p_build, p_task, p_attempt, p_holder, p_frozen)),
+        Assign("native_contract_", func.ops.pdf_validation_contract(core_variable("b", build.c.release_id.type, "release_id"))),
+        If(exists(select(1).select_from(validation).where(validation.c.build_id == p_build, validation.c.frozen_digest == p_frozen, validation.c.native_contract_digest.is_distinct_from(contract))),
+           (Raise("PDF validation profile differs; rebuild from retained evidence in a fresh current storage build; do not alter stored pins", "23514"),)),
+        ReturnQuery(select(validation).where(validation.c.build_id == p_build, validation.c.frozen_digest == p_frozen, validation.c.native_callbacks, validation.c.native_contract_digest == contract)),
+    ), (Local("b", build), Local("native_contract_", column_type(validation.c.native_contract_digest)))))
+    published_type = pg_type(published.schema, published.name)
+    published_type.setof = True
+    out.append(_publication_control_routine("lookup_pdf_published_build", fence, published_type, (
+        require_owner, ReturnQuery(select(published).where(published.c.build_id == p_build, published.c.task_id == p_task)),
+    ), ()))
     return "\n".join(out)
