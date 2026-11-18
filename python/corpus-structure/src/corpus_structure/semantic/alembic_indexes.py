@@ -1,20 +1,27 @@
-"""Restore PostgreSQL column-index collations omitted by SQLAlchemy 2.1.6.
+"""Compare PostgreSQL indexes using reflected and declared catalog facts.
 
 The pinned dialect reflects a simple indexed column by name and omits its
 ``pg_index.indcollation`` override. Alembic otherwise proposes rebuilding the
 same collated index forever. Enrich this authoring context's reflected records
 from the actual catalog before normal index comparison; never copy the target
-collation or discard a difference. Remove when the pinned dialect reflects it.
+collation or discard a difference. Remove that enrichment when the dialect reflects it.
+
+Alembic 1.20.1 omits WHERE, USING and INCLUDE from its option comparison.
+Reuse the already-bound target index definitions to detect those differences
+through PostgreSQL ASTs and supplement ordinary comparison only when needed.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from alembic.autogenerate.compare.constraints import _make_index
 from alembic.autogenerate.compare.util import _InspectorConv
+from alembic.operations import ops
 from alembic.runtime.plugins import Plugin
 from alembic.util import DispatchPriority, PriorityDispatchResult
-from sqlalchemy import text
+from pglast import ast, parse_sql
+from sqlalchemy import func, select, text
 
 
 def restore_column_index_collations(
@@ -77,7 +84,54 @@ def restore_column_index_collations(
         sorting = index.get("column_sorting", {})
         if column in sorting:
             sorting[expression] = sorting.pop(column)
+    _compare_declared_index_definitions(context, operations, inspected, declared, indexes)
     return PriorityDispatchResult.CONTINUE
+
+
+def _parsed_index(definition) -> ast.IndexStmt:
+    (statement,) = parse_sql(definition)
+    if not isinstance(statement.stmt, ast.IndexStmt):
+        raise RuntimeError("bound index definition must contain one CREATE INDEX")
+    return statement.stmt
+
+
+def _index_shape(definition):
+    # PostgreSQL has bound both expressions and options. Names belong to the
+    # enclosing relation/index identity, independently of the physical definition.
+    statement = _parsed_index(definition)
+    statement.idxname = None
+    statement.relation = None
+    return statement
+
+
+def _compare_declared_index_definitions(context, operations, inspected, declared, reflected):
+    expected = context.migration_context.opts.get("declared_physical_indexes")
+    if expected is None:
+        return
+    declared_indexes = {str(index.name): index for index in declared.indexes}
+    impl = context.migration_context.impl
+    for declaration in expected:
+        if declaration["relation"] != declared.fullname:
+            continue
+        desired_shape = _parsed_index(declaration["definition"])
+        name = desired_shape.idxname
+        if name not in reflected or name not in declared_indexes:
+            continue
+        index = declared_indexes[name]
+        observed_index = _make_index(impl, reflected[name], inspected)
+        if observed_index is None or impl.compare_indexes(index, observed_index).is_different:
+            # Ordinary Alembic already owns a rebuild for differences it detects.
+            continue
+        current = context.connection.scalar(select(func.pg_catalog.pg_get_indexdef(
+            func.pg_catalog.to_regclass(declaration["index"])
+        )))
+        if current is None:
+            raise RuntimeError(f"reflected index disappeared: {declaration['index']}")
+        if _index_shape(current) == _index_shape(declaration["definition"]):
+            continue
+        if context.run_name_filters(name, "index", {"table_name": declared.name, "schema_name": declared.schema}) and context.run_object_filters(index, name, "index", False, observed_index):
+            operations.ops.append(ops.DropIndexOp.from_index(observed_index))
+            operations.ops.append(ops.CreateIndexOp.from_index(index))
 
 
 plugin = Plugin("corpus.semantic.index_collations")

@@ -714,6 +714,7 @@ def compare_declared_candidate(
                 privileges_plugin.name,
             ],
             "native_authoring": authoring,
+            "declared_physical_indexes": descriptor["indexes"],
             "declared_privileges": target_policies,
             "predecessor_privileges": before_policies,
             "legacy_privilege_tables": old_descriptor["tables"],

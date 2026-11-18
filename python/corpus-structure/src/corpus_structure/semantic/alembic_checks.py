@@ -60,8 +60,8 @@ def compare_existing_checks(
         if desired[key] == existing[key]:
             continue
         constraint = constraints[key]
-        if context.run_object_filters(constraint, constraint.name, "check_constraint", False, None):
-            previous = CheckConstraint(existing[key], name=key, table=inspected)
+        previous = CheckConstraint(existing[key], name=key, table=inspected)
+        if context.run_name_filters(key, "check_constraint", {"table_name": name, "schema_name": schema}) and context.run_object_filters(constraint, constraint.name, "check_constraint", False, previous):
             operations.ops.append(ops.DropConstraintOp.from_constraint(previous))
             operations.ops.append(ops.CreateCheckConstraintOp.from_constraint(constraint))
     return PriorityDispatchResult.CONTINUE

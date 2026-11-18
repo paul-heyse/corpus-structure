@@ -123,4 +123,45 @@ def test_postgresql_same_name_check_change_has_ordered_drop_and_create(semantic_
         (table_changes,) = changed.upgrade_ops.ops
         assert isinstance(table_changes, ModifyTableOps)
         assert [type(operation) for operation in table_changes.ops] == [DropConstraintOp, CreateCheckConstraintOp]
-        assert [operation.constraint_name for operation in table_changes.ops] == ["ordered_span", "ordered_span"]
+        first, second = table_changes.ops
+        assert isinstance(first, DropConstraintOp) and first.constraint_name == "ordered_span"
+        assert isinstance(second, CreateCheckConstraintOp) and second.constraint_name == "ordered_span"
+
+
+@pytest.mark.parametrize("changed_option", ["predicate", "include", "method", "expression"])
+def test_postgresql_index_changes_use_declared_bound_catalog(semantic_bare_engine, changed_option):
+    from alembic.autogenerate import produce_migrations
+    from alembic.migration import MigrationContext
+    from alembic.operations.ops import CreateIndexOp, DropIndexOp, ModifyTableOps
+    from sqlalchemy.schema import CreateSchema
+
+    from corpus_structure.semantic.alembic_indexes import plugin
+    from corpus_structure.semantic.native_authoring import _declared_physical_catalog
+
+    original = compile_checks([], [{"name": "ix_span", "columns": ["start"], "where": {"op": "ge", "args": [{"field": "start"}, {"value": 0}]}}])
+    change = {
+        "predicate": {"columns": ["start"], "where": {"op": "gt", "args": [{"field": "start"}, {"value": 0}]}},
+        "include": {"columns": ["start"], "include": ["end"]},
+        "method": {"columns": ["start"], "using": "hash"},
+        "expression": {"expression": {"op": "gt", "args": [{"field": "start"}, {"value": 0}]}},
+    }[changed_option]
+    proposed = compile_checks([], [{"name": "ix_span", **change}])
+    with semantic_bare_engine.begin() as connection:
+        connection.execute(CreateSchema("data"))
+        original.create(connection)
+        def compare(relation):
+            indexes = _declared_physical_catalog(connection, relation.metadata).indexes
+            context = MigrationContext.configure(connection, opts={
+                "include_schemas": True,
+                "include_name": lambda name, kind, parents: name == "data" if kind == "schema" else True,
+                "autogenerate_plugins": ["alembic.autogenerate.*", plugin.name],
+                "declared_physical_indexes": indexes,
+            })
+            return produce_migrations(context, relation.metadata)
+        unchanged = compare(original)
+        assert unchanged.upgrade_ops is not None and unchanged.upgrade_ops.is_empty()
+        changed = compare(proposed)
+        assert changed.upgrade_ops is not None
+        (table_changes,) = changed.upgrade_ops.ops
+        assert isinstance(table_changes, ModifyTableOps)
+        assert [type(operation) for operation in table_changes.ops] == [DropIndexOp, CreateIndexOp]
