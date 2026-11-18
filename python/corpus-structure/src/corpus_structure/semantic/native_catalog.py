@@ -27,7 +27,7 @@ class _CatalogType(UserDefinedType):
     cache_ok = True
 
     def __init__(self, name):
-        if name not in {'"char"', "aclitem[]", "regproc", "regprocedure", "pg_node_tree"}:
+        if name not in {'"char"', "aclitem[]", "regproc", "regprocedure", "pg_node_tree", "name"}:
             raise ValueError("unsupported catalog type")
         self.name = name
 
@@ -35,11 +35,11 @@ class _CatalogType(UserDefinedType):
         return self.name
 
 
-def _catalog(name, **columns):
-    return table(name, *(column(name, kind) for name, kind in columns.items()), schema="pg_catalog")
+def _catalog(catalog_name, **columns):
+    return table(catalog_name, *(column(name, kind) for name, kind in columns.items()), schema="pg_catalog")
 
 
-namespace = _catalog("pg_namespace", oid=OID, nspname=Text, nspowner=OID)
+namespace = _catalog("pg_namespace", oid=OID, nspname=Text, nspowner=OID, nspacl=_CatalogType("aclitem[]"))
 relation = _catalog(
     "pg_class",
     oid=OID,
@@ -345,3 +345,113 @@ def native_scope_dependencies(records):
         .where(dependent.c.position != prerequisite.c.position)
         .distinct()
     )
+
+
+attribute = _catalog(
+    "pg_attribute", attrelid=OID, attname=Text, attnum=Integer, attisdropped=Boolean,
+    attacl=_CatalogType("aclitem[]"),
+)
+
+
+def privilege_object(kind, name):
+    if kind == "schema":
+        return select(namespace.c.oid, pg.pg_get_userbyid(namespace.c.nspowner).label("owner")).where(namespace.c.nspname == name)
+    return select(relation.c.oid, pg.pg_get_userbyid(relation.c.relowner).label("owner")).where(relation.c.oid == pg.to_regclass(name))
+
+
+def privilege_acl(kind, name, *, columns=False, owner_columns=None):
+    """Observe grantor edges and effective ACL rows with their actual object owner."""
+    if kind == "schema":
+        target, owner, acl, code = namespace, namespace.c.nspowner, namespace.c.nspacl, "n"
+        predicate = namespace.c.nspname == name
+    else:
+        target, owner, acl, code = relation, relation.c.relowner, relation.c.relacl, "r"
+        predicate = relation.c.oid == pg.to_regclass(name)
+    if columns:
+        target = relation.join(attribute, attribute.c.attrelid == relation.c.oid)
+        acl = attribute.c.attacl
+    else:
+        acl = func.coalesce(acl, pg.acldefault(cast(code, _CatalogType('"char"')), owner))
+    edges = pg.aclexplode(acl).table_valued("grantor", "grantee", "privilege_type", "is_grantable").lateral("acl")
+    selected = select(
+        pg.pg_get_userbyid(edges.c.grantor).label("grantor"),
+        case((edges.c.grantee == 0, literal("PUBLIC")), else_=pg.pg_get_userbyid(edges.c.grantee)).label("grantee"),
+        edges.c.privilege_type.label("privilege"), edges.c.is_grantable.label("grantable"),
+        (attribute.c.attname if columns else literal(None, Text)).label("column"),
+        pg.pg_get_userbyid(owner).label("owner"),
+    ).select_from(target.join(edges, true())).where(predicate)
+    if columns:
+        selected = selected.where(attribute.c.attnum > 0, ~attribute.c.attisdropped)
+    if owner_columns is not None:
+        selected = selected.where(edges.c.grantee == owner if owner_columns else edges.c.grantee != owner)
+    elif not columns:
+        selected = selected.where(edges.c.grantee != owner)
+    return selected
+
+
+types = _catalog("pg_type", oid=OID, typname=Text, typtype=Text)
+extension = _catalog("pg_extension", extname=Text, extversion=Text, extnamespace=OID)
+available_extension = _catalog("pg_available_extension_versions", name=Text, version=Text)
+
+
+def trigger_check_context(parent, name):
+    selected = _catalog(
+        "pg_trigger", tgfoid=OID, tgrelid=OID, tgname=Text, tgisinternal=Boolean,
+        tgoldtable=Text, tgnewtable=Text,
+    )
+    return select(
+        selected.c.tgfoid.label("function_oid"),
+        cast(cast(selected.c.tgrelid, REGCLASS), Text).label("relation"),
+        selected.c.tgoldtable, selected.c.tgnewtable,
+    ).where(selected.c.tgrelid == cast(literal(parent, Text), REGCLASS), selected.c.tgname == name, ~selected.c.tgisinternal)
+
+
+def routine_check_context(signature):
+    selected = _catalog("pg_proc", oid=OID, prolang=OID, prorettype=OID, proargtypes=ARRAY(OID))
+    argument = pg.unnest(selected.c.proargtypes).table_valued(column("oid", OID)).render_derived("argument")
+    pseudo = select(1).select_from(argument.join(types, types.c.oid == argument.c.oid)).where(types.c.typtype == "p").exists()
+    return select(
+        selected.c.oid.label("function_oid"), language.c.lanname,
+        types.c.typname.label("result_type"), pseudo.label("pseudo_argument"),
+    ).select_from(selected.join(language, language.c.oid == selected.c.prolang).join(types, types.c.oid == selected.c.prorettype)).where(selected.c.oid == cast(literal(signature, Text), _CatalogType("regprocedure")))
+
+
+def checker_extension():
+    return select(extension.c.extversion, namespace.c.nspname).select_from(
+        extension.join(namespace, namespace.c.oid == extension.c.extnamespace)
+    ).where(extension.c.extname == "plpgsql_check")
+
+
+def checker_available():
+    return select(select(1).select_from(available_extension).where(
+        available_extension.c.name == "plpgsql_check", available_extension.c.version == "2.10",
+    ).exists())
+
+
+def checker_diagnostics(schema, signature, context):
+    from pglast import ast
+    from pglast.stream import RawStream
+    from sqlalchemy import literal_column
+
+    inputs = (
+        ("relid", context["relation"] if context else "0", "regclass"),
+        ("oldtable", context["tgoldtable"] if context else None, "name"),
+        ("newtable", context["tgnewtable"] if context else None, "name"),
+        ("fatal_errors", False, None), ("without_warnings", True, None),
+        ("use_incomment_options", False, None),
+    )
+    # PostgreSQL's NamedArgExpr supplies call syntax absent from Core's function API.
+    arguments = []
+    for name, value, type_name in inputs:
+        if isinstance(value, bool):
+            expression = ast.A_Const(val=ast.Boolean(boolval=value))
+        else:
+            constant = ast.A_Const(isnull=True) if value is None else ast.A_Const(val=ast.String(sval=value))
+            expression = ast.TypeCast(arg=constant, typeName=ast.TypeName(
+                names=(ast.String(sval="pg_catalog"), ast.String(sval=type_name)), typemod=-1,
+            ))
+        arguments.append(literal_column(RawStream()(ast.NamedArgExpr(arg=expression, name=name, argnumber=-1))))
+    checker = getattr(func, schema).plpgsql_check_function_tb(
+        cast(literal(signature, Text), _CatalogType("regprocedure")), *arguments,
+    ).table_valued("sqlstate", "lineno", "message", "level").alias("diagnostic")
+    return select(checker.c.sqlstate, checker.c.lineno, checker.c.message).where(checker.c.level == "error").limit(9)

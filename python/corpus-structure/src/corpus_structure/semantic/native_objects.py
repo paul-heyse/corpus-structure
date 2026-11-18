@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, replace
 
 from pglast import ast, enums
 from pglast.stream import RawStream
-from sqlalchemy import Connection, Integer, cast, func, literal, select, text
+from sqlalchemy import Connection, Integer, cast, func, literal, select
 from sqlalchemy.dialects.postgresql import OID, dialect
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import DBAPIError
@@ -44,6 +44,74 @@ def native_sql_script(statements: Iterable[str]) -> str:
     return "\n".join(statement.rstrip(";\n") + ";" for statement in statements)
 
 
+def native_role_sql(role: str) -> str:
+    return RawStream()(ast.VariableSetStmt(
+        kind=enums.VariableSetKind.VAR_SET_VALUE, name="role", is_local=True,
+        args=(ast.A_Const(val=ast.String(sval=role)),),
+    ))
+
+
+def _native_target(identity: NativeIdentity):
+    if identity.kind == "function":
+        types = []
+        for argument in identity.arguments:
+            parsed = prepare_sql("SELECT NULL::" + argument, source="native argument type").statements
+            if len(parsed) != 1 or not isinstance(parsed[0].stmt, ast.SelectStmt):
+                raise NativeAuthoringError("invalid native argument type")
+            projection = parsed[0].stmt
+            if not projection.targetList or len(projection.targetList) != 1 or projection.fromClause:
+                raise NativeAuthoringError("invalid native argument type")
+            value = projection.targetList[0].val
+            if not isinstance(value, ast.TypeCast):
+                raise NativeAuthoringError("invalid native argument type")
+            types.append(value.typeName)
+        return ast.ObjectWithArgs(
+            objname=(ast.String(sval=identity.schema), ast.String(sval=identity.name)),
+            objargs=tuple(types), args_unspecified=False,
+        )
+    if identity.kind == "schema":
+        return ast.String(sval=identity.name)
+    return ast.RangeVar(schemaname=identity.schema, relname=identity.name, inh=True)
+
+
+def native_privilege_sql(
+    identity: NativeIdentity, grantee: str, privilege: str | None = None, *,
+    grant: bool = True, grant_option: bool = False, column: str | None = None,
+) -> str:
+    kinds = {"function": enums.ObjectType.OBJECT_FUNCTION, "schema": enums.ObjectType.OBJECT_SCHEMA,
+             "table": enums.ObjectType.OBJECT_TABLE, "view": enums.ObjectType.OBJECT_TABLE}
+    if identity.kind not in kinds:
+        raise NativeAuthoringError("unsupported privilege object")
+    role = ast.RoleSpec(
+        roletype=enums.RoleSpecType.ROLESPEC_PUBLIC if grantee == "PUBLIC" else enums.RoleSpecType.ROLESPEC_CSTRING,
+        rolename=None if grantee == "PUBLIC" else grantee,
+    )
+    return RawStream()(ast.GrantStmt(
+        is_grant=grant, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+        objtype=kinds[identity.kind], objects=(_native_target(identity),),
+        privileges=None if privilege is None else (ast.AccessPriv(
+            priv_name=privilege.lower(), cols=None if column is None else (ast.String(sval=column),),
+        ),),
+        grantees=(role,), grant_option=grant_option, behavior=enums.DropBehavior.DROP_RESTRICT,
+    ))
+
+
+def native_owner_sql(identity: NativeIdentity, owner: str) -> str:
+    role = ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=owner)
+    if identity.kind == "function":
+        statement = ast.AlterOwnerStmt(
+            objectType=enums.ObjectType.OBJECT_FUNCTION, object=_native_target(identity), newowner=role,
+        )
+    elif identity.kind in {"table", "view"}:
+        statement = ast.AlterTableStmt(
+            relation=ast.RangeVar(schemaname=identity.schema, relname=identity.name, inh=True), objtype=enums.ObjectType.OBJECT_VIEW if identity.kind == "view" else enums.ObjectType.OBJECT_TABLE,
+            cmds=(ast.AlterTableCmd(subtype=enums.AlterTableType.AT_ChangeOwner, newowner=role),),
+        )
+    else:
+        raise NativeAuthoringError("unsupported native ownership object")
+    return RawStream()(statement)
+
+
 @contextmanager
 def native_owner(connection: Connection, owner: str | None):
     """Apply object effects as their explicit owner, then restore the caller's role.
@@ -53,10 +121,10 @@ def native_owner(connection: Connection, owner: str | None):
     makes the complete privilege effects real. A database error requires caller rollback,
     which also restores SET LOCAL state; never hide it with a failed cleanup statement.
     """
-    previous = connection.scalar(text("SELECT current_setting('role')"))
-    changed = owner is not None and owner != connection.scalar(text("SELECT current_user"))
+    previous = connection.scalar(select(func.current_setting("role")))
+    changed = owner is not None and owner != connection.scalar(select(func.current_user()))
     if changed:
-        execute_native_sql(connection, "SET LOCAL ROLE " + _quote(owner))
+        execute_native_sql(connection, native_role_sql(owner))
     failed = False
     try:
         yield
@@ -65,8 +133,7 @@ def native_owner(connection: Connection, owner: str | None):
         raise
     finally:
         if changed and not failed:
-            role = "NONE" if previous == "none" else _quote(previous)
-            execute_native_sql(connection, "SET LOCAL ROLE " + role)
+            execute_native_sql(connection, native_role_sql(previous))
 
 
 def execute_native_trigger(connection: Connection, sql: str) -> None:
@@ -83,8 +150,9 @@ def execute_native_trigger(connection: Connection, sql: str) -> None:
     statement = tree[0].stmt
     if not statement.funcname:
         raise NativeAuthoringError("native trigger function name is absent")
-    signature = ".".join(_quote(part.sval) for part in statement.funcname) + "()"
-    principal = connection.scalar(text("SELECT current_user"))
+    identity = NativeIdentity("function", *(part.sval for part in statement.funcname))
+    signature = identity.qualified
+    principal = connection.execute(select(func.current_user())).scalar_one()
     permitted = connection.scalar(
         select(catalog_queries.pg.has_function_privilege(principal, signature, "EXECUTE"))
     )
@@ -94,7 +162,7 @@ def execute_native_trigger(connection: Connection, sql: str) -> None:
     function = connection.execute(catalog_queries.function_observation(signature)).mappings().one()
     with native_owner(connection, function["owner"]):
         execute_native_sql(
-            connection, "GRANT EXECUTE ON FUNCTION " + signature + " TO " + _quote(principal)
+            connection, native_privilege_sql(identity, principal, "EXECUTE")
         )
     try:
         execute_native_sql(connection, sql)
@@ -104,7 +172,7 @@ def execute_native_trigger(connection: Connection, sql: str) -> None:
     else:
         with native_owner(connection, function["owner"]):
             execute_native_sql(
-                connection, "REVOKE EXECUTE ON FUNCTION " + signature + " FROM " + _quote(principal)
+                connection, native_privilege_sql(identity, principal, "EXECUTE", grant=False)
             )
 
 
@@ -123,14 +191,19 @@ class NativeIdentity:
 
     @property
     def drop_sql(self) -> str:
-        if self.kind == "trigger":
-            return (
-                f"DROP TRIGGER {_quote(self.name)} ON "
-                f"{_quote(self.schema)}.{_quote(self.relation or '')}"
-            )
-        if self.kind not in {"function", "view"}:
+        kinds = {"function": enums.ObjectType.OBJECT_FUNCTION, "view": enums.ObjectType.OBJECT_VIEW,
+                 "trigger": enums.ObjectType.OBJECT_TRIGGER}
+        if self.kind not in kinds:
             raise NativeAuthoringError(f"unsupported native object {self.kind}")
-        return f"DROP {self.kind.upper()} {self.qualified}"
+        target = _native_target(self) if self.kind == "function" else tuple(
+            ast.String(sval=value) for value in (
+                (self.schema, self.relation or "", self.name) if self.kind == "trigger"
+                else (self.schema, self.name)
+            )
+        )
+        return RawStream()(ast.DropStmt(
+            objects=(target,), removeType=kinds[self.kind], behavior=enums.DropBehavior.DROP_RESTRICT,
+        ))
 
     def payload(self) -> dict:
         return asdict(self)
@@ -227,27 +300,20 @@ class NativeDefinition:
     def install_sql(self) -> tuple[str, ...]:
         result = [self.sql]
         if self.identity.kind == "trigger":
-            action = {"O": "ENABLE", "D": "DISABLE", "R": "ENABLE REPLICA", "A": "ENABLE ALWAYS"}[
-                self.enabled
-            ]
-            relation = _quote(self.identity.schema) + "." + _quote(self.identity.relation or "")
-            result.append(f"ALTER TABLE {relation} {action} TRIGGER {_quote(self.identity.name)}")
+            action = {"O": enums.AlterTableType.AT_EnableTrig, "D": enums.AlterTableType.AT_DisableTrig,
+                      "R": enums.AlterTableType.AT_EnableReplicaTrig, "A": enums.AlterTableType.AT_EnableAlwaysTrig}[self.enabled]
+            result.append(RawStream()(ast.AlterTableStmt(
+                relation=ast.RangeVar(schemaname=self.identity.schema, relname=self.identity.relation, inh=True),
+                objtype=enums.ObjectType.OBJECT_TABLE,
+                cmds=(ast.AlterTableCmd(subtype=action, name=self.identity.name),),
+            )))
         else:
-            target = self.identity.kind.upper() + " " + self.identity.qualified
-            result.append(f"ALTER {target} OWNER TO {_quote(self.owner or '')}")
-            target = (
-                ("FUNCTION" if self.identity.kind == "function" else "TABLE")
-                + " "
-                + self.identity.qualified
+            result.append(native_owner_sql(self.identity, self.owner or ""))
+            result.append(native_privilege_sql(self.identity, "PUBLIC", grant=False))
+            result.extend(
+                native_privilege_sql(self.identity, grantee, privilege, grant_option=option)
+                for grantee, privilege, option in self.grants
             )
-            # Fresh normalization starts from default ACLs, then sets the complete desired ACL.
-            result.append(f"REVOKE ALL ON {target} FROM PUBLIC")
-            for grantee, privilege, option in self.grants:
-                role = "PUBLIC" if grantee == "PUBLIC" else _quote(grantee)
-                result.append(
-                    f"GRANT {privilege} ON {target} TO {role}"
-                    + (" WITH GRANT OPTION" if option else "")
-                )
         return tuple(result)
 
 
@@ -410,16 +476,10 @@ def set_native_acl(
     installed = observe_native(connection, identity, catalog_version=catalog_version)
     if installed is None:
         raise NativeAuthoringError(f"cannot grant an absent native object: {identity.qualified}")
-    target = ("FUNCTION" if identity.kind == "function" else "TABLE") + " " + identity.qualified
     for grantee in sorted({grant[0] for grant in installed["acl"]}):
-        role = "PUBLIC" if grantee == "PUBLIC" else _quote(grantee)
-        execute_native_sql(connection, f"REVOKE ALL ON {target} FROM {role}")
+        execute_native_sql(connection, native_privilege_sql(identity, grantee, grant=False))
     for grantee, privilege, option in grants:
-        role = "PUBLIC" if grantee == "PUBLIC" else _quote(grantee)
-        execute_native_sql(
-            connection,
-            f"GRANT {privilege} ON {target} TO {role}" + (" WITH GRANT OPTION" if option else ""),
-        )
+        execute_native_sql(connection, native_privilege_sql(identity, grantee, privilege, grant_option=option))
 
 
 def _declared_acl(connection: Connection, definition: NativeDefinition):
@@ -580,7 +640,7 @@ def _require_owned_authoring(connection: Connection, owned_authoring: bool) -> N
         raise NativeAuthoringError(
             "native preparation requires an explicitly owned authoring database"
         )
-    principal = connection.scalar(text("SELECT current_user"))
+    principal = connection.execute(select(func.current_user())).scalar_one()
     if principal in {
         "corpus_sem_reader",
         "corpus_sem_writer",
@@ -700,16 +760,10 @@ def _check_plpgsql_authoring(
     for trigger in triggers if trigger_contexts else ():
         context = (
             connection.execute(
-                text("""SELECT t.tgfoid AS function_oid,
-            t.tgrelid::regclass::text AS relation, t.tgoldtable, t.tgnewtable
-            FROM pg_trigger t WHERE t.tgrelid=CAST(:relation AS regclass)
-            AND t.tgname=:name AND NOT t.tgisinternal"""),
-                {
-                    "relation": _quote(trigger.identity.schema)
-                    + "."
-                    + _quote(trigger.identity.relation or ""),
-                    "name": trigger.identity.name,
-                },
+                catalog_queries.trigger_check_context(
+                    _quote(trigger.identity.schema) + "." + _quote(trigger.identity.relation or ""),
+                    trigger.identity.name,
+                ),
             )
             .mappings()
             .one()
@@ -721,13 +775,7 @@ def _check_plpgsql_authoring(
             continue
         metadata = (
             connection.execute(
-                text("""SELECT p.oid AS function_oid, l.lanname, t.typname AS result_type,
-                EXISTS (SELECT FROM unnest(p.proargtypes) argument(oid)
-                    JOIN pg_type a ON a.oid=argument.oid WHERE a.typtype='p') AS pseudo_argument
-                FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang
-                JOIN pg_type t ON t.oid=p.prorettype
-                WHERE p.oid=CAST(:signature AS regprocedure)"""),
-                {"signature": item.identity.qualified},
+                catalog_queries.routine_check_context(item.identity.qualified),
             )
             .mappings()
             .one()
@@ -768,24 +816,24 @@ def _check_plpgsql_authoring(
         return
     extension = (
         connection.execute(
-            text("""SELECT e.extversion, n.nspname
-        FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace
-        WHERE e.extname='plpgsql_check'""")
+            catalog_queries.checker_extension()
         )
         .mappings()
         .one_or_none()
     )
     if extension is None:
-        available = connection.scalar(
-            text("""SELECT EXISTS(SELECT FROM
-            pg_available_extension_versions WHERE name='plpgsql_check' AND version='2.10')""")
-        )
+        available = connection.scalar(catalog_queries.checker_available())
         if not available:
             raise NativeAuthoringError(
                 "PL/pgSQL authoring requires available plpgsql_check extension version 2.10"
             )
         execute_native_sql(
-            connection, "CREATE EXTENSION plpgsql_check WITH SCHEMA public VERSION '2.10'"
+            connection, RawStream()(ast.CreateExtensionStmt(
+                extname="plpgsql_check", options=(
+                    ast.DefElem(defname="schema", arg=ast.String(sval="public")),
+                    ast.DefElem(defname="new_version", arg=ast.String(sval="2.10")),
+                ),
+            ))
         )
         schema = "public"
     else:
@@ -794,24 +842,13 @@ def _check_plpgsql_authoring(
                 "PL/pgSQL authoring requires plpgsql_check extension version 2.10"
             )
         schema = extension["nspname"]
-    checker = _quote(schema) + ".plpgsql_check_function_tb"
     diagnostics = []
     omissions = []
     error_count = 0
     for index, (item, context) in enumerate(selected):
         errors = (
             connection.execute(
-                text(f"""SELECT sqlstate, lineno, message FROM {checker}(
-                CAST(:signature AS regprocedure), relid=>CAST(:relation AS regclass),
-                oldtable=>CAST(:oldtable AS name), newtable=>CAST(:newtable AS name), fatal_errors=>false,
-                without_warnings=>true, use_incomment_options=>false)
-                WHERE level='error' LIMIT 9"""),
-                {
-                    "signature": item.identity.qualified,
-                    "relation": context["relation"] if context else "0",
-                    "oldtable": context["tgoldtable"] if context else None,
-                    "newtable": context["tgnewtable"] if context else None,
-                },
+                catalog_queries.checker_diagnostics(schema, item.identity.qualified, context),
             )
             .mappings()
             .all()
@@ -980,20 +1017,10 @@ def prepare_native_authoring(
                         statement
                         for statement in statements
                         if statement
-                        != (
-                            f"GRANT EXECUTE ON FUNCTION {item.identity.qualified} "
-                            f"TO {_quote(migration_owner)}"
-                        )
+                        != native_privilege_sql(item.identity, migration_owner, "EXECUTE")
                     )
                     if item.bind_owner:
-                        owner_statement = (
-                            "ALTER "
-                            + item.identity.kind.upper()
-                            + " "
-                            + item.identity.qualified
-                            + " OWNER TO "
-                            + _quote(migration_owner)
-                        )
+                        owner_statement = native_owner_sql(item.identity, migration_owner)
                         statements = tuple(s for s in statements if s != owner_statement)
                 result.append(
                     NativeObject(

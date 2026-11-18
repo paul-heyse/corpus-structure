@@ -65,3 +65,31 @@ LANGUAGE sql AS $$SELECT a+1$$;
     assert renamed["owner"] == "owner X"
     assert renamed["execute_roles"] == ["reader X"]
     assert functions['"odd S".before_name(integer,text)'] == overload
+
+
+def test_administration_nodes_preserve_quoted_identity_types_and_column_acl():
+    from pglast import ast, enums, parse_sql
+
+    from corpus_structure.semantic.native_objects import (
+        NativeIdentity,
+        native_owner_sql,
+        native_privilege_sql,
+        native_role_sql,
+    )
+
+    function = NativeIdentity("function", "odd S", "f :%", ("integer", "text[]"))
+    grant = parse_sql(native_privilege_sql(function, "reader X", "EXECUTE", grant_option=True))[0].stmt
+    assert isinstance(grant, ast.GrantStmt)
+    assert grant.grant_option and grant.grantees[0].rolename == "reader X"
+    assert [part.sval for part in grant.objects[0].objname] == ["odd S", "f :%"]
+    assert grant.objects[0].objargs[1].arrayBounds
+    owner = parse_sql(native_owner_sql(function, "owner X"))[0].stmt
+    assert owner.newowner.rolename == "owner X"
+    assert parse_sql(function.drop_sql)[0].stmt.removeType == enums.ObjectType.OBJECT_FUNCTION
+    table = NativeIdentity("table", "odd S", "t :%")
+    revoke = parse_sql(native_privilege_sql(table, "PUBLIC", "REFERENCES", grant=False, column="x :%"))[0].stmt
+    assert not revoke.is_grant and revoke.behavior == enums.DropBehavior.DROP_RESTRICT
+    assert revoke.grantees[0].roletype == enums.RoleSpecType.ROLESPEC_PUBLIC
+    assert revoke.privileges[0].cols[0].sval == "x :%"
+    role = parse_sql(native_role_sql("role's X"))[0].stmt
+    assert role.is_local and role.args[0].val.sval == "role's X"
