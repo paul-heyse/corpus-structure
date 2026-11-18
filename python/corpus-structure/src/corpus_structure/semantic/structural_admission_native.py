@@ -1,13 +1,27 @@
 """Exact tagged structural statement lowering and protected native admission guards."""
 
 from pglast.stream import RawStream
-from sqlalchemy import Boolean, Text, cast, column, func, literal, or_, select, union_all
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Integer,
+    Text,
+    cast,
+    column,
+    exists,
+    func,
+    literal,
+    or_,
+    select,
+    union_all,
+)
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array, distinct_on
 
 from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
+    CatchStrictLookup,
     ForQuery,
     If,
     Local,
@@ -16,6 +30,7 @@ from .native_program import (
     Return,
     SelectInto,
     Statement,
+    core_relation_row,
     core_variable,
     function,
     pg_type,
@@ -863,6 +878,268 @@ def _structural_command_helpers(model):
     )
 
 
+def _completion_row(name, table, field=None):
+    return core_variable(
+        name, table.table_valued().type if field is None else table.c[field].type, field
+    )
+
+
+def _completion_lookup(name, table, *conditions, relation=None):
+    return SelectInto(
+        select(core_relation_row(table))
+        .select_from(table if relation is None else relation)
+        .where(*conditions),
+        (name,),
+        strict=True,
+    )
+
+
+def _completion_refusal(condition, message, sqlstate="23514"):
+    return If(condition, (Raise(message, sqlstate),))
+
+
+def _completion_program(name, requests, steps, locals_):
+    parameters = (
+        Parameter("r", pg_type(str(requests.schema), requests.name)),
+        Parameter("completion", pg_type("jsonb")),
+    )
+    return (
+        native_sql_script(
+            (
+                function(
+                    "ops",
+                    name,
+                    parameters=parameters,
+                    returns=pg_type("void"),
+                    body=Block(
+                        (
+                            CatchStrictLookup(
+                                tuple(steps),
+                                (
+                                    Raise(
+                                        "dossier admission cannot resolve exact ordinary issuer/report custody"
+                                        if name == "ddo_require_structural_dossier_completion"
+                                        else "structural admission cannot resolve exact original custody",
+                                        "23514",
+                                    ),
+                                ),
+                            ),
+                        ),
+                        tuple(locals_),
+                    ),
+                    volatility="stable",
+                    security_definer=True,
+                    search_path=("pg_catalog", "pg_temp"),
+                ),
+                native_privilege_sql(
+                    NativeIdentity(
+                        "function", "ops", name, tuple(RawStream()(p.type_) for p in parameters)
+                    ),
+                    "PUBLIC",
+                    grant=False,
+                ),
+            )
+        )
+        + "\n"
+    )
+
+
+def _structural_dossier_completion(model):
+    from .declared_structural_admission import ADMISSION_KIND
+
+    definitions, requests, products, kinds, episodes, outputs, receipts, intents = (
+        model.tables[name]
+        for name in (
+            "sem.data_operation_definition",
+            "ops.data_request",
+            "kb.data_product",
+            "sem.data_kind_contract",
+            "ops.data_derivation",
+            "ops.data_derivation_output",
+            "ops.data_publication_receipt",
+            "ops.data_completion_intent",
+        )
+    )
+
+    def r(field=None):
+        return _completion_row("r", requests, field)
+
+    def d(field):
+        return _completion_row("definition", definitions, field)
+
+    def conclusion(field=None):
+        return _completion_row("conclusion", products, field)
+
+    def comparison(field=None):
+        return _completion_row("comparison_product", products, field)
+
+    completion = core_variable("completion", JSONB())
+    selected = core_variable("selected", JSONB())
+    admission = core_variable("admission_value", JSONB())
+    count = core_variable("actual_count", BigInteger())
+    support_contract = d("support_contract")
+    factory = support_contract["capabilities"]["prepared_factory"]
+    inputs = _items(completion["inputs"], "inputs_")
+    supports = (
+        func.ops.ddo_input_support_refs(r("binding"), selected)
+        .table_valued(column("value", JSONB()))
+        .render_derived(name="supports_")
+    )
+    issuer = definitions.alias("issuer")
+    other = outputs.alias("other")
+    issuer_join = (
+        episodes.join(outputs, outputs.c.derivation_id == episodes.c.id)
+        .join(
+            receipts,
+            (receipts.c.derivation_id == episodes.c.id)
+            & (receipts.c.intent_id == episodes.c.intent_id),
+        )
+        .join(intents, intents.c.id == episodes.c.intent_id)
+        .join(requests, requests.c.id == episodes.c.request_id)
+        .join(
+            issuer,
+            (issuer.c.release_id == episodes.c.release_id)
+            & (issuer.c.operation_id == requests.c.operation_id),
+        )
+    )
+    issuer_count = (
+        select(func.count())
+        .select_from(issuer_join)
+        .where(
+            outputs.c.product_id == conclusion("id"),
+            outputs.c.member_id.is_(None),
+            outputs.c.role == "admission",
+            outputs.c.position == 0,
+            outputs.c.multiplicity == 1,
+            episodes.c.outcome == "success",
+            issuer.c.command_class == "structural",
+            episodes.c.recipe == issuer.c.recipe,
+            intents.c.payload["implementation_revision"].astext == issuer.c.implementation_revision,
+            select(func.count())
+            .select_from(other)
+            .where(other.c.derivation_id == episodes.c.id)
+            .correlate(episodes)
+            .scalar_subquery()
+            == 1,
+            func.data.ddo_normalize(intents.c.payload["outputs"][0]["product"]["body"])
+            == conclusion("canonical_body"),
+            exists(
+                select(1)
+                .select_from(supports)
+                .where(
+                    supports.c.value["kind"].astext == "computation",
+                    supports.c.value["derivation_id"].astext == episodes.c.id,
+                )
+            ),
+        )
+    )
+    return _completion_program(
+        "ddo_require_structural_dossier_completion",
+        requests,
+        (
+            If(r("operation_id") != "structure.dossier/declared", (Return(),)),
+            _completion_lookup(
+                "definition",
+                definitions,
+                definitions.c.release_id == r("release_id"),
+                definitions.c.operation_id == r("operation_id"),
+            ),
+            _completion_refusal(
+                or_(
+                    d("profile").is_distinct_from("derivation"),
+                    support_contract["effects"].is_distinct_from(_json("[]")),
+                    factory["entrypoint"].astext.is_distinct_from(
+                        "corpus_structure.methods.dossier_declared.DossierOperation.acquire_port"
+                    ),
+                    factory["source_digest"].astext.op("~")("^[0-9a-f]{64}$").is_not(True),
+                    d("implementation_revision").like("implementation-slice:%").is_not(True),
+                ),
+                "structural dossier requires its actual captured preparation factory",
+            ),
+            ForQuery(
+                ("selected",),
+                select(inputs.c.value).where(inputs.c.value["role"].astext == "admissions"),
+                (
+                    _completion_refusal(
+                        or_(
+                            selected["member_id"].astext.is_not(None),
+                            cast(selected["multiplicity"].astext, Integer()).is_distinct_from(1),
+                        ),
+                        "dossier admission requires an exact whole conclusion",
+                    ),
+                    _completion_lookup(
+                        "conclusion",
+                        products,
+                        products.c.id == selected["product_id"].astext,
+                        products.c.project_id == r("project_id"),
+                    ),
+                    _completion_refusal(
+                        ~exists(
+                            select(1)
+                            .select_from(kinds)
+                            .where(
+                                kinds.c.kind_contract == conclusion("kind_contract"),
+                                kinds.c.kind == ADMISSION_KIND,
+                                kinds.c.universe == "ordinary",
+                            )
+                        ),
+                        "dossier admission differs from its actual ordinary structural kind",
+                    ),
+                    # Ordinary support authenticates visibility and full revocation closure.
+                    # The dossier reads common issuer custody, never protected pass bodies.
+                    SelectInto(issuer_count, ("actual_count",)),
+                    _completion_refusal(
+                        count != 1, "dossier admission lacks its exact actual native issuer receipt"
+                    ),
+                    Assign(
+                        "admission_value",
+                        func.data.ddo_json(conclusion("canonical_body"), type_=JSONB()),
+                    ),
+                    _completion_lookup(
+                        "comparison_product",
+                        products,
+                        inputs.c.value["role"].astext == "comparisons",
+                        inputs.c.value["member_id"].astext.is_(None),
+                        products.c.id == admission["report"]["product_id"].astext,
+                        products.c.project_id == r("project_id"),
+                        relation=products.join(
+                            inputs, inputs.c.value["product_id"].astext == products.c.id
+                        ),
+                    ),
+                    _completion_refusal(
+                        or_(
+                            func.jsonb_strip_nulls(admission["report"]).is_distinct_from(
+                                func.jsonb_strip_nulls(
+                                    _structural("product_reference", comparison())
+                                )
+                            ),
+                            admission["statement_encoding"].astext.is_distinct_from(
+                                "ddo-semantic-value-v1"
+                            ),
+                            admission["statement_meaning_json"].astext.is_distinct_from(
+                                func.data.canonical_json(
+                                    _structural(
+                                        "comparison_statement", comparison("canonical_body")
+                                    )
+                                )
+                            ),
+                        ),
+                        "dossier admission differs from the actual retained comparison and exact statement",
+                    ),
+                ),
+            ),
+        ),
+        (
+            Local("definition", definitions),
+            Local("selected", pg_type("jsonb")),
+            Local("conclusion", products),
+            Local("comparison_product", products),
+            Local("admission_value", pg_type("jsonb")),
+            Local("actual_count", pg_type("int8")),
+        ),
+    )
+
+
 def structural_admission_native_sql(model):
     from .declared_structural_admission import (
         ADMISSION_KIND,
@@ -1015,58 +1292,7 @@ END $structural$;
 REVOKE ALL ON FUNCTION ops.ddo_structural_command_eligible(sem.data_operation_definition),
 ops.ddo_structural_product_reference(kb.data_product),ops.ddo_require_structural_admission_completion(ops.data_request,jsonb) FROM PUBLIC;
 
-CREATE OR REPLACE FUNCTION ops.ddo_require_structural_dossier_completion(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $structural$
-DECLARE definition sem.data_operation_definition; selected jsonb; conclusion kb.data_product;
- comparison_product kb.data_product; admission_value jsonb; actual_count bigint;
-BEGIN
- IF r.operation_id<>'structure.dossier/declared' THEN RETURN; END IF;
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- IF definition.profile IS DISTINCT FROM 'derivation' OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
- OR definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM 'corpus_structure.methods.dossier_declared.DossierOperation.acquire_port'
- OR (definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
- OR (definition.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE THEN
- RAISE EXCEPTION 'structural dossier requires its actual captured preparation factory' USING ERRCODE='23514'; END IF;
- FOR selected IN SELECT item FROM jsonb_array_elements(completion->'inputs') item WHERE item->>'role'='admissions' LOOP
- IF selected->>'member_id' IS NOT NULL OR (selected->>'multiplicity')::integer IS DISTINCT FROM 1 THEN
- RAISE EXCEPTION 'dossier admission requires an exact whole conclusion' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT conclusion FROM kb.data_product WHERE id=selected->>'product_id' AND project_id=r.project_id;
- IF NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=conclusion.kind_contract
- AND kind.kind='__KIND__' AND kind.universe='ordinary') THEN
- RAISE EXCEPTION 'dossier admission differs from its actual ordinary structural kind' USING ERRCODE='23514'; END IF;
- -- Ordinary consumption proves the issuer's committed common receipt and exact
- -- output. It never reads protected pass bodies or invokes evaluator issuance.
- -- The enclosing common support guard authenticates use visibility, locks and
- -- full protected revocation closure, including direct issuer revocation.
- SELECT count(*) INTO actual_count FROM ops.data_derivation episode
- JOIN ops.data_derivation_output output ON output.derivation_id=episode.id
- JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=episode.id AND receipt.intent_id=episode.intent_id
- JOIN ops.data_completion_intent intent ON intent.id=episode.intent_id
- JOIN ops.data_request request ON request.id=episode.request_id
- JOIN sem.data_operation_definition issuer ON issuer.release_id=episode.release_id AND issuer.operation_id=request.operation_id
- WHERE output.product_id=conclusion.id AND output.member_id IS NULL AND output.role='admission'
- AND output.position=0 AND output.multiplicity=1 AND episode.outcome='success'
- AND (issuer.command_class='structural') AND episode.recipe=issuer.recipe
- AND intent.payload->>'implementation_revision'=issuer.implementation_revision
- AND (SELECT count(*) FROM ops.data_derivation_output other WHERE other.derivation_id=episode.id)=1
- AND data.ddo_normalize(intent.payload->'outputs'->0->'product'->'body')=conclusion.canonical_body
- AND EXISTS(SELECT FROM ops.ddo_input_support_refs(r.binding,selected) support
- WHERE support->>'kind'='computation' AND support->>'derivation_id'=episode.id);
- IF actual_count<>1 THEN RAISE EXCEPTION 'dossier admission lacks its exact actual native issuer receipt' USING ERRCODE='23514'; END IF;
- admission_value:=data.ddo_json(conclusion.canonical_body);
- SELECT product.* INTO STRICT comparison_product FROM kb.data_product product
- JOIN jsonb_array_elements(completion->'inputs') input ON input->>'product_id'=product.id
- WHERE input->>'role'='comparisons' AND input->>'member_id' IS NULL
- AND product.id=admission_value->'report'->>'product_id' AND product.project_id=r.project_id;
- IF jsonb_strip_nulls(admission_value->'report') IS DISTINCT FROM jsonb_strip_nulls(ops.ddo_structural_product_reference(comparison_product))
- OR admission_value->>'statement_encoding' IS DISTINCT FROM 'ddo-semantic-value-v1'
- OR admission_value->>'statement_meaning_json' IS DISTINCT FROM data.canonical_json(ops.ddo_structural_comparison_statement(comparison_product.canonical_body)) THEN
- RAISE EXCEPTION 'dossier admission differs from the actual retained comparison and exact statement' USING ERRCODE='23514'; END IF;
- END LOOP;
-EXCEPTION WHEN no_data_found OR too_many_rows THEN
- RAISE EXCEPTION 'dossier admission cannot resolve exact ordinary issuer/report custody' USING ERRCODE='23514';
-END $structural$;
-REVOKE ALL ON FUNCTION ops.ddo_require_structural_dossier_completion(ops.data_request,jsonb) FROM PUBLIC;
+
 
 
 """
@@ -1095,6 +1321,7 @@ REVOKE ALL ON FUNCTION ops.ddo_require_structural_dossier_completion(ops.data_re
         structural_statement_native_sql()
         + _structural_command_helpers(model)
         + sql
+        + _structural_dossier_completion(model)
         + native_sql_script(
             (
                 _structural_report_support(model),
