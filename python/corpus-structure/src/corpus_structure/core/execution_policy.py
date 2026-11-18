@@ -24,6 +24,7 @@ class CharacterizationExecutionPolicy:
     max_owned_bytes: _PositiveInt = 2 * 1024**3
     max_packet_bytes: _PositiveInt = 256 * 1024**2
     max_reply_bytes: _PositiveInt = 64 * 1024**2
+    max_source_read_rows: _PositiveInt = 100_000
     max_native_request_bytes: _PositiveInt = 8 * 1024**2
     max_native_reply_bytes: _PositiveInt = 8 * 1024**2
     max_idle_capsule_bytes: _NonnegativeInt = 256 * 1024**2

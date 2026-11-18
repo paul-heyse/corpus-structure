@@ -87,8 +87,9 @@ def test_shared_settings_factory_preserves_complete_settings_and_physical_policy
     from corpus_structure.settings import Settings
 
     configured = Settings()
-    selected = method_settings(configured, {"workers": 1})
+    selected = method_settings(configured, {"workers": 1, "max_source_read_rows": 1_000_000})
     assert selected.execution_policy.workers == 1
+    assert selected.execution_policy.max_source_read_rows == 1_000_000
     assert (
         selected.execution_policy.max_owned_bytes
         == configured.characterization_execution.max_owned_bytes

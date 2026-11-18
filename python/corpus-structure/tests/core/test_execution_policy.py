@@ -24,6 +24,7 @@ def test_selected_defaults_and_frozen_roundtrip():
         max_owned_bytes=2 * 1024**3,
         max_packet_bytes=256 * 1024**2,
         max_reply_bytes=64 * 1024**2,
+        max_source_read_rows=100_000,
         max_native_request_bytes=8 * 1024**2,
         max_native_reply_bytes=8 * 1024**2,
         max_idle_capsule_bytes=256 * 1024**2,

@@ -422,9 +422,8 @@ def _read_selected_pdf(
         parent = ProductReference(
             publication.task_id, publication.product_key, publication.logical_digest
         )
-        read_budget = PublishedReadBudget(
-            100_000, execution_owner.invocation.executor.policy.max_packet_bytes
-        )
+        policy = execution_owner.invocation.executor.policy
+        read_budget = PublishedReadBudget(policy.max_source_read_rows, policy.max_packet_bytes)
         reader = PublishedPdfReader(
             connection,
             parent,
@@ -463,7 +462,7 @@ def _read_selected_pdf(
                 artifacts.c.artifact_digest.in_(digests)
             )
         )
-        if size is None or size > execution_owner.invocation.executor.policy.max_packet_bytes:
+        if size is None or size > policy.max_packet_bytes:
             raise ValueError("selected PDF custody exceeds reserved input capacity")
         read_budget.reserve(int(size))
         bodies = {

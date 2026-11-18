@@ -152,6 +152,7 @@ class PreparedPdfViews:
                 raise ValueError(
                     "selected PDF source differs from its authenticated capture projection"
                 )
+            policy = execution_owner.invocation.executor.policy
             reader = PublishedPdfReader(
                 connection,
                 ProductReference(
@@ -159,7 +160,7 @@ class PreparedPdfViews:
                 ),
                 projection_context=self.prepared,
                 read_budget=PublishedReadBudget(
-                    100_000, execution_owner.invocation.executor.policy.max_reply_bytes
+                    policy.max_source_read_rows, policy.max_reply_bytes
                 ),
             )
             projections = published_section_projections(
