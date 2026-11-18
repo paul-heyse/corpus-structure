@@ -53,6 +53,9 @@ relation = _catalog(
     relowner=OID,
     relacl=_CatalogType("aclitem[]"),
     relkind=Text,
+    relpersistence=Text,
+    relrowsecurity=Boolean,
+    relforcerowsecurity=Boolean,
     reloptions=ARRAY(Text),
 )
 procedure = _catalog(
@@ -103,6 +106,14 @@ constraint = _catalog(
     contype=Text,
     convalidated=Boolean,
     conbin=_CatalogType("pg_node_tree"),
+    conkey=ARRAY(SmallInteger),
+    confkey=ARRAY(SmallInteger),
+    confrelid=OID,
+    confupdtype=Text,
+    confdeltype=Text,
+    confmatchtype=Text,
+    condeferrable=Boolean,
+    condeferred=Boolean,
 )
 index = _catalog(
     "pg_index",
@@ -121,6 +132,7 @@ roles = _catalog(
     rolbypassrls=Boolean,
     rolreplication=Boolean,
 )
+auth_members = _catalog("pg_auth_members", member=OID)
 depend = _catalog(
     "pg_depend",
     classid=OID,
@@ -393,6 +405,14 @@ attribute = _catalog(
     attnum=Integer,
     attisdropped=Boolean,
     attacl=_CatalogType("aclitem[]"),
+    atttypid=OID,
+    atttypmod=Integer,
+    attnotnull=Boolean,
+    attidentity=Text,
+    attgenerated=Text,
+)
+attribute_default = _catalog(
+    "pg_attrdef", adrelid=OID, adnum=SmallInteger, adbin=_CatalogType("pg_node_tree")
 )
 
 
