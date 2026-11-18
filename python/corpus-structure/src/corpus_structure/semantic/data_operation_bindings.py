@@ -1007,7 +1007,13 @@ def compile_binding(
     def independent_optional_term(node):
         def row_term(child):
             return child.operator in {
-                "all", "scan", "equal", "join", "literal", "range", "membership"
+                "all",
+                "scan",
+                "equal",
+                "join",
+                "literal",
+                "range",
+                "membership",
             } and all(row_term(descendant) for descendant in selected_children(child))
 
         if node.operator in {"cardinality", "collection", "covers"}:
@@ -1069,10 +1075,7 @@ def compile_binding(
     if independent_optional:
         null_comparisons: list[ColumnElement[bool]] = [condition.is_(None)]
         null_comparisons.extend(
-            select(literal(1))
-            .select_from(joined_relation({}, (name,)))
-            .where(unknown)
-            .exists()
+            select(literal(1)).select_from(joined_relation({}, (name,))).where(unknown).exists()
             for name, unknown in optional_unknowns
         )
         null_query = select(or_(*null_comparisons))
