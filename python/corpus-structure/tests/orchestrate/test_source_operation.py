@@ -160,6 +160,28 @@ def test_full_source_profile_recurses_declared_options_and_preserves_explicit_ch
     assert chosen["op:child"] == explicit and "op:leaf" not in chosen
 
 
+def test_fresh_source_profile_freezes_only_optional_sets_in_the_selected_closure():
+    from corpus_structure.orchestrate.source_operation import _default_profile_source_sets
+    from corpus_structure.semantic.data_operation_source_sets import (
+        FrozenSourceSet,
+        read_source_sets,
+    )
+
+    def role(name, minimum=0):
+        return SimpleNamespace(support=SimpleNamespace(source_set=name), minimum=minimum)
+
+    operations = {
+        "occs": SimpleNamespace(roles=(role("ancestors"), role("shared"))),
+        "scope": SimpleNamespace(roles=(role("sources"), role("shared", minimum=1))),
+        "other": SimpleNamespace(roles=(role("unselected"),)),
+    }
+    model = cast(Any, SimpleNamespace(operation=operations.__getitem__))
+    assert read_source_sets(_default_profile_source_sets(model, {"occs", "scope"})) == (
+        FrozenSourceSet.from_selected("ancestors", ()),
+        FrozenSourceSet.from_selected("sources", ()),
+    )
+
+
 def test_source_operation_options_preserve_authoritative_encoder_replicate():
     from corpus_structure.orchestrate.source_operation import _default_profile_selections
 

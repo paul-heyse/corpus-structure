@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Connection, select
 
@@ -23,6 +24,9 @@ from .source_request import (
     SourceRequestError,
     SourceRunRequest,
 )
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.data_operation_model import EffectiveDataOperationModel
 
 
 def resolve_source_domain(
@@ -95,6 +99,26 @@ def _default_profile_selections(model, targets, supplied):
         if target in supplied:
             pending.extend(supplied[target].selected_dependencies)
     return supplied
+
+
+def _default_profile_source_sets(model: EffectiveDataOperationModel, closure: set[str]) -> dict:
+    """Select no retained inputs for optional roles in the ordinary fresh-source profile."""
+    from corpus_structure.semantic.data_operation_source_sets import (
+        FrozenSourceSet,
+        source_sets_record,
+    )
+
+    optional: dict[str, bool] = {}
+    for operation in closure:
+        for role in model.operation(operation).roles:
+            if role.support is not None and role.support.source_set is not None:
+                name = role.support.source_set
+                optional[name] = optional.get(name, True) and role.minimum == 0
+    return source_sets_record(
+        tuple(
+            FrozenSourceSet.from_selected(name, ()) for name, allowed in optional.items() if allowed
+        )
+    )
 
 
 def prepare_source_demand(
@@ -270,6 +294,7 @@ def prepare_source_demand(
         targets=tuple(dict.fromkeys((*root_targets, producer))),
         selections=tuple(supplied.values()),
         discovery=tuple(discoveries),
+        source_sets={} if request.targets else _default_profile_source_sets(model, closure),
         original_sources={
             value.name: DemandOriginalSelection(
                 reference=value.selection().record()["reference"],
