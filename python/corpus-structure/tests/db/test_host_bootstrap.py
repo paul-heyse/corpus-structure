@@ -34,19 +34,26 @@ def test_host_principals_and_peer_files_correspond_to_declared_capabilities():
 
 
 def test_host_renderers_quote_values_and_keep_exact_extension_versions():
+    def option(options):
+        assert options
+        entry = options[0]
+        assert isinstance(entry, ast.DefElem) and isinstance(entry.arg, ast.String)
+        return entry.defname, entry.arg.sval
+
     create = parse_sql(host.sql_command("database-create", ["odd DB", "owner's X"]))[0].stmt
     assert isinstance(create, ast.CreatedbStmt)
-    assert create.dbname == "odd DB" and create.options[0].arg.sval == "owner's X"
+    assert create.dbname == "odd DB" and option(create.options)[1] == "owner's X"
     scripts = parse_sql(host.sql_command("extension-install", ["vector", "0.8.7"]))
     assert len(scripts) == 3
-    assert isinstance(scripts[1].stmt, ast.CreateExtensionStmt)
-    assert scripts[1].stmt.if_not_exists and scripts[1].stmt.extname == "vector"
-    assert scripts[1].stmt.options[0].arg.sval == "0.8.7"
-    assert isinstance(scripts[2].stmt, ast.AlterExtensionStmt)
-    assert scripts[2].stmt.options[0].arg.sval == "0.8.7"
+    install, update = scripts[1].stmt, scripts[2].stmt
+    assert isinstance(install, ast.CreateExtensionStmt)
+    assert install.if_not_exists and install.extname == "vector"
+    assert option(install.options)[1] == "0.8.7"
+    assert isinstance(update, ast.AlterExtensionStmt)
+    assert option(update.options)[1] == "0.8.7"
     template = parse_sql(host.sql_command("template", ["cs_template"]))[0].stmt
     assert isinstance(template, ast.AlterDatabaseStmt)
-    assert template.options[0].defname == "is_template" and template.options[0].arg.sval == "true"
+    assert option(template.options) == ("is_template", "true")
     for script in (
         host.semantic_roles("paul"),
         host.base_roles("paul"),
@@ -54,9 +61,8 @@ def test_host_renderers_quote_values_and_keep_exact_extension_versions():
     ):
         assert isinstance(parse_sql(script)[0].stmt, ast.DoStmt)
         assert parse_plpgsql(script)
-    assert (
-        parse_sql(host.sql_command("setting", ["data_checksums"]))[0].stmt.name == "data_checksums"
-    )
+    setting = parse_sql(host.sql_command("setting", ["data_checksums"]))[0].stmt
+    assert isinstance(setting, ast.VariableShowStmt) and setting.name == "data_checksums"
 
 
 def test_generated_purpose_provisioning_is_idempotent_and_fitter_refuses_widened_rights(
