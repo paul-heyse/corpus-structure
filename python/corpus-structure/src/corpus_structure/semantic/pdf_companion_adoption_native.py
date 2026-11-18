@@ -143,11 +143,13 @@ def companion_adoption_sql(context, metadata):
         prototype = (
             func.ops.pdf_part_upload_contract()
             if spec.source.name == "pdf_stage_artifact_part"
-            else cast(literal(spec.source.fullname), REGCLASS())
+            else cast(literal(spec.source.fullname, Text()), REGCLASS())
         )
         statements.extend(
             (
-                Perform(func.ops.require_pdf_stage_scratch(relation.name, prototype)),
+                Perform(
+                    func.ops.require_pdf_stage_scratch(literal(relation.name, Text()), prototype)
+                ),
                 If(
                     or_(
                         any_row(
@@ -303,13 +305,13 @@ def companion_adoption_sql(context, metadata):
         (
             Perform(
                 func.ops.pdf_adopt_shared_stream_descriptors(
-                    p_build, cast(literal(stream.fullname), REGCLASS())
+                    p_build, cast(literal(stream.fullname, Text()), REGCLASS())
                 )
             ),
             *adopt("pdf_stage_artifact_stream", "changed companion artifact duplicate"),
             Perform(
                 func.ops.pdf_adopt_shared_stream_parts(
-                    p_build, cast(literal(part.fullname), REGCLASS())
+                    p_build, cast(literal(part.fullname, Text()), REGCLASS())
                 )
             ),
             PerformQuery(select(func.ops.pdf_verify_shared_stream(p_build, stream.c.stream_id))),
