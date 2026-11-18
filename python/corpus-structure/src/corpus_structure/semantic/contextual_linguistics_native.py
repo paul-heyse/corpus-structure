@@ -1,5 +1,21 @@
 """Native observation of bounded known linguistic premises, without rescoring."""
 
+from sqlalchemy import JSON, Integer, cast, column, func, literal, or_, select, true
+from sqlalchemy.dialects.postgresql import JSONB
+
+from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_program import (
+    Block,
+    If,
+    Parameter,
+    Raise,
+    Return,
+    core_variable,
+    function,
+    pg_type,
+    sql_function,
+)
+
 
 def linguistic_observation_schema() -> bytes:
     from .contextual_linguistics import LinguisticObservation
@@ -15,35 +31,99 @@ def linguistic_observation_schema() -> bytes:
 
 
 def contextual_linguistics_native_sql() -> str:
-    from .contextual_linguistics import linguistic_context_query
+    from .contextual_linguistics import linguistic_context_statement
 
-    schema = linguistic_observation_schema().decode().replace("'", "''")
-    return r"""
-CREATE OR REPLACE FUNCTION ops.ddo_require_contextual_linguistic_observation(observed jsonb)
-RETURNS jsonb LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $linguistic$
-BEGIN
- IF public.json_matches_schema('__LINGUISTIC_SCHEMA__'::json,observed::json) IS NOT TRUE THEN
- RAISE EXCEPTION 'contextual linguistic observation differs from its closed typed contract' USING ERRCODE='23514'; END IF;
- IF jsonb_array_length(observed->'text_search'->'mappings')=0 OR EXISTS (
- SELECT FROM (
- SELECT (value->>'token_type')::integer AS token,(value->>'sequence')::integer AS sequence,
- row_number() OVER (PARTITION BY value->>'token_type' ORDER BY position) AS expected,
- lag((value->>'token_type')::integer) OVER (ORDER BY position) AS prior_token
- FROM jsonb_array_elements(observed->'text_search'->'mappings') WITH ORDINALITY mapping(value,position)
- ) positions WHERE sequence<>expected OR token<prior_token) THEN
- RAISE EXCEPTION 'contextual linguistic mappings require exact ordered contiguous dictionary positions' USING ERRCODE='23514'; END IF;
- IF observed->'database_locale'->>'recorded_provider_version' IS NOT NULL
- AND observed->'database_locale'->>'actual_provider_version' IS NOT NULL
- AND observed->'database_locale'->>'recorded_provider_version' IS DISTINCT FROM observed->'database_locale'->>'actual_provider_version' THEN
- RAISE EXCEPTION 'contextual linguistic provider version differs from recorded database version' USING ERRCODE='23514'; END IF;
- RETURN observed;
-END $linguistic$;
-CREATE OR REPLACE FUNCTION ops.ddo_contextual_linguistic_context()
-RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $linguistic$
- SELECT ops.ddo_require_contextual_linguistic_observation(value)
- FROM (__LINGUISTIC_QUERY__) observation(value)
-$linguistic$;
-REVOKE ALL ON FUNCTION ops.ddo_require_contextual_linguistic_observation(jsonb),ops.ddo_contextual_linguistic_context() FROM PUBLIC;
-""".replace("__LINGUISTIC_QUERY__", linguistic_context_query()).replace(
-        "__LINGUISTIC_SCHEMA__", schema
+    observed = core_variable("observed", JSONB())
+    mappings = observed["text_search"]["mappings"]
+    mapping = (
+        func.jsonb_array_elements(mappings)
+        .table_valued(column("value", JSONB()), with_ordinality="position")
+        .render_derived(name="mapping")
+    )
+    token_type = mapping.c.value["token_type"].astext
+    token = cast(token_type, Integer())
+    positions = select(
+        token.label("token"),
+        cast(mapping.c.value["sequence"].astext, Integer()).label("sequence"),
+        func.row_number()
+        .over(partition_by=token_type, order_by=mapping.c.position)
+        .label("expected"),
+        func.lag(token).over(order_by=mapping.c.position).label("prior_token"),
+    ).subquery("positions")
+    invalid_positions = (
+        select(1)
+        .where(
+            or_(
+                positions.c.sequence != positions.c.expected,
+                positions.c.token < positions.c.prior_token,
+            )
+        )
+        .exists()
+    )
+    locale = observed["database_locale"]
+    recorded = locale["recorded_provider_version"].astext
+    actual = locale["actual_provider_version"].astext
+    schema = cast(literal(linguistic_observation_schema().decode()), JSON())
+    validator = "ddo_require_contextual_linguistic_observation"
+    reader = "ddo_contextual_linguistic_context"
+    checked = function(
+        "ops",
+        validator,
+        parameters=(Parameter("observed", pg_type("jsonb")),),
+        returns=pg_type("jsonb"),
+        volatility="immutable",
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                If(
+                    func.public.json_matches_schema(schema, cast(observed, JSON())).is_not(true()),
+                    (
+                        Raise(
+                            "contextual linguistic observation differs from its closed typed contract",
+                            "23514",
+                        ),
+                    ),
+                ),
+                If(
+                    or_(func.jsonb_array_length(mappings) == 0, invalid_positions),
+                    (
+                        Raise(
+                            "contextual linguistic mappings require exact ordered contiguous dictionary positions",
+                            "23514",
+                        ),
+                    ),
+                ),
+                If(
+                    recorded.is_not(None) & actual.is_not(None) & recorded.is_distinct_from(actual),
+                    (
+                        Raise(
+                            "contextual linguistic provider version differs from recorded database version",
+                            "23514",
+                        ),
+                    ),
+                ),
+                Return(observed),
+            )
+        ),
+    )
+    observation = linguistic_context_statement().subquery("observation")
+    (value,) = observation.c
+    current = sql_function(
+        "ops",
+        reader,
+        parameters=(),
+        returns=pg_type("jsonb"),
+        volatility="stable",
+        search_path=("pg_catalog", "pg_temp"),
+        body=select(func.ops.ddo_require_contextual_linguistic_observation(value)),
+    )
+    return native_sql_script(
+        (
+            checked,
+            current,
+            native_privilege_sql(
+                NativeIdentity("function", "ops", validator, ("jsonb",)), "PUBLIC", grant=False
+            ),
+            native_privilege_sql(NativeIdentity("function", "ops", reader), "PUBLIC", grant=False),
+        )
     )

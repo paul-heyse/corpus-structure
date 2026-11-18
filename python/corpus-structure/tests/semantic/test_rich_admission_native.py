@@ -561,3 +561,45 @@ def test_native_rich_function_population_has_explicit_independent_expectation():
         "ddo_require_rich_admission_completion",
         "ddo_rich_admission_dependencies_valid",
     }
+
+
+def test_rich_consumes_exact_sealed_policy_authority_without_reentering_issuance():
+    from pglast import parse_sql
+
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.native_products import function_bodies
+    from corpus_structure.semantic.record_policy_completion_native import (
+        record_policy_completion_native_sql,
+    )
+
+    body = function_bodies(rich_admission_native_sql())["ops.ddo_require_rich_admission_completion"]
+    start = body.index("SELECT producer.id INTO STRICT authorization_episode")
+    end = body.index(";", start)
+    query = body[start:end].replace("INTO STRICT authorization_episode", "", 1)
+    expected = """SELECT producer.id FROM ops.data_derivation producer
+    JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
+    WHERE producer.request_id=authorization_request.id AND EXISTS(
+      SELECT FROM jsonb_array_elements(reference->'support_references') support
+      WHERE support->>'derivation_id'=producer.id)"""
+    assert parse_sql(query)[0].stmt == parse_sql(expected)[0].stmt
+    guard = body[body.index("IF ops.ddo_policy_authority_leaf", end):].split("END IF;", 1)[0]
+    condition = guard.split("IF ", 1)[1].split(" THEN", 1)[0]
+    assert parse_sql("SELECT " + condition)[0].stmt == parse_sql(
+        "SELECT ops.ddo_policy_authority_leaf(authorization_episode) IS NOT TRUE"
+    )[0].stmt
+    assert "'rich policy lacks its authentic issued public authorization'" in guard
+    assert "ERRCODE='23514'" in guard
+    assert "ddo_require_policy_authorization_completion" not in body
+    # The consumer still selects its exact bound public body and native issuer
+    # before authenticating the sealed output. It receives no issuer capability.
+    assert body.index("policy_meaning:=ops.ddo_rich_selected_value") < body.index(
+        "authorization_request:=ops.ddo_rich_producing_request"
+    ) < start < body.index("IF ops.ddo_policy_authority_leaf", end)
+    assert "'record_policy.authorize'" in body
+    assert "'corpus_structure.methods.record_policy.RecordPolicyAuthorization.acquire_port','authorization',false" in body
+    assert "kind.kind='https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization' AND kind.universe='ordinary'" in body
+    issuer = function_bodies(record_policy_completion_native_sql(metadata))[
+        "ops.ddo_require_policy_authorization_completion"
+    ]
+    assert "policy authorization requires native evaluator purpose" in issuer
+    assert "corpus_sem_evaluator" in issuer and "ERRCODE = '42501'" in issuer

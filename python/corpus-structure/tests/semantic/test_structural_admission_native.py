@@ -868,10 +868,11 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         withdrawn = inspect_selected_structures(connection, support_request)
     assert withdrawn["reports"][0]["availability"] == "outside_selection"
     with (
+        pytest.raises(DBAPIError, match="read trust changed; reacquire demand read") as stale,
         kernel.purpose("read").begin() as connection,
-        pytest.raises(DBAPIError, match="current trust differ"),
     ):
         inspect_selected_structures(connection, pinned_support)
+    assert isinstance(stale.value.orig, psycopg.errors.CheckViolation)
     assert (
         verify_selected_structural_review(
             Path(support_archive_path), manifest_digest=support_archive_digest

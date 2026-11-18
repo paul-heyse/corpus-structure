@@ -250,7 +250,7 @@ CREATE OR REPLACE FUNCTION ops.ddo_require_rich_admission_completion(r ops.data_
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $rich$
 DECLARE basis jsonb; admission_meaning jsonb; admission jsonb; consolidated_meaning jsonb; consolidated jsonb;
  consolidation_request ops.data_request; consolidation_basis jsonb; selected jsonb; authorization_request ops.data_request;
- resolution_request ops.data_request; known_request ops.data_request;
+ resolution_request ops.data_request; known_request ops.data_request; authorization_episode text;
  resolution_basis jsonb; reference jsonb; decision jsonb; raw_meaning jsonb; resolved_meaning jsonb; known_episode text;
  raw_record jsonb; resolved_record jsonb; resolution_meaning jsonb; report jsonb; policy_meaning jsonb; policy jsonb;
  events jsonb; event jsonb; reports jsonb:='{}'; raw_reports jsonb:='{}'; policies jsonb:='{}'; known_packets jsonb:='{}'; item jsonb; packet jsonb; raw_digest text;
@@ -336,10 +336,13 @@ BEGIN
  IF NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=reference->>'kind_contract'
  AND kind.kind='https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization' AND kind.universe='ordinary') THEN
  RAISE EXCEPTION 'rich policy is not the actual public authorization contract' USING ERRCODE='23514'; END IF;
- SELECT intent.payload INTO STRICT item FROM ops.data_derivation producer
+ SELECT producer.id INTO STRICT authorization_episode FROM ops.data_derivation producer
  JOIN ops.data_completion_intent intent ON intent.id=producer.intent_id
  WHERE producer.request_id=authorization_request.id AND EXISTS(SELECT FROM jsonb_array_elements(reference->'support_references') support WHERE support->>'derivation_id'=producer.id);
- PERFORM ops.ddo_require_policy_authorization_completion(authorization_request,item);
+ -- Consume the sealed public conclusion under its exact selected native issuer.
+ -- The evaluator-only completion guard authorizes new issuance, not consumption.
+ IF ops.ddo_policy_authority_leaf(authorization_episode) IS NOT TRUE THEN
+ RAISE EXCEPTION 'rich policy lacks its authentic issued public authorization' USING ERRCODE='23514'; END IF;
  policies:=policies||jsonb_build_object(reference->>'product_id',jsonb_build_object('reference',reference,'body',data.ddo_json(policy_meaning)));
  END LOOP;
  FOR selected IN SELECT value FROM ops.ddo_rich_role_headers(consolidation_basis) header(value) WHERE value->>'role'='records' LOOP

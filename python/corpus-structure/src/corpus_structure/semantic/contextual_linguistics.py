@@ -346,17 +346,6 @@ def linguistic_context_statement():
     )
 
 
-def linguistic_context_query() -> str:
-    """Freeze the same catalog projection for the native observation owner."""
-    from sqlalchemy.dialects.postgresql import dialect
-
-    return str(
-        linguistic_context_statement().compile(
-            dialect=dialect(paramstyle="named"), compile_kwargs={"literal_binds": True}
-        )
-    )
-
-
 def checked_linguistic_observation(value) -> LinguisticObservation:
     observation = LinguisticObservation.model_validate(value)
     observation.require_known_provider_version()
