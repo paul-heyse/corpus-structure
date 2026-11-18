@@ -106,10 +106,11 @@ def test_native_support_keeps_actual_raw_resolution_and_admission_producers(
             )
             is False
         )
-    with pytest.raises(DBAPIError, match="pins or current trust differ"):
+    with pytest.raises(DBAPIError, match="read trust changed; reacquire demand read") as rejected:
         query_publication(
             selected, SourceReadingsQuery(name="source_readings"), cursor=page["cursor"]
         )
+    assert rejected.value.orig.sqlstate == "23514"
 
 
 def test_native_large_diagnostics_remain_in_actual_support_without_forcing_public_body(
