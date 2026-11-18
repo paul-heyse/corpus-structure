@@ -242,7 +242,8 @@ def native_protocol_sources(
             Path(__file__).with_name("pdf_effect_contract.py").read_bytes(),
         ),
         SourceArtifact(
-            "native/data-operation-record-grade-native.sql", record_grade_native_sql().encode()
+            "native/data-operation-record-grade-native.sql",
+            record_grade_native_sql(target_metadata).encode(),
         ),
         SourceArtifact(
             "native/data-operation-cpu-basis.sql", cpu_input_basis_native_sql().encode()
@@ -405,8 +406,14 @@ def native_protocol_sources(
         ),
         SourceArtifact("native/data-operation-protocol.yaml", protocol),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
-        SourceArtifact("native/data-product-admission.sql", product_admission_native_sql(target_metadata).encode()),
-        SourceArtifact("native/data-product-admission-native.py", Path(__file__).with_name("data_product_admission_native.py").read_bytes()),
+        SourceArtifact(
+            "native/data-product-admission.sql",
+            product_admission_native_sql(target_metadata).encode(),
+        ),
+        SourceArtifact(
+            "native/data-product-admission-native.py",
+            Path(__file__).with_name("data_product_admission_native.py").read_bytes(),
+        ),
         SourceArtifact(
             "native/data-operation-compiler.sql",
             compiler_native_sql(target_metadata, subject_scopes=subject_scope_values()).encode(),
@@ -786,7 +793,9 @@ def native_sql(sources=None) -> str:
     from .pdf_source_search import search_projection_sql
 
     sql += "\n" + search_projection_sql(captured)
-    sql = sql.replace("__DDO_PRODUCT_ADMISSION_PROGRAMS__", bodies["native/data-product-admission.sql"].decode())
+    sql = sql.replace(
+        "__DDO_PRODUCT_ADMISSION_PROGRAMS__", bodies["native/data-product-admission.sql"].decode()
+    )
     # Every private completion guard attests the same captured native kernel.
     sql = sql.replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
     sql = sql.replace(

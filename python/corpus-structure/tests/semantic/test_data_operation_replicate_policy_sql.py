@@ -12,9 +12,9 @@ def test_native_policy_has_three_explicit_modes_and_refuses_unknown(semantic_bar
     from corpus_structure.semantic.data_operation_subjects import subject_scope_values
     from corpus_structure.semantic.demand_authority_native import demand_authority_sql
     from corpus_structure.semantic.metadata import metadata
-    from semantic.native_program_support import temporary_routine
+    from semantic.native_program_support import routine_declaration
 
-    helper = temporary_routine(
+    helper = routine_declaration(
         demand_authority_sql(
             metadata, lowering_digest="checked", subject_scopes=subject_scope_values()
         ),

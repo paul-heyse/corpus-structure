@@ -17,31 +17,19 @@ from semantic.data_operation_kernel_support import STORAGE
 def snapshot_connection(semantic_bare_engine):
     from corpus_structure.semantic.metadata import metadata
     from corpus_structure.semantic.support_trust_native import support_trust_native_sql
-    from semantic.native_program_support import temporary_routine
+    from semantic.native_program_support import routine_declaration
 
-    function = temporary_routine(
-        support_trust_native_sql(metadata), "ops", "ddo_trust_snapshot_meaning"
+    function = routine_declaration(
+        support_trust_native_sql(metadata), "ops", "ddo_trust_snapshot_meaning", temporary=False
     )
     with semantic_bare_engine.connect() as connection:
         transaction = connection.begin()
         try:
+            connection.exec_driver_sql("CREATE SCHEMA IF NOT EXISTS ops")
             connection.exec_driver_sql(function)
             yield connection
         finally:
             transaction.rollback()
-
-
-def _test_local_snapshot(query):
-    from sqlalchemy import func
-    from sqlalchemy.sql.functions import Function
-    from sqlalchemy.sql.visitors import replacement_traverse
-
-    def temporary(node):
-        if isinstance(node, Function) and node.name == "ddo_trust_snapshot_meaning":
-            return func.pg_temp.ddo_trust_snapshot_meaning(*node.clauses, type_=node.type)
-        return None
-
-    return replacement_traverse(query, {}, temporary)
 
 
 @pytest.mark.db
@@ -70,7 +58,7 @@ def test_native_read_and_binding_snapshot_comparisons_preserve_epoch_meaning(
     query = select(
         trust_snapshot_changed(literal(pinned, type_=JSONB()), literal(current, type_=JSONB()))
     )
-    assert snapshot_connection.scalar(_test_local_snapshot(query)) is changed
+    assert snapshot_connection.scalar(query) is changed
 
 
 @pytest.mark.db
@@ -92,7 +80,7 @@ def test_native_snapshot_meaning_refuses_null_unknown_epoch_and_invalid_shapes(
 ):
     with pytest.raises(DBAPIError, match="trust snapshot requires"):
         snapshot_connection.scalar(
-            text("SELECT pg_temp.ddo_trust_snapshot_meaning(CAST(:snapshot AS jsonb))"),
+            text("SELECT ops.ddo_trust_snapshot_meaning(CAST(:snapshot AS jsonb))"),
             {"snapshot": invalid},
         )
 
@@ -122,7 +110,7 @@ def test_native_attachment_checks_locked_positive_epochs_against_full_read_pins(
     query = select(
         locked_support_changed(literal(pinned, type_=JSONB()), literal(locked, type_=JSONB()))
     )
-    assert snapshot_connection.scalar(_test_local_snapshot(query)) is changed
+    assert snapshot_connection.scalar(query) is changed
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])

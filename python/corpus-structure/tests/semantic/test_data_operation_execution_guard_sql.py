@@ -49,9 +49,10 @@ def test_execution_evidence_guard_checks_exact_fence_after_removing_receipt_fiel
     elif change == "wrong-generation":
         evidence["generation"] = 2
     completion = {} if change == "absent" else {"execution_evidence": evidence}
-    query = select(
-        execution_evidence_differs(literal({**fence, "completion": completion}, type_=JSONB()))
-    )
+    arguments = select(
+        literal({**fence, "completion": completion}, type_=JSONB()).label("payload")
+    ).subquery("arguments")
+    query = select(execution_evidence_differs(arguments.c.payload)).select_from(arguments)
     with semantic_bare_engine.connect() as connection:
         actual = connection.scalar(query)
     assert actual is invalid

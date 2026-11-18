@@ -8,26 +8,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.metadata import metadata, table
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.record_grade_native import record_grade_native_sql
-
-
-def compiled_grade_sql():
-    from corpus_structure.semantic.data_operation_projections import capture_projection_sources
-
-    sources = capture_projection_sources()
-    products = json.loads(
-        next(
-            source.content
-            for source in sources
-            if source.name == "native/data-operation-projections.json"
-        )
-    )
-    sql = record_grade_native_sql()
-    for name, body in products.items():
-        sql = sql.replace("__DDO_CORE_" + name.upper() + "__", body)
-    return sql
 
 
 @pytest.fixture
@@ -49,7 +32,7 @@ def grade_guard_connection(semantic_bare_engine):
             connection.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         for name in required:
             connection.execute(CreateTable(table(name), include_foreign_key_constraints=[]))
-        sql = compiled_grade_sql()
+        sql = record_grade_native_sql(metadata)
         assert "__DDO_CORE_" not in sql
         connection.exec_driver_sql(sql, execution_options={"no_parameters": True})
         yield connection
@@ -94,7 +77,9 @@ def test_native_grade_scope_refuses_missing_project_or_retained_cut(grade_guard_
 
 
 def test_native_grade_function_population_has_independent_expected_signatures():
-    statements = prepare_sql(record_grade_native_sql(), source="record-grade-native").statements
+    statements = prepare_sql(
+        record_grade_native_sql(metadata), source="record-grade-native"
+    ).statements
     names = {
         statement.stmt.funcname[-1].sval
         for statement in statements

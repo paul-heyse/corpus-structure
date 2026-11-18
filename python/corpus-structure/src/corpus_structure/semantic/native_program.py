@@ -383,7 +383,9 @@ def _step(statement: Statement, nested: str) -> str:
             body = _statements(then, nested)
             if otherwise:
                 body += f"\n{nested[:-1]}ELSE\n" + _statements(otherwise, nested)
-            return f"IF {_render(condition)} THEN\n{body}\n{nested[:-1]}END IF"
+            # PL/pgSQL locates THEN before parsing the condition as SQL. A
+            # nested CASE has its own THEN and must remain inside parentheses.
+            return f"IF ({_render(condition)}) THEN\n{body}\n{nested[:-1]}END IF"
         case While(condition, body):
             return f"WHILE {_render(condition)} LOOP\n{_statements(body, nested)}\n{nested[:-1]}END LOOP"
         case ForQuery(targets, query, body):

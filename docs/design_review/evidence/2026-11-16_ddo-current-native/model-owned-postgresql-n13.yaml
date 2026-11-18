@@ -1,0 +1,4 @@
+# Adopt generated DDO authority, acquisition, settlement and protected event programs.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n12
+native_revision: semantic_ddo_pe_n13

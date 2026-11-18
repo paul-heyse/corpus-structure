@@ -3,11 +3,13 @@
 import pytest
 from pglast import parse_sql
 from pglast.stream import RawStream
-from sqlalchemy import BigInteger, cast, literal, select, text
+from sqlalchemy import BigInteger, case, cast, literal, select, text
 
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.native_program import (
     Block,
+    If,
+    Return,
     ReturnQuery,
     function,
     pg_type,
@@ -53,3 +55,19 @@ def test_unambiguous_table_output_retains_native_printer_bytes():
     statement = parse_sql(program)[0].stmt
     assert statement is not None
     assert RawStream()(statement) == program
+
+
+def test_case_then_remains_inside_procedural_condition(semantic_bare_engine):
+    condition = literal("matched").is_distinct_from(
+        case((literal(False), "other"), else_="matched")
+    )
+    program = function(
+        "public",
+        "typed_nested_condition",
+        parameters=(),
+        returns=pg_type("bool"),
+        body=Block((If(condition, (Return(literal(False)),)), Return(literal(True)))),
+    )
+    with semantic_bare_engine.begin() as connection:
+        execute_native_sql(connection, program)
+        assert connection.scalar(text("SELECT public.typed_nested_condition()")) is True

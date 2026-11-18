@@ -55,17 +55,27 @@ def test_scope_json_keeps_fractional_digits_through_context_and_frozen_demand():
 
 
 def test_wire_snapshot_keeps_only_scope_numbers_exact_and_preserves_typed_meaning():
+    from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
+    from semantic.data_operation_declaration_support import model, operation
+
+    intent = freeze_demand(
+        model(operation("op:result")),
+        roots=(RootSubject("subject", "original", PRECISE),),
+        targets=("op:result",),
+        inference="exact",
+        execution_profile="one",
+    )
     payload = {
-        "demand_id": "demand:one",
-        "operation_id": "op:one",
-        "subject": "subject",
-        "original_source": "original",
-        "analyzed_scope": json_loads(PRECISE),
-        "parameters": {"untyped-display": 1.25},
+        "project_id": "project:one",
+        "release_id": "release:one",
+        "runtime_id": "runtime:one",
+        "root": intent.record["roots"],
+        "selection": intent.record,
+        "strength": "value",
     }
-    checked = validate_native_wire("expand_data_obligation", "input", payload)
-    assert json_bytes(checked["analyzed_scope"]) == PRECISE
-    assert type(checked["parameters"]["untyped-display"]) is float
+    checked = validate_native_wire("register_data_demand", "input", payload)
+    assert json_bytes(checked["root"][0]["analyzed_scope"]) == PRECISE
+    assert json_bytes(checked["selection"]["roots"][0]["analyzed_scope"]) == PRECISE
     value = wire_json_loads(b'{"analyzed_scope":{"x":0.1234567890123456789},"body":1.25}')
     assert value["analyzed_scope"]["x"] == Decimal("0.1234567890123456789")
     assert type(value["body"]) is float
@@ -82,9 +92,9 @@ def test_exact_json_refuses_nonfinite_numbers(invalid):
 @pytest.mark.db
 def test_native_jsonb_preserves_fraction_and_context_key_meaning(native_rollback):
     from corpus_structure.semantic.data_operation_value_native import data_operation_value_sql
-    from semantic.native_program_support import temporary_routine
+    from semantic.native_program_support import routine_declaration
 
-    helper = temporary_routine(data_operation_value_sql(), "data", "ddo_json_meaning")
+    helper = routine_declaration(data_operation_value_sql(), "data", "ddo_json_meaning")
     connection = native_rollback.connection
     connection.exec_driver_sql(helper)
     # The production DDO column binder/result type crosses actual JSONB.

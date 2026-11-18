@@ -1,443 +1,1529 @@
-"""Native custody of the explicit complete-record grading census.
+"""Compile protected grading custody over exact native cuts and reference passes."""
 
-Numerical features and whole-reading judgments belong to the captured evaluator
-CPU implementation. This boundary authenticates its declared sources, original
-reference passes and the retained native prediction opportunities, including
-failed and empty opportunities which are not fulfilled computational support.
-"""
+from pglast import ast
+from pglast.stream import RawStream
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Integer,
+    MetaData,
+    Text,
+    and_,
+    case,
+    cast,
+    column,
+    func,
+    literal,
+    or_,
+    select,
+    true,
+    tuple_,
+    union,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.types import NullType
+
+from .data_operation_projections import (
+    cut_selection_projection,
+    read_page,
+    record_grade_census_nodes,
+    record_grade_selected_outputs,
+)
+from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_program import (
+    Assign,
+    Block,
+    CatchDependencyInvalidity,
+    Continue,
+    Exit,
+    ForQuery,
+    If,
+    Local,
+    Parameter,
+    Perform,
+    Raise,
+    Return,
+    ReturnQuery,
+    SelectInto,
+    While,
+    core_relation_row,
+    core_variable,
+    function,
+    pg_type,
+    sql_function,
+)
+from .record_policy_authority import GRADE_FACTORY, GRADE_KIND, GRADE_OPERATION
+
+_PROTECTED_GRADES = (GRADE_OPERATION, "record_policy.fit", "record_policy.authorize")
+_READING = "resolve.m1_readings/declared"
 
 
-def record_grade_native_sql() -> str:
-    from .record_policy_authority import GRADE_FACTORY, GRADE_KIND, GRADE_OPERATION
+def _json(value):
+    return cast(literal(value), JSONB())
 
+
+def _object(**fields):
+    return func.jsonb_build_object(
+        *(item for field in fields.items() for item in field), type_=JSONB()
+    )
+
+
+def _items(value, name, *, ordinal=False):
+    field = column("value", JSONB())
+    result = func.jsonb_array_elements(value)
+    if ordinal:
+        return result.table_valued(field, with_ordinality="ordinal").render_derived(name=name)
+    return result.table_valued(field).alias(name)
+
+
+def _rows(table, *predicates, source=None):
     return (
-        r"""
--- Logical class identity belongs to the authenticated effective model. It is
--- independent of the subset projected as native operation body/member kinds.
-CREATE OR REPLACE FUNCTION sem.ddo_model_class_contract(
- p_release text,p_contract text,p_class text DEFAULT NULL)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $model$
- SELECT count(*)=1 FROM sem.artifact artifact
- JOIN sem.release_finalization finalized ON finalized.release_id=artifact.release_id
- CROSS JOIN LATERAL jsonb_array_elements(convert_from(artifact.content,'UTF8')::jsonb->'kinds') owned
- CROSS JOIN LATERAL jsonb_array_elements(convert_from(artifact.content,'UTF8')::jsonb->'identities') identity_
- WHERE artifact.release_id=p_release AND artifact.artifact_name='data_operations.json'
- AND (p_class IS NULL OR owned->>'name'=p_class)
- AND owned->>'category'='class' AND (owned->>'complete')::boolean
- AND identity_->>'domain'='kind' AND identity_->>'owner'=owned->>'semantic_id'
- AND identity_->>'key'=p_contract
-$model$;
-REVOKE ALL ON FUNCTION sem.ddo_model_class_contract(text,text,text) FROM PUBLIC;
+        select(core_relation_row(table))
+        .select_from(table if source is None else source)
+        .where(*predicates)
+    )
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_input_value(project text,product text,member text)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE value jsonb;
-BEGIN
- SELECT jsonb_build_object('product_id',x.id,'member_id',member,'project_id',x.project_id,
- 'kind_contract',CASE WHEN member IS NULL THEN x.kind_contract ELSE m.kind_contract END,
- 'subject',CASE WHEN member IS NULL THEN x.subject ELSE m.subject END,
- 'subject_definition',CASE WHEN member IS NULL THEN x.subject_definition ELSE m.subject_definition END,
- 'original_source',CASE WHEN member IS NULL THEN x.original_source ELSE m.original_source END,
- 'analyzed_scope_meaning',data.ddo_json_meaning(CASE WHEN member IS NULL THEN x.analyzed_scope ELSE m.analyzed_scope END),
- 'body',data.ddo_json(CASE WHEN member IS NULL THEN x.canonical_body ELSE m.body END)) INTO STRICT value
- FROM kb.data_product x LEFT JOIN kb.data_product_member m ON m.product_id=x.id AND m.member_id=member
- WHERE x.id=product AND x.project_id=project AND (member IS NULL OR m.member_id IS NOT NULL);
- RETURN value;
-END $grade$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_input(r ops.data_request,role_name text)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE selected jsonb;
-BEGIN
- SELECT value INTO STRICT selected FROM jsonb_array_elements(r.binding->'inputs') item(value)
- WHERE value->>'role'=role_name;
- IF selected->>'member_id' IS NOT NULL OR (selected->>'multiplicity')::integer<>1 THEN
- RAISE EXCEPTION 'record grade scalar role requires one whole actual product' USING ERRCODE='23514'; END IF;
- RETURN ops.ddo_record_grade_input_value(r.project_id,selected->>'product_id',NULL);
-END $grade$;
+def _field(local, table, name):
+    return core_variable(local, table.c[name].type, name)
 
--- This finite Core traversal deliberately has no validity callbacks. Refuse
--- protected judgments before any helper which could recursively validate a grade.
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_require_finite_census(d ops.data_demand,boundary ops.data_demand_read)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE p jsonb:=jsonb_build_object('scope',boundary.scope); node record;
-BEGIN
- IF EXISTS(SELECT FROM jsonb_array_elements(d.selection->'operations') selected
- JOIN sem.data_operation_definition definition ON definition.release_id=d.release_id AND definition.operation_id=selected->>'operation'
- WHERE definition.operation_id IN ('__GRADE_OPERATION__','record_policy.fit','record_policy.authorize')
- OR EXISTS(SELECT FROM jsonb_array_elements(definition.input_roles||definition.output_roles) role
- JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract'
- WHERE kind.universe='evaluator')) THEN
- RAISE EXCEPTION 'record census cannot consume a protected judgment demand' USING ERRCODE='23514'; END IF;
- FOR node IN __DDO_CORE_RECORD_GRADE_CENSUS_NODES__ LOOP
- IF node.kind='episode' AND EXISTS(SELECT FROM ops.data_derivation episode
- JOIN ops.data_request request ON request.id=episode.request_id
- JOIN sem.data_operation_definition definition ON definition.release_id=episode.release_id AND definition.operation_id=request.operation_id
- WHERE episode.id=node.id AND (request.operation_id IN ('__GRADE_OPERATION__','record_policy.fit','record_policy.authorize')
- OR EXISTS(SELECT FROM jsonb_array_elements(definition.input_roles||definition.output_roles) role
- JOIN sem.data_kind_contract kind ON kind.kind_contract=role->>'kind_contract' WHERE kind.universe='evaluator'))) THEN
- RAISE EXCEPTION 'record census support reaches a protected judgment' USING ERRCODE='23514'; END IF;
- IF node.kind='original' AND EXISTS(SELECT FROM ops.original_source_admission admission
- JOIN kb.data_product product ON product.id=admission.product_id
- JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract
- WHERE admission.id=node.id AND kind.universe='evaluator') THEN
- RAISE EXCEPTION 'record census source reaches a protected judgment' USING ERRCODE='23514'; END IF;
- END LOOP;
-END $grade$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_cut_scopes(project text,cut_text text)
-RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE captured jsonb:=cut_text::jsonb; d ops.data_demand; boundary ops.data_demand_read; p jsonb; actual jsonb;
-BEGIN
- SELECT * INTO STRICT d FROM ops.data_demand WHERE id=captured->>'demand_id' AND project_id=project;
- SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=captured->>'read_id' AND demand_id=d.id;
- IF NOT coalesce(ops.ddo_read_acquisition_present(boundary),false) THEN
- RAISE EXCEPTION 'record census requires read reacquisition' USING ERRCODE='23514'; END IF;
- IF NOT boundary.grade_census_eligible THEN RAISE EXCEPTION 'record census support reaches a protected judgment' USING ERRCODE='23514'; END IF;
- p:=jsonb_build_object('scope',boundary.scope);
- __DDO_CORE_CUT_SELECTION__ INTO actual;
- IF captured IS DISTINCT FROM actual THEN
- RAISE EXCEPTION 'record grade scope acquisition differs from actual project/cut' USING ERRCODE='23514'; END IF;
- RETURN QUERY SELECT retained.scope FROM ops.data_demand_read_scope retained
- WHERE retained.read_id=boundary.id AND retained.ordinary ORDER BY retained.scope;
-END $grade$;
+def _hash(value):
+    return func.encode(func.sha256(func.convert_to(value, "UTF8")), "hex")
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_require_cut(project text,cut_text text,cut_id text)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE captured jsonb:=cut_text::jsonb; d ops.data_demand; boundary ops.data_demand_read;
-BEGIN
- -- Authenticate immutable cut/census correspondence before current premise use.
- PERFORM ops.ddo_record_grade_cut_scopes(project,cut_text);
- IF cut_id IS DISTINCT FROM 'cut-selection:'||encode(sha256(convert_to(cut_text,'UTF8')),'hex') THEN
- RAISE EXCEPTION 'record grade differs from exact retained native cut' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT d FROM ops.data_demand WHERE id=captured->>'demand_id' AND project_id=project;
- SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=captured->>'read_id' AND demand_id=d.id;
- PERFORM ops.ddo_require_read_current(boundary,project,true);
-END $grade$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_acquire_census(project text,cut_text text,cut_id text)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE d ops.data_demand; boundary ops.data_demand_read; p jsonb; captured jsonb:=cut_text::jsonb; results jsonb;
- obligations jsonb:='{}'; uses_ jsonb:='{}'; outputs jsonb;
- lim bigint:=1000; after_key text:=''; selected_view text:='frontier'; selected_max_bytes bigint:=67108864;
-BEGIN
- PERFORM ops.ddo_record_grade_require_cut(project,cut_text,cut_id);
- SELECT * INTO STRICT d FROM ops.data_demand WHERE id=captured->>'demand_id' AND project_id=project;
- SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=captured->>'read_id' AND demand_id=d.id;
- p:=jsonb_build_object('scope',boundary.scope);
- -- One prepared, bounded frontier per distinct actual cut. Numerical/event
- -- comparisons below use these indexes rather than restarting the frontier.
- LOOP
- __DDO_CORE_READ_PAGE__ INTO results;
- SELECT obligations||coalesce(jsonb_object_agg(value->>'obligation_id',value),'{}') INTO obligations
- FROM jsonb_array_elements(results->'payload'->'obligations') item(value);
- SELECT uses_||coalesce(jsonb_object_agg(value->>'use_id',value),'{}') INTO uses_
- FROM jsonb_array_elements(results->'payload'->'uses') item(value);
- EXIT WHEN results->'payload'->'continuation' IS NULL OR results->'payload'->'continuation'='null'::jsonb;
- after_key:=results->'payload'->'continuation'->>'after';
- END LOOP;
- SELECT coalesce(jsonb_agg(to_jsonb(selected_output)),'[]') INTO outputs
- FROM (__DDO_CORE_RECORD_GRADE_SELECTED_OUTPUTS__) selected_output;
- RETURN jsonb_build_object('obligations',obligations,'uses',uses_,'outputs',outputs);
-END $grade$;
+def _different(left, right, *names):
+    return or_(*(left[name].astext.is_distinct_from(right[name].astext) for name in names))
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_cuts(r ops.data_request)
-RETURNS TABLE(cut_text text,cut_id text) LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE specification jsonb; references_ jsonb; selection_ jsonb; question_ jsonb;
-BEGIN
- IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN; END IF;
- specification:=ops.ddo_record_grade_input(r,'specification')->'body';
- references_:=ops.ddo_record_grade_input(r,'adjudication')->'body';
- FOR selection_ IN SELECT value FROM jsonb_array_elements(specification->'prediction_selections') item(value) LOOP
- IF selection_->>'project_id' IS DISTINCT FROM r.project_id
- OR (selection_->>'cut_canonical_json')::jsonb->>'project_id' IS DISTINCT FROM selection_->>'project_id'
- OR (selection_->>'cut_canonical_json')::jsonb->>'demand_id' IS DISTINCT FROM selection_->>'demand_id'
- OR (selection_->>'cut_canonical_json')::jsonb->>'read_id' IS DISTINCT FROM selection_->>'read_id' THEN
- RAISE EXCEPTION 'record census selection differs from exact cut/project/read pins' USING ERRCODE='23514'; END IF;
- END LOOP;
- FOR question_ IN SELECT value->'question' FROM jsonb_array_elements(references_->'references') item(value) LOOP
- IF question_->>'project_id' IS DISTINCT FROM r.project_id
- OR (question_->>'source_cut_canonical_json')::jsonb->>'project_id' IS DISTINCT FROM r.project_id
- OR (question_->>'source_cut_canonical_json')::jsonb->>'release_id' IS DISTINCT FROM question_->>'source_release_id' THEN
- RAISE EXCEPTION 'record source question differs from original project/release cut' USING ERRCODE='23514'; END IF;
- END LOOP;
- RETURN QUERY SELECT DISTINCT question->'question'->>'source_cut_canonical_json',question->'question'->>'source_cut_id'
- FROM jsonb_array_elements(references_->'references') question
- UNION SELECT selection->>'cut_canonical_json',selection->>'expected_cut'
- FROM jsonb_array_elements(specification->'prediction_selections') selection;
-END $grade$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_completion_scopes(r ops.data_request)
-RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE captured record;
-BEGIN
- IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN; END IF;
- FOR captured IN SELECT * FROM ops.ddo_record_grade_cuts(r) LOOP
- RETURN QUERY SELECT * FROM ops.ddo_record_grade_cut_scopes(r.project_id,captured.cut_text);
- END LOOP;
-END $grade$;
+def _refuse(condition, message):
+    return If(condition, (Raise(message, "23514"),))
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_dependency_scopes(episode text)
-RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent;
-BEGIN
- SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
- SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
- IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN; END IF;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id
- AND request_id=producing.request_id AND generation=producing.generation;
- IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
- (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN
- RAISE EXCEPTION 'grade dependency scopes differ from original producer fences' USING ERRCODE='23514'; END IF;
- r.release_id:=producing.release_id; r.runtime_id:=producing.runtime_id;
- r.recipe:=producing.recipe; r.generation:=producing.generation;
- r.binding:=r.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
- RETURN QUERY SELECT * FROM ops.ddo_record_grade_completion_scopes(r);
-END $grade$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_require_frame(r ops.data_request,grade jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE a jsonb:=ops.ddo_record_grade_input(r,'reference_a'); b jsonb:=ops.ddo_record_grade_input(r,'reference_b');
- c jsonb:=ops.ddo_record_grade_input(r,'adjudication'); specification jsonb:=ops.ddo_record_grade_input(r,'specification')->'body';
- frame jsonb:=grade->'frame'; question jsonb; selected jsonb; source_census jsonb; prediction_census jsonb; u jsonb; obligation jsonb;
- cuts jsonb:='{}'; captured record;
- predicted jsonb; carrier jsonb; candidate jsonb; event jsonb; actual_event jsonb; coverage jsonb; ref jsonb; pin jsonb; bound jsonb;
- pins jsonb:='[]'; sources_ jsonb:='[]'; event_count integer:=0; selected_count integer:=0; n bigint; pass_row record;
- producer ops.data_derivation; reading sem.data_operation_definition;
- reading_request ops.data_request; reading_intent ops.data_completion_intent; reading_completion jsonb; reading_body jsonb;
- verified_readings jsonb:='{}'; reading_key text;
-BEGIN
- IF grade->>'version' IS DISTINCT FROM 'record-grade-1'
- OR grade->>'frame_digest' IS DISTINCT FROM encode(sha256(convert_to(grade->>'frame_canonical_json','UTF8')),'hex')
- OR (grade->>'frame_canonical_json')::jsonb IS DISTINCT FROM frame OR frame->>'project_id' IS DISTINCT FROM r.project_id
- OR jsonb_array_length(c->'body'->'references')<>jsonb_array_length(specification->'prediction_selections')
- OR jsonb_array_length(c->'body'->'references')<>jsonb_array_length(frame->'coverage')
- OR jsonb_array_length(frame->'reference_passes')<>3*jsonb_array_length(c->'body'->'references')
- OR a->>'product_id'=b->>'product_id' OR a->>'product_id'=c->>'product_id' OR b->>'product_id'=c->>'product_id' THEN
- RAISE EXCEPTION 'record grade differs from canonical frame and genuine independent pass population' USING ERRCODE='23514'; END IF;
- FOR captured IN SELECT * FROM ops.ddo_record_grade_cuts(r) LOOP
- cuts:=cuts||jsonb_build_object(captured.cut_id,ops.ddo_record_grade_acquire_census(r.project_id,captured.cut_text,captured.cut_id));
- END LOOP;
- FOR ref,n IN SELECT value,ordinal FROM jsonb_array_elements(c->'body'->'references') WITH ORDINALITY items(value,ordinal) LOOP
- question:=ref->'question'; selected:=specification->'prediction_selections'->((n-1)::integer);
- sources_:=sources_||jsonb_build_array(question->'source');
- IF selected->'source' IS DISTINCT FROM question->'source'
- OR frame->'sources'->((n-1)::integer) IS DISTINCT FROM question->'source'
- OR frame->>'partition' IS DISTINCT FROM question->>'partition'
- OR frame->>'family' IS DISTINCT FROM question->>'family'
- OR frame->>'family_contract' IS DISTINCT FROM question->>'family_contract'
- OR frame->>'reading_recipe' IS DISTINCT FROM question->>'reading_recipe'
- OR frame->>'subset' IS DISTINCT FROM question->>'subset'
- OR frame->>'source_release_id' IS DISTINCT FROM question->>'source_release_id'
- OR frame->>'source_cut_id' IS DISTINCT FROM question->>'source_cut_id'
- OR frame->>'prediction_cut_id' IS DISTINCT FROM selected->>'expected_cut'
- OR frame->>'prediction_release_id' IS DISTINCT FROM (selected->>'cut_canonical_json')::jsonb->>'release_id'
- OR selected->>'project_id' IS DISTINCT FROM r.project_id
- OR (selected->>'cut_canonical_json')::jsonb->>'project_id' IS DISTINCT FROM selected->>'project_id'
- OR (selected->>'cut_canonical_json')::jsonb->>'demand_id' IS DISTINCT FROM selected->>'demand_id'
- OR (selected->>'cut_canonical_json')::jsonb->>'read_id' IS DISTINCT FROM selected->>'read_id' THEN
- RAISE EXCEPTION 'record question/source/prediction census changed' USING ERRCODE='23514'; END IF;
- source_census:=cuts->(question->>'source_cut_id');
- prediction_census:=cuts->(selected->>'expected_cut');
- FOR pass_row IN SELECT * FROM (VALUES ('A',a),('B',b),('C',c)) passes(pass_kind,pass_value) LOOP
- bound:=pass_row.pass_value;
- IF bound->'body'->>'pass_kind' IS DISTINCT FROM pass_row.pass_kind
- OR bound->'body'->'references'->((n-1)::integer)->>'pass_kind' IS DISTINCT FROM pass_row.pass_kind
- OR bound->'body'->'references'->((n-1)::integer)->'question' IS DISTINCT FROM question
- OR bound->'body'->'references'->((n-1)::integer)->'exposed_outputs' IS DISTINCT FROM '[]'::jsonb THEN
- RAISE EXCEPTION 'record reference pass differs from exact source-only question/exposure' USING ERRCODE='23514'; END IF;
- SELECT value INTO STRICT event FROM jsonb_array_elements(frame->'reference_passes') item(value)
- WHERE value->>'pass_kind'=pass_row.pass_kind AND value->'source'=question->'source';
- IF event->'reference'->>'product_id' IS DISTINCT FROM bound->>'product_id'
- OR event->'reference'->>'member_id' IS NOT NULL
- OR event->>'author' IS DISTINCT FROM bound->'body'->'references'->((n-1)::integer)->>'author'
- OR event->'adjudicates' IS DISTINCT FROM bound->'body'->'references'->((n-1)::integer)->'adjudicates' THEN
- RAISE EXCEPTION 'record grade relabels actual reference pass' USING ERRCODE='23514'; END IF;
- END LOOP;
- FOR pin IN SELECT value FROM jsonb_array_elements(jsonb_build_array(question->'source')||coalesce((question->>'frame_canonical_json')::jsonb->'related_pins','[]')) item(value) LOOP
- IF NOT EXISTS(SELECT FROM jsonb_array_elements(pins) previous WHERE previous->>'source_product'=pin->>'source_product' AND previous->>'source_member' IS NOT DISTINCT FROM pin->>'source_member') THEN pins:=pins||jsonb_build_array(pin); END IF;
- SELECT value INTO STRICT bound FROM jsonb_array_elements(r.binding->'inputs') item(value)
- WHERE value->>'role'='sources' AND value->>'product_id'=pin->>'source_product' AND value->>'member_id' IS NOT DISTINCT FROM pin->>'source_member';
- IF NOT EXISTS(SELECT FROM jsonb_array_elements(source_census->'outputs') output WHERE output->>'product_id'=pin->>'source_product') THEN
- RAISE EXCEPTION 'record question source is outside actual selected cut support' USING ERRCODE='23514'; END IF;
- predicted:=ops.ddo_record_grade_input_value(r.project_id,bound->>'product_id',bound->>'member_id');
- IF (predicted-'body'-'analyzed_scope_meaning') IS DISTINCT FROM jsonb_build_object('product_id',pin->>'source_product','member_id',pin->>'source_member','project_id',pin->>'project_id',
- 'kind_contract',pin->>'kind_contract','subject',pin->>'subject','subject_definition',pin->>'subject_definition','original_source',pin->>'original_source')
- OR predicted->'analyzed_scope_meaning' IS DISTINCT FROM (pin->>'analyzed_scope_meaning')::jsonb
- OR predicted->'body'->'source'->>'document' IS DISTINCT FROM pin->>'document'
- OR predicted->'body'->'source'->>'projection' IS DISTINCT FROM pin->>'projection_digest'
- OR predicted->'body'->'source'->>'section_pointer' IS DISTINCT FROM pin->>'section_pointer'
- OR predicted->'body'->'source'->>'membership' IS DISTINCT FROM pin->>'membership' THEN
- RAISE EXCEPTION 'record source pin differs from actual declared source product/member/context' USING ERRCODE='23514'; END IF;
- END LOOP;
- u:=prediction_census->'uses'->(selected->>'use_id');
- obligation:=prediction_census->'obligations'->(selected->>'obligation_id');
- IF u IS NULL OR obligation IS NULL OR u->>'obligation_id' IS DISTINCT FROM selected->>'obligation_id'
- OR u->>'request_id' IS DISTINCT FROM selected->>'request_id' THEN
- RAISE EXCEPTION 'record opportunity is outside its exact native selected census' USING ERRCODE='23514'; END IF;
- IF obligation->>'operation_id' IS DISTINCT FROM 'resolve.m1_readings/declared'
- OR obligation->>'subject' IS DISTINCT FROM question->'source'->>'subject'
- OR obligation->>'subject_definition' IS DISTINCT FROM question->'source'->>'subject_definition'
- OR obligation->>'original_source' IS DISTINCT FROM question->'source'->>'original_source'
- OR data.ddo_json_meaning(obligation->'analyzed_scope') IS DISTINCT FROM (question->'source'->>'analyzed_scope_meaning')::jsonb THEN
- RAISE EXCEPTION 'record opportunity differs from actual source context' USING ERRCODE='23514'; END IF;
- coverage:=frame->'coverage'->((n-1)::integer);
- IF coverage->'source' IS DISTINCT FROM question->'source' THEN RAISE EXCEPTION 'record coverage source changed' USING ERRCODE='23514'; END IF;
- IF selected->>'outcome' IN ('failed','no_output') THEN
- IF u->>'completion_state' IS DISTINCT FROM (CASE WHEN selected->>'outcome'='failed' THEN 'failed' ELSE 'empty' END)
- OR u->>'fate' IS DISTINCT FROM (CASE WHEN selected->>'outcome'='failed' THEN 'failed' ELSE 'known-absent' END)
- OR coverage->>'outcome' IS DISTINCT FROM selected->>'outcome'
- OR coverage->'outputs' IS DISTINCT FROM '[]'::jsonb OR coverage->'event_ids' IS DISTINCT FROM '[]'::jsonb
- OR (selected->>'outcome'='failed' AND (coverage->>'failure_request_id',coverage->>'failure_use_id') IS DISTINCT FROM (selected->>'request_id',selected->>'use_id')) THEN
- RAISE EXCEPTION 'failed or empty coverage differs from actual native completion' USING ERRCODE='23514'; END IF;
- CONTINUE;
- END IF;
- IF selected->>'outcome' IS DISTINCT FROM 'completed' OR u->>'completion_state' IS DISTINCT FROM 'success'
- OR u->>'fate' IS DISTINCT FROM 'fulfilled' OR u->>'derivation_id' IS DISTINCT FROM selected->>'derivation_id' THEN
- RAISE EXCEPTION 'record prediction is unavailable or differs from actual native success' USING ERRCODE='23514'; END IF;
- SELECT value INTO STRICT bound FROM jsonb_array_elements(r.binding->'inputs') item(value)
- WHERE value->>'role'='prediction' AND value->>'product_id'=selected->>'product_id' AND value->>'member_id' IS NULL
- AND coalesce((value->>'multiplicity')::integer,0)=1;
- IF NOT EXISTS(SELECT FROM jsonb_array_elements(r.binding->'support') support WHERE support->>'derivation_id'=selected->>'derivation_id')
- OR NOT EXISTS(SELECT FROM ops.data_derivation_output output WHERE output.derivation_id=selected->>'derivation_id' AND output.product_id=selected->>'product_id' AND output.member_id IS NULL) THEN
- RAISE EXCEPTION 'record prediction lacks exact declared producer/output support' USING ERRCODE='23514'; END IF;
- selected_count:=selected_count+1;
- SELECT * INTO STRICT producer FROM ops.data_derivation WHERE id=selected->>'derivation_id' AND request_id=selected->>'request_id';
- SELECT * INTO STRICT reading FROM sem.data_operation_definition WHERE release_id=producer.release_id AND operation_id='resolve.m1_readings/declared';
- IF producer.recipe IS DISTINCT FROM reading.recipe OR reading.recipe IS DISTINCT FROM question->>'reading_recipe' THEN
- RAISE EXCEPTION 'record prediction changed its admitted reading recipe' USING ERRCODE='23514'; END IF;
- reading_key:=data.canonical_json(jsonb_build_array(producer.id,selected->>'product_id'));
- IF NOT verified_readings ? reading_key THEN
- SELECT * INTO STRICT reading_request FROM ops.data_request WHERE id=producer.request_id AND project_id=r.project_id;
- SELECT intent.* INTO STRICT reading_intent FROM ops.data_completion_intent intent
- JOIN ops.data_publication_receipt receipt ON receipt.intent_id=intent.id AND receipt.derivation_id=producer.id
- WHERE intent.id=producer.intent_id AND intent.request_id=producer.request_id AND intent.generation=producer.generation;
- IF (reading_intent.producer_task_id,reading_intent.producer_attempt,reading_intent.runtime_id) IS DISTINCT FROM
- (producer.producer_task_id,producer.producer_attempt,producer.runtime_id)
- OR reading_intent.payload->>'outcome' IS DISTINCT FROM producer.outcome THEN
- RAISE EXCEPTION 'record prediction differs from original reading producer fences' USING ERRCODE='23514'; END IF;
- reading_request.release_id:=producer.release_id; reading_request.runtime_id:=producer.runtime_id;
- reading_request.recipe:=producer.recipe; reading_request.generation:=producer.generation;
- reading_request.binding:=reading_request.binding||jsonb_build_object('inputs',reading_intent.payload->'inputs','support',reading_intent.payload->'support');
- reading_completion:=reading_intent.payload;
- SELECT canonical_body INTO STRICT reading_body FROM kb.data_product WHERE id=selected->>'product_id' AND project_id=r.project_id;
- IF reading_request.operation_id IS DISTINCT FROM reading.operation_id OR reading.profile IS DISTINCT FROM 'derivation'
- OR reading.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
- OR reading.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM 'corpus_structure.methods.reading_resolution.ReadingResolutionOperation.acquire_port'
- OR reading_completion->>'implementation_revision' IS DISTINCT FROM reading.implementation_revision
- OR ops.ddo_cpu_reply_output(reading_request,reading_completion) IS DISTINCT FROM reading_body THEN
- RAISE EXCEPTION 'record prediction differs from its actual reading CPU result and native basis' USING ERRCODE='23514'; END IF;
- verified_readings:=verified_readings||jsonb_build_object(reading_key,true);
- END IF;
- predicted:=ops.ddo_record_grade_input_value(r.project_id,selected->>'product_id',NULL); carrier:=predicted->'body';
- IF carrier->'source_pin' IS DISTINCT FROM jsonb_strip_nulls(question->'source') OR jsonb_array_length(coverage->'outputs')<>1
- OR coverage->'outputs'->0->>'product_id' IS DISTINCT FROM selected->>'product_id' THEN
- RAISE EXCEPTION 'record coverage differs from actual selected carrier/source' USING ERRCODE='23514'; END IF;
- FOR candidate IN SELECT value->'body' FROM jsonb_array_elements(carrier->'members') item(value)
- WHERE value->'body'->>'candidate_type'='record' AND value->'body'->>'family'=question->>'family' LOOP
- event_count:=event_count+1;
- SELECT value INTO STRICT event FROM jsonb_array_elements(frame->'events') item(value)
- WHERE value->>'interpretation_id'=candidate->>'interpretation_id';
- IF event->>'record_id' IS DISTINCT FROM candidate->>'record_id' OR event->'source' IS DISTINCT FROM question->'source'
- OR event->>'source_release_id' IS DISTINCT FROM producer.release_id OR event->>'derivation_id' IS DISTINCT FROM producer.id
- OR event->>'reading_recipe' IS DISTINCT FROM reading.recipe
- OR event->'reading'->>'product_id' IS DISTINCT FROM selected->>'product_id'
- OR event->'features'->>'record_id' IS DISTINCT FROM candidate->>'record_id'
- OR event->'features'->>'interpretation_id' IS DISTINCT FROM candidate->>'interpretation_id'
- OR event->'features'->>'release_id' IS DISTINCT FROM producer.release_id
- OR NOT coverage->'event_ids' ? (candidate->>'interpretation_id') THEN
- RAISE EXCEPTION 'grade event relabels actual eligible reading or producing context' USING ERRCODE='23514'; END IF;
- IF NOT sem.ddo_model_class_contract(producer.release_id,question->>'family_contract',candidate->>'contract') THEN
- RAISE EXCEPTION 'grade family differs from its authenticated effective model class contract' USING ERRCODE='23514'; END IF;
- SELECT value INTO STRICT actual_event FROM jsonb_array_elements((carrier->>'diagnostics_json')::jsonb->'record_policy_events') item(value)
- WHERE value->>'record_id'=candidate->>'record_id' AND value->>'interpretation_id'=candidate->>'interpretation_id';
- IF actual_event->>'outcome'='completed' THEN
- IF event->'final_event' IS DISTINCT FROM jsonb_build_object('outcome','completed','feature_instance_digest',actual_event->>'feature_instance_digest',
- 'feature_input_digest',actual_event->>'feature_input_digest','event_procedure',actual_event->>'event_procedure','final_event_score',actual_event->'final_event_score') THEN
- RAISE EXCEPTION 'grade final event differs from actual sealed producer score' USING ERRCODE='23514'; END IF;
- ELSIF event->'final_event' IS DISTINCT FROM 'null'::jsonb OR frame->>'partition'='final_event_calibration' THEN
- RAISE EXCEPTION 'grade invents a completed final event' USING ERRCODE='23514'; END IF;
- END LOOP;
- IF jsonb_array_length(coverage->'event_ids')<>(SELECT count(*) FROM jsonb_array_elements(carrier->'members') packet WHERE packet->'body'->>'candidate_type'='record' AND packet->'body'->>'family'=question->>'family')
- OR coverage->>'outcome' IS DISTINCT FROM (CASE WHEN jsonb_array_length(coverage->'event_ids')=0 THEN 'no_output' ELSE 'completed' END) THEN
- RAISE EXCEPTION 'grade coverage omits actual eligible reading events' USING ERRCODE='23514'; END IF;
- END LOOP;
- IF sources_ IS DISTINCT FROM frame->'sources' OR jsonb_array_length(frame->'events')<>event_count
- OR jsonb_array_length(pins)<>(SELECT count(*) FROM jsonb_array_elements(r.binding->'inputs') item WHERE item->>'role'='sources')
- OR selected_count<>(SELECT count(*) FROM jsonb_array_elements(r.binding->'inputs') item WHERE item->>'role'='prediction') THEN
- RAISE EXCEPTION 'grade does not cover exact declared source and prediction populations' USING ERRCODE='23514'; END IF;
-END $grade$;
+def _defined(
+    schema, name, args, returns, *, body=None, query=None, locals_=(), columns=(), setof=False
+):
+    parameters = tuple(
+        Parameter(label, pg_type(*type_.split(".")), *default) for label, type_, *default in args
+    )
+    output = pg_type(returns)
+    output.setof = setof or bool(columns)
+    table_columns = tuple((label, pg_type(type_)) for label, type_ in columns)
+    if query is None:
+        assert body is not None
+        declaration = function(
+            schema,
+            name,
+            body=Block(tuple(body), tuple(locals_)),
+            table_columns=table_columns,
+            parameters=parameters,
+            returns=output,
+            volatility="stable",
+            search_path=("pg_catalog", "pg_temp"),
+            security_definer=True,
+        )
+    else:
+        declaration = sql_function(
+            schema,
+            name,
+            body=query,
+            table_columns=table_columns,
+            parameters=parameters,
+            returns=output,
+            volatility="stable",
+            search_path=("pg_catalog", "pg_temp"),
+            security_definer=True,
+        )
+    identity = NativeIdentity(
+        "function", schema, name, tuple(RawStream()(item.type_) for item in parameters)
+    )
+    return declaration, native_privilege_sql(identity, "PUBLIC", grant=False)
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_require_producer(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE definition sem.data_operation_definition; output jsonb;
-BEGIN
- IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN; END IF;
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- IF definition.profile IS DISTINCT FROM 'derivation' OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
- OR definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM '__GRADE_FACTORY__'
- OR (definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
- OR (definition.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
- OR completion->>'implementation_revision' IS DISTINCT FROM definition.implementation_revision
- OR jsonb_array_length(coalesce(completion->'execution_evidence'->'cpu_receipts','[]'))<>1
- OR completion->>'outcome' IS DISTINCT FROM 'success' OR completion->'inputs' IS DISTINCT FROM r.binding->'inputs'
- OR jsonb_array_length(completion->'outputs')<>1 THEN
- RAISE EXCEPTION 'record grade requires its actual admitted pure CPU implementation and complete inputs' USING ERRCODE='23514'; END IF;
- output:=completion->'outputs'->0;
- IF output->>'role' IS DISTINCT FROM 'grade' OR output->>'member_id' IS NOT NULL
- OR (output->>'position')::integer IS DISTINCT FROM 0 OR (output->>'multiplicity')::integer IS DISTINCT FROM 1
- OR output->'product'->'members' IS DISTINCT FROM '[]'::jsonb
- OR NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=output->'product'->>'kind_contract'
- AND kind.kind='__GRADE_KIND__' AND kind.universe='evaluator') THEN
- RAISE EXCEPTION 'record grade output differs from protected whole scalar contract' USING ERRCODE='23514'; END IF;
-END $grade$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_require_record_grade_completion(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-BEGIN
- IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN; END IF;
- PERFORM ops.ddo_record_grade_require_producer(r,completion);
- IF ops.ddo_cpu_reply_output(r,completion) IS DISTINCT FROM data.ddo_normalize(completion->'outputs'->0->'product'->'body') THEN
- RAISE EXCEPTION 'record grade differs from actual CPU result and reference basis' USING ERRCODE='23514'; END IF;
- PERFORM ops.ddo_record_grade_require_frame(r,data.ddo_json(completion->'outputs'->0->'product'->'body'));
-END $grade$;
+def _grade(name, args, returns, **body):
+    return _defined("ops", "ddo_record_grade_" + name, args, returns, **body)
 
-CREATE OR REPLACE FUNCTION ops.ddo_record_grade_dependencies_valid(episode text)
-RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $grade$
-DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent; captured record;
-BEGIN
- SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
- SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
- IF r.operation_id IS DISTINCT FROM '__GRADE_OPERATION__' THEN RETURN true; END IF;
- SELECT original.* INTO STRICT intent FROM ops.data_completion_intent original
- JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producing.id AND receipt.intent_id=original.id
- WHERE original.id=producing.intent_id AND original.request_id=producing.request_id AND original.generation=producing.generation;
- r:=ops.ddo_require_episode_correspondence(producing,intent);
- FOR captured IN SELECT * FROM ops.ddo_record_grade_cuts(r) LOOP
- PERFORM ops.ddo_record_grade_require_cut(r.project_id,captured.cut_text,captured.cut_id);
- END LOOP;
- RETURN true;
- EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
-END $grade$;
-""".replace("__GRADE_OPERATION__", GRADE_OPERATION)
-        .replace("__GRADE_FACTORY__", GRADE_FACTORY)
-        .replace("__GRADE_KIND__", GRADE_KIND)
-        + "\n".join(
-            f"REVOKE ALL ON FUNCTION ops.{name}({arguments}) FROM PUBLIC;"
-            for name, arguments in (
-                ("ddo_record_grade_input_value", "text,text,text"),
-                ("ddo_record_grade_input", "ops.data_request,text"),
-                ("ddo_record_grade_require_finite_census", "ops.data_demand,ops.data_demand_read"),
-                ("ddo_record_grade_cut_scopes", "text,text"),
-                ("ddo_record_grade_require_cut", "text,text,text"),
-                ("ddo_record_grade_acquire_census", "text,text,text"),
-                ("ddo_record_grade_cuts", "ops.data_request"),
-                ("ddo_record_grade_require_producer", "ops.data_request,jsonb"),
-                ("ddo_record_grade_completion_scopes", "ops.data_request"),
-                ("ddo_record_grade_dependency_scopes", "text"),
-                ("ddo_record_grade_require_frame", "ops.data_request,jsonb"),
-                ("ddo_require_record_grade_completion", "ops.data_request,jsonb"),
-                ("ddo_record_grade_dependencies_valid", "text"),
+
+def _class_contract(model):
+    archive = model.tables["sem.artifact"]
+    finalized = model.tables["sem.release_finalization"]
+    content = cast(func.convert_from(archive.c.content, "UTF8"), JSONB())
+    kinds = _items(content["kinds"], "owned").lateral()
+    identities = _items(content["identities"], "identity_").lateral()
+    owner, identity = kinds.c.value, identities.c.value
+    release, contract, class_ = (
+        core_variable(name, Text()) for name in ("p_release", "p_contract", "p_class")
+    )
+    return _defined(
+        "sem",
+        "ddo_model_class_contract",
+        (
+            ("p_release", "text"),
+            ("p_contract", "text"),
+            ("p_class", "text", ast.A_Const(isnull=True)),
+        ),
+        "bool",
+        query=select(func.count() == 1)
+        .select_from(
+            archive.join(finalized, finalized.c.release_id == archive.c.release_id)
+            .join(kinds, true())
+            .join(identities, true())
+        )
+        .where(
+            archive.c.release_id == release,
+            archive.c.artifact_name == "data_operations.json",
+            or_(class_.is_(None), owner["name"].astext == class_),
+            owner["category"].astext == "class",
+            cast(owner["complete"].astext, Boolean()),
+            identity["domain"].astext == "kind",
+            identity["owner"].astext == owner["semantic_id"].astext,
+            identity["key"].astext == contract,
+        ),
+    )
+
+
+def _grade_inputs(model):
+    products = model.tables["kb.data_product"]
+    members = model.tables["kb.data_product_member"]
+    requests = model.tables["ops.data_request"]
+    project, product, member, role = (
+        core_variable(name, Text()) for name in ("project", "product", "member", "role_name")
+    )
+    value = core_variable("value", JSONB())
+    selected = core_variable("selected", JSONB())
+    bindings = _items(_field("r", requests, "binding")["inputs"], "item")
+
+    def field(name, member_name=None):
+        return case((member.is_(None), products.c[name]), else_=members.c[member_name or name])
+
+    result = _object(
+        product_id=products.c.id,
+        member_id=member,
+        project_id=products.c.project_id,
+        **{
+            name: field(name)
+            for name in ("kind_contract", "subject", "subject_definition", "original_source")
+        },
+        analyzed_scope_meaning=func.data.ddo_json_meaning(field("analyzed_scope")),
+        body=func.data.ddo_json(field("canonical_body", "body")),
+    )
+    return (
+        *_grade(
+            "input_value",
+            (("project", "text"), ("product", "text"), ("member", "text")),
+            "jsonb",
+            body=(
+                SelectInto(
+                    select(result)
+                    .select_from(
+                        products.outerjoin(
+                            members,
+                            and_(
+                                members.c.product_id == products.c.id,
+                                members.c.member_id == member,
+                            ),
+                        )
+                    )
+                    .where(
+                        products.c.id == product,
+                        products.c.project_id == project,
+                        or_(member.is_(None), members.c.member_id.is_not(None)),
+                    ),
+                    ("value",),
+                    strict=True,
+                ),
+                Return(value),
+            ),
+            locals_=(Local("value", pg_type("jsonb")),),
+        ),
+        *_grade(
+            "input",
+            (("r", "ops.data_request"), ("role_name", "text")),
+            "jsonb",
+            body=(
+                SelectInto(
+                    select(bindings.c.value).where(bindings.c.value["role"].astext == role),
+                    ("selected",),
+                    strict=True,
+                ),
+                _refuse(
+                    or_(
+                        selected["member_id"].astext.is_not(None),
+                        cast(selected["multiplicity"].astext, Integer()) != 1,
+                    ),
+                    "record grade scalar role requires one whole actual product",
+                ),
+                Return(
+                    func.ops.ddo_record_grade_input_value(
+                        _field("r", requests, "project_id"),
+                        selected["product_id"].astext,
+                        None,
+                    )
+                ),
+            ),
+            locals_=(Local("selected", pg_type("jsonb")),),
+        ),
+    )
+
+
+def _finite_census(model):
+    definitions = model.tables["sem.data_operation_definition"]
+    kinds = model.tables["sem.data_kind_contract"]
+    demand = model.tables["ops.data_demand"]
+    boundaries = model.tables["ops.data_demand_read"]
+    episodes = model.tables["ops.data_derivation"]
+    requests = model.tables["ops.data_request"]
+    originals = model.tables["ops.original_source_admission"]
+    products = model.tables["kb.data_product"]
+
+    role = _items(
+        definitions.c.input_roles.op("||", return_type=JSONB())(definitions.c.output_roles), "role"
+    ).lateral()
+    guarded = (
+        select(1)
+        .select_from(
+            role.join(
+                kinds,
+                kinds.c.kind_contract == role.c.value["kind_contract"].astext,
             )
+        )
+        .where(kinds.c.universe == "evaluator")
+        .correlate(definitions)
+        .exists()
+    )
+    denied = or_(definitions.c.operation_id.in_(_PROTECTED_GRADES), guarded)
+    requested = _items(_field("d", demand, "selection")["operations"], "requested")
+    initial = (
+        select(1)
+        .select_from(
+            requested.join(
+                definitions,
+                and_(
+                    definitions.c.release_id == _field("d", demand, "release_id"),
+                    definitions.c.operation_id == requested.c.value["operation"].astext,
+                ),
+            )
+        )
+        .where(denied)
+        .exists()
+    )
+    node_kind, node_id = (core_variable("node", Text(), field) for field in ("kind", "id"))
+    producer = (
+        select(1)
+        .select_from(
+            episodes.join(requests, requests.c.id == episodes.c.request_id).join(
+                definitions,
+                and_(
+                    definitions.c.release_id == episodes.c.release_id,
+                    definitions.c.operation_id == requests.c.operation_id,
+                ),
+            )
+        )
+        .where(episodes.c.id == node_id, denied)
+        .exists()
+    )
+    original = (
+        select(1)
+        .select_from(
+            originals.join(products, products.c.id == originals.c.product_id).join(
+                kinds, kinds.c.kind_contract == products.c.kind_contract
+            )
+        )
+        .where(originals.c.id == node_id, kinds.c.universe == "evaluator")
+        .exists()
+    )
+    return _grade(
+        "require_finite_census",
+        (("d", "ops.data_demand"), ("boundary", "ops.data_demand_read")),
+        "void",
+        body=(
+            _refuse(initial, "record census cannot consume a protected judgment demand"),
+            ForQuery(
+                ("node",),
+                record_grade_census_nodes(model),
+                (
+                    _refuse(
+                        and_(node_kind == "episode", producer),
+                        "record census support reaches a protected judgment",
+                    ),
+                    _refuse(
+                        and_(node_kind == "original", original),
+                        "record census source reaches a protected judgment",
+                    ),
+                ),
+            ),
+        ),
+        locals_=(
+            Local("p", pg_type("jsonb"), _object(scope=_field("boundary", boundaries, "scope"))),
+            Local("node", pg_type("record")),
+        ),
+    )
+
+
+def _cut_programs(model):
+    demand = model.tables["ops.data_demand"]
+    read = model.tables["ops.data_demand_read"]
+    retained = model.tables["ops.data_demand_read_scope"]
+    project, text, identity = (
+        core_variable(name, Text()) for name in ("project", "cut_text", "cut_id")
+    )
+    captured = core_variable("captured", JSONB())
+    actual = core_variable("actual", JSONB())
+    boundary = core_variable("boundary", NullType())
+    cut_args = (("project", "text"), ("cut_text", "text"))
+    require_args = (*cut_args, ("cut_id", "text"))
+    base_locals = (
+        Local("captured", pg_type("jsonb"), cast(text, JSONB())),
+        Local("d", demand),
+        Local("boundary", read),
+    )
+    acquire = (
+        SelectInto(
+            _rows(
+                demand, demand.c.id == captured["demand_id"].astext, demand.c.project_id == project
+            ),
+            ("d",),
+            strict=True,
+        ),
+        SelectInto(
+            _rows(
+                read,
+                read.c.id == captured["read_id"].astext,
+                read.c.demand_id == _field("d", demand, "id"),
+            ),
+            ("boundary",),
+            strict=True,
+        ),
+    )
+    scope = _object(scope=_field("boundary", read, "scope"))
+    results = core_variable("results", JSONB())
+
+    def index(name, key):
+        rows = _items(results["payload"][name], "page_rows")
+        current = core_variable(name if name != "uses" else "uses_", JSONB())
+        return select(
+            current.op("||")(
+                func.coalesce(
+                    func.jsonb_object_agg(rows.c.value[key].astext, rows.c.value),
+                    _json("{}"),
+                )
+            )
+        ).select_from(rows)
+
+    continuation = results["payload"]["continuation"]
+    available = record_grade_selected_outputs(model).subquery("selected_output")
+    outputs = select(
+        func.coalesce(func.jsonb_agg(func.to_jsonb(available.table_valued())), _json("[]"))
+    ).select_from(available)
+    return (
+        *_grade(
+            "cut_scopes",
+            cut_args,
+            "text",
+            setof=True,
+            body=(
+                *acquire,
+                _refuse(
+                    ~func.coalesce(func.ops.ddo_read_acquisition_present(boundary), False),
+                    "record census requires read reacquisition",
+                ),
+                _refuse(
+                    ~_field("boundary", read, "grade_census_eligible"),
+                    "record census support reaches a protected judgment",
+                ),
+                Assign("p", scope),
+                SelectInto(cut_selection_projection(), ("actual",)),
+                _refuse(
+                    captured.is_distinct_from(actual),
+                    "record grade scope acquisition differs from actual project/cut",
+                ),
+                ReturnQuery(
+                    select(retained.c.scope)
+                    .where(
+                        retained.c.read_id == _field("boundary", read, "id"),
+                        retained.c.ordinary,
+                    )
+                    .order_by(retained.c.scope)
+                ),
+            ),
+            locals_=(*base_locals, Local("p", pg_type("jsonb")), Local("actual", pg_type("jsonb"))),
+        ),
+        *_grade(
+            "require_cut",
+            require_args,
+            "void",
+            body=(
+                Perform(func.ops.ddo_record_grade_cut_scopes(project, text)),
+                _refuse(
+                    identity.is_distinct_from(literal("cut-selection:").op("||")(_hash(text))),
+                    "record grade differs from exact retained native cut",
+                ),
+                *acquire,
+                Perform(func.ops.ddo_require_read_current(boundary, project, True)),
+            ),
+            locals_=base_locals,
+        ),
+        *_grade(
+            "acquire_census",
+            require_args,
+            "jsonb",
+            body=(
+                Perform(func.ops.ddo_record_grade_require_cut(project, text, identity)),
+                *acquire,
+                Assign("p", scope),
+                While(
+                    literal(True),
+                    (
+                        SelectInto(read_page(model), ("results",)),
+                        SelectInto(index("obligations", "obligation_id"), ("obligations",)),
+                        SelectInto(index("uses", "use_id"), ("uses_",)),
+                        If(or_(continuation.is_(None), continuation == _json("null")), (Exit(),)),
+                        Assign("after_key", continuation["after"].astext),
+                    ),
+                ),
+                SelectInto(outputs, ("outputs",)),
+                Return(
+                    _object(
+                        **{
+                            label: core_variable(name, JSONB())
+                            for label, name in (
+                                ("obligations", "obligations"),
+                                ("uses", "uses_"),
+                                ("outputs", "outputs"),
+                            )
+                        }
+                    )
+                ),
+            ),
+            locals_=(
+                *base_locals,
+                Local("p", pg_type("jsonb")),
+                Local("results", pg_type("jsonb")),
+                Local("obligations", pg_type("jsonb"), _json("{}")),
+                Local("uses_", pg_type("jsonb"), _json("{}")),
+                Local("outputs", pg_type("jsonb")),
+                Local("lim", pg_type("int8"), literal(1000)),
+                Local("after_key", pg_type("text"), literal("")),
+                Local("selected_view", pg_type("text"), literal("frontier")),
+                Local("selected_max_bytes", pg_type("int8"), literal(64 * 1024**2)),
+            ),
+        ),
+    )
+
+
+def _request_cut_programs(model):
+    requests = model.tables["ops.data_request"]
+    episodes = model.tables["ops.data_derivation"]
+    intents = model.tables["ops.data_completion_intent"]
+    receipts = model.tables["ops.data_publication_receipt"]
+    r = core_variable("r", NullType())
+    operation, project, binding = (
+        _field("r", requests, field) for field in ("operation_id", "project_id", "binding")
+    )
+    skip = If(operation.is_distinct_from(GRADE_OPERATION), (Return(),))
+    specification, references, selection, question = (
+        core_variable(name, JSONB())
+        for name in ("specification", "references_", "selection_", "question_")
+    )
+    predictions = _items(specification["prediction_selections"], "predictions")
+    questions = _items(references["references"], "references")
+    question_row = questions.c.value["question"]
+    selected_cut = cast(selection["cut_canonical_json"].astext, JSONB())
+    source_cut = cast(question["source_cut_canonical_json"].astext, JSONB())
+    cut_columns = (("cut_text", "text"), ("cut_id", "text"))
+    request_parameters = (("r", "ops.data_request"),)
+    cuts = func.ops.ddo_record_grade_cuts(r).table_valued(
+        column("cut_text", Text()), column("cut_id", Text())
+    )
+    cut_text = core_variable("captured", Text(), "cut_text")
+    cut_id = core_variable("captured", Text(), "cut_id")
+    scopes = (
+        func.ops.ddo_record_grade_cut_scopes(project, cut_text)
+        .table_valued(column("scope", Text()))
+        .render_derived()
+    )
+    completion_scopes = (
+        func.ops.ddo_record_grade_completion_scopes(r)
+        .table_valued(column("scope", Text()))
+        .render_derived()
+    )
+    episode = core_variable("episode", Text())
+
+    def producer(field):
+        return _field("producing", episodes, field)
+
+    def intent(field):
+        return _field("intent", intents, field)
+
+    acquired = (
+        SelectInto(_rows(episodes, episodes.c.id == episode), ("producing",), strict=True),
+        SelectInto(_rows(requests, requests.c.id == producer("request_id")), ("r",), strict=True),
+    )
+    intent_filter = (
+        intents.c.id == producer("intent_id"),
+        intents.c.request_id == producer("request_id"),
+        intents.c.generation == producer("generation"),
+    )
+    intent_payload = intent("payload")
+    return (
+        *_grade(
+            "cuts",
+            request_parameters,
+            "record",
+            columns=cut_columns,
+            body=(
+                skip,
+                Assign(
+                    "specification",
+                    func.ops.ddo_record_grade_input(r, "specification", type_=JSONB())["body"],
+                ),
+                Assign(
+                    "references_",
+                    func.ops.ddo_record_grade_input(r, "adjudication", type_=JSONB())["body"],
+                ),
+                ForQuery(
+                    ("selection_",),
+                    select(predictions.c.value),
+                    (
+                        _refuse(
+                            or_(
+                                selection["project_id"].astext.is_distinct_from(project),
+                                _different(
+                                    selected_cut, selection, "project_id", "demand_id", "read_id"
+                                ),
+                            ),
+                            "record census selection differs from exact cut/project/read pins",
+                        ),
+                    ),
+                ),
+                ForQuery(
+                    ("question_",),
+                    select(question_row),
+                    (
+                        _refuse(
+                            or_(
+                                question["project_id"].astext.is_distinct_from(project),
+                                source_cut["project_id"].astext.is_distinct_from(project),
+                                source_cut["release_id"].astext.is_distinct_from(
+                                    question["source_release_id"].astext
+                                ),
+                            ),
+                            "record source question differs from original project/release cut",
+                        ),
+                    ),
+                ),
+                ReturnQuery(
+                    union(
+                        select(
+                            question_row["source_cut_canonical_json"].astext,
+                            question_row["source_cut_id"].astext,
+                        ),
+                        select(
+                            predictions.c.value["cut_canonical_json"].astext,
+                            predictions.c.value["expected_cut"].astext,
+                        ),
+                    )
+                ),
+            ),
+            locals_=tuple(
+                Local(name, pg_type("jsonb"))
+                for name in ("specification", "references_", "selection_", "question_")
+            ),
+        ),
+        *_grade(
+            "completion_scopes",
+            request_parameters,
+            "text",
+            setof=True,
+            body=(
+                skip,
+                ForQuery(("captured",), select(cuts), (ReturnQuery(select(scopes.c.scope)),)),
+            ),
+            locals_=(Local("captured", pg_type("record")),),
+        ),
+        *_grade(
+            "dependency_scopes",
+            (("episode", "text"),),
+            "text",
+            setof=True,
+            body=(
+                *acquired,
+                skip,
+                SelectInto(_rows(intents, *intent_filter), ("intent",), strict=True),
+                _refuse(
+                    tuple_(
+                        *(
+                            intent(name)
+                            for name in ("producer_task_id", "producer_attempt", "runtime_id")
+                        )
+                    ).is_distinct_from(
+                        tuple_(
+                            *(
+                                producer(name)
+                                for name in ("producer_task_id", "producer_attempt", "runtime_id")
+                            )
+                        )
+                    ),
+                    "grade dependency scopes differ from original producer fences",
+                ),
+                *(
+                    Assign(("r", name), producer(name))
+                    for name in ("release_id", "runtime_id", "recipe", "generation")
+                ),
+                Assign(
+                    ("r", "binding"),
+                    binding.op("||")(
+                        _object(inputs=intent_payload["inputs"], support=intent_payload["support"])
+                    ),
+                ),
+                ReturnQuery(select(completion_scopes.c.scope)),
+            ),
+            locals_=(Local("r", requests), Local("producing", episodes), Local("intent", intents)),
+        ),
+        *_grade(
+            "dependencies_valid",
+            (("episode", "text"),),
+            "bool",
+            body=(
+                CatchDependencyInvalidity(
+                    (
+                        *acquired,
+                        If(operation.is_distinct_from(GRADE_OPERATION), (Return(literal(True)),)),
+                        SelectInto(
+                            _rows(
+                                intents,
+                                *intent_filter,
+                                source=intents.join(
+                                    receipts,
+                                    and_(
+                                        receipts.c.derivation_id == producer("id"),
+                                        receipts.c.intent_id == intents.c.id,
+                                    ),
+                                ),
+                            ),
+                            ("intent",),
+                            strict=True,
+                        ),
+                        Assign(
+                            "r",
+                            func.ops.ddo_require_episode_correspondence(
+                                core_variable("producing", NullType()),
+                                core_variable("intent", NullType()),
+                            ),
+                        ),
+                        ForQuery(
+                            ("captured",),
+                            select(cuts),
+                            (
+                                Perform(
+                                    func.ops.ddo_record_grade_require_cut(project, cut_text, cut_id)
+                                ),
+                            ),
+                        ),
+                        Return(literal(True)),
+                    ),
+                    (Return(literal(False)),),
+                ),
+            ),
+            locals_=(
+                Local("r", requests),
+                Local("producing", episodes),
+                Local("intent", intents),
+                Local("captured", pg_type("record")),
+            ),
+        ),
+    )
+
+
+def _frame_program(model: MetaData):
+    requests = model.tables["ops.data_request"]
+    episodes = model.tables["ops.data_derivation"]
+    definitions = model.tables["sem.data_operation_definition"]
+    outputs = model.tables["ops.data_derivation_output"]
+    receipts = model.tables["ops.data_publication_receipt"]
+    intents = model.tables["ops.data_completion_intent"]
+    products = model.tables["kb.data_product"]
+    r = core_variable("r", NullType())
+    project = _field("r", requests, "project_id")
+    binding = _field("r", requests, "binding")
+    grade = core_variable("grade", JSONB())
+    values = (
+        "a",
+        "b",
+        "c",
+        "specification",
+        "frame",
+        "question",
+        "selected",
+        "source_census",
+        "prediction_census",
+        "u",
+        "obligation",
+        "cuts",
+        "predicted",
+        "carrier",
+        "candidate",
+        "event",
+        "actual_event",
+        "coverage",
+        "ref",
+        "pin",
+        "bound",
+        "pins",
+        "sources_",
+        "reading_completion",
+        "reading_body",
+        "verified_readings",
+    )
+    j = {name: core_variable(name, JSONB()) for name in values}
+    a, b, c, specification, frame = (j[name] for name in ("a", "b", "c", "specification", "frame"))
+    question, selected, bound, ref, pin = (
+        j[name] for name in ("question", "selected", "bound", "ref", "pin")
+    )
+    source_census, prediction_census, u, obligation = (
+        j[name] for name in ("source_census", "prediction_census", "u", "obligation")
+    )
+    coverage, predicted, carrier, candidate, event, actual_event = (
+        j[name]
+        for name in ("coverage", "predicted", "carrier", "candidate", "event", "actual_event")
+    )
+    cuts, pins, sources, verified = (
+        j[name] for name in ("cuts", "pins", "sources_", "verified_readings")
+    )
+    n = core_variable("n", BigInteger())
+    events, completed = (
+        core_variable(name, Integer()) for name in ("event_count", "selected_count")
+    )
+    reading_key = core_variable("reading_key", Text())
+    index = cast(n - 1, Integer())
+    references = c["body"]["references"]
+    passes = (
+        select(cast(literal("A"), Text()).label("pass_kind"), a.label("pass_value"))
+        .union_all(
+            select(cast(literal("B"), Text()), b),
+            select(cast(literal("C"), Text()), c),
+        )
+        .subquery("passes")
+    )
+    pass_kind = core_variable("pass_row", Text(), "pass_kind")
+    pass_value = core_variable("pass_row", JSONB(), "pass_value")
+    pass_ref = bound["body"]["references"][index]
+    reference_pass = _items(frame["reference_passes"], "reference_pass")
+    cut = func.ops.ddo_record_grade_cuts(r).table_valued(
+        column("cut_text", Text()), column("cut_id", Text())
+    )
+    cut_text = core_variable("captured", Text(), "cut_text")
+    cut_id = core_variable("captured", Text(), "cut_id")
+    canonical_frame = grade["frame_canonical_json"].astext
+    selection_cut = cast(selected["cut_canonical_json"].astext, JSONB())
+    question_source = question["source"]
+    reference_pins = _items(
+        func.jsonb_build_array(question_source, type_=JSONB()).op("||")(
+            func.coalesce(
+                cast(question["frame_canonical_json"].astext, JSONB())["related_pins"], _json("[]")
+            )
+        ),
+        "reference_pin",
+    )
+    bound_inputs = _items(binding["inputs"], "bound_input")
+    prior_pins = _items(pins, "previous")
+    used_source = _items(source_census["outputs"], "source_output")
+    bound_support = _items(binding["support"], "bound_support")
+    carrier_members = _items(carrier["members"], "packet")
+    body = carrier_members.c.value["body"]
+    eligible = and_(
+        body["candidate_type"].astext == "record",
+        body["family"].astext == question["family"].astext,
+    )
+    frame_events = _items(frame["events"], "frame_event")
+    carrier_events = _items(
+        cast(carrier["diagnostics_json"].astext, JSONB())["record_policy_events"], "carrier_event"
+    )
+    interpretation = candidate["interpretation_id"].astext
+    record = candidate["record_id"].astext
+    source_projection = predicted["body"]["source"]
+
+    def producer(name):
+        return _field("producer", episodes, name)
+
+    def reading(name):
+        return _field("reading", definitions, name)
+
+    def reading_request(name):
+        return _field("reading_request", requests, name)
+
+    def intent(name):
+        return _field("reading_intent", intents, name)
+
+    def differs(left, right):
+        return left.is_distinct_from(right)
+
+    def append(local, value):
+        return Assign(local, j[local].op("||")(func.jsonb_build_array(value)))
+
+    actual_reading = (
+        SelectInto(
+            _rows(
+                requests, requests.c.id == producer("request_id"), requests.c.project_id == project
+            ),
+            ("reading_request",),
+            strict=True,
+        ),
+        SelectInto(
+            _rows(
+                intents,
+                intents.c.id == producer("intent_id"),
+                intents.c.request_id == producer("request_id"),
+                intents.c.generation == producer("generation"),
+                source=intents.join(
+                    receipts,
+                    and_(
+                        receipts.c.intent_id == intents.c.id,
+                        receipts.c.derivation_id == producer("id"),
+                    ),
+                ),
+            ),
+            ("reading_intent",),
+            strict=True,
+        ),
+        _refuse(
+            or_(
+                tuple_(
+                    *(
+                        intent(name)
+                        for name in ("producer_task_id", "producer_attempt", "runtime_id")
+                    )
+                ).is_distinct_from(
+                    tuple_(
+                        *(
+                            producer(name)
+                            for name in ("producer_task_id", "producer_attempt", "runtime_id")
+                        )
+                    )
+                ),
+                differs(intent("payload")["outcome"].astext, producer("outcome")),
+            ),
+            "record prediction differs from original reading producer fences",
+        ),
+        *(
+            Assign(("reading_request", name), producer(name))
+            for name in ("release_id", "runtime_id", "recipe", "generation")
+        ),
+        Assign(
+            ("reading_request", "binding"),
+            reading_request("binding").op("||")(
+                _object(inputs=intent("payload")["inputs"], support=intent("payload")["support"])
+            ),
+        ),
+        Assign("reading_completion", intent("payload")),
+        SelectInto(
+            select(products.c.canonical_body).where(
+                products.c.id == selected["product_id"].astext,
+                products.c.project_id == project,
+            ),
+            ("reading_body",),
+            strict=True,
+        ),
+        _refuse(
+            or_(
+                differs(reading_request("operation_id"), reading("operation_id")),
+                differs(reading("profile"), "derivation"),
+                differs(reading("support_contract")["effects"], _json("[]")),
+                differs(
+                    reading("support_contract")["capabilities"]["prepared_factory"][
+                        "entrypoint"
+                    ].astext,
+                    "corpus_structure.methods.reading_resolution.ReadingResolutionOperation.acquire_port",
+                ),
+                differs(
+                    j["reading_completion"]["implementation_revision"].astext,
+                    reading("implementation_revision"),
+                ),
+                differs(
+                    func.ops.ddo_cpu_reply_output(
+                        core_variable("reading_request", NullType()), j["reading_completion"]
+                    ),
+                    j["reading_body"],
+                ),
+            ),
+            "record prediction differs from its actual reading CPU result and native basis",
+        ),
+        Assign("verified_readings", verified.op("||")(func.jsonb_build_object(reading_key, True))),
+    )
+    selected_event = (
+        Assign("event_count", events + 1),
+        SelectInto(
+            select(frame_events.c.value).where(
+                frame_events.c.value["interpretation_id"].astext == interpretation
+            ),
+            ("event",),
+            strict=True,
+        ),
+        _refuse(
+            or_(
+                differs(event["record_id"].astext, record),
+                differs(event["source"], question_source),
+                differs(event["source_release_id"].astext, producer("release_id")),
+                differs(event["derivation_id"].astext, producer("id")),
+                differs(event["reading_recipe"].astext, reading("recipe")),
+                differs(event["reading"]["product_id"].astext, selected["product_id"].astext),
+                differs(event["features"]["record_id"].astext, record),
+                differs(event["features"]["interpretation_id"].astext, interpretation),
+                differs(event["features"]["release_id"].astext, producer("release_id")),
+                ~coverage["event_ids"].has_key(interpretation),
+            ),
+            "grade event relabels actual eligible reading or producing context",
+        ),
+        _refuse(
+            ~func.sem.ddo_model_class_contract(
+                producer("release_id"),
+                question["family_contract"].astext,
+                candidate["contract"].astext,
+            ),
+            "grade family differs from its authenticated effective model class contract",
+        ),
+        SelectInto(
+            select(carrier_events.c.value).where(
+                carrier_events.c.value["record_id"].astext == record,
+                carrier_events.c.value["interpretation_id"].astext == interpretation,
+            ),
+            ("actual_event",),
+            strict=True,
+        ),
+        If(
+            actual_event["outcome"].astext == "completed",
+            (
+                _refuse(
+                    differs(
+                        event["final_event"],
+                        _object(
+                            outcome="completed",
+                            **{
+                                key: actual_event[key].astext
+                                for key in (
+                                    "feature_instance_digest",
+                                    "feature_input_digest",
+                                    "event_procedure",
+                                )
+                            },
+                            final_event_score=actual_event["final_event_score"],
+                        ),
+                    ),
+                    "grade final event differs from actual sealed producer score",
+                ),
+            ),
+            (
+                _refuse(
+                    or_(
+                        differs(event["final_event"], _json("null")),
+                        frame["partition"].astext == "final_event_calibration",
+                    ),
+                    "grade invents a completed final event",
+                ),
+            ),
+        ),
+    )
+    for_reference = (
+        Assign("question", ref["question"]),
+        Assign("selected", specification["prediction_selections"][index]),
+        append("sources_", question_source),
+        _refuse(
+            or_(
+                differs(selected["source"], question_source),
+                differs(frame["sources"][index], question_source),
+                _different(
+                    frame,
+                    question,
+                    "partition",
+                    "family",
+                    "family_contract",
+                    "reading_recipe",
+                    "subset",
+                    "source_release_id",
+                    "source_cut_id",
+                ),
+                differs(frame["prediction_cut_id"].astext, selected["expected_cut"].astext),
+                differs(frame["prediction_release_id"].astext, selection_cut["release_id"].astext),
+                differs(selected["project_id"].astext, project),
+                _different(selection_cut, selected, "project_id", "demand_id", "read_id"),
+            ),
+            "record question/source/prediction census changed",
+        ),
+        Assign("source_census", cuts[question["source_cut_id"].astext]),
+        Assign("prediction_census", cuts[selected["expected_cut"].astext]),
+        ForQuery(
+            ("pass_row",),
+            select(passes),
+            (
+                Assign("bound", pass_value),
+                _refuse(
+                    or_(
+                        differs(bound["body"]["pass_kind"].astext, pass_kind),
+                        differs(pass_ref["pass_kind"].astext, pass_kind),
+                        differs(pass_ref["question"], question),
+                        differs(pass_ref["exposed_outputs"], _json("[]")),
+                    ),
+                    "record reference pass differs from exact source-only question/exposure",
+                ),
+                SelectInto(
+                    select(reference_pass.c.value).where(
+                        reference_pass.c.value["pass_kind"].astext == pass_kind,
+                        reference_pass.c.value["source"] == question_source,
+                    ),
+                    ("event",),
+                    strict=True,
+                ),
+                _refuse(
+                    or_(
+                        differs(
+                            event["reference"]["product_id"].astext, bound["product_id"].astext
+                        ),
+                        event["reference"]["member_id"].astext.is_not(None),
+                        differs(event["author"].astext, pass_ref["author"].astext),
+                        differs(event["adjudicates"], pass_ref["adjudicates"]),
+                    ),
+                    "record grade relabels actual reference pass",
+                ),
+            ),
+        ),
+        ForQuery(
+            ("pin",),
+            select(reference_pins.c.value),
+            (
+                If(
+                    ~select(1)
+                    .select_from(prior_pins)
+                    .where(
+                        prior_pins.c.value["source_product"].astext == pin["source_product"].astext,
+                        prior_pins.c.value["source_member"].astext.is_not_distinct_from(
+                            pin["source_member"].astext
+                        ),
+                    )
+                    .exists(),
+                    (append("pins", pin),),
+                ),
+                SelectInto(
+                    select(bound_inputs.c.value).where(
+                        bound_inputs.c.value["role"].astext == "sources",
+                        bound_inputs.c.value["product_id"].astext == pin["source_product"].astext,
+                        bound_inputs.c.value["member_id"].astext.is_not_distinct_from(
+                            pin["source_member"].astext
+                        ),
+                    ),
+                    ("bound",),
+                    strict=True,
+                ),
+                _refuse(
+                    ~select(1)
+                    .select_from(used_source)
+                    .where(
+                        used_source.c.value["product_id"].astext == pin["source_product"].astext,
+                    )
+                    .exists(),
+                    "record question source is outside actual selected cut support",
+                ),
+                Assign(
+                    "predicted",
+                    func.ops.ddo_record_grade_input_value(
+                        project, bound["product_id"].astext, bound["member_id"].astext
+                    ),
+                ),
+                _refuse(
+                    or_(
+                        differs(
+                            predicted.op("-")("body").op("-")("analyzed_scope_meaning"),
+                            _object(
+                                product_id=pin["source_product"].astext,
+                                member_id=pin["source_member"].astext,
+                                **{
+                                    key: pin[key].astext
+                                    for key in (
+                                        "project_id",
+                                        "kind_contract",
+                                        "subject",
+                                        "subject_definition",
+                                        "original_source",
+                                    )
+                                },
+                            ),
+                        ),
+                        differs(
+                            predicted["analyzed_scope_meaning"],
+                            cast(pin["analyzed_scope_meaning"].astext, JSONB()),
+                        ),
+                        differs(
+                            source_projection["projection"].astext, pin["projection_digest"].astext
+                        ),
+                        _different(
+                            source_projection, pin, "document", "section_pointer", "membership"
+                        ),
+                    ),
+                    "record source pin differs from actual declared source product/member/context",
+                ),
+            ),
+        ),
+        Assign("u", prediction_census["uses"][selected["use_id"].astext]),
+        Assign("obligation", prediction_census["obligations"][selected["obligation_id"].astext]),
+        _refuse(
+            or_(
+                u.is_(None),
+                obligation.is_(None),
+                _different(u, selected, "obligation_id", "request_id"),
+            ),
+            "record opportunity is outside its exact native selected census",
+        ),
+        _refuse(
+            or_(
+                differs(obligation["operation_id"].astext, _READING),
+                _different(
+                    obligation, question_source, "subject", "subject_definition", "original_source"
+                ),
+                differs(
+                    func.data.ddo_json_meaning(obligation["analyzed_scope"]),
+                    cast(question_source["analyzed_scope_meaning"].astext, JSONB()),
+                ),
+            ),
+            "record opportunity differs from actual source context",
+        ),
+        Assign("coverage", frame["coverage"][index]),
+        _refuse(differs(coverage["source"], question_source), "record coverage source changed"),
+        If(
+            selected["outcome"].astext.in_(("failed", "no_output")),
+            (
+                _refuse(
+                    or_(
+                        differs(
+                            u["completion_state"].astext,
+                            case((selected["outcome"].astext == "failed", "failed"), else_="empty"),
+                        ),
+                        differs(
+                            u["fate"].astext,
+                            case(
+                                (selected["outcome"].astext == "failed", "failed"),
+                                else_="known-absent",
+                            ),
+                        ),
+                        differs(coverage["outcome"].astext, selected["outcome"].astext),
+                        differs(coverage["outputs"], _json("[]")),
+                        differs(coverage["event_ids"], _json("[]")),
+                        and_(
+                            selected["outcome"].astext == "failed",
+                            tuple_(
+                                coverage["failure_request_id"].astext,
+                                coverage["failure_use_id"].astext,
+                            ).is_distinct_from(
+                                tuple_(selected["request_id"].astext, selected["use_id"].astext)
+                            ),
+                        ),
+                    ),
+                    "failed or empty coverage differs from actual native completion",
+                ),
+                Continue(),
+            ),
+        ),
+        _refuse(
+            or_(
+                differs(selected["outcome"].astext, "completed"),
+                differs(u["completion_state"].astext, "success"),
+                differs(u["fate"].astext, "fulfilled"),
+                differs(u["derivation_id"].astext, selected["derivation_id"].astext),
+            ),
+            "record prediction is unavailable or differs from actual native success",
+        ),
+        SelectInto(
+            select(bound_inputs.c.value).where(
+                bound_inputs.c.value["role"].astext == "prediction",
+                bound_inputs.c.value["product_id"].astext == selected["product_id"].astext,
+                bound_inputs.c.value["member_id"].astext.is_(None),
+                func.coalesce(cast(bound_inputs.c.value["multiplicity"].astext, Integer()), 0) == 1,
+            ),
+            ("bound",),
+            strict=True,
+        ),
+        _refuse(
+            or_(
+                ~select(1)
+                .select_from(bound_support)
+                .where(
+                    bound_support.c.value["derivation_id"].astext
+                    == selected["derivation_id"].astext
+                )
+                .exists(),
+                ~select(1)
+                .select_from(outputs)
+                .where(
+                    outputs.c.derivation_id == selected["derivation_id"].astext,
+                    outputs.c.product_id == selected["product_id"].astext,
+                    outputs.c.member_id.is_(None),
+                )
+                .exists(),
+            ),
+            "record prediction lacks exact declared producer/output support",
+        ),
+        Assign("selected_count", completed + 1),
+        SelectInto(
+            _rows(
+                episodes,
+                episodes.c.id == selected["derivation_id"].astext,
+                episodes.c.request_id == selected["request_id"].astext,
+            ),
+            ("producer",),
+            strict=True,
+        ),
+        SelectInto(
+            _rows(
+                definitions,
+                definitions.c.release_id == producer("release_id"),
+                definitions.c.operation_id == _READING,
+            ),
+            ("reading",),
+            strict=True,
+        ),
+        _refuse(
+            or_(
+                differs(producer("recipe"), reading("recipe")),
+                differs(reading("recipe"), question["reading_recipe"].astext),
+            ),
+            "record prediction changed its admitted reading recipe",
+        ),
+        Assign(
+            "reading_key",
+            func.data.canonical_json(
+                func.jsonb_build_array(producer("id"), selected["product_id"].astext)
+            ),
+        ),
+        If(~verified.has_key(reading_key), actual_reading),
+        Assign(
+            "predicted",
+            func.ops.ddo_record_grade_input_value(project, selected["product_id"].astext, None),
+        ),
+        Assign("carrier", predicted["body"]),
+        _refuse(
+            or_(
+                differs(carrier["source_pin"], func.jsonb_strip_nulls(question_source)),
+                func.jsonb_array_length(coverage["outputs"]) != 1,
+                differs(coverage["outputs"][0]["product_id"].astext, selected["product_id"].astext),
+            ),
+            "record coverage differs from actual selected carrier/source",
+        ),
+        ForQuery(("candidate",), select(body).where(eligible), selected_event),
+        _refuse(
+            or_(
+                func.jsonb_array_length(coverage["event_ids"])
+                != select(func.count())
+                .select_from(carrier_members)
+                .where(eligible)
+                .scalar_subquery(),
+                differs(
+                    coverage["outcome"].astext,
+                    case(
+                        (func.jsonb_array_length(coverage["event_ids"]) == 0, "no_output"),
+                        else_="completed",
+                    ),
+                ),
+            ),
+            "grade coverage omits actual eligible reading events",
+        ),
+    )
+    ref_rows = _items(references, "reference_row", ordinal=True)
+    initial_values = {
+        **{
+            name: func.ops.ddo_record_grade_input(r, role, type_=JSONB())
+            for name, role in (
+                ("a", "reference_a"),
+                ("b", "reference_b"),
+                ("c", "adjudication"),
+            )
+        },
+        "specification": func.ops.ddo_record_grade_input(r, "specification", type_=JSONB())["body"],
+        "frame": grade["frame"],
+        "pins": _json("[]"),
+        "sources_": _json("[]"),
+        "cuts": _json("{}"),
+        "verified_readings": _json("{}"),
+    }
+    ref_count = func.jsonb_array_length(references)
+    return _grade(
+        "require_frame",
+        (("r", "ops.data_request"), ("grade", "jsonb")),
+        "void",
+        body=(
+            _refuse(
+                or_(
+                    differs(grade["version"].astext, "record-grade-1"),
+                    differs(grade["frame_digest"].astext, _hash(canonical_frame)),
+                    differs(cast(canonical_frame, JSONB()), frame),
+                    differs(frame["project_id"].astext, project),
+                    ref_count != func.jsonb_array_length(specification["prediction_selections"]),
+                    ref_count != func.jsonb_array_length(frame["coverage"]),
+                    3 * ref_count != func.jsonb_array_length(frame["reference_passes"]),
+                    a["product_id"].astext == b["product_id"].astext,
+                    a["product_id"].astext == c["product_id"].astext,
+                    b["product_id"].astext == c["product_id"].astext,
+                ),
+                "record grade differs from canonical frame and genuine independent pass population",
+            ),
+            ForQuery(
+                ("captured",),
+                select(cut),
+                (
+                    Assign(
+                        "cuts",
+                        cuts.op("||")(
+                            func.jsonb_build_object(
+                                cut_id,
+                                func.ops.ddo_record_grade_acquire_census(project, cut_text, cut_id),
+                            )
+                        ),
+                    ),
+                ),
+            ),
+            ForQuery(("ref", "n"), select(ref_rows.c.value, ref_rows.c.ordinal), for_reference),
+            _refuse(
+                or_(
+                    differs(sources, frame["sources"]),
+                    func.jsonb_array_length(frame["events"]) != events,
+                    func.jsonb_array_length(pins)
+                    != select(func.count())
+                    .select_from(bound_inputs)
+                    .where(
+                        bound_inputs.c.value["role"].astext == "sources",
+                    )
+                    .scalar_subquery(),
+                    completed
+                    != select(func.count())
+                    .select_from(bound_inputs)
+                    .where(
+                        bound_inputs.c.value["role"].astext == "prediction",
+                    )
+                    .scalar_subquery(),
+                ),
+                "grade does not cover exact declared source and prediction populations",
+            ),
+        ),
+        locals_=(
+            *(Local(name, pg_type("jsonb"), initial_values.get(name)) for name in values),
+            Local("captured", pg_type("record")),
+            Local("pass_row", pg_type("record")),
+            Local("n", pg_type("int8")),
+            Local("event_count", pg_type("int4"), literal(0)),
+            Local("selected_count", pg_type("int4"), literal(0)),
+            Local("reading_key", pg_type("text")),
+            Local("producer", episodes),
+            Local("reading", definitions),
+            Local("reading_request", requests),
+            Local("reading_intent", intents),
+        ),
+    )
+
+
+def _completion_programs(model):
+    requests = model.tables["ops.data_request"]
+    definitions = model.tables["sem.data_operation_definition"]
+    kinds = model.tables["sem.data_kind_contract"]
+    r = core_variable("r", NullType())
+    binding = _field("r", requests, "binding")
+    operation = _field("r", requests, "operation_id")
+    completion = core_variable("completion", JSONB())
+    output = core_variable("output", JSONB())
+    product = output["product"]
+    declared_kind = _field("definition", definitions, "support_contract")
+    factory = declared_kind["capabilities"]["prepared_factory"]
+    implementation = _field("definition", definitions, "implementation_revision")
+    arguments = (("r", "ops.data_request"), ("completion", "jsonb"))
+    skip = If(operation.is_distinct_from(GRADE_OPERATION), (Return(),))
+    result_body = completion["outputs"][0]["product"]["body"]
+    return (
+        *_grade(
+            "require_producer",
+            arguments,
+            "void",
+            body=(
+                skip,
+                SelectInto(
+                    _rows(
+                        definitions,
+                        definitions.c.release_id == _field("r", requests, "release_id"),
+                        definitions.c.operation_id == operation,
+                    ),
+                    ("definition",),
+                    strict=True,
+                ),
+                _refuse(
+                    or_(
+                        _field("definition", definitions, "profile").is_distinct_from("derivation"),
+                        declared_kind["effects"].is_distinct_from(_json("[]")),
+                        factory["entrypoint"].astext.is_distinct_from(GRADE_FACTORY),
+                        factory["source_digest"].astext.bool_op("~")("^[0-9a-f]{64}$").is_not(True),
+                        implementation.like("implementation-slice:%").is_not(True),
+                        completion["implementation_revision"].astext.is_distinct_from(
+                            implementation
+                        ),
+                        func.jsonb_array_length(
+                            func.coalesce(
+                                completion["execution_evidence"]["cpu_receipts"], _json("[]")
+                            )
+                        )
+                        != 1,
+                        completion["outcome"].astext.is_distinct_from("success"),
+                        completion["inputs"].is_distinct_from(binding["inputs"]),
+                        func.jsonb_array_length(completion["outputs"]) != 1,
+                    ),
+                    "record grade requires its actual admitted pure CPU implementation and complete inputs",
+                ),
+                Assign("output", completion["outputs"][0]),
+                _refuse(
+                    or_(
+                        output["role"].astext.is_distinct_from("grade"),
+                        output["member_id"].astext.is_not(None),
+                        cast(output["position"].astext, Integer()).is_distinct_from(0),
+                        cast(output["multiplicity"].astext, Integer()).is_distinct_from(1),
+                        product["members"].is_distinct_from(_json("[]")),
+                        ~select(1)
+                        .select_from(kinds)
+                        .where(
+                            kinds.c.kind_contract == product["kind_contract"].astext,
+                            kinds.c.kind == GRADE_KIND,
+                            kinds.c.universe == "evaluator",
+                        )
+                        .exists(),
+                    ),
+                    "record grade output differs from protected whole scalar contract",
+                ),
+            ),
+            locals_=(Local("definition", definitions), Local("output", pg_type("jsonb"))),
+        ),
+        *_defined(
+            "ops",
+            "ddo_require_record_grade_completion",
+            arguments,
+            "void",
+            body=(
+                skip,
+                Perform(func.ops.ddo_record_grade_require_producer(r, completion)),
+                _refuse(
+                    func.ops.ddo_cpu_reply_output(r, completion).is_distinct_from(
+                        func.data.ddo_normalize(result_body)
+                    ),
+                    "record grade differs from actual CPU result and reference basis",
+                ),
+                Perform(
+                    func.ops.ddo_record_grade_require_frame(r, func.data.ddo_json(result_body))
+                ),
+            ),
+        ),
+    )
+
+
+def record_grade_native_sql(model: MetaData) -> str:
+    return native_sql_script(
+        (
+            *_class_contract(model),
+            *_grade_inputs(model),
+            *_finite_census(model),
+            *_cut_programs(model),
+            *_request_cut_programs(model),
+            *_frame_program(model),
+            *_completion_programs(model),
         )
     )

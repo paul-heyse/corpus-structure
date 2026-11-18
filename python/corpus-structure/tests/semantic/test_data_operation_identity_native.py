@@ -29,6 +29,7 @@ def test_deployed_contextual_product_identity_matches_literal(vector, native_rea
         "subject_context": {
             "project_id": vector.project,
             "subject": "local",
+            "subject_definition": "document",
             "original_source": vector.source,
             "analyzed_scope": json.loads(vector.scope),
         },
@@ -118,9 +119,9 @@ def test_json_subject_context_encoding_matches_literals_and_python(native_rollba
     from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.data_operation_value_native import data_operation_value_sql
-    from semantic.native_program_support import temporary_routine
+    from semantic.native_program_support import routine_declaration
 
-    helper = temporary_routine(data_operation_value_sql(), "data", "ddo_json_meaning")
+    helper = routine_declaration(data_operation_value_sql(), "data", "ddo_json_meaning")
     vectors = JSON_MEANING_VECTORS
     connection = native_rollback.connection
     connection.exec_driver_sql(helper)
