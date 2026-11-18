@@ -148,6 +148,7 @@ class OperationEventFeatures:
             (assets(),),
             operation_sources(),
             functions=((MODULE + ".kernel", kernel),),
+            requires_prepared_schema=True,
             retain_cpu_reply=True,
         )
         plan.port = port
