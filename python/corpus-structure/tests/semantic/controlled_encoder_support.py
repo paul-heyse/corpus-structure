@@ -26,3 +26,14 @@ def controlled_encoder(observe, *, invalid_vector=False, physical_error=False):
         encode_document=encode,
         encode_query=encode,
     )
+
+
+def controlled_encoder_producer(index):
+    """Independent logical claim fences for controlled encoder batch members."""
+    return dict(
+        request_id="controlled-request:" + str(index),
+        generation=1,
+        task_id=index + 1,
+        attempt=1,
+        holder="controlled-holder",
+    )

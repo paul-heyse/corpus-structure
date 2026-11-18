@@ -1,6 +1,7 @@
 """Processed contextual input correspondence; controlled models are not provider evidence."""
 
 import inspect
+from copy import deepcopy
 from dataclasses import asdict
 from types import SimpleNamespace
 
@@ -8,12 +9,13 @@ import pytest
 
 from corpus_structure.core.work import drive_prepared_work
 from corpus_structure.semantic.contextual_cpu import execute_contextual_projection_kernel
-from corpus_structure.semantic.contextual_encoder import execute_target_encoder_authority_kernel
+from corpus_structure.semantic.contextual_encoder_batch import encoder_packet, execute_encoder_batch
 from corpus_structure.semantic.contextual_operations import contextual_operation_sources
 from corpus_structure.semantic.contextual_target_products import curated_target_population
 from corpus_structure.semantic.data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
 from corpus_structure.semantic.data_operation_cpu_basis import (
     CPUInputRole,
+    cpu_authority_batch_values,
     cpu_authority_value,
     cpu_input_basis,
 )
@@ -22,6 +24,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
+from semantic.controlled_encoder_support import controlled_encoder_producer
 from semantic.data_operation_port_support import scope
 from semantic.test_contextual_target_vectors import controlled_model, profile
 
@@ -123,10 +126,21 @@ def test_target_authority_uses_processed_target_and_refuses_query_origin(monkeyp
         subject_definition="contextual-target",
     )
     processed = basis(context, "target", packet["body"])
-    result = execute_target_encoder_authority_kernel(
-        processed, asdict(profile()), "", (), check_active=lambda: None
+    members = (
+        dict(
+            member="controlled-target",
+            producer=controlled_encoder_producer(0),
+            input_basis=processed,
+        ),
     )
-    decoded = cpu_authority_value(canonical_bytes(result), expected_basis=processed)
+    result = execute_encoder_batch(
+        encoder_packet(members, "retrieve.contextual_target_vector/declared"),
+        asdict(profile()),
+        "",
+        (),
+        check_active=lambda: None,
+    )
+    (decoded,) = cpu_authority_batch_values(canonical_bytes(result), expected_members=members)
     assert canonical_bytes(decoded["target"]) == canonical_bytes(packet["body"])
     assert decoded["vector"]["object_id"] == "one"
     wrong = SubjectContext(
@@ -136,98 +150,63 @@ def test_target_authority_uses_processed_target_and_refuses_query_origin(monkeyp
         context.analyzed_scope,
         subject_definition="contextual-target",
     )
-    with pytest.raises(ValueError, match="exact discovered context"):
-        execute_target_encoder_authority_kernel(
-            basis(wrong, "target", packet["body"]),
-            asdict(profile()),
-            "",
-            (),
-            check_active=lambda: None,
-        )
+    wrong_members = (dict(members[0], input_basis=basis(wrong, "target", packet["body"])),)
+    refused = execute_encoder_batch(
+        encoder_packet(wrong_members, "retrieve.contextual_target_vector/declared"),
+        asdict(profile()),
+        "",
+        (),
+        check_active=lambda: None,
+    )
+    (failed,) = cpu_authority_batch_values(canonical_bytes(refused), expected_members=wrong_members)
+    assert failed["encoder_member_failure"]["code"] == "source-coordinate-mismatch"
+    assert "exact discovered context" in failed["encoder_member_failure"]["detail"]
 
 
 @pytest.mark.parametrize(
     "recipe", ["located-frame-2", "located-referent-2", "located-discourse-neighbor-2"]
 )
 def test_query_authority_rebuilds_actual_selected_primary_context(recipe, monkeypatch):
-    from corpus_structure.semantic.contextual_encoder import (
-        checked_primary_query_rows,
-        execute_query_encoder_authority_kernel,
-    )
     from corpus_structure.semantic.data_operation_identity import decode_semantic_value
-    from corpus_structure.semantic.data_operation_json import json_loads
-    from semantic.test_contextual_selected_encoder import case
+    from semantic.selected_context_support import case
+    from semantic.test_contextual_encoder_batch import _query_members
 
-    frame, occurrence, primary, binding, evidence, expected = case(recipe)
-    controlled_model(monkeypatch)
-    pin = frame.pin.values()
-    context = SubjectContext(
-        pin["project_id"],
-        pin["subject"],
-        pin["original_source"],
-        json_bytes(decode_semantic_value(json_loads(pin["analyzed_scope_meaning"]))),
-        subject_definition=pin["subject_definition"],
-    )
-    source = CPUInputRole(
-        "source",
-        0,
-        1,
-        pin["source_product"],
-        pin.get("source_member"),
-        pin["kind_contract"],
-        context,
-        frame.value,
-        (),
-        producer_output=None,
-    )
-    occurrence_role = CPUInputRole(
-        "occurrence",
-        0,
-        1,
-        "controlled-occurrence",
-        None,
-        "controlled-occurrence-kind",
-        context,
-        occurrence,
-        (),
-        producer_output=None,
-    )
-    processed = cpu_input_basis(
-        "controlled-query12",
-        context,
-        (source, occurrence_role, *checked_primary_query_rows(primary, binding=binding)),
-        parameters=canonical_bytes(
-            semantic_value(dict(context_selection=dict(recipe=recipe, evidence=evidence.values())))
-        ),
-        replicate="selected-query-sample",
-    )
-    reply = execute_query_encoder_authority_kernel(
-        processed, frame.record, asdict(profile()), "", (), check_active=lambda: None
-    )
-    result = cpu_authority_value(canonical_bytes(reply), expected_basis=processed)
+    frame, occurrence, _, _, _, expected = case(recipe)
+    calls = controlled_model(monkeypatch)
+    members, packet = _query_members(selected=True, recipe=recipe)
+    reply = execute_encoder_batch(packet, asdict(profile()), "", (), check_active=lambda: None)
+    result = cpu_authority_batch_values(canonical_bytes(reply), expected_members=members)[0]
     assert result["query"]["carrier"]["product_id"] == "controlled-occurrence"
     assert result["query"]["carrier"]["contribution_id"] == occurrence["contribution_id"]
     assert result["query"]["context"]["rendered"] == expected
     assert result["query"]["context_inputs"][0]["product_id"] == "product:primary"
-    foreign = decode_semantic_value(processed)
+
+    foreign_members = deepcopy(members)
+    foreign = decode_semantic_value(foreign_members[0]["input_basis"])
     foreign["context"]["subject"] = "another-consumer"
-    with pytest.raises(ValueError, match="selected source/occurrence context"):
-        execute_query_encoder_authority_kernel(
-            semantic_value(foreign),
-            frame.record,
-            asdict(profile()),
-            "",
-            (),
-            check_active=lambda: None,
-        )
-    wrong = dict(frame.record)
+    foreign_members[0]["input_basis"] = semantic_value(foreign)
+    refused = execute_encoder_batch(
+        encoder_packet(foreign_members, "retrieve.contextual_query/selected-context"),
+        asdict(profile()),
+        "",
+        (),
+        check_active=lambda: None,
+    )
+    values = cpu_authority_batch_values(canonical_bytes(refused), expected_members=foreign_members)
+    assert values[0]["encoder_member_failure"]["code"] == "source-coordinate-mismatch"
+    assert "selected source/context" in values[0]["encoder_member_failure"]["detail"]
+    assert values[1]["query"]["context"]["rendered"] == expected
+
+    wrong = deepcopy(packet)
+    record = next(iter(wrong["frames"].values()))
+    pin = frame.pin.values()
     wrong_pin = dict(pin, source_member="another-member")
     wrong_pin["source"] = canonical_bytes([pin["source_product"], "another-member"]).decode()
-    wrong["pin_content"] = canonical_bytes(wrong_pin).decode()
-    with pytest.raises(ValueError, match="processed source product/context"):
-        execute_query_encoder_authority_kernel(
-            processed, wrong, asdict(profile()), "", (), check_active=lambda: None
-        )
+    record["pin"] = semantic_value(wrong_pin)
+    before = len(calls)
+    with pytest.raises(ValueError, match="encoder packet source frame changed"):
+        execute_encoder_batch(wrong, asdict(profile()), "", (), check_active=lambda: None)
+    assert len(calls) == before
 
 
 def test_retrieval_reduction_uses_owned_cpu_with_exact_controlled_score_input():

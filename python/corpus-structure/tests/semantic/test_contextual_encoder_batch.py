@@ -17,23 +17,17 @@ from corpus_structure.semantic.data_operation_identity import decode_semantic_va
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.identity import canonical_bytes
-from semantic.controlled_encoder_support import controlled_encoder, controlled_vector
+from semantic.controlled_encoder_support import (
+    controlled_encoder,
+    controlled_encoder_producer,
+    controlled_vector,
+)
 from semantic.selected_context_support import case
 from semantic.test_contextual_target_vectors import population
 
 
-def _producer(index):
-    return dict(
-        request_id="controlled-request:" + str(index),
-        generation=1,
-        task_id=index + 1,
-        attempt=1,
-        holder="controlled-holder",
-    )
-
-
-def _query_members(*, selected=False, bad=None):
-    frame, occurrence, primary, binding, evidence, _ = case("located-frame-2")
+def _query_members(*, selected=False, bad=None, recipe="located-frame-2"):
+    frame, occurrence, primary, binding, evidence, _ = case(recipe)
     pin = frame.pin.values()
     context = SubjectContext(
         pin["project_id"],
@@ -52,7 +46,7 @@ def _query_members(*, selected=False, bad=None):
             reference = evidence.values()
             if index == 1 and bad == "context":
                 reference = dict(reference, member_id="not-in-selected-parent")
-            parameters = dict(context_selection=dict(recipe="located-frame-2", evidence=reference))
+            parameters = dict(context_selection=dict(recipe=recipe, evidence=reference))
         roles = (
             CPUInputRole(
                 "source",
@@ -83,7 +77,7 @@ def _query_members(*, selected=False, bad=None):
         result.append(
             dict(
                 member="controlled-member:" + str(index),
-                producer=_producer(index),
+                producer=controlled_encoder_producer(index),
                 input_basis=cpu_input_basis(
                     "controlled-query-batch",
                     context,
@@ -229,7 +223,9 @@ def test_target_cohort_keeps_one_vector_per_target_without_query_source_custody(
             parameters=canonical_bytes(semantic_value({})),
             replicate="controlled-target-observation",
         )
-        members.append(dict(member=str(index), producer=_producer(index), input_basis=basis))
+        members.append(
+            dict(member=str(index), producer=controlled_encoder_producer(index), input_basis=basis)
+        )
     packet = batch.encoder_packet(members, "retrieve.contextual_target_vector/declared")
     assert packet["frames"] == {}
     reply = batch.execute_encoder_batch(packet, asdict(profile), "", (), check_active=lambda: None)

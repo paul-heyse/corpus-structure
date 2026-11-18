@@ -8,11 +8,14 @@ import pytest
 
 from corpus_structure.methods import contextual_embeddings as embeddings
 from corpus_structure.semantic.contextual_encoder import (
-    execute_contextual_encoder_kernel,
     prepare_selected_query_context,
 )
+from corpus_structure.semantic.contextual_encoder_batch import execute_encoder_batch
+from corpus_structure.semantic.data_operation_cpu_basis import cpu_authority_batch_values
 from corpus_structure.semantic.data_operation_json import json_loads
+from corpus_structure.semantic.identity import canonical_bytes
 from semantic.selected_context_support import case
+from semantic.test_contextual_encoder_batch import _query_members
 
 
 @pytest.mark.parametrize(
@@ -48,28 +51,23 @@ def test_selected_encoder_uses_exact_shared_recipe_and_vector_identity(recipe, m
     profile = embeddings.EncoderProfile(
         "controlled-query12", "a" * 40, 2, "query: ", "document: ", "mean"
     )
-    result = execute_contextual_encoder_kernel(
-        frame.record,
-        occurrence,
-        asdict(profile),
-        "",
-        (),
-        check_active=lambda: None,
-        query_context_record=context,
-        context_inputs=inputs,
-    )
+    members, packet = _query_members(selected=True, recipe=recipe)
+    reply = execute_encoder_batch(packet, asdict(profile), "", (), check_active=lambda: None)
+    results = cpu_authority_batch_values(canonical_bytes(reply), expected_members=members)
+    result = results[0]
+    assert len(results) == 2
+    assert canonical_bytes(results[1]["query"]["context"]) == canonical_bytes(context)
     assert expected in calls[0][1][0]
-    assert result["query"]["context"] == context
+    assert canonical_bytes(result["query"]["context"]) == canonical_bytes(context)
     vector = result["vector"]["vector"]
     assert vector["representation_digest"] == context["representation_digest"]
-    lexical = execute_contextual_encoder_kernel(
-        frame.record,
-        occurrence,
-        asdict(profile),
-        "",
-        (),
-        check_active=lambda: None,
+    lexical_members, lexical_packet = _query_members(recipe=recipe)
+    lexical_reply = execute_encoder_batch(
+        lexical_packet, asdict(profile), "", (), check_active=lambda: None
     )
+    lexical = cpu_authority_batch_values(
+        canonical_bytes(lexical_reply), expected_members=lexical_members
+    )[0]
     assert lexical["query"]["context"]["recipe"] == "lexical-native-1"
     lexical_vector = lexical["vector"]["vector"]
     assert lexical_vector["vector_id"] != vector["vector_id"]

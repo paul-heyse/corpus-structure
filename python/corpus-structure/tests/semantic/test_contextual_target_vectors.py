@@ -6,7 +6,7 @@ from dataclasses import asdict, replace
 import pytest
 
 from corpus_structure.methods import contextual_embeddings as embeddings
-from corpus_structure.semantic.contextual_encoder import execute_target_encoder_kernel
+from corpus_structure.semantic.contextual_encoder_batch import encoder_packet, execute_encoder_batch
 from corpus_structure.semantic.contextual_operations import contextual_inventory_values
 from corpus_structure.semantic.contextual_retrieval import freeze_inventory
 from corpus_structure.semantic.contextual_target_products import (
@@ -14,10 +14,21 @@ from corpus_structure.semantic.contextual_target_products import (
     materialize_target,
     selected_vector_frame,
 )
+from corpus_structure.semantic.data_operation_cpu_basis import (
+    CPUInputRole,
+    cpu_authority_batch_values,
+    cpu_input_basis,
+)
+from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
-from semantic.controlled_encoder_support import controlled_encoder, controlled_vector
+from semantic.controlled_encoder_support import (
+    controlled_encoder,
+    controlled_encoder_producer,
+    controlled_vector,
+)
 
 
 def population(names):
@@ -50,15 +61,54 @@ def profile():
     )
 
 
+def target_member(packet, index=0):
+    context = SubjectContext(
+        "project",
+        packet["context"]["subject"],
+        packet["context"]["original_source"],
+        json_bytes(packet["context"]["analyzed_scope"]),
+        subject_definition="contextual-target",
+    )
+    return dict(
+        member="controlled-target:" + str(index),
+        producer=controlled_encoder_producer(index),
+        input_basis=cpu_input_basis(
+            "controlled-target-encoding",
+            context,
+            (
+                CPUInputRole(
+                    "target",
+                    0,
+                    1,
+                    "controlled-target:" + str(index),
+                    None,
+                    "controlled-target-kind",
+                    context,
+                    packet["body"],
+                    (),
+                    producer_output=None,
+                ),
+            ),
+            parameters=canonical_bytes(semantic_value({})),
+            replicate=None,
+        ),
+    )
+
+
 def inputs(monkeypatch):
     controlled_model(monkeypatch)
     selected = population(("one", "two"))
-    values = tuple(
-        execute_target_encoder_kernel(
-            packet["body"], asdict(profile()), "", (), check_active=lambda: None
-        )
-        for packet in selected["members"]
+    members = tuple(
+        target_member(packet, index) for index, packet in enumerate(selected["members"])
     )
+    reply = execute_encoder_batch(
+        encoder_packet(members, "retrieve.contextual_target_vector/declared"),
+        asdict(profile()),
+        "",
+        (),
+        check_active=lambda: None,
+    )
+    values = cpu_authority_batch_values(canonical_bytes(reply), expected_members=members)
     targets = [source_python(packet["body"]["descriptor"]) for packet in selected["members"]]
     inventory = contextual_inventory_values(
         dict(
@@ -106,9 +156,15 @@ def test_inventory_expansion_keeps_standalone_target_values_and_project_origins(
 def test_target_encoding_uses_document_profile_rendering_and_only_one_target(monkeypatch):
     calls = controlled_model(monkeypatch)
     packet = population(("one",))["members"][0]
-    result = execute_target_encoder_kernel(
-        packet["body"], asdict(profile()), "", (), check_active=lambda: None
+    members = (target_member(packet),)
+    reply = execute_encoder_batch(
+        encoder_packet(members, "retrieve.contextual_target_vector/declared"),
+        asdict(profile()),
+        "",
+        (),
+        check_active=lambda: None,
     )
+    (result,) = cpu_authority_batch_values(canonical_bytes(reply), expected_members=members)
     assert result["original_source"] is None
     assert result["vector"]["object_id"] == "one"
     assert result["vector"]["values"] == pytest.approx(controlled_vector(calls[0][0][0]))
