@@ -11,7 +11,7 @@ undifferentiated refusal). The findings are
 [DTA-044](../../design_review/test-audit/evidence-and-discrimination.md#dta-044) and
 [DTA-001](../../design_review/test-audit/evidence-and-discrimination.md#dta-001), with the evidence
 half of [DTA-038](../../design_review/test-audit/execution-and-qualification.md#dta-038). Package
-state, the queue, finding dispositions, shared contracts, rejected options and handovers are the
+state, the queue, finding dispositions, shared contracts, rejected options and external context are the
 [coordinator's](../test-domain-model-and-execution_2026-11-17.md).
 
 **Baseline and evidence.** Section references written `§n` point to the
@@ -38,6 +38,15 @@ repository-root paths are written as root `scripts/…` or root `tests/…`. The
 `data_operations.sql` that this page used to cite was deleted by the conversion; mechanisms 2, 3
 and 4 now live in generator modules under `src/corpus_structure/semantic/`, named where each is
 described.
+
+## Review integration · 2026-11-18
+
+**Proposed.** I01, I02 and I05 from the
+[November 18 improvement review](../../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md)
+refine the identity determinants and refusal evidence below. The review inspected `aea554e5c`.
+Existing counts retain their stated baseline. Its retained mixed-source N13 attempts establish
+observed coverage for particular identities and contexts, with unresolved obligations retained
+by their product owner. They provide examples for test guidance and managed review.
 
 ## Why this work exists
 
@@ -77,7 +86,8 @@ corrections at the lowering-identity test and the validity closure (TDM-05 in
 ## The perturbation table
 
 The coordinator's contract *perturbation table* names the parts every table below has: how the
-decision is observed, a hit control, one safety case per determinant, and a completeness case
+decision is observed, a hit control, safety cases that distinguish consequential determinants,
+and a completeness case
 where the mechanism declares its determinants as data (accepted by the operator on 2026-11-17 as
 a test of one mechanism, not a lint). Three working rules add to it.
 
@@ -95,6 +105,13 @@ the code forgot is exactly what the author's list is there to find.
 identity has, and is written now. A precision case says reuse must *still* happen after an
 irrelevant change, and is written now only where production has already decided the grain;
 otherwise it is recorded with its trigger.
+
+**Discrimination.** Perturb the determinants whose omission or misinterpretation could change
+reuse safety or the stated precision claim. Exercise shared comparators at their owning boundary.
+A separate implementation mutation for every row or consumer is needed only when it resolves a
+different plausible failure. Preserve deliberate invalid inputs and independently authored
+expected outcomes. Compare collected logical identities when consumer migration could drop cases,
+and retain existing native receipts where the database class or source/context matters.
 
 **Form.** A table is a module-level tuple of cases beside the test that consumes it, each case a
 name, a perturbation and a literal expected outcome, run through `pytest.mark.parametrize`. There
@@ -199,7 +216,7 @@ captured source that differs; a contract that differs). This table adds the enum
 every input the retained contract lists, altered captured bytes are refused with "captured PDF
 lowering source differs from its contract". Enumerating from the contract is right here because
 the set only generates cases. What it cannot show is that the list is *complete*; that is the
-`LOWERING_FILES` row of the coordinator's [handover table](../test-domain-model-and-execution_2026-11-17.md#handovers).
+`LOWERING_FILES` row of the coordinator's [production context](../test-domain-model-and-execution_2026-11-17.md#handovers).
 
 *A wrong implementation each row fails.* Dropping the `state == "passed"` condition fails "failed
 receipt"; dropping the join to published revisions fails "unpublished"; dropping the validation
@@ -408,8 +425,8 @@ as covered by TDM-11 and adds no test.
 ### 10. Deployment key and seed origin
 
 *What TDM-06 supplies.* A key function over what the build actually runs: the deployed migration
-chain, located by production's own constant; the executed upgrade bodies and the modules they
-import; artifacts by content; the construction closure; and the observed server facts
+chain, located by production's own constant; the executed upgrade bodies and their bounded import
+closure; verified declarations for pinned artifacts and content for unpinned inputs; and the observed server facts
 provisioning produces. Provisioning does not enter the key as source: steps that shape the head
 at build time are reached from `construct_deployment`, whose closure the key covers, and earlier
 host provisioning enters as observed server and role facts. The baseline key reads the wrong
@@ -430,14 +447,21 @@ Whether a deployment was built or reused is already recorded
 | Revision changed | One deployed revision's bytes | Different digest |
 | Executed body changed | One upgrade body's bytes | Different digest |
 | Import added to an executed body | A body gains an import of a package module; then that module's bytes change | The digest changes at each step |
-| Artifact content changed | Bytes differ; size and modification time restored | Different digest |
+| Unpinned artifact content changed | Bytes differ; size and modification time restored | Different digest |
+| Pinned artifact altered | Bytes differ from the declared digest, with the declaration fixed | Equal key and a loader refusal for the wrong digest |
 | Imported module changed | A module in the chain's import closure | Different digest |
 | Construction closure changed | The construction entry, or a module it imports | Different digest |
-| Server role attribute | One principal's login or membership differs in the observed facts | Different digest |
+| Server role capability | Change one selected role-policy flag in the typed observation, including BYPASSRLS with name, OID and other determinants fixed | Different digest |
+| Effective membership option | Change a relevant membership identity or SET, INHERIT or admin option, with other facts fixed | Different digest |
 | Provisioning source alone | A provisioning module that the construction closure does not reach is edited, with the observed server facts unchanged | Equal digests. An edit to provisioning reaches no server until the operator provisions again |
 | Lockfile, server principals | Each in turn | Different digest |
 | Frozen tree changed | A file under the chain the build does not run | Equal digests |
 | The key follows the build | A built head's recorded revision, read from its version table (`public.semantic_alembic_version`) | The file that declares that revision is listed in the key's chain component |
+
+Use the existing catalog observation and provisioning policy for these determinants. Exercise
+policy drift on an owned clone or through the typed observation in a unit case. Verify replay
+against frozen installed expectations and preserve failed-key replacement. Ordinary host role
+mutation is unnecessary for these cases.
 
 The last row is the control for the defect found during authoring. Its expected value comes from
 the built database, which is an independent system, not from the key's arguments.
@@ -511,13 +535,12 @@ requirement.
 clock shift as the only clock in the custody tests; the claim of root exactness in a test name that
 does not vary the root (the test is renamed or gains the case).
 
-**Acceptance evidence.** For every table the "wrong implementation each row fails" reasoning is
-written beside it in the test module, as for mechanism 1 above. During the package, for each
-mechanism whose production code is a Python function the implementer can edit locally, one
-deliberate wrong edit per row is tried once and the row is seen to fail; the edits are not
-committed and no mutation tooling is added. For the SQL mechanisms the same reasoning is by
-reading. The cache-scope fixture is accepted by a `pytester` run of an inner module containing two
-tests, run with `-p no:xdist` and in file order, in which the first fills the process-global cache
+**Acceptance evidence.** Record the meaningful failure each selected determinant or shared
+comparator case distinguishes. Use a deliberate wrong implementation only when assertion content
+and existing independent expectations leave that question unresolved. Prefer one check at the
+shared comparator boundary where it covers the same failure across consumers. Retain authored
+outcomes and deliberate invalid inputs. The cache-scope fixture is accepted by a `pytester` run
+of an inner module containing two tests, run with `-p no:xdist` and in file order, in which the first fills the process-global cache
 and the second asserts it empty; the inner module imports nothing from the cache support. A
 control run with the fixture disabled shows the second test failing.
 Targeted runs with `uv run ci test -- PATH` per mechanism.
@@ -549,6 +572,15 @@ call it at `12f57dc4d`: `tests/semantic/test_data_operation_storage.py`, `test_n
 `tests/test_db_fixtures.py`. For a refusal raised in Python the same contract is met with
 `pytest.raises(Type, match=…)` on the specific reason, and for a command-line refusal with the exit
 code and the reported reason. No new mechanism is added.
+
+**Reach, effect and retained receipts.** Pair the authored invalid attachment with a valid entry
+that reaches the intended guard, then pin the literal refusal and the expected rollback or absence
+of committed effects. Use the N13 cardinality and population-witness examples in
+[I01](../../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I01) to compare
+predecessor and current guard before changing a SQLSTATE expectation. Retain each attempt's
+source/context and failure phase. Successful collection establishes identities and imports.
+Only actual setup/body execution establishes those boundaries. Product disposition stays with
+its existing owner.
 
 **Implementation vision.** For each site the implementer first decides, from what the case alters,
 which obligation should refuse it. Only then is that guard's SQLSTATE and message found in its
@@ -623,7 +655,8 @@ reported, not guessed.
   merged.
 - For each site, the assertion fails when the intended guard is removed and a neighbouring guard
   still refuses. This is established by the assertion's content, a message or constraint that
-  belongs to one guard, and for the Python sites by one local wrong edit tried once, as in TDM-13.
+  belongs to one guard. Try a local wrong edit only where a concrete ambiguity remains, following
+  TDM-13's discrimination rule. Assert the expected rollback or absence of committed effects.
 - A positive control precedes each refusal in the same test.
 - Targeted runs with `uv run ci test -- PATH` for each file touched.
 
@@ -642,7 +675,7 @@ after the implementer has decided which guard should refuse.
 | Is the profile table written by TDM-11 complete in the sense of "The perturbation table"? | Read TDM-11's delivered tests | Whether TDM-13 adds anything for mechanism 9 |
 
 **Production observations** this companion raised are rows of the coordinator's
-[handover table](../test-domain-model-and-execution_2026-11-17.md#handovers): the requirement program reporting `producer-certified`
+[production context](../test-domain-model-and-execution_2026-11-17.md#handovers): the requirement program reporting `producer-certified`
 before it knows a prior receipt qualifies; the cache not reporting whether it answered; and
 `LOWERING_FILES` as a hand-kept list. None is a remedy this series selects.
 

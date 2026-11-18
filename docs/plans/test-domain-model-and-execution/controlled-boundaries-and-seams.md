@@ -3,7 +3,7 @@
 **Status:** Proposed design companion; not started. The
 [coordinator](../test-domain-model-and-execution_2026-11-17.md) owns the series' combined target,
 the package queue, package state, finding dispositions, shared contracts, rejected options and
-handovers. **Created:** 2026-11-17. **Revised:** 2026-11-18. Writing this plan authorizes no
+external context. **Created:** 2026-11-17. **Revised:** 2026-11-18. Writing this plan authorizes no
 implementation.
 
 This companion owns the detailed design of four packages:
@@ -47,6 +47,12 @@ replaced through a public parameter or function, so that a test replaces that co
 nothing else. A **contract control** is one test that sends the same authored input through a
 double and through the real boundary and compares what each produced. All other shared terms are
 the coordinator's [shared contracts](../test-domain-model-and-execution_2026-11-17.md#shared-contracts).
+
+**Integrated improvement review.** Recommendations
+[I03](../../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I03) and
+[I05](../../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I05), reviewed
+at `aea554e5c`, refine the proposed capture boundary, executor control and retirement below.
+Their observations retain their own source baseline and qualification limits.
 
 ## Why this work exists
 
@@ -300,6 +306,16 @@ content and installation as they were.
 3. **The content carries no location.** Spool and record roots arrive in the request. The asset
    binding reaches only the report memo's key.
 
+**Consumer eligibility and lifetime.** TDM-08 pilots a post-capture reader and a consumer that
+registers another original or executes a new demand before expanding its migration. A completed
+capture clone keeps the shared filesystem reservation alive while an authenticated reader can
+use it. A consumer that can create another capture or transform claim receives its own writable
+binding. The fixture explicitly refuses work beyond the published-capture contract before a
+write is attempted. Preparation memo entries expire with their valid binding. The builder owns
+binding and lifetime, while this package supplies location-free producer content and the complete
+production acknowledgement, cancellation, result and certification protocol. Production retains
+its absolute-path custody model.
+
 The vocabulary of authored elements must cover every document the current doubles build. By
 reading, these include a heading with one paragraph, section groups with text and formulas, a
 list and a table. Enumerating them is the package's first step; an element the vocabulary cannot
@@ -514,6 +530,13 @@ dictionaries, hydrated selections, and admissions built from production's pure i
 double keeps an event log so that the transaction-order test reads the same sequence it reads
 today.
 
+**External packet custody and uncertain settlement.** Re-read the N13 external-packet route at
+entry. Native packet custody can occur before Python port resolution and must preserve that
+ordering through the collaborator. Include a selected real/controlled comparison of packet
+custody before resolution, and a settlement whose result is uncertain followed by reconciliation.
+Assert claim, transaction, savepoint and settlement effects from authored expectations. Retain
+current authentic native controls for the boundary they observe.
+
 **Tests drive public entry points.** They call `advance` or `run` (`:1885`, `:1907`) with one
 authored page instead of assigning `executor._physical` and calling `_drive_sweep`, and they
 read `executor.reservation`.
@@ -591,7 +614,9 @@ regrouping the wire operations the executor calls, so the interaction table stan
   proves the double checks replies; without it, a double that silently stopped validating would
   pass every other case.
 - The transaction-order test passes against the unit double's event log with the order written
-  in the test.
+  in the test. A controlled external-packet case reaches custody before Python resolution, and
+  an uncertain-settlement case reconciles without duplicate settlement. The selected real route
+  establishes that the same effect ordering is observable.
 - The native suites pass on the default collaborator (`test_data_operation_external_native`,
   `test_prepared_authority_batch_native`, `test_characterization_native`). They are the evidence
   that the default preserves behaviour.
@@ -699,26 +724,30 @@ site is noted and left alone: `tests/methods/test_native_host.py:57` builds a `N
 it moves to the public constructor only if this package's edits to that module make that easy.
 
 **Superseded machinery removed.** `NativeHost._validate_startup`; the artifact refusal in the
-`Group.startup` double; the test name that claims a production refusal.
+`Group.startup` double; the test name that claims a production refusal; and
+`admitted_startup_matches` with its mechanism-only tests under the retirement decision below.
 
 ### Acceptance evidence
 
-- Removing any one comparison from production fails exactly that field's row and the
-  completeness case.
+- The independently authored per-field rows and completeness case expose a missing comparison.
+  Use a representative deliberate comparator defect where needed to establish discrimination,
+  without repeating an implementation edit for every row.
 - Changing the device prefix rule fails the `cuda:1` row.
 - The reach control fails if `NativeHost` stops calling the comparison, or calls it on anything
   other than the parsed ready metadata.
 - The profile and observation in the unit cases are literals in the test. A helper that derives
   the observation from the profile would make every row pass by construction and is not used.
 
-### Not in scope: `admitted_startup_matches`
+### Retirement of `admitted_startup_matches`
 
-`admitted_startup_matches` (`src/corpus_structure/methods/native_profiles.py:165–198`) compares
-an observed startup record with an admitted one. A search of `src/` at `12f57dc4d` finds no
-caller; its only users are `tests/methods/test_native_host.py:617–677`. It is a different
-contract from the comparison in this package (observed against admitted records, not observation
-against profile). Whether a consumer is pending or the function is superseded is the production
-owner's question; it is a row of the coordinator's [handover table](../test-domain-model-and-execution_2026-11-17.md#handovers).
+The improvement review found only test callers of
+`admitted_startup_matches` (`src/corpus_structure/methods/native_profiles.py:165–198`) at its
+source baseline. TDM-11 rechecks production callers and named accepted pending consumers, then
+removes the function and its mechanism-only tests inside this package unless such a consumer
+establishes a specific retention need. Preserve independent evidence for any surviving live
+thread-policy mismatch, peer refusal and startup cleanup on the actual host route. This is the
+existing retirement rule applied to the test migration. Record any justified retention and its
+consumer in the coordinator's disposition.
 
 ---
 
@@ -914,11 +943,11 @@ notes); each is the first step of its owning package, or of TDM-08 where noted.
    (`test_data_operation_execution_basis.py:73, 373, 477`). *Settled by* running the authored replies
    through `validate_native_wire` once the double is in place. Replies that fail are corrected;
    the count affects effort, not design.
-4. **Does demand reuse avoid a capture claim?** (TDM-08, first step; recorded here because
-   TDM-09's converter is what a mistaken claim would invoke.) If a consumer registers a new
-   demand over a seeded completed capture and production claims capture again, the frozen
-   workspace refuses the write and the consumer fails loudly. It cannot pass wrongly. *Settled
-   by* reading demand reuse, or by the first consumer TDM-08 moves.
+4. **Which consumers can reuse a published capture?** (TDM-08 pilot; TDM-09 supplies the
+   producer.) Read the claim path and pilot one reader and one new-claim consumer. Encode the
+   resulting eligibility at the fixture boundary, with an explicit refusal for unsupported work.
+   An incidental filesystem `PermissionError` does not settle this classification. The result
+   decides which consumers clone the sealed stage and which receive a writable binding.
 5. **Does in-process preparation run without model assets for every recipe the doubles stand in
    for?** (TDM-09.) The integration module shows it for one streaming recipe. *Settled by* the
    package's first run of the report derivation. The fallback is stated in the design.
@@ -942,10 +971,10 @@ notes); each is the first step of its owning package, or of TDM-08 where noted.
 - **Moving the native fault-injection sites onto the default collaborator** is optional, as
   stated in TDM-10.
 
-Handovers and options rejected for the whole series are the coordinator's. One note belongs to
+External context and options rejected for the whole series are the coordinator's. One note belongs to
 this design: TDM-09's report memo is keyed by the asset binding because the capture workspace and
 asset root are part of release custody (the first row of the
-[handover table](../test-domain-model-and-execution_2026-11-17.md#handovers)); if production later binds those locations at run time,
+[production context](../test-domain-model-and-execution_2026-11-17.md#handovers)); if production later binds those locations at run time,
 the key simplifies.
 
 ## Order within this companion

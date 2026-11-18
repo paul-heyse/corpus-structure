@@ -13,7 +13,7 @@ seed stage for the completed PDF capture). It contributes to findings
 depends on rule changes RC07, RC08 and RC11, which the operator accepted on 2026-11-17 and whose
 required content is stated under
 [What the superseding records must say](#what-the-superseding-records-must-say). Package state,
-the queue, finding dispositions, shared contracts, deferrals, rejected options and handovers are
+the queue, finding dispositions, shared contracts, deferrals, rejected options and external context are
 the [coordinator's](../test-domain-model-and-execution_2026-11-17.md).
 
 **Baseline and evidence.** Section references such as §4.2 mean the
@@ -40,6 +40,14 @@ The investigation reports this companion draws on are in the evidence folder
 are relative to `python/corpus-structure/`; repository-root paths are written as root `scripts/…`
 and root `conftest.py`. The key's and the seed registry's own tests live under root
 `tests/scripts/`; the identity re-baseline read them at `12f57dc4d`.
+
+## Review integration · 2026-11-18
+
+**Proposed.** This revision integrates I02, I03 and I05 from the
+[November 18 improvement review](../../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md).
+Its inspected checkout was `aea554e5c`. The earlier counts and line references below retain
+`12f57dc4d` as their baseline. TDM-00 re-reads affected consumers as well as changed files before
+execution. TDM-06's identity correction starts early, independently of the fixture migration.
 
 ## Why this work exists
 
@@ -76,7 +84,7 @@ composer is TDM-03's ([model binding and independence](model-binding-and-indepen
 it still takes a directory; TDM-07 changes that one composer to take content and a binding
 separately. The controlled converter is TDM-09's. Production is not changed here: the fact that a
 release's identity contains a filesystem path is a row of the coordinator's
-[handover table](../test-domain-model-and-execution_2026-11-17.md#handovers).
+[production context](../test-domain-model-and-execution_2026-11-17.md#handovers).
 
 ## Baseline at `12f57dc4d`
 
@@ -307,10 +315,10 @@ same workspace. For a capture that is already complete, production creates that 
 directory again, which is a no-op when it exists, and then returns the published result from the
 database without further filesystem access; no later reader of the workspace was found. So:
 **a consumer whose claims execute a capture or any PDF transform uses a per-consumer binding;
-every other consumer may use a per-worker binding.** A consumer placed in the wrong class fails
-closed: a write into a frozen workspace raises `PermissionError`, and spool recovery, which opens
-its writer for reading and writing, fails the same way. It cannot silently reuse another test's
-files.
+every other consumer may use a per-worker binding.** Apply this eligibility rule through the
+fixture route before execution. A consumer requesting a new capture or transform through the
+sealed route receives a named contract refusal. The frozen filesystem supplies a further custody
+guarantee. TDM-08's pilot verifies the route and the reservation lifetime on current source.
 
 Every cache of a product that depends on the binding is keyed by recipe and binding together. The
 seed satisfies this because its binding is derived from the seed. The memo satisfies it by its
@@ -326,7 +334,7 @@ key. A per-consumer build is not cached at all.
   consumers would then share a seed whose release names the first consumer's directory.
 - *Keying the memo by recipe content alone.* It would return a release bound to another location.
 - *Asking production to drop the directory from custody.* That is a production remedy outside
-  this series; it is a row of the coordinator's handover table.
+  this series; it is a row of the coordinator's production context.
 
 **Evidence that would reopen the split.** A reader of the workspace after a completed capture
 that the search missed (a post-capture consumer would then fail on a missing or stale file); or a
@@ -399,8 +407,11 @@ to a digest and its components. Five things change.
    the build is reached from `construct_deployment`, whose closure the key already follows through
    function bodies; PgAdmin runs no head-shaping step outside it. Anything applied to the server
    before the build enters the key as an observed fact of the server. The role facts widen from
-   name and OID to the attributes provisioning sets and the head's behaviour depends on (login,
-   inheritance, and the principals' direct memberships), read in the same query. The source of
+   name and OID to a structured observation of the role policy provisioning governs: login,
+   inheritance, superuser, database creation, role creation, replication and RLS bypass, plus
+   effective membership identities and the relevant SET, INHERIT and admin options. Reuse the
+   catalog model and provisioning contract to select these facts and the clone-equivalence
+   comparison to verify them. Keep one semantic owner for this policy. The source of
    `host_bootstrap.py` does not enter the key: it is not executed by a build, and a change to it
    has no effect on any server until the operator provisions again, at which point the observed
    facts change. The same holds for the private-server provisioning in
@@ -416,8 +427,8 @@ principal names. Two pieces remain:
   postcondition and stays. The caller's second read and comparison at `:755–757` goes.
 
 **Decisions this package owns.** How the per-source distinction of item 3 is expressed in
-`import_closure`; the exact role attributes recorded; whether the pinned-artifact rule reads the
-constant pairs by name pattern or by an explicit convention check. One condition would change
+`import_closure`, how the existing catalog model supplies the stated role policy, and whether the
+pinned-artifact rule reads the constant pairs by name pattern or by an explicit convention check. One condition would change
 item 5: if a later change makes PgAdmin apply a head-shaping step outside `construct_deployment`
 (for example grants applied after construction), that step moves into `construct_deployment` so
 the keyed closure reaches it. None exists at `12f57dc4d`.
@@ -483,8 +494,13 @@ component; the second policy comparison; the `--principals` script mode.
   later widening is deliberate.
 - *Content, not time.* Changing only the modification time of every chain file and artifact leaves
   the key equal. Changing one byte of an unpinned artifact changes it. Changing one byte of a
-  pinned artifact without its pin leaves the key equal, and the case's comment says why this is
-  correct: a build would refuse that tree.
+  pinned artifact without its pin leaves the key equal. Exercise the loader refusal for that
+  altered artifact so the verified declaration remains sufficient. Preserve frozen installed-clone
+  equivalence and failed-key replacement as the reuse authority.
+- *Role policy is part of identity.* With the same principal name and OID, alter each selected
+  capability or relevant membership option in the typed observation and expect a different key.
+  Include BYPASSRLS drift with login and membership identities held fixed. Exercise actual replay
+  and frozen-clone equivalence on an owned clone. Keep ordinary host roles intact.
 - *The script mode is gone.* `pg_semantic_roles.sh --principals` exits with the usage error. The
   case that principals need no process already exists (`test_private_cohort.py:600–612`) and is
   not written again.
@@ -550,7 +566,10 @@ bounded by entry count and allocates each entry's directory under the worker's p
 root, so pytest's existing retention removes directories after an interrupted run and eviction
 never deletes a directory a caller may still hold. A call for a per-consumer binding bypasses the
 memo. Pure-preparation tests that only prepare a PDF release and execute nothing ask for the
-memo's own per-worker binding and therefore share an entry across tests.
+memo's own per-worker binding and therefore share an entry across tests. A cached entry is
+reusable only while its binding and associated resources remain valid. Binding teardown retires
+its cached preparation, and a later binding cannot retrieve that object. Eviction releases the
+memo's reference without deleting resources still owned by a live caller.
 
 Seed builds keep preparing into the seed's own directory and do not draw from the memo. The review
 described one memo "shared by seed builds and direct callers" (§4.2). Reading the registry refines
@@ -615,7 +634,9 @@ state identity; the per-test sealed seeds.
 - *The memo is binding-aware and bounded.* The same recipe and binding twice returns the identical
   object. The same recipe with a second binding returns a different object whose custody names the
   second directory. With a memo of size two, a third recipe evicts the first, shown by a fresh
-  object on the next request. A per-consumer call returns a fresh object every time.
+  object on the next request. A per-consumer call returns a fresh object every time. Teardown
+  of a binding prevents later retrieval of its memo entry, while a live caller retains its
+  resource ownership after eviction.
 
 Targeted verification: the seed registry tests (`tests/semantic/test_scenario_seeds.py` and root
 `tests/scripts/test_native_scenario_seeds.py`, whose cases for the per-consumer route and the
@@ -623,7 +644,7 @@ refusal of a located recipe are added or adjusted here), the kernel support test
 consumer module from each row of the table above.
 
 **If production later moves the workspace out of release custody.** The conversion did not do
-this. If production makes that change (the first row of the coordinator's handover table), each
+this. If production makes that change (the first row of the coordinator's production context), each
 execution can receive its own workspace, so the per-consumer binding class and the read-only
 constraint on post-capture consumers are no longer needed; PDF recipes are location-free by
 construction and seedable for every consumer; the memo's key returns to the recipe alone; the
@@ -679,15 +700,17 @@ starts after the capture asks for a commit clone of this recipe and receives tod
 fails the test with a message saying a post-capture consumer reached the converter, so a
 misclassified consumer fails by name rather than by starting a real conversion.
 
-**Why this is safe without a production change** (the
-[seam advice](../../design_review/evidence/2026-11-17_test-plan-authoring/seams.md), under its question 4; by reading): a capture first creates its
-per-request directory under the workspace (`pdf_capture.py`, `PreparedPdfCapture.capture`) and
-only then returns an already published build from the database without further filesystem
-access; on a frozen workspace that creation either finds the directory present and writes
-nothing, or raises `PermissionError`; spool recovery is
-reachable only when no published, open or frozen build exists; no reader of the workspace after a
-completed capture was found; and any write into the frozen workspace raises. The registry already
-refuses a seed with a claimed or running task, and a completed capture leaves none.
+**Consumer eligibility and pilot.** Before expanding reuse, classify consumers by their required
+operations and execute one post-capture reader plus one consumer that registers another original
+or executes a new capture/transform demand. The reader uses the sealed completed-capture clone.
+The writable consumer uses its own binding and directory through TDM-07. Assert the fixture
+route's named refusal before a post-capture consumer attempts out-of-contract work. Keep the
+published capture's filesystem reservation live while authenticated clones can read it. The
+production custody model owns absolute paths. A pilot that reveals a required production
+correction routes the concrete issue through the coordinator before dependent migration.
+The prior source inspection is useful context, while these two journeys establish eligibility
+and lifetime at the current entry source. See
+[I03](../../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I03).
 
 Read-only state of the workspace is the registry's guarantee, not the stage's check: the registry
 calls `validate_clone` before it freezes the directory (`native_scenario_seeds.py:246, 268`),
@@ -730,11 +753,13 @@ them. The helper remains, on the per-consumer route, for the singleton and captu
   its clone and finds the one document whose key the test computes itself from the project name,
   the source name and the SHA-256 of the blank original's bytes, with the standard library.
 - *Misclassification fails closed.* One control registers a second original in a clone of the
-  stage and executes a capture demand; it expects `PermissionError` from the frozen workspace or
-  the fixture's named converter refusal, whichever the path reaches first, and never a successful
-  second receipt.
-- *Clones are independent.* Two consumers that each commit a further demand do not see each
-  other's rows; the expected counts are literals.
+  stage and requests a capture demand. The fixture's explicit contract refuses the operation
+  with its named reason before filesystem writes or converter entry, and no second receipt is
+  committed. An accidental filesystem `PermissionError` does not establish this claim.
+- *The writable route remains independent.* The pilot that registers another original or executes
+  a new capture/transform demand receives a fresh binding. Its rows and files are absent from
+  another consumer's clone, with literal expected counts. Two eligible reader clones share the
+  published capture and trigger no converter calls.
 - *The converter content is identity.* Two completed-capture recipes that differ in one section
   row have different `recipe_id` values and yield stages whose discovered members differ in the
   authored text.
@@ -795,8 +820,8 @@ timestamp case, belong to TDM-13.
 
 | Question | Evidence that settles it | Work it constrains |
 |---|---|---|
-| Does the module-level closure over `target_alembic` with bodies (22 modules at `12f57dc4d`) miss a module the chain executes? | Any `deployment_key_gap` record whose cause is a module outside the closure; TDM-06's first step for revisions added since | The sources rule of TDM-06 |
-| Does a post-capture consumer that registers a new demand over the seeded capture claim the capture again? | Moving one default-fixture consumer and one `admit_current_target` consumer first and observing; a claim fails loudly on the frozen workspace | How many of the 23 functions TDM-08 moves |
+| Does the selected build closure miss an import executed by a revision? | Inspect module-level and executed function-level imports at entry; use any `deployment_key_gap` receipt to identify a source outside the closure | The sources rule of TDM-06 |
+| Does a post-capture consumer that registers a new demand over the seeded capture claim the capture again? | Pilot the post-capture and writable routes. A new capture or transform request on the sealed route must reach its explicit refusal | Which consumers TDM-08 moves |
 | Does any default-fixture consumer depend on page or candidate custody, which the controlled converter has never supplied? | Reading the 12 functions in TDM-08's first step | TDM-08's scope |
 | Do render and visual-observation demands write into the capture workspace? | Reading the two operations' effect code; the fail-closed control | Three consumers of TDM-08 |
 | Is the pinned-artifact convention (a file-name constant paired with a SHA-256 constant, read through a checking function) held by every chain source at entry? | A search at TDM-06's entry; all 29 held at `12f57dc4d` | Whether any artifact needs a content digest |

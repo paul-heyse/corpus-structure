@@ -10,7 +10,7 @@ their release contains, one PDF recipe composer, one recipe-extension helper), T
 vectors that carry their authored inputs, and a request-identity vector) and TDM-05
 (generated-program tests that assert meaning, and the sites where an expectation is produced by
 the code under test). Package state, the queue, finding dispositions, shared contracts, rejected
-options and handovers are the [coordinator's](../test-domain-model-and-execution_2026-11-17.md).
+options and external context are the [coordinator's](../test-domain-model-and-execution_2026-11-17.md).
 
 **Baseline and evidence.** Section references written `§n` point to the
 [source review](../../design_review/reviews/design_review_test-domain-model-and-execution_2026-11-17.md),
@@ -32,6 +32,14 @@ The investigation reports behind the counts and site lists are in the evidence f
 sites at `12f57dc4d`. Each package below carries a short note of what the conversion delivered in
 its area. `tests/…` and `src/…` are relative to `python/corpus-structure/`; repository-root paths
 are written as root `scripts/…` or `docs/…`.
+
+## Review integration · 2026-11-18
+
+**Proposed.** I03 and I05 from the
+[November 18 improvement review](../../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md)
+refine the recipe contracts and acceptance below. Source observations in that review apply to
+`aea554e5c`. Older counts retain their stated baseline and need TDM-00's affected-consumer
+re-read. Package states remain owned by the coordinator.
 
 ## Why this work exists
 
@@ -77,7 +85,7 @@ recipe from the place where it executes (DTA-040) is TDM-07 in `preparation-iden
 interaction with TDM-03 is described under [Sequencing](#sequencing-and-shared-surfaces). Reuse and
 skip mechanisms other than the two sites named in TDM-05 are TDM-13 in
 `reuse-and-refusal-evidence.md`. No production change is in scope here; production observations
-are in the coordinator's [handover table](../test-domain-model-and-execution_2026-11-17.md#handovers).
+are in the coordinator's [production context](../test-domain-model-and-execution_2026-11-17.md#handovers).
 
 ## The rule
 
@@ -354,20 +362,14 @@ does not block the package.
 **Failure behaviour.** There is none at run time; the product is text. The failure to avoid is a
 text that a reader applies differently from the review.
 
-**Acceptance evidence.** The reading is done by a reader who has not seen the review: a fresh
-delegated agent that receives only the amended companion and the source of a fixed sample of test
-sites, and classifies each value the sample names as expectation, correspondence or scenario
-construction. The sample is fixed in the package's first step, before the text is drafted, from
-the sites the review classifies in its §3.2 and §3.3, and it contains at least these five: a
-domain bundle typed in test support (scenario construction, bound to acquisition); a hand list of
-relations and roles in a test whose claim is derived grants (an expectation, which stays); an
-identity compared with the digest of the artifact the same function returns (an expectation
-produced by the code under test); a literal demand target (a coordinate); and the expected
-membership of a validity family (a set whose correctness is the claim, authored by hand with one
-undeclared member). The agent's result is compared with the review's classification of the same
-sites. A disagreement is resolved by amending the text and repeating the reading with a new
-agent; the sample is not changed to fit the text. The classifications are recorded in the
-package's commit message. `uv run ci docs check` passes.
+**Acceptance evidence.** Check the durable examples against the rule and the existing
+independence guidance. Cover acquired scenario construction, authored grant membership, a circular
+identity expectation, a literal demand coordinate, and an independently authored membership set
+with an undeclared member. Resolve ambiguous wording in the companion itself so a future reader
+has the explanation. The examples supply the editorial acceptance record. Run
+`uv run ci docs check` after the standard edit. This replaces the repeated delegated
+classification and commit-message record previously specified here, following
+[I05](../../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I05).
 
 **Delivered by the conversion.** Nothing; the conversion does not edit the standard.
 
@@ -683,7 +685,7 @@ digest as a pure production function of the three parts. No such function was fo
 `src/corpus_structure/semantic/pdf_source_search.py` at `12f57dc4d`, so the framing of this
 digest remains without an independent literal; that limit is recorded, and the production
 observation is a row of the coordinator's
-[handover table](../test-domain-model-and-execution_2026-11-17.md#handovers). If production adds the function, the vector is
+[production context](../test-domain-model-and-execution_2026-11-17.md#handovers). If production adds the function, the vector is
 added. This site is the part of DTA-033 that TDM-05 owns.
 
 *Expected rows of the DuckDB relational modules: a confirmation.* The relational modules are the
@@ -717,12 +719,14 @@ the closure reference cases, added to the module that holds the existing closure
 selection assertions; the confirmation over the relational modules' tests, with replacement only
 where it finds a circular expectation. A second `REGCONFIG` occurrence in
 `tests/semantic/test_contextual_retrieval_numerics.py:131` is the test's own control SQL and is not
-in scope. Two kinds of assertion on generated text were considered and are not in scope: the
-checks that a template sentinel such as `__DDO_READ_BOUNDARY_PROGRAMS__` is absent from a rendered
-program, which assert substitution and not spelling; and assertions on the order of two routines
-in a generated body by text position (`body.index(a) < body.index(b)`, five files, one of them
-new: `tests/semantic/test_data_read_boundary_native.py:259`), which the coordinator is asked to
-place.
+in scope. Keep checks that a template sentinel such as `__DDO_READ_BOUNDARY_PROGRAMS__` is absent
+where they establish complete substitution. For assertions on the order of two routines in a
+generated body (`body.index(a) < body.index(b)`, five baseline files, including
+`tests/semantic/test_data_read_boundary_native.py:259`), establish the intended dependency. Where
+installation order is the claim, exercise the generated program's actual install dependency.
+Where textual order itself is a declared contract, retain that structural check with its reason.
+Remove incidental renderer-order checks whose surviving semantic or installation control covers
+the claim. TDM-05 owns this classification and its affected consumers.
 
 **Superseded machinery removed.** The substring assertions on rendered text that the table names; the equality
 with `RETIRED_PARTS` as the only expectation; the equality of the lowering identity with its own
@@ -740,18 +744,21 @@ assertion.
   shown to hold for two spellings of the same statement written by hand in the test's own
   parametrization (for example `CAST('simple' AS regconfig)` and `'simple'::regconfig`). The old
   substring assertion would fail one of them.
-- *A meaning change fails.* For each replacement, the hand-written counter-case (the `simple`
-  configuration where `english` is required; a B-tree index; a read-only transaction; a tuple with
-  a third relation) fails the assertion.
+- *Meaningful counterexamples fail.* Select counterexamples that distinguish the changed
+  comparator or semantic obligation, such as `simple` where `english` is required, a B-tree index,
+  a read-only transaction or a tuple with a third relation. A representative shared comparator
+  check can cover its consumers. Additional implementation mutations per module need a distinct
+  uncertainty to resolve.
 - *The lowering refusals are reached.* Each of the two refusals is asserted by its message after a
   positive control that the unaltered context yields an identity.
 - *The closure cases are independent.* Their expected rows are literals in the test; the scalar
   function is not called to produce them.
 - *The relational expectations are independent.* The package's evidence lists every test module
   of the relational modules with the finding of its reading. In each test the confirmation
-  rewrites, the expected rows are literals, and one hand-written wrong variant of the small
-  input's expected rows (a dropped duplicate, a null treated as a value) fails the assertion. No
-  expected row is produced by calling the relation.
+  rewrites, the expected rows are independently authored. Use discriminating input for duplicate
+  rows, null handling and ordering where the operation depends on them, and retain a meaningful
+  counterexample for each changed semantic claim. No expected row is produced by calling the
+  relation.
 - Targeted runs with `uv run ci test -- PATH` for the files touched.
 
 **What validation of the conversion may still move.** A site that TDM-00's re-read finds deleted
@@ -798,7 +805,7 @@ The companion change to the standard needs no decision record of its own; the co
 [rule-change section](../test-domain-model-and-execution_2026-11-17.md#rule-changes) records the operator's decision as its route.
 
 **Production observations** this companion raised are rows of the coordinator's
-[handover table](../test-domain-model-and-execution_2026-11-17.md#handovers): `LOWERING_FILES` as a hand-kept list, which the
+[production context](../test-domain-model-and-execution_2026-11-17.md#handovers): `LOWERING_FILES` as a hand-kept list, which the
 conversion grew to about seventy entries (seventeen generator modules added, five `.sql` files
 removed) and which nothing derives or checks; no public operation that reopens packaged
 data-operation inputs; release admission not being one production operation; and the search

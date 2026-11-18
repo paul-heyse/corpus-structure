@@ -15,6 +15,8 @@ evidence that can fail, and test machinery retires with what it serves. The test
 shows cannot set up or pass get their evidence back first. The result should also keep the
 production changes that are now likely (finer implementation identities, facts moving from code
 lists into declarations, further generated SQL) local when they reach the tests.
+Add a bounded managed CLI view for reviewing one test selection across its attempts, using the
+same result custody and evidence as execution and retry.
 
 **Source.** The [design review of the test domain model and execution](../design_review/reviews/design_review_test-domain-model-and-execution_2026-11-17.md)
 (publication `caa841b01`, read at `main` `1afa63f88`, judgment Revise) and its
@@ -23,6 +25,12 @@ review consumed the [test audit](../design_review/test-audit/README.md) and the
 [joint model-and-execution page](../design_review/audit/model-and-execution.md) at `aca50eeea`,
 and superseded the 2026-11-13 test-system review. Section references below (§4.2 and so on) are
 to the principal review unless a companion is named.
+
+The [plan-improvement review](../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md)
+(`105048abf`, source inspected at `aea554e5c`) refines the package designs and adds TDM-19.
+The [review disposition](#improvement-disposition) links each recommendation to its owner.
+The review re-read affected paths and used retained receipts and an isolated reporting probe;
+these supplement the baseline below within their stated scope.
 
 **Authoring baseline.** `main` `50827eb9f`, 2026-11-17, 37 commits after the review's baseline.
 Another session was converting maintained PostgreSQL SQL to generated SQL
@@ -49,12 +57,13 @@ and the earlier [test map](../design_review/evidence/2026-11-17_test-plan-author
 validation, and this series executes after it. Packages are written against `12f57dc4d`. Each
 package that the conversion touched carries a short "Delivered by the conversion" note naming
 the delivering commit and states only its remaining scope. Because validation is still running,
-source may move a little more; [TDM-00](#tdm-00) re-reads what changed after `12f57dc4d` and
-nothing earlier. The review's §13 column "coordinate with the conversion" no longer applies: the
+source may move further; [TDM-00](#tdm-00) re-reads relevant changes after `12f57dc4d`, their
+affected test consumers, and relevant retained failure receipts. The review's §13 column
+"coordinate with the conversion" no longer applies: the
 conversion certified the converter copies (DTA-041) itself, TDM-01 and TDM-16 take the readers
-its SQL retirements left behind, and TDM-06 covers provisioning. The obligation that an SQL
-retirement move its own readers stays with the conversion's owner and is recorded as a
-[handover](#handovers).
+its SQL retirements left behind, and TDM-06 covers provisioning. The conversion's remaining
+production work is [context for this series](#handovers). Updates to the DDO plan follow
+completion of TDM.
 
 <a id="glossary"></a>
 
@@ -93,11 +102,13 @@ the lifecycle support, the seed registry and the qualification plugin, including
 the test-assessment companion of the design standard, two superseding ADRs, and three bounded
 production changes that give test doubles a production owner to delegate to
 ([the seams](#shared-contracts)). Production code kept alive only by tests retires with those
-tests, inside the package that owns them
-([retirement rule 4](test-domain-model-and-execution/declarations-retirement-and-execution.md#retirement-rules)).
+tests, inside the package that owns them. TDM-19 covers the managed test review command,
+its directly affected CLI and receipt readers, the command reference, and targeted CLI tests
+([managed test review](test-domain-model-and-execution/managed-test-review.md)). See
+[retirement rule 4](test-domain-model-and-execution/declarations-retirement-and-execution.md#retirement-rules).
 Out of scope: any other production remedy, including every correction of the production findings
-DA-068 to DA-081; edits to existing plans; the DDO-12 qualification union, which stays with its
-owner; and the rest of the repository-root `tests/` tree. The review did not read the root
+DA-068 to DA-081; edits to other plan series; the DDO-12 qualification union, which stays with its
+owner; and the rest of the repository-root `tests/` tree. The original review did not read the root
 `tests/` tree. The revision scanned it for fixture definitions and list names and read the
 deployment key's tests; TDM-00 reads the other in-scope files under `tests/scripts/` before any
 package relies on a statement about them.
@@ -170,8 +181,9 @@ and lists they replace.
 | Model binding | Scenario construction comes from the model's owner; expectations stay independently authored; a claim that a realization follows its declaration is tested by changing the declaration in the test | [Model binding and independence](test-domain-model-and-execution/model-binding-and-independence.md) |
 | Preparation identity | A preparation is keyed by its content and lives as long as the implementation that built it is fixed; where it runs is a separate binding | [Preparation identity](test-domain-model-and-execution/preparation-identity.md) |
 | Controlled boundaries | A double replaces one external computation, production's protocol and refusals still run, and each boundary has one owner that delegates to a production seam | [Controlled boundaries and seams](test-domain-model-and-execution/controlled-boundaries-and-seams.md) |
-| Reuse evidence | Every mechanism that reuses work or skips a check has a table of cases in which it must not | [Reuse and refusal evidence](test-domain-model-and-execution/reuse-and-refusal-evidence.md) |
-| Declarations and retirement | What a fixture needs is declared where the fixture is defined, and a test obtains its subject from the subject's owner, so a retirement breaks its dependents visibly | [Declarations, retirement and suite execution](test-domain-model-and-execution/declarations-retirement-and-execution.md) |
+| Reuse evidence | Each reuse or skip decision has cases that distinguish the determinants that can change its result | [Reuse and refusal evidence](test-domain-model-and-execution/reuse-and-refusal-evidence.md) |
+| Declarations and retirement | Preparation follows each item's resolved fixture definitions, and a test obtains its subject from the subject's owner, so a retirement breaks its dependents visibly | [Declarations, retirement and suite execution](test-domain-model-and-execution/declarations-retirement-and-execution.md) |
+| Managed test review | One read-only view combines the required selection, attempt coverage, failure boundaries, and custody using existing managed receipts | [Managed test review](test-domain-model-and-execution/managed-test-review.md) |
 
 **Foundations assessed during authoring** (read-only, at `50827eb9f`; each still holds at
 `12f57dc4d`, with the conversion's effect noted):
@@ -184,13 +196,11 @@ and lists they replace.
   left each a function installed by `monkeypatch`, so TDM-08 still depends on TDM-09.
 - *The capture workspace is part of release custody.* Production binds the capture directory
   and asset root into the release's custody artifact and later uses that directory as the
-  spool workspace. A shared writable workspace would be unsafe. A completed capture whose
-  workspace lies inside a frozen seed directory is safe for consumers that run neither capture
-  nor a PDF transform. A capture first creates its per-request directory under the workspace and
-  only then returns an already published build from the database without further filesystem
-  access; on a frozen workspace that creation either finds the directory present and writes
-  nothing, or raises `PermissionError`. No other reader of the workspace after publication was
-  found. This bounds TDM-08.
+  spool workspace. A shared writable workspace would be unsafe. TDM-08 exposes a sealed-capture
+  route only for consumers that need the published result. Consumers that can capture or
+  transform use a writable binding. Check eligibility at the fixture boundary before relying on
+  shared custody. A capture may attempt per-request directory creation before it finds a
+  published build, so a downstream filesystem error is too late to classify the consumer.
 - *The stream protocol cannot be split after conversion.* Production writes and acknowledges
   its preparation entry before converting, because recovery identifies pages from it. The
   production seam therefore takes the request and a producer, not a finished result. The
@@ -200,7 +210,11 @@ and lists they replace.
   native state in eight ways, which reduce to one collaborator with three surfaces.
 - *pytest and xdist supply what grouping needs,* with two limits that shape the design:
   fixtures requested at run time are invisible to the collected closure, and marks on fixtures
-  are an error in pytest 9.
+  are an error in pytest 9. The resolved definitions distinguish local overrides and parent
+  requests. TDM-15 confines this version-sensitive access to one adapter.
+- *Managed receipts support a composed review.* Coverage, failures, and inspection already
+  own the selected identities, observed outcomes, and custody. TDM-19 composes their typed reads
+  and uses incremental events for managed evidence, including when an attempt is interrupted.
 
 **Credible changes the target should absorb**, each traced in the owning companion: a modeled
 field is added; a data operation is added; a production mechanism retires; a cache key gains a
@@ -219,7 +233,7 @@ replaces expected rows only where a test is found to compute them by running the
 ([DA-033](../design_review/audit/execution-fit.md#da-033)).* Production does not offer it, so
 the test helper `admit_kernel` restates the order persist, admit, bind. TDM-03 makes that helper
 the single test-side owner of the order, so a future production operation is adopted in one
-place; the observation itself is a [handover](#handovers).
+place; the observation is [production context](#handovers).
 
 <a id="shared-contracts"></a>
 
@@ -235,8 +249,10 @@ Each contract has one owner. Companions use these names and do not redefine them
 | Preparation lifetime | A preparation may be reused for as long as the implementation that built it is fixed: the head across sessions under its key; seeds and prepared kernels within one worker process; anything bound to one consumer for that test | TDM-06, TDM-07 |
 | Controlled boundary | The one place a test replaces an external computation. Production's protocol, encoding, identity and refusals still run; the double's output carries the identity of its input; one support owner; one contract control against the real boundary | TDM-09 to TDM-12 |
 | Production seam | A production function or collaborator that owns a protocol tests would otherwise restate: the PDF stream function, the executor's native-I/O collaborator, the public host profile comparison | TDM-09, TDM-10, TDM-11 |
-| Perturbation table | For one reuse or skip mechanism: how the decision is observed, a hit control, one case per determinant the test author judges should matter with its literal outcome, and a completeness case where the mechanism declares its determinants as data | TDM-13 |
-| Preparation declaration | Which fixtures need the database and which share a worker, stated at the fixture's definition or derived from the fixture graph | TDM-15 |
+| Perturbation table | For one reuse or skip mechanism: how the decision is observed, a hit control, distinguishing determinant changes with literal outcomes, and a completeness case where the mechanism declares its determinants as data | TDM-13 |
+| Preparation declaration | Native database use follows the native root; worker affinity is derived from the fixture definitions applicable to the item and reconciled with explicit groups | TDM-15 |
+| Capture eligibility | A published-capture clone carries read access to a reserved sealed workspace; a consumer that can produce new capture or transform claims uses its own writable binding | TDM-08 |
+| Review authority | The original attempt supplies the required selection; incremental receipts and existing managed reports supply observations, scope and custody | TDM-19 |
 | Subject from its owner | A test obtains production SQL by importing its generator or naming the installed function, never by reading a file or cutting text | TDM-16 |
 
 ## Package queue
@@ -246,25 +262,26 @@ binds. A package is not automatically one worker's assignment.
 
 | Package | Delivers | Needs | Findings | State |
 |---|---|---|---|---|
-| <a id="tdm-00"></a>TDM-00 | Entry: re-read of what changed after the revision baseline `12f57dc4d`; ADRs superseding ADR-0101 (RC07, RC10) and ADR-0102 (RC08, RC11) with their design sections; RC09 recorded | — (the conversion is complete) | RC07–RC11 | Not started |
-| <a id="tdm-01"></a>TDM-01 | Evidence restored for the six sites that cannot set up or pass by reading at `12f57dc4d` and that no later package rewrites | TDM-00 | DTA-037 (dangling request), DTA-047 (two stale readers) | Not started |
+| <a id="tdm-00"></a>TDM-00 | Re-read changed code, affected consumers and relevant failure receipts; superseding ADRs for RC07, RC08, RC10 and RC11 with their owning design sections; RC09 recorded | — (the conversion is complete) | RC07–RC11, I01 | Not started |
+| <a id="tdm-01"></a>TDM-01 | Evidence restored at the baseline repair sites and newly confirmed impacted sites; collection and actual setup accounted for separately | TDM-00 | DTA-037 (dangling request), DTA-047 (two stale readers), I01 | Not started |
 | TDM-02 | The model-binding rule in the test-assessment companion, version 1.3 | — | §3 | Not started |
 | TDM-03 | Scenarios bound to production acquisition and the release's model; one PDF recipe composer, which still takes the directory it takes today; one recipe-extension helper; `admit_kernel` as the single test-side owner of the persist, admit and bind order | TDM-02 | DTA-042 | Not started |
 | TDM-04 | Identity vector records carry every authored input, so neither consumer supplies a constant and the native consumer keeps the authored number spelling (`1.2500`); a request-identity vector against the generated `data.ddo_identity` | TDM-02 | DTA-033 | Not started; the conversion made the native cases passable (`d422c48e7`) |
 | TDM-05 | Generated-program tests assert meaning, including two spelling assertions the conversion added; circular expectations corrected; the DuckDB relational tests confirmed to author their expected rows, with replacement only where one is found not to | TDM-02 | F07, DTA-044 (two sites), DTA-033 (search selection site) | Not started |
-| TDM-06 | Head key over what the build runs, starting with the migration tree it actually deploys (29 revisions, 87 artifacts, all digest-pinned); the second policy comparison and the dead `--principals` script mode removed; the root key test's cases that assert the old closure rewritten | TDM-00 | DTA-038, DTA-039, RC07 | Not started; the conversion made principals an in-process read (`781350991`) |
+| TDM-06 | Head key over the production migration chain and actual construction inputs, with observed effective role policy; frozen replay and failed-key repair; redundant policy comparison and dead `--principals` mode removed | TDM-00 | DTA-038/039, RC07, I02 | Not started; the conversion made principals an in-process read (`781350991`) |
 | TDM-07 | Recipe and binding split: TDM-03's one composer changes to take content and a binding separately, and recipes become location-free; binding-aware bounded memo; per-consumer recipes never sealed | TDM-00; TDM-03 for the one composer | DTA-040, RC08 | Not started |
-| TDM-08 | Completed-capture seed stage; eligible consumers moved. Each consumer's capture now runs full production certification, which the stage would run once | TDM-07; TDM-09; TDM-01 for the three repaired factory and seed-directory consumers | F06, RC11 | Not started |
+| TDM-08 | Piloted sealed-capture and writable routes; eligible consumers moved to completed-capture clones under the workspace reservation | TDM-07; TDM-09; TDM-01 for the three repaired factory and seed-directory consumers | F06, RC11, I03 | Not started |
 | TDM-09 | Seam 1 completed in front of the conversion's `certified_reply`: one production owner of the sequence from preparation to reply, and a request-taking `PdfWorker.stream`; one controlled converter owner whose content is recipe data; every hand-written preparation entry and copy of request assembly removed; contract control | TDM-00 | DTA-041 | Not started; partly delivered by the conversion (`1d22c41cb`, `8a5c074f0`) |
-| TDM-10 | Seam 2; executor tests through the public constructor; reservation pinned once by literals | The production seam needs nothing; the test migration needs TDM-07's memoized kernel recipe | DTA-043; DTA-034 (claim double); DTA-009 (`controlled_executor`) | Not started |
-| TDM-11 | Seam 3; the profile's per-field cases and completeness case; real-peer reach control; invented refusal removed | — | DTA-045 | Not started |
+| TDM-10 | Public executor construction; real and controlled packet custody and settlement comparisons; reservation pinned by literals | The production seam needs nothing; the test migration needs TDM-07's memoized kernel recipe | DTA-043; DTA-034 (claim double); DTA-009 (`controlled_executor`); I03 | Not started |
+| TDM-11 | Profile determinant and completeness cases, real-peer reach and cleanup, test-only startup matcher retirement | — | DTA-045, I05 | Not started |
 | TDM-12 | Remaining substitutes wire-checked and owned by support modules; identity-bearing encoder fake; test modules no longer imported from another test directory | TDM-10 for the population-close double only | DTA-034, DTA-046, DTA-009 (each with TDM-10) | Not started |
 | TDM-13 | The perturbation-table contract and safety cases for every reuse and skip mechanism, built on the cases the conversion added for lowered release facts and not repeating them; one cache-scope fixture | TDM-06 for the key's table; TDM-11 for the check of form of the host profile's table, which TDM-11 writes to this contract | DTA-044, DTA-038 (evidence) | Not started |
 | TDM-14 | Refusal contract applied to the newer sites, and to the conversion's new tests that pin only SQLSTATE or only a message; new tests that already pin both inline after a positive control meet the contract and are left as they are | — | DTA-001 | Not started |
-| TDM-15 | Preparation declarations at the fixture; `db` mark from the native root; lists, dead fixtures and unimported modules removed | TDM-01 for the shared conftest edits | DTA-037, RC09 | Not started |
+| TDM-15 | Preparation declarations resolved per item; native-root `db` mark; retired lists, dead fixtures and unimported modules | TDM-01 for the shared conftest edits | DTA-037, RC09, I04 | Not started |
 | TDM-16 | The ten remaining path readers of production SQL moved to the subject's owner; every check that does not claim a bare database, including sixteen conversion test files, moved off a database per case | TDM-00; TDM-01 for the two broken readers | DTA-047, RC10 | Not started; the conversion moved ten readers to generator imports |
 | TDM-17 | Ordinary-lane host test without the real GPU lock | — | DTA-048 | Not started |
-| <a id="tdm-18"></a>TDM-18 | Closing: integrated qualification, findings returned to the audit, handoff | All | — | Not started |
+| <a id="tdm-19"></a>TDM-19 | [Read-only review of a managed selection and its attempts](test-domain-model-and-execution/managed-test-review.md) | Existing managed receipts and TDM-00 baseline read | I06, I07 | Not started |
+| <a id="tdm-18"></a>TDM-18 | Integrated qualification, findings returned to the test audit, and handoff | All other scheduled packages, including TDM-19 | I01 | Not started |
 
 Every package needs TDM-00's re-read of its sites; the "Needs" column lists only further
 capabilities.
@@ -273,7 +290,7 @@ capabilities.
 revision baseline a little, and because three packages depend on its ADRs. TDM-01 follows at once:
 a test that cannot set up gives no evidence for the claim behind it, and that is worse than
 any inefficiency. TDM-02 has no prerequisite and shapes how every later package writes its own
-acceptance, so it should land early. After that there are four largely independent lines:
+acceptance, so it should land early. After that there are five largely independent lines:
 
 - TDM-03, TDM-07, TDM-08 (scenario composition, then location-free recipes, then the new seed
   stage), with TDM-09 joining before TDM-08 because the seed builder needs the controlled
@@ -284,8 +301,11 @@ acceptance, so it should land early. After that there are four largely independe
   one place, still taking a directory, and TDM-07 then changes that one composer instead of two
   functions and their call patterns;
 - TDM-09, TDM-10, TDM-11, TDM-12 (the boundaries);
-- TDM-06 (the head key), which touches only the key and lifecycle scripts;
-- TDM-15, TDM-16, TDM-17 (declarations, SQL subjects, the GPU test).
+- TDM-06 (the head key), which should land before interpreting reuse evidence;
+- TDM-15, TDM-16, TDM-17 (declarations, SQL subjects, the GPU test), with TDM-15 after the
+  shared conftest repair;
+- TDM-19 (managed review), which can use existing receipts in parallel with harness changes
+  and must reach acceptance before TDM-18.
 
 TDM-13 can begin as soon as the mechanism each table covers is observable, which for most is
 today; only the key's table waits for TDM-06. TDM-14 has no prerequisite: the nine sites in the
@@ -293,7 +313,8 @@ PDF integration module no longer wait for TDM-09, because their converter now ce
 reading, their setup holds. Two packages share a mechanism with
 a neighbour, and the split is fixed here: TDM-11 writes the host profile's cases and TDM-13
 only checks their form; TDM-05 writes the set-wise validity reference cases and the two
-lowering refusal tests, and TDM-13 writes the case per declared lowering input.
+lowering refusal tests, and TDM-13 checks the distinguishing lowering inputs and their
+declared completeness.
 
 **TDM-09 and the conversion.** The conversion retired the fixture-only occurrence writer and
 moved all nine converter doubles onto production certification (`1d22c41cb`, `8a5c074f0`). TDM-09
@@ -314,13 +335,19 @@ these or give them one owner at a time.
 *Purpose.* Establish what is true when execution begins, and put the accepted rule changes
 into their authorities before dependent work starts.
 
-*Baseline re-read.* The revision already re-read every package's sites at `12f57dc4d` and
-removed what the conversion delivered, so this step is narrow. List what changed between
-`12f57dc4d` and the entry commit (`git diff --stat 12f57dc4d`), and for each changed file that a
-companion cites, re-read the cited sites and record in that companion's state table what moved.
-Validation of the conversion is the expected source of such changes. A package whose whole
-remaining subject a later commit delivered is closed with a reference to that commit, not
-re-implemented.
+*Baseline re-read.* Start with changes from `12f57dc4d` through the entry commit. Trace changes
+in fixture, helper, and generated-program owners to impacted test consumers even when the tests
+did not change. Reconcile retained failure receipts against their source and execution context.
+Classify gaps at entry by collection or import, fixture resolution, setup or call, refusal
+expectation, and product behavior. Record affected package state and route in-series prerequisites
+before dependent packages start. A package already delivered by a later commit needs a source
+reference and acceptance evidence for its actual scope.
+
+The N13 chain beginning `be66da57a0a44cf3b6aa420cb7e77c37` reports 146 observed identities of
+148 selected across mixed source and context. Use the two unresolved refusals from
+`5008e8bb6809433ab620a80dea585857` as authoring and review cases. Compare the invalid attachment
+with the valid entry and the predecessor and current guards before judging whether the asserted
+denial is stale. DDO owns product disposition and its qualifying union. [I01 evidence](../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I01)
 
 *Root script tests.* The revision read the deployment key's tests
 (`tests/scripts/test_native_deployment_key.py`, whose real-tree case at `:137–159` names the
@@ -380,27 +407,27 @@ missing path named in a test. A test whose body calls a production signature tha
 changed cannot be found by reading; the collection and targeted runs below are how such a test
 would show.
 
-TDM-01 also runs the collection of the whole package (`uv run ci test` in collect-only form,
-or the equivalent the `ci` skill names) and reads the errors: collection is the cheapest
-complete inventory of tests that cannot set up for a structural reason, and it executes no
-test body.
+Run `uv run ci test collect` for package identities and import or collection errors. A bounded
+pytest `--setup-plan` inspection may help diagnose static dependency resolution if the targeted
+hooks are safe in that mode. Run the affected fixtures and test bodies on the managed route to
+exercise real setup, including dynamic requests and context-managed entry and exit. Record the
+outcome at each boundary separately.
 
-*Acceptance.* Each repaired test passes in a targeted run and still fails when its subject is
-deliberately broken (state the mutation tried). Package collection reports no error, or each
-remaining error is assigned in TDM-00's record to the package that rewrites the failing test.
-Tests
-deleted here have a transfer note naming the control that still covers the behaviour, or
-stating that the behaviour was retired.
+*Acceptance.* Account for missing fixture names, stale generated-program references, and
+context-managed fixtures through targeted execution or a named remaining obligation with its
+package owner. Check a meaningful counterexample where a repair could otherwise lose the claim.
+For a deleted test, identify the surviving control or the retired behavior. Collection confirms
+identities and collection behavior; setup and body success require their own receipts.
 
 ### TDM-18 — closing
 
-After all functional scope is implemented: `uv run ci test` for the applicable lanes and
-`uv run ci check`, with the required union accounted for by test identity and receipt. No full
-run has passed since 2026-11-10, so this is the first current full-run profile; failures
-outside this series' scope are recorded and routed to their owners, not absorbed. Then: update
-the test audit so that each corrected finding's status reflects delivered source (an audit
-refresh by its own skill, not an edit made from this plan's claims); record the
-[handovers](#handovers) at their owners; run the handoff skill.
+After all functional scope is implemented, run `uv run ci test` for the applicable lanes and
+`uv run ci check`. Reconcile the required union by test identity, source/context, and receipt.
+Use the implemented TDM-19 review where a chain includes retries or interruptions. Preserve
+the separate standing of collection, setup, functional observations, and result custody. Keep
+out-of-scope failures visible in the closure account with their current owners. Update the test
+audit through its own refresh route and run the handoff skill. DDO plan updates follow this
+series.
 
 ## Finding disposition
 
@@ -412,21 +439,21 @@ it has been.
 | Finding | Package | Closure evidence | State |
 |---|---|---|---|
 | [DTA-041](../design_review/test-audit/support-structure.md#dta-041) converter copies | TDM-09 | Partly corrected by the conversion: every controlled reply is now emitted and certified by production. Remaining to observe: no test writes a preparation entry or assembles a stream request by hand; controlled content is a recipe value; the contract control passes; the consumers of the nine doubles pass in a run | Scheduled; partly corrected by the conversion |
-| [DTA-037](../design_review/test-audit/retirement-transfer.md#dta-037) fixture lists | TDM-01 (dangling request), TDM-15 | No hand list of fixture names; every native item carries `db`; a deleted fixture leaves nothing behind | Scheduled |
+| [DTA-037](../design_review/test-audit/retirement-transfer.md#dta-037) fixture lists | TDM-01 (dangling request), TDM-15 | Every native item carries `db`; resolved overrides and parent requests give the correct group under xdist; global lists are retired | Scheduled |
 | [DTA-033](../design_review/test-audit/evidence-and-discrimination.md#dta-033) vector inputs | TDM-04 (TDM-05 for the search selection site) | The native cases take every input from the vector record and pass, including the case whose number spelling the consumer loses today; a framing change made on both sides fails a vector; the search selection test no longer recomputes its expected digest with the production projection. The conversion supplied the missing field as a constant in the consumer, which makes the cases passable and leaves the finding open | Scheduled |
 | [DTA-047](../design_review/test-audit/execution-and-qualification.md#dta-047) SQL readers, per-case databases | TDM-01 (stale readers), TDM-16 | Partly corrected by the conversion: ten readers now import their generator and the absent anchors are gone. Remaining to observe: none of the ten remaining modules reads production SQL by path or cuts text from it; no check that does not claim a bare database creates a database per case, which 61 files do at the revision baseline against 45 at authoring | Scheduled; source partly corrected, class larger |
 | [DTA-045](../design_review/test-audit/evidence-and-discrimination.md#dta-045) invented refusal | TDM-11 | Removing a field from the comparison fails a test; the real peer reaches the refusal | Scheduled |
 | [DTA-044](../design_review/test-audit/evidence-and-discrimination.md#dta-044) reuse tested only where correct | TDM-13 (TDM-05 for two circular sites) | Each listed mechanism has a case where reuse must not happen, asserted by literal outcome | Scheduled; precision cases gated |
 | [DTA-042](../design_review/test-audit/support-structure.md#dta-042) composition restated | TDM-03 | No support module types the statistics bundle; the grading scenario's model is its release's | Scheduled |
-| [DTA-038](../design_review/test-audit/execution-and-qualification.md#dta-038) head key coverage | TDM-06, evidence in TDM-13 | The key moves when a deployed revision, a native body it executes, or a module in the construction closure changes, and when observed server or role facts change; it does not move when a file is touched without changing | Scheduled; restated against `target_alembic` |
+| [DTA-038](../design_review/test-audit/execution-and-qualification.md#dta-038) head key coverage | TDM-06, evidence in TDM-13 | Executed revision bodies, unpinned content and effective role-policy changes move the key; a content-neutral touch preserves it, and a wrong pinned artifact is refused | Scheduled against `semantic.migrations.ALEMBIC_DIR` |
 | [DTA-039](../design_review/test-audit/execution-and-qualification.md#dta-039) replay and repeated verification | TDM-06 | One policy comparison per clone. The repeated role-script process is already gone: the conversion made principals an in-process read (`781350991`) | Scheduled in part; incremental head deferred |
 | [DTA-040](../design_review/test-audit/execution-and-qualification.md#dta-040) location in recipe identity | TDM-07 | No seed sealed for a per-consumer recipe; equal content gives equal recipe identity in any directory | Scheduled |
-| F06 capture per consumer | TDM-08 | Eligible consumers clone the completed-capture stage; capture-claim consumers still build | Scheduled |
-| [DTA-043](../design_review/test-audit/support-structure.md#dta-043) executor from private fields | TDM-10 | No `__new__` of the executor in tests; reservation read from the executor and pinned once | Scheduled |
+| F06 capture per consumer | TDM-08 | Two eligible clones share a reserved published capture without another converter call; the sealed route explicitly refuses write use, and the writable pilot has its own binding | Scheduled |
+| [DTA-043](../design_review/test-audit/support-structure.md#dta-043) executor from private fields | TDM-10 | Public construction preserves reservation, packet custody and settlement behavior across real and controlled cases | Scheduled |
 | [DTA-046](../design_review/test-audit/evidence-and-discrimination.md#dta-046) encoder realignment | TDM-12 | An off-by-one realignment after a drop fails a controlled test | Scheduled |
 | [DTA-048](../design_review/test-audit/execution-and-qualification.md#dta-048) real GPU lock | TDM-17 | No ordinary-lane test opens the host lock | Scheduled |
 | [DTA-034](../design_review/test-audit/support-structure.md#dta-034) remaining substitutes | TDM-12; TDM-10 for the claim double | Each substitute passes the wire validator on both sides | Scheduled |
-| [DTA-001](../design_review/test-audit/evidence-and-discrimination.md#dta-001) newer refusal sites | TDM-14 | Each listed site, and each conversion test that pinned only one of the two, pins SQLSTATE plus message or constraint after a positive control | Scheduled |
+| [DTA-001](../design_review/test-audit/evidence-and-discrimination.md#dta-001) newer refusal sites | TDM-14 | A valid control reaches the boundary; the invalid case asserts literal SQLSTATE and message or constraint and the expected effect or rollback | Scheduled |
 | [DTA-009](../design_review/test-audit/support-structure.md#dta-009) test modules as support | TDM-12 (`_page`, `_complete_ready`, cross-directory imports of test modules); TDM-10 (`controlled_executor`) | No test imports `_page`, `_complete_ready` or `controlled_executor` from a test module; no test module imports a name from a test module in another test directory; no relative import in a test directory that is not a package | Scheduled; the remaining same-directory imports of private names move when a package touches the importing module (review §5.5) |
 | F07 renderer spelling | TDM-05 | A renderer change that keeps meaning passes; one that changes meaning fails | Scheduled |
 | [DTA-026](../design_review/test-audit/execution-and-qualification.md#dta-026) private interpreter state | — | — | Deferred; trigger: an interpreter change |
@@ -434,6 +461,23 @@ it has been.
 
 A package finishing does not close a finding with other contributors: DTA-009, DTA-033,
 DTA-034, DTA-037, DTA-038, DTA-044 and DTA-047 each need all of their packages.
+
+<a id="improvement-disposition"></a>
+
+## Plan-improvement disposition
+
+This table routes the November 18 recommendations to their packages. The existing findings
+table retains closure state for the underlying audit and design findings.
+
+| Review | Package owner | Disposition |
+|---|---|---|
+| [I01](../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I01) | TDM-00/01/14/18 | Scheduled. Repair and reconcile evidence by failure boundary and owner. |
+| [I02](../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I02) | TDM-06/13 | Scheduled. Key the deployed program and observed effective role policy, then verify replay. |
+| [I03](../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I03) | TDM-03/07–10/12 | Scheduled. Pilot both capture routes and preserve production PDF and executor boundaries. |
+| [I04](../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I04) | TDM-15 | Scheduled. Derive affinity from each item's resolved fixture definitions under RC09. |
+| [I05](../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I05) | TDM-02/04/05/11/13/14/16/17 | Scheduled. Use discriminating evidence and retire superseded test machinery with its consumers. |
+| [I06](../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I06) | [TDM-19](#tdm-19) | Managed review scheduled. Timing, live progress and completion are conditional. |
+| [I07](../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I07) | [TDM-19](#tdm-19) | Existing incremental reporting selected. External JSON exchange is conditional. |
 
 <a id="candidates-and-deferrals"></a>
 
@@ -451,11 +495,12 @@ DTA-034, DTA-037, DTA-038, DTA-044 and DTA-047 each need all of their packages.
   defect uncovered, or if the query cache becomes shared across processes (DA-075), which makes
   invalidation order a real determinant.
 
-- *Order-by-text assertions on generated bodies.* Five test files assert that one fragment
-  precedes another in a generated body (`body.index(a) < body.index(b)`), one of them new with the
-  conversion (`tests/semantic/test_data_read_boundary_native.py:259`). They resemble F07's
-  renderer-spelling sites but assert an order, which can be meaning. Settled by TDM-05's first
-  step reading each: one whose order is not observable behaviour joins TDM-05's site table.
+- *Managed review phase timing, live progress and completion.* Consider phase timing after
+  TDM-19 if reviewing retained phase and scheduling data still requires repeated extraction.
+  Consider progress when `ci results watch` leaves a specific diagnostic gap, and completion
+  when repeatedly entering result IDs warrants bounded metadata lookup. The
+  [managed-review companion](test-domain-model-and-execution/managed-test-review.md#reporting-foundation-and-conditional-extensions)
+  owns their design limits. TDM-18 can close without these extensions.
 
 **Deferred with a trigger:**
 
@@ -475,6 +520,10 @@ DTA-034, DTA-037, DTA-038, DTA-044 and DTA-047 each need all of their packages.
   is delivered and its stage holds; then extend by the same rules.
 - *Grouping commit-class consumers of a seed by recipe.* Trigger: a stored full run shows seed
   builds per worker dominating setup (review §14).
+- *External pytest JSON exchange.* Trigger: a named consumer needs a field the retained
+  receipt cannot provide economically. Compare an allowlisted settled export with an opt-in
+  plugin supplement under the TDM-19 reporting contract. Managed reporting and exact retry
+  continue to use incremental evidence.
 
 **Rejected, with the reason, so they are not proposed again:**
 
@@ -492,6 +541,9 @@ DTA-034, DTA-037, DTA-038, DTA-044 and DTA-047 each need all of their packages.
   (DTA-029 to DTA-041, DTA-030 to DTA-037).
 - *Every PDF test through the real worker child.* Strongest fidelity, but a process per
   scenario; kept for the one contract control.
+- *Default duplicate pytest JSON session snapshot.* The isolated reporting probe showed
+  incomplete standing under interruption and distributed execution. It would retain additional
+  output without taking over an existing reporting responsibility.
 
 **Open premises** (each is the first step of the package it constrains):
 
@@ -500,27 +552,26 @@ DTA-034, DTA-037, DTA-038, DTA-044 and DTA-047 each need all of their packages.
 | Publication's logical digest is independent of the build, so the contract control can compare it across routes | Reading the digest's inputs | TDM-09 |
 | Today's authored claim replies pass wire validation | Running them through the validator | TDM-10 |
 | The consumers of the nine certified converter doubles set up, which is established only by reading | The first targeted run of those modules | TDM-09, TDM-14 |
-| Registering a new demand against a completed capture reuses it without a capture claim | Reading demand reuse; failure is loud if not | TDM-08 |
-| A root-conftest hook that adds group marks needs `tryfirst` to run before xdist reads them | A two-worker collection | TDM-15 |
+| A completed-capture consumer can use the sealed route under the existing reservation | Trace consumers and pilot a post-capture reader and writable consumer before broad migration | TDM-08 |
+| Resolved fixture definitions and mark ordering represent local overrides under the pinned pytest and xdist versions | Inspect the adapter contract, then check root/package parity and two-worker placement | TDM-15 |
+| Existing review reads can be composed without rereading or reclassifying the same receipt unnecessarily | Trace typed projections, descriptor custody and shared limits before fixing the CLI implementation | TDM-19 |
 
-One premise from authoring is settled. All 87 artifacts of the deployed chain are pinned by a
-digest in the revision that reads them, so no unpinned artifact exists and the key needs neither
-to hash one nor to fall back to size and time (TDM-06).
+All 87 deployed artifacts at the revision baseline were digest-pinned. TDM-06 also specifies
+content identity for any unpinned construction input found at entry or added later.
 
 <a id="handovers"></a>
 
-## Handovers to other owners
+## Production context owned outside this series
 
-These are production observations the review returned or the companions raised, and this series
-does not act on them. This table is their one list: companions cite it and do not restate it.
-TDM-18 records each at its owner; none blocks the series. A product finding that a package's
-failing case reveals during execution is added here by the coordinator.
+These observations explain the boundaries of the test packages. The coordinator records new
+external causes here when they affect interpretation of TDM evidence. This table creates no
+handoff obligation and calls for no edits to other plans at TDM-18. Any DDO plan updates take
+place after this series completes.
 
 | Observation | Owner | What the tests do meanwhile |
 |---|---|---|
 | The capture workspace and asset root are part of release custody, so release identity depends on a filesystem location | Production (broad audit, identity broader than its premise) | Recipe and binding split (TDM-07); post-capture seed only (TDM-08) |
 | `LOWERING_FILES` is a hand-kept list whose completeness nothing establishes. The conversion grew it to about seventy entries (seventeen generator modules added, five SQL files removed) and no test refers to it | Production (DA-068, DA-069 family) | A perturbation case per listed input (TDM-13) |
-| `admitted_startup_matches` has no production consumer | Production (pending or superseded machinery) | None |
 | Kernel digest grain and implementation identity; validity-family membership, support closures and read identities; pack composition and guard and grant membership in the model; query-cache keying | Production (DA-068, DA-069, DA-070, DA-071, DA-073, DA-074, DA-075, DA-076) | Seams of §4.8, carried in the owning companions: safety cases now and gated precision cases (TDM-13); reference cases independent of the production encoding (TDM-05); scenarios bound to acquisition and hand-authored posture expectations (TDM-03) |
 | Release admission is not one production operation, so the test helper `admit_kernel` restates the order persist, admit, bind | Production (DA-033) | `admit_kernel` is the single test-side owner of that order (TDM-03); when production offers the operation, the helper calls it and the restated order goes |
 | Superseded production machinery other than code kept alive only by tests | Production (the remaining DA-080 items) | None. Code whose last caller is a test retires inside the package that owns that test. One such item is known and is scope, not handover: the `--principals` mode of `scripts/pg_semantic_roles.sh`, which has no caller and goes in TDM-06. The conversion already deleted the fixture-only occurrence writer, and `function_bodies` has four production callers and stays |
@@ -571,6 +622,7 @@ The series is complete when every package's acceptance holds on final source, th
 table's closure evidence has been observed for every scheduled finding, the broad
 `uv run ci test` and `uv run ci check` routes have run on final source with the required union
 accounted for, both superseding ADRs are accepted with their design sections amended, the
-test-assessment companion is at 1.3 and `uv run ci docs check` passes, and the handovers are
-recorded at their owners. Completing implementation, completing qualification and realizing a benefit are
-separate statements; the series claims the first two and describes the third qualitatively.
+test-assessment companion is at 1.3, `uv run ci docs check` passes, and TDM-19 preserves
+attempt and custody standing in its human and typed views. Conditional extensions remain
+triggered work. Record implementation and qualification separately and describe expected
+benefits qualitatively.

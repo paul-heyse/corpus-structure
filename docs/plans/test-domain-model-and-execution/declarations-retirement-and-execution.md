@@ -13,7 +13,7 @@ without the real GPU lock). It contributes to findings
 [DTA-048](../../design_review/test-audit/execution-and-qualification.md#dta-048), depends on rule
 changes RC09 and RC10, which the operator accepted on 2026-11-17, and states the
 [retirement rules](#retirement-rules) that later changes follow. Package state, the queue,
-finding dispositions, shared contracts, deferrals, rejected options and handovers are the
+finding dispositions, shared contracts, deferrals, rejected options and external context are the
 [coordinator's](../test-domain-model-and-execution_2026-11-17.md).
 
 **Baseline and evidence.** Section references such as §4.5 mean the
@@ -36,6 +36,12 @@ documented, and confirming it is the first step of TDM-15. `tests/…` and `src/
 `python/corpus-structure/`; repository-root paths are written as root `conftest.py` and root
 `scripts/…`. The review did not read the root `tests/` tree. The revision's export contains it,
 and it was scanned for fixture definitions and for the names in the two lists.
+
+**Integrated improvement review.** Recommendations
+[I04](../../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I04) and
+[I05](../../plan_improvement_reviews/test-domain-model-and-execution_2026-11-18.md#I05), reviewed
+at `aea554e5c`, replace the name registry with item-resolved metadata and refine evidence and
+retirement below. The earlier source and library observations retain their original scope.
 
 ## Why this work exists
 
@@ -177,7 +183,7 @@ subject and the test is outside this package.
 **Files without a loader.** Six of the sixteen remaining files have no loader in `src/`:
 `exclusions.sql`, `fact.sql`, `selection.sql`, `validation.sql`, `source_record_graph.sql` and
 `data_operation_identity.sql`. They are plausibly superseded production machinery and are a row
-of the coordinator's [handover table](../test-domain-model-and-execution_2026-11-17.md#handovers),
+of the coordinator's [production context](../test-domain-model-and-execution_2026-11-17.md#handovers),
 not scope here; the two tests that read two of them are scope.
 
 **The target is now common.** Many tests take their subject from its owner. Besides the three the
@@ -262,17 +268,22 @@ an ordinary parameter or carries the explicit mark. Every other dynamic request 
 parameter.
 
 **A worker group is declared where the fixture is defined.** A small project decorator wraps
-`pytest.fixture`, accepts a group name and records the fixture's name and group in a registry as
-the defining module is imported. The root collection hook keeps its position and its refusal of
-an item that falls into two groups; only its source of groups changes, from the table to the
-registry intersected with the item's closure, together with any explicit `xdist_group` marks as
-today. It adds exactly one mark per item. Deleting or renaming a fixture deletes or renames its
-declaration in the same edit, because they are the same statement.
+`pytest.fixture`, passes through scope, name and parameters, and attaches affinity metadata to
+the defining fixture function. The root hook reads metadata only from definitions resolved for
+the collected item. Same-name fixtures in sibling scopes and child overrides remain valid. A
+parent definition contributes only where the override actually requests that parent.
 
-The registry is keyed by fixture name. The decorator refuses a second declaration of a name it
-already holds, so a declared fixture's name is distinctive by construction. The one live row that
-relies on a consumer path to tell a generic name apart, `profile`, is renamed to a distinctive
-name in its one module.
+One narrow adapter owns access to pytest 9.1.1's internal resolved-fixture information and checks
+its supported version and shape. An unsupported or unrepresentable resolution receives an
+explicit diagnostic and uses a public explicit declaration on the affected test where needed.
+The implementation must establish root/package parity and hook order before depending on the
+adapter. No mutable global fixture-name registry is introduced.
+
+The hook combines the resolved fixture groups with explicit `xdist_group` declarations. Matching
+names coalesce into one group. Distinct groups produce a collection usage error naming the item
+and contributing definitions. Emit exactly one group mark before xdist processes it. A dynamic
+`getfixturevalue` dependency that needs affinity declares its preparation prerequisite on the
+owning fixture explicitly, since static resolution cannot infer that runtime dependency.
 
 **Which fixtures declare a group** is unchanged policy, carried from the earlier review: session
 and module fixtures that hold expensive shared pure preparation, and rollback families, are
@@ -288,11 +299,9 @@ groups, and none of the ten fixtures the conversion added needs one.
   became DTA-037.
 - *Carry the group as a mark on a fixture parameter* (`pytest.param(..., marks=…)`). It changes
   every consumer's node identity, and xdist joins several group marks into a new group silently.
-- *Resolve each item's fixture definitions and read an attribute from the fixture function.* This
-  is exact where names collide, but the mapping from an item's fixture name to its definition is
-  private in pytest 9.1.1 (`item._fixtureinfo`). A name-keyed registry with a duplicate refusal
-  uses only public API. Evidence that would reopen this: an undeclared fixture that shares a
-  declared name and is grouped by mistake, visible as an unexpected group in a receipt.
+- *Use a global registry keyed by fixture name.* It loses item-level override resolution and
+  rejects valid sibling definitions. Keeping one version-checked adapter limits the internal
+  pytest dependency to the responsibility that needs it.
 - *A check that every listed name exists.* It is a lint over a list that should not exist.
 
 ### SQL from its owner, in the class that tests the deployment (TDM-16)
@@ -373,7 +382,7 @@ caller in the process, so the control instead redirects the lock path by replaci
 module-level `Path` name in `corpus_structure.ingest.pdf_capacity` for the duration of the
 control, so that `/tmp` resolves to the test's temporary directory. A module constant or
 parameter would be the natural seam; that is a row of the coordinator's
-[handover table](../test-domain-model-and-execution_2026-11-17.md#handovers), not scope here.
+[production context](../test-domain-model-and-execution_2026-11-17.md#handovers), not scope here.
 
 ## Pivotal library capabilities
 
@@ -383,7 +392,7 @@ parameter would be the natural seam; that is a row of the coordinator's
 | No metadata on fixtures | — | A mark applied to a fixture is an error since pytest 9.0, hence the project decorator | — | [pytest deprecations, "Applying a mark to a fixture function"](https://docs.pytest.org/en/9.1.x/deprecations.html#applying-a-mark-to-a-fixture-function); the library capability notes, section A on pytest (marks on fixtures) |
 | Undefined fixture names | — | A test naming an undefined fixture fails at setup, not at collection; pytest has no strict option for fixture names | So a hand list can never be validated by pytest | The library capability notes, section A on pytest (`fixtures.py:1873–1877`, installed source) |
 | Worker affinity | `--dist=loadgroup` with one `xdist_group` mark per item | All items with the same group run on one worker | Several marks on one item are joined into a new group named by the sorted names, so the hook must emit one mark | [xdist distribution modes](https://github.com/pytest-dev/pytest-xdist/blob/v3.8.0/docs/distribution.rst); `xdist/remote.py:242–253`, installed source |
-| Identical collection on every worker | — | The registry is filled by imports during collection and is the same in every worker | Group derivation must not depend on the worker or on time | The library capability notes, section B on pytest-xdist (`loadscope.py`, installed source) |
+| Identical collection on every worker | — | Metadata is read from the same resolved definitions in every worker | Group derivation must not depend on the worker or on time | The library capability notes, section B on pytest-xdist (`loadscope.py`, installed source) |
 | **Hook order (inferred)** | `@pytest.hookimpl(tryfirst=True)` on the root hook | The root hook adds group marks before xdist's worker plugin reads them. The worker plugin is registered after the initial conftests, and pluggy calls later registrations first | **Not documented by xdist; inferred from installed source (`remote.py:122, 420–427`).** Confirming it is the first step of TDM-15 | The library capability notes, section B on pytest-xdist (hook order) |
 | Read-only transactions | `rollback_connection(…, readonly=True)` behind `native_read` (`tests/conftest.py:436–439`) | PostgreSQL refuses writes and temporary tables | `25006` precedes the privilege check | ADR-0101; [PostgreSQL 18 `SET TRANSACTION`](https://www.postgresql.org/docs/18/sql-set-transaction.html) |
 | Advisory file locks | `fcntl.flock` on distinct open file descriptions | A second descriptor on the same file conflicts with the first even within one process, which lets a control hold the lock without a second process | Linux semantics | [`flock(2)`](https://man7.org/linux/man-pages/man2/flock.2.html) |
@@ -405,17 +414,12 @@ stored result that all members of the group ran on one worker and that the plugi
 `affinity_groups` name the group. If the order does not hold, the remedy is local, the hook's
 ordering attribute, and the rest of the design is unaffected.
 
-**Implementation vision.** The decorator and its registry live in a module under the root
-`scripts/` directory, beside the other test infrastructure both test trees already import, because
-root `conftest.py` owns the grouping hook for the root and the package trees alike. A fixture that
-holds grouped preparation is written with the decorator in place of `pytest.fixture` and passes
-its group; scope, name and parameters pass through unchanged. The registry maps the fixture's
-effective name to its group and refuses a name it already holds, at import, with both defining
-modules in the message.
-
-The root hook computes, for each item, the set of groups declared by fixtures in its closure and
-by explicit `xdist_group` marks. More than one is a usage error naming the item and the groups, as
-today. Exactly one becomes the item's single mark unless the item already carries it.
+**Implementation vision.** The decorator and resolved-definition adapter live in one module
+under root `scripts/`, beside the test infrastructure shared by both trees. The decorator stores
+metadata on the fixture definition and preserves pytest's normal fixture semantics. Root
+`conftest.py` resolves each item's actual definitions through the adapter and applies the conflict
+and coalescing rules above. It preserves explicit marks while emitting a single resolved group
+before xdist handles the item.
 
 The package conftest's hook marks an item `db` when `native_server` is in its closure. The fixture
 `observed_store_checkouts` takes `infrastructure_engine` as an ordinary parameter. The
@@ -425,9 +429,9 @@ candidate engines already depend on, and drops its explicit mark. The two order-
 (`test_db_fixtures.py:130`, `test_native_fixtures.py:546–550`) keep their dynamic requests; the
 second keeps its consumer's explicit mark, and a comment at each says the order is the claim.
 
-**Decisions this package owns.** The decorator's name and module; whether the six mathematics
-fixtures each declare the group or only the two that the other four depend on; the distinctive
-name that replaces `profile`.
+**Decisions this package owns.** The decorator's name and module, and whether the six
+mathematics fixtures each declare the group or only the two the other four depend on. Fixture
+names follow pytest resolution and need no global uniqueness rule.
 
 **Consumers migrated (complete scope).** The thirteen live rows of the table, declared at their
 definitions in `tests/math/conftest.py`, `tests/statistics_pack_support.py`,
@@ -450,10 +454,10 @@ the transfer rule below; this package only confirms it no longer names an undefi
 plugin's `native_required` and `affinity_groups` records, which keep reading marks. The decision
 not to group commit-class seed consumers.
 
-**Failure behaviour.** A duplicate declaration fails at import of the second module, which pytest
-reports as a collection error naming it. A fixture declared with a group and then deleted takes
-its declaration with it; a test that still requests it fails at setup with pytest's own "fixture
-not found", which is the loud failure the hand list hid.
+**Failure behaviour.** Conflicting resolved preparation requirements fail at collection with
+item and definition context. Legitimate same-name definitions resolve normally. A removed fixture
+carries its metadata away, and a surviving request for it fails at setup with pytest's fixture
+error. Collection success alone establishes no fixture-body or dynamic-setup success.
 
 **Acceptance evidence.** The expectations are authored or come from the mechanism being replaced,
 never from the new derivation itself.
@@ -463,7 +467,7 @@ never from the new derivation itself.
   after the change and compare the two maps the plugin already records at `collection_finish`:
   node identity to `affinity_groups`, and the `native_required` list. The expected difference is
   written down by hand before the comparison: no group changes, because every removed row named no
-  live fixture, apart from the `profile` rename and the newly declared rollback family; no
+  live fixture, apart from the newly declared rollback family; no
   `native_required` change. A derivation rooted at the wrong fixture, or a lost declaration, shows
   as an unexpected difference.
 - *The mark follows the root.* Three small controls in the fixture test module, each asserting on
@@ -474,7 +478,13 @@ never from the new derivation itself.
 - *A declaration groups its consumers.* A control fixture declared with a literal group name and a
   test that depends on it through a second fixture: the test's single `xdist_group` mark carries
   that literal. A second control declares two groups in one closure and expects the usage error.
-- *Duplicates are refused.* Declaring a name twice raises at the second declaration.
+- *Resolution is local.* Sibling fixtures with the same name carry independent groups. A child
+  override uses its own group, and an override requesting its parent includes that parent's
+  requirement. Matching explicit and inferred groups coalesce; differing groups fail early.
+- *Dynamic prerequisites are explicit.* A grouped dynamic request uses its owning fixture's
+  declared prerequisite. A targeted setup run exercises that route and the adapter's unsupported
+  shape/version diagnostic. Root and package collection agree, and a bounded two-worker run
+  preserves normalized logical identities and the intended worker placement.
 - *The lists are gone.* A search finds no `PREPARATION_AFFINITY`, no `DB_FIXTURES`, no
   `record_source_`, none of the four module names, and `getfixturevalue` only at the sites this
   section names.
@@ -568,9 +578,8 @@ during collection. Neither waits for someone to run one particular file.
 
 **Acceptance evidence.**
 
-- *The cases survived.* For each moved module, the parametrized case identities and expected
-  values before and after are the same list, recorded in the package's evidence; a case that
-  changes expectation is named with its reason. The expected values are the independent
+- *The cases survived.* Compare collected identities where the move can lose or regroup cases,
+  and record any changed expectations with their reason. The expected values are the independent
   expectation and predate the change.
 - *The check reaches the installed object.* One reach control per route. In the rollback class,
   replace the installed function under test with a body that returns a constant, inside the
@@ -578,9 +587,10 @@ during collection. Neither waits for someone to run one particular file.
   value differs from the constant. A check that still evaluates a private copy passes when it
   should fail. This control is written once for the trust-snapshot function and once for a
   trigger.
-- *No database per case.* A read-class check reports `current_database()` equal to the worker's
-  session clone name, as `tests/test_db_fixtures.py` already asserts for the fixture itself, and
-  the server's list of bare databases is unchanged across a run of the moved modules.
+- *The intended database class is exercised.* Use existing native provenance receipts for the
+  migrated installed-release journeys. Generated-scratch expression checks, installed-release
+  admission and bare/bootstrap checks retain their distinct subjects and setup. A rollback
+  connection running a temporary routine establishes that temporary-program claim.
 - *No text reading.* A search of `tests/` finds no read of a path under the production SQL
   directory and no search of production SQL text.
 - *Names are true.* No test on the infrastructure route or a substitute schema has `native` in its
@@ -616,10 +626,10 @@ other user replaces the slot or the lock calls (search for `pdf_gpu_slot` in `te
 
 **Acceptance evidence.**
 
-- *The ordinary test is independent of the host.* While a separate process holds the real
-  host-wide lock, the renamed test passes. This is the failing condition of DTA-048 reproduced
-  directly, once, as the package's evidence; it is not kept as a test, because a kept test would
-  itself take the host lock.
+- *Host retirement and lock ownership are observed separately.* The ordinary test reaches
+  residency retirement and restart through its live host route. The lock controls use the
+  private file and independent descriptors to exercise waiting and release. A recorder confirms
+  that the ordinary test never requests the accelerator slot or host-wide lock.
 - *The order is tested.* Swapping the borrow and the lock in the slot fails the first control.
 - *Waiting is tested.* A slot that returned without the lock, or that stopped calling the liveness
   callback while waiting, fails the second control; the expected call count is a literal.
@@ -649,13 +659,14 @@ violation of the others fail loudly on its own.
    change.
 4. **Production kept alive only by tests retires with those tests.** Production code whose last
    caller is a test is deleted together with that test, inside the package that owns the test.
-   At `12f57dc4d` one such item is known: the `--principals` mode of root
+   The scheduled items include `admitted_startup_matches` and its mechanism-only tests in
+   TDM-11, subject to a named accepted consumer check, and the `--principals` mode of root
    `scripts/pg_semantic_roles.sh`, which has no caller and goes in TDM-06. The two the authoring
    baseline named are settled: the conversion deleted the fixture-only occurrence writer
    (`8a5c074f0`), and `function_bodies` has four production callers and stays. Other superseded
    production machinery (the remaining items of
    [DA-080](../../design_review/audit/boundaries-and-composition.md#da-080), and the six SQL
-   files without a loader) is a handover in the coordinator's
+   files without a loader) appears in the coordinator's production-context
    [table](../test-domain-model-and-execution_2026-11-17.md#handovers), not scope of this series.
 
 ## What the rule-change records must say
