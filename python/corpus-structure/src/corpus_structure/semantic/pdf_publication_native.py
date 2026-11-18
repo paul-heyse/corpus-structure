@@ -1727,7 +1727,7 @@ REVOKE ALL ON FUNCTION ops.pdf_publication_projection(jsonb,bigint,bigint,text) 
 """
     from .pdf_certification_native import pdf_certification_native_sql
 
-    sql += pdf_certification_native_sql()
+    sql += pdf_certification_native_sql(target_metadata=metadata)
     sql += _published_validation_sql(target_metadata=metadata)
     sql += "REVOKE ALL ON FUNCTION ops.pdf_check_build_inventory(text,text,text) FROM PUBLIC;\n"
     signatures = [
