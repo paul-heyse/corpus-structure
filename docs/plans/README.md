@@ -6,6 +6,7 @@ semantic pivot series was added on 2026-10-29:
 
 | Plan | Owns |
 |---|---|
+| [Test domain model and execution](test-domain-model-and-execution_2026-11-17.md) | Proposed TDM-00–18, to run after the ADR-0131 conversion: the model-binding rule for tests, preparation identity, controlled boundaries with three production seams, reuse and refusal evidence, declarations and retirement. Owns scheduled disposition of DTA-033, 034, 037–048 and review findings F06–F07, and accepted RC07–RC11. |
 | [Test system target design](test-system-target-design_2026-11-13.md) | TS-00–25 test-system contracts, clone/seed infrastructure, provider selection and pgTAP/pg_prove/pg_virtualenv integration. The coordinator owns current implementation, deferred qualification, findings and DDO-gated TS-21/22 obligations. |
 | [Library-discovery tooling](../../tooling/docs/plans/library-discovery-tooling_2026-11-17.md) | Proposed LDT-00–08 and conditional LDT-C1–C3: the `tooling/` package and its discovery commands; owns the tooling review O01–O10. Lives in `tooling/docs/plans/`, separate from the DDO series by operator direction (2026-11-17). |
 | [Declared data operations](declared-data-operations_2026-11-12.md) | DDO-00–12 total governing operation model, semantic identities/support, demand execution, consumer migration, preservation and qualification. Owns F01–F14/C1–C7, accepted RC01–09, current completion-audit findings and repository-wide retirement dispositions; readiness and cross-plan dependencies are recorded in the coordinator. |
