@@ -69,7 +69,7 @@ Implementation/qualification is owned by the DDO coordinator.
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
-> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0127](../adr/0127-pdf-publication-contributor-custody.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
+> Decision: [ADR-0100](../adr/0100-ddo-contextual-identities.md), [ADR-0093](../adr/0093-ddo-products-and-support.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0139](../adr/0139-compatible-pdf-checkpoint-custody.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
 
 ## Coherent characterization bounds and native demand anchors
 
@@ -393,9 +393,20 @@ owns functional qualification and remaining boundaries.
 
 > Decision: [ADR-0103](../adr/0103-ddo-privilege-policy.md), [ADR-0047](../adr/0047-current-only-domain-runtime.md)
 
+**Accepted UDM target.** Current release and kernel correspondence is authenticated at
+acquisition. Program identity comes from rendered statements, and native revisions follow
+changes to installed bytes. Completion verification covers all currently applicable validator
+families, including new claims, and records reconfirmation when a relevant identity moves.
+Carry release and deployment-admission receipts with explicit verification on demand. A
+bounded durable draft remains private under its completion custodian until native settlement.
+Compatible PDF checkpoints can cross a request or release boundary with verified retired writer,
+material premises and original contributor evidence.
+
+> Decision: [ADR-0135](../adr/0135-declared-facts-and-typed-database-programs.md), [ADR-0139](../adr/0139-compatible-pdf-checkpoint-custody.md), [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
+
 
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
-[ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
+[ADR-0138](../adr/0138-pure-release-preparation-and-declared-openness.md) governs the new semantic release,
 occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below are historical/proposed detail; current runtime contracts are
 identified in the semantic sections and the [pivot series](../plans/semantic-model-pivot_2026-10-29.md).
 They do not constrain new releases or require historical compatibility.
@@ -405,7 +416,7 @@ schema and protected publication route; their current verification boundary is o
 belongs to later packages. The decision's carried-forward clauses preserve source fidelity,
 qualification, instance authority and consolidation ownership.
 
-> Decision: ADR-0024
+> Decision: ADR-0138
 
 **Implemented target route (2026-10-29; scoped verification in the plan).**
 `model/semantic/physical.yaml` owns fixed `sem` and `data` relations. The explicit semantic target

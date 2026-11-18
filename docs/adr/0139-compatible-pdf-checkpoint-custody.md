@@ -1,9 +1,9 @@
 ---
-id: ADR-0127
-title: PDF publication retains every contributing attempt and its sealing fence
+id: ADR-0139
+title: Adopt compatible PDF checkpoints with original contributor custody
 status: accepted
-date: 2026-11-17
-supersedes: [ADR-0099]
+date: 2026-11-18
+supersedes: [ADR-0127, ADR-0099]
 superseded-by: null
 design: [§B1, §B4, §B5]
 evidence: Proposed
@@ -45,13 +45,16 @@ those actions. A broad capability flag or copied execution model grants no arbit
 
 Every build/attempt/holder owns its mutable spool. A callback acknowledges only a verified,
 fsynced file durably entered in that attempt's manifest. Conversion makes no per-page database
-publication there. Later uptake occurs after physical producer retirement. A new attempt can
-reuse prior content only after proving that producer's retirement and verifying file identity,
-manifest, exact premises and retained source/recipe/asset/native determinants.
+publication there. Later uptake occurs after physical producer retirement. A new attempt verifies the original producer's retirement, file identity, manifest and
+complete material producing premises. An acknowledged page can cross a request generation
+or release when the producing basis, page scope, assets, output contract and retained evidence
+are compatible under current authority. Original release, task, attempt and contributor
+identity remain attributed.
 
 Recovery returns a sealed build, finishes an equal-premise frozen build, re-adopts a complete
 verified record spool, or restores verified pages and computes missing page-local stages before
-global assembly/enrichment. Otherwise it starts fresh. Different premises refuse. This requires
+global assembly/enrichment. A changed or unproven material premise requires fresh work
+for the affected unit. Complete ordered coverage remains required at certification. This requires
 no assertion that fresh GPU conversion is byte-identical to earlier conversion. Rasters and
 assemblies remain private producer state under the spool retention/cleanup owner.
 

@@ -389,7 +389,7 @@ citation frame ([D1 §10.3](D1-knowledge-representation.md#103-stability-limits)
 derived per rendition by the production quote cascade (D4 §4.3) and recording the rendition they
 were derived on (P0CL-03; operator, 2026-10-28). Evaluation derives them, before it aligns a run on
 that rendition; `write_golden` never does.
-> Decision: [ADR-0024](../adr/0024-semantic-release-preparation.md)
+> Decision: [ADR-0138](../adr/0138-pure-release-preparation-and-declared-openness.md)
 > Status: **Proposed** (2026-10-28)
 
 Sets (`eval.golden_set`) are per split and guideline version. Initial sizes, kept

@@ -1,10 +1,10 @@
 ---
 id: ADR-0124
 title: Serving identity names imported code and refuses detected drift
-status: accepted
+status: superseded
 date: 2026-11-17
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0137
 design: [§B3]
 evidence: Proposed
 revisit: A supported serving loader or filesystem cannot establish imported-code custody and conservative metadata-based invalidation.

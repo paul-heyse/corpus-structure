@@ -45,6 +45,11 @@ Consumers: the operator and downstream tools through typed queries and exports; 
 Claude Code session through MCP tools, as the agent tier that fills gaps, adjudicates and writes
 goldens; later, hosted services.
 
+**Accepted flexibility target.** The pipeline represents intentional variability, partial
+results, exploratory declarations, concurrent evidence and competing interpretations as modeled
+states. Integrity requirements for admitted effects and custody still fail closed. A decision
+to leave knowledge undetermined has an explicit outcome and does not grant a new effect.
+
 The pipeline improves incrementally: encoders and deterministic methods first, a local LLM, then
 Opus; every intervention is recorded; goldens and guidelines evolve under the operator's
 direction; measured reliability lets policies scale interventions back. The target design is
@@ -214,7 +219,7 @@ subjects/enforcement/numerical contracts replace meaningful labels; descriptive 
 is outside semantic identity. ADR-0109 owns this accepted target; implementation remains open. The DDO coordinator owns implementation and
 scope; D1–D8 label the accepted target separately from older implemented mechanisms. Recognition/PDF execution failures stay with physical attempts; terminal input outcomes alone publish and reuse. PDF sealed receipts retain all contributing attempts separately from the sealing and later admission fences (Proposed accepted targets, 2026-11-17).
 
-> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md), [ADR-0122](../adr/0122-set-wise-support-validity.md), [ADR-0126](../adr/0126-terminal-outcomes-and-attempt-failures.md), [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0127](../adr/0127-pdf-publication-contributor-custody.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
+> Decision: [ADR-0136](../adr/0136-linkml-operation-declaration-contract.md), [ADR-0122](../adr/0122-set-wise-support-validity.md), [ADR-0126](../adr/0126-terminal-outcomes-and-attempt-failures.md), [ADR-0109](../adr/0109-ddo-current-domain-contracts.md), [ADR-0096](../adr/0096-original-source-admission.md), [ADR-0097](../adr/0097-ddo-native-composition.md), [ADR-0098](../adr/0098-typed-release-archive.md), [ADR-0139](../adr/0139-compatible-pdf-checkpoint-custody.md), [ADR-0105](../adr/0105-compact-effective-identity-archives.md)
 
 ### Audit-closure contract qualification
 
@@ -230,6 +235,9 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 > Decision: [ADR-0054](../adr/0054-audit-closure-contracts.md)
 
 ### §B1 Qualified assertion occurrences and semantic facts have distinct identities
+
+> Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
+
 
 **Accepted selected-support target; implementation/qualification Proposed · 2026-11-17.**
 A semantic product/member address does not choose a producing proof. Explicit acquisition retains
@@ -356,7 +364,7 @@ occurrences under a release-scoped meaning key; confidence/support do not erase 
 Repetition and retry are distinct. D1 owns this contract. The selected pre-pivot runtime still
 uses its frozen claim form until scheduled consumer migration.
 
-> Decision: ADR-0024
+> Decision: ADR-0138
 
 <a id="section-b2"></a>
 
@@ -368,6 +376,9 @@ semantic decoder fallback.
 > Decision: [ADR-0070](../adr/0070-full-book-method-development.md)
 
 ### §B2 Methods write observations; only consolidation writes knowledge, per run
+
+> Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
+
 
 **Accepted target; implementation/qualification Proposed · 2026-11-17.** Physical calls use one
 pre-hydration worst-case byte reservation, reduced by its sole owner after measured hydration
@@ -469,22 +480,23 @@ materialized per run, immutable once the run finishes; promotion picks the run q
 
 > Decision: ADR-0014
 
-**Accepted target clarification (2026-10-29).** ADR-0024 preserves instance authority and
+**Accepted release-preparation target.** ADR-0138 preserves instance authority and
 consolidation policy ownership while separating pure release preparation, protected publication
 and later consumer adoption. SP-01 deploys no database or engine change.
 
-> Decision: ADR-0024
+> Decision: ADR-0138
 
 <a id="section-b3"></a>
 
 ### §B3 Agents work the semantic queue through supervised or interactive MCP sessions
 
 **Accepted target; implementation/qualification Proposed · 2026-11-17.** D8 serving identities
-name authenticated imported code, first-use library versions and exact query/profile contracts.
-Shared file custody detects observable metadata drift and confirms changed content; unsupported
-code/module changes require restart. This does not promise rehashing every source on every request.
+derive from declared entry points, authenticated imported code and material query/profile
+determinants. Shared file custody confirms observable Python drift and requires restart on
+unsupported code changes. Changed model bytes select a new immutable compiled capture on next
+observation. Query semantics and storage compatibility have separate identities.
 
-> Decision: [ADR-0124](../adr/0124-serving-code-custody.md)
+> Decision: [ADR-0137](../adr/0137-serving-code-and-model-custody.md)
 
 **Implemented, 2026-10-30; full SP-09/SP-10 qualification remains separately owned.** A supervisor
 may invoke the configured model in a fresh run-bound stdio MCP session. PostgreSQL owns the
@@ -502,12 +514,18 @@ legacy wait barrier rather than implying that every old option is supported.
 
 ### §B4 PostgreSQL 18 is the transactional authority for instances; the model is the authority for their structure
 
+> Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
+
+
 **Accepted target · 2026-11-17.** Maintained native PostgreSQL behavior compiles from model-owned
 relations, call contracts and typed Python programs. Candidate authoring validates the exact
 rendered effects on PostgreSQL before registration. The installed catalog remains the authority
-for role, dependency and execution correspondence. Full source conversion remains open.
+for role, dependency and execution correspondence. Lowered release facts drive per-operation
+dispatch. Integrity vocabularies, schema defaults and program purposes govern grants and guards.
+SQLite and DuckDB authoring use typed statements and relational expressions within their owned
+boundaries. Full source conversion remains open.
 
-> Decision: ADR-0131
+> Decision: ADR-0135
 
 
 **Accepted target; implementation/qualification Proposed · 2026-11-17.** Support validity is
@@ -840,21 +858,24 @@ exports; neither it nor files hold authoritative data ([D3](D3-database.md)).
 
 > Decision: ADR-0021
 
-**Accepted target clarification (2026-10-29).** ADR-0024 preserves instance authority and
+**Accepted release-preparation target.** ADR-0138 preserves instance authority and
 consolidation policy ownership while separating pure release preparation, protected publication
 and later consumer adoption. SP-01 deploys no database or engine change.
 
-> Decision: ADR-0024
+> Decision: ADR-0138
 
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
 
 **Accepted target · 2026-11-17.** One captured LinkML closure supplies physical types, slot and
-value-set facts for SQL, upload layout and caller generation. Typed Python supplies procedural
-behavior over those references. Native authoring retains generated bytes and their determinants.
+value-set facts for SQL, upload layout and caller generation. A single composer owns each
+captured model and preserves per-artifact identities. Typed Python supplies procedural behavior.
+Captured implementation literals validate through the released LinkML grammar. Openness governs
+vocabulary extension and advisory diagnostics. Native authoring retains generator provenance
+separately from identities over generated artifacts.
 
-> Decision: ADR-0131
+> Decision: ADR-0135
 
 
 **Accepted target; normal-route implementation/adoption Proposed · 2026-11-16.** One canonical
@@ -1222,7 +1243,7 @@ Pydantic boundaries, RDF/SHACL and Arrow schemas are derived, not independently 
 Preparation is explicit and separate from persistence/activation and transactional publication.
 The currently selected installed projection remains until its dependent packages migrate.
 
-> Decision: ADR-0024
+> Decision: ADR-0138
 
 <a id="section-b6"></a>
 

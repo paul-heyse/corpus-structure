@@ -4911,7 +4911,7 @@ execution of the approved remaining DDO-03–05, DDO-06 and DDO-07 scope.
   callable owner before code/source correspondence; substituted functions cannot authenticate
   against themselves. Source profiling reuses one interval/layout algorithm in its target and
   existing immediate consumer. These integrations do not close all DDO-07 families.
-- [ADR-0127](../adr/0127-pdf-publication-contributor-custody.md) accepts actual raw-asset factual support,
+- [ADR-0127](../adr/0139-compatible-pdf-checkpoint-custody.md) accepts actual raw-asset factual support,
   genuine runless PDF claim context and sealed publisher custody separate from later admission.
   Typed original-asset/context foundations and the completion envelope are integrated in source.
   Native retention/publication must validate actual sealed PDF proof using the original intent

@@ -1,10 +1,10 @@
 ---
 id: ADR-0024
 title: Semantic releases govern interpretation and preserve independent assertion occurrences
-status: accepted
+status: superseded
 date: 2026-10-29
 supersedes: [ADR-0013, ADR-0019, ADR-0020, ADR-0021, ADR-0022, ADR-0023]
-superseded-by: null
+superseded-by: ADR-0138
 design: [§B1, §B2, §B4, §B5]
 evidence: Proposed
 revisit: A required semantic construct cannot be faithfully prepared or transactionally enforced, or staged compilation introduces a second writable meaning for the same admitted release.

@@ -611,7 +611,7 @@ errors while large raw diagnostics require explicit bounded inclusion with avail
 
 
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
-[ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
+[ADR-0138](../adr/0138-pure-release-preparation-and-declared-openness.md) governs the new semantic release,
 occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below are historical/proposed detail; current runtime contracts are
 identified in the semantic sections and the [pivot series](../plans/semantic-model-pivot_2026-10-29.md).
 They do not constrain new releases or require historical compatibility.
@@ -619,7 +619,7 @@ SP-01 prepares logical artifacts only; persistence, SQL enforcement and consumer
 to later packages. The decision's carried-forward clauses preserve source fidelity, qualification,
 instance authority and consolidation ownership.
 
-> Decision: ADR-0024
+> Decision: ADR-0138
 
 **Proposed (2026-10-28).** The surfaces through which Opus, the operator and consumers act on
 the system: the MCP server Opus works through, work packets and their size caps, the CLI, the
@@ -1263,7 +1263,14 @@ content confirmation. Equal bytes refresh custody. Changed bytes, unknown import
 conflicting pin require restart. This detects drift through observable filesystem metadata,
 rather than promising a full disk-content comparison on every request. PE-S06 owns implementation.
 
-> Decision: [ADR-0124](../adr/0124-serving-code-custody.md)
+> Decision: [ADR-0137](../adr/0137-serving-code-and-model-custody.md)
+
+**Accepted UDM target.** A served result declares the scope under which reuse is admissible.
+A command-line continuation may carry cached pages across invocations while the reader
+reacquires current authority. Managed stop authenticates an exact local invocation and reports
+request, drain and physical retirement as distinct facts.
+
+> Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
 
 **Implemented; scoped Tested (2026-10-30).** Command metadata uses ordinary Typer registration
 and runtime-visible signatures; owning invocations acquire scientific, analytical and preparation

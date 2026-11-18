@@ -44,7 +44,7 @@ unknown. No implicit `primary_layers` state, ambient reader or repeated linguist
 this input. Adding this premise changes the M1 recipe and requires fresh application preparation
 and native qualification. The coordinator owns its acceptance.
 
-> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md)
+> Decision: [ADR-0136](../adr/0136-linkml-operation-declaration-contract.md)
 
 **Implemented foundation · 2026-11-12; production adoption remains DDO-07/09.**
 `NativeProfile.identity_projections(inference_policy=...)` derives inference and full execution

@@ -1,10 +1,10 @@
 ---
 id: ADR-0131
 title: Generate maintained PostgreSQL SQL from LinkML and typed programs
-status: accepted
+status: superseded
 date: 2026-11-17
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0135
 design: [§B4, §B5]
 evidence: Proposed
 revisit: A maintained PostgreSQL operation needs behavior the typed owners cannot express without changing its native guarantees.

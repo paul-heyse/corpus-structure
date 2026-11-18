@@ -233,7 +233,7 @@ for implementation and qualification; this target is not yet implemented.
 > Decision: [ADR-0049](../adr/0049-m1-qualified-source-records.md)
 
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
-[ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
+[ADR-0138](../adr/0138-pure-release-preparation-and-declared-openness.md) governs the new semantic release,
 occurrence/fact identity, ontology and preparation contracts. The detailed legacy shapes below
 remain the selected runtime baseline until the [pivot series](../plans/semantic-model-pivot_2026-10-29.md)
 migrates their consumers. They do not constrain new releases or require historical compatibility.
@@ -241,7 +241,7 @@ SP-01 prepares logical artifacts only; persistence, SQL enforcement and consumer
 to later packages. The decision's carried-forward clauses preserve source fidelity, qualification,
 instance authority and consolidation ownership.
 
-> Decision: ADR-0024
+> Decision: ADR-0138
 
 **Proposed (2026-10-28).** This document defines what the pipeline produces, independent of
 storage ([D3](D3-database.md)) and of the methods that produce it ([D4](D4-method-catalog.md)).
@@ -505,7 +505,7 @@ expand macros by it (§6.2): two builds that read the page's definitions differe
 share a rendition. Content-identical builds by different adapter configurations are one
 rendition, so they share every segment row and every key under it; parser diagnostics,
 exclusion records and the configuration stay on each build (P0CL-01; operator, 2026-10-28).
-> Decision: [ADR-0024](../adr/0024-semantic-release-preparation.md)
+> Decision: [ADR-0138](../adr/0138-pure-release-preparation-and-declared-openness.md)
 > Status: the relation **Tested** for canonical text, segments and sentences (2026-10-28):
 > libxml2 and html5lib renditions of the seven pages S0 and S0-R2 use are identical in them
 > ([s1.rendition-identity](../design_review/evidence/2026-10-28_design-spikes/records/s1.rendition-identity.json));

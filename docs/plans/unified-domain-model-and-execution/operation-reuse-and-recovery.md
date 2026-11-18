@@ -368,7 +368,7 @@ closure evidence there.
 [support-adr]: ../../adr/0122-set-wise-support-validity.md
 [host-adr]: ../../adr/0125-process-owned-execution-host.md
 [failure-adr]: ../../adr/0126-terminal-outcomes-and-attempt-failures.md
-[pdf-adr]: ../../adr/0127-pdf-publication-contributor-custody.md
+[pdf-adr]: ../../adr/0139-compatible-pdf-checkpoint-custody.md
 [psycopg]: ../../libraries/postgresql/psycopg.md#10-transactions-savepoints-and-distributed-transaction-support
 [cachetools]: ../../libraries/analytical_infrastructure/cachetools.md
 [cache-evidence]: ../../design_review/evidence/2026-11-18_production-review-inputs/library-cachetools.md

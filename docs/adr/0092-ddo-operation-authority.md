@@ -1,10 +1,10 @@
 ---
 id: ADR-0092
 title: One effective operation model admits declaration and implementation owners
-status: accepted
+status: superseded
 date: 2026-11-12
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0136
 design: [§B4, §B5]
 evidence: Proposed
 revisit: An admitted operation or preservation consumer cannot be represented without duplicated semantic authority or lost custody.

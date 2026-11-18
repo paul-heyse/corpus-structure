@@ -247,6 +247,14 @@ owns PE-S25 implementation, provider/fault qualification and remaining whole-boo
 
 > Decision: [ADR-0125](../adr/0125-process-owned-execution-host.md)
 
+**Accepted UDM target.** The readiness watermark represents current prerequisite input values.
+Kernel generation has its own acquisition identity; replacing it does not alone wake waiting
+work. An acknowledged draft stays under bounded custody and retains attributable producer
+evidence during authorized adoption. Exact managed stop asks the owning host to drain; host
+retirement or quarantine remains independently established.
+
+> Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
+
 ## Characterization layer lifecycle
 
 **Implemented; bounded functional scope Tested · 2026-11-11.** Layer computation is private

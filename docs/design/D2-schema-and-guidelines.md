@@ -50,7 +50,7 @@ policy supplies no new RDF-null mapping or rule-engine null support.
 
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
-> Decision: [ADR-0092](../adr/0092-ddo-operation-authority.md)
+> Decision: [ADR-0136](../adr/0136-linkml-operation-declaration-contract.md)
 
 **Implemented foundation · 2026-11-12; final series qualification remains open.**
 [`compile_data_operations`](../../python/corpus-structure/src/corpus_structure/semantic/data_operation_compilation.py)
@@ -348,7 +348,7 @@ origin-only provenance using full class IRIs and qualified existing consumer ref
 
 
 **Accepted semantic target (2026-10-29; Proposed until implemented).**
-[ADR-0024](../adr/0024-semantic-release-preparation.md) governs the new semantic release,
+[ADR-0138](../adr/0138-pure-release-preparation-and-declared-openness.md) governs the new semantic release,
 occurrence/fact identity, ontology and preparation contracts. The detailed earlier shapes below are historical realizations. The current compiler and
 compatibility owner above governs execution; those shapes do not select a runtime or require
 arbitrary historical execution compatibility.
@@ -356,7 +356,7 @@ SP-01 prepares logical artifacts only; persistence, SQL enforcement and consumer
 to later packages. The decision's carried-forward clauses preserve source fidelity, qualification,
 instance authority and consolidation ownership.
 
-> Decision: ADR-0024
+> Decision: ADR-0138
 
 **Proposed (2026-10-28).** How a domain is declared, how one declaration drives extraction,
 LLM output, validation and the annotation guideline, and the first version of the statistics
@@ -520,7 +520,9 @@ mappings and interpretation products. Effective definitions feed runtime boundar
 Core/native requirements and selected RDF/SHACL views; none independently defines parsing meaning.
 Discrete operation contracts declare applicability, required universe, inputs/results, coverage,
 dependencies and effects. Finite implementation admission remains independent of authored
-declarations; unsupported required semantics refuse before effects. Generic parsing/graph/math
+declarations; unresolved required executable semantics and integrity omissions refuse before
+effects. Open descriptions and undetermined validity produce non-refusing diagnostics under
+their declared contract. Generic parsing/graph/math
 algorithms stay qualified library code, without a general workflow interpreter.
 
 Partition completeness, mapping coverage, grammatical outcome and computation lifecycle are

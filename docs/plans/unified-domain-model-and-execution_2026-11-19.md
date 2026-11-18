@@ -147,22 +147,23 @@ vocabularies; and deletion of the two retired migration trees.
 Moving cachetools from 7.2.7 to 8.0.1 is ordinary dependency judgment, named in the commit
 that does it (UDM-13).
 
-### Improvement rule impacts for confirmation
+### Confirmed improvement rule impacts
 
-The following amendments are proposed. UDM-00 puts confirmed changes in their governing
-records and DESIGN sections before the dependent behavior ships. An accepted ADR is superseded
-only when its binding decision changes. Until then, its existing rule governs.
+The operator explicitly confirmed all three amendments during UDM-00 execution planning,
+along with the canonical `evaluate` purpose, the UDM-09 grants prerequisite, and the UDM-08
+acquisition change. The accepted decisions govern future implementation at their owning
+packages. Shared revision B registration and deployment stay in the series' revision sequence.
 
-| Review | Proposed consequence and route | Dependent work |
+| Review | Accepted consequence and route | Dependent work |
 |---|---|---|
-| I02 | A bounded private completion handoff can survive a terminated producer, and a new authorized claim can consume it without changing original producer attribution. Record in D3/D6 and the completion and host decisions (ADR-0125/0126); preserve the physical retirement, live support, classified failure and publication requirements. Late or unacknowledged output is outside recovery. | UDM-25 draft adoption |
-| I03 | An acknowledged PDF page can cross a request or release change when its complete producing premises are compatible and the original writer has retired. Clarify what counts as compatible in the PDF contributor decision, ADR-0127, and its owning section. | UDM-25 checkpoint adoption |
-| I07 | An authenticated local caller can request cooperative stop of an exact managed invocation. The owning host still controls draining, retirement and quarantine. Record the caller/host contract at D6/D8 under ADR-0125/0069. | UDM-27 effect route |
+| I02 | A bounded private completion handoff can survive a terminated producer, and a new authorized claim can consume it without changing original producer attribution. Recorded in D3/D6 and ADR-0140 alongside ADR-0125/0126; preserve the physical retirement, live support, classified failure and publication requirements. Late or unacknowledged output is outside recovery. | UDM-25 draft adoption |
+| I03 | An acknowledged PDF page can cross a request or release change when its complete producing premises are compatible and the original writer has retired. ADR-0139 and its owning section define compatibility and original contributor custody. | UDM-25 checkpoint adoption |
+| I07 | An authenticated local caller can request cooperative stop of an exact managed invocation. The owning host still controls draining, retirement and quarantine. ADR-0140 and D6/D8 record the caller/host contract alongside ADR-0125/0069. | UDM-27 effect route |
 
 The identity, validation, query-cache, and discovery changes refine existing authority. They
 carry forward complete reuse determinants, exact selected use, and fresh current support. They
 do not require reapproving RC01–RC15. The UDM-20 diagnosis and passive CLI slice can begin
-while the proposed recovery and stop rules are considered.
+independently of recovery and stop implementation.
 
 <a id="frame"></a>
 
@@ -452,10 +453,10 @@ recorded in the owning design sections named in the table above. The flexibility
 added to the functional target in DESIGN §1 as a stated property of the system, so later
 reviews judge against it.
 
-For improvement impacts, disposition any differences to the binding rules in the table above
-with the operator, and schedule the resulting decision record and owning sections before the
-dependent slice. If an impact is declined, keep the current rule and make the affected scope
-and qualification consequence explicit here.
+UDM-00 records ADR-0135 through ADR-0140 and updates the governing design sections.
+The operator confirmed `evaluate`, I02/I03/I07, the UDM-08 acquisition change and the minimal
+UDM-09 program-purpose slice. The remaining registry work, recovery and stop implementation
+follow their existing packages.
 
 *Acceptance.* `uv run ci adr lint` passes; each superseded ADR names its successor; DESIGN
 carries the frame and the amended sections; each companion's state table reflects source at
@@ -606,7 +607,7 @@ owner decides. The owning companion states each in full.
 | Premise | Settled by | Constrains |
 |---|---|---|
 | The four support-edge encodings disagree on the population-to-episode edge | The native owner's ruling on which is intended | UDM-07 (blocking) |
-| Effect authorizations spell `native-purpose:evaluator` while the purpose is `evaluate` | The native owner's ruling on the name | UDM-03 |
+| Existing effect authorizations require the canonical evaluator purpose | Operator confirmed `evaluate`; PostgreSQL role remains `corpus_sem_evaluator` | UDM-03 and UDM-05 |
 | The structural dossier id has no declared home | A decision on where it is declared | UDM-05 |
 | The CPU-receipt count has no declared source | A decision on its source | UDM-05 |
 | Each existing operation's proposed claim (27 families; the others `none`) is what its owner intends | The operator's reading of the list before revision A is frozen | UDM-05 |
