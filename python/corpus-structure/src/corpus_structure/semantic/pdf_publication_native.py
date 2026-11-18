@@ -688,8 +688,13 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         "access": "ops.pdf_stage_access",
         "region": "ops.pdf_stage_region",
     }
+    schema_bytes = (
+        None
+        if pdf_domain is None
+        else pdf_domain.source("implementation/pdf/docling-validation.schema.json").content
+    )
     sql = (
-        pdf_native_record_shape_sql()
+        pdf_native_record_shape_sql(schema_bytes)
         + pdf_companion_field_read_sql(metadata)
         + pdf_freeze_native_sql(metadata, stage, pdf_domain=pdf_domain)
     )
@@ -1087,22 +1092,16 @@ BEGIN
  END IF;
 END $$;
 """
-    from .pdf_contracts import integrated_metadata_policy, trusted_pdf_context
-    from .pdf_payloads import FAMILY, PROFILE
-
-    context = trusted_pdf_context()
     from hashlib import sha256
-    from importlib.resources import files
-
-    import yaml
 
     from .identity import canonical_bytes
+    from .pdf_contracts import _context_from_domain, integrated_metadata_policy, trusted_pdf_context
+    from .pdf_payloads import FAMILY, PROFILE
 
-    policy_source = yaml.safe_load(
-        files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml").read_bytes()
-    )["annotations"]["pds:projection_write_profile"]
-    policy = context.boundary.validate_json("PdfProjectionWriteProfile", policy_source)
-    levels = sorted(set(policy.model_dump(mode="json")["allowed_isolation"]))
+    context = (
+        trusted_pdf_context() if pdf_domain is None else _context_from_domain(None, pdf_domain)
+    )
+    levels = _projection_write_levels(metadata, pdf_domain)
     policy_digest = sha256(canonical_bytes({"allowed_isolation": levels})).hexdigest()
     metadata_policy_digest = sha256(
         canonical_bytes(integrated_metadata_policy(context))

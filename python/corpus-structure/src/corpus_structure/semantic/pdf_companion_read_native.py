@@ -89,11 +89,11 @@ def _read_routine(name, parameters, returns, body, *, immutable=False, definer=F
     return "\n".join(RawStream()(statement) + ";" for statement in statements) + "\n"
 
 
-def pdf_native_record_shape_sql():
+def pdf_native_record_shape_sql(schema_bytes: bytes | None = None):
     """Compile the retained schema's declared/required/primitive scalar predicates."""
     from .pdf_records import prepare_native_schema_mapping
 
-    schema = prepare_native_schema_mapping().schema
+    schema = prepare_native_schema_mapping(schema_bytes).schema
     scalars = core_variable("p_scalars", JSONB())
     fields = core_variable("p_fields", JSONB())
     kind = core_variable("p_type", Text())

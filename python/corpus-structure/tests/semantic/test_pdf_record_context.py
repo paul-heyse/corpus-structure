@@ -7,6 +7,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.pdf_companion_read_native import pdf_companion_field_read_sql
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
 from corpus_structure.semantic.product_reference import ProductReference
 
@@ -137,9 +139,9 @@ def context_database(semantic_bare_engine):
             "VALUES('b','b','r',0,0,'@self','@self','o','output'),('b','b','r'"
             ",1,12,'B',repeat('b',64),'prior','input')"
         )
-        from corpus_structure.semantic.pdf_publication_native import _companion_field_sql
-
-        conn.exec_driver_sql(_companion_field_sql(), execution_options={"no_parameters": True})
+        conn.exec_driver_sql(
+            pdf_companion_field_read_sql(metadata), execution_options={"no_parameters": True}
+        )
         helper = (
             Path(__file__).parents[2] / "src/corpus_structure/semantic/sql/pdf_record_context.sql"
         )

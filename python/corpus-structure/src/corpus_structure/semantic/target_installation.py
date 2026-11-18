@@ -184,7 +184,6 @@ def target_native_definitions(connection, installation: TargetInstallation):
     )
     from .native_objects import definition_from_sql
     from .native_sql_body import published_revision_definition, published_validation_definition
-    from .pdf_publication_native import _native_shape_guard
     from .published_document import published_reader_definitions
 
     selected = installation.metadata
@@ -264,7 +263,7 @@ def target_native_definitions(connection, installation: TargetInstallation):
     payload = target_pdf_sql(installation)
     definitions.extend(
         (
-            _shape_definition(connection, _native_shape_guard(), source="target-current:PDF shape"),
+            _shape_definition(connection, payload, source="target-current:PDF shape"),
             _context_definition(
                 connection,
                 sql.joinpath("pdf_record_context.sql").read_text(),
