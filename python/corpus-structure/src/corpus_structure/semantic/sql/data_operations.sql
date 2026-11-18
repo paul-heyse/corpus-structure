@@ -1167,27 +1167,6 @@ BEGIN
  RETURN jsonb_build_object('payload',jsonb_build_object('items',results));
 END $$;
 
-CREATE OR REPLACE FUNCTION ops.claim_data_requests(p_payload jsonb) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE p jsonb:=p_payload; item jsonb; result jsonb; results jsonb:='[]'; cached jsonb:='{}'; cache_key text;
-BEGIN
- FOR item IN SELECT value FROM jsonb_array_elements(p->'items') LOOP
- cache_key:=ops.ddo_digest(item);
- IF cached ? cache_key THEN results:=results||jsonb_build_array(cached->cache_key); CONTINUE; END IF;
- BEGIN
- IF NOT EXISTS(SELECT FROM ops.data_request WHERE id=item->>'request_id') THEN
- RAISE EXCEPTION 'claim item request is absent' USING ERRCODE='23514'; END IF;
- result:=ops.ddo_claim_data_request(item||jsonb_build_object('holder',p->>'holder','lease_seconds',p->'lease_seconds'))->'payload';
- IF result->>'state'='claimed' THEN result:=jsonb_build_object('state','claimed','result',result); END IF;
- EXCEPTION WHEN check_violation THEN
- result:=jsonb_build_object('state','refused','sqlstate',SQLSTATE,'reason',SQLERRM);
- END;
- cached:=cached||jsonb_build_object(cache_key,result);
- results:=results||jsonb_build_array(result);
- END LOOP;
- RETURN jsonb_build_object('payload',jsonb_build_object('items',results));
-END $$;
-
 -- Output witness mappings are authenticated operation meaning, evaluated before
 -- intent retention and again before publication. Each record uses one whole row.
 CREATE OR REPLACE FUNCTION data.ddo_witness_path(pointer text) RETURNS text[]

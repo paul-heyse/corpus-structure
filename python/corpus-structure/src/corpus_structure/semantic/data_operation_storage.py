@@ -70,6 +70,7 @@ def native_protocol_sources(
     from .contextual_scoring_native import contextual_scoring_native_sql
     from .contextual_witness_native import contextual_witness_native_sql
     from .data_attempt_release_native import attempt_release_native_sql
+    from .data_claim_batch_native import claim_batch_native_sql
     from .data_claim_native import claim_native_sql
     from .data_operation_binding_native import binding_native_sources
     from .data_operation_cpu_basis import cpu_input_basis_native_sql
@@ -336,6 +337,8 @@ def native_protocol_sources(
             protocol,
         ),
         SourceArtifact("native/data-operations.sql", _SQL.read_bytes()),
+        SourceArtifact("native/data-claim-batch.sql", claim_batch_native_sql(target_metadata).encode()),
+        SourceArtifact("native/data-claim-batch.py", Path(__file__).with_name("data_claim_batch_native.py").read_bytes()),
         SourceArtifact("native/data-claim.sql", claim_native_sql(target_metadata, protocol).encode()),
         SourceArtifact("native/data-claim.py", Path(__file__).with_name("data_claim_native.py").read_bytes()),
         SourceArtifact("native/data-attempt-release.sql", attempt_release_native_sql(target_metadata, protocol, execution_evidence_schema()).encode()),
@@ -593,6 +596,7 @@ def native_sql(sources=None) -> str:
             # when created. Install the shared kernel before these dependents.
             "native/data-operations.sql",
             "native/data-claim.sql",
+            "native/data-claim-batch.sql",
             "native/data-operation-renewal.sql",
             "native/data-attempt-release.sql",
             "native/data-operation-product-validation.sql",

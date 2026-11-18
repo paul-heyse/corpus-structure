@@ -211,8 +211,23 @@ class Return:
     value: Expression | None = None
 
 
+@dataclass(frozen=True)
+class Continue:
+    """Continue the enclosing native query loop."""
+
+
+@dataclass(frozen=True)
+class CatchCheckViolation:
+    """An item subtransaction catches only PostgreSQL check_violation (23514)."""
+
+    body: tuple[Statement, ...]
+    handler: tuple[Statement, ...]
+
+
 type Statement = (
     Sql
+    | Continue
+    | CatchCheckViolation
     | Assign
     | Perform
     | PerformQuery
@@ -308,6 +323,14 @@ def _step(statement: Statement, nested: str) -> str:
             )
         case ReturnQuery(query):
             return "RETURN QUERY " + _statement(query)
+        case Continue():
+            return "CONTINUE"
+        case CatchCheckViolation(body, handler):
+            return (
+                f"BEGIN\n{_statements(body, nested)}\n"
+                f"{nested[:-1]}EXCEPTION WHEN check_violation THEN\n"
+                f"{_statements(handler, nested)}\n{nested[:-1]}END"
+            )
         case Return(value):
             return "RETURN" if value is None else "RETURN " + _render(value)
     assert_never(statement)
