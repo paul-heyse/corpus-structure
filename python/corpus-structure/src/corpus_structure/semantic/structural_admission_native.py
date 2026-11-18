@@ -1,201 +1,870 @@
 """Exact tagged structural statement lowering and protected native admission guards."""
 
+from pglast.stream import RawStream
+from sqlalchemy import Boolean, Text, cast, column, func, literal, or_, select, union_all
+from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array, distinct_on
+
+from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_program import (
+    Assign,
+    Block,
+    ForQuery,
+    If,
+    Local,
+    Parameter,
+    Raise,
+    Return,
+    SelectInto,
+    Statement,
+    core_variable,
+    function,
+    pg_type,
+    sql_function,
+)
+from .native_program import (
+    literal as native_literal,
+)
+
+
+def _json(value):
+    return cast(literal(value), JSONB())
+
+
+def _field(value, name):
+    return func.data.ddo_field(value, name, type_=JSONB())
+
+
+def _structural(name, *arguments):
+    return getattr(func.ops, "ddo_structural_" + name)(*arguments, type_=JSONB())
+
+
+def _pick(value, names=(), *, exclude=True):
+    return _structural("pick", value, array(names, type_=Text()), literal(exclude))
+
+
+def _pairs(*pairs):
+    return func.jsonb_build_array(
+        *(func.jsonb_build_array(key, value, type_=JSONB()) for key, value in pairs), type_=JSONB()
+    )
+
+
+def _map(*pairs):
+    return _structural("map", _pairs(*pairs))
+
+
+def _items(value, name, *, ordinal=False):
+    return (
+        func.jsonb_array_elements(value)
+        .table_valued(
+            column("value", JSONB()), **({"with_ordinality": "ordinal"} if ordinal else {})
+        )
+        .render_derived(name=name)
+    )
+
+
+def _sequence(value, *ordering):
+    aggregate = func.jsonb_agg(aggregate_order_by(value, *ordering) if ordering else value)
+    return func.jsonb_build_array("sequence", func.coalesce(aggregate, _json("[]")), type_=JSONB())
+
+
+def _present(value):
+    return func.coalesce(value, _json('["null"]')) != _json('["null"]')
+
 
 def structural_statement_native_sql():
-    """Preserve typed scalar subtrees; no JSONB numeric roundtrip supplies meaning."""
-    return r"""
-CREATE OR REPLACE FUNCTION ops.ddo_structural_map(fields jsonb) RETURNS jsonb
-LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $structural$
- SELECT data.ddo_normalize(jsonb_build_array('mapping',coalesce(jsonb_agg(pair),'[]')))
- FROM jsonb_array_elements(fields) pair WHERE pair->1 IS NOT NULL
-$structural$;
+    """Compile tagged subtrees directly, preserving nulls and numeric meaning."""
+    programs: list[str] = []
 
-CREATE OR REPLACE FUNCTION ops.ddo_structural_pick(value jsonb,names text[],exclude_names boolean DEFAULT false) RETURNS jsonb
-LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $structural$
- SELECT ops.ddo_structural_map(coalesce(jsonb_agg(pair),'[]')) FROM jsonb_array_elements(value->1) pair
- WHERE ((pair->>0=ANY(names))<>exclude_names) AND pair->1<>'["null"]'::jsonb
-$structural$;
+    def add(name, parameters, *, query=None, steps=(), locals_=(), strict=True):
+        parameters = tuple(
+            Parameter(label, pg_type(type_), *default) for label, type_, *default in parameters
+        )
+        if query is None:
+            declaration = function(
+                "ops",
+                "ddo_structural_" + name,
+                parameters=parameters,
+                returns=pg_type("jsonb"),
+                body=Block(
+                    tuple(steps),
+                    tuple(
+                        Local(label, pg_type(type_), *initial) for label, type_, *initial in locals_
+                    ),
+                ),
+                volatility="immutable",
+                strict=strict,
+                search_path=("pg_catalog", "pg_temp"),
+            )
+        else:
+            declaration = sql_function(
+                "ops",
+                "ddo_structural_" + name,
+                parameters=parameters,
+                returns=pg_type("jsonb"),
+                body=query,
+                volatility="immutable",
+                strict=strict,
+                search_path=("pg_catalog", "pg_temp"),
+            )
+        programs.append(declaration)
+        programs.append(
+            native_privilege_sql(
+                NativeIdentity(
+                    "function",
+                    "ops",
+                    "ddo_structural_" + name,
+                    tuple(RawStream()(item.type_) for item in parameters),
+                ),
+                "PUBLIC",
+                grant=False,
+            )
+        )
 
-CREATE OR REPLACE FUNCTION ops.ddo_structural_merge(left_value jsonb,right_value jsonb) RETURNS jsonb
-LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $structural$
- SELECT ops.ddo_structural_map(coalesce(jsonb_agg(pair),'[]')) FROM (
- SELECT DISTINCT ON (pair->>0) pair FROM (
- SELECT pair,0 priority FROM jsonb_array_elements(left_value->1) pair
- UNION ALL SELECT pair,1 FROM jsonb_array_elements(right_value->1) pair) fields
- ORDER BY pair->>0,priority DESC) chosen
-$structural$;
+    fields = core_variable("fields", JSONB())
+    pairs = _items(fields, "pairs_")
+    add(
+        "map",
+        (("fields", "jsonb"),),
+        query=select(
+            func.data.ddo_normalize(
+                func.jsonb_build_array(
+                    "mapping",
+                    func.coalesce(func.jsonb_agg(pairs.c.value), _json("[]")),
+                    type_=JSONB(),
+                )
+            )
+        ).where(pairs.c.value[1].is_not(None)),
+    )
 
-CREATE OR REPLACE FUNCTION ops.ddo_structural_citation(report jsonb,identifier text) RETURNS jsonb
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $structural$
-DECLARE passage jsonb; source_value jsonb;
-BEGIN
- SELECT value INTO STRICT passage FROM jsonb_array_elements(data.ddo_field(data.ddo_field(report,'inputs'),'passages')->1)
- WHERE data.ddo_field(value,'passage_id')->>1=identifier;
- SELECT value INTO STRICT source_value FROM jsonb_array_elements(data.ddo_field(data.ddo_field(report,'inputs'),'sources')->1)
- WHERE ops.ddo_digest(data.ddo_json(ops.ddo_structural_pick(value,ARRAY[]::text[],true)))=data.ddo_field(passage,'source_ref')->>1;
- RETURN ops.ddo_structural_merge(ops.ddo_structural_pick(passage,ARRAY['passage_id','source_ref'],true),
- ops.ddo_structural_map(jsonb_build_array(jsonb_build_array('source',ops.ddo_structural_pick(source_value,ARRAY[]::text[],true)))));
-END $structural$;
+    value = core_variable("value", JSONB())
+    names_type = pg_type("text")
+    from pglast import ast
 
-CREATE OR REPLACE FUNCTION ops.ddo_structural_span(report jsonb,span_value jsonb) RETURNS jsonb
-LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $structural$
- SELECT ops.ddo_structural_merge(ops.ddo_structural_citation(report,data.ddo_field(span_value,'passage_id')->>1),
- ops.ddo_structural_pick(span_value,ARRAY['passage_id'],true))
-$structural$;
+    names_type.arrayBounds = (ast.Integer(ival=-1),)
+    names = core_variable("names", array([], type_=Text()).type)
+    exclude = core_variable("exclude_names", Boolean())
+    pairs = _items(value[1], "pairs_")
+    # The native declaration's text[] parameter remains the original call ABI.
+    pick_parameters = (
+        Parameter("value", pg_type("jsonb")),
+        Parameter("names", names_type),
+        Parameter("exclude_names", pg_type("bool"), native_literal(False)),
+    )
+    programs.append(
+        sql_function(
+            "ops",
+            "ddo_structural_pick",
+            parameters=pick_parameters,
+            returns=pg_type("jsonb"),
+            body=select(
+                _structural("map", func.coalesce(func.jsonb_agg(pairs.c.value), _json("[]")))
+            ).where(
+                (pairs.c.value[0].astext == names.any_()) != exclude,
+                pairs.c.value[1] != _json('["null"]'),
+            ),
+            volatility="immutable",
+            strict=True,
+            search_path=("pg_catalog", "pg_temp"),
+        )
+    )
+    programs.append(
+        native_privilege_sql(
+            NativeIdentity(
+                "function", "ops", "ddo_structural_pick", ("jsonb", "text[]", "boolean")
+            ),
+            "PUBLIC",
+            grant=False,
+        )
+    )
 
-CREATE OR REPLACE FUNCTION ops.ddo_structural_citations(report jsonb,identifiers jsonb) RETURNS jsonb
-LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $structural$
- SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(citation ORDER BY data.canonical_json(data.ddo_json(citation)) COLLATE "C"),'[]'))
- FROM (SELECT DISTINCT ops.ddo_structural_citation(report,value->>1) citation FROM jsonb_array_elements(identifiers->1)) citations
-$structural$;
+    left = core_variable("left_value", JSONB())
+    right = core_variable("right_value", JSONB())
+    left_pairs, right_pairs = _items(left[1], "left_"), _items(right[1], "right_")
+    merged = union_all(
+        select(left_pairs.c.value.label("pair"), literal(0).label("priority")),
+        select(right_pairs.c.value, literal(1)),
+    ).subquery("fields_")
+    chosen = (
+        select(merged.c.pair)
+        .ext(distinct_on(merged.c.pair[0].astext))
+        .order_by(merged.c.pair[0].astext, merged.c.priority.desc())
+        .subquery("chosen_")
+    )
+    add(
+        "merge",
+        (("left_value", "jsonb"), ("right_value", "jsonb")),
+        query=select(_structural("map", func.coalesce(func.jsonb_agg(chosen.c.pair), _json("[]")))),
+    )
 
-CREATE OR REPLACE FUNCTION ops.ddo_structural_clause_field(report jsonb,field_value jsonb) RETURNS jsonb
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $structural$
-DECLARE fields jsonb; typed_value jsonb; spans jsonb;
-BEGIN
- fields:=jsonb_build_array(
- jsonb_build_array('dimension',data.ddo_field(field_value,'dimension')),
- jsonb_build_array('lexical_value',data.ddo_field(field_value,'lexical_value')),
- jsonb_build_array('evidence',ops.ddo_structural_citations(report,data.ddo_field(field_value,'evidence'))));
- IF coalesce(data.ddo_field(field_value,'span'),'["null"]')<>'["null"]'::jsonb THEN
- fields:=fields||jsonb_build_array(jsonb_build_array('span',ops.ddo_structural_span(report,data.ddo_field(field_value,'span')))); END IF;
- IF coalesce(data.ddo_field(field_value,'spans'),'["null"]')<>'["null"]'::jsonb THEN
- SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(ops.ddo_structural_span(report,value) ORDER BY ordinal),'[]')) INTO spans
- FROM jsonb_array_elements(data.ddo_field(field_value,'spans')->1) WITH ORDINALITY selected(value,ordinal);
- fields:=fields||jsonb_build_array(jsonb_build_array('spans',spans)); END IF;
- IF coalesce(data.ddo_field(field_value,'literal'),'["null"]')<>'["null"]'::jsonb THEN
- fields:=fields||jsonb_build_array(jsonb_build_array('literal',ops.ddo_structural_pick(data.ddo_field(field_value,'literal'),ARRAY[]::text[],true))); END IF;
- -- This is a free JSON condition subtree: preserve its exact tags and nulls.
- IF coalesce(data.ddo_field(field_value,'condition'),'["null"]')<>'["null"]'::jsonb THEN
- fields:=fields||jsonb_build_array(jsonb_build_array('condition',data.ddo_field(field_value,'condition'))); END IF;
- typed_value:=data.ddo_field(field_value,'typed');
- IF coalesce(typed_value,'["null"]')<>'["null"]'::jsonb THEN
- typed_value:=ops.ddo_structural_merge(ops.ddo_structural_pick(typed_value,ARRAY['span','basis_evidence'],true),
- ops.ddo_structural_map(jsonb_build_array(jsonb_build_array('span',ops.ddo_structural_span(report,data.ddo_field(typed_value,'span'))))));
- IF coalesce(data.ddo_field(data.ddo_field(field_value,'typed'),'basis_evidence'),'["null"]')<>'["null"]'::jsonb THEN
- typed_value:=ops.ddo_structural_merge(typed_value,ops.ddo_structural_map(jsonb_build_array(jsonb_build_array('basis_evidence',
- ops.ddo_structural_span(report,data.ddo_field(data.ddo_field(field_value,'typed'),'basis_evidence')))))); END IF;
- fields:=fields||jsonb_build_array(jsonb_build_array('typed',typed_value)); END IF;
- RETURN ops.ddo_structural_map(fields);
-END $structural$;
+    report = core_variable("report", JSONB())
+    identifier = core_variable("identifier", Text())
+    passage = core_variable("passage", JSONB())
+    source_value = core_variable("source_value", JSONB())
+    passages = _items(_field(_field(report, "inputs"), "passages")[1], "passages_")
+    sources = _items(_field(_field(report, "inputs"), "sources")[1], "sources_")
+    add(
+        "citation",
+        (("report", "jsonb"), ("identifier", "text")),
+        steps=(
+            SelectInto(
+                select(passages.c.value).where(
+                    _field(passages.c.value, "passage_id")[1].astext == identifier
+                ),
+                ("passage",),
+                strict=True,
+            ),
+            SelectInto(
+                select(sources.c.value).where(
+                    func.ops.ddo_digest(func.data.ddo_json(_pick(sources.c.value)))
+                    == _field(passage, "source_ref")[1].astext
+                ),
+                ("source_value",),
+                strict=True,
+            ),
+            Return(
+                _structural(
+                    "merge",
+                    _pick(passage, ("passage_id", "source_ref")),
+                    _map(("source", _pick(source_value))),
+                )
+            ),
+        ),
+        locals_=(("passage", "jsonb"), ("source_value", "jsonb")),
+    )
 
-CREATE OR REPLACE FUNCTION ops.ddo_structural_comparison_statement(report jsonb) RETURNS jsonb
-LANGUAGE plpgsql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $structural$
-DECLARE inputs jsonb:=data.ddo_field(report,'inputs'); comparison jsonb:=data.ddo_field(report,'comparison');
- fields jsonb; dimensions jsonb:='[]'; dimension jsonb; entry jsonb; side text; value jsonb; group_value jsonb; members jsonb; witnesses jsonb;
- coverage jsonb; exclusions jsonb; succession jsonb;
-BEGIN
- IF data.ddo_field(report,'kind')->>1 IS DISTINCT FROM 'qualified_comparison' THEN
- RAISE EXCEPTION 'structural admission requires the exact qualified comparison variant' USING ERRCODE='23514'; END IF;
- SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(coverage_item.item ORDER BY (coverage_item.item->>1) COLLATE "C"),'[]')) INTO coverage
- FROM jsonb_array_elements(data.ddo_field(inputs,'coverage_limits')->1) coverage_item(item);
- SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(selected.item ORDER BY data.canonical_json(data.ddo_json(selected.item)) COLLATE "C"),'[]')) INTO exclusions FROM (
- SELECT ops.ddo_structural_map(jsonb_build_array(
- jsonb_build_array('left',ops.ddo_structural_citation(report,data.ddo_field(exclusion,'left')->>1)),
- jsonb_build_array('right',ops.ddo_structural_citation(report,data.ddo_field(exclusion,'right')->>1)))) value
- FROM jsonb_array_elements(data.ddo_field(inputs,'exclusions')->1) exclusion) selected(item);
- FOR dimension IN SELECT item FROM jsonb_array_elements(data.ddo_field(comparison,'dimensions')->1) item LOOP
- entry:=ops.ddo_structural_pick(dimension,ARRAY['dimension','outcome','typed_outcome','assumptions','grouping_outcome','member_comparisons']);
- FOREACH side IN ARRAY ARRAY['removed_interval','added_interval'] LOOP
- value:=data.ddo_field(dimension,side);
- IF coalesce(value,'["null"]')<>'["null"]'::jsonb THEN
- entry:=ops.ddo_structural_merge(entry,ops.ddo_structural_map(jsonb_build_array(jsonb_build_array(side,ops.ddo_structural_pick(value,ARRAY[]::text[],true))))); END IF;
- END LOOP;
- FOREACH side IN ARRAY ARRAY['left','right'] LOOP
- value:=data.ddo_field(dimension,side);
- IF coalesce(value,'["null"]')<>'["null"]'::jsonb THEN
- entry:=ops.ddo_structural_merge(entry,ops.ddo_structural_map(jsonb_build_array(jsonb_build_array(side,ops.ddo_structural_clause_field(report,value))))); END IF;
- group_value:=data.ddo_field(dimension,side||'_group');
- IF coalesce(group_value,'["null"]')<>'["null"]'::jsonb THEN
- SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(ops.ddo_structural_clause_field(report,item) ORDER BY ordinal),'[]')) INTO members
- FROM jsonb_array_elements(data.ddo_field(group_value,'members')->1) WITH ORDINALITY selected(item,ordinal);
- SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(ops.ddo_structural_span(report,item) ORDER BY ordinal),'[]')) INTO witnesses
- FROM jsonb_array_elements(data.ddo_field(group_value,'witnesses')->1) WITH ORDINALITY selected(item,ordinal);
- value:=ops.ddo_structural_merge(ops.ddo_structural_pick(group_value,ARRAY['state','grouping']),ops.ddo_structural_map(jsonb_build_array(
- jsonb_build_array('members',members),jsonb_build_array('witnesses',witnesses))));
- entry:=ops.ddo_structural_merge(entry,ops.ddo_structural_map(jsonb_build_array(jsonb_build_array(side||'_group',value)))); END IF;
- END LOOP;
- dimensions:=dimensions||jsonb_build_array(entry);
- END LOOP;
- fields:=jsonb_build_array(
- jsonb_build_array('left',ops.ddo_structural_citation(report,data.ddo_field(comparison,'left_id')->>1)),
- jsonb_build_array('right',ops.ddo_structural_citation(report,data.ddo_field(comparison,'right_id')->>1)),
- jsonb_build_array('dimensions',jsonb_build_array('sequence',dimensions)));
- value:=ops.ddo_structural_merge(ops.ddo_structural_pick(comparison,ARRAY['equivalence','identity_standing','applicability']),ops.ddo_structural_map(fields));
- succession:=data.ddo_field(comparison,'succession');
- IF coalesce(succession,'["null"]')<>'["null"]'::jsonb THEN
- value:=ops.ddo_structural_merge(value,ops.ddo_structural_map(jsonb_build_array(jsonb_build_array('succession',ops.ddo_structural_map(jsonb_build_array(
- jsonb_build_array('older',ops.ddo_structural_citation(report,data.ddo_field(succession,'older_id')->>1)),
- jsonb_build_array('newer',ops.ddo_structural_citation(report,data.ddo_field(succession,'newer_id')->>1)),
- jsonb_build_array('evidence',ops.ddo_structural_span(report,data.ddo_field(succession,'evidence'))),
- jsonb_build_array('older_evidence',ops.ddo_structural_span(report,data.ddo_field(succession,'older_evidence'))))))))); END IF;
- RETURN ops.ddo_structural_merge(ops.ddo_structural_pick(inputs,ARRAY['scope','inventory_id']),ops.ddo_structural_map(jsonb_build_array(
- jsonb_build_array('version',jsonb_build_array('string','structural-public-statement-3')),
- jsonb_build_array('kind',jsonb_build_array('string','qualified_comparison')),
- jsonb_build_array('input_policy_id',data.ddo_field(inputs,'policy_id')),
- jsonb_build_array('coverage_limits',coverage),jsonb_build_array('exclusions',exclusions),jsonb_build_array('comparison',value))));
-END $structural$;
+    span = core_variable("span_value", JSONB())
+    add(
+        "span",
+        (("report", "jsonb"), ("span_value", "jsonb")),
+        query=select(
+            _structural(
+                "merge",
+                _structural("citation", report, _field(span, "passage_id")[1].astext),
+                _pick(span, ("passage_id",)),
+            )
+        ),
+    )
+    identifiers = core_variable("identifiers", JSONB())
+    selected = _items(identifiers[1], "identifiers_")
+    citations = (
+        select(_structural("citation", report, selected.c.value[1].astext).label("citation"))
+        .distinct()
+        .subquery("citations_")
+    )
+    add(
+        "citations",
+        (("report", "jsonb"), ("identifiers", "jsonb")),
+        query=select(
+            _sequence(
+                citations.c.citation,
+                func.data.canonical_json(func.data.ddo_json(citations.c.citation)).collate("C"),
+            )
+        ),
+    )
 
-CREATE OR REPLACE FUNCTION ops.ddo_structural_statement(report jsonb,component_id text) RETURNS jsonb
-LANGUAGE plpgsql IMMUTABLE SET search_path=pg_catalog,pg_temp AS $structural$
-DECLARE inputs jsonb:=data.ddo_field(report,'inputs'); variant text:=data.ddo_field(report,'kind')->>1;
- coverage jsonb; exclusions jsonb; statement jsonb; value jsonb; component jsonb; fields jsonb; role_name text; citations jsonb;
-BEGIN
- IF variant='qualified_comparison' THEN
- IF component_id IS NOT NULL THEN RAISE EXCEPTION 'comparison statement cannot select a definition component' USING ERRCODE='23514'; END IF;
- RETURN ops.ddo_structural_comparison_statement(report); END IF;
- IF variant NOT IN ('condition_qualification','definition_components') THEN
- RAISE EXCEPTION 'structural admission requires its exact released report variant' USING ERRCODE='23514'; END IF;
- IF (variant='definition_components') IS DISTINCT FROM (component_id IS NOT NULL) THEN
- RAISE EXCEPTION 'only definition publication requires one exact component selector' USING ERRCODE='23514'; END IF;
- SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(item ORDER BY (item->>1) COLLATE "C"),'[]')) INTO coverage
- FROM jsonb_array_elements(data.ddo_field(inputs,'coverage_limits')->1) selected(item);
- SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(item ORDER BY data.canonical_json(data.ddo_json(item)) COLLATE "C"),'[]')) INTO exclusions FROM (
- SELECT ops.ddo_structural_map(jsonb_build_array(
- jsonb_build_array('left',ops.ddo_structural_citation(report,data.ddo_field(exclusion,'left')->>1)),
- jsonb_build_array('right',ops.ddo_structural_citation(report,data.ddo_field(exclusion,'right')->>1)))) item
- FROM jsonb_array_elements(data.ddo_field(inputs,'exclusions')->1) selected(exclusion)) selected;
- statement:=ops.ddo_structural_map(jsonb_build_array(
- jsonb_build_array('version',jsonb_build_array('string','structural-public-statement-3')),
- jsonb_build_array('kind',jsonb_build_array('string',variant)),jsonb_build_array('scope',data.ddo_field(inputs,'scope')),
- jsonb_build_array('coverage_limits',coverage),jsonb_build_array('exclusions',exclusions)));
- IF variant='definition_components' THEN
- SELECT item INTO STRICT component FROM jsonb_array_elements(data.ddo_field(data.ddo_field(report,'definition_components'),'components')->1) selected(item)
- WHERE data.ddo_field(item,'component_id')->>1=component_id;
- fields:=jsonb_build_array(jsonb_build_array('term',ops.ddo_structural_span(report,data.ddo_field(component,'term'))),
- jsonb_build_array('content',ops.ddo_structural_span(report,data.ddo_field(component,'content'))),
- jsonb_build_array('interpretation',data.ddo_field(component,'interpretation')),jsonb_build_array('scope',data.ddo_field(component,'scope')));
- value:=data.ddo_field(component,'effective_version');
- IF coalesce(value,'["null"]')<>'["null"]'::jsonb THEN fields:=fields||jsonb_build_array(jsonb_build_array('effective_version',value)); END IF;
- RETURN ops.ddo_structural_merge(statement,ops.ddo_structural_map(jsonb_build_array(jsonb_build_array('definition_component',ops.ddo_structural_map(fields)))));
- END IF;
- component:=data.ddo_field(report,'condition_qualification');
- fields:=jsonb_build_array(jsonb_build_array('relation',data.ddo_field(component,'relation')));
- value:=data.ddo_field(component,'effective_version');
- IF coalesce(value->>1,'')<>'' THEN fields:=fields||jsonb_build_array(jsonb_build_array('effective_version',value)); END IF;
- FOREACH role_name IN ARRAY ARRAY['qualifier','host_predicate'] LOOP
- SELECT jsonb_build_array('sequence',coalesce(jsonb_agg(ops.ddo_structural_map(jsonb_build_array(
- jsonb_build_array('source_pointer',data.ddo_field(item,'source_pointer')),
- jsonb_build_array('passage',ops.ddo_structural_span(report,data.ddo_field(item,'span'))))) ORDER BY ordinal),'[]')) INTO citations
- FROM jsonb_array_elements(data.ddo_field(component,role_name)->1) WITH ORDINALITY selected(item,ordinal);
- fields:=fields||jsonb_build_array(jsonb_build_array(role_name,citations));
- END LOOP;
- RETURN ops.ddo_structural_merge(statement,ops.ddo_structural_map(jsonb_build_array(jsonb_build_array('condition_qualification',ops.ddo_structural_map(fields)))));
-END $structural$;
+    field_value = core_variable("field_value", JSONB())
+    typed = core_variable("typed_value", JSONB())
+    spans = core_variable("spans", JSONB())
+    span_items = _items(_field(field_value, "spans")[1], "spans_", ordinal=True)
+    field_steps: list[Statement] = [
+        Assign(
+            "fields",
+            _pairs(
+                ("dimension", _field(field_value, "dimension")),
+                ("lexical_value", _field(field_value, "lexical_value")),
+                ("evidence", _structural("citations", report, _field(field_value, "evidence"))),
+            ),
+        )
+    ]
+    field_steps.append(
+        If(
+            _present(_field(field_value, "span")),
+            (
+                Assign(
+                    "fields",
+                    fields.op("||")(
+                        _pairs(("span", _structural("span", report, _field(field_value, "span"))))
+                    ),
+                ),
+            ),
+        )
+    )
+    field_steps.append(
+        If(
+            _present(_field(field_value, "spans")),
+            (
+                SelectInto(
+                    select(
+                        _sequence(
+                            _structural("span", report, span_items.c.value), span_items.c.ordinal
+                        )
+                    ),
+                    ("spans",),
+                ),
+                Assign("fields", fields.op("||")(_pairs(("spans", spans)))),
+            ),
+        )
+    )
+    field_steps.append(
+        If(
+            _present(_field(field_value, "literal")),
+            (
+                Assign(
+                    "fields",
+                    fields.op("||")(_pairs(("literal", _pick(_field(field_value, "literal"))))),
+                ),
+            ),
+        )
+    )
+    # Free condition subtrees retain every tag and null without projection.
+    field_steps.append(
+        If(
+            _present(_field(field_value, "condition")),
+            (
+                Assign(
+                    "fields",
+                    fields.op("||")(_pairs(("condition", _field(field_value, "condition")))),
+                ),
+            ),
+        )
+    )
+    field_steps.extend(
+        (
+            Assign("typed_value", _field(field_value, "typed")),
+            If(
+                _present(typed),
+                (
+                    Assign(
+                        "typed_value",
+                        _structural(
+                            "merge",
+                            _pick(typed, ("span", "basis_evidence")),
+                            _map(("span", _structural("span", report, _field(typed, "span")))),
+                        ),
+                    ),
+                    If(
+                        _present(_field(_field(field_value, "typed"), "basis_evidence")),
+                        (
+                            Assign(
+                                "typed_value",
+                                _structural(
+                                    "merge",
+                                    typed,
+                                    _map(
+                                        (
+                                            "basis_evidence",
+                                            _structural(
+                                                "span",
+                                                report,
+                                                _field(
+                                                    _field(field_value, "typed"), "basis_evidence"
+                                                ),
+                                            ),
+                                        )
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                    Assign("fields", fields.op("||")(_pairs(("typed", typed)))),
+                ),
+            ),
+            Return(_structural("map", fields)),
+        )
+    )
+    add(
+        "clause_field",
+        (("report", "jsonb"), ("field_value", "jsonb")),
+        steps=field_steps,
+        locals_=(("fields", "jsonb"), ("typed_value", "jsonb"), ("spans", "jsonb")),
+    )
 
-REVOKE ALL ON FUNCTION ops.ddo_structural_map(jsonb),ops.ddo_structural_pick(jsonb,text[],boolean),
-ops.ddo_structural_merge(jsonb,jsonb),ops.ddo_structural_citation(jsonb,text),ops.ddo_structural_span(jsonb,jsonb),
-ops.ddo_structural_citations(jsonb,jsonb),ops.ddo_structural_clause_field(jsonb,jsonb),ops.ddo_structural_comparison_statement(jsonb),ops.ddo_structural_statement(jsonb,text) FROM PUBLIC;
-"""
+    inputs = core_variable("inputs", JSONB())
+    comparison = core_variable("comparison", JSONB())
+    dimensions = core_variable("dimensions", JSONB())
+    dimension = core_variable("dimension", JSONB())
+    entry = core_variable("entry", JSONB())
+    group = core_variable("group_value", JSONB())
+    members = core_variable("members", JSONB())
+    witnesses = core_variable("witnesses", JSONB())
+    coverage = core_variable("coverage", JSONB())
+    exclusions = core_variable("exclusions", JSONB())
+    succession = core_variable("succession", JSONB())
+
+    def coverage_query():
+        selected = _items(_field(inputs, "coverage_limits")[1], "coverage_")
+        return select(_sequence(selected.c.value, selected.c.value[1].astext.collate("C")))
+
+    def exclusions_query():
+        selected = _items(_field(inputs, "exclusions")[1], "exclusions_")
+        projection = select(
+            _map(
+                (
+                    "left",
+                    _structural("citation", report, _field(selected.c.value, "left")[1].astext),
+                ),
+                (
+                    "right",
+                    _structural("citation", report, _field(selected.c.value, "right")[1].astext),
+                ),
+            ).label("item")
+        ).subquery("selected_")
+        return select(
+            _sequence(
+                projection.c.item,
+                func.data.canonical_json(func.data.ddo_json(projection.c.item)).collate("C"),
+            )
+        )
+
+    dimension_items = _items(_field(comparison, "dimensions")[1], "dimensions_")
+    dimension_steps: list[Statement] = [
+        Assign(
+            "entry",
+            _pick(
+                dimension,
+                (
+                    "dimension",
+                    "outcome",
+                    "typed_outcome",
+                    "assumptions",
+                    "grouping_outcome",
+                    "member_comparisons",
+                ),
+                exclude=False,
+            ),
+        )
+    ]
+    for name in ("removed_interval", "added_interval"):
+        dimension_steps.extend(
+            (
+                Assign("value", _field(dimension, name)),
+                If(
+                    _present(value),
+                    (Assign("entry", _structural("merge", entry, _map((name, _pick(value))))),),
+                ),
+            )
+        )
+    group_members = _items(_field(group, "members")[1], "members_", ordinal=True)
+    group_witnesses = _items(_field(group, "witnesses")[1], "witnesses_", ordinal=True)
+    for name in ("left", "right"):
+        dimension_steps.extend(
+            (
+                Assign("value", _field(dimension, name)),
+                If(
+                    _present(value),
+                    (
+                        Assign(
+                            "entry",
+                            _structural(
+                                "merge",
+                                entry,
+                                _map((name, _structural("clause_field", report, value))),
+                            ),
+                        ),
+                    ),
+                ),
+                Assign("group_value", _field(dimension, name + "_group")),
+                If(
+                    _present(group),
+                    (
+                        SelectInto(
+                            select(
+                                _sequence(
+                                    _structural("clause_field", report, group_members.c.value),
+                                    group_members.c.ordinal,
+                                )
+                            ),
+                            ("members",),
+                        ),
+                        SelectInto(
+                            select(
+                                _sequence(
+                                    _structural("span", report, group_witnesses.c.value),
+                                    group_witnesses.c.ordinal,
+                                )
+                            ),
+                            ("witnesses",),
+                        ),
+                        Assign(
+                            "value",
+                            _structural(
+                                "merge",
+                                _pick(group, ("state", "grouping"), exclude=False),
+                                _map(("members", members), ("witnesses", witnesses)),
+                            ),
+                        ),
+                        Assign(
+                            "entry", _structural("merge", entry, _map((name + "_group", value)))
+                        ),
+                    ),
+                ),
+            )
+        )
+    dimension_steps.append(Assign("dimensions", dimensions.op("||")(func.jsonb_build_array(entry))))
+    add(
+        "comparison_statement",
+        (("report", "jsonb"),),
+        steps=(
+            If(
+                _field(report, "kind")[1].astext.is_distinct_from("qualified_comparison"),
+                (
+                    Raise(
+                        "structural admission requires the exact qualified comparison variant",
+                        "23514",
+                    ),
+                ),
+            ),
+            SelectInto(coverage_query(), ("coverage",)),
+            SelectInto(exclusions_query(), ("exclusions",)),
+            ForQuery(("dimension",), select(dimension_items.c.value), tuple(dimension_steps)),
+            Assign(
+                "fields",
+                _pairs(
+                    (
+                        "left",
+                        _structural("citation", report, _field(comparison, "left_id")[1].astext),
+                    ),
+                    (
+                        "right",
+                        _structural("citation", report, _field(comparison, "right_id")[1].astext),
+                    ),
+                    ("dimensions", func.jsonb_build_array("sequence", dimensions)),
+                ),
+            ),
+            Assign(
+                "value",
+                _structural(
+                    "merge",
+                    _pick(
+                        comparison,
+                        ("equivalence", "identity_standing", "applicability"),
+                        exclude=False,
+                    ),
+                    _structural("map", fields),
+                ),
+            ),
+            Assign("succession", _field(comparison, "succession")),
+            If(
+                _present(succession),
+                (
+                    Assign(
+                        "value",
+                        _structural(
+                            "merge",
+                            value,
+                            _map(
+                                (
+                                    "succession",
+                                    _map(
+                                        (
+                                            "older",
+                                            _structural(
+                                                "citation",
+                                                report,
+                                                _field(succession, "older_id")[1].astext,
+                                            ),
+                                        ),
+                                        (
+                                            "newer",
+                                            _structural(
+                                                "citation",
+                                                report,
+                                                _field(succession, "newer_id")[1].astext,
+                                            ),
+                                        ),
+                                        (
+                                            "evidence",
+                                            _structural(
+                                                "span", report, _field(succession, "evidence")
+                                            ),
+                                        ),
+                                        (
+                                            "older_evidence",
+                                            _structural(
+                                                "span", report, _field(succession, "older_evidence")
+                                            ),
+                                        ),
+                                    ),
+                                )
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            Return(
+                _structural(
+                    "merge",
+                    _pick(inputs, ("scope", "inventory_id"), exclude=False),
+                    _map(
+                        (
+                            "version",
+                            func.jsonb_build_array("string", "structural-public-statement-3"),
+                        ),
+                        ("kind", func.jsonb_build_array("string", "qualified_comparison")),
+                        ("input_policy_id", _field(inputs, "policy_id")),
+                        ("coverage_limits", coverage),
+                        ("exclusions", exclusions),
+                        ("comparison", value),
+                    ),
+                )
+            ),
+        ),
+        locals_=(
+            ("inputs", "jsonb", _field(report, "inputs")),
+            ("comparison", "jsonb", _field(report, "comparison")),
+            ("fields", "jsonb"),
+            ("dimensions", "jsonb", _json("[]")),
+            ("dimension", "jsonb"),
+            ("entry", "jsonb"),
+            ("value", "jsonb"),
+            ("group_value", "jsonb"),
+            ("members", "jsonb"),
+            ("witnesses", "jsonb"),
+            ("coverage", "jsonb"),
+            ("exclusions", "jsonb"),
+            ("succession", "jsonb"),
+        ),
+    )
+
+    variant = core_variable("variant", Text())
+    component_id = core_variable("component_id", Text())
+    statement = core_variable("statement", JSONB())
+    component = core_variable("component", JSONB())
+    citations_value = core_variable("citations", JSONB())
+    component_items = _items(
+        _field(_field(report, "definition_components"), "components")[1], "components_"
+    )
+    condition_steps: list[Statement] = []
+    for role in ("qualifier", "host_predicate"):
+        role_items = _items(_field(component, role)[1], role + "_", ordinal=True)
+        condition_steps.extend(
+            (
+                SelectInto(
+                    select(
+                        _sequence(
+                            _map(
+                                ("source_pointer", _field(role_items.c.value, "source_pointer")),
+                                (
+                                    "passage",
+                                    _structural("span", report, _field(role_items.c.value, "span")),
+                                ),
+                            ),
+                            role_items.c.ordinal,
+                        )
+                    ),
+                    ("citations",),
+                ),
+                Assign("fields", fields.op("||")(_pairs((role, citations_value)))),
+            )
+        )
+    add(
+        "statement",
+        (("report", "jsonb"), ("component_id", "text")),
+        strict=False,
+        steps=(
+            If(
+                variant == "qualified_comparison",
+                (
+                    If(
+                        component_id.is_not(None),
+                        (
+                            Raise(
+                                "comparison statement cannot select a definition component", "23514"
+                            ),
+                        ),
+                    ),
+                    Return(_structural("comparison_statement", report)),
+                ),
+            ),
+            If(
+                variant.not_in(("condition_qualification", "definition_components")),
+                (
+                    Raise(
+                        "structural admission requires its exact released report variant", "23514"
+                    ),
+                ),
+            ),
+            If(
+                (variant == "definition_components").is_distinct_from(component_id.is_not(None)),
+                (
+                    Raise(
+                        "only definition publication requires one exact component selector", "23514"
+                    ),
+                ),
+            ),
+            SelectInto(coverage_query(), ("coverage",)),
+            SelectInto(exclusions_query(), ("exclusions",)),
+            Assign(
+                "statement",
+                _map(
+                    ("version", func.jsonb_build_array("string", "structural-public-statement-3")),
+                    ("kind", func.jsonb_build_array("string", variant)),
+                    ("scope", _field(inputs, "scope")),
+                    ("coverage_limits", coverage),
+                    ("exclusions", exclusions),
+                ),
+            ),
+            If(
+                variant == "definition_components",
+                (
+                    SelectInto(
+                        select(component_items.c.value).where(
+                            _field(component_items.c.value, "component_id")[1].astext
+                            == component_id
+                        ),
+                        ("component",),
+                        strict=True,
+                    ),
+                    Assign(
+                        "fields",
+                        _pairs(
+                            ("term", _structural("span", report, _field(component, "term"))),
+                            ("content", _structural("span", report, _field(component, "content"))),
+                            ("interpretation", _field(component, "interpretation")),
+                            ("scope", _field(component, "scope")),
+                        ),
+                    ),
+                    Assign("value", _field(component, "effective_version")),
+                    If(
+                        _present(value),
+                        (Assign("fields", fields.op("||")(_pairs(("effective_version", value)))),),
+                    ),
+                    Return(
+                        _structural(
+                            "merge",
+                            statement,
+                            _map(("definition_component", _structural("map", fields))),
+                        )
+                    ),
+                ),
+            ),
+            Assign("component", _field(report, "condition_qualification")),
+            Assign("fields", _pairs(("relation", _field(component, "relation")))),
+            Assign("value", _field(component, "effective_version")),
+            If(
+                func.coalesce(value[1].astext, "") != "",
+                (Assign("fields", fields.op("||")(_pairs(("effective_version", value)))),),
+            ),
+            *condition_steps,
+            Return(
+                _structural(
+                    "merge",
+                    statement,
+                    _map(("condition_qualification", _structural("map", fields))),
+                )
+            ),
+        ),
+        locals_=(
+            ("inputs", "jsonb", _field(report, "inputs")),
+            ("variant", "text", _field(report, "kind")[1].astext),
+            ("coverage", "jsonb"),
+            ("exclusions", "jsonb"),
+            ("statement", "jsonb"),
+            ("value", "jsonb"),
+            ("component", "jsonb"),
+            ("fields", "jsonb"),
+            ("citations", "jsonb"),
+        ),
+    )
+    return native_sql_script(programs) + "\n"
 
 
-def structural_admission_native_sql(model):
+def _structural_command_helpers(model):
     import json
     from dataclasses import asdict
 
     from .declared_structural_admission import (
         ADMISSION_EFFECT,
         ADMISSION_FACTORY,
+        ADMISSION_OPERATION,
+    )
+
+    definitions = model.tables["sem.data_operation_definition"]
+    products = model.tables["kb.data_product"]
+
+    def definition(field):
+        return core_variable("definition", definitions.c[field].type, field)
+
+    def product(field):
+        return core_variable("product", products.c[field].type, field)
+
+    support = definition("support_contract")
+    factory = support["capabilities"]["prepared_factory"]
+    return (
+        native_sql_script(
+            (
+                sql_function(
+                    "ops",
+                    "ddo_structural_command_eligible",
+                    parameters=(
+                        Parameter("definition", pg_type(str(definitions.schema), definitions.name)),
+                    ),
+                    returns=pg_type("bool"),
+                    volatility="immutable",
+                    strict=True,
+                    search_path=("pg_catalog", "pg_temp"),
+                    body=select(
+                        (definition("operation_id") == ADMISSION_OPERATION)
+                        & (definition("profile") == "command")
+                        & (support["capabilities"]["preparation"].astext == "native-publication")
+                        & (support["capabilities"]["forms"] == _json('["scalar"]'))
+                        & (factory["entrypoint"].astext == ADMISSION_FACTORY)
+                        & (
+                            support["effects"]
+                            == _json(json.dumps([asdict(ADMISSION_EFFECT)], separators=(",", ":")))
+                        )
+                        & factory["source_digest"].astext.op("~")("^[0-9a-f]{64}$")
+                        & definition("implementation_revision").like("implementation-slice:%")
+                    ),
+                ),
+                sql_function(
+                    "ops",
+                    "ddo_structural_product_reference",
+                    parameters=(
+                        Parameter("product", pg_type(str(products.schema), products.name)),
+                    ),
+                    returns=pg_type("jsonb"),
+                    volatility="immutable",
+                    strict=True,
+                    search_path=("pg_catalog", "pg_temp"),
+                    body=select(
+                        func.jsonb_build_object(
+                            *(
+                                part
+                                for pair in (
+                                    ("product_id", product("id")),
+                                    ("member_id", None),
+                                    *(
+                                        (name, product(name))
+                                        for name in (
+                                            "kind_contract",
+                                            "project_id",
+                                            "subject",
+                                            "subject_definition",
+                                            "original_source",
+                                        )
+                                    ),
+                                    (
+                                        "analyzed_scope_meaning",
+                                        func.data.canonical_json(
+                                            func.data.ddo_json_meaning(product("analyzed_scope"))
+                                        ),
+                                    ),
+                                )
+                                for part in pair
+                            ),
+                            type_=JSONB(),
+                        )
+                    ),
+                ),
+            )
+        )
+        + "\n"
+    )
+
+
+def structural_admission_native_sql(model):
+    from .declared_structural_admission import (
         ADMISSION_KIND,
         ADMISSION_OPERATION,
         REFERENCE_KIND,
@@ -219,24 +888,6 @@ def structural_admission_native_sql(model):
     if fields != DdoStructuralAdmission.model_fields.keys():
         raise ValueError("native structural disclosure must cover its exact public contract")
     sql = r"""
-CREATE OR REPLACE FUNCTION ops.ddo_structural_command_eligible(definition sem.data_operation_definition)
-RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $structural$
- SELECT definition.operation_id='__OPERATION__' AND definition.profile='command'
- AND definition.support_contract->'capabilities'->>'preparation'='native-publication'
- AND definition.support_contract->'capabilities'->'forms'='["scalar"]'::jsonb
- AND definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint'='__FACTORY__'
- AND definition.support_contract->'effects'='__EFFECTS__'::jsonb
- AND definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$'
- AND definition.implementation_revision LIKE 'implementation-slice:%'
-$structural$;
-
-CREATE OR REPLACE FUNCTION ops.ddo_structural_product_reference(product kb.data_product) RETURNS jsonb
-LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $structural$
- SELECT jsonb_build_object('product_id',(product).id,'member_id',NULL,'kind_contract',(product).kind_contract,
- 'project_id',(product).project_id,'subject',(product).subject,'subject_definition',(product).subject_definition,
- 'original_source',(product).original_source,'analyzed_scope_meaning',data.canonical_json(data.ddo_json_meaning((product).analyzed_scope)))
-$structural$;
-
 CREATE OR REPLACE FUNCTION ops.ddo_require_structural_admission_completion(r ops.data_request,completion jsonb)
 RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $structural$
 DECLARE definition sem.data_operation_definition; selected jsonb; output jsonb; report_product kb.data_product;
@@ -421,7 +1072,6 @@ REVOKE ALL ON FUNCTION ops.ddo_require_structural_dossier_completion(ops.data_re
 """
     sql = (
         sql.replace("__OPERATION__", ADMISSION_OPERATION)
-        .replace("__FACTORY__", ADMISSION_FACTORY)
         .replace("__KIND__", ADMISSION_KIND)
         .replace("__REFERENCE_KIND__", REFERENCE_KIND)
         .replace(
@@ -432,7 +1082,6 @@ REVOKE ALL ON FUNCTION ops.ddo_require_structural_dossier_completion(ops.data_re
                 for operation, factory in producers
             ),
         )
-        .replace("__EFFECTS__", json.dumps([asdict(ADMISSION_EFFECT)], separators=(",", ":")))
     )
     from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
 
@@ -444,6 +1093,7 @@ REVOKE ALL ON FUNCTION ops.ddo_require_structural_dossier_completion(ops.data_re
     )
     return (
         structural_statement_native_sql()
+        + _structural_command_helpers(model)
         + sql
         + native_sql_script(
             (
@@ -456,7 +1106,7 @@ REVOKE ALL ON FUNCTION ops.ddo_require_structural_dossier_completion(ops.data_re
 
 def _structural_report_support(model):
     """Authenticate the selectively disclosed report using the actual local cut."""
-    from sqlalchemy import Boolean, Text, and_, case, cast, func, literal, or_, select
+    from sqlalchemy import Boolean, Text, and_, case, cast, func, literal, select
     from sqlalchemy.dialects.postgresql import JSONB
     from sqlalchemy.types import NullType
 
