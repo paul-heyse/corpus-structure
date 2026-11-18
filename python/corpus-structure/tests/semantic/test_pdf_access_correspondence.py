@@ -7,6 +7,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic.metadata import metadata
+from corpus_structure.semantic.pdf_record_access_native import pdf_access_correspondence_sql
 from corpus_structure.semantic.pdf_record_identity import byte_root, emit_parts
 from semantic.pdf_record_reader_support import NativeRows, native
 
@@ -79,7 +81,7 @@ def access_database(semantic_bare_engine, request):
             ),
             (
                 "CREATE TABLE ops.fixture_pdf_part(product_id text,revision_id text,stream_id text,ordinal bigint,body bytea);"
-                "CREATE FUNCTION ops.pdf_artifact_parts(p_product text,p_revision text,p_stage boolean DEFAULT false) RETURNS SETOF ops.fixture_pdf_part LANGUAGE sql STABLE AS $$ SELECT * FROM ops.fixture_pdf_part WHERE product_id=p_product AND revision_id=p_revision $$"
+                "CREATE FUNCTION ops.pdf_artifact_parts(p_product text,p_revision text,p_stage boolean DEFAULT false,p_streams text[] DEFAULT NULL) RETURNS SETOF ops.fixture_pdf_part LANGUAGE sql STABLE AS $$ SELECT * FROM ops.fixture_pdf_part WHERE product_id=p_product AND revision_id=p_revision AND (p_streams IS NULL OR stream_id=ANY(p_streams)) $$"
             ),
             (
                 "CREATE TABLE kb.pdf_record_access(product_id text,revision_id "
@@ -186,7 +188,7 @@ def access_database(semantic_bare_engine, request):
             execution_options={"no_parameters": True},
         )
         conn.exec_driver_sql(
-            (sql_dir / "pdf_record_access_correspondence.sql").read_text(),
+            pdf_access_correspondence_sql(metadata),
             execution_options={"no_parameters": True},
         )
     yield semantic_bare_engine

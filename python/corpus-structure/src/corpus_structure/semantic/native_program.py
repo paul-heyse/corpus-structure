@@ -241,8 +241,17 @@ class CatchCheckViolation:
     handler: tuple[Statement, ...]
 
 
+@dataclass(frozen=True)
+class CatchDataConversion:
+    """Catch PostgreSQL input representation and numeric range failures."""
+
+    body: tuple[Statement, ...]
+    handler: tuple[Statement, ...]
+
+
 type Statement = (
-    Sql
+    CatchDataConversion
+    | Sql
     | Continue
     | Exit
     | CatchCheckViolation
@@ -346,6 +355,12 @@ def _step(statement: Statement, nested: str) -> str:
             return "CONTINUE"
         case Exit():
             return "EXIT"
+        case CatchDataConversion(body, handler):
+            return (
+                f"BEGIN\n{_statements(body, nested)}\n"
+                f"{nested[:-1]}EXCEPTION WHEN invalid_text_representation OR numeric_value_out_of_range THEN\n"
+                f"{_statements(handler, nested)}\n{nested[:-1]}END"
+            )
         case CatchCheckViolation(body, handler):
             return (
                 f"BEGIN\n{_statements(body, nested)}\n"
