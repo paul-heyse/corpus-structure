@@ -1,0 +1,675 @@
+"""Protected admission inspection and selected-body access from typed read models."""
+
+from typing import Literal
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Text,
+    and_,
+    cast,
+    column,
+    func,
+    literal,
+    literal_column,
+    not_,
+    or_,
+    select,
+    true,
+)
+from sqlalchemy.dialects.postgresql import JSON, JSONB, array
+
+from .data_operation_compiler_native import LOWERING_DIGEST
+from .data_operation_projections import binding_branches, binding_columns
+from .native_program import (
+    Assign,
+    Block,
+    ForQuery,
+    If,
+    Local,
+    Parameter,
+    Perform,
+    PerformQuery,
+    Raise,
+    Return,
+    ReturnNext,
+    ReturnQuery,
+    SelectInto,
+    column_type,
+    core_relation_row,
+    core_variable,
+    function,
+    pg_type,
+)
+from .native_program import (
+    literal as pg_literal,
+)
+
+
+def _object(*values):
+    return func.jsonb_build_object(*values, type_=JSONB())
+
+
+def _rows(value, name):
+    return (
+        func.jsonb_array_elements(value)
+        .table_valued(column("value", JSONB()))
+        .render_derived()
+        .alias(name)
+    )
+
+
+def _row(name, relation):
+    return {field.name: core_variable(name, field.type, field.name) for field in relation.c}
+
+
+def _exists(relation, *conditions):
+    return select(1).select_from(relation).where(*conditions).exists()
+
+
+def _refuse(condition, message, state="P0001"):
+    return If(condition, (Raise(message, state),))
+
+
+def _program(
+    name,
+    parameters,
+    statements,
+    locals_=(),
+    *,
+    returns=None,
+    volatility: Literal["stable", "volatile", "immutable"] = "stable",
+    security=True,
+    strict=False,
+    table_columns=(),
+):
+    return function(
+        "ops",
+        name,
+        parameters=parameters,
+        returns=pg_type("jsonb") if returns is None else returns,
+        body=Block(tuple(statements), tuple(locals_)),
+        security_definer=security,
+        search_path=("pg_catalog", "pg_temp"),
+        volatility=volatility,
+        strict=strict,
+        table_columns=table_columns,
+    )
+
+
+def _hash(value):
+    return func.encode(func.sha256(value), "hex")
+
+
+def _decode(value):
+    return cast(func.convert_from(value, "UTF8"), JSONB())
+
+
+def _inspection_programs(model):
+    artifacts, kinds, memberships, definitions, releases, runtimes = (
+        model.tables[name]
+        for name in (
+            "sem.artifact",
+            "sem.data_kind_contract",
+            "sem.data_kind_release",
+            "sem.data_operation_definition",
+            "sem.data_operation_release",
+            "sem.runtime_binding",
+        )
+    )
+    p, projection, archived = (
+        core_variable(name, JSONB()) for name in ("p", "projection", "archived")
+    )
+    projected_kinds, projected_operations = (
+        _rows(projection["kinds"], "projected_kinds"),
+        _rows(projection["operations"], "projected_operations"),
+    )
+    expected_kinds = select(
+        projected_kinds.c.value["kind_contract"].astext.label("key"),
+        projected_kinds.c.value.label("body"),
+    ).cte("expected_kinds")
+    actual_kinds = (
+        select(
+            kinds.c.kind_contract.label("key"), func.to_jsonb(kinds.table_valued()).label("body")
+        )
+        .select_from(kinds.join(memberships, memberships.c.kind_contract == kinds.c.kind_contract))
+        .where(memberships.c.release_id == p["release_id"].astext)
+        .cte("actual_kinds")
+    )
+    expected_operations = select(
+        projected_operations.c.value["operation_id"].astext.label("key"),
+        projected_operations.c.value.op("-", return_type=JSONB())(
+            array(["binding", "definition", "eligibility"], type_=Text())
+        ).label("body"),
+    ).cte("expected_operations")
+    actual_operations = (
+        select(
+            definitions.c.operation_id.label("key"),
+            func.to_jsonb(definitions.table_valued())
+            .op("-", return_type=JSONB())(
+                array(
+                    [
+                        "release_id",
+                        "binding_expression",
+                        "definition_identity",
+                        "eligibility_identity",
+                        "quantified",
+                        "validity_family",
+                        "command_class",
+                        "dependencies",
+                    ],
+                    type_=Text(),
+                )
+            )
+            .label("body"),
+        )
+        .where(definitions.c.release_id == p["release_id"].astext)
+        .cte("actual_operations")
+    )
+
+    def difference(expected, actual):
+        return _exists(
+            expected.join(actual, expected.c.key == actual.c.key, full=True),
+            expected.c.body.is_distinct_from(actual.c.body),
+        )
+
+    release_inspection = _program(
+        "inspect_data_operation_release",
+        (Parameter("p_payload", pg_type("jsonb")),),
+        (
+            Perform(func.ops.ddo_fields(p, array(["release_id"], type_=Text()))),
+            Perform(func.data.require_execution_release(p["release_id"].astext)),
+            SelectInto(
+                select(_decode(artifacts.c.content)).where(
+                    artifacts.c.release_id == p["release_id"].astext,
+                    artifacts.c.artifact_name == "data_operation_native_definitions.json",
+                ),
+                ("projection",),
+            ),
+            SelectInto(
+                select(_decode(artifacts.c.content)).where(
+                    artifacts.c.release_id == p["release_id"].astext,
+                    artifacts.c.artifact_name == "data_operations.json",
+                    _hash(artifacts.c.content) == projection["model_digest"].astext,
+                ),
+                ("archived",),
+            ),
+            _refuse(
+                or_(projection.is_(None), archived.is_(None)),
+                "read-only inspection lacks its authenticated operation archive",
+                "23514",
+            ),
+            _refuse(
+                not_(
+                    _exists(
+                        releases,
+                        releases.c.release_id == p["release_id"].astext,
+                        releases.c.lowering_digest == LOWERING_DIGEST,
+                        releases.c.native_kernel_digest == projection["native_digest"].astext,
+                        releases.c.model_digest == projection["model_digest"].astext,
+                    )
+                ),
+                "read-only inspection native source correspondence differs",
+                "23514",
+            ),
+            _refuse(
+                difference(expected_kinds, actual_kinds),
+                "read-only inspection admitted kind rowset differs from archived contracts",
+                "23514",
+            ),
+            _refuse(
+                difference(expected_operations, actual_operations),
+                "read-only inspection admitted operation rowset differs from archived contracts",
+                "23514",
+            ),
+            Return(
+                _object(
+                    "payload",
+                    _object(
+                        "release_id",
+                        p["release_id"].astext,
+                        "model_digest",
+                        projection["model_digest"].astext,
+                        "native_digest",
+                        projection["native_digest"].astext,
+                    ),
+                )
+            ),
+        ),
+        (
+            Local("p", pg_type("jsonb"), core_variable("p_payload", JSONB())),
+            Local("projection", pg_type("jsonb")),
+            Local("archived", pg_type("jsonb")),
+        ),
+    )
+    definition, runtime, retained = (
+        _row("definition", definitions),
+        _row("runtime", runtimes),
+        core_variable("retained", JSONB()),
+    )
+    execution_inspection = _program(
+        "inspect_data_execution",
+        (Parameter("p_payload", pg_type("jsonb")),),
+        (
+            SelectInto(
+                select(core_relation_row(definitions))
+                .select_from(definitions)
+                .where(
+                    definitions.c.release_id == p["release_id"].astext,
+                    definitions.c.operation_id == p["operation_id"].astext,
+                ),
+                ("definition",),
+                True,
+            ),
+            If(
+                p.has_key("runtime_id"),
+                (
+                    SelectInto(
+                        select(core_relation_row(runtimes))
+                        .select_from(runtimes)
+                        .where(
+                            runtimes.c.release_id == p["release_id"].astext,
+                            runtimes.c.runtime_id == p["runtime_id"].astext,
+                        ),
+                        ("runtime",),
+                        True,
+                    ),
+                    Assign(
+                        "retained",
+                        _object(
+                            "manifest_sha256",
+                            _hash(runtime["manifest_bytes"]),
+                            "archive_sha256",
+                            _hash(runtime["archive_bytes"]),
+                        ),
+                    ),
+                ),
+                (Assign("retained", cast(literal("null"), JSONB())),),
+            ),
+            Return(
+                _object(
+                    "payload",
+                    _object(
+                        "recipe",
+                        definition["recipe"],
+                        "profile",
+                        definition["profile"],
+                        "implementation_revision",
+                        definition["implementation_revision"],
+                        "input_roles",
+                        definition["input_roles"],
+                        "output_roles",
+                        definition["output_roles"],
+                        "runtime",
+                        retained,
+                    ),
+                )
+            ),
+        ),
+        (
+            Local("p", pg_type("jsonb"), core_variable("p_payload", JSONB())),
+            Local("definition", definitions),
+            Local("runtime", runtimes),
+            Local("retained", pg_type("jsonb")),
+        ),
+    )
+    return release_inspection, execution_inspection
+
+
+def _cpu_reply_program():
+    evidence, value = core_variable("evidence", JSONB()), core_variable("value", JSONB())
+    reply = core_variable("reply", Text())
+    empty = cast(literal("[]"), JSONB())
+    return _program(
+        "ddo_cpu_reply_value",
+        (Parameter("completion", pg_type("jsonb")),),
+        (
+            _refuse(
+                or_(
+                    func.jsonb_array_length(func.coalesce(evidence["cpu_receipts"], empty)) != 1,
+                    func.jsonb_array_length(func.coalesce(evidence["cpu_replies"], empty)) != 1,
+                    func.jsonb_typeof(evidence["cpu_replies"][0]).is_distinct_from("string"),
+                ),
+                "authority completion requires its actual CPU reply and original receipt",
+                "23514",
+            ),
+            Assign("reply", evidence["cpu_replies"][0].astext),
+            _refuse(
+                _hash(func.convert_to(reply, "UTF8")).is_distinct_from(
+                    evidence["cpu_receipts"][0]["result_digest"].astext
+                ),
+                "authority CPU reply differs from its original execution receipt",
+                "23514",
+            ),
+            Assign("value", cast(reply, JSONB())),
+            _refuse(
+                func.jsonb_typeof(value).is_distinct_from("object"),
+                "authority CPU reply lacks its declared object result",
+                "23514",
+            ),
+            Return(value),
+        ),
+        (
+            Local(
+                "evidence",
+                pg_type("jsonb"),
+                core_variable("completion", JSONB())["execution_evidence"],
+            ),
+            Local("reply", pg_type("text")),
+            Local("value", pg_type("jsonb")),
+        ),
+        volatility="immutable",
+        security=False,
+        strict=True,
+    )
+
+
+def _body_access_programs(model):
+    kinds, products, members = (
+        model.tables[name]
+        for name in ("sem.data_kind_contract", "kb.data_product", "kb.data_product_member")
+    )
+    contract, universe = (
+        core_variable("contract", kinds.c.kind_contract.type),
+        core_variable("universe", kinds.c.universe.type),
+    )
+    kind_access = _program(
+        "ddo_kind_access",
+        (Parameter("contract", column_type(kinds.c.kind_contract)),),
+        (
+            SelectInto(
+                select(kinds.c.universe).where(kinds.c.kind_contract == contract),
+                ("universe",),
+                True,
+            ),
+            Perform(func.ops.ddo_authorize(universe)),
+            Return(true()),
+        ),
+        (Local("universe", column_type(kinds.c.universe)),),
+        returns=pg_type("bool"),
+    )
+    p_kind, p_body = (
+        core_variable("p_kind", kinds.c.kind_contract.type),
+        core_variable("p_body", JSONB()),
+    )
+    kind, child_kind = _row("kind", kinds), _row("child_kind", kinds)
+    packet, member_values, child_body = (
+        core_variable(name, JSONB()) for name in ("packet", "members", "child_body")
+    )
+    child = core_variable("child", kinds.c.kind_contract.type)
+    packets = _rows(member_values[1], "packets")
+    set_text = pg_type("text")
+    set_text.setof = True
+    body_contracts = _program(
+        "ddo_body_kind_contracts",
+        (
+            Parameter("p_kind", column_type(kinds.c.kind_contract)),
+            Parameter("p_body", pg_type("jsonb")),
+        ),
+        (
+            SelectInto(
+                select(core_relation_row(kinds))
+                .select_from(kinds)
+                .where(kinds.c.kind_contract == p_kind),
+                ("kind",),
+                True,
+            ),
+            ReturnNext(p_kind),
+            If(kind["member_schema"] == cast(literal('{"not":{}}'), JSONB()), (Return(),)),
+            Assign("members", func.data.ddo_field(p_body, "members")),
+            If(member_values.is_(None), (Return(),)),
+            _refuse(
+                member_values[0].astext.is_distinct_from("sequence"), "invalid nominal member body"
+            ),
+            ForQuery(
+                ("packet",),
+                select(packets.c.value),
+                (
+                    Assign(
+                        "child",
+                        func.data.ddo_field(packet, "kind_contract", type_=JSONB())[1].astext,
+                    ),
+                    Assign("child_body", func.data.ddo_field(packet, "body")),
+                    _refuse(
+                        or_(
+                            child.is_(None),
+                            child_body.is_(None),
+                            not_(kind["member_contracts"].has_key(child)),
+                        ),
+                        "body member kind is outside its captured nominal contract",
+                    ),
+                    SelectInto(
+                        select(core_relation_row(kinds))
+                        .select_from(kinds)
+                        .where(kinds.c.kind_contract == child),
+                        ("child_kind",),
+                        True,
+                    ),
+                    _refuse(
+                        or_(
+                            not_(
+                                func.public.json_matches_schema(
+                                    cast(child_kind["meaning_schema"], JSON()),
+                                    cast(child_body, JSON()),
+                                )
+                            ),
+                            not_(
+                                func.public.json_matches_schema(
+                                    cast(child_kind["body_schema"], JSON()),
+                                    cast(func.data.ddo_json(child_body), JSON()),
+                                )
+                            ),
+                        ),
+                        "body member value differs from its captured nominal kind",
+                    ),
+                    ReturnQuery(
+                        select(literal_column("*")).select_from(
+                            func.ops.ddo_body_kind_contracts(child, child_body)
+                        )
+                    ),
+                ),
+            ),
+        ),
+        (
+            Local("kind", kinds),
+            Local("child_kind", kinds),
+            *(Local(name, pg_type("jsonb")) for name in ("members", "packet", "child_body")),
+            Local("child", column_type(kinds.c.kind_contract)),
+        ),
+        returns=set_text,
+    )
+    contracts = (
+        func.ops.ddo_body_kind_contracts(p_kind, p_body)
+        .table_valued(column("value", Text()))
+        .render_derived()
+        .alias("contracts")
+    )
+    body_access = _program(
+        "ddo_body_access",
+        (
+            Parameter("p_kind", column_type(kinds.c.kind_contract)),
+            Parameter("p_body", pg_type("jsonb")),
+        ),
+        (
+            ForQuery(
+                ("contract",),
+                select(contracts.c.value),
+                (Perform(func.ops.ddo_kind_access(contract)),),
+            ),
+            Return(true()),
+        ),
+        (Local("contract", column_type(kinds.c.kind_contract)),),
+        returns=pg_type("bool"),
+    )
+    binding, project = (
+        core_variable("p_binding", JSONB()),
+        core_variable("p_project", products.c.project_id.type),
+    )
+    inputs = _rows(binding["inputs"], "binding_inputs")
+    selected = inputs.join(
+        products,
+        and_(
+            products.c.id == inputs.c.value["product_id"].astext, products.c.project_id == project
+        ),
+    ).outerjoin(
+        members,
+        and_(
+            members.c.product_id == products.c.id,
+            members.c.member_id == inputs.c.value["member_id"].astext,
+        ),
+    )
+    binding_access = _program(
+        "ddo_binding_body_access",
+        (
+            Parameter("p_binding", pg_type("jsonb")),
+            Parameter("p_project", column_type(products.c.project_id)),
+        ),
+        (
+            PerformQuery(
+                select(
+                    func.ops.ddo_kind_access(products.c.kind_contract),
+                    func.ops.ddo_body_access(
+                        func.coalesce(members.c.kind_contract, products.c.kind_contract),
+                        func.coalesce(members.c.body, products.c.canonical_body),
+                    ),
+                )
+                .select_from(selected)
+                .where(
+                    or_(
+                        inputs.c.value["member_id"].astext.is_(None),
+                        members.c.member_id.is_not(None),
+                    )
+                )
+            ),
+            Return(true()),
+        ),
+        returns=pg_type("bool"),
+    )
+    return kind_access, body_contracts, body_access, binding_access
+
+
+def _binding_programs(model):
+    demands, reads = model.tables["ops.data_demand"], model.tables["ops.data_demand_read"]
+    p_demand, p_operation, p_read, p_subject = (
+        core_variable(name, Text()) for name in ("p_demand", "p_operation", "p_read", "p_subject")
+    )
+    trust, source, scope = (
+        core_variable(name, JSONB()) for name in ("p_trust", "p_source", "p_scope")
+    )
+    snapshot = core_variable("snapshot", JSONB())
+    demand = _row("d", demands)
+    operations = _rows(demand["selection"]["operations"], "selected_operations")
+    parameters = (
+        Parameter("p_demand", column_type(demands.c.id)),
+        Parameter("p_operation", pg_type("text")),
+        Parameter("p_trust", pg_type("jsonb")),
+        Parameter("p_read", column_type(reads.c.id), pg_literal(None)),
+        Parameter("p_subject", pg_type("text"), pg_literal(None)),
+        Parameter("p_source", pg_type("jsonb"), pg_literal(None)),
+        Parameter("p_scope", pg_type("jsonb"), pg_literal(None)),
+    )
+    columns = tuple(
+        (field.name, column_type(Column(field.name, field.type))) for field in binding_columns()
+    )
+    set_record = pg_type("record")
+    set_record.setof = True
+    internal = _program(
+        "ddo_binding_rows",
+        (
+            *parameters,
+            Parameter("p_decode_body", pg_type("bool"), pg_literal(True)),
+            Parameter("p_selected", pg_type("jsonb"), pg_literal(None)),
+            Parameter("p_read_checked", pg_type("bool"), pg_literal(False)),
+        ),
+        (
+            SelectInto(
+                select(core_relation_row(demands))
+                .select_from(demands)
+                .where(demands.c.id == p_demand),
+                ("d",),
+                True,
+            ),
+            _refuse(p_read.is_(None), "binding requires exact native read acquisition"),
+            SelectInto(
+                select(core_relation_row(reads))
+                .select_from(reads)
+                .where(reads.c.id == p_read, reads.c.demand_id == demand["id"]),
+                ("boundary",),
+                True,
+            ),
+            If(
+                core_variable("p_read_checked", Boolean()),
+                (Assign("snapshot", trust),),
+                (
+                    Assign(
+                        "snapshot",
+                        func.ops.ddo_require_read_current(
+                            core_variable("boundary", JSONB()), demand["project_id"]
+                        ),
+                    ),
+                ),
+            ),
+            _refuse(
+                not_(_exists(operations, operations.c.value["operation"].astext == p_operation)),
+                "projection operation outside frozen demand",
+            ),
+            If(
+                source.is_not(None),
+                (
+                    _refuse(
+                        func.jsonb_typeof(source).not_in(("string", "null")),
+                        "source filter requires JSON string or explicit null",
+                        "23514",
+                    ),
+                    Perform(
+                        func.ops.ddo_require_subject_source(
+                            func.ops.ddo_release_subject_scopes(demand["release_id"]),
+                            func.ops.ddo_operation_subject(demand["release_id"], p_operation),
+                            source.op("#>>", return_type=Text())(array([], type_=Text())),
+                        )
+                    ),
+                ),
+            ),
+            _refuse(
+                func.ops.ddo_trust_snapshot_meaning(snapshot).is_distinct_from(
+                    func.ops.ddo_trust_snapshot_meaning(trust)
+                ),
+                "binding trust snapshot changed",
+            ),
+            *(ReturnQuery(branch) for branch in binding_branches(model)),
+        ),
+        (Local("d", demands), Local("snapshot", pg_type("jsonb")), Local("boundary", reads)),
+        returns=set_record,
+        volatility="volatile",
+        table_columns=columns,
+    )
+    rows = (
+        func.ops.ddo_binding_rows(
+            p_demand, p_operation, trust, p_read, p_subject, source, scope, True, None
+        )
+        .table_valued(*binding_columns())
+        .alias("binding_rows")
+    )
+    public = _program(
+        "data_binding_rows",
+        parameters,
+        (ReturnQuery(select(*rows.c)),),
+        returns=set_record,
+        table_columns=columns,
+    )
+    return internal, public
+
+
+def read_native_sql(model):
+    """Compile the current inspection, nested access and selected binding readers."""
+    return (
+        ";\n".join(
+            (
+                *_inspection_programs(model),
+                _cpu_reply_program(),
+                *_body_access_programs(model),
+                *_binding_programs(model),
+            )
+        )
+        + ";\n"
+    )

@@ -4,10 +4,12 @@ Requires the combined captured native revision; controlled schemas are not admis
 """
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import literal, select, text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 from semantic.data_operation_kernel_support import STORAGE
 
@@ -77,11 +79,24 @@ def test_read_inspection_refuses_actual_missing_changed_and_extra_rows(ddo_kerne
                 {"release": release, "counterfeit": '{"inspection_counterfeit":true}'},
             )
         else:
+            relation = metadata.tables["sem.data_operation_definition"]
+            original = relation.alias("original")
+            fields = {
+                field.name: literal("unexpected:inspection")
+                if field.name == "operation_id"
+                else original.c.recipe + ":unexpected"
+                if field.name == "recipe"
+                else original.c[field.name]
+                for field in relation.c
+            }
             connection.execute(
-                text(
-                    "INSERT INTO sem.data_operation_definition SELECT release_id,'unexpected:inspection',subject_definition,recipe||:suffix,profile,implementation_revision,input_roles,output_roles,support_contract FROM sem.data_operation_definition WHERE release_id=:release ORDER BY operation_id LIMIT 1"
-                ),
-                {"release": release, "suffix": ":unexpected"},
+                insert(relation).from_select(
+                    tuple(fields),
+                    select(*fields.values())
+                    .where(original.c.release_id == release)
+                    .order_by(original.c.operation_id)
+                    .limit(1),
+                )
             )
     try:
         with kernel.purpose("read").begin() as connection:
