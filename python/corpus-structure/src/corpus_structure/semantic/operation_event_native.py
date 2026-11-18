@@ -1,379 +1,419 @@
-"""Finite native custody for current selected operation-event frames and parameters."""
+"""Captured native custody for selected operation-event frames and parameters."""
+
+from dataclasses import asdict, dataclass
+from pathlib import Path
+
+from sqlalchemy import (
+    Boolean,
+    Integer,
+    MetaData,
+    Table,
+    Text,
+    and_,
+    case,
+    cast,
+    column,
+    func,
+    literal,
+    or_,
+    select,
+    tuple_,
+    union,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+
+from corpus_structure.evaluate.declared_operation_events import (
+    AUTHORIZATION_EFFECT,
+    AUTHORIZATION_FACTORY,
+    AUTHORIZATION_OPERATION,
+    NAMESPACE,
+)
+
+from .data_operation_projections import selected_support_output
+from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_program import (
+    Assign,
+    Block,
+    CatchDependencyInvalidity,
+    ForQuery,
+    If,
+    Local,
+    Parameter,
+    Perform,
+    Raise,
+    Return,
+    ReturnQuery,
+    SelectInto,
+    core_relation_row,
+    core_variable,
+    function,
+    pg_type,
+    sql_function,
+)
+from .types import SourceArtifact
+
+_OPERATIONS = ("operation_event.frame", "operation_event.fit", "operation_event.authorize", "urn:corpus:operation:score-operation-event")
+_SCORE = _OPERATIONS[-1]
 
 
-def operation_event_native_sql() -> str:
+def _json(value):
     import json
-    from dataclasses import asdict
+    return cast(literal(json.dumps(value, separators=(",", ":"))), JSONB())
 
-    from corpus_structure.evaluate.declared_operation_events import (
-        AUTHORIZATION_EFFECT,
-        AUTHORIZATION_FACTORY,
-        AUTHORIZATION_OPERATION,
-        NAMESPACE,
-    )
 
-    return (
-        r"""
-CREATE OR REPLACE FUNCTION ops.ddo_operation_event_command_eligible(definition sem.data_operation_definition)
-RETURNS boolean LANGUAGE sql IMMUTABLE STRICT SET search_path=pg_catalog,pg_temp AS $event$
- SELECT definition.operation_id='__AUTHORIZE__' AND definition.profile='command'
- AND definition.support_contract->'capabilities'->>'preparation'='native-publication'
- AND definition.support_contract->'capabilities'->'forms'='["scalar"]'::jsonb
- AND definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint'='__AUTHORIZE_FACTORY__'
- AND definition.support_contract->'effects'='__EFFECT__'::jsonb
- AND definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$'
- AND definition.implementation_revision LIKE 'implementation-slice:%'
-$event$;
+def _at(value, *path):
+    for item in path:
+        value = value[item]
+    return value
 
-CREATE OR REPLACE FUNCTION ops.ddo_operation_event_completion_scopes(r ops.data_request)
-RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $event$
-DECLARE question jsonb; specification jsonb; selected jsonb;
-BEGIN
- IF r.operation_id='operation_event.frame' THEN
- question:=ops.ddo_record_grade_input(r,'question')->'body';
- FOR selected IN SELECT question->'original_selection' UNION SELECT question->'prediction_selection' LOOP
- IF selected->>'project_id' IS DISTINCT FROM r.project_id THEN
- RAISE EXCEPTION 'event frame cut belongs to another project' USING ERRCODE='23514'; END IF;
- RETURN QUERY SELECT * FROM ops.ddo_record_grade_cut_scopes(r.project_id,selected->>'cut_canonical_json');
- END LOOP;
- ELSIF r.operation_id='operation_event.fit' THEN
- specification:=ops.ddo_record_grade_input(r,'specification')->'body';
- selected:=specification->'frame'->'selection';
- RETURN QUERY SELECT * FROM ops.ddo_record_fit_cut_scopes(r.project_id,selected);
- END IF;
-END $event$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_operation_event_dependency_scopes(episode text)
-RETURNS SETOF text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $event$
-DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent;
-BEGIN
- SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
- SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
- IF r.operation_id NOT IN ('operation_event.frame','operation_event.fit','operation_event.authorize','urn:corpus:operation:score-operation-event') THEN RETURN; END IF;
- -- Request adoption cannot replace the original episode's input/source basis.
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id
- AND request_id=producing.request_id AND generation=producing.generation;
- IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
- (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN
- RAISE EXCEPTION 'event dependency scopes differ from original producer fences' USING ERRCODE='23514'; END IF;
- r.release_id:=producing.release_id; r.runtime_id:=producing.runtime_id;
- r.recipe:=producing.recipe; r.generation:=producing.generation;
- r.binding:=r.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
- RETURN QUERY SELECT * FROM ops.ddo_operation_event_completion_scopes(r);
-END $event$;
+def _text(value, *path):
+    return _at(value, *path).astext
 
-CREATE OR REPLACE FUNCTION ops.ddo_operation_event_require_frame(r ops.data_request,body jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $event$
-DECLARE question_product kb.data_product; question jsonb; frame jsonb:=body->'frame'; selected jsonb;
- original_census jsonb; prediction_census jsonb; report_pin jsonb; source_pin jsonb; bound jsonb; actual jsonb;
- report_product kb.data_product; producer ops.data_derivation; definition sem.data_operation_definition;
- cpu_roles jsonb:=data.ddo_field(ops.ddo_cpu_input_basis(r),'roles'); role_meaning jsonb; u jsonb;
- reports_ jsonb:='[]'; sources_ jsonb:='[]';
-BEGIN
- SELECT product.* INTO STRICT question_product FROM jsonb_array_elements(r.binding->'inputs') chosen
- JOIN kb.data_product product ON product.id=chosen->>'product_id' AND product.project_id=r.project_id
- JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract
- WHERE chosen->>'role'='question' AND chosen->>'member_id' IS NULL AND (chosen->>'multiplicity')::integer=1
- AND kind.kind='__NAMESPACE__DdoOperationEventQuestion' AND kind.universe='evaluator';
- question:=data.ddo_json(question_product.canonical_body);
- IF body->>'version' IS DISTINCT FROM 'selected-operation-event-frame-product-1'
- OR body->>'frame_digest' IS DISTINCT FROM encode(sha256(convert_to(body->>'frame_canonical_json','UTF8')),'hex')
- OR (body->>'frame_canonical_json')::jsonb IS DISTINCT FROM frame
- OR frame->'question' IS DISTINCT FROM question
- OR frame->'question_reference' IS DISTINCT FROM ops.ddo_structural_product_reference(question_product)
- OR question->>'pass_kind' IS DISTINCT FROM 'C' OR question->>'exposure' IS DISTINCT FROM 'output_first'
- OR question->>'partition' NOT IN ('development','feature_fit') THEN
- RAISE EXCEPTION 'event frame changes actual protected question or exact canonical frame' USING ERRCODE='23514'; END IF;
- FOR selected IN SELECT question->'original_selection' UNION SELECT question->'prediction_selection' LOOP
- IF selected->>'project_id' IS DISTINCT FROM r.project_id
- OR (selected->>'cut_canonical_json')::jsonb->>'demand_id' IS DISTINCT FROM selected->>'demand_id'
- OR (selected->>'cut_canonical_json')::jsonb->>'read_id' IS DISTINCT FROM selected->>'read_id'
- OR (selected->>'cut_canonical_json')::jsonb->>'release_id' IS DISTINCT FROM selected->>'release_id'
- OR (selected->>'cut_canonical_json')::jsonb->>'runtime_id' IS DISTINCT FROM selected->>'runtime_id' THEN
- RAISE EXCEPTION 'event question changes exact native cut pins' USING ERRCODE='23514'; END IF;
- PERFORM ops.ddo_record_grade_require_cut(r.project_id,selected->>'cut_canonical_json',selected->>'cut_id');
- END LOOP;
- original_census:=ops.ddo_record_grade_acquire_census(r.project_id,question->'original_selection'->>'cut_canonical_json',question->'original_selection'->>'cut_id');
- prediction_census:=ops.ddo_record_grade_acquire_census(r.project_id,question->'prediction_selection'->>'cut_canonical_json',question->'prediction_selection'->>'cut_id');
- FOR selected IN SELECT value->'selection' FROM jsonb_array_elements(question->'judgments') item(value) LOOP
- report_pin:=selected->'report'; source_pin:=selected->'source';
- IF selected->>'origin_group' IS DISTINCT FROM source_pin->>'original_source' THEN
- RAISE EXCEPTION 'event origin group differs from actual original source' USING ERRCODE='23514'; END IF;
- IF NOT reports_ ? (report_pin->>'product_id') THEN reports_:=reports_||jsonb_build_array(report_pin->>'product_id'); END IF;
- IF NOT sources_ @> jsonb_build_array(jsonb_build_array(source_pin->>'source_product',source_pin->>'source_member')) THEN
- sources_:=sources_||jsonb_build_array(jsonb_build_array(source_pin->>'source_product',source_pin->>'source_member')); END IF;
- SELECT value INTO STRICT bound FROM jsonb_array_elements(r.binding->'inputs') item(value)
- WHERE value->>'role'='reports' AND value->>'product_id'=report_pin->>'product_id'
- AND value->>'member_id' IS NULL AND (value->>'multiplicity')::integer=1;
- SELECT * INTO STRICT report_product FROM kb.data_product WHERE id=report_pin->>'product_id' AND project_id=r.project_id;
- IF report_pin IS DISTINCT FROM ops.ddo_structural_product_reference(report_product)
- OR NOT EXISTS(SELECT FROM jsonb_array_elements(prediction_census->'outputs') output
- WHERE output->>'product_id'=report_product.id AND output->>'derivation_id'=selected->>'derivation_id')
- OR NOT EXISTS(SELECT FROM jsonb_array_elements(r.binding->'support') support
- WHERE support->>'role'='reports' AND support->>'derivation_id'=selected->>'derivation_id') THEN
- RAISE EXCEPTION 'event report changes actual selected whole context/producer support' USING ERRCODE='23514'; END IF;
- u:=prediction_census->'uses'->(selected->>'use_id');
- IF u IS NULL OR u->>'derivation_id' IS DISTINCT FROM selected->>'derivation_id'
- OR u->>'completion_state' IS DISTINCT FROM 'success' OR u->>'fate' NOT IN ('fulfilled','attached') THEN
- RAISE EXCEPTION 'event report lacks its exact successful selected native use' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT producer FROM ops.data_derivation WHERE id=selected->>'derivation_id' AND outcome='success';
- SELECT operation.* INTO STRICT definition FROM sem.data_operation_definition operation
- JOIN ops.data_request request ON request.operation_id=operation.operation_id
- WHERE request.id=producer.request_id AND request.project_id=r.project_id AND operation.release_id=producer.release_id;
- IF definition.operation_id IS DISTINCT FROM selected->>'producer_operation'
- OR definition.implementation_revision IS DISTINCT FROM selected->>'producer_revision'
- OR producer.release_id IS DISTINCT FROM question->'prediction_selection'->>'release_id' THEN
- RAISE EXCEPTION 'event report changes its actual admitted producer revision/release' USING ERRCODE='23514'; END IF;
- SELECT value INTO STRICT role_meaning FROM jsonb_array_elements(cpu_roles->1) item(value)
- WHERE data.ddo_json(value)->>'role'='reports' AND data.ddo_json(value)->>'product_id'=report_product.id;
- -- Exact original CPU body custody is owned by the current component producer.
- -- A copied same-kind report, matching factory or unrelated receipt is insufficient.
- PERFORM ops.ddo_definition_component_basis(role_meaning);
- IF NOT EXISTS(SELECT FROM jsonb_array_elements(data.ddo_json(report_product.canonical_body)->'definition_components'->'components') component
- WHERE component->>'component_id'=selected->>'component_id') THEN
- RAISE EXCEPTION 'event component is absent from its actual whole report' USING ERRCODE='23514'; END IF;
- SELECT value INTO STRICT bound FROM jsonb_array_elements(r.binding->'inputs') item(value)
- WHERE value->>'role'='sources' AND value->>'product_id'=source_pin->>'source_product'
- AND value->>'member_id' IS NOT DISTINCT FROM source_pin->>'source_member' AND (value->>'multiplicity')::integer=1;
- IF NOT EXISTS(SELECT FROM jsonb_array_elements(original_census->'outputs') output
- WHERE output->>'product_id'=source_pin->>'source_product') THEN
- RAISE EXCEPTION 'event original source is outside exact original selected support' USING ERRCODE='23514'; END IF;
- actual:=ops.ddo_record_grade_input_value(r.project_id,bound->>'product_id',bound->>'member_id');
- IF (actual-'body'-'analyzed_scope_meaning') IS DISTINCT FROM jsonb_build_object(
- 'product_id',source_pin->>'source_product','member_id',source_pin->>'source_member','project_id',source_pin->>'project_id',
- 'kind_contract',source_pin->>'kind_contract','subject',source_pin->>'subject','subject_definition',source_pin->>'subject_definition','original_source',source_pin->>'original_source')
- OR actual->'analyzed_scope_meaning' IS DISTINCT FROM (source_pin->>'analyzed_scope_meaning')::jsonb
- OR actual->'body'->'source'->>'document' IS DISTINCT FROM source_pin->>'document'
- OR actual->'body'->'source'->>'projection' IS DISTINCT FROM source_pin->>'projection_digest'
- OR actual->'body'->'source'->>'section_pointer' IS DISTINCT FROM source_pin->>'section_pointer'
- OR actual->'body'->'source'->>'membership' IS DISTINCT FROM source_pin->>'membership' THEN
- RAISE EXCEPTION 'event source pin changes exact selected coordinate/context' USING ERRCODE='23514'; END IF;
- END LOOP;
- IF (SELECT count(*) FROM jsonb_array_elements(r.binding->'inputs') input WHERE input->>'role'='reports')<>jsonb_array_length(reports_)
- OR (SELECT count(*) FROM jsonb_array_elements(r.binding->'inputs') input WHERE input->>'role'='sources')<>jsonb_array_length(sources_) THEN
- RAISE EXCEPTION 'event frame changes the exact declared report/source population' USING ERRCODE='23514'; END IF;
-END $event$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_operation_event_require_fit(r ops.data_request,body jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $event$
-DECLARE specification jsonb:=ops.ddo_record_grade_input(r,'specification')->'body'; selected jsonb:=specification->'frame';
- selection_ jsonb:=selected->'selection'; d ops.data_demand; boundary ops.data_demand_read; p jsonb;
- p_use text:=selected->>'use_id'; p_product text:=selected->'reference'->>'product_id'; p_derivation text:=selected->>'derivation_id';
- admitted boolean; chosen jsonb;
- producer ops.data_derivation; frame_request ops.data_request; intent ops.data_completion_intent; actual kb.data_product; definition sem.data_operation_definition;
-BEGIN
- IF selection_->>'project_id' IS DISTINCT FROM r.project_id
- OR selected->'reference'->>'member_id' IS NOT NULL
- OR selection_->>'cut_id' IS DISTINCT FROM 'cut-selection:'||encode(sha256(convert_to(selection_->>'cut_canonical_json','UTF8')),'hex') THEN
- RAISE EXCEPTION 'event fit changes exact selected frame project/cut' USING ERRCODE='23514'; END IF;
- PERFORM ops.ddo_record_fit_cut_scopes(r.project_id,selection_);
- SELECT * INTO STRICT d FROM ops.data_demand WHERE id=selection_->>'demand_id' AND project_id=r.project_id;
- SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=selection_->>'read_id' AND demand_id=d.id;
- PERFORM ops.ddo_require_read_current(boundary,r.project_id,true);
- p:=jsonb_build_object('scope',boundary.scope);
- __DDO_CORE_SELECTED_SUPPORT_OUTPUT__ INTO admitted;
- IF NOT coalesce(admitted,false) THEN RAISE EXCEPTION 'event frame is outside exact native selected support' USING ERRCODE='23514'; END IF;
- SELECT value INTO STRICT chosen FROM jsonb_array_elements(r.binding->'inputs') item(value)
- WHERE value->>'role'='frame' AND value->>'product_id'=p_product AND value->>'member_id' IS NULL AND (value->>'multiplicity')::integer=1;
- IF NOT EXISTS(SELECT FROM jsonb_array_elements(r.binding->'support') support WHERE support->>'role'='frame' AND support->>'derivation_id'=p_derivation) THEN
- RAISE EXCEPTION 'event fit changes exact frame producing support' USING ERRCODE='23514'; END IF;
- SELECT * INTO STRICT producer FROM ops.data_derivation WHERE id=p_derivation AND outcome='success';
- SELECT * INTO STRICT frame_request FROM ops.data_request WHERE id=producer.request_id AND project_id=r.project_id;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producer.intent_id
- AND request_id=producer.request_id AND generation=producer.generation;
- IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
- (producer.producer_task_id,producer.producer_attempt,producer.runtime_id) THEN
- RAISE EXCEPTION 'event frame differs from original producer fences' USING ERRCODE='23514'; END IF;
- frame_request.release_id:=producer.release_id; frame_request.runtime_id:=producer.runtime_id;
- frame_request.recipe:=producer.recipe; frame_request.generation:=producer.generation;
- frame_request.binding:=frame_request.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=producer.release_id AND operation_id=frame_request.operation_id;
- SELECT * INTO STRICT actual FROM kb.data_product WHERE id=p_product AND project_id=r.project_id;
- IF selected->'reference' IS DISTINCT FROM ops.ddo_structural_product_reference(actual)
- OR data.ddo_json(actual.canonical_body)->>'frame_digest' IS DISTINCT FROM selected->>'frame_digest'
- OR definition.operation_id IS DISTINCT FROM 'operation_event.frame'
- OR NOT EXISTS(SELECT FROM ops.data_publication_receipt receipt JOIN ops.data_derivation_output output ON output.derivation_id=receipt.derivation_id
- WHERE receipt.derivation_id=producer.id AND receipt.intent_id=intent.id AND output.product_id=p_product AND output.member_id IS NULL AND output.role='frame') THEN
- RAISE EXCEPTION 'event fit lacks actual selected current frame CPU/common receipt' USING ERRCODE='23514'; END IF;
- PERFORM ops.ddo_require_operation_event_completion(frame_request,intent.payload);
- IF data.ddo_normalize(intent.payload->'outputs'->0->'product'->'body') IS DISTINCT FROM actual.canonical_body THEN
- RAISE EXCEPTION 'event frame differs from actual original CPU completion body' USING ERRCODE='23514'; END IF;
- IF body->'specification' IS DISTINCT FROM specification OR body->'result'->>'frame_digest' IS DISTINCT FROM selected->>'frame_digest'
- OR (body->'result'->'parameters' IS NOT NULL AND body->'result'->'parameters'<>'null'::jsonb AND
- (body->'result'->'parameters'->'algorithm' IS DISTINCT FROM specification->'algorithm'
- OR body->'result'->'parameters'->>'frame_digest' IS DISTINCT FROM selected->>'frame_digest')) THEN
- RAISE EXCEPTION 'event fit changes actual frame identity or declared algorithm' USING ERRCODE='23514'; END IF;
-END $event$;
+def _items(value, name):
+    return func.jsonb_array_elements(value).table_valued(column("value", JSONB())).render_derived(name=name)
 
-CREATE OR REPLACE FUNCTION ops.ddo_operation_event_require_parameters(r ops.data_request)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $event$
-DECLARE chosen jsonb; issuing ops.data_derivation; issuer_request ops.data_request; intent ops.data_completion_intent;
-BEGIN
- SELECT value INTO STRICT chosen FROM jsonb_array_elements(r.binding->'inputs') item(value)
- WHERE value->>'role'='parameters' AND value->>'member_id' IS NULL AND (value->>'multiplicity')::integer=1;
- IF NOT EXISTS(SELECT FROM kb.data_product product WHERE product.id=chosen->>'product_id' AND product.project_id=r.project_id
- AND product.subject=r.subject AND product.subject_definition=ops.ddo_operation_subject(r.release_id,r.operation_id)
- AND product.original_source IS NOT DISTINCT FROM r.original_source AND product.analyzed_scope=r.analyzed_scope) THEN
- RAISE EXCEPTION 'event score parameters change exact selected event context' USING ERRCODE='23514'; END IF;
- SELECT producer.* INTO STRICT issuing FROM ops.data_derivation producer
- JOIN ops.data_derivation_output output ON output.derivation_id=producer.id
- JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=producer.intent_id
- JOIN ops.data_request request ON request.id=producer.request_id AND request.project_id=r.project_id
- JOIN sem.data_operation_definition definition ON definition.release_id=producer.release_id AND definition.operation_id=request.operation_id
- WHERE output.product_id=chosen->>'product_id' AND output.member_id IS NULL AND output.role='parameters'
- AND output.position=0 AND output.multiplicity=1 AND producer.outcome='success'
- AND (definition.command_class='operation_event')
- AND EXISTS(SELECT FROM jsonb_array_elements(r.binding->'support') support WHERE support->>'role'='parameters' AND support->>'derivation_id'=producer.id)
- AND ops.ddo_input_support_selection(chosen) ? producer.id;
- SELECT * INTO STRICT issuer_request FROM ops.data_request WHERE id=issuing.request_id AND project_id=r.project_id;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=issuing.intent_id
- AND request_id=issuing.request_id AND generation=issuing.generation;
- IF (intent.producer_task_id,intent.producer_attempt,intent.runtime_id) IS DISTINCT FROM
- (issuing.producer_task_id,issuing.producer_attempt,issuing.runtime_id) THEN
- RAISE EXCEPTION 'event parameter issuer differs from original producer fences' USING ERRCODE='23514'; END IF;
- issuer_request.release_id:=issuing.release_id; issuer_request.runtime_id:=issuing.runtime_id;
- issuer_request.recipe:=issuing.recipe; issuer_request.generation:=issuing.generation;
- issuer_request.binding:=issuer_request.binding||jsonb_build_object('inputs',intent.payload->'inputs','support',intent.payload->'support');
- PERFORM ops.ddo_require_operation_event_completion(issuer_request,intent.payload);
- IF data.ddo_normalize(intent.payload->'outputs'->0->'product'->'body') IS DISTINCT FROM
- (SELECT canonical_body FROM kb.data_product WHERE id=chosen->>'product_id' AND project_id=r.project_id) THEN
- RAISE EXCEPTION 'event score parameters differ from actual original native issuer' USING ERRCODE='23514'; END IF;
-END $event$;
 
-CREATE OR REPLACE FUNCTION ops.ddo_require_operation_event_completion(r ops.data_request,completion jsonb)
-RETURNS void LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $event$
-DECLARE definition sem.data_operation_definition; output jsonb; body jsonb; expected_factory text; output_role text; output_kind text;
- basis kb.data_product; producing ops.data_derivation; fit_request ops.data_request; fit_intent ops.data_completion_intent; selected jsonb; expected jsonb;
-BEGIN
- IF r.operation_id NOT IN ('operation_event.frame','operation_event.fit','operation_event.authorize','urn:corpus:operation:score-operation-event') THEN RETURN; END IF;
- SELECT * INTO STRICT definition FROM sem.data_operation_definition WHERE release_id=r.release_id AND operation_id=r.operation_id;
- IF completion->>'outcome' IS DISTINCT FROM 'success' OR jsonb_array_length(completion->'outputs')<>1
- OR completion->'inputs' IS DISTINCT FROM r.binding->'inputs' OR completion->'support' IS DISTINCT FROM r.binding->'support'
- OR definition.implementation_revision IS DISTINCT FROM completion->>'implementation_revision' OR definition.recipe IS DISTINCT FROM r.recipe THEN
- RAISE EXCEPTION 'operation event completion changes exact current request/implementation' USING ERRCODE='23514'; END IF;
- output:=completion->'outputs'->0;
- IF r.operation_id='operation_event.authorize' THEN
- IF NOT coalesce((definition.command_class='operation_event'),false) OR jsonb_array_length(completion->'inputs')<>1 THEN
- RAISE EXCEPTION 'operation event issuer requires exact command/effect/factory and fit basis' USING ERRCODE='23514'; END IF;
- output_role:='parameters'; output_kind:='urn:corpus:kind:operation-event:parameters';
- selected:=completion->'inputs'->0;
- IF selected->>'role' IS DISTINCT FROM 'basis' OR selected->>'member_id' IS NOT NULL OR (selected->>'multiplicity')::integer<>1 THEN
- RAISE EXCEPTION 'event issuer requires actual whole protected fit basis' USING ERRCODE='23514'; END IF;
- SELECT product.* INTO STRICT basis FROM kb.data_product product JOIN sem.data_kind_contract kind ON kind.kind_contract=product.kind_contract
- WHERE product.id=selected->>'product_id' AND product.project_id=r.project_id AND kind.kind='__NAMESPACE__DdoOperationEventFit' AND kind.universe='evaluator';
- SELECT producer.* INTO STRICT producing FROM ops.data_derivation producer JOIN ops.data_derivation_output produced ON produced.derivation_id=producer.id
- JOIN ops.data_publication_receipt receipt ON receipt.derivation_id=producer.id AND receipt.intent_id=producer.intent_id
- WHERE produced.product_id=basis.id AND produced.member_id IS NULL AND produced.role='fit' AND producer.outcome='success'
- AND EXISTS(SELECT FROM jsonb_array_elements(completion->'support') support WHERE support->>'role'='basis' AND support->>'derivation_id'=producer.id)
- AND ops.ddo_input_support_selection(selected) ? producer.id;
- SELECT * INTO STRICT fit_request FROM ops.data_request WHERE id=producing.request_id AND project_id=r.project_id AND operation_id='operation_event.fit';
- SELECT * INTO STRICT fit_intent FROM ops.data_completion_intent WHERE id=producing.intent_id
- AND request_id=producing.request_id AND generation=producing.generation;
- IF (fit_intent.producer_task_id,fit_intent.producer_attempt,fit_intent.runtime_id) IS DISTINCT FROM
- (producing.producer_task_id,producing.producer_attempt,producing.runtime_id) THEN
- RAISE EXCEPTION 'event fit differs from original producer fences' USING ERRCODE='23514'; END IF;
- fit_request.release_id:=producing.release_id; fit_request.runtime_id:=producing.runtime_id;
- fit_request.recipe:=producing.recipe; fit_request.generation:=producing.generation;
- fit_request.binding:=fit_request.binding||jsonb_build_object('inputs',fit_intent.payload->'inputs','support',fit_intent.payload->'support');
- PERFORM ops.ddo_require_operation_event_completion(fit_request,fit_intent.payload);
- IF data.ddo_normalize(fit_intent.payload->'outputs'->0->'product'->'body') IS DISTINCT FROM basis.canonical_body
- OR data.ddo_json(basis.canonical_body)->'result'->>'status' IS DISTINCT FROM 'fitted' THEN
- RAISE EXCEPTION 'event issuer basis differs from actual successful protected CPU fit' USING ERRCODE='23514'; END IF;
- expected:=data.ddo_field(data.ddo_field(basis.canonical_body,'result'),'parameters');
- IF expected='["null"]'::jsonb OR data.ddo_normalize(output->'product'->'body') IS DISTINCT FROM expected THEN
- RAISE EXCEPTION 'event issuer may disclose only exact fitted strict parameters' USING ERRCODE='23514'; END IF;
- ELSE
- output_role:=CASE r.operation_id WHEN 'operation_event.frame' THEN 'frame' WHEN 'operation_event.fit' THEN 'fit' ELSE 'probability' END;
- output_kind:='__NAMESPACE__'||CASE r.operation_id WHEN 'operation_event.frame' THEN 'DdoOperationEventFrame' ELSE 'DdoOperationEventFit' END;
- expected_factory:=CASE r.operation_id WHEN 'urn:corpus:operation:score-operation-event' THEN 'corpus_structure.semantic.operation_policy.acquire_operation_event_score_port'
- ELSE 'corpus_structure.methods.operation_events.'||CASE r.operation_id WHEN 'operation_event.frame' THEN 'OperationEventFrame' ELSE 'OperationEventFit' END||'.acquire_port' END;
- IF definition.profile IS DISTINCT FROM 'derivation' OR definition.support_contract->'effects' IS DISTINCT FROM '[]'::jsonb
- OR definition.support_contract->'capabilities'->'prepared_factory'->>'entrypoint' IS DISTINCT FROM expected_factory
- OR (definition.support_contract->'capabilities'->'prepared_factory'->>'source_digest' ~ '^[0-9a-f]{64}$') IS NOT TRUE
- OR (definition.implementation_revision LIKE 'implementation-slice:%') IS NOT TRUE
- OR jsonb_array_length(coalesce(completion->'execution_evidence'->'cpu_receipts','[]'))<>1
- OR data.ddo_normalize(output->'product'->'body') IS DISTINCT FROM ops.ddo_cpu_reply_output(r,completion) THEN
- RAISE EXCEPTION 'event conclusion differs from actual admitted CPU body/factory/receipt' USING ERRCODE='23514'; END IF;
- body:=data.ddo_json(output->'product'->'body');
- IF r.operation_id='operation_event.frame' THEN PERFORM ops.ddo_operation_event_require_frame(r,body);
- ELSIF r.operation_id='operation_event.fit' THEN PERFORM ops.ddo_operation_event_require_fit(r,body);
- ELSE PERFORM ops.ddo_operation_event_require_parameters(r); END IF;
- END IF;
- IF output->>'role' IS DISTINCT FROM output_role OR output->>'member_id' IS NOT NULL
- OR (output->>'position')::integer IS DISTINCT FROM 0 OR (output->>'multiplicity')::integer IS DISTINCT FROM 1
- OR output->'product'->'members' IS DISTINCT FROM '[]'::jsonb
- OR NOT EXISTS(SELECT FROM sem.data_kind_contract kind WHERE kind.kind_contract=output->'product'->>'kind_contract'
- AND (CASE WHEN r.operation_id='urn:corpus:operation:score-operation-event' THEN kind.kind_contract=definition.output_roles->0->>'kind_contract' ELSE kind.kind=output_kind END)
- AND kind.universe=CASE WHEN r.operation_id IN ('operation_event.authorize','urn:corpus:operation:score-operation-event') THEN 'ordinary' ELSE 'evaluator' END) THEN
- RAISE EXCEPTION 'event output changes exact finite whole nominal contract' USING ERRCODE='23514'; END IF;
-END $event$;
+def _object(**fields):
+    return func.jsonb_build_object(*(part for key, value in fields.items() for part in (key, value)), type_=JSONB())
 
-CREATE OR REPLACE FUNCTION ops.ddo_operation_event_dependencies_valid(episode text)
-RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $event$
-DECLARE r ops.data_request; producing ops.data_derivation; intent ops.data_completion_intent;
- selected jsonb; boundary ops.data_demand_read;
-BEGIN
- SELECT * INTO STRICT producing FROM ops.data_derivation WHERE id=episode;
- SELECT * INTO STRICT r FROM ops.data_request WHERE id=producing.request_id;
- IF r.operation_id NOT IN ('operation_event.frame','operation_event.fit','operation_event.authorize','urn:corpus:operation:score-operation-event') THEN RETURN true; END IF;
- IF producing.outcome IS DISTINCT FROM 'success' THEN RETURN false; END IF;
- SELECT * INTO STRICT intent FROM ops.data_completion_intent WHERE id=producing.intent_id
- AND request_id=producing.request_id AND generation=producing.generation;
- r:=ops.ddo_require_episode_correspondence(producing,intent);
- IF r.operation_id='operation_event.frame' THEN
- FOR selected IN SELECT ops.ddo_record_grade_input(r,'question')->'body'->'original_selection'
- UNION SELECT ops.ddo_record_grade_input(r,'question')->'body'->'prediction_selection' LOOP
- PERFORM ops.ddo_record_grade_require_cut(r.project_id,selected->>'cut_canonical_json',selected->>'cut_id');
- END LOOP;
- ELSIF r.operation_id='operation_event.fit' THEN
- selected:=ops.ddo_record_grade_input(r,'specification')->'body'->'frame'->'selection';
- PERFORM ops.ddo_record_fit_cut_scopes(r.project_id,selected);
- SELECT * INTO STRICT boundary FROM ops.data_demand_read WHERE id=selected->>'read_id' AND demand_id=selected->>'demand_id';
- PERFORM ops.ddo_require_read_current(boundary,r.project_id,true);
- END IF;
- RETURN true;
- EXCEPTION WHEN data_exception OR integrity_constraint_violation OR no_data_found OR too_many_rows THEN RETURN false;
-END $event$;
-""".replace("__AUTHORIZE__", AUTHORIZATION_OPERATION)
-        .replace("__AUTHORIZE_FACTORY__", AUTHORIZATION_FACTORY)
-        .replace("__EFFECT__", json.dumps([asdict(AUTHORIZATION_EFFECT)], separators=(",", ":")))
-        .replace("__NAMESPACE__", NAMESPACE)
-        + "\n".join(
-            f"REVOKE ALL ON FUNCTION ops.{name}({arguments}) FROM PUBLIC;"
-            for name, arguments in (
-                ("ddo_operation_event_command_eligible", "sem.data_operation_definition"),
-                ("ddo_operation_event_completion_scopes", "ops.data_request"),
-                ("ddo_operation_event_dependency_scopes", "text"),
-                ("ddo_operation_event_require_frame", "ops.data_request,jsonb"),
-                ("ddo_operation_event_require_fit", "ops.data_request,jsonb"),
-                ("ddo_operation_event_require_parameters", "ops.data_request"),
-                ("ddo_require_operation_event_completion", "ops.data_request,jsonb"),
-                ("ddo_operation_event_dependencies_valid", "text"),
-            )
+
+def _digest_text(value):
+    return func.encode(func.sha256(func.convert_to(value, "UTF8")), "hex")
+
+
+def _reject(condition, message):
+    return If(condition, (Raise(message, "23514"),))
+
+
+@dataclass(frozen=True)
+class _Record:
+    name: str
+    table: Table
+
+    def __call__(self, field=None):
+        return core_variable(self.name, self.table.table_valued().type if field is None else self.table.c[field].type, field)
+
+    def local(self):
+        return Local(self.name, self.table)
+
+    def lookup(self, *where):
+        return SelectInto(select(core_relation_row(self.table)).select_from(self.table).where(*where), (self.name,), strict=True)
+
+
+class _Programs:
+    def __init__(self, model: MetaData):
+        self.model = model
+        self.output: list[str] = []
+
+    def row(self, name, table):
+        return _Record(name, self.model.tables[table])
+
+    def add(self, name, parameters, steps, locals_=(), *, returns="void", setof=False, immutable=False, strict=False, definer=True, query=None):
+        kind = pg_type(returns)
+        kind.setof = setof
+        params = tuple(Parameter(key, pg_type(*type_.split("."))) for key, type_ in parameters)
+        if query is not None:
+            self.output.append(sql_function("ops", name, parameters=params, returns=kind, body=query, search_path=("pg_catalog", "pg_temp"), volatility="immutable" if immutable else "stable", strict=strict))
+        else:
+            self.output.append(function("ops", name, parameters=params, returns=kind, body=Block(tuple(steps), tuple(locals_)), security_definer=definer, search_path=("pg_catalog", "pg_temp"), volatility="immutable" if immutable else "stable", strict=strict))
+        self.output.append(native_privilege_sql(NativeIdentity("function", "ops", name, tuple(kind for _, kind in parameters)), "PUBLIC", grant=False))
+
+    def restore(self, request, producer, intent):
+        return (
+            *(Assign((request.name, key), producer(key)) for key in ("release_id", "runtime_id", "recipe", "generation")),
+            Assign((request.name, "binding"), request("binding").op("||")(_object(inputs=intent("payload")["inputs"], support=intent("payload")["support"]))),
         )
-    )
+
+    def fences(self, producer, intent):
+        fields = ("producer_task_id", "producer_attempt", "runtime_id")
+        return tuple_(*(intent(key) for key in fields)).is_distinct_from(tuple_(*(producer(key) for key in fields)))
 
 
-def operation_event_native_sources():
-    """Executable helper plus its actual source owners for the existing native cut."""
-    from pathlib import Path
+def operation_event_native_sql(model: MetaData) -> str:
+    programs = _Programs(model)
+    _eligibility(programs)
+    _scopes(programs)
+    _require_frame(programs)
+    _require_fit(programs)
+    _require_parameters(programs)
+    _completion(programs)
+    _dependencies(programs)
+    return native_sql_script(programs.output) + "\n"
 
-    from .types import SourceArtifact
 
+def operation_event_native_sources(*, target_metadata: MetaData) -> tuple[SourceArtifact, ...]:
+    """Keep the existing frozen helper and producer source artifact identities."""
     root = Path(__file__).parents[1]
     return (
-        SourceArtifact(
-            "native/data-operation-operation-event.sql", operation_event_native_sql().encode()
-        ),
-        SourceArtifact(
-            "native/data-operation-operation-event-native.py", Path(__file__).read_bytes()
-        ),
-        SourceArtifact(
-            "native/data-operation-operation-event-producers.py",
-            (root / "evaluate/declared_operation_events.py").read_bytes(),
-        ),
-        SourceArtifact(
-            "native/data-operation-operation-event-methods.py",
-            (root / "methods/operation_events.py").read_bytes(),
-        ),
+        SourceArtifact("native/data-operation-operation-event.sql", operation_event_native_sql(target_metadata).encode()),
+        SourceArtifact("native/data-operation-operation-event-native.py", Path(__file__).read_bytes()),
+        SourceArtifact("native/data-operation-operation-event-producers.py", (root / "evaluate/declared_operation_events.py").read_bytes()),
+        SourceArtifact("native/data-operation-operation-event-methods.py", (root / "methods/operation_events.py").read_bytes()),
     )
+
+
+def _eligibility(p):
+    definition = p.row("definition", "sem.data_operation_definition")
+    contract = definition("support_contract")
+    capabilities = contract["capabilities"]
+    p.add("ddo_operation_event_command_eligible", (("definition", "sem.data_operation_definition"),), (), returns="bool", immutable=True, strict=True, definer=False, query=select(and_(
+        definition("operation_id") == AUTHORIZATION_OPERATION, definition("profile") == "command", _text(capabilities, "preparation") == "native-publication",
+        capabilities["forms"] == _json(["scalar"]), _text(capabilities, "prepared_factory", "entrypoint") == AUTHORIZATION_FACTORY,
+        contract["effects"] == _json([asdict(AUTHORIZATION_EFFECT)]), _text(capabilities, "prepared_factory", "source_digest").bool_op("~")("^[0-9a-f]{64}$"),
+        definition("implementation_revision").like("implementation-slice:%"))))
+
+
+def _cut_pair(question):
+    return union(select(question["original_selection"]), select(question["prediction_selection"]))
+
+
+def _scopes(p):
+    r = p.row("r", "ops.data_request")
+    question, specification, selected = (core_variable(name, JSONB()) for name in ("question", "specification", "selected"))
+    grade_scopes = func.ops.ddo_record_grade_cut_scopes(r("project_id"), _text(selected, "cut_canonical_json")).table_valued(column("scope", Text())).render_derived(name="grade_scope")
+    fit_scopes = func.ops.ddo_record_fit_cut_scopes(r("project_id"), selected).table_valued(column("scope", Text())).render_derived(name="fit_scope")
+    p.add("ddo_operation_event_completion_scopes", (("r", "ops.data_request"),), (
+        If(r("operation_id") == "operation_event.frame", (
+            Assign("question", func.ops.ddo_record_grade_input(r(), "question", type_=JSONB())["body"]),
+            ForQuery(("selected",), _cut_pair(question), (
+                _reject(_text(selected, "project_id").is_distinct_from(r("project_id")), "event frame cut belongs to another project"), ReturnQuery(select(grade_scopes.c.scope)),
+            )),
+        ), (If(r("operation_id") == "operation_event.fit", (
+            Assign("specification", func.ops.ddo_record_grade_input(r(), "specification", type_=JSONB())["body"]), Assign("selected", specification["frame"]["selection"]), ReturnQuery(select(fit_scopes.c.scope)),
+        )),)),
+    ), tuple(Local(name, pg_type("jsonb")) for name in ("question", "specification", "selected")), returns="text", setof=True)
+    producer, intent = p.row("producing", "ops.data_derivation"), p.row("intent", "ops.data_completion_intent")
+    episode = core_variable("episode", Text())
+    scopes = func.ops.ddo_operation_event_completion_scopes(r()).table_valued(column("scope", Text())).render_derived(name="event_scope")
+    p.add("ddo_operation_event_dependency_scopes", (("episode", "text"),), (
+        producer.lookup(producer.table.c.id == episode), r.lookup(r.table.c.id == producer("request_id")), If(r("operation_id").not_in(_OPERATIONS), (Return(),)),
+        intent.lookup(intent.table.c.id == producer("intent_id"), intent.table.c.request_id == producer("request_id"), intent.table.c.generation == producer("generation")),
+        _reject(p.fences(producer, intent), "event dependency scopes differ from original producer fences"), *p.restore(r, producer, intent), ReturnQuery(select(scopes.c.scope)),
+    ), (r.local(), producer.local(), intent.local()), returns="text", setof=True)
+
+
+def _require_frame(p):
+    r, question_product, report_product, producer, definition = (p.row(name, table) for name, table in (
+        ("r", "ops.data_request"), ("question_product", "kb.data_product"), ("report_product", "kb.data_product"),
+        ("producer", "ops.data_derivation"), ("definition", "sem.data_operation_definition")))
+    products, kinds, requests = question_product.table, p.model.tables["sem.data_kind_contract"], r.table
+    body, question, frame, selected, original_census, prediction_census, report_pin, source_pin, bound, actual, cpu_roles, role_meaning, use, reports, sources = (
+        core_variable(name, JSONB()) for name in ("body", "question", "frame", "selected", "original_census", "prediction_census", "report_pin", "source_pin", "bound", "actual", "cpu_roles", "role_meaning", "u", "reports_", "sources_"))
+    inputs = _items(r("binding")["inputs"], "item")
+    support = _items(r("binding")["support"], "support")
+    original_outputs, prediction_outputs = _items(original_census["outputs"], "original_output"), _items(prediction_census["outputs"], "prediction_output")
+    judgments, roles = _items(question["judgments"], "judgment"), _items(cpu_roles[1], "cpu_role")
+    selected_cut = cast(_text(selected, "cut_canonical_json"), JSONB())
+    components = _items(func.data.ddo_json(report_product("canonical_body"), type_=JSONB())["definition_components"]["components"], "component")
+    report_reference = func.jsonb_build_array(_text(source_pin, "source_product"), _text(source_pin, "source_member"))
+    source_context = _object(**{key: _text(source_pin, source) for key, source in (
+        ("product_id", "source_product"), ("member_id", "source_member"), ("project_id", "project_id"), ("kind_contract", "kind_contract"),
+        ("subject", "subject"), ("subject_definition", "subject_definition"), ("original_source", "original_source"))})
+    steps = (
+        SelectInto(select(core_relation_row(products)).select_from(inputs.join(products, and_(products.c.id == _text(inputs.c.value, "product_id"), products.c.project_id == r("project_id"))).join(kinds, kinds.c.kind_contract == products.c.kind_contract)).where(
+            _text(inputs.c.value, "role") == "question", _text(inputs.c.value, "member_id").is_(None), cast(_text(inputs.c.value, "multiplicity"), Integer()) == 1,
+            kinds.c.kind == NAMESPACE + "DdoOperationEventQuestion", kinds.c.universe == "evaluator"), ("question_product",), strict=True),
+        Assign("question", func.data.ddo_json(question_product("canonical_body"))),
+        _reject(or_(_text(body, "version").is_distinct_from("selected-operation-event-frame-product-1"),
+            _text(body, "frame_digest").is_distinct_from(_digest_text(_text(body, "frame_canonical_json"))),
+            cast(_text(body, "frame_canonical_json"), JSONB()).is_distinct_from(frame), frame["question"].is_distinct_from(question),
+            frame["question_reference"].is_distinct_from(func.ops.ddo_structural_product_reference(question_product())),
+            _text(question, "pass_kind").is_distinct_from("C"), _text(question, "exposure").is_distinct_from("output_first"),
+            _text(question, "partition").not_in(("development", "feature_fit"))), "event frame changes actual protected question or exact canonical frame"),
+        ForQuery(("selected",), _cut_pair(question), (
+            _reject(or_(_text(selected, "project_id").is_distinct_from(r("project_id")), *(_text(selected_cut, field).is_distinct_from(_text(selected, field)) for field in ("demand_id", "read_id", "release_id", "runtime_id"))), "event question changes exact native cut pins"),
+            Perform(func.ops.ddo_record_grade_require_cut(r("project_id"), _text(selected, "cut_canonical_json"), _text(selected, "cut_id"))),
+        )),
+        *(Assign(name + "_census", func.ops.ddo_record_grade_acquire_census(r("project_id"), _text(question, name + "_selection", "cut_canonical_json"), _text(question, name + "_selection", "cut_id"))) for name in ("original", "prediction")),
+        ForQuery(("selected",), select(judgments.c.value["selection"]), (
+            Assign("report_pin", selected["report"]), Assign("source_pin", selected["source"]),
+            _reject(_text(selected, "origin_group").is_distinct_from(_text(source_pin, "original_source")), "event origin group differs from actual original source"),
+            If(~reports.bool_op("?")(_text(report_pin, "product_id")), (Assign("reports_", reports.op("||")(func.jsonb_build_array(_text(report_pin, "product_id")))),)),
+            If(~sources.bool_op("@>")(func.jsonb_build_array(report_reference)), (Assign("sources_", sources.op("||")(func.jsonb_build_array(report_reference))),)),
+            SelectInto(select(inputs.c.value).where(_text(inputs.c.value, "role") == "reports", _text(inputs.c.value, "product_id") == _text(report_pin, "product_id"),
+                _text(inputs.c.value, "member_id").is_(None), cast(_text(inputs.c.value, "multiplicity"), Integer()) == 1), ("bound",), strict=True),
+            report_product.lookup(products.c.id == _text(report_pin, "product_id"), products.c.project_id == r("project_id")),
+            _reject(or_(report_pin.is_distinct_from(func.ops.ddo_structural_product_reference(report_product())),
+                ~select(1).select_from(prediction_outputs).where(_text(prediction_outputs.c.value, "product_id") == report_product("id"), _text(prediction_outputs.c.value, "derivation_id") == _text(selected, "derivation_id")).exists(),
+                ~select(1).select_from(support).where(_text(support.c.value, "role") == "reports", _text(support.c.value, "derivation_id") == _text(selected, "derivation_id")).exists()), "event report changes actual selected whole context/producer support"),
+            Assign("u", prediction_census["uses"][_text(selected, "use_id")]),
+            _reject(or_(use.is_(None), _text(use, "derivation_id").is_distinct_from(_text(selected, "derivation_id")), _text(use, "completion_state").is_distinct_from("success"), _text(use, "fate").not_in(("fulfilled", "attached"))), "event report lacks its exact successful selected native use"),
+            producer.lookup(producer.table.c.id == _text(selected, "derivation_id"), producer.table.c.outcome == "success"),
+            SelectInto(select(core_relation_row(definition.table)).select_from(definition.table.join(requests, requests.c.operation_id == definition.table.c.operation_id)).where(
+                requests.c.id == producer("request_id"), requests.c.project_id == r("project_id"), definition.table.c.release_id == producer("release_id")), ("definition",), strict=True),
+            _reject(or_(definition("operation_id").is_distinct_from(_text(selected, "producer_operation")), definition("implementation_revision").is_distinct_from(_text(selected, "producer_revision")), producer("release_id").is_distinct_from(_text(question, "prediction_selection", "release_id"))), "event report changes its actual admitted producer revision/release"),
+            SelectInto(select(roles.c.value).where(_text(func.data.ddo_json(roles.c.value, type_=JSONB()), "role") == "reports", _text(func.data.ddo_json(roles.c.value, type_=JSONB()), "product_id") == report_product("id")), ("role_meaning",), strict=True),
+            Perform(func.ops.ddo_definition_component_basis(role_meaning)),
+            _reject(~select(1).select_from(components).where(_text(components.c.value, "component_id") == _text(selected, "component_id")).exists(), "event component is absent from its actual whole report"),
+            SelectInto(select(inputs.c.value).where(_text(inputs.c.value, "role") == "sources", _text(inputs.c.value, "product_id") == _text(source_pin, "source_product"),
+                _text(inputs.c.value, "member_id").is_not_distinct_from(_text(source_pin, "source_member")), cast(_text(inputs.c.value, "multiplicity"), Integer()) == 1), ("bound",), strict=True),
+            _reject(~select(1).select_from(original_outputs).where(_text(original_outputs.c.value, "product_id") == _text(source_pin, "source_product")).exists(), "event original source is outside exact original selected support"),
+            Assign("actual", func.ops.ddo_record_grade_input_value(r("project_id"), _text(bound, "product_id"), _text(bound, "member_id"))),
+            _reject(or_(actual.op("-")("body").op("-")("analyzed_scope_meaning").is_distinct_from(source_context),
+                actual["analyzed_scope_meaning"].is_distinct_from(cast(_text(source_pin, "analyzed_scope_meaning"), JSONB())),
+                *(_text(actual, "body", "source", field).is_distinct_from(_text(source_pin, target)) for field, target in (("document", "document"), ("projection", "projection_digest"), ("section_pointer", "section_pointer"), ("membership", "membership")))), "event source pin changes exact selected coordinate/context"),
+        )),
+        _reject(or_(*(select(func.count()).select_from(inputs).where(_text(inputs.c.value, "role") == role).scalar_subquery() != func.jsonb_array_length(expected) for role, expected in (("reports", reports), ("sources", sources)))), "event frame changes the exact declared report/source population"),
+    )
+    p.add("ddo_operation_event_require_frame", (("r", "ops.data_request"), ("body", "jsonb")), steps,
+        (question_product.local(), Local("question", pg_type("jsonb")), Local("frame", pg_type("jsonb"), body["frame"]),
+        *(Local(name, pg_type("jsonb")) for name in ("selected", "original_census", "prediction_census", "report_pin", "source_pin", "bound", "actual")), report_product.local(), producer.local(), definition.local(),
+        Local("cpu_roles", pg_type("jsonb"), func.data.ddo_field(func.ops.ddo_cpu_input_basis(r()), "roles")), Local("role_meaning", pg_type("jsonb")), Local("u", pg_type("jsonb")), Local("reports_", pg_type("jsonb"), _json([])), Local("sources_", pg_type("jsonb"), _json([]))))
+
+
+def _require_fit(p):
+    r, demand, boundary, producer, frame_request, intent, actual, definition = (p.row(name, table) for name, table in (
+        ("r", "ops.data_request"), ("d", "ops.data_demand"), ("boundary", "ops.data_demand_read"), ("producer", "ops.data_derivation"),
+        ("frame_request", "ops.data_request"), ("intent", "ops.data_completion_intent"), ("actual", "kb.data_product"), ("definition", "sem.data_operation_definition")))
+    body, specification, selected, selection = (core_variable(name, JSONB()) for name in ("body", "specification", "selected", "selection_"))
+    product, derivation = core_variable("p_product", Text()), core_variable("p_derivation", Text())
+    admitted = core_variable("admitted", Boolean())
+    inputs, support = _items(r("binding")["inputs"], "item"), _items(r("binding")["support"], "support")
+    receipts, outputs = p.model.tables["ops.data_publication_receipt"], p.model.tables["ops.data_derivation_output"]
+    current_receipt = select(1).select_from(receipts.join(outputs, outputs.c.derivation_id == receipts.c.derivation_id)).where(
+        receipts.c.derivation_id == producer("id"), receipts.c.intent_id == intent("id"), outputs.c.product_id == product, outputs.c.member_id.is_(None), outputs.c.role == "frame").exists()
+    parameters = body["result"]["parameters"]
+    p.add("ddo_operation_event_require_fit", (("r", "ops.data_request"), ("body", "jsonb")), (
+        _reject(or_(_text(selection, "project_id").is_distinct_from(r("project_id")), _text(selected, "reference", "member_id").is_not(None),
+            _text(selection, "cut_id").is_distinct_from(literal("cut-selection:") + _digest_text(_text(selection, "cut_canonical_json")))), "event fit changes exact selected frame project/cut"),
+        Perform(func.ops.ddo_record_fit_cut_scopes(r("project_id"), selection)),
+        demand.lookup(demand.table.c.id == _text(selection, "demand_id"), demand.table.c.project_id == r("project_id")),
+        boundary.lookup(boundary.table.c.id == _text(selection, "read_id"), boundary.table.c.demand_id == demand("id")),
+        Perform(func.ops.ddo_require_read_current(boundary(), r("project_id"), True)), Assign("p", _object(scope=boundary("scope"))),
+        SelectInto(selected_support_output(p.model), ("admitted",)),
+        _reject(~func.coalesce(admitted, False), "event frame is outside exact native selected support"),
+        SelectInto(select(inputs.c.value).where(_text(inputs.c.value, "role") == "frame", _text(inputs.c.value, "product_id") == product,
+            _text(inputs.c.value, "member_id").is_(None), cast(_text(inputs.c.value, "multiplicity"), Integer()) == 1), ("chosen",), strict=True),
+        _reject(~select(1).select_from(support).where(_text(support.c.value, "role") == "frame", _text(support.c.value, "derivation_id") == derivation).exists(), "event fit changes exact frame producing support"),
+        producer.lookup(producer.table.c.id == derivation, producer.table.c.outcome == "success"),
+        frame_request.lookup(frame_request.table.c.id == producer("request_id"), frame_request.table.c.project_id == r("project_id")),
+        intent.lookup(intent.table.c.id == producer("intent_id"), intent.table.c.request_id == producer("request_id"), intent.table.c.generation == producer("generation")),
+        _reject(p.fences(producer, intent), "event frame differs from original producer fences"), *p.restore(frame_request, producer, intent),
+        definition.lookup(definition.table.c.release_id == producer("release_id"), definition.table.c.operation_id == frame_request("operation_id")),
+        actual.lookup(actual.table.c.id == product, actual.table.c.project_id == r("project_id")),
+        _reject(or_(selected["reference"].is_distinct_from(func.ops.ddo_structural_product_reference(actual())),
+            _text(func.data.ddo_json(actual("canonical_body"), type_=JSONB()), "frame_digest").is_distinct_from(_text(selected, "frame_digest")),
+            definition("operation_id").is_distinct_from("operation_event.frame"), ~current_receipt), "event fit lacks actual selected current frame CPU/common receipt"),
+        Perform(func.ops.ddo_require_operation_event_completion(frame_request(), intent("payload"))),
+        _reject(func.data.ddo_normalize(_at(intent("payload"), "outputs", 0, "product", "body")).is_distinct_from(actual("canonical_body")), "event frame differs from actual original CPU completion body"),
+        _reject(or_(body["specification"].is_distinct_from(specification), _text(body, "result", "frame_digest").is_distinct_from(_text(selected, "frame_digest")),
+            and_(parameters.is_not(None), parameters != _json(None), or_(parameters["algorithm"].is_distinct_from(specification["algorithm"]), _text(parameters, "frame_digest").is_distinct_from(_text(selected, "frame_digest"))))), "event fit changes actual frame identity or declared algorithm"),
+    ), (
+        Local("specification", pg_type("jsonb"), func.ops.ddo_record_grade_input(r(), "specification", type_=JSONB())["body"]),
+        Local("selected", pg_type("jsonb"), specification["frame"]), Local("selection_", pg_type("jsonb"), selected["selection"]), demand.local(), boundary.local(), Local("p", pg_type("jsonb")),
+        Local("p_use", pg_type("text"), _text(selected, "use_id")), Local("p_product", pg_type("text"), _text(selected, "reference", "product_id")), Local("p_derivation", pg_type("text"), _text(selected, "derivation_id")),
+        Local("admitted", pg_type("bool")), Local("chosen", pg_type("jsonb")), producer.local(), frame_request.local(), intent.local(), actual.local(), definition.local()))
+
+
+def _require_parameters(p):
+    r, issuing, issuer_request, intent = (p.row(name, table) for name, table in (
+        ("r", "ops.data_request"), ("issuing", "ops.data_derivation"), ("issuer_request", "ops.data_request"), ("intent", "ops.data_completion_intent")))
+    products, requests, definitions, receipts, outputs = (p.model.tables[name] for name in (
+        "kb.data_product", "ops.data_request", "sem.data_operation_definition", "ops.data_publication_receipt", "ops.data_derivation_output"))
+    chosen = core_variable("chosen", JSONB())
+    inputs, support = _items(r("binding")["inputs"], "item"), _items(r("binding")["support"], "support")
+    producer = issuing.table
+    protected_context = select(1).select_from(products).where(products.c.id == _text(chosen, "product_id"), products.c.project_id == r("project_id"), products.c.subject == r("subject"),
+        products.c.subject_definition == func.ops.ddo_operation_subject(r("release_id"), r("operation_id")), products.c.original_source.is_not_distinct_from(r("original_source")), products.c.analyzed_scope == r("analyzed_scope")).exists()
+    producer_query = select(core_relation_row(producer)).select_from(producer.join(outputs, outputs.c.derivation_id == producer.c.id).join(receipts, and_(receipts.c.derivation_id == producer.c.id, receipts.c.intent_id == producer.c.intent_id)).join(
+        requests, and_(requests.c.id == producer.c.request_id, requests.c.project_id == r("project_id"))).join(definitions, and_(definitions.c.release_id == producer.c.release_id, definitions.c.operation_id == requests.c.operation_id))).where(
+            outputs.c.product_id == _text(chosen, "product_id"), outputs.c.member_id.is_(None), outputs.c.role == "parameters", outputs.c.position == 0, outputs.c.multiplicity == 1,
+            producer.c.outcome == "success", definitions.c.command_class == "operation_event",
+            select(1).select_from(support).where(_text(support.c.value, "role") == "parameters", _text(support.c.value, "derivation_id") == producer.c.id).exists(),
+            func.ops.ddo_input_support_selection(chosen).bool_op("?")(producer.c.id))
+    p.add("ddo_operation_event_require_parameters", (("r", "ops.data_request"),), (
+        SelectInto(select(inputs.c.value).where(_text(inputs.c.value, "role") == "parameters", _text(inputs.c.value, "member_id").is_(None), cast(_text(inputs.c.value, "multiplicity"), Integer()) == 1), ("chosen",), strict=True),
+        _reject(~protected_context, "event score parameters change exact selected event context"),
+        SelectInto(producer_query, ("issuing",), strict=True),
+        issuer_request.lookup(requests.c.id == issuing("request_id"), requests.c.project_id == r("project_id")),
+        intent.lookup(intent.table.c.id == issuing("intent_id"), intent.table.c.request_id == issuing("request_id"), intent.table.c.generation == issuing("generation")),
+        _reject(p.fences(issuing, intent), "event parameter issuer differs from original producer fences"), *p.restore(issuer_request, issuing, intent),
+        Perform(func.ops.ddo_require_operation_event_completion(issuer_request(), intent("payload"))),
+        _reject(func.data.ddo_normalize(_at(intent("payload"), "outputs", 0, "product", "body")).is_distinct_from(select(products.c.canonical_body).where(
+            products.c.id == _text(chosen, "product_id"), products.c.project_id == r("project_id")).scalar_subquery()), "event score parameters differ from actual original native issuer"),
+    ), (Local("chosen", pg_type("jsonb")), issuing.local(), issuer_request.local(), intent.local()))
+
+
+def _completion(p):
+    r, definition, basis, producing, fit_request, fit_intent = (p.row(name, table) for name, table in (
+        ("r", "ops.data_request"), ("definition", "sem.data_operation_definition"), ("basis", "kb.data_product"),
+        ("producing", "ops.data_derivation"), ("fit_request", "ops.data_request"), ("fit_intent", "ops.data_completion_intent")))
+    completion, output, body, selected, expected = (core_variable(name, JSONB()) for name in ("completion", "output", "body", "selected", "expected"))
+    expected_factory, output_role, output_kind = (core_variable(name, Text()) for name in ("expected_factory", "output_role", "output_kind"))
+    kinds, products, producers, outputs, receipts = (p.model.tables[name] for name in ("sem.data_kind_contract", "kb.data_product", "ops.data_derivation", "ops.data_derivation_output", "ops.data_publication_receipt"))
+    supports = _items(completion["support"], "support")
+    fit_body = func.data.ddo_json(basis("canonical_body"), type_=JSONB())
+    payload = fit_intent("payload")
+    authorization = (
+        _reject(or_(~func.coalesce(definition("command_class") == "operation_event", False), func.jsonb_array_length(completion["inputs"]) != 1), "operation event issuer requires exact command/effect/factory and fit basis"),
+        Assign("output_role", literal("parameters")), Assign("output_kind", literal("urn:corpus:kind:operation-event:parameters")), Assign("selected", completion["inputs"][0]),
+        _reject(or_(_text(selected, "role").is_distinct_from("basis"), _text(selected, "member_id").is_not(None), cast(_text(selected, "multiplicity"), Integer()) != 1), "event issuer requires actual whole protected fit basis"),
+        SelectInto(select(core_relation_row(products)).select_from(products.join(kinds, kinds.c.kind_contract == products.c.kind_contract)).where(products.c.id == _text(selected, "product_id"),
+            products.c.project_id == r("project_id"), kinds.c.kind == NAMESPACE + "DdoOperationEventFit", kinds.c.universe == "evaluator"), ("basis",), strict=True),
+        SelectInto(select(core_relation_row(producers)).select_from(producers.join(outputs, outputs.c.derivation_id == producers.c.id).join(receipts, and_(receipts.c.derivation_id == producers.c.id, receipts.c.intent_id == producers.c.intent_id))).where(
+            outputs.c.product_id == basis("id"), outputs.c.member_id.is_(None), outputs.c.role == "fit", producers.c.outcome == "success",
+            select(1).select_from(supports).where(_text(supports.c.value, "role") == "basis", _text(supports.c.value, "derivation_id") == producers.c.id).exists(),
+            func.ops.ddo_input_support_selection(selected).bool_op("?")(producers.c.id)), ("producing",), strict=True),
+        fit_request.lookup(fit_request.table.c.id == producing("request_id"), fit_request.table.c.project_id == r("project_id"), fit_request.table.c.operation_id == "operation_event.fit"),
+        fit_intent.lookup(fit_intent.table.c.id == producing("intent_id"), fit_intent.table.c.request_id == producing("request_id"), fit_intent.table.c.generation == producing("generation")),
+        _reject(p.fences(producing, fit_intent), "event fit differs from original producer fences"), *p.restore(fit_request, producing, fit_intent),
+        Perform(func.ops.ddo_require_operation_event_completion(fit_request(), payload)),
+        _reject(or_(func.data.ddo_normalize(_at(payload, "outputs", 0, "product", "body")).is_distinct_from(basis("canonical_body")), _text(fit_body, "result", "status").is_distinct_from("fitted")), "event issuer basis differs from actual successful protected CPU fit"),
+        Assign("expected", func.data.ddo_field(func.data.ddo_field(basis("canonical_body"), "result"), "parameters")),
+        _reject(or_(expected == _json(["null"]), func.data.ddo_normalize(_at(output, "product", "body")).is_distinct_from(expected)), "event issuer may disclose only exact fitted strict parameters"),
+    )
+    is_frame, is_fit, is_score = (r("operation_id") == name for name in ("operation_event.frame", "operation_event.fit", _SCORE))
+    contract = definition("support_contract")
+    derivation = (
+        Assign("output_role", case((is_frame, "frame"), (is_fit, "fit"), else_="probability")),
+        Assign("output_kind", literal(NAMESPACE) + case((is_frame, "DdoOperationEventFrame"), else_="DdoOperationEventFit")),
+        Assign("expected_factory", case((is_score, "corpus_structure.semantic.operation_policy.acquire_operation_event_score_port"),
+            else_=literal("corpus_structure.methods.operation_events.") + case((is_frame, "OperationEventFrame"), else_="OperationEventFit") + literal(".acquire_port"))),
+        _reject(or_(definition("profile").is_distinct_from("derivation"), contract["effects"].is_distinct_from(_json([])),
+            _text(contract, "capabilities", "prepared_factory", "entrypoint").is_distinct_from(expected_factory),
+            _text(contract, "capabilities", "prepared_factory", "source_digest").bool_op("~")("^[0-9a-f]{64}$").is_not(True),
+            definition("implementation_revision").like("implementation-slice:%").is_not(True),
+            func.jsonb_array_length(func.coalesce(_at(completion, "execution_evidence", "cpu_receipts"), _json([]))) != 1,
+            func.data.ddo_normalize(_at(output, "product", "body")).is_distinct_from(func.ops.ddo_cpu_reply_output(r(), completion))), "event conclusion differs from actual admitted CPU body/factory/receipt"),
+        Assign("body", func.data.ddo_json(_at(output, "product", "body"))),
+        If(is_frame, (Perform(func.ops.ddo_operation_event_require_frame(r(), body)),),
+            (If(is_fit, (Perform(func.ops.ddo_operation_event_require_fit(r(), body)),), (Perform(func.ops.ddo_operation_event_require_parameters(r())),)),)),
+    )
+    exact_kind = select(1).select_from(kinds).where(kinds.c.kind_contract == _text(output, "product", "kind_contract"),
+        case((is_score, kinds.c.kind_contract == definition("output_roles")[0]["kind_contract"].astext), else_=kinds.c.kind == output_kind),
+        kinds.c.universe == case((r("operation_id").in_(("operation_event.authorize", _SCORE)), "ordinary"), else_="evaluator")).exists()
+    p.add("ddo_require_operation_event_completion", (("r", "ops.data_request"), ("completion", "jsonb")), (
+        If(r("operation_id").not_in(_OPERATIONS), (Return(),)),
+        definition.lookup(definition.table.c.release_id == r("release_id"), definition.table.c.operation_id == r("operation_id")),
+        _reject(or_(_text(completion, "outcome").is_distinct_from("success"), func.jsonb_array_length(completion["outputs"]) != 1,
+            completion["inputs"].is_distinct_from(r("binding")["inputs"]), completion["support"].is_distinct_from(r("binding")["support"]),
+            definition("implementation_revision").is_distinct_from(_text(completion, "implementation_revision")), definition("recipe").is_distinct_from(r("recipe"))), "operation event completion changes exact current request/implementation"),
+        Assign("output", completion["outputs"][0]), If(r("operation_id") == AUTHORIZATION_OPERATION, authorization, derivation),
+        _reject(or_(_text(output, "role").is_distinct_from(output_role), _text(output, "member_id").is_not(None), cast(_text(output, "position"), Integer()).is_distinct_from(0), cast(_text(output, "multiplicity"), Integer()).is_distinct_from(1),
+            _at(output, "product", "members").is_distinct_from(_json([])), ~exact_kind), "event output changes exact finite whole nominal contract"),
+    ), (definition.local(), Local("output", pg_type("jsonb")), Local("body", pg_type("jsonb")), *(Local(name, pg_type("text")) for name in ("expected_factory", "output_role", "output_kind")),
+        basis.local(), producing.local(), fit_request.local(), fit_intent.local(), Local("selected", pg_type("jsonb")), Local("expected", pg_type("jsonb"))))
+
+
+def _dependencies(p):
+    r, producer, intent, boundary = (p.row(name, table) for name, table in (("r", "ops.data_request"), ("producing", "ops.data_derivation"), ("intent", "ops.data_completion_intent"), ("boundary", "ops.data_demand_read")))
+    episode, selected = core_variable("episode", Text()), core_variable("selected", JSONB())
+    question = func.ops.ddo_record_grade_input(r(), "question", type_=JSONB())["body"]
+    p.add("ddo_operation_event_dependencies_valid", (("episode", "text"),), (
+        CatchDependencyInvalidity((
+            producer.lookup(producer.table.c.id == episode), r.lookup(r.table.c.id == producer("request_id")),
+            If(r("operation_id").not_in(_OPERATIONS), (Return(literal(True)),)), If(producer("outcome").is_distinct_from("success"), (Return(literal(False)),)),
+            intent.lookup(intent.table.c.id == producer("intent_id"), intent.table.c.request_id == producer("request_id"), intent.table.c.generation == producer("generation")),
+            Assign("r", func.ops.ddo_require_episode_correspondence(producer(), intent())),
+            If(r("operation_id") == "operation_event.frame", (
+                ForQuery(("selected",), _cut_pair(question), (Perform(func.ops.ddo_record_grade_require_cut(r("project_id"), _text(selected, "cut_canonical_json"), _text(selected, "cut_id"))),)),
+            ), (If(r("operation_id") == "operation_event.fit", (
+                Assign("selected", func.ops.ddo_record_grade_input(r(), "specification", type_=JSONB())["body"]["frame"]["selection"]),
+                Perform(func.ops.ddo_record_fit_cut_scopes(r("project_id"), selected)),
+                boundary.lookup(boundary.table.c.id == _text(selected, "read_id"), boundary.table.c.demand_id == _text(selected, "demand_id")),
+                Perform(func.ops.ddo_require_read_current(boundary(), r("project_id"), True)),
+            )),)), Return(literal(True)),
+        ), (Return(literal(False)),)),
+    ), (r.local(), producer.local(), intent.local(), Local("selected", pg_type("jsonb")), boundary.local()), returns="bool")
