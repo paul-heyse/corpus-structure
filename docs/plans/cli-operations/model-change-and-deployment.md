@@ -18,7 +18,7 @@ validate the requested revision. Use `semantic.regeneration.prepare_packs()` and
 already accepts prepared values. Expose an archived-to-local comparison without admitting the local
 release. Inventory applicable generated and handwritten consumers separately. Declare unknown
 dependency coverage and keep source locations where available.
-[Declaration change owner](../../../python/corpus-structure/src/corpus_structure/schema/change.py) ·
+[Compiled declaration comparison](../../../python/corpus-structure/src/corpus_structure/schema/compiled_changes.py) ·
 [Prepared semantic comparison](../../../python/corpus-structure/src/corpus_structure/semantic/operation_reporting.py)
 
 Refactor the local generation boundary so the full revision request and log validate before any
@@ -146,7 +146,7 @@ consumer effects. Bind the independently classified effects and release determin
 reviewed change and use them when composing apply and candidate. Exercise additive, mapped and
 provenance-only controls. Preserve the existing zero-write refusal and exact file recovery.
 [Preview and staged effects](../../../python/corpus-structure/src/corpus_structure/schema/model_change.py#L118) ·
-[Canonical change routing](../../../python/corpus-structure/src/corpus_structure/schema/change.py#L474) ·
+[Compiled change routing](../../../python/corpus-structure/src/corpus_structure/schema/compiled_changes.py) ·
 [Candidate command](../../../python/corpus-structure/src/corpus_structure/cli/model.py#L239)
 
 **CLI-CA03 · Consumer discovery.** The bounded locator reports AST and ast-grep hits for tokens

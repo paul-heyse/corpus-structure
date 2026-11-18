@@ -212,7 +212,7 @@ For native165 relation retirement, check frozen migration and predecessor, roote
 MCP and detached verification. The old two-argument function's absence is a native contract.
 Python search can locate consumers and cannot establish that contract.
 [Stage A entry](../../python/corpus-structure/src/corpus_structure/schema/__main__.py) ·
-[Independent declaration controls](../../python/corpus-structure/tests/schema/test_change.py) ·
+[Declaration controls at review baseline (historical recovery)](../README.md#historical-recovery) ·
 [WCE native165](../plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07)
 
 <a id="I07"></a>

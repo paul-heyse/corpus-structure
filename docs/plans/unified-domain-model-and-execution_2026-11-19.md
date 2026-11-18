@@ -334,9 +334,9 @@ package is not automatically one worker's assignment.
 | UDM-01 | One composer and one held compiled model; field-kind type resolution and the companion `cp:` columns read from it | — | R01, RC03, RC09, DA-085, DA-004, DA-086 (part) | Source integrated. Frozen native comparison in [entry increment](#entry-increment) |
 | UDM-02 | Declaration grammar and vocabularies in LinkML, each stating its openness; declared homes and checked Python copies of facts the model already declares; the one `validity_undetermined` diagnostic for an absent validity claim, switched on by UDM-05; hand grammar validator retired | UDM-01 | R02, R15, RC04, RC14, F05, DA-086 (part) | Source integrated. UDM-05 owns validity activation and native consumers |
 | UDM-03 | Role and purpose vocabularies; typed physical profile with declared per-schema defaults; grants from program declarations (native revision B) | UDM-02; bounded UDM-09 grant slice | R03, R07 step B, RC12, DA-074 | Source integrated. Shared native revision B remains open |
-| UDM-04 | The earlier core and system model retired after its consumers move; the model-change preview's successor, a comparison of two compiled models | UDM-01, UDM-02; the operator's decision on what the revision log must provide | R13, DA-072, DA-080 (part) | Not started |
-| UDM-05 | Every existing operation's validity claim declared (27 name families, the others `none`) and lowered per release; selection by the lowered attribute at every site; kernel-side connections of already-declared facts; release composition from the closure of requested operations (native revision A) | UDM-02; the operator's reading of the proposed claims before revision A is frozen | R02, R07 step A, RC01, RC05, DA-070, DA-073, DA-086 (part) | Not started |
-| UDM-06 | Conservative validity for operations left undetermined, shown on the stage to fit settlement; the non-refusing `validity_claim_unprotected` report (native revision A) | UDM-05 | R16, RC14, DA-070 (part) | Not started |
+| UDM-04 | The earlier core and system model retired after its consumers move; the model-change preview's successor, a comparison of two compiled models | UDM-01, UDM-02; the operator's decision on what the revision log must provide | R13, DA-072, DA-080 (part) | Compiled preview and initial retirement integrated. [Remaining live consumers](unified-domain-model-and-execution/model-authorities-and-openness.md#udm-04-execution) |
+| UDM-05 | Every existing operation's validity claim declared (27 name families, the others `none`) and lowered per release; selection by the lowered attribute at every site; kernel-side connections of already-declared facts; release composition from the closure of requested operations (native revision A) | UDM-02; the operator's reading of the proposed claims before revision A is frozen | R02, R07 step A, RC01, RC05, DA-070, DA-073, DA-086 (part) | Claims, lowering and closure integrated. [Remaining authority and acquisition work](unified-domain-model-and-execution/lowered-operation-facts-and-validity.md#revision-a-candidate-execution) |
+| UDM-06 | Conservative validity for operations left undetermined, shown on the stage to fit settlement; the non-refusing `validity_claim_unprotected` report (native revision A) | UDM-05 | R16, RC14, DA-070 (part) | [Private candidate passed](unified-domain-model-and-execution/lowered-operation-facts-and-validity.md#revision-a-candidate-execution). Stage observation remains open |
 | UDM-07 | One declared support-edge meaning and one mapping; current-demand discovery closure (native revision B or transition for the discovery predicate) | UDM-02; the ruling on the population edge; early UDM-20 evidence for discovery | R08, DA-071, I03 | Not started |
 | UDM-08 | The execution path generates nothing | — | R06, F01, DA-083 | Complete. Private PostgreSQL acquisition and export verified |
 | UDM-09 | Typed program registry from generation to installation, declaring each program's purposes and the families it validates | —; it reads the compiled model of UDM-01 where that has landed | R04, DA-081, DA-074 (part) | Grant declarations integrated. Full registry remains open |
@@ -520,6 +520,25 @@ term (`9a5b3aaa912f48159205401f20d8136f`). `uv run ci check --only types` passed
 Stage and canonical revision B registration and deployment, provider qualification and the book
 run are `not_run` in this increment.
 
+<a id="udm-0406-increment"></a>
+
+### UDM-04–06 increment
+
+The operator selected compiled comparisons and managed receipts as the successor to the earlier
+revision log. The [model authority companion](unified-domain-model-and-execution/model-authorities-and-openness.md#udm-04-execution)
+records the preview, retired pathways and live contracts that still retain the earlier model.
+The [validity companion](unified-domain-model-and-execution/lowered-operation-facts-and-validity.md#revision-a-candidate-execution)
+records the private N29 successor, the remaining protected owners and capture selectors, and
+revision A acceptance. Shared revision registration, stage and canonical deployment, and
+book activation remain separate work. UDM-18 still owns the decimal bound.
+
+**Verified 2026-11-18.** `uv run ci test collect` selected 8,909 tests
+(`42bbbeeb59124cbc96473abe3c13217c`). `uv run ci check --only types`
+(`7405a1434b4a4c49b263a1bdd45cdb4f`), `uv run ci check --only lint`
+(`802f3ba02bba4119834845f6ec2e8921`), `uv run ruff format --check`, `just model check`
+and `uv run ci docs check` (`12588b39cf4f4c5fbd9b40577d313f16`) passed. The full functional
+suite is `not_run`.
+
 ### UDM-24 — closing
 
 After [UDM-22](unified-domain-model-and-execution/qualification.md) and UDM-23 have passed on
@@ -541,23 +560,23 @@ review. "Closure evidence" is what must be observed, not a claim that it has bee
 |---|---|---|---|
 | [DA-068](../design_review/audit/execution-fit.md#da-068) one digest keys everything | UDM-10, UDM-11 | A generator edit that changes no installed byte produces no revision and leaves seals valid | Scheduled |
 | [DA-069](../design_review/audit/execution-fit.md#da-069) whole-file implementation identity | UDM-10 | An edit outside an operation's import closure leaves its implementation identity unchanged | Scheduled |
-| [DA-070](../design_review/audit/semantic-model-and-authority.md#da-070) validity families from id lists, fail open | UDM-05, UDM-06 | An operation named in no former list is governed by its own declaration; an existing operation keeps its behaviour under its declared claim; an undetermined one is conservatively valid and reported | Scheduled |
+| [DA-070](../design_review/audit/semantic-model-and-authority.md#da-070) validity families from id lists, fail open | UDM-05, UDM-06 | An operation named in no former list is governed by its own declaration; an existing operation keeps its behaviour under its declared claim; an undetermined one is conservatively valid and reported | Lowering, dispatch, conservative validation and reporting integrated. Native claim parity, protected authority and stage acceptance remain open |
 | [DA-071](../design_review/audit/semantic-model-and-authority.md#da-071) support graph encoded several times | UDM-07 | One edge declaration; every walker agrees on a hand-authored graph | Scheduled |
-| [DA-072](../design_review/audit/semantic-model-and-authority.md#da-072) two models | UDM-04 | No importer of the earlier model remains | Scheduled |
-| [DA-073](../design_review/audit/semantic-model-and-authority.md#da-073) release composition by flags | UDM-05 | Composition follows the closure of requested operations | Scheduled; begins with an inventory, an open premise |
+| [DA-072](../design_review/audit/semantic-model-and-authority.md#da-072) two models | UDM-04 | No importer of the earlier model remains | Preview and general model consumers moved. Remaining domain shapes and vocabularies keep retirement open |
+| [DA-073](../design_review/audit/semantic-model-and-authority.md#da-073) release composition by flags | UDM-05 | Composition follows the closure of requested operations | Authored operations and retained source collections follow closure. Capture skips unrelated provider acquisition. Other profiles and explicitly requested operations still have eager acquisition |
 | [DA-074](../design_review/audit/native-integrity.md#da-074) roles and guards as code lists | UDM-03, UDM-09 | An undeclared role refuses at generation; grants follow program declarations and equal the frozen privileges | Source and private catalog verified. Shared revision B and full registry open |
 | [DA-075](../design_review/audit/execution-fit.md#da-075) query cache keys | UDM-14, UDM-15 | A repeated command-line read reuses a continuation page; cross-request reuse only after its premise is settled | Scheduled; UDM-15 gated |
 | [DA-076](../design_review/audit/served-claims.md#da-076) served-read identity allowlist | UDM-10 | A module added to an entry point's closure moves the identity with no list edit | Scheduled |
 | [DA-077](../design_review/audit/served-claims.md#da-077) scientific policy describes the kernel | UDM-18 | Changing a declared parameter changes both the policy and the kernel's behaviour | Scheduled |
 | [DA-078](../design_review/audit/execution-fit.md#da-078) coarse readiness watermark | UDM-12 | The watermark does not advance on a kernel-only change | Scheduled in part; role granularity follows its soundness argument |
 | [DA-079](../design_review/audit/boundaries-and-composition.md#da-079) unclassified concurrent-run refusal | — | — | Retained by the review with its reason |
-| [DA-080](../design_review/audit/boundaries-and-composition.md#da-080) superseded machinery | UDM-19 (migration trees, dead modules and functions, the stale preview explanation, authored-SQL machinery); UDM-04 (the earlier model); UDM-16 (uncalled kernels) | Each listed item is gone with its tests | Scheduled |
+| [DA-080](../design_review/audit/boundaries-and-composition.md#da-080) superseded machinery | UDM-19 (migration trees, dead modules and functions, the stale preview explanation, authored-SQL machinery); UDM-04 (the earlier model); UDM-16 (uncalled kernels) | Each listed item is gone with its tests | Superseded preview, revision log, pack and key machinery removed. Remaining earlier-model consumers and UDM-16/19 stay open |
 | [DA-081](../design_review/audit/semantic-model-and-authority.md#da-081) hand-kept program lists and text handoff | UDM-09 | One registry; generated objects and privileges equal the current frozen ones | Scheduled |
 | [DA-082](../design_review/audit/execution-fit.md#da-082) hand-kept lowering list | UDM-10 | The lowering identity is derived; an unlisted dependency cannot exist | Scheduled |
 | [DA-083](../design_review/audit/execution-fit.md#da-083) capture rebuilt per acquisition | UDM-08, UDM-13 | Acquisition performs no generation | UDM-08 verified on private PostgreSQL. UDM-13 cache adoption open |
 | [DA-084](../design_review/audit/boundaries-and-composition.md#da-084) remaining hand-written PostgreSQL | UDM-17 | No hand-written PostgreSQL outside the stated exceptions | Scheduled |
 | [DA-085](../design_review/audit/semantic-model-and-authority.md#da-085) per-consumer model composition | UDM-01 | One composer; no consumer builds its own closure | Current routes integrated. UDM-04 owns earlier-model retirement |
-| [DA-086](../design_review/audit/semantic-model-and-authority.md#da-086) generator literals for declared facts | UDM-02 (declared homes and Python-side copies); UDM-01 (field-kind types and `cp:` columns); UDM-05 (kernel-side connections, revision A) | Each listed literal reads its declaration | Python and model source integrated. UDM-05 native consumers open |
+| [DA-086](../design_review/audit/semantic-model-and-authority.md#da-086) generator literals for declared facts | UDM-02 (declared homes and Python-side copies); UDM-01 (field-kind types and `cp:` columns); UDM-05 (kernel-side connections, revision A) | Each listed literal reads its declaration | Validity and selective native consumers integrated. Remaining captured owner facts, effect authorization and family-program adoption stay open |
 | [DA-033](../design_review/audit/execution-fit.md#da-033) release content re-proved | UDM-12 | A second admission of an unchanged release re-hashes nothing | Scheduled |
 | DA-001, DA-004, DA-020, DA-028 recurring at new sites | UDM-18, UDM-01, UDM-16 and UDM-18 respectively | As stated in the owning companion | Scheduled |
 | DA-040 decimal bound | UDM-18, joining revision A (B if A is already frozen) | One declared limit, read by the Python codec and by the generated canonicalizer | Scheduled |

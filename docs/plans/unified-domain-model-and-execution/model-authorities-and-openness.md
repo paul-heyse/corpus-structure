@@ -1,6 +1,6 @@
 # Model authorities and openness: the compiled model, the declaration grammar, integrity vocabularies and the earlier model's retirement
 
-**Status:** Not started.
+**Status:** In progress. UDM-01–03 have integrated source. UDM-04 retirement is partial.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-01** (one composer and one held compiled model),
@@ -785,6 +785,39 @@ and extended in the other.
   vocabulary refuses, on the released route alone (the UDM-02 control, re-run after deletion).
 - The generated facade imports no earlier-model name and is byte-identical otherwise.
 
+<a id="udm-04-execution"></a>
+
+### UDM-04 execution
+
+The operator selected the compiled comparison and managed receipts as the revision-log
+successor. `ci model change preview` compares the running and candidate captures and returns
+typed physical and vocabulary changes. Candidate source overrides are compiled into a
+separate model. Native apply eligibility still follows the installed predecessor, compiled
+effects and managed candidate custody.
+
+The legacy revision log, diff, pack registration and lookup routes, older statistics schema,
+and generated key machinery are removed. Current declaration and generator tooling read shared
+helpers directly. The native facade, methods and LLM task producers use the released
+`TaskUnitType`. Label normalization, symbol normalization and segment invariants now have
+live owners independent of the earlier model. The method result owns its source usage
+record. The unused candidate and translation modules were removed.
+
+The retirement search still finds active contracts from `core/vocab.py` and `core/_model`.
+Math span production uses the earlier formula, set and symbol-binding shapes. Observation
+payloads, authored batches and generated schemas require a consumer-by-consumer disposition.
+The earlier generator and both input YAML files remain until those consumers
+have a released contract or are retired. Retire the generated files and the earlier loader
+together after that work, then rerun the no-import search, collection and pack-openness controls.
+
+**Tested, 2026-11-18.** The focused preview, composition and pack selection recorded 202 passes
+and two fixture failures (`3190f160c56249f7ad22d5000e70d569`). The native-only registration
+and query-impact preview controls passed after each fixture supplied the custody it exercised
+(`92bd9b0c5be84184ba184b1406392e9a` and `b54f179048804ccbbeba340b1058576f`). The source method
+and dispatch controls passed 14 cases (`cebef0d5d2044fd7b1a83a73437b7255`). The alias archive
+regression passed after the fixture crossed the JSON wire boundary used by the real reader
+(`ffe9f24571694b4285b9ea22fae5d2da`). `just model check` passed with the regenerated
+released-model projections.
+
 ## Open premises
 
 | Premise | Evidence that settles it | Work it constrains |
@@ -794,7 +827,7 @@ and extended in the other.
 | LinkML validation reproduces every structural refusal of the hand validator for the 62 real modules and the negative table | The UDM-02 acceptance table | Which checks stay in the compiler pass |
 | The role-name disagreement: effect authorizations say `native-purpose:evaluator`, the purpose vocabulary says `evaluate` | The native owner's or the operator's choice of the one spelling; the other becomes a refusal | Blocks the `Purpose` declaration's final members in UDM-03; UDM-05's evaluator-authorization derivation reads the result |
 | Each physical schema's defaults reproduce today's effective grants and guard membership | The hand-written matrix of UDM-03's first acceptance item | UDM-03's defaults and which of the 84 empty read-role annotations remain |
-| What the earlier revision log and change records give the model-change preview that a comparison of two compiled models does not: declared change records, the `alembic_revision` link, log consistency checks, and the check that a native change names a revision (`schema/model_change.py:651–660`) | Reading `schema/model_change.py`, `schema/change.py` and the preview's command-line consumers in full, then the operator's decision on what must be provided | **Blocking** for UDM-04, and for deletion of `schema/change.py` and `model/revisions.yaml` |
+| What custody the successor must provide | Operator selected the compiled comparison and managed receipts | Settled. The earlier log and change records were removed |
 | LinkML generation of the declaration schema changes no field name that a SQL reader of the effective-model archive depends on (a risk the review names) | Reading the archive's SQL readers at UDM-02's entry | The pace of UDM-02's declaration schema, not its direction |
 | The released pack route covers what the earlier pack loader allowed | The two extensible sets (`StatementKind`, `ClaimModality`) exercised through a release | UDM-02's pack rule; UDM-04's deletion of `schema/pack.py` |
 
@@ -803,4 +836,4 @@ and extended in the other.
 | Package | State |
 |---|---|
 | UDM-01–03 | See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment) for the integrated source, package-local controls and native revision obligations |
-| UDM-04 | Not started |
+| UDM-04 | Compiled preview integrated. Live earlier-model shapes, vocabularies and their generators remain |

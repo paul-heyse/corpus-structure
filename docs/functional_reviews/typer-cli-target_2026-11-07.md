@@ -270,7 +270,7 @@ from the archive. Native candidate authoring compiles against a chosen migrated
 predecessor using rollback-only maintenance scope, and migration and admission have
 their own authority. These are valuable primitives for a composed operation.
 [Local entry point](../../python/corpus-structure/src/corpus_structure/schema/__main__.py) ·
-[Declaration change classifier](../../python/corpus-structure/src/corpus_structure/schema/change.py) ·
+[Declaration change classifier (historical recovery)](../README.md#historical-recovery) ·
 [Semantic comparison](../../python/corpus-structure/src/corpus_structure/semantic/operation_reporting.py) ·
 [Native candidate CLI](../../python/corpus-structure/src/corpus_structure/cli/schema.py)
 
@@ -329,7 +329,7 @@ replays the native165 pattern and checks the affected Reader, CLI, MCP and detac
 A provenance-only change avoids unnecessary regeneration. A stale predecessor or edited file
 refuses before its write boundary. A runtime-only correction preserves the semantic release
 where its meaning and output contract remain the same.
-[Current change controls](../../python/corpus-structure/tests/schema/test_change.py) ·
+[Change controls at review baseline (historical recovery)](../README.md#historical-recovery) ·
 [Semantic impact controls](../../python/corpus-structure/tests/semantic/test_operation_reporting.py) ·
 [Native165 repair](../plans/witnessed-corpus-enrichment_2026-11-05.md#repair-disposition--2026-11-07)
 

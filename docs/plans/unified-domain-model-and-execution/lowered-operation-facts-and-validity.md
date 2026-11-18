@@ -1,6 +1,6 @@
 # Lowered operation facts and validity: declared families, selection by lowered attribute, the conservative check and one support-edge meaning
 
-**Status:** Not started.
+**Status:** In progress. Validity source and selected release composition are integrated.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-05** (per-operation validity declarations lowered per
@@ -880,10 +880,77 @@ closure) is the first step of UDM-02 and is listed in the
 | Every existing operation's proposed claim is what its owner intends | The operator's reading of the list before revision A is frozen | The migration in UDM-05 |
 | The conservative path completes within settlement limits under concurrent completions | The bounded observation of UDM-06 on the stage, before revision A is frozen | Whether the conservative branch holds share locks or records the epoch map without them |
 
+<a id="revision-a-candidate-execution"></a>
+
+## Revision A candidate execution
+
+The release compiler archives explicit `none`, ready families or a conservative claim. The
+27 previously classified operations carry their N29 claims. Definition identity covers the
+validity record. Recipe identity excludes it. PostgreSQL lowering copies the record into
+required `validity_families` and `validity_conservative` columns. The migration converts the
+stored N29 scalar and removes the classifier and scalar column. The array check rejects
+unknown, provisional and null elements. Historical releases retain their original admission
+meaning and require re-preparation to run with the current kernel.
+
+The conjunction and family guards read the lowered set. Contextual and definition receipt
+counts read the declared CPU receipt count. Contextual, definition, artifact, rich preparation,
+event and selected evaluator consumers started reading roles, forms, kinds and family membership.
+Protected grading and fit census selections and the three privileged effect pins remain.
+Their removal requires a declared owner or capability with equivalent protection and a
+negative control for foreign claimants. The remaining native owner captures and live-completion
+branches still need that disposition before every per-operation fact leaves generation.
+
+Authored workflow or requested operations now seed the required and alternative dependency
+closure. Source collections are projected onto that selection. Statistics authors `phase0`,
+and a capture-only workflow skips unrelated NLP and characterization profile reads. Other
+profile acquisition is still eager and needs to be selected by prerequisites before resolving
+unrelated provider assets. A manifest with neither workflow nor requested operations still
+authors the configured full profile deliberately.
+
+The declaration and batch compilation controls passed 30 cases on 2026-11-18
+(`b0154a806f1944f788d5b010bafb1c7e`). They cover prior N29 family membership, claim consistency,
+and replacement operation inputs that retain the exact captured grammar. Actual preparation of
+a capture-only release succeeded with the unrelated profile paths unavailable. The capture
+manifest and broad default controls passed (`0c88af703cd24c2a972e45480d52715e`).
+
+Conservative settlement records the project epoch map under ordered share locks. Its validity
+check compares the retained publication against the current nonzero project epochs and kernel
+digest. `ci db check --release RELEASE --view validity` reports the conservative operation
+IDs after authenticating the retained projection. Preparation reports `validity_undetermined`
+and can advise `validity_claim_unprotected` for an explicit `none` that consumes a protected
+input. The private candidate is scoped to this increment. The stage observation and shared
+revision A registration remain open with the UDM-18 decimal bound and final native parity.
+
+**Tested, 2026-11-18.** `uv run ci test --native-host private --workers 1 -- python/corpus-structure/tests/semantic/test_udm_validity_native.py`
+passed (`be346d29a38d4ed0a770d7b0283be765`). The test authored and replayed a private successor
+from N29, verified scalar-to-array conversion and malformed-array refusal, and admitted a real
+release with one undetermined operation. Two settlements waited behind the same native
+revocation and both completed under the five-second lock timeout. Their receipts include the
+revoked scope's new epoch and exclude the other project's epoch. Replay reused the publication.
+A zero epoch left older validity intact and a same-project revocation of a different source
+invalidated it. The read principal authenticated the archive and reported the conservative ID.
+The earlier attempts remain held. `72c64f7635c94e65942400ee9f4244ce` caught a missing local in
+the definition guard, corrected to use the lowered input role. `1f1bfaa3465c4ff6b1cfa7d5a7d934ac`
+replayed the migration and stopped at a release/kernel digest mismatch during concurrent source
+edits. The passing retry checked matching captured, installed and prepared digests.
+
+The integrated native rerun passed both the N29 successor and the fresh installation route
+(`60fdd94b2f52482a9621eb9ba2427425`). It verified unchanged owner and privilege policy on
+shared object identities, classifier removal, conservative validator installation, and detached
+demand export with the declared validity facts. The prior fresh-install result
+`e3db388b4bd24763ab99ea103e434ac0` found those facts missing from detached rows. The output
+now includes them so the detached verifier can compare them with the captured release.
+
+```bash
+uv run ci test --native-host private --workers 2 -- \
+  python/corpus-structure/tests/semantic/test_udm_validity_native.py \
+  python/corpus-structure/tests/semantic/test_target_installation_native.py::test_actual_fresh_target_authoring_render_replay_install_and_acl
+```
+
 ## State
 
 | Package | State |
 |---|---|
-| UDM-05 | Not started |
-| UDM-06 | Not started |
+| UDM-05 | Claims, lowering, guard dispatch and release closure integrated. Remaining authority, capture and full native parity are open |
+| UDM-06 | Conservative publication and inspection passed on private PostgreSQL. Stage observation and shared revision A remain open |
 | UDM-07 | Not started |
