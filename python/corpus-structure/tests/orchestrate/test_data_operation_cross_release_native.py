@@ -229,7 +229,7 @@ def test_active_release_admits_fresh_unleased_capture_and_preserves_existing_aut
     old = json.loads(old_ready.native)
     fence = None
     if state in {"active", "expired"}:
-        fence = claim(ddo_kernel, old, seconds=30)
+        fence = claim(ddo_kernel, old, seconds=3600)
         if state == "expired":
             expire_lease(ddo_kernel, fence)
     elif state in {"retained", "published"}:
