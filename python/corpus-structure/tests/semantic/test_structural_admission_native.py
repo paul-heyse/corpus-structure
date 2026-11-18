@@ -381,6 +381,7 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         admission.body["statement_meaning_json"]
         == canonical_bytes(semantic_value(case["expected"])).decode()
     )
+    from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
     from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.serve.structural_products import (
         SelectedStructuralAdmissionBinding,
@@ -411,6 +412,33 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         }
         assert public_use["request_id"] is None and public_use["generation"] is None
         assert b"protected-structural-author:" not in json_bytes(public)
+        public_admission_page = read_demand_result(
+            connection,
+            retained["demand_id"],
+            project_id=PROJECT,
+            scope={"product_ids": [admission.row["product_id"]]},
+            view="products",
+        )
+        (public_admission_header,) = [
+            row
+            for row in public_admission_page.members()
+            if (row["product_id"], row["member_id"])
+            == (admission.row["product_id"], admission.row["member_id"])
+        ]
+        assert public_admission_header["body"] == admission.body
+        public_admission = SelectedSourceSetEntry.from_selected_header(
+            public_admission_header, public_admission_page.cut
+        )
+        assert public_admission.entry == admission.entry().entry
+        assert public_admission.proof == admission.entry().proof
+        assert public_admission.read.read_id != admission.read.read_id
+        assert public_admission_page.cut.record["scope"] == {
+            "product_ids": [admission.row["product_id"]]
+        }
+        assert (
+            public_admission_page.cut.record["selection"]["version"]
+            == "data-demand-public-selection-v1"
+        )
         with pytest.raises(DBAPIError, match="evaluator"), connection.begin_nested():
             read_demand_result(
                 connection, retained["demand_id"], project_id=PROJECT, view="frontier"
@@ -510,7 +538,7 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
         FrozenSourceSet.from_selected("dossier-comparisons", (comparison.entry(),)),
         FrozenSourceSet.from_selected("dossier-candidates", ()),
         FrozenSourceSet.from_selected("dossier-relationships", ()),
-        FrozenSourceSet.from_selected("dossier-admissions", (admission.entry(),)),
+        FrozenSourceSet.from_selected("dossier-admissions", (public_admission,)),
     )
     # Ordinary execution consumes the bounded conclusion. The writer does not
     # receive evaluator inputs or a capability to issue another conclusion.

@@ -73,12 +73,18 @@ def test_actual_rich_admission_keeps_complete_reading_authority_separate_from_sc
 
     journey = current_rich_policy
     fitted = complete_policy_fit(journey)
-    _, authorizations, *_ = journey.selected_products(
+    authorization_cut, authorizations, *_ = journey.selected_products(
         journey.kernel.purpose("write"),
         fitted.demand_id,
         kind="https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization",
+        scope={"operation_id": "record_policy.authorize"},
     )
-    ((authorization, _),) = authorizations
+    ((authorization, authorization_body),) = authorizations
+    assert authorization_body == fitted.authorization
+    assert authorization_cut.record["scope"] == {"operation_id": "record_policy.authorize"}
+    assert authorization_cut.record["selection"]["version"] == "data-demand-public-selection-v1"
+    (authorization_entry,) = authorization["_selected_entries"]
+    assert authorization_entry.read.cut_id == authorization_cut.identity
     source = next(
         source
         for source in journey.sources
