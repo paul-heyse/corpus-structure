@@ -6,6 +6,12 @@ def observation_publication_sql(context=None, *, target_metadata=None) -> str:
     from pglast.stream import RawStream
 
     from .metadata import metadata
+    from .native_objects import (
+        NativeIdentity,
+        native_owner_sql,
+        native_privilege_sql,
+        native_sql_script,
+    )
     from .pdf_contracts import trusted_pdf_context
     from .pdf_observation_native import (
         observation_projection_declaration,
@@ -28,23 +34,29 @@ def observation_publication_sql(context=None, *, target_metadata=None) -> str:
         observation_publisher_declaration(context, model),
     ]
     signatures = (
-        ("pdf_observation_meaning(bytea)", False),
-        ("pdf_recognition_profile(text,sem.data_operation_definition)", False),
-        ("pdf_observation_projection(jsonb,bigint,bigint,text)", True),
+        ("pdf_observation_meaning", ("bytea",), False),
+        ("pdf_recognition_profile", ("text", "sem.data_operation_definition"), False),
+        ("pdf_observation_projection", ("jsonb", "bigint", "bigint", "text"), True),
         (
-            "pdf_observation_projection_for_request(jsonb,bigint,bigint,text,ops.data_request)",
+            "pdf_observation_projection_for_request",
+            ("jsonb", "bigint", "bigint", "text", "ops.data_request"),
             False,
         ),
-        ("publish_pdf_observation(bigint,bigint,text,text,text,bytea,bytea[])", True),
+        (
+            "publish_pdf_observation",
+            ("bigint", "bigint", "text", "text", "text", "bytea", "bytea[]"),
+            True,
+        ),
     )
-    for signature, writer in signatures:
+    for name, parameters, writer in signatures:
+        identity = NativeIdentity("function", "ops", name, parameters)
         programs += [
-            "ALTER FUNCTION ops." + signature + " OWNER TO corpus_sem_publisher",
-            "REVOKE ALL ON FUNCTION ops." + signature + " FROM PUBLIC",
+            native_owner_sql(identity, "corpus_sem_publisher"),
+            native_privilege_sql(identity, "PUBLIC", grant=False),
         ]
         if writer:
-            programs += ["GRANT EXECUTE ON FUNCTION ops." + signature + " TO corpus_sem_writer"]
-    return ";\n".join(programs) + ";\n"
+            programs.append(native_privilege_sql(identity, "corpus_sem_writer", "EXECUTE"))
+    return native_sql_script(programs) + "\n"
 
 
 def observation_value_declarations(context, *, target_metadata=None):

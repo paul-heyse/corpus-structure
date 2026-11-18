@@ -1,0 +1,4 @@
+# Capture typed archive, PDF publication and admission programs and sealed event parameter reads.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n22
+native_revision: semantic_ddo_pe_n23
