@@ -256,8 +256,55 @@ def test_observation_projection_sql_and_first_write_stamp_are_current_native_inp
     )
     assert parse_plpgsql(RawStream()(declaration))
     assert "publication_context" in source
-    assert "'runtime_id',p_runtime" in source
+    compact = "".join(source.split())
+    assert "'runtime_id',p_runtime" in compact
     # Native stamping belongs to the first INSERT. Exact replay returns the old
     # immutable row before the INSERT; no UPDATE can relabel its first attempt.
-    assert source.index("RETURN digest") < source.index("INSERT INTO ops.pdf_product(")
+    assert compact.index("RETURNdigest") < compact.index("INSERTINTOops.pdf_product(")
     assert "UPDATE ops.pdf_product" not in source
+
+
+def test_observation_programs_install_current_abi_and_protect_request_projection(native_rollback):
+    """The generated package is real DDL with the existing purpose-role boundary."""
+    import psycopg
+    from sqlalchemy import text
+    from sqlalchemy.exc import DBAPIError
+
+    from corpus_structure.semantic.native_objects import execute_native_sql
+
+    connection = native_rollback.connection
+    execute_native_sql(connection, observation_publication_sql())
+    signatures = (
+        ("ops.publish_pdf_observation(bigint,bigint,text,text,text,bytea,bytea[])", True),
+        ("ops.pdf_observation_projection(jsonb,bigint,bigint,text)", True),
+        (
+            "ops.pdf_observation_projection_for_request(jsonb,bigint,bigint,text,ops.data_request)",
+            False,
+        ),
+        ("ops.pdf_observation_meaning(bytea)", False),
+        ("ops.pdf_recognition_profile(text,sem.data_operation_definition)", False),
+    )
+    for signature, writer in signatures:
+        assert (
+            connection.scalar(
+                text("SELECT has_function_privilege('corpus_sem_writer',:signature,'EXECUTE')"),
+                {"signature": signature},
+            )
+            is writer
+        )
+        assert (
+            connection.scalar(
+                text("SELECT has_function_privilege('corpus_sem_reader',:signature,'EXECUTE')"),
+                {"signature": signature},
+            )
+            is False
+        )
+    with pytest.raises(DBAPIError) as caught, connection.begin_nested():
+        connection.execute(
+            text(
+                "SELECT ops.publish_pdf_observation(-999,1,'missing','missing','missing',:payload,ARRAY[]::bytea[])"
+            ),
+            {"payload": b"{}"},
+        )
+    assert isinstance(caught.value.orig, psycopg.Error)
+    assert caught.value.orig.sqlstate == "P0002"
