@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from corpus_structure.methods.contextual_embeddings import ContextInput
@@ -267,7 +268,14 @@ def prepare_encoder_members(packet, members, *, check_active=lambda: None):
     return tuple(prepared), failures
 
 
-def execute_encoder_batch(packet, profile_record, model_path, artifacts, *, check_active):
+def execute_encoder_batch(
+    packet: dict[str, Any],
+    profile_record: dict[str, Any],
+    model_path: str,
+    artifacts: tuple[tuple[str, str], ...],
+    *,
+    check_active: Callable[[], None],
+) -> dict[str, Any]:
     from pydantic import TypeAdapter
 
     from corpus_structure.methods.contextual_embeddings import EncoderProfile, encode_contexts
