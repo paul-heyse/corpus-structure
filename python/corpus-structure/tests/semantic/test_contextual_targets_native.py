@@ -16,6 +16,7 @@ from corpus_structure.semantic.contextual_operations import (
     contextual_operation_declarations,
 )
 from corpus_structure.semantic.contextual_selection import freeze_contextual_target_demand
+from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
     DiscoverySelection,
@@ -25,10 +26,17 @@ from corpus_structure.semantic.data_operation_demands import (
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_service import execute_data_demand
-from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_storage import (
+    DataOperationStorage,
+    native_operation_declarations,
+    native_protocol_sources,
+)
 from corpus_structure.semantic.data_operation_support import authored_fact_selection
-from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
-from corpus_structure.semantic.demand_results import selected_record_index
+from corpus_structure.semantic.declared_structural_calls import (
+    structural_inputs,
+    structural_operation_declarations,
+)
+from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.types import (
     PreparationProfile,
@@ -42,12 +50,11 @@ ROOT = Path(__file__).resolve().parents[4]
 PROJECT = "ddo-test"
 
 
-@pytest.fixture
-def contextual_target_kernel(tmp_path, scenario_seeds):
+@pytest.fixture(scope="module")
+def contextual_target_recipe(tmp_path_factory):
     # These are capture-only model files. This test executes no encoder or model
     # loader: the finite target population and canonical projection are genuine.
-    model_path = tmp_path / "unallocated-model"
-    model_path.mkdir()
+    model_path = tmp_path_factory.mktemp("unallocated-contextual-model")
     for name in ("config.json", "modules.json"):
         (model_path / name).write_text("{}")
     selection = ContextualEncoderSelection.acquire(
@@ -55,29 +62,33 @@ def contextual_target_kernel(tmp_path, scenario_seeds):
         model_path,
     )
     bundle = contextual_inputs(
-        SourceBundle(
-            "core",
-            (
-                SourceArtifact(
-                    "core",
-                    (
-                        ROOT
-                        / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
-                    ).read_bytes(),
+        structural_inputs(
+            SourceBundle(
+                "core",
+                (
+                    SourceArtifact(
+                        "core",
+                        (
+                            ROOT
+                            / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
+                        ).read_bytes(),
+                    ),
                 ),
-            ),
+            )
         )
     )
+    native = native_protocol_sources()
     dependencies = data_operation_dependencies(
-        ResolvedDependencies(),
+        ResolvedDependencies((*native, *capture_port_generator_sources())),
         declarations=(
+            native_operation_declarations(native),
             contextual_encoder_declarations(),
             contextual_operation_declarations(),
             structural_operation_declarations(),
         ),
         python_sources=contextual_encoder_operation_sources(selection),
     )
-    recipe = KernelRecipe(
+    return KernelRecipe(
         "contextual-target-projection",
         "",
         None,
@@ -86,9 +97,16 @@ def contextual_target_kernel(tmp_path, scenario_seeds):
             bundle, dependencies, PreparationProfile(version="semantic-2")
         ),
     )
-    with scenario_seeds.commit_clone(recipe) as clone:
+
+
+@pytest.fixture
+def contextual_target_kernel(contextual_target_recipe, scenario_seeds):
+    # Reuse immutable preparation, while keeping each case's committed data private.
+    with scenario_seeds.commit_clone(contextual_target_recipe) as clone:
         stage = clone.stage
-        yield Kernel(clone.admin, stage.preparation, stage.identities, recipe, clone)
+        yield Kernel(
+            clone.admin, stage.preparation, stage.identities, contextual_target_recipe, clone
+        )
 
 
 def _project(kernel, names):
@@ -147,7 +165,7 @@ def _project(kernel, names):
         kernel.purpose("read").begin() as connection,
         selected_record_index(
             connection, demand, project_id=PROJECT, scope={}, capture_frontier=True
-        ) as (_, index),
+        ) as (cut, index),
     ):
         requests = index.mapping("ops.data_request", ("id",))
         derivations = index.mapping("ops.data_derivation", ("id",))
@@ -172,7 +190,22 @@ def _project(kernel, names):
             }
             assert episodes and product["original_source"] is None
             values[target_id] = (product["id"], body, episodes)
-        populations = list(index.rows("ops.data_population"))
+        # A closed empty discovery has no child use to reach it through support.
+        # Its actual population receipt belongs to the captured demand frontier.
+        population_page = read_demand_result(
+            connection,
+            demand,
+            project_id=PROJECT,
+            continuation=dict(
+                demand_id=demand,
+                read_id=cut.record["read_id"],
+                scope=cut.record["scope"],
+                view="frontier",
+            ),
+            cut=cut,
+            view="frontier",
+        )
+        populations = population_page.record["populations"]
         assert len(populations) == 1 and populations[0]["complete"] is True
         assert len(populations[0]["members"]) == len(names)
         return values
