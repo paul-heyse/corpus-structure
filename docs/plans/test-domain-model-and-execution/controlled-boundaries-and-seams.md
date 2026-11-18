@@ -3,12 +3,14 @@
 **Status:** Proposed design companion; not started. The
 [coordinator](../test-domain-model-and-execution_2026-11-17.md) owns the series' combined target,
 the package queue, package state, finding dispositions, shared contracts, rejected options and
-handovers. **Created:** 2026-11-17. Writing this plan authorizes no implementation.
+handovers. **Created:** 2026-11-17. **Revised:** 2026-11-18. Writing this plan authorizes no
+implementation.
 
 This companion owns the detailed design of four packages:
 
-- **TDM-09**, the production function that owns the PDF stream protocol (seam 1), the one
-  controlled converter built on it, and the removal of every hand-built converter reply
+- **TDM-09**, the production function that owns the PDF stream protocol (seam 1), completed on
+  top of the emitter the conversion delivered, the one controlled converter built on it, and the
+  removal of every hand-written preparation entry and copy of request assembly
   ([DTA-041](../../design_review/test-audit/support-structure.md#dta-041));
 - **TDM-10**, the demand executor's native-I/O collaborator (seam 2) and the move of its tests
   to the public constructor ([DTA-043](../../design_review/test-audit/support-structure.md#dta-043)),
@@ -24,13 +26,21 @@ This companion owns the detailed design of four packages:
 
 **Baseline and evidence.** Section references such as §4.3 mean the
 [source review](../../design_review/reviews/design_review_test-domain-model-and-execution_2026-11-17.md),
-which read source at `1afa63f88`. Every design statement here is **Proposed**. Every statement
-about current source is **Interface-checked by source inspection, 2026-11-17** at `50827eb9f`,
-and nothing was run: where the text says a test cannot set up or pass, that is by reading, not
-run. No speed claim is made. The investigation reports this companion draws on are in the
-evidence folder `docs/design_review/evidence/2026-11-17_test-plan-authoring/`, chiefly the
-[seam advice](../../design_review/evidence/2026-11-17_test-plan-authoring/seams.md) and the [current-state map](../../design_review/evidence/2026-11-17_test-plan-authoring/state.md). `tests/…` and
-`src/…` are relative to `python/corpus-structure/`; root paths are written as root `scripts/…`.
+which read source at `1afa63f88`. The series was authored at `50827eb9f` and revised at
+`12f57dc4d`, 2026-11-18, after the model-owned SQL conversion
+([ADR-0131](../../adr/0131-model-owned-postgresql-programs.md)) was complete and while its
+validation was running. Every design statement here is **Proposed**. Every statement about current
+source was re-read at `12f57dc4d` and is **Interface-checked by source inspection, 2026-11-18**,
+with line citations as of that commit; the one fact not re-read is marked and keeps its
+2026-11-17 label. Nothing was run: where the text says a test cannot set up or pass, that is by
+reading, not run. No speed claim is made. The investigation reports this companion draws on are
+in the evidence folder `docs/design_review/evidence/2026-11-17_test-plan-authoring/`, chiefly the
+[seam advice](../../design_review/evidence/2026-11-17_test-plan-authoring/seams.md), the
+[current-state map](../../design_review/evidence/2026-11-17_test-plan-authoring/state.md) and, for
+the revision, the
+[boundaries re-baseline](../../design_review/evidence/2026-11-17_test-plan-authoring/rebaseline-boundaries.md).
+`tests/…` and `src/…` are relative to `python/corpus-structure/`; root paths are written as root
+`scripts/…`.
 
 **Two local terms.** A **seam** is a place in production code where one collaborator can be
 replaced through a public parameter or function, so that a test replaces that collaborator and
@@ -46,7 +56,8 @@ executor needs PostgreSQL, and the real host needs a GPU. Each such test therefo
 something. The review's finding across these four packages is that the tests replace too much,
 and that what they replace is restated by hand.
 
-Seven converter doubles build a reply that production now refuses. One executor double assigns
+Nine converter doubles each rebuild the stream request and write a preparation entry that is
+not a preparation report. One executor double assigns
 about eighteen private attributes on an object that never ran its constructor, and copies the
 formula it is supposed to test. One host double refuses for a reason production does not have.
 A read-result page that eleven modules share has never been checked against the wire type it
@@ -59,8 +70,8 @@ production function "when it exists". This plan creates those production functio
 test-side owner has nothing to restate: it supplies the external computation's output and
 production does the rest.
 
-**What this companion consumes.** TDM-00's re-read of the baseline after the model-owned SQL
-conversion ([ADR-0131](../../adr/0131-model-owned-postgresql-programs.md)) has finished; TDM-07's
+**What this companion consumes.** The production emitter the conversion delivered
+(`StreamingPdfResult.certified_reply`); TDM-00's re-read of changes after `12f57dc4d`; TDM-07's
 bounded memo of prepared kernels, which TDM-10 uses; and the model-binding rule from TDM-02,
 which governs how each acceptance expectation below is authored.
 
@@ -97,76 +108,104 @@ therefore also has direct cases against the seam itself, with expectations writt
 
 ### Baseline
 
-**The protocol is inline in the worker child.** When the child receives a stream request it
-performs a fixed sequence inside `_native_child` (`src/corpus_structure/ingest/pdf_worker.py:82–133`).
-It prepares the payload family from `request.payload_schema`, builds a `PdfStreamSpool` over the
-request's spool root and recovery pages, and runs `StreamingPdfProducer.run`. It then writes
-record batches, acknowledges the completion entry, calls `certify_native_stream` and builds a
-nine-field `PdfStreamReply`. None of this is callable without a connection and a child process.
+**Delivered by the conversion.** Two commits changed where this package starts. `1d22c41cb`
+moved the seven five-field converter doubles onto a certifying helper. `8a5c074f0` added a
+production emitter, `StreamingPdfResult.certified_reply(request, *, on_replay)`
+(`src/corpus_structure/ingest/pdf_streaming.py:573–603`), and deleted the fixture-only occurrence
+writer `write_native_occurrence_batches`, which now has no reference in `src/` or `tests/`. The
+emitter takes a finished result, writes the record batches, acknowledges the completion entry,
+calls `certify_native_stream` and returns the nine-field `PdfStreamReply`. It has exactly three
+callers: the worker child (`src/corpus_structure/ingest/pdf_worker.py:105`) and two test helpers,
+`certify_controlled_pdf_stream` (`tests/pdf_acceptance_support.py:34–71`) and
+`_certified_controlled_reply` (`tests/semantic/current_pdf_source_support.py:198–209`). All nine
+controlled converter doubles reach it through one of those helpers, so every controlled reply now
+passes production encoding and certification, and by reading, not run, their consumers set up.
+This package therefore no longer restores setup, replaces five-field replies or deletes the
+writer. What remains is the half of the protocol before conversion, which tests still restate,
+and the form of the controlled content.
 
-**Preparation is acknowledged before conversion.** `StreamingPdfProducer.run`
-(`src/corpus_structure/ingest/pdf_streaming.py:643–690`) writes `native-preparation.json` from
-the converter's preparation report, derives an identity from it, refuses if the spool's recovered
-pages were produced under a different identity, and acknowledges the entry. Only then does it
-call the converter. Resuming a spool depends on that order, because recovery derives page
-identity from the preparation entry (`src/corpus_structure/ingest/pdf_build_spool.py:304–312`).
-This is the fact that changes the review's sketch: a function that receives an already converted
-result cannot own the protocol, because the first acknowledged step happens before there is a
-result.
+**The first half of the protocol is still inline in the worker child.** When the child receives a
+stream request, `_native_child` (`pdf_worker.py:88–106`) prepares the payload family from
+`request.payload_schema`, builds a `PdfStreamSpool` over the request's spool root with the
+acknowledgement callback and the recovery pages, runs `StreamingPdfProducer.run`, and only then
+calls `certified_reply`. No function owns that sequence, so it is not callable without a
+connection and a child process.
+
+**Preparation is acknowledged before conversion, inside the producer.** `StreamingPdfProducer.run`
+(`pdf_streaming.py:612–659`) writes `native-preparation.json` from the converter's preparation
+report, derives an identity from it, refuses if the spool's recovered pages were produced under a
+different identity, and acknowledges the entry (`:626–637`). Only then does it call the
+converter. Resuming a spool depends on that order, because recovery derives page identity from
+the preparation entry (`src/corpus_structure/ingest/pdf_build_spool.py:304–312`). This is why the
+emitter the conversion added cannot own the whole protocol: it receives a finished result, and
+the first acknowledged step happens before there is one.
 
 **The reply's options and the preparation file are the same bytes in production.** Both come
-from `converter.prepared_options_report` (`pdf_streaming.py:657–685`).
+from `converter.prepared_options_report` (`pdf_streaming.py:628`, `:654`). The result carries them
+as its `effective_options` field (`:386`), which the emitter reads (`:558`, `:599`).
 
-**One certified test helper exists and restates the protocol.** `_certified_controlled_reply`
-(`tests/semantic/current_pdf_source_support.py:198–232`) writes a preparation entry, record
-batches and a completion entry, calls production certification and returns a nine-field reply.
-It makes the right choice of boundary: the fixture authors the document, and production encodes
-and certifies it. It has four defects. It repeats the child's order by hand. It imports the
-private `_atomic_bytes` and `_ref` (`:201`). Its two callers pass preparation bytes that are not
-a preparation report (`b'{"fixture":…}'`, `:274` and `:463`), which production's
-`native_preparation_identity` would refuse (`pdf_build_spool.py:211–216` reads a `_preparation`
-key). And its spool is built without the request's payload schema or recovery pages (`:269`,
-`:458`).
+**The controlled path writes its preparation entry by hand, and the entry is not a preparation
+report.** Both test helpers write the result's `effective_options` as the preparation entry
+before calling the emitter (`pdf_acceptance_support.py:64–69`,
+`current_pdf_source_support.py:202–208`). Those bytes are `b'{"fixture":"controlled-source-search"}'`
+(`current_pdf_source_support.py:251`), `b'{"fixture":"controlled-source-search-sections"}'`
+(`:440`), or the dataclass default `b"{}"` for the seven former five-field doubles, which
+construct the result from six positional arguments. A third site, the child double in
+`tests/orchestrate/test_pdf_private_execution.py:144–178`, writes `b'{"fixture":"prepared-native"}'`.
+None is a report production would accept: `native_preparation_identity`
+(`pdf_build_spool.py:211–216`) reads a `_preparation` key. The identity is computed only when a
+spool is resumed (`:304–312`, and `verify_spool_recovery`, `:423`), so the defect is silent until
+a controlled path recovers. The controlled spools are also built without the acknowledgement
+callback, the request's payload family or its recovery pages
+(`PdfStreamSpool(spool_root, check_active=…)`, `current_pdf_source_support.py:246`, `:435`).
 
-**Seven doubles never adopted it.** Each returns a five-field reply
-(`PdfStreamReply("success", (), recipe, (), records + occurrences)`) with no preparation entry,
-no completion acknowledgement and no certification:
-`tests/semantic/current_pdf_integration_support.py:306`, `current_artifact_support.py:140`,
-`rich_domain_native_support.py:152`, `tests/evaluate/declared_record_native_support.py:247`,
-`tests/semantic/test_pdf_materialization_native.py:80`, `test_pdf_transform_demand_native.py:110`
-and `test_nce02_native_scope.py:251`. Production refuses such a reply twice: the spool requires
-exactly one preparation and one completion entry (`pdf_build_spool.py:741–748`), and publication
-requires a certification and an access replay (`src/corpus_structure/orchestrate/pdf_streaming.py:529–530`).
-By reading, not run, every consumer of those seven doubles fails during setup. The support
-modules among them are imported by about 27 test modules (integration 8, artifact 2, rich 3,
-declared-record 14), and three of the doubles sit in test bodies.
+**Request assembly is copied.** `PdfWorker.stream` takes ten keywords and builds the
+`PdfStreamRequest` itself (`pdf_worker.py:253–268`); its one production caller is
+`src/corpus_structure/orchestrate/pdf_streaming.py:421–433`. Because every double replaces
+`stream`, each receives the keywords and rebuilds the request: `certify_controlled_pdf_stream`
+(`pdf_acceptance_support.py:52–63`), `_controlled_stream` (`current_pdf_source_support.py:255`)
+and `_section_stream` (`:444`). The first of these is new since the authoring baseline and is the
+most widely shared copy: 23 test files import its module.
 
-**A writer exists only for those seven.** `StreamingPdfResult.write_native_occurrence_batches`
-(`pdf_streaming.py:567`) has no production caller. Its seven test callers are exactly the seven
-stale doubles. `STATUS.md` at the baseline schedules its removal as part of the conversion
-("fixture-only occurrence replay retirement").
+**Tests import the producer's private helpers.** `_atomic_bytes` is imported at
+`pdf_acceptance_support.py:50`, `current_pdf_source_support.py:200` and
+`test_pdf_private_execution.py:144`, which also imports `_ref`.
+`tests/semantic/test_pdf_shared_streams.py:449` imports `_ref` to build one reference for a
+replay-batch reader.
 
-**One direct caller of the helper is broken.** `tests/semantic/test_current_pdf_source_inputs.py:58–68`
-calls `_section_stream` without the `validation_contract`, `lowering_identity` and
-`payload_schema` keywords that the helper reads (`current_pdf_source_support.py:473–475`). By
+**The controlled content is a function installed with `monkeypatch`.** Nine doubles exist. Seven
+call `certify_controlled_pdf_stream`: `tests/semantic/current_pdf_integration_support.py:286–302`,
+`current_artifact_support.py:120–135`, `rich_domain_native_support.py:132–146` (and
+`decimal_source_stream`, `:93`), `tests/evaluate/declared_record_native_support.py:191–243`,
+`tests/semantic/test_pdf_materialization_native.py:60–79`,
+`test_pdf_transform_demand_native.py:90–170` and `test_nce02_native_scope.py:231–245`. Two call
+`_certified_controlled_reply`: `_controlled_stream` (`current_pdf_source_support.py:212`) and
+`_section_stream` (`:388`). Each authors its document inside a function that closes over its rows,
+and each is installed by `monkeypatch.setattr(pdf_worker.PdfWorker, "stream", …)` or passed as
+`stream=` to the source factory, which takes the `monkeypatch` fixture
+(`current_pdf_source_support.py:270–292`). A function cannot enter a recipe's identity, and a seed
+builder has no `monkeypatch`. The support modules among the nine are imported by about 70 test
+modules (source 43, integration 8, artifact 2, rich 3, declared-record 14).
+
+**One direct caller of a helper is broken.** `tests/semantic/test_current_pdf_source_inputs.py:58–68`
+is unchanged. It calls `_section_stream` without the `validation_contract`, `lowering_identity`
+and `payload_schema` keywords that the helper reads (`current_pdf_source_support.py:450–452`). By
 reading, not run, it raises `KeyError` before its first assertion.
 
-**The real-child control exists.** `tests/orchestrate/test_pdf_streaming_integration.py:21–112`
-replaces only Docling's `DocumentConverter` with a scripted provider inside the real child
-(`PdfWorker._child_target`), so application preparation, the spool, the pipe exchange and
-certification are all real. The same module shows the scripted provider running in-process
-without model assets (`:212`). The provider reaches into Docling internals (it builds a pipeline
-with `object.__new__` and calls `_release_page_resources`), which is a reason to keep it in one
-place.
-
-**What the conversion had already corrected at the baseline:** nothing in this finding. Two of
-nine sites used the certified helper before the review was written; no file involved changed
-between the review commit and the baseline.
+**The real-child control exists; no contract control does.**
+`tests/orchestrate/test_pdf_streaming_integration.py:21–95` replaces only Docling's
+`DocumentConverter` with a scripted provider inside the real child, so application preparation,
+the spool, the pipe exchange and certification are all real (the test starts at `:106`). The same
+module shows the scripted provider running in-process without model assets (`:212`). The provider
+reaches into Docling internals (it builds a pipeline with `object.__new__`, `:28` and `:33`, and
+calls `_release_page_resources`, `:66`), which is a reason to keep it in one place. Nothing
+compares the controlled route with the real child.
 
 ### Target design
 
-**One production function owns the sequence.** It takes the stream request, a producer and the
-acknowledgement callback, and returns the reply. It does four things in order.
+**One production function owns the sequence, and `certified_reply` is its last step.** It takes
+the stream request, a producer and the acknowledgement callback, and returns the reply. It does
+four things in order.
 
 1. It prepares the payload family from `request.payload_schema` and builds the spool from the
    request, including its recovery pages.
@@ -176,9 +215,8 @@ acknowledgement callback, and returns the reply. It does four things in order.
 3. It asks the producer to convert. The producer returns the document, the conversion status,
    the errors and the formula outcomes, and may acknowledge pages through the spool while it
    runs.
-4. It writes record batches, acknowledges the completion entry, certifies and returns the
-   reply. The reply's `effective_options` is the report from step 2 and is never a separate
-   value.
+4. It emits the reply through the existing `certified_reply`, handing it the report from step 2.
+   The reply's `effective_options` is that report and is never a separate value.
 
 **The producer is a two-step protocol.** A producer supplies its recipe bytes, a preparation
 step that returns the report, and a conversion step. The only production implementation is
@@ -187,23 +225,23 @@ today. The exact signatures are the implementer's; what is fixed is that prepara
 before conversion starts and that the function, not the producer, writes and acknowledges the
 report.
 
-Two small corrections belong to the same change because they remove the remaining ways a second
+One small correction belongs to the same change because it removes the remaining way a second
 party can disagree with the function. `StreamingPdfResult` stops carrying its own
-`effective_options` field (`pdf_streaming.py:380`), since the report now has one holder. And the
-record writer returns the reference to the completion entry it wrote; today the child recomputes
-that reference from a file name that two modules must agree on (`pdf_worker.py:112–116`,
-`pdf_streaming.py:529`).
+`effective_options` field (`pdf_streaming.py:386`), since the report now has one holder; a test
+can then no longer choose the preparation bytes by constructing a result. The other correction
+the authoring baseline listed, a completion reference recomputed in a second module, was
+delivered by `8a5c074f0`: the writer and the reference are now in one class (`:535`, `:589`).
 
 **The process boundary stays entirely outside the function.** The function knows nothing about
 pipes. It receives the acknowledgement as a callback.
 
 - In the child, the callback is today's exchange: send `PdfReplayReady`, wait for `True`
   (`pdf_worker.py:90–93`). `_native_child`'s stream branch reduces to one call.
-- In the parent, `PdfWorker._exchange` (`pdf_worker.py:205–254`) is unchanged: it verifies each
+- In the parent, `PdfWorker._exchange` (`pdf_worker.py:178–238`) is unchanged: it verifies each
   replay, checks the reply type and stops the child on a result that is not a success.
-- `PdfWorker.stream` takes a `PdfStreamRequest` instead of ten keywords (`pdf_worker.py:280–311`).
-  Its single production caller (`orchestrate/pdf_streaming.py:493–505`) already holds every
-  field. This is what stops a test double from restating how a request is assembled.
+- `PdfWorker.stream` takes a `PdfStreamRequest` instead of ten keywords. Its single production
+  caller (`orchestrate/pdf_streaming.py:421–433`) already holds every field. This is what stops a
+  test double from restating how a request is assembled.
 
 **The controlled converter is a producer plus a replacement for `PdfWorker.stream`.** The
 replacement receives the request the parent built and the parent's own callback, and calls the
@@ -229,12 +267,12 @@ scripted provider.
 
 **What the parent still verifies, for both routes.** Because the replacement passes the parent's
 own callback, none of these checks is bypassed: the family allow-list and confinement of each
-replay to the spool root (`orchestrate/pdf_streaming.py:411–444`, `pdf_build_spool.py:704–731`);
+replay to the spool root (`orchestrate/pdf_streaming.py:339–360`, `pdf_build_spool.py:704–731`);
 `spool.complete`, which requires exactly one preparation and one completion entry, a recipe
 digest equal to the build's premises and every replay of the reply acknowledged
 (`pdf_build_spool.py:741–788`); the presence, verification, kind and lowering identity of the
-certification (`orchestrate/pdf_streaming.py:529–548`); verification again at adoption
-(`:450–455`); and, on recovery, the completion header and the preparation identity
+certification (`orchestrate/pdf_streaming.py:457–476`); verification again at adoption
+(`:378–382`); and, on recovery, the completion header and the preparation identity
 (`pdf_build_spool.py:347–406`, `:304–312`). The in-process route skips only the pipe loop in
 `_exchange`, which the real-child tests cover.
 
@@ -242,11 +280,12 @@ certification (`orchestrate/pdf_streaming.py:529–548`); verification again at 
 
 TDM-08 seals a seed after a completed capture. Its builder runs outside any test, so it has no
 `monkeypatch` fixture, and the scenario's identity is its recipe. Three requirements follow, and
-TDM-09 delivers them.
+TDM-09 delivers them. The conversion delivered none of them: certifying the doubles left their
+content and installation as they were.
 
 1. **The controlled converter's content is a value, not a function.** Today a consumer chooses
-   its document by passing a function (`stream=…` in
-   `tests/semantic/current_pdf_source_support.py:315`). A function cannot enter a recipe's
+   its document by passing a function (`stream=…`, defaulted at
+   `tests/semantic/current_pdf_source_support.py:292`). A function cannot enter a recipe's
    identity. The owner instead defines a frozen, hashable content value built from plain data:
    the kind of controlled converter, the page, and an ordered list of authored elements with
    their label, text, original text, grouping and formula outcome. The owner builds the
@@ -268,8 +307,9 @@ express is added to the vocabulary, not smuggled in as a callable.
 
 ### Alternatives rejected
 
-- **A production function for the half after conversion only.** It would leave preparation with
-  the double, which is today's defect in a new place.
+- **Stopping at `certified_reply`, the function for the half after conversion.** It leaves
+  preparation, the spool and request assembly with the doubles, which is the state at the
+  revision baseline: three hand-written preparation entries and three copies of request assembly.
 - **An in-process mode inside `PdfWorker`.** That would be a production path that exists only
   for tests.
 - **The scripted Docling provider in every consumer.** It couples each consumer to Docling
@@ -289,12 +329,12 @@ is where it is expressed, and nothing else changes.
 The package is one change in three movements, and they should land together, because between
 them the tree would hold two protocol owners.
 
-*Production.* Extract the function; split `StreamingPdfProducer.run`; make `PdfWorker.stream`
-take a request; migrate `_native_child` and `orchestrate/pdf_streaming.py:493`; remove
-`StreamingPdfResult.effective_options` and the recomputed completion reference; delete
-`write_native_occurrence_batches`. Failure behaviour is preserved: a malformed report refuses
-before anything is acknowledged; a changed preparation identity on resume refuses before the
-entry is acknowledged; a conversion failure raises as today.
+*Production.* Extract the function, with `certified_reply` as its final step; split
+`StreamingPdfProducer.run`; make `PdfWorker.stream` take a request; migrate `_native_child` and
+`orchestrate/pdf_streaming.py:421`; remove `StreamingPdfResult.effective_options`. Failure
+behaviour is preserved: a malformed report refuses before anything is acknowledged; a changed
+preparation identity on resume refuses before the entry is acknowledged; a conversion failure
+raises as today.
 
 *Test support.* One support module owns the content value, the controlled producer, the
 installer and the report memo. The scripted Docling provider moves out of
@@ -302,53 +342,56 @@ installer and the report memo. The scripted Docling provider moves out of
 
 *Consumers.* Every double is replaced by a content value passed to the owner.
 
-**Complete consumer scope.** This is the whole scope, not a sample; TDM-00's re-read confirms it
-at entry.
+**Complete consumer scope.** This is the whole scope at `12f57dc4d`, not a sample; TDM-00's
+re-read confirms it against any later change.
 
-- The two certified sites, `_controlled_stream` and `_section_stream`
-  (`current_pdf_source_support.py:235–289`, `:411–479`), and `_certified_controlled_reply`
-  itself, all removed.
-- The seven five-field doubles listed in the baseline, and their installation sites
-  (`current_pdf_integration_support.py:429`, `current_artifact_support.py:218`,
-  `declared_record_native_support.py:357`, `test_pdf_materialization_native.py:82`,
-  `test_pdf_transform_demand_native.py:173`, and the `stream=` arguments at
-  `test_nce02_native_scope.py:269` and `current_pm2_native_support.py:80`).
-- Every caller that passes a function as `stream=` to the source factory: at the baseline
+- The two certifying helpers, `certify_controlled_pdf_stream` (`pdf_acceptance_support.py:34–71`)
+  and `_certified_controlled_reply`, both removed, with `_controlled_stream` and `_section_stream`
+  (`current_pdf_source_support.py:212–268`, `:388–455`).
+- The seven doubles that call `certify_controlled_pdf_stream`, listed in the baseline, and their
+  installation sites (`current_pdf_integration_support.py:426`, `current_artifact_support.py:215`,
+  `declared_record_native_support.py:354`, `test_pdf_materialization_native.py:79`,
+  `test_pdf_transform_demand_native.py:170`, and the `stream=` arguments at
+  `test_nce02_native_scope.py:266` and `current_pm2_native_support.py:80`).
+- Every caller that passes a function as `stream=` to the source factory:
   `test_current_contextual_native.py:83`, `test_actual_e5_selected_context_native.py:152`,
   `test_artifact_identity_registered_native.py:70`, `test_contextual_workflow_native.py:133`,
-  and the factory's own section route at `current_pdf_source_support.py:397–403` and the default at
-  `:315`. Two modules also replace `controlled_table_stream` on its support module to vary the
+  and the factory's own section route at `current_pdf_source_support.py:373–380` and the default
+  at `:292`. Two modules also replace `controlled_table_stream` on its support module to vary the
   document (`test_rich_domain_preservation_native.py:235`, `test_rich_domain_external_native.py:56`);
   they pass a different content value instead.
 - `test_current_pdf_source_inputs.py:58–68`, rewritten to drive the owner with a content value
-  and a real request. TDM-01 should leave this test to TDM-09, since TDM-09 rewrites it.
+  and a real request. TDM-01 leaves this test to TDM-09, since TDM-09 rewrites it.
 - Direct callers of `PdfWorker.stream` by keyword, which move to the request form:
   `tests/semantic/test_actual_pdf_spool_resume.py:87, 101, 119` and
   `tests/ingest/test_pdf_streaming.py:324, 374`.
-- Other constructions of `PdfStreamReply` that are not converter doubles and stay, adjusted only
-  for removed fields or signatures: the child-protocol replies in `tests/pdf_process_support.py:83, 100`,
-  the child double in `tests/orchestrate/test_pdf_private_execution.py:164` (which also imports
-  the private `_ref`, `:144`, and takes the returned completion reference instead), and the
-  spool unit case at `tests/ingest/test_pdf_build_spool.py:308`.
+- Other constructions of `PdfStreamReply` that are not converter doubles and stay: the
+  child-protocol replies in `tests/pdf_process_support.py:83, 100`, the spool unit case at
+  `tests/ingest/test_pdf_build_spool.py:308`, and the child double in
+  `tests/orchestrate/test_pdf_private_execution.py:144–178`. The last replaces the whole worker
+  to test the parent's lifecycle, so it keeps its scripted reply; it takes its preparation bytes
+  from the owner's report and builds its replay references through a public route in place of
+  `_atomic_bytes` and `_ref`. `test_pdf_shared_streams.py:449` drops its `_ref` import the same
+  way. Whether production gives the two helpers public names or the tests build the public
+  reference type directly is the implementer's.
+- Two staging helpers construct a `StreamingPdfResult`, write record batches and adopt them
+  directly, without a stream reply (`pdf_acceptance_support.py:74–100`, `stage_pdf_document`;
+  `tests/semantic/selected_source_native_support.py:139`). They are not replacements for
+  `PdfWorker.stream` and stay, adjusted only for the removed field.
 
-**Superseded machinery removed.** `_certified_controlled_reply`; nine stream doubles;
-`write_native_occurrence_batches`; the test imports of `_atomic_bytes` and `_ref`; the
-`effective_options` field of `StreamingPdfResult`; the keyword form of `PdfWorker.stream`.
-
-**If the conversion already did part of this.** The conversion's remaining work names the
-occurrence writer's retirement. If the writer is gone at entry, the seven doubles no longer
-import and their consumers fail earlier, not differently; the package proceeds unchanged and
-skips the deletion. If the conversion moved some doubles to the certified helper, they are
-simply fewer sites to replace. If it changed the child's sequence, the function is extracted
-from the sequence as it then stands, and the baseline section above is re-read first.
+**Superseded machinery removed.** `certify_controlled_pdf_stream` and
+`_certified_controlled_reply`; the nine stream doubles; every hand-written preparation entry;
+the test imports of `_atomic_bytes` and `_ref`; the `effective_options` field of
+`StreamingPdfResult`; the keyword form of `PdfWorker.stream`.
 
 ### Acceptance evidence
 
 Each item names what a wrong implementation would do to it.
 
 - **No second protocol owner.** A search of `tests/` finds no construction of `PdfStreamReply`
-  outside the three surviving non-converter sites, no import of `_atomic_bytes` or `_ref`, and
-  no reference to `write_native_occurrence_batches`. This fails if a copy survives.
+  outside the three surviving non-converter sites, no construction of `PdfStreamRequest` outside
+  direct callers of the request-form `PdfWorker.stream`, no import of `_atomic_bytes` or `_ref`,
+  and no preparation entry whose bytes a test authored. This fails if a copy survives.
 - **Malformed report.** A direct case gives the function a producer whose report lacks the
   preparation section and expects the identity refusal with an empty acknowledgement log. It
   fails if the function acknowledges before checking, or if a double is again allowed to supply
@@ -365,10 +408,12 @@ Each item names what a wrong implementation would do to it.
   document, the formula outcomes or the report. It cannot catch a defect in the function, which
   both routes share; the direct cases, the existing real-child integration test,
   `test_actual_pdf_spool_resume.py` and the parent's refusals cover that.
-- **Former consumers set up.** The modules that consume the seven former doubles pass setup
-  under `uv run ci test -- PATH`. Before the change they cannot, by reading. A consumer that
-  then fails for a reason unrelated to the converter is recorded for its owner and is not this
-  package's defect.
+- **Consumers keep passing, and the broken one passes.** The package's first step runs the
+  modules that consume the nine doubles under `uv run ci test -- PATH` and records the result,
+  because their setup at the revision baseline is established only by reading. The same modules
+  pass after the change, and `test_current_pdf_source_inputs.py` passes for the first time. A
+  consumer that fails before the change for a reason unrelated to the converter is recorded for
+  its owner and is not this package's defect.
 - **Expectations are independent.** The authored document's expected records are written in the
   test from the document's text, not read back from the function's output.
 
@@ -389,13 +434,18 @@ Tests do not call it. Seven sites build the object with `__new__` and assign pri
 `tests/semantic/test_d1_limitation.py:292` and `test_data_operation_capabilities.py:428`. The
 largest, `controlled_executor` (`test_data_operation_byte_admission.py:69–181`), assigns about
 eighteen attributes, replaces four private methods, and copies the reservation formula twice
-(`:53`, `:79`). It is imported by two other test modules
+(in `policy_for`, `:53`, and at `:79`). It is imported by two other test modules
 (`test_data_operation_execution_basis.py:12`, `tests/orchestrate/test_execution_host.py:163, 238, 369`).
 Its native replies are plain dictionaries returned from module names that the test replaces
-(`DataOperationStorage` and `DemandPlanner`, at `test_data_operation_byte_admission.py:134, 172`
-and `test_data_operation_execution_basis.py:140–142`), so no reply is checked against the wire
-contract. The helper's own docstring states the intent correctly: "Replace native I/O only".
-The executor gives it no way to do that.
+(`DataOperationStorage` and `DemandPlanner`, at `test_data_operation_byte_admission.py:136, 174`
+and `test_data_operation_execution_basis.py:82, 140–142, 413, 493`), so no reply is checked
+against the wire contract. The helper's own docstring states the intent correctly: "Replace
+native I/O only". The executor gives it no way to do that.
+
+One further site has the same coupling without `__new__`.
+`tests/semantic/test_data_operation_consumers.py:117–142` casts a `SimpleNamespace` holding
+`engine`, `model`, `demand` and `policy` to the executor type and calls the unbound
+`NativeDemandExecutor._hydrate` on it.
 
 The executor reaches native state at eight kinds of site, all through `self.engine` or
 `self.admission_engine`:
@@ -414,8 +464,11 @@ The executor reaches native state at eight kinds of site, all through `self.engi
 Port execution owners also receive the engine (`:299`); that I/O belongs to the ports and is
 outside this seam.
 
-The conversion had corrected nothing here at the baseline; no file under `src/…/orchestrate` or
-`tests/orchestrate` changed since the review.
+**Delivered by the conversion:** nothing. `orchestrate/data_operations.py` and the three
+executor test modules are unchanged since the authoring baseline, so every citation above holds
+at `12f57dc4d`. The conversion rewrote the bodies of the production storage calls
+(`semantic/data_operation_storage.py`) without moving the executor's call surface, and the
+dictionaries the tests return for those calls are unchanged and still unvalidated.
 
 ### Target design
 
@@ -503,12 +556,14 @@ through the public constructor from the memoized recipe. Because the builder is 
 module, this package closes the two parts of neighbouring findings that the coordinator assigns
 to it: DTA-009's `controlled_executor` case and DTA-034's claim double.
 
-**Complete consumer scope.** The seven `__new__` sites above; the twelve calls of
+**Complete consumer scope.** The seven `__new__` sites above; the `SimpleNamespace` executor in
+`test_data_operation_consumers.py:117–142`, which becomes an executor built through the public
+constructor or a direct test of the hydration it exercises; the twelve calls of
 `controlled_executor` in `test_data_operation_byte_admission.py`; its callers in
-`test_data_operation_execution_basis.py:183` and `test_execution_host.py:203, 244` with the
-import at `:369`. Three native modules inject faults on a real database by replacing `_publish`
+`test_data_operation_execution_basis.py:183` and `test_execution_host.py:203, 244, 374`. Three
+native modules inject faults on a real database by replacing `_publish`
 or `_retain_answer` (`tests/semantic/test_prepared_authority_batch_native.py:98`,
-`test_pm2_parser_stage_native.py:174–195`, `current_pdf_integration_support.py:440–510`). They
+`test_pm2_parser_stage_native.py:174–195`, `current_pdf_integration_support.py:441–507`). They
 may move to wrapping the default collaborator's calls. That move is optional, is taken only when
 it simplifies the test, and is not a completion condition.
 
@@ -520,15 +575,13 @@ it simplifies the test, and is not a completion condition.
 memo key includes the binding. The need is economy and correctness of reuse, not capability: the
 production seam and the native-suite check do not depend on TDM-07 and may proceed first.
 
-**If the conversion already did part of this.** The conversion's remaining scope includes the
-binding, acquisition and completion kernels, so the wire operations the executor calls may be
-renamed or regrouped at entry. The interaction table is re-read then. The design does not depend
-on the names: whatever calls the executor makes move behind the collaborator.
+The conversion converted the binding, acquisition and completion kernels without renaming or
+regrouping the wire operations the executor calls, so the interaction table stands as written.
 
 ### Acceptance evidence
 
-- A search finds no `__new__` construction of `NativeDemandExecutor` and no replacement of the
-  two module names in tests. This fails if a bypass survives.
+- A search finds no `__new__` construction of `NativeDemandExecutor`, no object cast to it, and
+  no replacement of the two module names in tests. This fails if a bypass survives.
 - The sentinel engine's `connect`, `begin` and `raw_connection` are never called in a test built
   through the seam, and constructing the executor with the sentinel succeeds. The first fails if
   any executor path still opens its own transaction; the second fails if the sentinel breaks the
@@ -573,6 +626,10 @@ only test that claims to cover a mismatch asserts a refusal the test double inve
 has no check before start that produces such a refusal. The real child adapters do refuse
 several mismatches before reporting (`src/corpus_structure/methods/native_host_adapters.py:17–74`),
 but the peer runs none of them.
+
+**Delivered by the conversion:** nothing. No conversion commit touched `methods/native_host.py`,
+`methods/native_profiles.py`, the peer or these tests, so every citation above holds at
+`12f57dc4d`.
 
 One detail matters to the design. An observation whose `native_threads` is present but is not a
 dictionary would, by reading, raise `AttributeError` from the chained `.get` (`:209–210`) and
@@ -636,9 +693,10 @@ removal of `_validate_startup`. The complete consumer scope is one production ca
 (`native_host.py:185`), the peer (`native_host_cases.py`), the new unit cases beside the
 existing host tests in `tests/methods/test_native_host.py`, and the one resources test and its
 double. Nothing else references the private method or its message. The package has no
-prerequisite and is independent of the conversion; if the conversion touched
-`methods/native_host.py`, the eleven comparisons are re-read at entry and the hand-written list
-is written from that reading.
+prerequisite and is independent of the conversion, which did not touch the host. One neighbouring
+site is noted and left alone: `tests/methods/test_native_host.py:57` builds a `NativeHost` with
+`__new__` and assigns private fields for a reader-routing test, which is not on the profile path;
+it moves to the public constructor only if this package's edits to that module make that easy.
 
 **Superseded machinery removed.** `NativeHost._validate_startup`; the artifact refusal in the
 `Group.startup` double; the test name that claims a production refusal.
@@ -656,7 +714,7 @@ is written from that reading.
 ### Not in scope: `admitted_startup_matches`
 
 `admitted_startup_matches` (`src/corpus_structure/methods/native_profiles.py:165–198`) compares
-an observed startup record with an admitted one. A search of `src/` at the baseline finds no
+an observed startup record with an admitted one. A search of `src/` at `12f57dc4d` finds no
 caller; its only users are `tests/methods/test_native_host.py:617–677`. It is a different
 contract from the comparison in this package (observed against admitted records, not observation
 against profile). Whether a consumer is pending or the function is superseded is the production
@@ -679,7 +737,8 @@ the native read-result page. Eleven modules import it from that test module
 result reader loads it raw, and nothing validates it against the wire type, although production
 has the validator for exactly this record
 (`validate_native_wire("read_demand_result", "output", …)`,
-`src/corpus_structure/semantic/demand_results.py:502`).
+`src/corpus_structure/semantic/demand_results.py:502`; this one citation was not re-read at
+`12f57dc4d` and keeps its 2026-11-17 label).
 
 **The frontier recheck.** `control_frontier`
 (`tests/semantic/selected_query_cache_support.py:27–43`) replaces
@@ -701,27 +760,36 @@ second fake does the same (`tests/semantic/test_contextual_owned_encoder.py:23�
 member is dropped from a batch and several survive, the batch form must realign outputs to
 members. With identical vectors an off-by-one in that realignment passes.
 
-**Support code in test modules (DTA-009's sharp cases).** At the baseline 65 import statements
-take a private name from a non-production module. The cases the review names are `_page` (11
-importers), `_complete_ready` from `test_data_operation_population_native.py:145` (imported by
-`test_data_operation_context_fanin_native.py:18` and
-`test_selected_source_acquisition_native.py:29`), and `controlled_executor`.
+**Support code in test modules (DTA-009's sharp cases).** At `12f57dc4d` 67 import statements
+take a private name from a non-production module, by a scan of every import; four of them arrived
+with tests the conversion added. The cases the review names are `_page` (11 importers),
+`_complete_ready` from `test_data_operation_population_native.py:145`, which has four importers
+and not the two first recorded (`test_data_operation_context_fanin_native.py:18`,
+`test_selected_source_acquisition_native.py:29`, `test_data_operation_pinned_reuse_native.py:29`
+and `test_data_operation_transitive_read_native.py:27`), and `controlled_executor`.
 
 **Test modules imported from another test directory.** The review's §5.5 also names
 cross-directory imports. `tests/` itself is not a package; `tests/semantic/` and `tests/methods/`
 are, and test modules import support modules of other directories by the absolute form
 (`from semantic.x_support import …`), which is the tree's convention and not a defect. The sharp
-case is a *test module* used as support from another directory. By search at `50827eb9f`, nine
-importing files do this, in sixteen import statements: for example
+case is a *test module* used as support from another directory. By a scan of every import at
+`12f57dc4d`, ten importing files do this, in seventeen import statements, the same as at the
+authoring baseline, whose search missed one file: for example
 `tests/evaluate/test_selected_operation_events.py` imports from `semantic.test_demand_results`
 and `semantic.test_sentence_products`, `tests/methods/test_construction_named.py` from
 `semantic.test_construction_products` and `semantic.test_source_annotations`,
 `tests/semantic/test_cpu_authority_reply_native.py` and `test_record_fit_native.py` from
 `evaluate.test_declared_record_policy`, `tests/semantic/test_demand_context.py` from
-`methods.test_declared_contextual_query`, and `tests/semantic/test_native_fixtures.py` from the
-root-level `test_prerequisites`. The three relative imports in the tree
-(`from . import pdf_native_source_support` in three modules of `tests/semantic/`) are inside a
-package; no relative import sits in a directory that is not a package at the baseline.
+`methods.test_declared_contextual_query`, `tests/evaluate/test_selected_native_question.py` from
+`semantic.test_selected_references`, `tests/semantic/test_record_support_native.py` from
+`evaluate.test_declared_rich_native_journey`, and `tests/semantic/test_native_fixtures.py` from
+the root-level `test_prerequisites`. The three relative imports in the tree (in
+`test_pdf_payload_validation.py`, `test_pdf_stream_reconciliation.py` and
+`test_native_child_edge_guard.py` under `tests/semantic/`) are inside a package; no relative
+import sits in a directory that is not a package.
+
+**Delivered by the conversion:** nothing. Every site above is unchanged since the authoring
+baseline; the count corrections are corrections of the first reading, not changes in source.
 
 ### Target design
 
@@ -766,7 +834,7 @@ tree's absolute form. Imports of support modules across directories are unchange
 **What stays for later.** Cohesive public builders and private names imported between test
 modules of the *same* directory move when a package touches the importing module and not
 otherwise, since no assertion depends on where they live (§5.5). This package does not undertake
-a general sweep of the 65 private-name imports; the coordinator's disposition of DTA-009 records
+a general sweep of the 67 private-name imports; the coordinator's disposition of DTA-009 records
 that remainder with its trigger.
 
 **Not in scope here.** Tests named `_native` that run on a hand-built substitute schema
@@ -788,8 +856,8 @@ that remainder with its trigger.
 **Complete consumer scope:** the eleven importers of `_page`; the four users of
 `control_frontier` (`test_current_candidate_facets`, `test_selected_structural_readers`,
 `test_current_composite_delivery`, `test_grouped_record_interpretations`); the one
-population-close double; the two encoder fakes and the batch tests that use them; the two
-importers of `_complete_ready`; the nine files that import a test module from another test
+population-close double; the two encoder fakes and the batch tests that use them; the four
+importers of `_complete_ready`; the ten files that import a test module from another test
 directory, with the modules they import from.
 
 **Superseded machinery removed.** `_page` in the test module; the three invented refusals; the
@@ -799,10 +867,10 @@ local `Storage` class; the constant-vector fakes.
 population-close replacement uses. Everything else in this package is independent of TDM-10 and
 may proceed before it.
 
-**If the conversion already did part of this.** The conversion regenerates wire types. The
-builder validates against whatever the generated type is at entry, which is the point of
-validating. If the read-result record changed shape, the builder's correction and its consumers'
-adjustments are larger, and are still this package.
+**The generated wire types.** The conversion regenerated wire types, and whether the read-result
+record changed shape was not re-read. The builder validates against the generated type as it
+stands, which is the point of validating. If the record changed shape, the builder's correction
+and its consumers' adjustments are larger, and are still this package.
 
 ### Acceptance evidence
 
@@ -843,7 +911,7 @@ notes); each is the first step of its owning package, or of TDM-08 where noted.
    perturbed schema forbids.
 3. **Do today's authored claim replies pass wire validation?** (TDM-10, first step.) The current
    replies include `trust_snapshot={}` in claim results
-   (`test_data_operation_execution_basis.py:72, 418`). *Settled by* running the authored replies
+   (`test_data_operation_execution_basis.py:73, 373, 477`). *Settled by* running the authored replies
    through `validate_native_wire` once the double is in place. Replies that fail are corrected;
    the count affects effort, not design.
 4. **Does demand reuse avoid a capture claim?** (TDM-08, first step; recorded here because
@@ -883,8 +951,9 @@ the key simplifies.
 ## Order within this companion
 
 The coordinator's queue binds. Within this companion: TDM-11 shares no files with the others;
-TDM-09 should run early, because TDM-08 consumes its converter and because it restores setup for
-the largest group of tests that cannot currently set up; TDM-10's production change can precede
+TDM-09 should run early, because TDM-08 consumes its converter and because it removes the
+hand-written preparation entries before a controlled path first resumes a spool; it no longer
+restores setup for any test other than `test_current_pdf_source_inputs.py`. TDM-10's production change can precede
 TDM-07 and its test migration follows TDM-07; TDM-12 shares `data_operation_binding_support.py`
 with TDM-10, so its population-close item follows TDM-10 and the rest is free.
 
@@ -892,7 +961,7 @@ with TDM-10, so its population-close item follows TDM-10 and the rest is free.
 
 | Package | State |
 |---|---|
-| TDM-09 | Not started |
+| TDM-09 | Not started; partly delivered by the conversion (`1d22c41cb`, `8a5c074f0`), remaining scope above |
 | TDM-10 | Not started |
 | TDM-11 | Not started |
 | TDM-12 | Not started |

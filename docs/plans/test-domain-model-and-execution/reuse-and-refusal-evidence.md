@@ -17,18 +17,27 @@ state, the queue, finding dispositions, shared contracts, rejected options and h
 **Baseline and evidence.** Section references written `§n` point to the
 [source review](../../design_review/reviews/design_review_test-domain-model-and-execution_2026-11-17.md),
 which read source at `1afa63f88` and the audit at `fbd3f2a98`; this companion develops its §4.4,
-the cache row of §4.8 and §5.4. Every design statement here is **Proposed**. Every source fact is
-**Interface-checked by source inspection, 2026-11-17** at `50827eb9f`; nothing was run, and a
-statement about what a test would observe is made "by reading, not run". No speedup is claimed.
-The investigation reports this companion draws on are in the evidence folder
+the cache row of §4.8 and §5.4. Every design statement here is **Proposed**. The plan was
+authored against commit `50827eb9f` (the authoring baseline, 2026-11-17) and revised against
+commit `12f57dc4d` (the revision baseline, 2026-11-18), after the model-owned SQL conversion
+([ADR-0131](../../adr/0131-model-owned-postgresql-programs.md)) was completed. The conversion is
+under validation, so source may still move a little; TDM-00 re-reads what changed since
+`12f57dc4d`. Source facts re-read at the revision baseline are **Interface-checked by source
+inspection, 2026-11-18**, and line citations are to that commit. Facts that were not re-read keep
+their 2026-11-17 label: in this document those are the internals of mechanisms 5 to 8, whose
+production and test files are unchanged since the authoring baseline, and the count of cases at
+the two bare-`ValueError` tests of TDM-14. Nothing was run, and a statement about what a test
+would observe is made "by reading, not run". No speedup is claimed. The investigation reports
+this companion draws on are in the evidence folder
 `docs/design_review/evidence/2026-11-17_test-plan-authoring/`: the
 [current-state map](../../design_review/evidence/2026-11-17_test-plan-authoring/state.md), whose part B lists what a test can observe for each
-mechanism, and the [library capability notes](../../design_review/evidence/2026-11-17_test-plan-authoring/library-capabilities.md). The series
-executes after the model-owned SQL conversion
-([ADR-0131](../../adr/0131-model-owned-postgresql-programs.md)); TDM-00 re-reads every mechanism
-and site at entry. `tests/…` and `src/…` are relative to `python/corpus-structure/`;
-repository-root paths are written as root `scripts/…` or root `tests/…`; `data_operations.sql`
-means `src/corpus_structure/semantic/sql/data_operations.sql`.
+mechanism, the [library capability notes](../../design_review/evidence/2026-11-17_test-plan-authoring/library-capabilities.md), and the
+[identity re-baseline](../../design_review/evidence/2026-11-17_test-plan-authoring/rebaseline-identity.md), which re-read every mechanism and
+refusal site at `12f57dc4d`. `tests/…` and `src/…` are relative to `python/corpus-structure/`;
+repository-root paths are written as root `scripts/…` or root `tests/…`. The hand-written
+`data_operations.sql` that this page used to cite was deleted by the conversion; mechanisms 2, 3
+and 4 now live in generator modules under `src/corpus_structure/semantic/`, named where each is
+described.
 
 ## Why this work exists
 
@@ -47,7 +56,8 @@ drops one determinant from a key, changes what is published or served and fails 
 A second, older gap has the same character. Some tests assert that an operation is refused but not
 *why*; a refusal by a neighbouring guard satisfies them, so removing the guard the test is named
 for can go unnoticed (DTA-001). The refusal contract that fixes this exists
-(`tests/native_refusals.py`); sites written since do not use it.
+(`tests/native_refusals.py`); sites written since do not use it, and none of the 26 test files
+the conversion added does.
 
 **What this companion consumes.** The public observation points each mechanism already exposes
 (listed per mechanism below); the head-key function as TDM-06 leaves it; the public profile
@@ -124,9 +134,18 @@ machine must run under the `ci` profile or carry `database=None` in its own sett
 ## TDM-13 — Perturbation tables and the cache-scope fixture
 
 **Needs.** TDM-06 for the head key's table, and TDM-11 for the check of form of the profile table
-(mechanism 9), each stated below by the capability it supplies. The other eight tables need nothing from this series and can be written
-as soon as TDM-00 has re-read their mechanism. Two tables build on tests TDM-05 writes; that is an
-ordering convenience, not a barrier.
+(mechanism 9), each stated below by the capability it supplies. The other eight tables need
+nothing from this series and can be written once TDM-00 has confirmed that their mechanism has
+not moved since `12f57dc4d`. Two tables build on tests TDM-05 writes; that is an ordering
+convenience, not a barrier.
+
+**Delivered by the conversion; remaining scope below.** The conversion moved mechanisms 1 to 4
+into generated programs without changing what they decide, and it left the caches, file custody,
+the execution host, the native host and the head key untouched. Its new tests supply part of one
+table: three tests of the release-fact compiler cover the admission side of mechanism 3 (see
+there). They supply no case for the oracle skip, the kernel seal, the validity closure or any
+cache, and none of them has the hit-control and perturbation form. Every other table remains in
+full, and the cache-scope fixture is as it was.
 
 **Implementation vision.** Each table is added to the test module that already holds the
 mechanism's equal-path test, so the hit control and the safety cases sit together. The package
@@ -146,16 +165,17 @@ rewritten to match what the mechanism did.
 
 *Mechanism.* Validation of a PDF build runs a reconstruction oracle unless a passed oracle receipt
 already covers the same lowering identity and kind and is bound to a published, validated revision
-(`src/corpus_structure/semantic/pdf_certification_native.py:363–386, 456–462`;
-`src/corpus_structure/semantic/pdf_publication.py:851–901`). It is the one mechanism here that
-removes an established check instead of reusing a computed value.
+(the generated program `ops.read_pdf_certification_requirement`,
+`src/corpus_structure/semantic/pdf_certification_native.py:363–403, 456–462`; the Python decision
+in `validate_pdf_build`, `src/corpus_structure/semantic/pdf_publication.py:783–824`). It is the
+one mechanism here that removes an established check instead of reusing a computed value.
 
 *Observation.* `ops.read_pdf_certification_requirement(build, task, attempt, holder, frozen)`
 returns `oracle_receipt_id` and `certification_basis`. The Python side runs the oracle exactly when
-`force_oracle` is set or `oracle_receipt_id` is null (`pdf_publication.py:892`). The rows of
+`force_oracle` is set or `oracle_receipt_id` is null (`pdf_publication.py:824`). The rows of
 `ops.pdf_roundtrip_oracle` show whether an oracle began for a build. After publication,
-`inspect_pdf_execution_receipt(…).certification.basis` (`pdf_publication.py:1113–1156`) reports the
-basis. No production change is needed. One reading matters for what to assert: the requirement
+`inspect_pdf_execution_receipt(…).certification.basis` (`pdf_publication.py:1045` onward) reports
+the basis. No production change is needed. One reading matters for what to assert: the requirement
 program sets the basis to `'producer-certified'` whenever the build has no passed oracle of its
 own, before it knows whether a prior receipt qualifies (`:456–462`, by reading, not run). The basis
 alone therefore does not show the decision; the table asserts `oracle_receipt_id` and the oracle
@@ -173,7 +193,8 @@ rows.
 
 *Declared inputs.* The lowering identity declares its inputs as data: the retained contract lists
 each input with its digest, built from `LOWERING_FILES` and `LOWERING_LIBRARIES`
-(`src/corpus_structure/semantic/pdf_lowering.py:13–95`). TDM-05 writes the two refusal tests (a
+(`src/corpus_structure/semantic/pdf_lowering.py:15–106`; the file list is about seventy entries
+after the conversion). TDM-05 writes the two refusal tests (a
 captured source that differs; a contract that differs). This table adds the enumerated form: for
 every input the retained contract lists, altered captured bytes are refused with "captured PDF
 lowering source differs from its contract". Enumerating from the contract is right here because
@@ -185,13 +206,24 @@ receipt"; dropping the join to published revisions fails "unpublished"; dropping
 join fails "unvalidated"; matching without kind or lowering identity fails those rows; ignoring the
 force flag fails "forced"; never reusing fails the hit.
 
+*What exists at `12f57dc4d`.* No test supplies a row. `tests/semantic/test_pdf_certification_programs.py:56–76`
+calls the requirement program for an unknown build and pins `P0002`, with no positive control and
+no message; it is a TDM-14 site. `tests/semantic/test_pdf_validation_read_native.py:200` checks a
+"no passed round-trip oracle" refusal of the frozen-check dispatch against a stubbed table, which
+is a different decision.
+
 ### 2. Kernel-sealed completion
 
 *Mechanism.* When an episode is re-read, `ops.ddo_require_episode_correspondence` runs the full
 completion battery only if the receipt's `validating_kernel_digest` differs from the installed
-kernel's digest (`data_operations.sql:1273–1299`, the comparison at `:1291`; the battery is `:1251–1272`). Every existing test
-publishes under the installed kernel, so the battery branch never runs
-(`tests/semantic/test_data_operation_storage.py:2858–2880` checks the equal path).
+kernel's digest. The routine is generated in
+`src/corpus_structure/semantic/data_completion_settlement_native.py` (declared at `:625`, the
+comparison at `:661`, the refusal message at `:667`); seven generated admission and completion
+programs call it. Every existing test publishes under the installed kernel, so the battery branch
+never runs: `tests/semantic/test_data_operation_storage.py:2864–2887` checks the equal path by
+reading the receipt's digest and comparing it with the seal's, and
+`tests/semantic/test_data_completion_settlement_programs.py` checks the routine's signature
+statically and adds no case.
 
 *Observation.* A refusal with SQLSTATE `23514`, or its absence. Nothing else is exposed.
 
@@ -215,18 +247,32 @@ returns to the coordinator.
 
 *Mechanism.* `sem.data_operation_release.lowering_digest` records the lowering under which a
 release's facts were admitted. Readers and demand admission require it to equal the installed
-digest (`data_operations.sql:18, 633`); re-admission of an existing release re-lowers and updates
-it; a mismatch that survives is refused (`:2233–2246`). The existing test checks that the column
-exists (`tests/semantic/test_data_operation_lowering.py:6–28`).
+digest (`src/corpus_structure/semantic/data_operation_read_native.py:207–212`,
+`demand_registration_native.py:602`, `demand_authority_native.py:137`). Admission is the generated
+routine `sem.ddo_lower_data_operation_definitions`
+(`src/corpus_structure/semantic/data_operation_compiler_native.py`, declared at `:1108`):
+re-admission of an existing release re-lowers and updates the column (`:1073–1078`), and a
+mismatch that survives is refused (`:1094–1099`). One older test checks that the column exists
+(`tests/semantic/test_data_operation_lowering.py:6–28`).
 
 *Observation.* The column's value before and after; the readers' refusals.
 
-| Case | Change | Literal outcome |
-|---|---|---|
-| Hit | Admitted release, column equal to the installed digest | A demand on the release is admitted |
-| Stale digest refuses a read | Column set to another value by the owner role | Demand admission refuses; read-only inspection refuses with `23514`, "read-only inspection native source correspondence differs" |
-| Re-admission re-lowers | Stale column; the release is admitted again as an existing release | The column equals the installed digest again and the demand is admitted |
-| A new-release admission does not repair | Stale column; admission flagged as a new release | Refusal, "release facts changed under admitted release" |
+*Supplied by the conversion.* `tests/semantic/test_data_operation_compiler_native.py` has three
+tests on the admission side, and they are not written again. Admitting a release twice returns
+the same literal result and leaves the column equal to the digest of the program the test itself
+installed (`:181`). Five mutations of the admitted evidence are each refused with a literal
+message and leave no partial facts (`:219`). Re-lowering requires finalization, keeps the
+admitted immutable facts, and leaves the column equal to the digest (`:367`). These are
+independent expectations of what admission writes. None of them makes the column stale, so none
+is a safety case of the reuse decision, and neither of the two refusal messages in the table
+below appears in any test.
+
+| Case | Change | Literal outcome | State at `12f57dc4d` |
+|---|---|---|---|
+| Hit | Admitted release, column equal to the installed digest | A demand on the release is admitted | The column's value is covered (`:181`); the admitted demand is missing |
+| Stale digest refuses a read | Column set to another value by the owner role | Demand admission refuses; read-only inspection refuses with `23514`, "read-only inspection native source correspondence differs" | Missing |
+| Re-admission re-lowers | Stale column; the release is admitted again as an existing release | The column equals the installed digest again and the demand is admitted | Missing: the existing replay starts from an equal column |
+| A new-release admission does not repair | Stale column; admission flagged as a new release | Refusal, "release facts changed under admitted release" | Missing |
 
 *Precision, gated.* "A lowering change that cannot affect this release's facts leaves it readable"
 fails today because the digest is one digest of the whole native source. Trigger:
@@ -235,7 +281,8 @@ fails today because the digest is one digest of the whole native source. Trigger
 ### 4. Set-wise validity closure
 
 *Mechanism.* `ops.ddo_valid_closure` evaluates validity for a set of seeds; the scalar
-`ops.ddo_node_valid` delegates to it (`data_operations.sql:391–434`).
+`ops.ddo_node_valid` delegates to it (both generated in
+`src/corpus_structure/semantic/data_validity_native.py`, at about `:578` and `:643`).
 
 This mechanism makes no reuse decision to observe. Its gap is an independent reference, and TDM-05
 supplies that: hand-authored graphs with literal expected rows (shared descendants, mixed seeds, a
@@ -374,7 +421,7 @@ function would pin its defects, so this table waits for TDM-06.
 (root `scripts/native_deployment_key.py:109–158`); it runs on a temporary tree with no database.
 Whether a deployment was built or reused is already recorded
 (`SemanticDeployment.built`, and `acquisition` in the receipt, root
-`scripts/native_test_support.py:306–308, 326`).
+`scripts/native_test_support.py:305–306, 325`).
 
 | Case | Change on a temporary tree | Literal outcome |
 |---|---|---|
@@ -399,11 +446,14 @@ the built database, which is an independent system, not from the key's arguments
 A hand-written list of component names equals that set, and each name has at least one row above.
 
 *Where it lives.* The pure rows sit beside the existing key tests in root
-`tests/scripts/test_native_deployment_key.py`. That file is in the series' scope, but the review
-did not read the root `tests/` tree and it is outside the frozen export, so TDM-00 reads it at
-entry. The last row reads a built head's version table, and the root script tests have no
-database fixtures; it sits in the package's `tests/test_db_fixtures.py`, which already builds and
-reuses a head.
+`tests/scripts/test_native_deployment_key.py`. The re-baseline read that file at `12f57dc4d`: it
+has eight tests, unchanged since the authoring baseline, seven on a temporary tree and one on the
+real tree. TDM-06 rewrites two of them (the real-tree case and the case that keeps a revision's
+function-level import outside the key), and this table is written against the result. The one
+related test the conversion added is the principal inventory case in root
+`tests/scripts/test_private_cohort.py:600–612`, which is not a key case. The last row reads a
+built head's version table, and the root script tests have no database fixtures; it sits in the
+package's `tests/test_db_fixtures.py`, which already builds and reuses a head.
 
 *Seeds.* A seed is reused when its recipe key is already present in the worker's registry, visible
 as an equal `source_database_oid` in two clones' origins (root
@@ -450,7 +500,8 @@ tests in question differ by what is warm.
 one inherited from TDM-11 and one deferred to TDM-05's reference cases; the six modules that import
 the cache fixture; the five serving modules' keys. Test modules that gain tables:
 `tests/semantic/test_pdf_certification_programs.py` or the staging support's consumers (mechanism
-1), `test_data_operation_storage.py` (2), `test_data_operation_lowering.py` (3),
+1), `test_data_operation_storage.py` (2), `test_data_operation_compiler_native.py`, beside the
+conversion's three admission tests (3),
 `test_selected_query_cache.py` and `test_demand_results.py` (5), `test_change_impact.py` (6),
 `test_file_custody.py` (7), `tests/orchestrate/test_execution_host.py` (8), root
 `tests/scripts/test_native_deployment_key.py` and `tests/test_db_fixtures.py` (10). These are the expected homes, not a
@@ -471,25 +522,31 @@ and the second asserts it empty; the inner module imports nothing from the cache
 control run with the fixture disabled shows the second test failing.
 Targeted runs with `uv run ci test -- PATH` per mechanism.
 
-**If the conversion already did part of it.** The conversion turns hand SQL into generated
-programs. Mechanisms 2, 3 and 4 cite `data_operations.sql` by line; those lines had already moved
-between the audit and this baseline, and the functions may be generated programs at entry. The
-tables call installed functions by name and assert refusals by SQLSTATE and message, so they do not
-depend on where the text lives. If the conversion added a safety case of its own (its new tests of
-generated programs perturb inputs and assert SQLSTATEs), TDM-00 records it and the table keeps only
-the missing rows.
+**Independence from where the text lives.** The tables call installed functions by name and
+assert refusals by SQLSTATE and message, so they did not change when mechanisms 1 to 4 became
+generated programs and will not change if validation moves them again. A safety case that
+TDM-00's re-read finds added after `12f57dc4d` is recorded, and the table keeps only the missing
+rows, as it does for mechanism 3.
 
 ## TDM-14 — The refusal contract applied to the new sites
 
-**Needs.** TDM-09, for the nine sites in the PDF integration module only; see "Order" below.
-Every other site needs nothing from this series.
+**Needs.** Nothing from this series. The earlier need for TDM-09 at the nine sites of the PDF
+integration module is gone; see "Order" below.
+
+**Delivered by the conversion.** No site of the audit's list was converted to the contract, and
+the helper is unused in every file the conversion added. The conversion removed the one ordering
+constraint, and it added refusal assertions of its own, which are classified below: some already
+meet the contract inline, and the rest join the scope.
 
 **The contract.** A refusal assertion establishes three things: a positive control shows the
 unaltered case succeeds, so the refusal is caused by the alteration; the assertion names the exact
 SQLSTATE; and it names the message or the constraint, so a refusal by a neighbouring guard does not
 satisfy it. The helper is `native_refusal(sqlstate, constraint=…, message=…, context=…)` in
-`tests/native_refusals.py:13–49`, with its own controls in `tests/test_native_refusals.py`; nine
-files use it at the baseline. For a refusal raised in Python the same contract is met with
+`tests/native_refusals.py:13–49`, with its own controls in `tests/test_native_refusals.py`
+(four of whose tests request an undefined fixture and are repaired by TDM-01). Six test modules
+call it at `12f57dc4d`: `tests/semantic/test_data_operation_storage.py`, `test_native_closure.py`,
+`test_pdf_spool_native.py`, `test_pdf_stage_context.py`, `test_pdf_staging.py` and
+`tests/test_db_fixtures.py`. For a refusal raised in Python the same contract is met with
 `pytest.raises(Type, match=…)` on the specific reason, and for a command-line refusal with the exit
 code and the reported reason. No new mechanism is added.
 
@@ -507,37 +564,54 @@ lookup, which any missing row raises; there the helper's `context` argument, whi
 PL/pgSQL context naming the function, is what separates one lookup from another.
 
 **Complete consumer scope.** The audit's list at `fbd3f2a98`, with lines as they stand at
-`50827eb9f` where they moved:
+`12f57dc4d`:
 
 - Bare `DBAPIError`: `tests/semantic/test_established_validity_native.py:224` (six premise
   perturbations; the audit cited `:122`), `test_data_operation_context_fanin_native.py:158`,
-  `test_data_operation_binding_native.py:714`, `test_data_operation_external_native.py:169`,
-  `test_data_operation_authored.py:212`, `test_data_operation_population_selection.py:168`, and
+  `test_data_operation_binding_native.py:726` (the neighbouring `:713` matches the message
+  "checked project" and lacks the SQLSTATE), `test_data_operation_external_native.py:169`,
+  `test_data_operation_authored.py:212`, `test_data_operation_population_selection.py:164`, and
   `test_current_pdf_integration_native.py:119, 136, 165, 298` (five forged receipt fields and four
   reader variants).
-- Bare `ValueError`: `test_record_publication_native.py:156, 167, 192, 203, 304, 363` and
-  `test_definition_model_native.py:156, 163` (fourteen cases in two tests).
+- Bare `ValueError`: `test_record_publication_native.py:167, 192, 304, 363` and
+  `test_definition_model_native.py:156, 163`. Two further sites in the first file raise a specific
+  class with no reason: `InvalidContinuation` at `:156` and `RichQueryRefused` at `:203`. The
+  class names the refusing component; the first step decides whether the class alone separates
+  the intended guard from its neighbours, and adds the reason where it does not. The audit counted
+  fourteen cases in the two tests; that count was not re-derived.
 - One exception class for many corruptions: `test_execution_admission_expectations.py:103, 122,
   135`.
-- SQLSTATE `23514` alone: `test_pdf_shared_streams.py:155–157, 231–233`.
+- SQLSTATE `23514` alone: `test_pdf_shared_streams.py:155–157, 231–233`;
+  `test_current_pdf_integration_native.py:354–362`; and two tests added since the authoring
+  baseline in `test_data_operation_binding_native.py` (`:848–850`, `:954–958`).
 - Exit code only: `tests/test_source_cli.py:231, 274, 367`.
-- The conversion's new generated-program tests, which assert a SQLSTATE inline after
-  `pytest.raises(DBAPIError)` and mostly no message: `tests/semantic/test_closure_native.py`
-  (four sites, for example `:82–90`), `test_data_claim_native.py`, `test_data_claim_batch_native.py`,
-  `test_data_attempt_release_native.py`, `test_pdf_stage_lifecycle.py` and
-  `test_pdf_certification_programs.py:56–64` (a list of calls expecting `P0002` or `P0004`).
+
+**The conversion's refusal assertions, classified.** The 26 test files added since the authoring
+baseline hold more than forty `pytest.raises(DBAPIError)` sites, all written inline. The
+re-baseline classified them by the shape of the assertion (a search, not a reading of each
+test), so the first step confirms each file's class and whether a positive control precedes each
+refusal.
+
+| Shape | Files | Disposition |
+|---|---|---|
+| SQLSTATE and message both pinned | `tests/semantic/test_native_refusal_detail.py` (exact SQLSTATE, primary message and detail); the claim and release tests (`test_data_claim_native.py`, `test_data_claim_batch_native.py`, `test_data_attempt_release_native.py`), which combine `match=` with the SQLSTATE; the two `23514` sites of `test_closure_native.py` (`:86–100`), which add a message substring | Meets the contract inline. Not in scope; the helper form is adopted only when the file is edited for another reason |
+| SQLSTATE only | `test_pdf_access_correspondence_programs.py:54–61` (`22023`, `42501`); `test_data_completion_settlement_programs.py:41–43` (`P0001`); `test_pdf_certification_programs.py:56–76` (seven calls expecting `P0002`, `P0004` or `42501`, with no positive control); `test_closure_native.py:80–85` (`23505`, `P0001`) | In scope. Each gains the message, constraint or context that names its guard, through the helper |
+| Message only (`match=`, no SQLSTATE) | `test_data_operation_compiler_native.py`, `test_pdf_companion_read_native.py`, `test_record_policy_native_access.py`, `test_support_trust_native.py` | The message names the guard, so a neighbouring guard does not satisfy the assertion and the discriminating part of the contract is met. In scope for the missing SQLSTATE only, which the helper adds |
+| Mixed within one file | `test_pdf_stage_lifecycle.py` (for example `:41–43` with the SQLSTATE alone and `:80–82` with both), `test_data_read_boundary_native.py`, `test_data_product_admission_programs.py`, `test_pdf_validation_read_native.py`, `test_native_release_guards.py`, `test_pdf_companion_adoption_programs.py`, `test_operation_event_programs.py`, `test_pdf_freeze_programs.py`, `test_pdf_inventory_programs.py`, `test_pdf_publication_controls.py` | The first step classifies each site by the rows above; the SQLSTATE-only and bare sites are in scope |
 
 Older sites the audit lists under DTA-001's earlier manifestations have recorded dispositions in
-the earlier plan and are not in this package. TDM-00's re-read is the scope at entry; the
-conversion adds tests of this kind with each program it converts.
+the earlier plan and are not in this package. TDM-00's re-read of changes since `12f57dc4d` is
+the scope at entry, because validation may still add tests of this kind.
 
 **Superseded machinery removed.** The inline `getattr(refused.value.orig, "sqlstate", None)`
-comparisons at the sites above, replaced by the helper.
+comparisons at the sites in scope, replaced by the helper.
 
-**Order.** `test_current_pdf_integration_native.py` builds its scenario through one of the stale
-converter copies (DTA-041), so by reading, not run, it cannot set up at the baseline. Its nine
-assertions are converted after TDM-09 restores its setup. The coordinator records this as
-TDM-14's one partial need.
+**Order.** None is imposed. `test_current_pdf_integration_native.py` builds its scenario behind a
+controlled converter double (`tests/semantic/current_pdf_integration_support.py:286–302`) that
+now returns a reply certified by production's shared emitter, so by reading, not run, its
+scenario sets up, and its sites are converted with the others. If a targeted run shows that it
+does not set up, the cause is reported to the coordinator and those sites wait for it; they are
+not skipped.
 
 **Failure behaviour.** A site where the intended guard cannot be identified from the case is
 reported, not guessed.
@@ -553,16 +627,16 @@ reported, not guessed.
 - A positive control precedes each refusal in the same test.
 - Targeted runs with `uv run ci test -- PATH` for each file touched.
 
-**If the conversion already did part of it.** A guard converted to a generated program may have a
-new message or SQLSTATE; the assertion takes its literal from the guard as it stands at entry. A
-site the conversion already moved to the helper is recorded by TDM-00 as done.
+**Literals come from the guard as it stands.** The guards are now generated programs, and some
+have a new message or SQLSTATE; each assertion takes its literal from the guard's owner at entry,
+after the implementer has decided which guard should refuse.
 
 ## Open questions
 
 | Question | Evidence that settles it | Work it constrains |
 |---|---|---|
 | Can the owner role set a receipt's `validating_kernel_digest` in a rolled-back transaction? | Read the guards on `ops.data_publication_receipt` at entry | Mechanism 2's safety cases |
-| What does the requirement read return as the basis when no receipt qualifies? | Read the generated program at entry; this plan reads it as `producer-certified` with a null receipt | Which column mechanism 1 asserts |
+| What does the requirement read return as the basis when no receipt qualifies? | Run the hit and "failed receipt" rows; by reading the generated program at `12f57dc4d` (`pdf_certification_native.py:456–462`) it is `producer-certified` with a null receipt | Which column mechanism 1 asserts |
 | Which determinants do the five serving cache keys carry, and which have a budget? | Read each key | Mechanism 5's per-module cases |
 | Does any pure test rely on the cache module being imported by the fixture? | Search for uses of the cache with no import of serving code | The fixture's import-free clear |
 | Is the profile table written by TDM-11 complete in the sense of "The perturbation table"? | Read TDM-11's delivered tests | Whether TDM-13 adds anything for mechanism 9 |

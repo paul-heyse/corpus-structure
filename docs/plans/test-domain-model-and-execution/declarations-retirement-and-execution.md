@@ -2,7 +2,7 @@
 
 **Status:** Proposed design companion of the
 [test domain-model and execution plan](../test-domain-model-and-execution_2026-11-17.md); not started.
-**Created:** 2026-11-17. Writing this plan authorizes no implementation.
+**Created:** 2026-11-17. **Revised:** 2026-11-18. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **TDM-15** (preparation declarations at the fixture and the
 `db` mark from the native root), **TDM-16** (production SQL obtained from its owner and checked in
@@ -18,18 +18,24 @@ finding dispositions, shared contracts, deferrals, rejected options and handover
 
 **Baseline and evidence.** Section references such as §4.5 mean the
 [design review of 2026-11-17](../../design_review/reviews/design_review_test-domain-model-and-execution_2026-11-17.md),
-which read source at `1afa63f88`. Source facts were read in a frozen export of commit `50827eb9f`
-and are **Interface-checked by source inspection, 2026-11-17**. Nothing was run; where this
+which read source at `1afa63f88`. The series was authored at `50827eb9f` and revised at
+`12f57dc4d`, 2026-11-18, after the model-owned SQL conversion (ADR-0131) was complete and while
+its validation was running. Source facts were re-read in a frozen export of `12f57dc4d` and are
+**Interface-checked by source inspection, 2026-11-18**, with line citations as of that commit; the
+library facts were not re-read and keep their 2026-11-17 label. Nothing was run; where this
 document says a test cannot set up or pass, that is by reading, not run. Every design statement
 is **Proposed**. No speedup is claimed. The investigation reports this companion draws on are in
 the evidence folder `docs/design_review/evidence/2026-11-17_test-plan-authoring/`: the
-[current-state map](../../design_review/evidence/2026-11-17_test-plan-authoring/state.md) and the
+[current-state map](../../design_review/evidence/2026-11-17_test-plan-authoring/state.md), for the
+revision the
+[boundaries re-baseline](../../design_review/evidence/2026-11-17_test-plan-authoring/rebaseline-boundaries.md),
+and the
 [library capability notes](../../design_review/evidence/2026-11-17_test-plan-authoring/library-capabilities.md), which read the installed pytest
 9.1.1 and pytest-xdist 3.8.0; one library fact is marked there as inferred from source and not
 documented, and confirming it is the first step of TDM-15. `tests/…` and `src/…` are relative to
 `python/corpus-structure/`; repository-root paths are written as root `conftest.py` and root
-`scripts/…`. The root `tests/` tree is not in the export and the review did not read it;
-statements about it are marked.
+`scripts/…`. The review did not read the root `tests/` tree. The revision's export contains it,
+and it was scanned for fixture definitions and for the names in the two lists.
 
 ## Why this work exists
 
@@ -38,10 +44,13 @@ Three things in the test system are stated in one place and true in another.
 1. **Which fixtures need the database, and which share a worker, are two hand-kept lists of
    names.** Fixtures were retired and the lists were not, so most of their entries now name
    nothing (DTA-037). The lists also cannot say anything about a fixture added tomorrow.
-2. **Tests read production SQL as text from files and cut pieces out of it by searching for
-   anchor strings.** The model-owned SQL conversion (ADR-0131) deletes those files one by one. A
-   reader of a deleted file fails only if someone runs it; one already has. Several of these
-   checks also create a whole database for each case although they write nothing (DTA-047).
+2. **Tests read production SQL as text from files, and expression checks create a whole
+   database for each case although they write nothing** (DTA-047). The model-owned SQL conversion
+   (ADR-0131) deleted eleven of those files and moved most of their readers onto the generators.
+   Ten test modules still read production SQL by path, two tests cannot pass by reading because
+   the file each depends on is gone, and the number of test files that create a database per case
+   rose from 45 to 61, because the conversion's own new tests install generated programs that
+   way.
 3. **One ordinary test takes the operator's real host-wide GPU lock** and fails, with a message
    blaming the wrong cause, when a real capture is running on the workstation (DTA-048).
 
@@ -53,32 +62,33 @@ retirement, visibly, and no separate checker is needed to notice.
 **What this companion consumes.** The isolation-class fixtures of the earlier test-system plan
 (`native_read`, `native_rollback`, the commit and infrastructure fixtures; ADR-0101), which are
 kept; the record of RC09 and the superseding record for ADR-0101 that carries RC10, both from
-TDM-00; and the re-read baseline TDM-00 takes after the conversion, since the conversion is
-deleting the files TDM-16 concerns.
+TDM-00; TDM-00's re-read of changes after `12f57dc4d`; and the test helper the conversion added
+for selecting one routine from a generated program
+(`tests/semantic/native_program_support.py`), which TDM-16 extends.
 
 **What it produces.** A `db` mark and worker groups that follow the fixture graph; no hand list;
 no test that reads production SQL by path or cuts it by text; expression checks that run against
 installed objects without a database per case; and an ordinary host test that cannot be failed by
 another process.
 
-**Where its responsibility ends.** The single test that requests a fixture defined nowhere and
-the reader of a deleted file are repaired first by TDM-01 (coordinator), because they are evidence
-that is absent today; this companion gives their final form. What a generated-SQL test should
+**Where its responsibility ends.** The single test that requests a fixture defined nowhere, the
+reader of a deleted file and the test that patches a read production no longer performs are
+repaired first by TDM-01 (coordinator), because they are evidence that is absent today; this companion gives their final form. What a generated-SQL test should
 *assert* (meaning rather than renderer spelling) is TDM-05's
 ([model binding and independence](model-binding-and-independence.md)); TDM-16 decides only where a
 test's SQL comes from and which class it runs in. The refusal contract for the checks TDM-16
 rewrites is TDM-14's ([reuse and refusal evidence](reuse-and-refusal-evidence.md)).
 
-## Baseline at `50827eb9f`
+## Baseline at `12f57dc4d`
 
 ### The two lists (DTA-037)
 
 - **Worker groups.** Root `conftest.py:10–57` holds `PREPARATION_AFFINITY`, 37 rows of fixture
   name, optional consumer path and group. A collection hook intersects it with each item's fixture
   closure, refuses an item that falls into two groups (`:72–75`) and adds one `xdist_group` mark
-  (`:91–98`). Of the 37 rows, 23 name a fixture defined nowhere in `tests/`, the root scripts or
-  the root conftest (scan of every fixture definition; the root `tests/` tree was checked by a
-  repository search for each name). One more is dead in effect: the row that qualifies
+  (`:91–98`). Of the 37 rows, 23 name a fixture defined nowhere in the package tests, the root
+  `tests/` tree, the root scripts or the root conftest (scan of every fixture definition in all
+  four). One more is dead in effect: the row that qualifies
   `native_read` by `tests/semantic/test_contextual_workflow_native.py` (`:37–41`) names a module
   that does not request `native_read` (search of that file, by reading). Thirteen rows are live:
   six session-scoped mathematics fixtures (`tests/math/conftest.py:34–64`), three statistics-pack
@@ -86,7 +96,7 @@ rewrites is TDM-14's ([reuse and refusal evidence](reuse-and-refusal-evidence.md
   `tests/semantic/test_hanlp_products.py` (`:35`), `local_semantic_sql_batch`
   (`tests/semantic/test_local_semantic_admission.py:184`), and two rollback-family fixtures,
   `binding_native_connection` (`tests/semantic/data_operation_binding_support.py:118`) and
-  `selected_graph_case` (`tests/semantic/test_data_operation_storage.py:2458`).
+  `selected_graph_case` (`tests/semantic/test_data_operation_storage.py:2464`).
 - **The `db` mark.** `tests/conftest.py:101–142` holds `DB_FIXTURES`, 38 names, and a hook marks
   any item whose closure intersects it (`:279–282`). Eleven names are defined nowhere. Six more
   are the `record_source_*` fixtures (`:533–569`); five of them depend on `private_source`, which
@@ -97,8 +107,8 @@ rewrites is TDM-14's ([reuse and refusal evidence](reuse-and-refusal-evidence.md
   is a dependency, direct or transitive, of every defined name in `DB_FIXTURES` (read of
   `tests/conftest.py:388–579` and `tests/native_fixture_support.py`). `native_settings` (`:337–340`)
   is deliberately not native: it only captures environment settings.
-- **Explicit marks are common.** 56 `pytest.mark.db` decorations or module marks in 19 test files
-  state the dependency at the test. Three modules state an `xdist_group` at module level.
+- **Explicit marks are common.** 58 `pytest.mark.db` decorations or module marks in 21 test files
+  state the dependency at the test; one of them arrived with a test the conversion added. Three modules state an `xdist_group` at module level.
 - **Seven dynamic requests.** A fixture requested through `request.getfixturevalue` is not in the
   closure pytest computes, so no derivation from the closure can see it. The complete list:
 
@@ -114,47 +124,105 @@ rewrites is TDM-14's ([reuse and refusal evidence](reuse-and-refusal-evidence.md
   importer (`scenario_preparation_support.py`, `primary_formal_fixture.py`,
   `method_dimensions_native_support.py`, `characterization_construction_support.py`).
   `tests/semantic/test_source_routing.py:9–12` requests `domain_default_case`, which is defined
-  nowhere, so by reading it fails at setup.
+  nowhere, so by reading it fails at setup. An exhaustive comparison of requested fixture names
+  with defined fixtures over 930 files found exactly one other undefined request, the `db`
+  fixture of `tests/test_native_refusals.py`, which the coordinator's TDM-01 owns.
+- **The root tree holds nothing parallel.** The root `tests/` tree has no second list, no live
+  fixture declaration and no reference to either list. Root `scripts/qualification_plugin.py` and
+  `scripts/test_receipts.py` only read marks, and root `tests/scripts/test_parallel_harness.py`
+  uses explicit `db` and `xdist_group` marks.
 
-The conversion changed none of this.
+**Delivered by the conversion:** nothing. Root `conftest.py`, `tests/conftest.py`,
+`tests/native_fixture_support.py`, the mathematics and statistics fixture modules and the
+qualification plugin are unchanged since the authoring baseline, and the counts above are the
+same apart from the moved line and the explicit-mark count. The conversion added ten fixtures
+(`product_connection`, `read_boundary_control`, `release_guard_context`,
+`event_scope_connection`, `adoption`, `generated_companion_reads`, `validation_controls`,
+`feature_body_control`, `source_capture_control` and `support_control`). Each is built on
+`semantic_bare_engine`, `native_rollback` or the already grouped `binding_native_connection`, and
+none declares a group or needs one.
 
 ### Production SQL read as text (DTA-047)
 
-At the baseline 27 hand-written files remain in `src/corpus_structure/semantic/sql/`. Nine were
-deleted between the review and the baseline, and `execution_projection_check.sql` earlier. The
-[current-state map](../../design_review/evidence/2026-11-17_test-plan-authoring/state.md) (its section on DTA-047) records a search of every test
-for path readers of the 36 present-or-deleted file names. Nineteen test modules read production
-SQL by path:
+**Delivered by the conversion.** Sixteen hand-written files remain in
+`src/corpus_structure/semantic/sql/`, against 27 at the authoring baseline. The eleven deleted in
+between include `data_operations.sql` (`2910d9817`), the file most readers cut by anchor text.
+Ten of the nineteen modules that read production SQL by path at the authoring baseline now import
+the generator that owns their subject (for example `d422c48e7` and `a727a9878`): the
+trust-snapshot, selected-graph, execution-guard, replicate-policy, JSON-meaning and
+record-policy-predicate checks, the population-selection check, and the three PDF record checks.
+An eleventh, `test_data_operation_storage.py:72`, was found not to be a read. Both tests whose
+anchors were absent were rewritten in that move, so they no longer fail on a missing anchor. The
+source half of this package is therefore mostly delivered. The class half is not: each of those
+moved checks still creates a database per case, and the conversion's new tests added more.
 
-| Kind | Modules (all `tests/semantic/`) | State |
+**Path readers that remain.** Ten test modules read production SQL by path at `12f57dc4d`:
+
+| Module (all `tests/semantic/`) | What it reads | State |
 |---|---|---|
-| Reads a deleted file | `test_native_sql_body.py:200–216` (`execution_projection_check.sql`, `:207`) | `FileNotFoundError`, by reading |
-| Cuts a fragment out of `data_operations.sql` by anchor text | `test_data_operation_trust_snapshot_sql.py` (`:19–21, 52–56, 126–128`), `test_data_operation_selected_graph_sql.py` (`:33–40`), `test_data_operation_execution_guard_sql.py` (`:29–31`) | Two anchors are absent from the file at both the review commit and the baseline (`trust_snapshot:53`, `selected_graph:34`), so by reading those tests raise `ValueError` before any assertion |
-| Cuts a whole function out of a file by its `CREATE` line | `test_data_operation_replicate_policy_sql.py` (`:13–15`), `test_data_operation_json.py` (`:85–87`), `test_data_operation_identity_native.py` (`:121`), `test_record_policy_native_predicate.py` (`:111–113`), `test_data_operation_retirement_context_sql.py` (`:24–36, 146–149`) | Anchors resolve where they could be checked |
-| Reads a whole file or selects bodies by function name | `test_data_operation_identity_native.py:57`, `test_data_operation_population_selection.py:31`, `test_data_operation_cpu_basis.py:68–83`, `test_data_operation_constraint_custody.py:94–95`, `test_data_operation_protocol_values.py:151`, `test_target_installation.py:161`, `test_pdf_access_correspondence.py:183–189`, `test_pdf_record_native.py:518`, `test_pdf_record_context.py:144`, `test_native_closure.py:278`, `test_data_operation_storage.py:72` | Work while the file exists |
+| `test_native_sql_body.py:202–217` | `closure.sql`, which exists, and `execution_projection_check.sql`, which was deleted before the authoring baseline | `FileNotFoundError`, by reading; TDM-01 repairs it |
+| `test_native_closure.py:268–290` | Replaces `Path.read_text` for the name `pdf_record_context.sql`, deleted in `5341e93dd`, and then calls `function_bodies(publication_sql())` | New since the authoring baseline. Production no longer reads that file (`publication_sql` builds from `pdf_record_context_sql(metadata)`), so the replacement never fires and, by reading, the test's `'changed_descriptor'` assertion fails; TDM-01 repairs it |
+| `test_data_operation_retirement_context_sql.py:21–36` | `data_operation_task_checks.sql` by path, then four `source.index(…)` cuts of the output of `target_task_guard_sql` | The only reader that still cuts by anchor text; works |
+| `test_data_operation_protocol_values.py:151` | `data_operation_task_checks.sql` | Works |
+| `test_data_operation_cpu_basis.py:68–83` | `closure.sql` and `identity.sql` | Works |
+| `test_data_product_admission_programs.py:27`, `test_pdf_validation_read_native.py:64–66` | `identity.sql` | New test files from the conversion; work |
+| `test_data_operation_identity_native.py:56–58` | `data_operation_identity.sql`, which no production module loads | Works while the file exists |
+| `test_target_installation.py:161` | `source_record_recognition.sql` | Works |
+| `test_data_operation_constraint_custody.py:94–95` | `admission.sql`, and `source_record_graph.sql`, which no production module loads | Works while the files exist |
 
-Eight of the nineteen cut by anchor. The conversion's remaining work names the binding,
-acquisition, completion and event kernels of `data_operations.sql`, so its nine readers are the
-next to be orphaned, and several may already be when this series starts.
+`test_native_release_guards.py:142` reads a frozen, digest-pinned migration artifact under
+`target_alembic/versions/`, not a file of the production SQL directory; that artifact is its
+subject and the test is outside this package.
 
-Three tests show the target for the source of a subject. They import the generator and take the
-program from it: `test_data_operation_runtime.py:157–166` (`runtime_binding_sql`),
-`test_source_metadata_codec_native.py:16–17` (`source_value_native_sql`) and
-`test_target_installation.py:249–277` (`execution_projection_check_sql`).
+**Files without a loader.** Six of the sixteen remaining files have no loader in `src/`:
+`exclusions.sql`, `fact.sql`, `selection.sql`, `validation.sql`, `source_record_graph.sql` and
+`data_operation_identity.sql`. They are plausibly superseded production machinery and are a row
+of the coordinator's [handover table](../test-domain-model-and-execution_2026-11-17.md#handovers),
+not scope here; the two tests that read two of them are scope.
+
+**The target is now common.** Many tests take their subject from its owner. Besides the three the
+authoring baseline named (`test_data_operation_runtime.py`, `test_source_metadata_codec_native.py`
+and `test_target_installation.py`), the conversion added a helper,
+`routine_declaration(source, schema, name, *, temporary=True)`
+(`tests/semantic/native_program_support.py:7`), which parses a generated program, selects one
+routine by schema and name and can rename it into `pg_temp`. Used with the existing isolation
+fixtures it is the good route this package extends: `test_support_trust_native.py` executes the
+generator's program on the grouped rollback family, `test_data_operation_compiler_native.py` has
+fourteen cases on `native_rollback`, `test_data_operation_identity_native.py:24, 46` calls the
+installed function on `native_read`, and `test_pdf_freeze_programs.py`,
+`test_pdf_publication_controls.py` and `test_pdf_validation_seal_programs.py` use commit clones
+with `native_rollback`.
+
+**`function_bodies` stays.** It has four production callers (`native_products.py:288`,
+`native_authoring.py:826`, `execution_admission.py:396`, `native_admission.py:445`; definition at
+`native_products.py:308`). Its remaining test users pass it generated programs, apart from the
+two broken tests above.
 
 **One database per case.** `semantic_bare_engine` (`tests/native_fixture_support.py:29–38`)
 creates a database from the server template for each test. Its module says it exists for
-bootstrap and historical-upgrade obligations (`:1–5`). 44 files use it. The audit names the
-expression checks among them: the trust-snapshot module (19 cases),
-`test_data_operation_retirement_context_sql.py`, `test_data_operation_null_scope.py`, and
-`cpu_basis_connection` (`test_data_operation_cpu_basis.py:61–90`), which builds six relations by
-hand without foreign keys and is imported by three other modules
-(`test_cpu_authority_reply_native.py`, `test_rich_admission_native.py`,
-`test_established_validity_native.py`). Even a test with the right source can have the wrong
-class: `test_source_metadata_codec_native.py:15–28` takes its program from the generator and then
-installs it into a fresh bare database per case to call one pure function. Six bare-engine users
-were added by the conversion, while its other new tests use the commit and rollback classes on
-the head.
+bootstrap and historical-upgrade obligations (`:1–5`). 61 files use it at `12f57dc4d`, in 107
+direct requests (88 by tests, 19 by fixtures); 45 files did at the authoring baseline. All
+sixteen files added to that count are conversion tests that install generated programs into a
+fresh database per case: `test_data_operation_read_native`, `test_data_product_admission_programs`,
+`test_data_read_boundary_native`, `test_native_parameter_defaults`,
+`test_native_program_table_outputs`, `test_native_refusal_detail`, `test_native_release_guards`,
+`test_operation_event_programs`, `test_pdf_companion_adoption_programs`,
+`test_pdf_companion_read_native`, `test_pdf_record_event_queries`,
+`test_pdf_validation_read_native`, `test_record_policy_native_access`,
+`test_selected_source_search`, `test_source_capture_native` and `test_support_trust_native`. The
+expression checks the audit names are all still on that class, including those whose source the
+conversion corrected: the trust-snapshot module, whose fixture `snapshot_connection`
+(`test_data_operation_trust_snapshot_sql.py:16–31`) creates an `ops` schema in the bare database
+and installs `ddo_trust_snapshot_meaning` there under its real name; the selected-graph,
+execution-guard, replicate-policy and record-policy-predicate checks;
+`test_data_operation_retirement_context_sql.py`; `test_data_operation_null_scope.py`, a pure
+PostgreSQL expression check that touches no semantic object; and `cpu_basis_connection`
+(`test_data_operation_cpu_basis.py:61–90`), which builds six relations by hand without foreign
+keys and is imported by three other modules (`test_cpu_authority_reply_native.py`,
+`test_rich_admission_native.py`, `test_established_validity_native.py`).
+`test_source_metadata_codec_native.py:15–28` still takes its program from the generator and then
+installs it into a fresh bare database per case to call one pure function. No test moved to
+`native_read`, `native_rollback` or `infrastructure_rollback` in the interval.
 
 ### The host lock (DTA-048)
 
@@ -171,6 +239,9 @@ only that no other process on the workstation is capturing. The slot's own tests
 after an uncertain retirement with the lock calls replaced
 (`tests/ingest/test_pdf_capacity.py:106–127`); no test covers waiting on a held lock or the order
 in which the slot borrows the GPU from resident hosts and then locks.
+
+**Delivered by the conversion:** nothing. Both files and the capacity module are unchanged since
+the authoring baseline.
 
 ## Target design
 
@@ -207,9 +278,9 @@ name in its one module.
 and module fixtures that hold expensive shared pure preparation, and rollback families, are
 grouped; commit-class consumers of a seed are not, because grouping them would serialize real test
 bodies onto one worker. This package moves the thirteen live rows and adds a declaration for the
-one rollback-family fixture the table never listed
-(`tests/semantic/test_record_policy_completion_native.py:78`). It does not go looking for new
-groups.
+one rollback-family fixture the table never listed (`policy_projection_connection`,
+`tests/semantic/test_record_policy_completion_native.py:79`). It does not go looking for new
+groups, and none of the ten fixtures the conversion added needs one.
 
 **Alternatives rejected.**
 
@@ -235,11 +306,14 @@ production text by searching it. It obtains its subject in one of two ways:
 - *by installed name*: it calls the function, or exercises the trigger or constraint, that the
   deployment installed, on a database cloned from the head;
 - *by import from the owner*: it imports the generator or builder that produces the program or
-  expression and uses what that returns, as the three converted tests do.
+  expression and uses what that returns. Where the check needs one routine of a generated
+  program, `routine_declaration` selects it from the generator's output by schema and name.
 
 A guard that exists only as lines inside a function body has no name of its own. Its behaviour is
-tested through the function that contains it. If the owner exports the guard as a named
-expression builder, a test may import that; a test does not recreate one by cutting text.
+tested through the function that contains it. Where the owner exports the guard as a named expression builder,
+as the conversion did for the selected-dependency predicate (`dependency_selection_differs`) and
+the execution-evidence guard (`execution_evidence_differs`), a test may import that; a test does
+not recreate one by cutting text.
 
 **Class.** The route follows from what the claim needs, cheapest first:
 
@@ -276,7 +350,9 @@ schema moves to the rollback class.
 - *Keep the per-case bare database and only change the source.* It fixes orphaning and keeps a
   database per case for checks that write nothing.
 - *Parse the file and select the function structurally* (pglast instead of anchor text). The
-  reader survives reformatting and is still orphaned when the file is deleted.
+  reader survives reformatting and is still orphaned when the file is deleted. Selecting a
+  routine structurally from a generator's output, as `routine_declaration` does, has no such
+  weakness, because the generator is imported.
 
 ### The ordinary host test without the real lock (TDM-17)
 
@@ -360,11 +436,10 @@ definitions in `tests/math/conftest.py`, `tests/statistics_pack_support.py`,
 `tests/semantic/test_data_operation_storage.py`; the rollback-family fixture in
 `test_record_policy_completion_native.py`; the two hooks; the dynamic-request sites as stated. The
 one row that names a root-tree test (`source_release`, `tests/test_native_run_scope.py`) is dead
-by repository search. The root `tests/` tree outside `tests/scripts/` is out of the series' scope
-and is not edited. The first step searches it, read-only, for the names in the two lists and for
-any parallel list; a live declaration found there is returned to the coordinator as a scope
-question before the table is removed. The tests of the qualification plugin under root
-`tests/scripts/` are in scope and are adjusted if they name either list.
+by a scan of that file, which exists and does not name `source_release`. The root `tests/` tree
+outside `tests/scripts/` is out of the series' scope and is not edited; the scan at `12f57dc4d`
+found no parallel list and no live declaration in it, so no scope question arises. The tests of
+the qualification plugin under root `tests/scripts/` are in scope; none names either list.
 
 **Superseded machinery removed.** `PREPARATION_AFFINITY` and the consumer-path qualification in
 `_preparation_group`; `DB_FIXTURES`; the six `record_source_*` fixtures; the four unimported
@@ -408,44 +483,58 @@ Targeted verification: `tests/test_db_fixtures.py`, `tests/semantic/test_native_
 `tests/db/`, the six modules whose fixtures gain declarations, and a collection-only pass of both
 trees.
 
-**If the conversion already did part of this.** The conversion retires fixtures. Any row or name
-it removed is simply absent from the first step's scan; any fixture it added that holds grouped
-preparation is declared with the decorator in this package.
-
 ## TDM-16 — Production SQL from its owner; expression checks in the read class
 
-**Prerequisite.** TDM-00 supplies the re-read baseline, which for this package is the list of
-production SQL files that still exist and of readers the conversion already moved or broke, and
-the superseding record for ADR-0101 that states RC10. TDM-01 has repaired the reader of the
-deleted file.
+**Prerequisite.** TDM-00 supplies the superseding record for ADR-0101 that states RC10 and its
+re-read of changes after `12f57dc4d`. TDM-01 has repaired the reader of the deleted file and the
+stale patch in `test_native_closure.py`.
 
-**First step: classify.** From a search at entry, list every test that opens a file under the
-production SQL directory or searches production SQL text, and every user of `semantic_bare_engine`
+**Delivered by the conversion.** Ten path readers moved to generator imports, both missing
+anchors were resolved, and `routine_declaration` exists (commits named in the baseline). The
+package no longer rewrites those readers' sources. Its remaining scope is the ten path readers
+of the baseline table, the one anchor cutter among them, and the class of every check that
+creates a database per case without claiming a bare database, which is the larger part and grew
+with the conversion.
+
+**First step: classify.** List every test that opens a file under the production SQL directory
+or searches production SQL text, and every one of the 61 files that use `semantic_bare_engine`
 whose claim is not a bare or partly migrated database. For each, record the subject (which
 function, trigger, expression or program), whether the head has it as an installed object
 (`to_regprocedure` and the catalog decide, not memory), and the route from the table above. The
-baseline list in this document is the starting point, not the boundary: the conversion will have
-changed it.
+lists in this document's baseline are complete at `12f57dc4d` for path readers and name the
+sixteen new bare-engine files; the classification of the other 45 is this step.
 
 **Implementation vision.** Each check keeps its cases and its expected values, which are already
 hand-authored tables of inputs and outcomes, and changes how it reaches its subject.
 
 - A check of an installed function calls it by its installed name in the read class. The
-  trust-snapshot comparisons become calls of `ops.ddo_trust_snapshot_meaning` on `native_read`
-  with the same nineteen argument tuples; the temporary copy under `pg_temp` and the three text
-  cuts go. `test_source_metadata_codec_native.py` calls the installed `data.record_json_source`
-  instead of installing the generator's output into a bare database. The replicate-policy,
-  JSON-meaning, read-visibility and population-projection functions are reached the same way.
+  trust-snapshot comparisons become calls of the installed `ops.ddo_trust_snapshot_meaning` on
+  `native_read` with the same argument tuples; the per-case database, the `ops` schema created in
+  it and the private install of the routine go. `test_source_metadata_codec_native.py` calls the
+  installed `data.record_json_source` instead of installing the generator's output into a bare
+  database. The replicate-policy, JSON-meaning, read-visibility and population-projection
+  functions are reached the same way.
+- A check whose claim is about the generator's current output, and not about what the head has
+  installed, installs that output for the case on `native_rollback`: the whole program with
+  `execute_native_sql`, or one routine through `routine_declaration` under `pg_temp`. This is the
+  route for the sixteen conversion test files that install generated programs into a fresh
+  database per case, wherever the deployed schema admits their rows. It is the route
+  `test_support_trust_native.py` and `test_data_operation_compiler_native.py` already show.
 - A check of a guard inside a function body exercises the enclosing installed function in the
   rollback class, with the rows the guard needs and the refusal it raises, asserted under the
-  refusal contract (TDM-14). The binding trust-snapshot guard, the selected-dependency predicate
-  and the execution-evidence guard are of this kind. Where the conversion has made the owner
-  export such a predicate as a named expression builder, the check may instead import it and
-  evaluate it on the route its dependencies allow.
+  refusal contract (TDM-14). The binding trust-snapshot guard is of this kind. The
+  selected-dependency predicate and the execution-evidence guard are now imported as named
+  expression builders; those checks keep the import and are evaluated on the route their
+  dependencies allow.
 - A check of a trigger exercises the installed trigger in the rollback class; the
-  retirement-context check stops assembling a trigger body from four text cuts.
-- A check that reads whole files to install or compare them takes the program from its generator,
-  or compares against the catalog of the head, according to its claim.
+  retirement-context check stops reading `data_operation_task_checks.sql` by path and stops
+  assembling a trigger body from four text cuts.
+- A check that reads a whole file to install or compare it takes the program from the production
+  function that loads the file, or compares against the catalog of the head, according to its
+  claim. The two checks that read a file no production module loads
+  (`test_data_operation_identity_native.py:56–58`, and the `source_record_graph.sql` half of
+  `test_data_operation_constraint_custody.py:94–95`) test the installed object if the head has
+  one; if it has none, the subject is gone and the check is removed under the transfer rule.
 - `test_data_operation_null_scope.py` and any check found to need only PostgreSQL move to
   `infrastructure_rollback`.
 - `cpu_basis_connection` and its three importing modules follow the rule for cases the deployed
@@ -458,20 +547,20 @@ ADR-0131 preserves it, and ending text cutting concerns production's SQL only.
 checks use the session clone and which a rollback family of an existing seed; new names for tests
 that leave the deployed schema.
 
-**Consumers migrated (complete scope).** The nineteen path-reading modules listed in the
-baseline, or what remains of them at entry, and the expression checks among the 44 users of the
-bare engine. The modules named in this section are the ones read during authoring and are
+**Consumers migrated (complete scope).** The ten path-reading modules of the baseline table, and
+every check among the 61 users of the bare engine whose claim is not a bare or partly migrated
+database, including the sixteen conversion test files. The modules named in this section are
 examples of each kind; the classification of the first step is the scope.
 
 **Superseded machinery removed.** Every `files("corpus_structure.semantic").joinpath("sql/…")`
-and path-built read of production SQL in tests; every `.index(` cut of production text; the
-`pg_temp` renaming of production functions; `function_bodies` as a test-side way to select
-production text. If no production caller of `function_bodies` remains, it is production code
-kept alive only by tests and is deleted in this package with the tests that used it, under
-retirement rule 4; if a production caller remains, it stays.
+and path-built read of production SQL in tests; every `.index(` cut of production text; every
+install of a production routine into a per-case database for a check that writes nothing
+durable; the use of `function_bodies` on text a test read from a file.
 
 **Preserved.** Every case and its literal expected outcome. Bare and revision fixtures for
-bootstrap and upgrade claims. The three already-converted sources.
+bootstrap and upgrade claims. The generator imports the conversion delivered.
+`routine_declaration`, which this package uses more widely. `function_bodies` itself, which is
+production code with four production callers.
 
 **Failure behaviour.** After this package a retirement of a production function fails its checks
 with PostgreSQL's undefined-function error, and a retirement of a generator fails them at import
@@ -499,11 +588,10 @@ during collection. Neither waits for someone to run one particular file.
 
 Targeted verification: each moved module by path.
 
-**If the conversion already did part of this.** A reader the conversion moved to its generator
-needs only its class reviewed. A reader the conversion broke by deleting its file is rewritten
-here from its cases, which survive in the test even when its source text does not. A function the
-conversion removed without a successor has no subject left; its checks are removed under the
-transfer rule.
+**Later retirements.** Validation of the conversion is still running. A reader that a further
+retirement breaks before this package runs is rewritten here from its cases, which survive in the
+test even when its source text does not. A function removed without a successor has no subject
+left; its checks are removed under the transfer rule.
 
 ## TDM-17 — The ordinary host test without the real GPU lock
 
@@ -542,8 +630,8 @@ Targeted verification: `tests/methods/test_native_host.py` and `tests/ingest/tes
 ## Retirement rules
 
 These four rules are what makes a checker unnecessary. They are obligations on any later change
-that retires a production mechanism, a fixture or a support module, including each remaining step
-of the SQL conversion. Nothing enforces them mechanically, by decision: rules 1 and 2 make a
+that retires a production mechanism, a fixture or a support module, including any further SQL
+retirement. Nothing enforces them mechanically, by decision: rules 1 and 2 make a
 violation of the others fail loudly on its own.
 
 1. **Derive, do not list.** A fact about a fixture (it needs the database, it shares a worker) is
@@ -560,11 +648,15 @@ violation of the others fail loudly on its own.
    The fixtures, support modules and declarations that only those tests used go in the same
    change.
 4. **Production kept alive only by tests retires with those tests.** Production code whose last
-   caller is a test is deleted together with that test, inside the package that owns the test:
-   the fixture-only occurrence writer in TDM-09, and `function_bodies` in TDM-16 if no production
-   caller remains. Other superseded production machinery (the remaining items of
-   [DA-080](../../design_review/audit/boundaries-and-composition.md#da-080)) is a handover in the
-   coordinator's [table](../test-domain-model-and-execution_2026-11-17.md#handovers), not scope of this series.
+   caller is a test is deleted together with that test, inside the package that owns the test.
+   At `12f57dc4d` one such item is known: the `--principals` mode of root
+   `scripts/pg_semantic_roles.sh`, which has no caller and goes in TDM-06. The two the authoring
+   baseline named are settled: the conversion deleted the fixture-only occurrence writer
+   (`8a5c074f0`), and `function_bodies` has four production callers and stays. Other superseded
+   production machinery (the remaining items of
+   [DA-080](../../design_review/audit/boundaries-and-composition.md#da-080), and the six SQL
+   files without a loader) is a handover in the coordinator's
+   [table](../test-domain-model-and-execution_2026-11-17.md#handovers), not scope of this series.
 
 ## What the rule-change records must say
 
@@ -594,8 +686,7 @@ commit-class consumers of a seed and the rejection of change-based test selectio
 | Question | Evidence that settles it | Work it constrains |
 |---|---|---|
 | Do the root hook's marks precede xdist's reading of them? | TDM-15's first step | The grouping half of TDM-15; a negative answer changes one hook attribute |
-| Does the root `tests/` tree hold a parallel list or a live declared fixture? | A read-only search at TDM-15's entry; it is not in the export and the review did not read it | Whether the coordinator must decide a scope question before the table is removed |
-| Which guards does the conversion leave exportable as named expression builders? | The owners' modules at TDM-16's entry | Whether a guard check imports a builder or exercises the enclosing function |
+| Does the head install the routines that the sixteen conversion test files install per case, and the functions of the two SQL files no production module loads? | The catalog, in TDM-16's classification | Whether a check calls the installed object, installs the generator's output for the case, or has no subject left |
 | How many expression checks need rows the deployed schema forbids? | TDM-16's classification | The size of the substitute-schema remainder; if it is most of them, the audit's fidelity gap is narrower than read and the coordinator is told |
 | Does the read-only transaction refuse any installed function that a check must call, for example one that creates a temporary table? | The first run of each moved module; `25006` is the signal | That check moves to the rollback class |
 
@@ -604,5 +695,5 @@ commit-class consumers of a seed and the rejection of change-based test selectio
 | Package | State |
 |---|---|
 | TDM-15 | Not started |
-| TDM-16 | Not started |
+| TDM-16 | Not started; source half partly delivered by the conversion, remaining scope above |
 | TDM-17 | Not started |
