@@ -140,13 +140,17 @@ def test_generated_pdf_completion_binds_in_native_model_and_retains_strict_looku
     execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
     with native_owner(connection, "corpus_sem_publisher"):
         execute_native_sql(connection, pdf_completion_native_sql(metadata))
-        failures = connection.execute(
-            text(
-                "SELECT message FROM public.plpgsql_check_function_tb("
-                "'ops.ddo_require_pdf_completion(jsonb,bigint,bigint,text,text,text)'::regprocedure,"
-                "fatal_errors=>false) WHERE level='error'"
+        failures = (
+            connection.execute(
+                text(
+                    "SELECT message FROM public.plpgsql_check_function_tb("
+                    "'ops.ddo_require_pdf_completion(jsonb,bigint,bigint,text,text,text)'::regprocedure,"
+                    "fatal_errors=>false) WHERE level='error'"
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert failures == []
         with pytest.raises(DBAPIError) as missing, connection.begin_nested():
             connection.execute(

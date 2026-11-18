@@ -277,12 +277,23 @@ def test_generated_policy_completion_programs_bind_in_actual_native_model(native
             "ops.ddo_require_record_fit_completion(ops.data_request,jsonb)",
             "ops.ddo_record_fit_dependencies_valid(text)",
         ):
-            errors = connection.execute(
-                text("SELECT message FROM public.plpgsql_check_function_tb(CAST(:signature AS regprocedure),fatal_errors=>false) WHERE level='error'"),
-                {"signature": signature},
-            ).scalars().all()
+            errors = (
+                connection.execute(
+                    text(
+                        "SELECT message FROM public.plpgsql_check_function_tb(CAST(:signature AS regprocedure),fatal_errors=>false) WHERE level='error'"
+                    ),
+                    {"signature": signature},
+                )
+                .scalars()
+                .all()
+            )
             assert errors == [], (signature, errors)
-        assert connection.scalar(text("SELECT ops.ddo_record_fit_dependencies_valid('missing-policy-episode')")) is False
+        assert (
+            connection.scalar(
+                text("SELECT ops.ddo_record_fit_dependencies_valid('missing-policy-episode')")
+            )
+            is False
+        )
 
 
 def test_fit_selection_rows_preserve_roles_and_refuse_changed_cut(fit_guard_connection):
@@ -295,17 +306,32 @@ def test_fit_selection_rows_preserve_roles_and_refuse_changed_cut(fit_guard_conn
     )
     selections = {}
     for name in ("feature", "calibration"):
-        cut = json.dumps({"project_id": "project:selection", "demand_id": "demand:" + name, "read_id": "read:" + name})
+        cut = json.dumps(
+            {
+                "project_id": "project:selection",
+                "demand_id": "demand:" + name,
+                "read_id": "read:" + name,
+            }
+        )
         selections[name + "_selection"] = {
-            "project_id": "project:selection", "demand_id": "demand:" + name, "read_id": "read:" + name,
-            "cut_canonical_json": cut, "expected_cut": "cut-selection:" + sha256(cut.encode()).hexdigest(),
+            "project_id": "project:selection",
+            "demand_id": "demand:" + name,
+            "read_id": "read:" + name,
+            "cut_canonical_json": cut,
+            "expected_cut": "cut-selection:" + sha256(cut.encode()).hexdigest(),
         }
     request = {"project_id": "project:selection", "binding": {"specification": selections}}
-    query = text("SELECT role_name,selection FROM ops.ddo_record_fit_selections(jsonb_populate_record(NULL::ops.data_request,CAST(:r AS jsonb)))")
+    query = text(
+        "SELECT role_name,selection FROM ops.ddo_record_fit_selections(jsonb_populate_record(NULL::ops.data_request,CAST(:r AS jsonb)))"
+    )
     assert connection.execute(query, {"r": json.dumps(request)}).all() == [
-        ("feature_grade", selections["feature_selection"]), ("calibration_grade", selections["calibration_selection"]),
+        ("feature_grade", selections["feature_selection"]),
+        ("calibration_grade", selections["calibration_selection"]),
     ]
     selections["feature_selection"]["expected_cut"] = "cut-selection:changed"
-    with pytest.raises(DBAPIError, match="actual original project/cut/read pins") as refusal, connection.begin_nested():
+    with (
+        pytest.raises(DBAPIError, match="actual original project/cut/read pins") as refusal,
+        connection.begin_nested(),
+    ):
         connection.execute(query, {"r": json.dumps(request)}).all()
     assert getattr(refusal.value.orig, "sqlstate", None) == "23514"
