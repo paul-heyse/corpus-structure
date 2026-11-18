@@ -7,6 +7,7 @@ dependencies = [
     "astroid==4.3.4",
     "corpus-evidence",
     "corpus-structure",
+    "corpus-tooling",
     "dipo==0.2.1",
     "griffe==2.4.1",
     "libcst==1.9.0",
@@ -20,11 +21,12 @@ dependencies = [
 # Add product packages as members (e.g. members = ["python/*"]) and list them in `dependencies`
 # with `[tool.uv.sources] <name> = { workspace = true }`, so the root environment tests them.
 [tool.uv.workspace]
-members = ["tools/evidence", "python/corpus-structure"]
+members = ["tools/evidence", "python/corpus-structure", "tooling"]
 
 [tool.uv.sources]
 corpus-evidence = { workspace = true }
 corpus-structure = { workspace = true }
+corpus-tooling = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -54,7 +56,7 @@ package = false
 add-bounds = "exact"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "python/corpus-structure/tests"]
+testpaths = ["tests", "python/corpus-structure/tests", "tooling/tests"]
 # importlib mode: the root and package `tests/` trees cannot collide on module names.
 addopts = [
     "--strict-markers",
@@ -79,7 +81,7 @@ pythonpath = ["scripts", "python/corpus-structure/tests"]
 
 [tool.ruff]
 line-length = 100
-src = ["scripts", "tools/evidence/src", "python/corpus-structure/src"]
+src = ["scripts", "tools/evidence/src", "python/corpus-structure/src", "tooling/src"]
 target-version = "py314"
 # Fixtures are analyzer input; docs may contain illustrative code fences. A subdirectory that is a
 # separate Python project with its own environment (conventionally under `services/`) is excluded.
@@ -101,7 +103,7 @@ exclude = ["python/corpus-structure/semantic_alembic/versions/*.py", "python/cor
 
 [tool.pyrefly]
 python-version = "3.14"
-project-includes = ["conftest.py", "scripts", "tests", "tools", "python", "domains"]
+project-includes = ["conftest.py", "scripts", "tests", "tools", "tooling", "python", "domains"]
 project-excludes = ["fixtures/**", ".claude/**", "**/target/**"]
-search-path = ["scripts", "tools/evidence/src", "python/corpus-structure/src", "python/corpus-structure/tests"]
+search-path = ["scripts", "tools/evidence/src", "python/corpus-structure/src", "tooling/src", "python/corpus-structure/tests"]
 site-package-path = [".venv/lib/python3.14/site-packages"]

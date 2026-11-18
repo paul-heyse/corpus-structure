@@ -98,8 +98,8 @@ dependency judgment and do not wait on approval; the operator can redirect any o
   member: `uv_build` backend, `src/` layout, a console script, root dependency
   `{ workspace = true }`. Its tests live in the root `tests/evidence/`.
 - **Every library the first set needs is already locked.** Only D1's three extensions are new
-  packages. Each dependency is declared in `tooling/pyproject.toml` by the package that first
-  uses it.
+  packages. All first-set dependencies are declared in `tooling/pyproject.toml` by LDT-01, in
+  one lock change.
 - **uv, pyrefly and ty are executables the tool runs, not libraries it imports.** pyrefly and ty
   are pinned in the lock. uv is a host binary with no pinned version in this repository, so the
   tool records the uv version it ran and relies on a contract test.
@@ -302,8 +302,6 @@ Dependencies below whole packages:
 Shared edit surfaces when packages run in parallel:
 
 - the CLI registration file, where each package adds a command;
-- `tooling/pyproject.toml` and `uv.lock`, where LDT-03 adds the D1 pins and other packages add
-  the dependency they first use;
 - the coverage and unresolved-kind definitions in the envelope module, which LDT-03 and LDT-04
   both extend.
 

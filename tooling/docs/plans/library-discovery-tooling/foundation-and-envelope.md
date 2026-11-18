@@ -49,7 +49,7 @@ product does (`tools/evidence` declares `>=3.14`).
 
 | File | Edit |
 |---|---|
-| `tooling/pyproject.toml` | New. This package declares typer, rich and pydantic at the versions already locked. Later packages add the dependency they first use (griffe and its extensions in LDT-03, libcst in LDT-04 if kept, markdown-it-py in LDT-06). uv, pyrefly and ty are executables the tool runs, not library dependencies. |
+| `tooling/pyproject.toml` | New. Declares every first-set dependency at once: typer, rich, pydantic, griffe, the three D1 extensions, libcst and markdown-it-py. Execution chose one lock change over one per package because another agent was working in the same tree (2026-11-17); libcst is removed if LDT-04 rejects it. uv, pyrefly and ty are executables the tool runs, not library dependencies. |
 | Root `pyproject.toml` | `[tool.uv.workspace].members` gains `"tooling"`; `[tool.uv.sources]` gains the workspace source; root `dependencies` gains the distribution, which is what puts the console script in `.venv`; ruff `src` gains `"tooling/src"`; pyrefly `project-includes` gains `"tooling"` and `search-path` gains `"tooling/src"`; pytest `testpaths` gains `"tooling/tests"`. |
 | `scripts/test_receipts.py` | The managed pytest selector (`_forwardable_selector`) admits `tooling/tests`. Without this `uv run ci test -- tooling/tests/…` is refused. |
 | `uv.lock` | `UV_LOCKED=0 uv lock`. The diff should add the member and its edge and no new third-party version. |

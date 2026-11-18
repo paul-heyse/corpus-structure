@@ -1,0 +1,26 @@
+[project]
+name = "corpus-tooling"
+version = "0.1.0"
+description = "Repository tooling separate from the product: read-only library-inspection commands for library-led discovery (ADR-0132)."
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "typer==0.28.0",
+    "rich==15.0.0",
+    "pydantic==2.14.1",
+    "griffe==2.4.1",
+    "griffe-public-redundant-aliases==0.3.2",
+    "griffe-warnings-deprecated==1.1.2",
+    "griffe-typingdoc==0.3.2",
+    "libcst==1.9.0",
+    "markdown-it-py==4.2.0",
+]
+
+[project.scripts]
+tooling = "corpus_tooling.cli:main"
+
+[build-system]
+requires = ["uv_build==0.13.6"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "corpus_tooling"

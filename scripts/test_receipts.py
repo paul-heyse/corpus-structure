@@ -2195,7 +2195,10 @@ def _forwardable_selector(value: str) -> bool:
     if not value or value.startswith(("-", "@")) or any(c in value for c in ("\0", "\n", "\r")):
         return False
     path = (ROOT / value.split("::", 1)[0]).resolve()
-    if any(path.is_relative_to(ROOT / root) for root in ("tests", "python/corpus-structure/tests")):
+    if any(
+        path.is_relative_to(ROOT / root)
+        for root in ("tests", "python/corpus-structure/tests", "tooling/tests")
+    ):
         return True
     # Explicit evidence probes are admitted by file only; they do not enter
     # default test discovery or permit an entire historical evidence sweep.

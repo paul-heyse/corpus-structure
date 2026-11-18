@@ -13,6 +13,7 @@ members = [
     "corpus-evidence",
     "corpus-structure",
     "corpus-structure-dev",
+    "corpus-tooling",
 ]
 overrides = [
     { name = "protobuf", specifier = "==6.33.6" },
@@ -863,6 +864,7 @@ dependencies = [
     { name = "astroid" },
     { name = "corpus-evidence" },
     { name = "corpus-structure" },
+    { name = "corpus-tooling" },
     { name = "dipo" },
     { name = "griffe" },
     { name = "libcst" },
@@ -896,6 +898,7 @@ requires-dist = [
     { name = "astroid", specifier = "==4.3.4" },
     { name = "corpus-evidence", editable = "tools/evidence" },
     { name = "corpus-structure", editable = "python/corpus-structure" },
+    { name = "corpus-tooling", editable = "tooling" },
     { name = "dipo", specifier = "==0.2.1" },
     { name = "griffe", specifier = "==2.4.1" },
     { name = "libcst", specifier = "==1.9.0" },
@@ -922,6 +925,35 @@ dev = [
     { name = "types-networkx", specifier = "==3.6.1.20261029" },
     { name = "types-pyyaml", specifier = "==6.0.12.20260906" },
     { name = "types-regex", specifier = "==2026.9.29.20261017" },
+]
+
+[[package]]
+name = "corpus-tooling"
+version = "0.1.0"
+source = { editable = "tooling" }
+dependencies = [
+    { name = "griffe" },
+    { name = "griffe-public-redundant-aliases" },
+    { name = "griffe-typingdoc" },
+    { name = "griffe-warnings-deprecated" },
+    { name = "libcst" },
+    { name = "markdown-it-py" },
+    { name = "pydantic" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "griffe", specifier = "==2.4.1" },
+    { name = "griffe-public-redundant-aliases", specifier = "==0.3.2" },
+    { name = "griffe-typingdoc", specifier = "==0.3.2" },
+    { name = "griffe-warnings-deprecated", specifier = "==1.1.2" },
+    { name = "libcst", specifier = "==1.9.0" },
+    { name = "markdown-it-py", specifier = "==4.2.0" },
+    { name = "pydantic", specifier = "==2.14.1" },
+    { name = "rich", specifier = "==15.0.0" },
+    { name = "typer", specifier = "==0.28.0" },
 ]
 
 [[package]]
@@ -1901,6 +1933,43 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/33/a4/be055b9ced02e39ac0ab85960e0ed3d8c6017c03e90965e77ff276684418/griffe-2.4.1.tar.gz", hash = "sha256:766123e26ec35b2ead63202e9e43ec309d876085d571b7df288256cd6fe4a3ef", size = 450805, upload-time = "2026-10-22T11:20:02.532Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/29/93/67a1814b4b13e9a5cc02510dbfa1d3937603140192a701c96d861b272611/griffe-2.4.1-py3-none-any.whl", hash = "sha256:ca58ccdb1d8590ad062fad837a875dd704f94acf7a0104795a098a991ceaf728", size = 5100, upload-time = "2026-10-22T11:19:58.365Z" },
+]
+
+[[package]]
+name = "griffe-public-redundant-aliases"
+version = "0.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "griffelib" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ec/48/4753cc471252ea776f8981b2eff8d5835c966d574bd0fbcd0ffd8433ae19/griffe_public_redundant_aliases-0.3.2.tar.gz", hash = "sha256:718214549788b7a958e47a147c4aec90907651836abaab2f079802290e1b422c", size = 30096, upload-time = "2026-10-06T09:07:24.715Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f3/6c/314113b858242cf49a9fd93dc8da5ef6dbb3aab23fa2bcaef8d20a268f3f/griffe_public_redundant_aliases-0.3.2-py3-none-any.whl", hash = "sha256:d8d2d8a2b899f83b16da48350affcf331c202f2fa656904218cb47d951866feb", size = 9150, upload-time = "2026-10-06T09:07:23.445Z" },
+]
+
+[[package]]
+name = "griffe-typingdoc"
+version = "0.3.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "griffelib" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5a/73/6a6797593f158e9cc0c9fc03546fbb1c1760385eaa7882161152b7903eb3/griffe_typingdoc-0.3.2.tar.gz", hash = "sha256:fea17cbf0334a6b6140979dd0380763967617a64b5da5c9734821e9eae2eaf44", size = 33474, upload-time = "2026-10-06T09:09:42.425Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/94/07/31babb8758e738bb6df674e2a0e76324c1a3290460dbe031dba6638744c3/griffe_typingdoc-0.3.2-py3-none-any.whl", hash = "sha256:098bd890cec250a775a8f8e5fd4f6872fa6d1994377469f3285ddbe179893d04", size = 13651, upload-time = "2026-10-06T09:09:41.165Z" },
+]
+
+[[package]]
+name = "griffe-warnings-deprecated"
+version = "1.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "griffelib" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/63/7b/7b1cf0e858e9370a957e50f59f5123b0188e0a5dba17b22cf6adac044a71/griffe_warnings_deprecated-1.1.2.tar.gz", hash = "sha256:3d57519749cd3225a483780c325cda242f7ac3dd8af70bfed0b4d0e2e20a15df", size = 32060, upload-time = "2026-10-06T09:10:20.816Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/55/61/4f63b56a06ca2b85834fef891231ad78c55a65cd8145afe19d43764bb393/griffe_warnings_deprecated-1.1.2-py3-none-any.whl", hash = "sha256:a49ff05e057694ae5a141d0bc1bb30d1a06694abc7cf0c3f3504aa8a0e9313f2", size = 10744, upload-time = "2026-10-06T09:10:19.734Z" },
 ]
 
 [[package]]
