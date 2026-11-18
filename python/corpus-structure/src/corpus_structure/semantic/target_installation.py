@@ -7,7 +7,7 @@ It neither replays a historical migration nor authorizes a database transition.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -689,6 +689,51 @@ def target_predecessor_descriptor(predecessor):
     return descriptor, admission
 
 
+def _prerequisite_check_transitions(installation, identities):
+    """Use the declared CHECKs for an explicit prerequisite recreation."""
+    from alembic.operations.ops import CreateCheckConstraintOp, DropConstraintOp
+    from pglast import parse_sql
+    from pglast.visitors import Visitor
+    from sqlalchemy import CheckConstraint
+
+    from corpus_structure.schema.relational import physical_expression_sql
+
+    from .alembic_privileges import OwnedOperationsOp, table_policy
+    from .native_objects import NativeAuthoringError
+
+    names = {(identity.schema, identity.name) for identity in identities}
+
+    class Calls(Visitor):
+        def __init__(self):
+            super().__init__()
+            self.found = set()
+
+        def visit_FuncCall(self, ancestors, node):
+            name = tuple(part.sval for part in node.funcname)
+            if name in names:
+                self.found.add(name)
+
+    before, after, covered = [], [], set()
+    for table in sorted(installation.metadata.tables.values(), key=lambda item: item.fullname):
+        for check in sorted(table.constraints, key=lambda item: str(item.name)):
+            if not isinstance(check, CheckConstraint):
+                continue
+            calls = Calls()
+            calls(parse_sql("SELECT " + physical_expression_sql(check.sqltext)))
+            if calls.found:
+                owner = table_policy(table)["owner"]
+                if owner is None:
+                    raise NativeAuthoringError("physical check transition requires its table owner")
+                before.append(OwnedOperationsOp(owner, [DropConstraintOp.from_constraint(check)]))
+                after.append(
+                    OwnedOperationsOp(owner, [CreateCheckConstraintOp.from_constraint(check)])
+                )
+                covered.update(calls.found)
+    if covered != names:
+        raise NativeAuthoringError("prerequisite recreation lacks its declared physical checks")
+    return before, after
+
+
 def prepare_target_successor(
     connection,
     installation: TargetInstallation,
@@ -705,6 +750,8 @@ def prepare_target_successor(
     The caller authenticates registration custody before supplying its frozen
     objects. This checks their actual installed state and never adopts live bodies.
     """
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
     from pglast import parse_sql
 
     from .native_authoring import (
@@ -713,7 +760,7 @@ def prepare_target_successor(
         physical_row_type_context,
         verify_frozen_catalog,
     )
-    from .native_objects import NativeAuthoringError, admit_native
+    from .native_objects import NativeAuthoringError, admit_native, prepare_native_authoring
 
     if not owned_authoring:
         raise NativeAuthoringError("target successor preparation requires owned authoring custody")
@@ -722,9 +769,13 @@ def prepare_target_successor(
     verify_frozen_catalog(connection, admission)
     previous = {item.identity: item for item in predecessor}
     prerequisites = []
+    replacements = []
     for declared in target_physical_prerequisites(connection, installation):
         frozen = previous.get(declared.identity)
         desired = declared.install_sql
+        if frozen is not None and declared.identity in recreate:
+            replacements.append(declared)
+            continue
         if (
             frozen is None
             or frozen.statements[:1] != desired[:1]
@@ -735,18 +786,40 @@ def prepare_target_successor(
                 "change requires an explicit physical transition"
             )
         prerequisites.append(frozen)
+    replacement_ids = frozenset(declared.identity for declared in replacements)
+    before_checks, after_checks = (
+        _prerequisite_check_transitions(installation, replacement_ids) if replacements else ([], [])
+    )
     with physical_row_type_context(connection, installation.metadata):
+        if replacements:
+            operations = Operations(MigrationContext.configure(connection))
+            for effect in before_checks:
+                operations.invoke(effect)
+            replacement = prepare_native_authoring(
+                connection,
+                tuple(replacements),
+                predecessor=tuple(previous[item.identity] for item in replacements),
+                owned_authoring=True,
+                check_plpgsql=replacement_ids,
+            )
+            prerequisites.extend(replacement.desired)
         authoring = prepare_target_authoring(
             connection,
             installation,
             physical_prerequisites=tuple(prerequisites),
             predecessor=predecessor,
             retire=retire,
-            recreate=recreate,
+            recreate=recreate - replacement_ids,
             owned_authoring=True,
         )
+        if replacements:
+            authoring = replace(authoring, recreate=recreate)
         physical_contract = _physical_check_contract(connection, installation.metadata, authoring)
-    return compare_declared_candidate(
+        if replacements and physical_contract is not None:
+            raise NativeAuthoringError(
+                "prerequisite recreation requires the retained CHECK contract"
+            )
+    candidate, authored = compare_declared_candidate(
         connection,
         target_metadata=installation.metadata,
         authoring=authoring,
@@ -755,6 +828,12 @@ def prepare_target_successor(
         data_steps=data_steps,
         predecessor_revision=predecessor_revision,
     )
+    if candidate.upgrade_ops is not None and replacements:
+        # The CHECK drops take and retain the table locks before the native
+        # changes. Adding the declared checks validates every retained row.
+        candidate.upgrade_ops.ops[:0] = before_checks
+        candidate.upgrade_ops.ops.extend(after_checks)
+    return candidate, authored
 
 
 def require_empty_target(connection) -> None:

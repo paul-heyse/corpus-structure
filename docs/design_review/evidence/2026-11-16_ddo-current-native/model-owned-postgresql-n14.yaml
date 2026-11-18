@@ -7,3 +7,8 @@ retire:
     schema: ops
     name: ddo_structural_report_support
     arguments: [text, text, jsonb]
+recreate:
+  - kind: function
+    schema: ops
+    name: pdf_product_descriptor
+    arguments: [bytea]
