@@ -11,6 +11,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.metadata import metadata
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.record_policy import RecordAcceptanceInstance
 from corpus_structure.semantic.record_policy_authority import (
@@ -72,7 +73,7 @@ def policy_projection_connection(scenario_seeds):
     from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
 
     recipe = PolicyProjectionRecipe(
-        record_policy_completion_native_sql().encode(),
+        record_policy_completion_native_sql(metadata).encode(),
         native_sql(native_protocol_sources()).encode(),
     )
     with scenario_seeds.rollback_family(recipe) as case:

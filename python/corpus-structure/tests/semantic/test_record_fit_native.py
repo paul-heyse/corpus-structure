@@ -14,7 +14,7 @@ from sqlalchemy.schema import CreateTable
 from corpus_structure.evaluate.declared_record_policy import fit_declared_record_policy
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.metadata import metadata, table
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.record_policy_completion_native import (
     record_policy_completion_native_sql,
@@ -36,7 +36,7 @@ def fit_correspondence_connection(policy_projection_connection):
 
     for source, names in (
         (native_sql(native_protocol_sources()), {"ddo_digest"}),
-        (record_policy_completion_native_sql(), {"ddo_require_record_fit_correspondence"}),
+        (record_policy_completion_native_sql(metadata), {"ddo_require_record_fit_correspondence"}),
     ):
         parsed = prepare_sql(source, source="fit-correspondence-control")
         for index, statement in enumerate(parsed.statements):
@@ -178,19 +178,7 @@ def test_actual_grade_frame_change_cannot_reuse_old_fit_provenance(
 
 @pytest.fixture
 def fit_guard_connection(semantic_bare_engine):
-    from corpus_structure.semantic.data_operation_projections import capture_projection_sources
-
-    products = json.loads(
-        next(
-            item.content
-            for item in capture_projection_sources()
-            if item.name == "native/data-operation-projections.json"
-        )
-    )
-    sql = record_policy_completion_native_sql()
-    for name, body in products.items():
-        sql = sql.replace("__DDO_CORE_" + name.upper() + "__", body)
-    assert "__DDO_CORE_" not in sql
+    sql = record_policy_completion_native_sql(metadata)
     with semantic_bare_engine.begin() as connection:
         for name in ("sem", "data", "ops", "kb"):
             connection.exec_driver_sql(f"CREATE SCHEMA IF NOT EXISTS {name}")
@@ -265,3 +253,59 @@ def test_two_legitimate_fit_requests_cannot_exchange_self_consistent_fitted_bodi
             revised.model_dump(mode="json"),
             copied,
         )
+
+
+def test_generated_policy_completion_programs_bind_in_actual_native_model(native_rollback):
+    from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
+
+    connection = native_rollback.connection
+    execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
+    with native_owner(connection, "corpus_sem_publisher"):
+        execute_native_sql(connection, record_policy_completion_native_sql(metadata))
+        for signature in (
+            "ops.ddo_policy_authorization_value(jsonb)",
+            "ops.ddo_policy_authorization_meaning(jsonb)",
+            "ops.ddo_require_policy_authorization_completion(ops.data_request,jsonb)",
+            "ops.ddo_require_record_fit_correspondence(jsonb,jsonb,jsonb,jsonb)",
+            "ops.ddo_record_fit_require_finite_cut(ops.data_demand,ops.data_demand_read)",
+            "ops.ddo_record_fit_selections(ops.data_request)",
+            "ops.ddo_record_fit_cut_scopes(text,jsonb)",
+            "ops.ddo_record_fit_completion_scopes(ops.data_request)",
+            "ops.ddo_record_fit_dependency_scopes(text)",
+            "ops.ddo_record_fit_require_selection(ops.data_request,text,jsonb,boolean)",
+            "ops.ddo_record_fit_require_producer(ops.data_request,jsonb)",
+            "ops.ddo_require_record_fit_completion(ops.data_request,jsonb)",
+            "ops.ddo_record_fit_dependencies_valid(text)",
+        ):
+            errors = connection.execute(
+                text("SELECT message FROM public.plpgsql_check_function_tb(CAST(:signature AS regprocedure),fatal_errors=>false) WHERE level='error'"),
+                {"signature": signature},
+            ).scalars().all()
+            assert errors == [], (signature, errors)
+        assert connection.scalar(text("SELECT ops.ddo_record_fit_dependencies_valid('missing-policy-episode')")) is False
+
+
+def test_fit_selection_rows_preserve_roles_and_refuse_changed_cut(fit_guard_connection):
+    connection = fit_guard_connection
+    # Supply the existing input port with a controlled specification; the native
+    # selection/cut validation and TABLE output execute unchanged on PostgreSQL.
+    connection.exec_driver_sql(
+        "CREATE FUNCTION ops.ddo_record_grade_input(r ops.data_request,role_name text) "
+        "RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$ SELECT jsonb_build_object('body',r.binding->'specification') $$"
+    )
+    selections = {}
+    for name in ("feature", "calibration"):
+        cut = json.dumps({"project_id": "project:selection", "demand_id": "demand:" + name, "read_id": "read:" + name})
+        selections[name + "_selection"] = {
+            "project_id": "project:selection", "demand_id": "demand:" + name, "read_id": "read:" + name,
+            "cut_canonical_json": cut, "expected_cut": "cut-selection:" + sha256(cut.encode()).hexdigest(),
+        }
+    request = {"project_id": "project:selection", "binding": {"specification": selections}}
+    query = text("SELECT role_name,selection FROM ops.ddo_record_fit_selections(jsonb_populate_record(NULL::ops.data_request,CAST(:r AS jsonb)))")
+    assert connection.execute(query, {"r": json.dumps(request)}).all() == [
+        ("feature_grade", selections["feature_selection"]), ("calibration_grade", selections["calibration_selection"]),
+    ]
+    selections["feature_selection"]["expected_cut"] = "cut-selection:changed"
+    with pytest.raises(DBAPIError, match="actual original project/cut/read pins") as refusal, connection.begin_nested():
+        connection.execute(query, {"r": json.dumps(request)}).all()
+    assert getattr(refusal.value.orig, "sqlstate", None) == "23514"
