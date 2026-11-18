@@ -1,0 +1,4 @@
+# Model-owned PDF domain, validation, sealing, and companion reads; DDO operands and read bounds.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n8
+native_revision: semantic_ddo_pe_n9
