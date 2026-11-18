@@ -33,7 +33,25 @@ corrections `C1`–`C7` and rule impacts `RC01`–`RC07`. Supporting pages hold 
 every remedy is Proposed, no decision record is changed, and every finding is Deferred until a
 plan selects it.
 
-## Test system target design review
+## Test domain model and execution review
+
+[Test domain model and execution](design_review_test-domain-model-and-execution_2026-11-17.md)
+(2026-11-17) is a principle-focused test-scope design/target review at `main` `1afa63f88`,
+consuming audit publication `aca50eeea`. Its focus is the explicit domain model (FP-04, A2) and
+execution fit (FP-07, A4), with library scope open. It supersedes the 2026-11-13 review below,
+keeps that review's architecture as the base, and carries `F01`–`F05` and `RC01`–`RC04` with
+their identities. It states one rule for what tests take from the model and what stays
+independent, and gives a target for prepared-state identity, controlled boundaries, evidence
+for reuse and skip mechanisms, preparation declarations and retirement. It adds `F06` and
+`F07`, and proposes rule impacts `RC07` (ADR-0101 key inputs), `RC08` (ADR-0102, recipes carry
+no location), `RC09` (where preparation declarations live) and the optional `RC10` for operator
+confirmation in plan creation. Its
+[supporting document](test-domain-model-and-execution/dispositions.md) gives a disposition for
+every open test finding. Decision: Revise; every remedy is Proposed and every disposition
+Deferred until a plan selects it.
+
+## Test system target design review (superseded 2026-11-17)
+
 
 [Test system target design](design_review_test-system-target-design_2026-11-13.md) (2026-11-13) is
 a holistic test-scope design/target review at `main` `a5ea7c4dc`, consuming test audit publication

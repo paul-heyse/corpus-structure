@@ -1,5 +1,10 @@
 # Design review — test system target design
 
+**Superseded on 2026-11-17** by the
+[test domain model and execution review](design_review_test-domain-model-and-execution_2026-11-17.md),
+which keeps this review's architecture as its base and maps F01–F05 and RC01–RC04 in its §11.
+This text is retained unchanged below.
+
 **Design / target review · 2026-11-13 · principal reviewer: delegated `design-reviewer` (fresh
 context; author of neither the audit, the tests nor the 2026-11-12 review).** Supporting document:
 [options and classification](test-system-target-design/options-and-classification.md), which
