@@ -9,7 +9,9 @@ from corpus_structure.semantic.constructions.lexical import (
     classify,
 )
 from corpus_structure.semantic.file_custody import FileCustodyError
+from semantic.prose_book_comparator import _forest_shape
 from semantic.prose_regex_oracle import _regex_parser_oracle
+from semantic.test_construction_products import profiles as construction_profiles  # noqa: F401
 
 
 def test_parser_cache_rechecks_grammar_content_and_accepts_equal_touch(tmp_path, monkeypatch):
@@ -86,76 +88,6 @@ def test_supplied_terminal_candidate_preserves_independent_regex_forest(text, at
         assert getattr(actual_reducer, name) == getattr(expected_reducer, name)
 
 
-def _forest_shape(root):
-    """Ordered SPPF graph, including sharing, without expanding derivations."""
-    from lark.parsers.earley_forest import PackedNode, SymbolNode, TokenNode
-
-    identities: dict[int, int] = {}
-    records: list[object] = []
-
-    def rule(value):
-        return (
-            str(value.origin),
-            tuple(str(item) for item in value.expansion),
-            str(value.alias),
-            value.order,
-            value.options.keep_all_tokens,
-            value.options.expand1,
-            value.options.priority,
-            value.options.empty_indices,
-        )
-
-    def visit(node):
-        if node is None:
-            return None
-        key = id(node)
-        if key in identities:
-            return identities[key]
-        ordinal = identities[key] = len(records)
-        records.append(None)
-        if isinstance(node, TokenNode):
-            token = node.token
-            record = (
-                "token",
-                token.type,
-                str(token),
-                token.start_pos,
-                token.end_pos,
-                token.line,
-                token.column,
-                token.end_line,
-                token.end_column,
-                node.priority,
-            )
-        elif isinstance(node, PackedNode):
-            record = (
-                "packed",
-                rule(node.rule),
-                node.start,
-                node.priority,
-                visit(node.left),
-                visit(node.right),
-            )
-        elif isinstance(node, SymbolNode):
-            label = (rule(node.s[0]), node.s[1]) if node.is_intermediate else str(node.s)
-            record = (
-                "symbol",
-                node.is_intermediate,
-                label,
-                node.start,
-                node.end,
-                node.priority,
-                tuple(visit(child) for child in node.children),
-            )
-        else:
-            raise AssertionError("unexpected native forest node " + type(node).__name__)
-        records[ordinal] = record
-        return ordinal
-
-    visit(root)
-    return records
-
-
 def test_regions_share_one_compile_without_retaining_or_replacing_another_matcher(monkeypatch):
     forest._grammar_prototype.cache_clear()
     original, constructed = forest.Lark, []
@@ -197,3 +129,56 @@ def test_authored_native_terminal_keeps_its_native_matcher():
 def test_supplied_matcher_rejects_nonexact_observations_before_parse(row):
     with pytest.raises(ValueError, match="exact original source"):
         forest.prepared_parser("alpha", (), terminals=(row,))
+
+
+def test_book_gate_refuses_missing_current_population_before_any_acquisition():
+    from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
+    from semantic.prose_book_comparator import (
+        BOOK_DOCUMENT,
+        BOOK_PROJECT,
+        BOOK_SHA256,
+        MissingBookPrerequisites,
+        compare_whole_book_construction,
+    )
+
+    pin = OriginalDocumentRef(
+        kind="original-document",
+        project_id=BOOK_PROJECT,
+        document_key=BOOK_DOCUMENT,
+        content_hash=BOOK_SHA256,
+        mime="application/pdf",
+    )
+    with pytest.raises(MissingBookPrerequisites, match="selected source population"):
+        compare_whole_book_construction(pin, expected_sources=(), acquired=())
+
+
+def test_book_comparator_observes_actual_production_region_selection(
+    monkeypatch,
+    construction_profiles,  # noqa: F811
+):
+    from corpus_structure.semantic.formal_products import FormalEvidenceOptions
+    from semantic.formal_products_support import selected
+    from semantic.prose_book_comparator import _compare_profile_regions
+    from semantic.test_construction_products import _publication_context
+
+    # Reuse the existing ordinary typed-product fixture; this bounded control
+    # verifies the comparator mechanics and grants no actual-book evidence.
+    formal, construction = construction_profiles
+    source = selected(formal, "Every trial succeeds.")
+    primary = formal.run(
+        source, FormalEvidenceOptions(), subject_context=_publication_context(source)
+    )
+    monkeypatch.setattr(forest, "classify", lambda *_: pytest.fail("reclassified primary text"))
+    from corpus_structure.semantic.construction_products import ConstructionOptions
+
+    compared = _compare_profile_regions(
+        construction,
+        source,
+        (primary,),
+        ConstructionOptions(),
+        sentences=None,
+        subject_context=_publication_context(source),
+    )
+    assert len(compared) == 1
+    assert compared[0]["outcome"] in {"complete", "partial"}
+    assert compared[0]["region"].endswith(":0:21")
