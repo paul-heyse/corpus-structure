@@ -103,7 +103,7 @@ def product_connection(infrastructure_rollback):
     yield connection
 
 
-def product_packet():
+def product_packet(member_ids=("one",)):
     context = {
         "project_id": "project",
         "release_id": "release",
@@ -125,19 +125,20 @@ def product_packet():
         "choices": [{"choice_group": "group", "alternative": "a", "selected": True}],
     }
     member = {
-        "member_id": "one",
         "kind_contract": "leaf",
         "context": member_context,
         "body": fields,
         **fields,
     }
-    canonical_packet = {
-        key: member[key] for key in ("member_id", "kind_contract", "context", "body")
-    }
+    canonical_packet = {key: member[key] for key in ("kind_contract", "context", "body")}
     return context, {
         "kind_contract": "container",
-        "body": semantic_value({"members": [canonical_packet]}),
-        "members": [{**member, "body": semantic_value(fields)}],
+        "body": semantic_value(
+            {"members": [dict(canonical_packet, member_id=identity) for identity in member_ids]}
+        ),
+        "members": [
+            dict(member, member_id=identity, body=semantic_value(fields)) for identity in member_ids
+        ],
     }
 
 
@@ -200,6 +201,30 @@ def test_product_member_projection_refuses_changes_and_evaluator_role_crossing(p
     ):
         realize(product_connection, context, packet)
     assert getattr(denied.value.orig, "sqlstate", None) == "42501"
+
+
+def test_product_members_require_the_same_finite_ordered_packet(product_connection):
+    context, packet = product_packet(("one", "two"))
+    removed = dict(packet, members=packet["members"][:1])
+    swapped = dict(packet, members=packet["members"][::-1])
+    for invalid, message in (
+        (removed, "body/member projection count disagreement"),
+        (swapped, "member context/body differs from canonical container packet"),
+    ):
+        with (
+            pytest.raises(DBAPIError, match=message) as refusal,
+            product_connection.begin_nested(),
+        ):
+            realize(product_connection, context, invalid)
+        assert getattr(refusal.value.orig, "sqlstate", None) == "P0001"
+        assert product_connection.scalar(text("SELECT count(*) FROM kb.data_product_member")) == 0
+    product = realize(product_connection, context, packet)
+    assert product_connection.execute(
+        text(
+            "SELECT member_id FROM kb.data_product_member WHERE product_id=:id ORDER BY member_id"
+        ),
+        {"id": product},
+    ).scalars().all() == ["one", "two"]
 
 
 def test_generated_product_admission_binds_in_actual_native_model(native_rollback):

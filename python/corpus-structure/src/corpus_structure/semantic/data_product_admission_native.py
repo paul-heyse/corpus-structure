@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from sqlalchemy import (
     BigInteger,
     Boolean,
-    Integer,
     MetaData,
     Text,
     and_,
@@ -160,9 +159,18 @@ def _install_product(model, output):
         core_variable(name, JSONB()) for name in ("context", "o", "subject_scopes")
     )
     key, digest = core_variable("key", Text()), core_variable("bd", Text())
-    body, m, raw, family_value, packet, member_context = (
+    body, m, raw, family_value, packet, member_context, canonical_members, member_body = (
         core_variable(name, JSONB())
-        for name in ("b", "m", "raw", "family_value", "packet", "member_context")
+        for name in (
+            "b",
+            "m",
+            "raw",
+            "family_value",
+            "packet",
+            "member_context",
+            "canonical_members",
+            "member_body",
+        )
     )
     ordinal, inserted = (
         core_variable("n", BigInteger()),
@@ -190,6 +198,7 @@ def _install_product(model, output):
         return func.public.json_matches_schema(cast(schema, JSON()), cast(value, JSON()))
 
     member_rows = _items(packet_in["members"], "entry", ordered=True)
+    canonical_rows = _items(canonical_members[1], "canonical", ordered=True)
     release_kind = (
         select(1)
         .select_from(releases)
@@ -199,7 +208,6 @@ def _install_product(model, output):
         )
         .exists()
     )
-    member_body = func.data.ddo_normalize(m["body"], type_=JSONB())
     family_checks = or_(
         *(
             or_(
@@ -243,8 +251,8 @@ def _install_product(model, output):
             tuple(f.attribute for f in _FAMILIES),
         ),
         _fields(m["context"], context_fields),
-        Assign("packet", _field(body, "members")[1][cast(ordinal, Integer())]),
         Assign("member_context", m["context"]),
+        Assign("member_body", func.data.ddo_normalize(m["body"])),
         _reject(
             or_(
                 packet[0].astext != "mapping",
@@ -274,23 +282,23 @@ def _install_product(model, output):
         ),
         lookup("member_kind", kind, kind.c.kind_contract == m["kind_contract"].astext),
         Perform(func.ops.ddo_authorize(mk("universe"))),
+        Assign("raw", _json(member_body)),
         _reject(
             or_(
                 ~k("member_contracts").bool_op("?")(mk("kind_contract")),
                 ~release_kind,
                 ~schema_matches(mk("meaning_schema"), member_body),
-                ~schema_matches(mk("body_schema"), _json(member_body)),
+                ~schema_matches(mk("body_schema"), raw),
             ),
             "member kind/body differs from declared nominal container member contract",
         ),
         _reject(
             or_(
                 func.nullif(m["member_id"].astext, "").is_(None),
-                ~schema_matches(k("member_schema"), _json(member_body)),
+                ~schema_matches(k("member_schema"), raw),
             ),
             "invalid member contract",
         ),
-        Assign("raw", _json(member_body)),
         _reject(family_checks, "member projection differs from semantic body"),
     )
     statements = [
@@ -336,11 +344,13 @@ def _install_product(model, output):
                 ),
             ),
             (
+                Assign("canonical_members", _field(body, "members")),
                 _reject(
                     or_(
-                        func.coalesce(_field(body, "members")[0].astext, "") != "sequence",
-                        func.jsonb_array_length(_field(body, "members")[1])
-                        != func.jsonb_array_length(packet_in["members"]),
+                        canonical_members[0].astext.is_distinct_from("sequence"),
+                        func.jsonb_array_length(canonical_members[1]).is_distinct_from(
+                            func.jsonb_array_length(packet_in["members"])
+                        ),
                     ),
                     "body/member projection count disagreement",
                 ),
@@ -393,7 +403,15 @@ def _install_product(model, output):
             "product identity/custody collision",
         ),
         ForQuery(
-            ("m", "n"), select(member_rows.c.value, member_rows.c.ordinality - 1), member_steps
+            ("m", "packet"),
+            select(member_rows.c.value, canonical_rows.c.value)
+            .select_from(
+                member_rows.join(
+                    canonical_rows, member_rows.c.ordinality == canonical_rows.c.ordinality
+                )
+            )
+            .order_by(member_rows.c.ordinality),
+            member_steps,
         ),
         Sql(
             insert(members)
@@ -622,6 +640,8 @@ def _install_product(model, output):
             Local("previous", product),
             Local("packet", pg_type("jsonb")),
             Local("member_context", pg_type("jsonb")),
+            Local("canonical_members", pg_type("jsonb")),
+            Local("member_body", pg_type("jsonb")),
             Local("member_kind", kind),
             Local("inserted_product", pg_type("bigint")),
         ),

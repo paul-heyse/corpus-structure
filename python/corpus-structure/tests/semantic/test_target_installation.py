@@ -90,9 +90,11 @@ def test_target_archive_uses_the_exact_supplied_metadata_and_pdf_actions():
                 query = effect["PLpgSQL_stmt_execsql"]["sqlstmt"]["PLpgSQL_expr"]["query"]
                 statement = parse_sql(query)[0].stmt
                 if isinstance(statement, ast.CreateStmt):
+                    assert statement.relation is not None and statement.tableElts is not None
                     assert statement.relation.relpersistence == "t"
                     assert statement.oncommit == enums.OnCommitAction.ONCOMMIT_DROP
                     (like,) = statement.tableElts
+                    assert isinstance(like, ast.TableLikeClause) and like.relation is not None
                     scratch.append((like.relation.schemaname, like.relation.relname))
     assert scratch == [(relation.schema, relation.name) for relation in relations]
     sources = pdf_domain_sources(
