@@ -3,9 +3,9 @@
 import json
 
 import pytest
+from pdf_acceptance_support import certify_controlled_pdf_stream
 from sqlalchemy import select
 
-from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
 from corpus_structure.semantic.data_operation_service import execute_data_demand
@@ -65,19 +65,16 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
             self.recipe.to_bytes(),
             (),
         )
-        occurrences = streamed.write_native_occurrence_batches(
-            record_root.with_name(record_root.name + "-occurrences"),
-            build_id=build_id,
-            on_batch=on_replay,
-        )
-        records = streamed.write_record_batches(
-            record_root,
+        return certify_controlled_pdf_stream(
+            streamed,
+            source,
+            spool_root=spool_root,
+            record_root=record_root,
             build_id=build_id,
             release_id=release_id,
-            source_digest=source.digest,
-            on_batch=on_replay,
+            on_replay=on_replay,
+            **options,
         )
-        return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
 
     monkeypatch.setattr(pdf_worker.PdfWorker, "stream", controlled_stream)
     recipe = OriginalSeedRecipe(current_pdf_recipe(tmp_path))

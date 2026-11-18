@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from conftest import settings_for_native_clone
+from pdf_acceptance_support import certify_controlled_pdf_stream
 from sqlalchemy import text
 
 from corpus_structure.core.method import MethodSettings
@@ -21,7 +22,6 @@ from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
 from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
 from corpus_structure.ingest.pdf_recognition import NemotronRecipe, RecognitionPage
-from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.orchestrate.source_operation import run_source_operation
 from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument
@@ -291,19 +291,16 @@ def current_integration_journey(
                 self.recipe.to_bytes(),
                 (),
             )
-            occurrences = streamed.write_native_occurrence_batches(
-                record_root.with_name(record_root.name + "-occurrences"),
-                build_id=build_id,
-                on_batch=on_replay,
-            )
-            records = streamed.write_record_batches(
-                record_root,
+            return certify_controlled_pdf_stream(
+                streamed,
+                source,
+                spool_root=spool_root,
+                record_root=record_root,
                 build_id=build_id,
                 release_id=release_id,
-                source_digest=source.digest,
-                on_batch=on_replay,
+                on_replay=on_replay,
+                **options,
             )
-            return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
 
         def controlled_recognition(self, source, recipe, pages, *, check_active, **options):
             assert tuple(pages) == (1,)

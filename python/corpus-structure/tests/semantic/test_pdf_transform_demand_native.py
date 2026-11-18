@@ -9,13 +9,13 @@ from typing import Any
 
 import pytest
 from conftest import settings_for_native_clone
+from pdf_acceptance_support import certify_controlled_pdf_stream
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.ingest.pdf_enrichment import PdfEnrichmentResult
 from corpus_structure.ingest.pdf_recognition import RecognitionPage
-from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
 from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 from corpus_structure.orchestrate.source_operation import run_source_operation
 from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument
@@ -95,19 +95,16 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             self.recipe.to_bytes(),
             (),
         )
-        occurrences = streamed.write_native_occurrence_batches(
-            record_root.with_name(record_root.name + "-occurrences"),
-            build_id=build_id,
-            on_batch=on_replay,
-        )
-        records = streamed.write_record_batches(
-            record_root,
+        return certify_controlled_pdf_stream(
+            streamed,
+            source,
+            spool_root=spool_root,
+            record_root=record_root,
             build_id=build_id,
             release_id=release_id,
-            source_digest=source.digest,
-            on_batch=on_replay,
+            on_replay=on_replay,
+            **options,
         )
-        return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
 
     def controlled_enrichment(self, request, *, check_active):
         check_active()

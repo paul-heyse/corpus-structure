@@ -105,8 +105,8 @@ def decimal_source_stream(
 ):
     """Controlled Docling output with literal spelling; no PDF recognition accuracy claim."""
     from docling_core.types.doc import DoclingDocument, GroupLabel, TableCell, TableData
+    from pdf_acceptance_support import certify_controlled_pdf_stream
 
-    from corpus_structure.ingest.pdf_stream_types import PdfStreamReply
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
 
     check_active()
@@ -137,19 +137,16 @@ def decimal_source_stream(
         self.recipe.to_bytes(),
         (),
     )
-    occurrences = result.write_native_occurrence_batches(
-        record_root.with_name(record_root.name + "-occurrences"),
-        build_id=build_id,
-        on_batch=on_replay,
-    )
-    records = result.write_record_batches(
-        record_root,
+    return certify_controlled_pdf_stream(
+        result,
+        source,
+        spool_root=spool_root,
+        record_root=record_root,
         build_id=build_id,
         release_id=release_id,
-        source_digest=source.digest,
-        on_batch=on_replay,
+        on_replay=on_replay,
+        **options,
     )
-    return PdfStreamReply("success", (), self.recipe.to_bytes(), (), records + occurrences)
 
 
 def publish_domain(journey, graph, *, inference):

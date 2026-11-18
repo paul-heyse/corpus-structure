@@ -31,6 +31,68 @@ from corpus_structure.semantic.pdf_publication import (
 from corpus_structure.semantic.pdf_staging import adopt_pdf_batch
 
 
+def certify_controlled_pdf_stream(
+    streamed,
+    source,
+    *,
+    spool_root,
+    record_root,
+    build_id,
+    release_id,
+    on_replay,
+    validation_contract,
+    lowering_identity,
+    payload_schema,
+    **options,
+):
+    """Send controlled Docling output through the real worker certification route."""
+    from corpus_structure.ingest.pdf_stream_types import PdfStreamReply, PdfStreamRequest
+    from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
+    from corpus_structure.semantic.pdf_certification import certify_native_stream
+
+    request = PdfStreamRequest(
+        source=source,
+        spool_root=spool_root,
+        record_root=record_root,
+        build_id=build_id,
+        release_id=release_id,
+        validation_contract=validation_contract,
+        lowering_identity=lowering_identity,
+        payload_schema=payload_schema,
+        page_range=options.get("page_range"),
+        recovery_pages=options.get("recovery_pages", ()),
+    )
+    on_replay(
+        _atomic_bytes(
+            request.spool_root / "native-preparation.json",
+            streamed.effective_options,
+            "native_preparation",
+        )
+    )
+    records = streamed.write_record_batches(
+        request.record_root,
+        build_id=request.build_id,
+        release_id=request.release_id,
+        source_digest=request.source.digest,
+        on_batch=on_replay,
+    )
+    on_replay(_ref(request.record_root / "completion.jsonl", "native_completion"))
+    certified_sets, certification, access_replay = certify_native_stream(
+        streamed, request, records, on_replay=on_replay
+    )
+    return PdfStreamReply(
+        streamed.conversion_status,
+        streamed.errors,
+        streamed.recipe,
+        tuple(streamed.spool.pages[number] for number in sorted(streamed.spool.pages)),
+        records,
+        streamed.effective_options,
+        certified_sets,
+        certification,
+        access_replay,
+    )
+
+
 def stage_pdf_document(
     engine, build, directory, document, *, companions=None, cell_coverage="unknown"
 ):
