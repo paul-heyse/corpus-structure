@@ -13,22 +13,17 @@ from corpus_structure.ingest.pdf_build_spool import (
     selected_replay_bytes,
 )
 from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
-from semantic.pdf_staging_support import private_build as private_build
+from semantic.pdf_staging_support import create_private_build as create_private_build
 
 
 def test_native_spool_contributor_preserves_original_fence_and_rejects_invented_membership(
-    private_build,
+    create_private_build,
     commit_writer_engine,
     tmp_path,
 ):
-    build = private_build
+    build = create_private_build()
+    runtime = create_private_build.kernel.runtime
     with commit_writer_engine.begin() as connection:
-        runtime = connection.scalar(
-            text(
-                "SELECT request.runtime_id FROM ops.task task JOIN ops.data_request request ON request.id=task.data_request_id WHERE task.id=:task"
-            ),
-            {"task": build.task_id},
-        )
         basis = (
             connection.execute(
                 text("SELECT * FROM ops.read_pdf_producer_basis(:task,:attempt,:holder,:runtime)"),
