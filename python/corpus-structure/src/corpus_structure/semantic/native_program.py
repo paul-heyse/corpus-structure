@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, assert_never
 
 from pglast import ast, enums
+from pglast.keywords import COL_NAME_KEYWORDS
 from pglast.stream import RawStream, maybe_double_quote_name
 from sqlalchemy import Column, Table, cast, literal_column, null, select
 from sqlalchemy.dialects.postgresql import dialect
@@ -89,9 +90,32 @@ def literal(value: str | int | bool | None) -> ast.A_Const:
     return ast.A_Const(isnull=False, val=node)
 
 
+class _NativeStream(RawStream):
+    """Quote PostgreSQL column keywords in the narrower TABLE argument grammar."""
+
+    def print_node(self, node, is_name=False, is_symbol=False):
+        if (
+            isinstance(node, ast.FunctionParameter)
+            and node.mode == enums.FunctionParameterMode.FUNC_PARAM_TABLE
+            and node.name in COL_NAME_KEYWORDS
+        ):
+            # pglast's generic identifier printer omits COL_NAME_KEYWORDS.
+            # Names such as position are legal column references but require
+            # quoting as TABLE output parameter names. Leave every other node
+            # with its native printer so unrelated program bytes stay stable.
+            self.write('"' + node.name.replace('"', '""') + '" ')
+            self.print_node(node.argType)
+            if node.defexpr is not None:
+                self.write(" = ")
+                self.print_node(node.defexpr)
+            self.separator()
+            return
+        super().print_node(node, is_name=is_name, is_symbol=is_symbol)
+
+
 def _render(expression: Expression) -> str:
     if isinstance(expression, ast.Node):
-        return RawStream()(expression)
+        return _NativeStream()(expression)
     # Shared and recursive CTE references revisit the same Core graph nodes.
     # Validate each node once before asking the dialect to render the query.
     pending = [expression]
