@@ -91,6 +91,7 @@ def native_protocol_sources(
         execution_evidence_leaf_native_sql,
         execution_evidence_leaf_schema,
     )
+    from .external_execution_native import external_execution_native_sql
     from .graph_runtime import nx
     from .operation_event_native import operation_event_native_sources
     from .pdf_completion_native import pdf_completion_native_sql
@@ -396,7 +397,11 @@ def native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-external.sql",
-            _SQL.with_name("data_operation_external.sql").read_bytes(),
+            external_execution_native_sql(target_metadata, protocol).encode(),
+        ),
+        SourceArtifact(
+            "native/external-execution-native.py",
+            Path(__file__).with_name("external_execution_native.py").read_bytes(),
         ),
         SourceArtifact(
             "native/data-operation-recordable-fates.sql", recordable_fate_sql(protocol).encode()
@@ -551,6 +556,9 @@ def _captured(sources) -> dict[str, bytes]:
             "native/data-operation-projections.json",
             "native/data-operation-provider-profiles.py",
             "native/data-operation-external.sql",
+            "native/external-execution-native.py",
+            "native/population-acquisition.sql",
+            "native/population-acquisition.py",
         }
     )
     if not required <= result.keys():
