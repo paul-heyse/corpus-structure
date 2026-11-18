@@ -162,33 +162,6 @@ BEGIN
  ERRCODE='23514'; END IF;
  RETURN NEXT build;
 END $stage$;
-CREATE OR REPLACE FUNCTION ops.require_pdf_stage_scratch(p_name text,p_relation regclass)
-RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $stage$
-DECLARE scratch oid:=to_regclass('pg_temp.'||p_name);
-BEGIN
- IF scratch IS NULL OR NOT EXISTS(SELECT FROM pg_class WHERE oid=scratch
- AND relowner='corpus_sem_publisher'::regrole AND relnamespace=pg_my_temp_schema()
- AND relkind='r' AND relpersistence='t' AND NOT relrowsecurity) OR
- EXISTS(SELECT FROM pg_trigger WHERE tgrelid=scratch) OR
- EXISTS(SELECT FROM pg_rewrite WHERE ev_class=scratch) OR
- EXISTS(SELECT FROM pg_inherits WHERE inhrelid=scratch OR inhparent=scratch) OR
- EXISTS(SELECT FROM pg_attrdef WHERE adrelid=scratch) OR
- EXISTS(SELECT FROM pg_index WHERE indrelid=scratch) OR
- EXISTS(SELECT FROM pg_constraint WHERE conrelid=scratch
- AND (contype NOT IN ('c','n') OR NOT convalidated)) THEN
- RAISE EXCEPTION 'untrusted private PDF scratch' USING ERRCODE='23514'; END IF;
- IF ARRAY(SELECT ROW(attnum,attname,atttypid,atttypmod,attnotnull,attgenerated,attidentity)::text
- FROM pg_attribute WHERE attrelid=scratch AND attnum>0 AND NOT attisdropped ORDER BY attnum)
- IS DISTINCT FROM
- ARRAY(SELECT ROW(attnum,attname,atttypid,atttypmod,attnotnull,attgenerated,attidentity)::text
- FROM pg_attribute WHERE attrelid=p_relation AND attnum>0 AND NOT attisdropped ORDER BY attnum)
- OR ARRAY(SELECT pg_get_constraintdef(oid,true) FROM pg_constraint
- WHERE conrelid=scratch AND contype='c' ORDER BY 1) IS DISTINCT FROM
- ARRAY(SELECT pg_get_constraintdef(oid,true) FROM pg_constraint
- WHERE conrelid=p_relation AND contype='c' ORDER BY 1) THEN
- RAISE EXCEPTION 'private PDF scratch schema differs' USING ERRCODE='23514'; END IF;
-END $stage$;
-REVOKE ALL ON FUNCTION ops.require_pdf_stage_scratch(text,regclass) FROM PUBLIC;
 """
     )
     selected = metadata if target_metadata is None else target_metadata
@@ -212,6 +185,7 @@ REVOKE ALL ON FUNCTION ops.require_pdf_stage_scratch(text,regclass) FROM PUBLIC;
         shared_streams_sql,
     )
 
+    sql += stage_scratch_authorization_sql()
     sql += part_wire_contract_sql(selected) + shared_streams_sql(selected)
     specs = pdf_stage_scratch_specs(selected)
     relations = [spec.source for spec in specs]
@@ -549,3 +523,88 @@ def stage_lifecycle_sql(model):
         Perform(func.ops.pdf_cleanup_pending_build(p_build)),
     ), (build_local,)))
     return "\n".join(out)
+
+
+def stage_scratch_authorization_sql():
+    """Authorize actual scratch custody and compare declared native column/check shapes."""
+    from pglast import ast, enums
+    from pglast.stream import RawStream
+    from sqlalchemy import (
+        Boolean,
+        Integer,
+        Text,
+        cast,
+        exists,
+        func,
+        literal,
+        not_,
+        or_,
+        select,
+        tuple_,
+    )
+    from sqlalchemy.dialects.postgresql import OID, REGCLASS, array
+
+    from .native_catalog import _catalog
+    from .native_program import Block, If, Local, Parameter, Raise, core_variable, function, pg_type
+
+    relation = _catalog("pg_class", oid=OID, relowner=OID, relnamespace=OID, relkind=Text,
+                        relpersistence=Text, relrowsecurity=Boolean)
+    trigger = _catalog("pg_trigger", tgrelid=OID)
+    rewrite = _catalog("pg_rewrite", ev_class=OID)
+    inheritance = _catalog("pg_inherits", inhrelid=OID, inhparent=OID)
+    defaults = _catalog("pg_attrdef", adrelid=OID)
+    index = _catalog("pg_index", indrelid=OID)
+    constraint = _catalog("pg_constraint", oid=OID, conrelid=OID, contype=Text, convalidated=Boolean)
+    attribute = _catalog("pg_attribute", attrelid=OID, attnum=Integer, attname=Text, atttypid=OID,
+                         atttypmod=Integer, attnotnull=Boolean, attgenerated=Text,
+                         attidentity=Text, attisdropped=Boolean)
+    roles = _catalog("pg_roles", oid=OID, rolname=Text)
+    scratch = core_variable("scratch", OID())
+    expected = core_variable("p_relation", REGCLASS())
+    owned_role = select(roles.c.oid).where(roles.c.rolname == "corpus_sem_publisher").scalar_subquery()
+    safe_relation = exists(select(1).select_from(relation).where(
+        relation.c.oid == scratch, relation.c.relowner == owned_role,
+        relation.c.relnamespace == func.pg_my_temp_schema(), relation.c.relkind == "r",
+        relation.c.relpersistence == "t", not_(relation.c.relrowsecurity),
+    ))
+    hostile = or_(
+        scratch.is_(None), not_(safe_relation),
+        exists(select(1).select_from(trigger).where(trigger.c.tgrelid == scratch)),
+        exists(select(1).select_from(rewrite).where(rewrite.c.ev_class == scratch)),
+        exists(select(1).select_from(inheritance).where(or_(inheritance.c.inhrelid == scratch, inheritance.c.inhparent == scratch))),
+        exists(select(1).select_from(defaults).where(defaults.c.adrelid == scratch)),
+        exists(select(1).select_from(index).where(index.c.indrelid == scratch)),
+        exists(select(1).select_from(constraint).where(constraint.c.conrelid == scratch,
+            or_(constraint.c.contype.not_in(("c", "n")), not_(constraint.c.convalidated)))),
+    )
+    empty = array([], type_=Text())
+
+    def column_shape(identity):
+        fields = tuple_(attribute.c.attnum, attribute.c.attname, attribute.c.atttypid,
+                        attribute.c.atttypmod, attribute.c.attnotnull,
+                        attribute.c.attgenerated, attribute.c.attidentity)
+        return select(func.coalesce(func.array_agg(cast(fields, Text())).aggregate_order_by(attribute.c.attnum), empty)).where(
+            attribute.c.attrelid == identity, attribute.c.attnum > 0, not_(attribute.c.attisdropped)
+        ).scalar_subquery()
+
+    def check_shape(identity):
+        definition = func.pg_get_constraintdef(constraint.c.oid, True)
+        return select(func.coalesce(func.array_agg(definition).aggregate_order_by(definition), empty)).where(
+            constraint.c.conrelid == identity, constraint.c.contype == "c"
+        ).scalar_subquery()
+
+    sql = function("ops", "require_pdf_stage_scratch", parameters=(
+        Parameter("p_name", pg_type("text")), Parameter("p_relation", pg_type("regclass")),
+    ), returns=pg_type("void"), search_path=("pg_catalog", "pg_temp"), body=Block((
+        If(hostile, (Raise("untrusted private PDF scratch", "23514"),)),
+        If(or_(column_shape(scratch).is_distinct_from(column_shape(expected)),
+               check_shape(scratch).is_distinct_from(check_shape(expected))),
+           (Raise("private PDF scratch schema differs", "23514"),)),
+    ), (Local("scratch", pg_type("oid"), func.to_regclass(literal("pg_temp.") + core_variable("p_name", Text()))),)))
+    revoke = ast.GrantStmt(is_grant=False, targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+        objtype=enums.ObjectType.OBJECT_FUNCTION, objects=(ast.ObjectWithArgs(
+            objname=(ast.String(sval="ops"), ast.String(sval="require_pdf_stage_scratch")),
+            objargs=(pg_type("text"), pg_type("regclass")), args_unspecified=False),),
+        grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
+        grant_option=False, behavior=enums.DropBehavior.DROP_RESTRICT)
+    return sql + ";\n" + RawStream()(revoke) + ";\n"
