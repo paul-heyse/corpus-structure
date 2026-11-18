@@ -151,7 +151,7 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
                 ),
                 discovery=relations,
                 original_sources=(original.selection(),),
-                inference="captured-two-region-binding",
+                inference="current-source-journey",
                 execution_profile=kernel.recipe.execution_profile,
             )
             demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
@@ -161,9 +161,13 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
         # chain; this binding regression needs no analytical provider resources.
         for _ in range(2):
             with kernel.purpose("write").begin() as connection:
+                snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(
+                    demand
+                )
+            with kernel.purpose("write").begin() as connection:
                 planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-                ready = planner.ready(planner.resume(demand), authorization=b"{}")
-                assert not ready
+                ready = planner.ready(snapshot, authorization=b"{}")
+                assert not ready, tuple((request.operation, request.action) for request in ready)
         with kernel.purpose("write").begin() as connection:
             snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
         obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
