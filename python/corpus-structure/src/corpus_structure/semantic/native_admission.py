@@ -41,7 +41,7 @@ def recorded_authoring_provenance(admission: str) -> NativeAuthoringProvenance:
 
 def catalog_checks(body: str) -> str:
     """Reuse the immutable guard's catalog checks without its release reads or writes."""
-    from .native_admission_release import CATALOG_END
+    from .native_admission_release import CATALOG_END, PHYSICAL_CATALOG_END
 
     receipt_boundary = (
         CATALOG_END
@@ -51,7 +51,9 @@ def catalog_checks(body: str) -> str:
     boundaries = (
         (
             " IF NOT EXISTS(SELECT FROM sem.physical_contract ",
-            " IF EXISTS(SELECT FROM sem.release archived CROSS JOIN LATERAL",
+            PHYSICAL_CATALOG_END
+            if PHYSICAL_CATALOG_END in body
+            else " IF EXISTS(SELECT FROM sem.release archived CROSS JOIN LATERAL",
         ),
         (
             " SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions')",

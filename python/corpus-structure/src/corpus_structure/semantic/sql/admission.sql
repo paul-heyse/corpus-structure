@@ -1,5 +1,5 @@
 CREATE OR REPLACE FUNCTION data.require_execution_release(r text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $admission$
-DECLARE expected jsonb; spec jsonb; owner_name text; invalid_inference boolean; json_value_classes text[]; current_json_projection boolean;
+DECLARE expected jsonb; spec jsonb; owner_name text;
 BEGIN
  IF NOT EXISTS(SELECT FROM sem.physical_contract WHERE physical_id=expected->>'physical_id' AND source_digest=expected->>'physical_checks_source_digest') THEN
   RAISE EXCEPTION 'physical CHECK contract is unavailable' USING ERRCODE='23514'; END IF;
@@ -17,105 +17,8 @@ BEGIN
  OR regexp_replace(regexp_replace(pg_get_viewdef(to_regclass(item.value->>'relation'),true),'\mAS\M','','gi'),'[[:space:]();]','','g')
  IS DISTINCT FROM regexp_replace(regexp_replace(item.value->>'query','\mAS\M','','gi'),'[[:space:]();]','','g') LIMIT 1;
  IF FOUND THEN RAISE EXCEPTION 'native selected-fact view differs' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM sem.release archived CROSS JOIN LATERAL
-   jsonb_array_elements(convert_from(archived.prepared_bytes,'UTF8')::jsonb->'products'->'diagnostics') diagnostic
-   WHERE archived.release_id=r AND (diagnostic->>'outcome' IN ('unsupported','unresolved')
-    OR (diagnostic->>'outcome'='unchecked' AND NOT
-      (diagnostic->>'code'='unchecked_term' AND diagnostic->>'message'='not4curation:unchecked')))) THEN
-   RAISE EXCEPTION 'release contains unresolved or unchecked required semantics' USING ERRCODE='23514'; END IF;
- IF EXISTS(SELECT FROM sem.input i LEFT JOIN sem.sql_admission a
-   ON a.release_id=i.release_id AND a.input_kind=i.input_kind AND a.input_name=i.input_name
-      AND a.physical_id=expected->>'physical_id'
-   WHERE i.release_id=r AND i.input_kind='dependency' AND starts_with(i.input_name,'authored-sql/')
-    AND (right(i.input_name,4)<>'.sql' OR length(i.input_name)<=length('authored-sql/.sql')
-      OR encode(sha256(i.content),'hex') IS DISTINCT FROM i.content_digest
-      OR a.release_id IS NULL OR encode(sha256(a.content),'hex') IS DISTINCT FROM a.content_digest
-      OR convert_from(a.content,'UTF8')::jsonb->>'sql' IS DISTINCT FROM convert_from(i.content,'UTF8')
-      OR convert_from(a.content,'UTF8')::jsonb->>'release_id' IS DISTINCT FROM r
-      OR convert_from(a.content,'UTF8')::jsonb->>'physical_id' IS DISTINCT FROM expected->>'physical_id')) THEN
-   RAISE EXCEPTION 'required authored SQL lacks exact current physical admission' USING ERRCODE='23514'; END IF;
- -- A current DDO kind's shape is checked by its exact captured body schema.
- -- Its LinkML class is not thereby a promise of graph-regex enforcement.
- -- Use only actually projected class kinds, not every class in the model.
- WITH RECURSIVE archived AS (
-  SELECT convert_from(native.content,'UTF8')::jsonb projection,convert_from(model.content,'UTF8')::jsonb model
-  FROM sem.artifact native JOIN sem.artifact model ON model.release_id=native.release_id
-  AND model.artifact_name='data_operations.json'
-  WHERE native.release_id=r AND native.artifact_name='data_operation_native_definitions.json'
-  AND convert_from(native.content,'UTF8')::jsonb->>'model_digest'=encode(sha256(model.content),'hex')
-  AND convert_from(native.content,'UTF8')::jsonb->>'native_digest'=sem.data_operation_native_descriptor()->>'source_digest'
- ), roots AS (
-  SELECT c.class_id FROM archived
-  CROSS JOIN LATERAL jsonb_array_elements(archived.projection->'kinds') projected
-  JOIN sem.class_definition c ON c.release_id=r AND c.class_id=projected->>'kind'
-  WHERE EXISTS(SELECT FROM jsonb_array_elements(archived.model->'kinds') declared
-   WHERE declared->>'semantic_id'=c.class_id AND declared->>'category'='class')
- ), edges AS (
-  SELECT pa.class_id source,c.class_id target FROM sem.property_applicability pa
-  JOIN sem.class_definition c ON c.release_id=pa.release_id AND c.name=pa.range_name
-  WHERE pa.release_id=r AND coalesce((pa.constraints->>'inlined')::boolean,false)
-  UNION SELECT class_id,ancestor_id FROM sem.class_hierarchy WHERE release_id=r
- ), owned(class_id) AS (
-  SELECT class_id FROM roots UNION SELECT edges.target FROM owned JOIN edges ON edges.source=owned.class_id
- ) SELECT coalesce(array_agg(class_id),ARRAY[]::text[]),EXISTS(SELECT FROM archived)
- INTO json_value_classes,current_json_projection FROM owned;
- IF EXISTS(SELECT FROM sem.property_applicability pa WHERE pa.release_id=r AND
-    (pa.constraint_scope NOT IN ('shape','accepted_value') OR
-     ((pa.constraints->>'pattern' IS NOT NULL OR COALESCE(pa.constraints->'patterns','[]'::jsonb) NOT IN ('[]'::jsonb,'null'::jsonb))
-      AND NOT (pa.constraint_scope='shape' AND pa.class_id=ANY(json_value_classes))))) THEN
-   -- Keep the rejection predicate unchanged. A stale/missing DDO projection
-   -- makes its JSON ownership closure unknown, not evidence of an unsupported
-   -- declared pattern. Report that prerequisite before classifying constraints.
-   IF NOT current_json_projection AND EXISTS(SELECT FROM sem.artifact
-      WHERE release_id=r AND artifact_name='data_operations.json') THEN
-    RAISE EXCEPTION 'archived DDO native constraint projection is missing or incompatible with installed descriptor' USING ERRCODE='23514';
-   END IF;
-   RAISE EXCEPTION 'unsupported required native constraint scope or pattern' USING ERRCODE='23514'; END IF;
- IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r AND profile='semantic-2') THEN
-  RAISE EXCEPTION 'execution requires a current composed release' USING ERRCODE='23514'; END IF;
- WITH rules AS (
-  SELECT convert_from(body,'UTF8')::jsonb rule FROM sem.registry_row WHERE release_id=r AND kind='inference_rule'
- ), signatures AS (
-  SELECT rule->>'kind' kind,rule->>'predicate' predicate,COALESCE(NULLIF(rule->>'target',''),rule->>'predicate') target FROM rules
- ), invalid AS (
-  SELECT 1 FROM signatures s WHERE s.kind IS NULL OR s.predicate IS NULL OR s.target IS NULL OR s.kind NOT IN ('inverse','symmetric','transitive','subproperty')
-   OR NOT EXISTS(SELECT FROM sem.property_applicability a WHERE a.release_id=r AND a.property_id=s.predicate)
-   OR NOT EXISTS(SELECT FROM sem.property_applicability a WHERE a.release_id=r AND a.property_id=s.target)
-  UNION ALL
-  SELECT 1 FROM signatures s JOIN sem.property_applicability a ON a.release_id=r AND a.property_id=s.predicate
-  LEFT JOIN sem.class_definition source_range ON source_range.release_id=r AND source_range.name=a.range_name
-  LEFT JOIN sem.property_applicability target ON target.release_id=r AND target.property_id=s.target
-   AND target.class_id=CASE WHEN s.kind='subproperty' THEN a.class_id ELSE source_range.class_id END
-  LEFT JOIN sem.class_definition target_range ON target_range.release_id=r AND target_range.name=target.range_name
-  WHERE COALESCE((a.constraints->>'inlined')::boolean,false) OR source_range.class_id IS NULL
-   OR target.property_id IS NULL OR COALESCE((target.constraints->>'inlined')::boolean,false) OR target_range.class_id IS NULL
-   OR NOT (target_range.class_id=CASE WHEN s.kind IN ('subproperty','transitive') THEN source_range.class_id ELSE a.class_id END
-    OR EXISTS(SELECT FROM sem.class_hierarchy h WHERE h.release_id=r AND h.ancestor_id=target_range.class_id
-      AND h.class_id=CASE WHEN s.kind IN ('subproperty','transitive') THEN source_range.class_id ELSE a.class_id END))
-  UNION ALL
-  SELECT 1 FROM sem.property_applicability a CROSS JOIN (VALUES('symmetric'),('transitive')) flags(name)
-   WHERE a.release_id=r AND COALESCE((a.constraints->>flags.name)::boolean,false)
-    AND NOT EXISTS(SELECT FROM signatures s WHERE s.kind=flags.name AND s.predicate=a.property_id AND s.target=a.property_id)
-  UNION ALL
-  SELECT 1 FROM sem.property_applicability a LEFT JOIN LATERAL (
-    SELECT count(DISTINCT t.property_id) AS count,min(t.property_id) AS target FROM sem.property_applicability t
-    WHERE t.release_id=r AND (t.property_id=a.constraints->>'inverse' OR t.constraints->>'name'=a.constraints->>'inverse')
-  ) inverse_target ON true
-  WHERE a.release_id=r AND NULLIF(a.constraints->>'inverse','') IS NOT NULL
-   AND (inverse_target.count<>1 OR NOT EXISTS(SELECT FROM signatures s WHERE s.kind='inverse' AND s.predicate=a.property_id AND s.target=inverse_target.target))
- ) SELECT EXISTS(SELECT FROM invalid) INTO invalid_inference;
- IF invalid_inference THEN RAISE EXCEPTION 'unsupported required native binary inference profile' USING ERRCODE='23514'; END IF;
+ -- native physical catalog checks complete
  SELECT pg_get_userbyid(nspowner) INTO owner_name FROM pg_namespace WHERE nspname='sem';
- IF NOT EXISTS(SELECT FROM sem.release WHERE release_id=r
-  AND convert_from(manifest_bytes,'UTF8')::jsonb ? 'data_operation_model') THEN
-  RAISE EXCEPTION 'native execution requires the current declared data operation model' USING ERRCODE='23514';
- END IF;
- IF EXISTS(SELECT FROM sem.registry_row WHERE release_id=r AND kind='execution_model') THEN
-  RAISE EXCEPTION 'target archive contains legacy execution model' USING ERRCODE='23514';
- END IF;
- IF EXISTS(SELECT FROM sem.artifact WHERE release_id=r AND artifact_name='operation/scientific-policy.json') THEN
-  PERFORM sem.require_scientific_layout(r);
- END IF;
  SELECT item.value INTO spec FROM jsonb_array_elements(expected->'functions') item
  LEFT JOIN pg_proc p ON p.oid=to_regprocedure(item.value->>'signature')
  LEFT JOIN pg_language l ON l.oid=p.prolang

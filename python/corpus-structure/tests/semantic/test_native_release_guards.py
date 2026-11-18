@@ -148,3 +148,34 @@ def test_catalog_extraction_retains_exact_old_and_current_catalog_area():
         assert "jsonb_array_elements(expected->'functions')" in checks
         assert "sem.record_deployment_admission" not in checks
         assert "release is not finalized" not in checks
+
+
+def test_release_semantic_guards_follow_explicit_physical_relations():
+    from types import SimpleNamespace
+
+    from pglast import parse_plpgsql, parse_sql
+
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.native_admission_release import release_semantic_checks
+
+    captured_artifact = metadata.tables["sem.artifact"].to_metadata(MetaData(), name="captured_artifact")
+    proposed = SimpleNamespace(tables={**metadata.tables, "sem.artifact": captured_artifact})
+    source = function(
+        "public", "captured_release_semantics",
+        parameters=(Parameter("r", pg_type("text")), Parameter("expected", pg_type("jsonb"))),
+        returns=pg_type("void"),
+        body=Block(release_semantic_checks(proposed)),
+        search_path=("pg_catalog", "pg_temp"),
+    )
+    assert parse_sql(source) and parse_plpgsql(source)
+    assert "sem.captured_artifact" in source
+    assert "FROM sem.artifact" not in source
+    for refusal in (
+        "release contains unresolved or unchecked required semantics",
+        "required authored SQL lacks exact current physical admission",
+        "archived DDO native constraint projection is missing or incompatible",
+        "unsupported required native constraint scope or pattern",
+        "unsupported required native binary inference profile",
+        "target archive contains legacy execution model",
+    ):
+        assert refusal in source
