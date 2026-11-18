@@ -220,8 +220,9 @@ the unmatched tail. `typer.Option` and `typer.params.Option` therefore count as 
 
 Rules that keep the states honest:
 
-- A member of a root class is `unresolved` when the census has a subclass, instantiation or
-  instance-member row for that class and no direct reference to the member.
+- A member of an offered class is `unresolved` when the class has any use in scope and the
+  member has no direct reference. An unattributed instance-member row for a member name also
+  makes every offered member of that name `unresolved`.
 - A parameter is "never passed" only when every call to the callable binds without it.
   Positional arguments are bound to parameters in signature order; a call with `*args` or
   `**kwargs` makes that callable's parameters `unresolved`.
@@ -255,6 +256,14 @@ must be treated as a failure, not as zero findings
 
 The package opens by running both on the deprecated fixture and confirming the choice. If
 pyrefly's description cannot be relied on, ty is used and the coordinator's D3 is updated.
+
+**Outcome, 2026-11-17: pyrefly confirmed.** On a fixture with a deprecated method called on an
+instance of a repository subclass, pyrefly named the declaring path
+("`depfix._models.Model.dict` is deprecated") and ty gave only "The function `dict` is
+deprecated". pyrefly is run with `--skip-interpreter-query` and the target's site-packages,
+Python version and platform passed explicitly, so the target interpreter is never executed, and
+with an empty configuration and an explicit file list so the repository's own pyrefly settings
+do not apply.
 
 A pyrefly row stands on its own. Where the inventory did not mark the symbol deprecated (the
 Griffe extension skips attributes and aliases), the row is still reported and the disagreement

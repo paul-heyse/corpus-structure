@@ -238,10 +238,13 @@ symbol the library binds by assignment from another distribution
 assigning module, and the result notes that the real definition is elsewhere.
 
 **Mechanical states.** `compare` assigns only `referenced`, `unreferenced in scope` or
-`unresolved`. A member of a family class is `unresolved`, not `unreferenced`, whenever the
-census shows that class subclassed or instantiated in scope and the member is not referenced
-directly: `MyModel.model_validate(x)` and `m.model_dump()` are uses the attribution engine
-assigns to the repository's class. The interpretive vocabulary (RC5) belongs to the agent and
+`unresolved`. A member of an offered class is `unresolved`, not `unreferenced`, whenever that
+class has any use in scope (imported, named in an annotation or an `isinstance` check,
+subclassed, instantiated or passed as a value) and the member is not referenced directly:
+`MyModel.model_validate(x)`, `m.model_dump()` and a method called on an annotated parameter are
+uses the attribution engine cannot assign to the library's member. Execution widened this rule
+from "subclassed or instantiated" after review found real false `unreferenced` rows
+(2026-11-17). The same holds for every name a star import could bind. The interpretive vocabulary (RC5) belongs to the agent and
 the account.
 
 ### What the target accommodates
