@@ -290,3 +290,21 @@ def test_preview_captures_builder_identity_and_rejects_dependency_drift(
     )
     with pytest.raises(model.ModelError, match="data-step custody"):
         check_preview(root, preview)
+
+
+def test_data_builder_uses_proposed_column_identity():
+    from sqlalchemy import MetaData
+
+    target = MetaData()
+    for table in metadata.tables.values():
+        table.to_metadata(target)
+    target.tables["ops.data_population"].c.context_key.name = "proposed_context_key"
+
+    (step,) = data_steps.prepare_data_steps(
+        (data_steps.DataStepRequest(name="ddo_n1_relower"),),
+        target=target,
+        predecessor=None,
+    )
+
+    assert "SET proposed_context_key=" in step.statements[1]
+    assert "ops.data_population.proposed_context_key IS NULL" in step.statements[-1]

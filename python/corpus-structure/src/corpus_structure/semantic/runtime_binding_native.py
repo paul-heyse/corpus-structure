@@ -51,9 +51,7 @@ def runtime_binding_sql(target):
                     )
                 ),
                 returns=pg_type(returns),
-                body=Block(
-                    body, tuple(Local(key, pg_type(*kind.split("."))) for key, kind in locals_)
-                ),
+                body=Block(body, tuple(Local(key, pg_type(kind)) for key, kind in locals_)),
                 security_definer=True,
                 search_path=("pg_catalog", "pg_temp"),
             )
@@ -331,22 +329,22 @@ def runtime_binding_sql(target):
                 )
                 .on_conflict_do_nothing()
             ),
-            SelectInto(select(bindings).where(*bound), ("previous",), strict=True),
+            SelectInto(
+                select(bindings.c.manifest_bytes, bindings.c.archive_bytes).where(*bound),
+                ("previous_manifest", "previous_archive"),
+                strict=True,
+            ),
             check(
                 or_(
-                    core_variable(
-                        "previous", BYTEA(), bindings.c.manifest_bytes.name
-                    ).is_distinct_from(manifest_bytes),
-                    core_variable(
-                        "previous", BYTEA(), bindings.c.archive_bytes.name
-                    ).is_distinct_from(archive_bytes),
+                    core_variable("previous_manifest", BYTEA()).is_distinct_from(manifest_bytes),
+                    core_variable("previous_archive", BYTEA()).is_distinct_from(archive_bytes),
                 ),
                 "runtime identity already denotes different provenance",
                 "23505",
             ),
             Return(runtime),
         ),
-        locals_=(("previous", bindings.fullname),),
+        locals_=(("previous_manifest", "bytea"), ("previous_archive", "bytea")),
         returns="text",
     )
     require = routine(

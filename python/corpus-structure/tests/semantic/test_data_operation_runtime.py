@@ -198,3 +198,48 @@ def test_missing_explicit_runtime_pin_refuses_before_reading_archived_code():
                 cast(Any, missing),
             )
     connection.execute.assert_not_called()
+
+
+def test_generated_runtime_replay_reads_named_fields_on_predecessor_column_order(
+    semantic_bare_engine,
+):
+    from sqlalchemy import text
+
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.prepared_sql import prepare_sql
+    from corpus_structure.semantic.runtime_binding_native import runtime_binding_sql
+
+    sql = prepare_sql(runtime_binding_sql(metadata), source="runtime-replay-order")
+    sql_register = sql.excerpt(1)
+    with semantic_bare_engine.connect() as connection:
+        transaction = connection.begin()
+        try:
+            connection.exec_driver_sql("CREATE SCHEMA sem")
+            connection.exec_driver_sql(
+                "CREATE TABLE sem.runtime_binding (release_id text, runtime_id text, "
+                "manifest_bytes bytea, archive_bytes bytea, execution_profile text, "
+                "PRIMARY KEY (release_id, runtime_id))"
+            )
+            # Isolate registration from source-archive validation. The fixture
+            # retains the predecessor's real column order.
+            connection.exec_driver_sql(
+                "CREATE FUNCTION sem.validate_runtime_binding(text,text,bytea,bytea) "
+                "RETURNS void LANGUAGE sql AS $$ SELECT $$"
+            )
+            connection.exec_driver_sql(sql_register, execution_options={"no_parameters": True})
+            query = text(
+                "SELECT sem.register_runtime_binding(:release,:runtime,:manifest,:archive)"
+            )
+            values = {
+                "release": "release:r",
+                "runtime": "runtime:r",
+                "manifest": b'{"execution_profile":"source-native"}',
+                "archive": b"frozen-archive",
+            }
+            assert connection.scalar(query, values) == "runtime:r"
+            assert connection.scalar(query, values) == "runtime:r"
+            assert connection.execute(
+                text("SELECT archive_bytes, execution_profile FROM sem.runtime_binding")
+            ).one() == (b"frozen-archive", "source-native")
+        finally:
+            transaction.rollback()
