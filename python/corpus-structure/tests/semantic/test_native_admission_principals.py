@@ -12,31 +12,34 @@ from corpus_structure.semantic.native_admission_principals import (
 )
 from corpus_structure.semantic.native_program import Block, Local, Raise, function, pg_type
 
-
 # These predicates preserve the prior admission policy independently of its Core builder.
 # Qualification of PostgreSQL catalog names does not change those policy conditions.
 _EXPECTED = (
     (
-        "unrestricted evaluation principal", "23514",
+        "unrestricted evaluation principal",
+        "23514",
         """EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname='corpus_sem_evaluator'
         AND (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls))
         OR EXISTS(SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.member
         WHERE r.rolname='corpus_sem_evaluator')""",
     ),
     (
-        "evaluator schema mutation privilege", "23514",
+        "evaluator schema mutation privilege",
+        "23514",
         """EXISTS(SELECT 1 FROM (VALUES('sem'),('data'),('ops'),('kb'),('eval')) schemas(name)
         WHERE coalesce(has_schema_privilege('corpus_sem_evaluator',to_regnamespace(schemas.name),'CREATE'),false))""",
     ),
     (
-        "evaluator direct write privilege", "23514",
+        "evaluator direct write privilege",
+        "23514",
         """EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         WHERE n.nspname IN ('sem','data','ops','kb','eval') AND c.relkind IN ('r','p')
         AND (has_table_privilege('corpus_sem_evaluator',c.oid,'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')
         OR has_any_column_privilege('corpus_sem_evaluator',c.oid,'INSERT,UPDATE')))""",
     ),
     (
-        "reference data leaked to source principal", "23514",
+        "reference data leaked to source principal",
+        "23514",
         """EXISTS(SELECT 1 FROM (VALUES('corpus_sem_writer'),('corpus_sem_reader')) roles(name)
         WHERE coalesce(has_schema_privilege(roles.name,to_regnamespace('eval'),'USAGE,CREATE'),false))
         OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace,
@@ -46,7 +49,8 @@ _EXPECTED = (
         OR has_any_column_privilege(roles.name,c.oid,'SELECT,INSERT,UPDATE')))""",
     ),
     (
-        "unrestricted application principal", "23514",
+        "unrestricted application principal",
+        "23514",
         """EXISTS(SELECT 1 FROM pg_roles r WHERE r.rolname IN ('corpus_sem_writer','corpus_sem_reader')
         AND (r.rolsuper OR r.rolcreaterole OR r.rolbypassrls))
         OR pg_has_role('corpus_sem_writer','corpus_sem_publisher','MEMBER')
@@ -55,13 +59,15 @@ _EXPECTED = (
         OR pg_has_role('corpus_sem_reader',owner_name,'MEMBER')""",
     ),
     (
-        "application schema mutation privilege", "23514",
+        "application schema mutation privilege",
+        "23514",
         """EXISTS(SELECT 1 FROM (VALUES('corpus_sem_writer'),('corpus_sem_reader')) roles(name),
         (VALUES('sem'),('data'),('ops'),('kb')) schemas(name)
         WHERE coalesce(has_schema_privilege(roles.name,to_regnamespace(schemas.name),'CREATE'),false))""",
     ),
     (
-        "application direct semantic write privilege", "23514",
+        "application direct semantic write privilege",
+        "23514",
         """EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace,
         (VALUES('corpus_sem_writer'),('corpus_sem_reader')) roles(name)
         WHERE n.nspname IN ('sem','data') AND c.relkind IN ('r','p')
@@ -69,7 +75,8 @@ _EXPECTED = (
         OR has_any_column_privilege(roles.name,c.oid,'INSERT,UPDATE')))""",
     ),
     (
-        "application private kernel privilege", "23514",
+        "application private kernel privilege",
+        "23514",
         """EXISTS(SELECT 1 FROM (VALUES('corpus_sem_writer'),('corpus_sem_reader')) roles(name),
         (VALUES('data.publish_contract_batch(text,text,text,bytea)'),('data.validate_state(text,text)'),
         ('data.publish_pre_execution_analysis_batch(text,text,text,bytea,bigint)'),
@@ -77,13 +84,15 @@ _EXPECTED = (
         WHERE coalesce(has_function_privilege(roles.name,to_regprocedure(kernels.signature),'EXECUTE'),false))""",
     ),
     (
-        "admission principal has reference access", "42501",
+        "admission principal has reference access",
+        "42501",
         """EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
         WHERE n.nspname='eval' AND c.relkind IN ('r','p')
         AND has_table_privilege('corpus_sem_admitter',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE'))""",
     ),
     (
-        "privileged runtime principal", "42501",
+        "privileged runtime principal",
+        "42501",
         """EXISTS(SELECT 1 FROM (VALUES('corpus_sem_writer'),('corpus_sem_reader'),
         ('corpus_sem_admitter'),('corpus_sem_evaluator')) principal(name)
         WHERE has_database_privilege(principal.name,current_database(),'TEMP')
@@ -108,7 +117,9 @@ def _policy_tree(sql):
     return tree[0].stmt
 
 
-@pytest.mark.parametrize("position,expected", enumerate(_EXPECTED), ids=[row[0] for row in _EXPECTED])
+@pytest.mark.parametrize(
+    "position,expected", enumerate(_EXPECTED), ids=[row[0] for row in _EXPECTED]
+)
 def test_principal_refusal_preserves_complete_policy_predicate(position, expected):
     checks = (*principal_catalog_checks(), *restricted_principal_checks())
     check = checks[position]
@@ -125,7 +136,10 @@ def test_principal_program_preserves_pre_and_post_generic_check_split():
     assert len(principal) == 8
     assert len(restricted) == 2
     sql = function(
-        "public", "admission_principal_control", parameters=(), returns=pg_type("void"),
+        "public",
+        "admission_principal_control",
+        parameters=(),
+        returns=pg_type("void"),
         body=Block((*principal, *restricted), (Local("owner_name", pg_type("text")),)),
         search_path=("pg_catalog", "pg_temp"),
     )

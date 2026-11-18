@@ -409,9 +409,11 @@ N17 source uses shared typed PostgreSQL catalog observations for physical CHECK,
 view, index and trigger admission. The companion authoring entry point derives its signatures,
 pin guard, returned column declarations and private SQL-standard input-body function from the
 captured PDF domain. It authenticates the same demand, selected support and producing receipt
-before returning records. The maintained `admission.sql` still contains function, table,
-reader and principal checks. Other maintained inline native programs remain with their existing
-component owners. The coordinator owns N17 native qualification.
+before returning records. N18 generates the rest of native admission from declared expectations
+and typed PostgreSQL catalog observations. The last standalone SQL source template is removed.
+The frozen migration archive retains its exact guards. Maintained inline SQL programs remain with
+their component owners, including selected PDF publication, archive and specialized DDO admission.
+The coordinator owns native qualification.
 
 Remaining catalog, scientific, public-read and maintenance routines follow their owning
 boundaries. Preserve frozen migrations, independent test controls and explicitly submitted

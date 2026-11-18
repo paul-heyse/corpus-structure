@@ -188,7 +188,9 @@ def test_changed_foreign_key_witness_refuses(table_catalog_control, field, value
     _refuses(connection, expected)
 
 
-@pytest.mark.parametrize("defect", ["owner", "column-order", "primary-key", "missing-fk", "extra-fk"])
+@pytest.mark.parametrize(
+    "defect", ["owner", "column-order", "primary-key", "missing-fk", "extra-fk"]
+)
 def test_changed_table_inventory_refuses(table_catalog_control, defect):
     connection, expected = table_catalog_control
     declared = expected["tables"][0]

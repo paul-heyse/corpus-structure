@@ -1,12 +1,12 @@
 # Status
 
-_Updated 2026-11-18. Model-built N16 and its matching application are active on the owned stage. Canonical development runs N13. Development adoption, whole-book execution and DDO-12 qualification remain open._
+_Updated 2026-11-18. Model-built N17 and its matching application are active on the owned stage. Canonical development runs N13. Development adoption, whole-book execution and DDO-12 qualification remain open._
 
 ## Current owners
 
 - The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18) owns deployment, scoped failures and qualification. The [PostgreSQL companion](docs/plans/declared-data-operations/postgresql-realization-and-retirement.md#model-owned-sql-authoring) owns typed SQL authoring under [ADR-0131](docs/adr/0131-model-owned-postgresql-programs.md).
 - N12 generated the protected PDF companion, observation, export, proof, identity and correspondence paths. N13 generates DDO compiler, acquisition, reads, settlement, external packet custody, grading and operation-event publication. The handwritten DDO operation bundle and its string fragment substitutions are retired.
-- N14 integrates explicit composition and rich dependencies, typed event replies, construction identity reuse, and typed source, visual and native guards. N15 preserves stable kind schema bytes, pins public read disclosure, projects batch evidence per output, wakes role-eligible dependencies and retires four unused encoder kernels. N16 restores fresh discovery populations to the whole-demand frontier. Residual catalog and inline authoring remain in the PostgreSQL companion.
+- N14–N16 added explicit producer dependencies, typed guards and event replies, stable kind schemas, immutable public cuts, per-output evidence, and discovery readiness. N17 converted companion envelopes and catalog checks. N18 source removes the last maintained standalone SQL template and repairs public projection and dossier source eligibility. The PostgreSQL companion owns remaining inline authoring.
 - The [adoption companion](docs/plans/declared-data-operations/preservation-adoption-and-qualification.md#actual-preservation-basis) owns original custody and regeneration.
 - The [test-domain coordinator](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence) owns TDM implementation, observed native results and qualification. Model-bound fixtures, deployment identity, sealed capture, PDF and executor protocols, and `ci test review` are integrated. The registered TDM PDF native successor supplies the test head.
 - The [test audit refresh](docs/design_review/test-audit/README.md#tdm-refresh-2026-11-18) records the scope inspected against the integrated source. The coordinator owns the outstanding composition and rich admission results.
@@ -15,7 +15,7 @@ _Updated 2026-11-18. Model-built N16 and its matching application are active on 
 
 ## Last verified · 2026-11-18
 
-- **Passed:** `ci model change candidate`, `register` and `deploy` for N16 on stage OID 130661481 (`d284fe223b534dcca94fae316efefcca`, `d7915f985f1542b7a789b97b8b90a44d`, `f4fd194928d74160a1624babc3186e45`). Eight native transitions replayed. Application deployment `9922d8926b174bc588b98bb4dd1e50e3`, `ci db check`, and `ci release check` passed. `ci release activate` moved the bounded stage project to generation 15.
+- **Passed:** `ci model change candidate`, `register` and `deploy` for N17 on stage OID 130661481 (`3ce79909810c4a609c818aa51c10d517`, `885fedcf388d49db956807878e6df1ec`, `03f6aabfc24743808b27a091cab90637`). Sixteen native transitions replayed. Application deployment `7f819310fe094688a1c093cd21fdb7b8`, `ci db check`, and `ci release check` passed. `ci release activate` moved the bounded stage project to generation 16.
 - **Passed:** `ci db init` and `ci db status --maintenance` confirmed canonical development OID 131763263 and N13. Dev application deployment `d6ea36869d794732811b89ee8d405eed`, `ci db check`, `ci project init --original-descriptors`, and the book project activation and release check passed. Independent reader readback verified every descriptor field and retained byte across 29 originals and nine projects. The old database remains fenced at its original OID 25921445.
 - **Scoped:** 73 PDF controls passed at N12 (`f6544d5c3bee4cb5af0360c23596e8b8`). N13's integrated attempt `be66da57a0a44cf3b6aa420cb7e77c37` reported 135 passes and 13 failures. Its retained retries establish specific fixes and leave two binding refusal controls open. The E5 and NCE attempts reached later boundaries after production fixes, then exposed fixture acquisition and scope issues. The corrected fixtures await verification.
 - **Passed:** 17 construction grammar controls, including the bounded production-region comparator. Its actual-book inputs and full comparison remain open.
@@ -23,10 +23,10 @@ _Updated 2026-11-18. Model-built N16 and its matching application are active on 
 
 - **Passed:** TDM `uv run ci test collect` selected 8,824 identities (`4df04e0f488641be913bfdded8b03c2b`). `uv run ci check` passed (`3b9a6705cafb44a4a3232d36e3fb0d20`), including pyrefly and Ruff.
 - **Passed:** TDM installed deployment-key and certification controls, 45 tests (`976fbbba198c4e2f96731d3af1840f20`), prepared-batch native computation, adoption and detached export (`118f4565f6524642950d0e2add0b3667`), and the real Docling provider spool-resume test (`5fc23c205c7f406599ba81df4c1c1a26`). Source-discovery and cursor controls passed in a [mixed receipt](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence).
-- **Scoped:** Native visual, NCE list host, neighborhood and population controls passed in mixed N14 receipt `a1d699af9d714071b58e35875b7be1d4`. Real two-region PM2 passed within the existing timeout in `03f8d4609b994202886c65f991716e0f`. N15 passed the binding substitution control and exposed discovery and scoped-cut defects. The DDO coordinator owns the N16 reruns and TDM-18 remains open.
+- **Scoped:** Real two-region PM2 passed at N14 (`03f8d4609b994202886c65f991716e0f`). All three real E5 cases passed at N16 (`618981d23eba4b4588d79257c8597065`). N17's mixed result `c4b4bb09147a44efa2b1a86a097c4803` passed composition and companion reads. Its dossier, event and rich journeys remain open under the DDO coordinator. TDM-18 remains open.
 
 ## Next execution
 
 - Resolve the native consumer prerequisites recorded by TDM, then reconcile the qualification union with `ci test review`. See the [TDM closeout](docs/plans/test-domain-model-and-execution_2026-11-17.md#tdm-18).
-- Settle the real E5 rerun and integrate the source-member, composition and protected-currentness repairs. Verify the next native successor before canonical development adoption.
+- Replay N18 on the owned stage. Verify its matching application and the dossier, event and rich native journeys before canonical development adoption.
 - Run the full 518-page book demand through committed progress, interruption, same-demand resume and repeat. Use its current source, formal and sentence products for PE-S33. Complete the required native, provider, public, fault and repository-check union for DDO-12. Chandra OCR remains excluded.

@@ -93,7 +93,12 @@ def _access(connection, kind, *, public, body=None, body_check=False):
 @pytest.mark.parametrize("body_check", [False, True])
 def test_public_hidden_kind_does_not_execute_refusing_authorization(disclosure_control, body_check):
     connection = disclosure_control
-    for kind, expected in (("ordinary", True), ("source", True), ("protected", False), ("unknown", False)):
+    for kind, expected in (
+        ("ordinary", True),
+        ("source", True),
+        ("protected", False),
+        ("unknown", False),
+    ):
         assert _access(connection, kind, public=True, body_check=body_check) is expected
     connection.execute(text("SELECT set_config('test.disclosure_evaluator','on',true)"))
     # Reopening the same public disclosure with evaluator capability cannot make
@@ -104,7 +109,10 @@ def test_public_hidden_kind_does_not_execute_refusing_authorization(disclosure_c
 @pytest.mark.parametrize("body_check", [False, True])
 def test_full_cut_keeps_live_caller_authorization(disclosure_control, body_check):
     connection = disclosure_control
-    with pytest.raises(DBAPIError, match="controlled kind refusal") as error, connection.begin_nested():
+    with (
+        pytest.raises(DBAPIError, match="controlled kind refusal") as error,
+        connection.begin_nested(),
+    ):
         _access(connection, "protected", public=False, body_check=body_check)
     assert isinstance(error.value.orig, psycopg.Error)
     assert error.value.orig.sqlstate == "42501"
@@ -114,8 +122,13 @@ def test_full_cut_keeps_live_caller_authorization(disclosure_control, body_check
 
 def test_disclosed_ordinary_body_still_refuses_a_protected_nested_member(disclosure_control):
     connection = disclosure_control
-    with pytest.raises(DBAPIError, match="controlled member refusal") as error, connection.begin_nested():
-        _access(connection, "ordinary", public=True, body={"protected_member": True}, body_check=True)
+    with (
+        pytest.raises(DBAPIError, match="controlled member refusal") as error,
+        connection.begin_nested(),
+    ):
+        _access(
+            connection, "ordinary", public=True, body={"protected_member": True}, body_check=True
+        )
     assert isinstance(error.value.orig, psycopg.Error)
     assert error.value.orig.sqlstate == "42501"
 

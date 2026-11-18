@@ -211,7 +211,9 @@ def table_catalog_checks():
         func.aclexplode(
             func.coalesce(
                 relation.c.relacl,
-                func.acldefault(cast(literal("r"), catalog._CatalogType('"char"')), relation.c.relowner),
+                func.acldefault(
+                    cast(literal("r"), catalog._CatalogType('"char"')), relation.c.relowner
+                ),
             )
         )
         .table_valued(
@@ -225,7 +227,9 @@ def table_catalog_checks():
     public_acl = select(1).select_from(acl).where(acl.c.grantee == 0).correlate(relation).exists()
     return _failure(
         select(item)
-        .select_from(items.outerjoin(relation, relation.c.oid == func.to_regclass(item["relation"].astext)))
+        .select_from(
+            items.outerjoin(relation, relation.c.oid == func.to_regclass(item["relation"].astext))
+        )
         .where(
             or_(
                 relation.c.oid.is_(None),
