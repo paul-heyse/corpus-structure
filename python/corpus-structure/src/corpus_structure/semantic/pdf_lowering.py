@@ -51,8 +51,11 @@ LOWERING_FILES = (
     "semantic/pdf_publication.py",
     "semantic/pdf_record_reader.py",
     "semantic/pdf_record_reader_native.py",
+    "semantic/pdf_record_context_native.py",
     "semantic/pdf_record_pages_native.py",
     "semantic/pdf_record_proof_native.py",
+    "semantic/pdf_record_digest_native.py",
+    "semantic/pdf_target_identity_native.py",
     "semantic/pdf_records.py",
     "semantic/pdf_record_identity.py",
     "semantic/pdf_record_model.py",
@@ -93,7 +96,6 @@ LOWERING_FILES = (
     "semantic/sql/pdf_record_artifact_identity.sql",
     "semantic/sql/pdf_record_logical_identity.sql",
     "semantic/sql/pdf_record_access_correspondence.sql",
-    "semantic/sql/pdf_record_context.sql",
 )
 
 

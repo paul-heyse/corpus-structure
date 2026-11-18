@@ -27,54 +27,6 @@ def pdf_record_reader_sql(*, target_metadata: MetaData | None = None) -> str:
     return pdf_record_page_sql(model) + pdf_materialization_bound_sql(model)
 
 
-def pdf_record_context_sql() -> str:
-    """Paginate the same relational scope constructor used by set-based consumers."""
-    from pathlib import Path
-
-    source = (Path(__file__).with_name("sql") / "pdf_record_context.sql").read_text()
-    _, start, remaining = source.partition("-- BEGIN pdf-context-selection\n")
-    selection, end, _ = remaining.partition("-- END pdf-context-selection\n")
-    if not start or not end:
-        raise ValueError("shared PDF context selector markers are missing")
-    selection = selection.strip().replace("p_key", "p_product")
-    return f"""
-CREATE OR REPLACE FUNCTION ops.read_pdf_record_context_rows(
- p_task bigint,p_product text,p_digest text,p_pointers text[],p_section text,
- p_family text,p_after text,p_limit integer)
-RETURNS SETOF jsonb LANGUAGE plpgsql SECURITY DEFINER
- SET search_path=pg_catalog,pg_temp AS $reader$
-DECLARE placement ops.pdf_published_revision;
-BEGIN
- IF p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 1000 OR p_pointers IS NULL OR p_family IS NULL OR
- p_family NOT IN ('occurrence','relation','input','coverage','mapping_report','health') THEN
- RAISE EXCEPTION 'invalid published context page' USING ERRCODE='22023'; END IF;
- SELECT * INTO STRICT placement FROM ops.read_pdf_published_revision(p_task,p_product,p_digest);
- RETURN QUERY
- {selection}, selected_context AS (
-   SELECT c.product_id,c.revision_id,c.family,c.local_id,c.body FROM chosen c
-   WHERE c.family=p_family
-   UNION ALL
-   SELECT c.product_id,c.revision_id,c.family,c.local_id,c.body
-    FROM kb.pdf_record_companion c JOIN published p
-    ON c.product_id=p.build_id AND c.revision_id=p.build_id
-    WHERE p_family='health' AND c.family='health'
- ), requested_page AS MATERIALIZED (
-   SELECT c.* FROM selected_context c
-   WHERE c.local_id>COALESCE(p_after,'')
-   ORDER BY c.local_id LIMIT p_limit
- )
- SELECT jsonb_build_object('local_id',c.local_id,'body',
-   ops.pdf_companion_body(c.product_id,c.revision_id,c.family,c.local_id,c.body))
- FROM requested_page c ORDER BY c.local_id;
-END $reader$;
-REVOKE ALL ON FUNCTION
- ops.read_pdf_record_context_rows(bigint,text,text,text[],text,text,text,integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION
- ops.read_pdf_record_context_rows(bigint,text,text,text[],text,text,text,integer)
- TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;
-"""
-
-
 def pdf_native_export_sql() -> str:
     """One ordered cursor over containment, rather than one SQL request per object."""
     return (

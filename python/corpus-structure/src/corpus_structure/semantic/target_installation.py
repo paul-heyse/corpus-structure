@@ -155,7 +155,7 @@ def target_pdf_sql(installation: TargetInstallation) -> str:
                 target_metadata=installation.metadata, pdf_sources=installation.pdf_sources
             ),
             publication_sql(target_metadata=installation.metadata, pdf_domain=context.domain),
-            pdf_record_logical_identity_sql(),
+            pdf_record_logical_identity_sql(target_metadata=installation.metadata),
             pdf_record_proof_sql(installation.metadata),
             sql.joinpath("pdf_record_access_correspondence.sql").read_text(),
             observation_publication_sql(context, target_metadata=installation.metadata),

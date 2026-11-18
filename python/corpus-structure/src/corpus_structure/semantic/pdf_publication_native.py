@@ -645,11 +645,11 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         pdf_record_scope_health_sql,
         pdf_reference_bytes_equal_sql,
     )
+    from .pdf_record_context_native import pdf_record_context_page_sql, pdf_record_context_sql
     from .pdf_record_pages_native import pdf_record_page_sql
     from .pdf_record_reader_native import (
         pdf_companion_export_sql,
         pdf_native_export_sql,
-        pdf_record_context_sql,
         pdf_record_reader_sql,
     )
     from .pdf_validation_read_native import pdf_validation_native_programs
@@ -693,7 +693,7 @@ $$;
 """
     reader = (
         pdf_record_reader_sql(target_metadata=metadata)
-        + pdf_record_context_sql()
+        + pdf_record_context_page_sql(metadata)
         + pdf_native_export_sql()
         + pdf_companion_export_sql()
     )
@@ -706,12 +706,7 @@ $$;
         + validation_programs["check_build"]
     )
 
-    sql += (
-        reader
-        + "\n"
-        + (Path(__file__).with_name("sql") / "pdf_record_context.sql").read_text()
-        + "\n"
-    )
+    sql += reader + "\n" + pdf_record_context_sql(metadata) + "\n"
     # Published views expose the current record product; preparation stays private.
     for suffix in ("access", "region"):
         fields = [
@@ -795,13 +790,21 @@ corpus_sem_reader,corpus_sem_evaluator;\n"
     )
 
 
-def pdf_record_logical_identity_sql() -> str:
-    """Render the native identity template with the same model-owned payload codec."""
-    from .pdf_payloads import FAMILY, PROFILE
+def pdf_record_logical_identity_sql(*, target_metadata: MetaData | None = None) -> str:
+    """Compose the native scalar, lineage and ordered identity programs."""
+    from .native_objects import native_sql_script
+    from .pdf_payloads import FAMILY
+    from .pdf_record_digest_native import record_digest_parts
+    from .pdf_target_identity_native import logical_target_identity
 
-    sql = Path(__file__).with_name("sql").joinpath("pdf_record_logical_identity.sql").read_text()
-    return sql.replace("'{pdf_payload_profile}'", _quote(PROFILE)).replace(
-        "'{pdf_payload_family}'", _quote(FAMILY)
+    model = default_metadata if target_metadata is None else target_metadata
+    scalars, fold = record_digest_parts(model)
+    ordered = (
+        Path(__file__).with_name("sql").joinpath("pdf_record_logical_identity.sql").read_text()
+    )
+    target = native_sql_script(logical_target_identity(model))
+    return (
+        scalars + target + "\n" + ordered.replace("'{pdf_payload_family}'", _quote(FAMILY)) + fold
     )
 
 

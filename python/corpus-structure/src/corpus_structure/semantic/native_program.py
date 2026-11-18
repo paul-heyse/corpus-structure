@@ -224,6 +224,11 @@ class Continue:
 
 
 @dataclass(frozen=True)
+class Exit:
+    """Exit the enclosing native loop."""
+
+
+@dataclass(frozen=True)
 class CatchCheckViolation:
     """An item subtransaction catches only PostgreSQL check_violation (23514)."""
 
@@ -234,6 +239,7 @@ class CatchCheckViolation:
 type Statement = (
     Sql
     | Continue
+    | Exit
     | CatchCheckViolation
     | Assign
     | Perform
@@ -332,6 +338,8 @@ def _step(statement: Statement, nested: str) -> str:
             return "RETURN QUERY " + _statement(query)
         case Continue():
             return "CONTINUE"
+        case Exit():
+            return "EXIT"
         case CatchCheckViolation(body, handler):
             return (
                 f"BEGIN\n{_statements(body, nested)}\n"
