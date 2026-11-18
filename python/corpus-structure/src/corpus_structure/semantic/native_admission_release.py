@@ -1,14 +1,33 @@
-"""Model-bound release preconditions and exact native admission receipt programs."""
+"""Model-bound release, catalog and native admission receipt programs."""
 
 from pglast import ast, parse_sql, scan
 from pglast.stream import RawStream
-from sqlalchemy import Text, cast, exists, func, literal, or_, select
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import (
+    Boolean,
+    Integer,
+    SmallInteger,
+    Text,
+    and_,
+    cast,
+    column,
+    exists,
+    func,
+    literal,
+    or_,
+    select,
+    true,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, array
 
-from .native_program import Assign, If, Perform, Raise, _statements, core_variable
+from .native_program import Assign, If, Perform, Raise, SelectInto, _statements, core_variable
 
 CATALOG_END = " -- native catalog checks complete"
+PHYSICAL_CATALOG_START = " -- native physical catalog checks begin"
 PHYSICAL_CATALOG_END = " -- native physical catalog checks complete"
+_PHYSICAL_PROGRAM = " -- generated physical catalog checks"
+_TRIGGER_PROGRAM = " -- generated trigger catalog checks"
+_INDEX_PROGRAM = " -- generated index catalog checks"
+_CHECK_PROGRAM = " -- generated native CHECK catalog checks"
 
 
 def release_preconditions(metadata):
@@ -70,6 +89,249 @@ def native_receipt_admission(metadata):
     )
 
 
+def _catalog_failure(query, message):
+    return (
+        SelectInto(query.limit(1), ("spec",)),
+        If(core_variable("found", Boolean()), (Raise(message, "23514"),)),
+    )
+
+
+def _diagnostic(message, *fields):
+    spec = core_variable("spec", JSONB())
+    return func.format(message, *(func.coalesce(spec[name].astext, "<NULL>") for name in fields))
+
+
+def physical_catalog_checks(metadata):
+    """Bind physical CHECK declarations and selected views to observed catalogs."""
+    from . import native_catalog as catalog
+
+    expected = core_variable("expected", JSONB())
+    artifact = metadata.tables["sem.physical_contract"].alias("artifact")
+    checks = _json_items(artifact.c.checks, "item").lateral()
+    item = checks.c.value
+    constraint = catalog.constraint.alias("c")
+    relation = catalog.relation.alias("rel")
+    namespace = catalog.namespace.alias("ns")
+    physical_id = expected["physical_id"].astext
+    declared = artifact.join(checks, true())
+    observed = declared.outerjoin(
+        constraint,
+        and_(
+            constraint.c.conrelid == func.to_regclass(item["relation"].astext),
+            constraint.c.conname == item["name"].astext,
+            constraint.c.contype == "c",
+        ),
+    )
+    matching = exists(
+        select(1)
+        .select_from(declared)
+        .where(
+            artifact.c.physical_id == physical_id,
+            item["relation"].astext == namespace.c.nspname + "." + relation.c.relname,
+            item["name"].astext == constraint.c.conname,
+        )
+        .correlate(constraint, relation, namespace)
+    )
+    views = _json_items(expected["views"], "item")
+
+    def normalized_view(value):
+        return func.regexp_replace(
+            func.regexp_replace(value, r"\mAS\M", "", "gi"), "[[:space:]();]", "", "g"
+        )
+
+    return (
+        If(
+            ~exists(
+                select(1)
+                .select_from(artifact)
+                .where(
+                    artifact.c.physical_id == physical_id,
+                    artifact.c.source_digest == expected["physical_checks_source_digest"].astext,
+                )
+            ),
+            (Raise("physical CHECK contract is unavailable", "23514"),),
+        ),
+        *_catalog_failure(
+            select(item)
+            .select_from(observed)
+            .where(
+                artifact.c.physical_id == physical_id,
+                or_(
+                    constraint.c.oid.is_(None),
+                    ~constraint.c.convalidated,
+                    func.pg_get_expr(constraint.c.conbin, constraint.c.conrelid).is_distinct_from(
+                        item["expression"].astext
+                    ),
+                ),
+            ),
+            _diagnostic("physical CHECK expression differs: %s.%s", "relation", "name"),
+        ),
+        If(
+            exists(
+                select(1)
+                .select_from(
+                    constraint.join(relation, relation.c.oid == constraint.c.conrelid).join(
+                        namespace, namespace.c.oid == relation.c.relnamespace
+                    )
+                )
+                .where(
+                    constraint.c.contype == "c",
+                    expected["physical_relations"].has_key(
+                        namespace.c.nspname + "." + relation.c.relname
+                    ),
+                    ~matching,
+                )
+            ),
+            (Raise("unexpected physical CHECK", "23514"),),
+        ),
+        *_catalog_failure(
+            select(views.c.value).where(
+                or_(
+                    func.to_regclass(views.c.value["relation"].astext).is_(None),
+                    normalized_view(
+                        func.pg_get_viewdef(
+                            func.to_regclass(views.c.value["relation"].astext), True
+                        )
+                    ).is_distinct_from(normalized_view(views.c.value["query"].astext)),
+                )
+            ),
+            "native selected-fact view differs",
+        ),
+    )
+
+
+def trigger_catalog_checks():
+    """Keep transition flags, ordered update columns and trigger arguments exact."""
+    from . import native_catalog as catalog
+
+    expected = core_variable("expected", JSONB())
+    items = _json_items(expected["triggers"], "item")
+    item = items.c.value
+    observed = catalog.trigger.alias("t")
+    attributes = catalog.attribute.alias("a")
+    columns = (
+        func.unnest(cast(observed.c.tgattr, ARRAY(SmallInteger())))
+        .table_valued(column("num", SmallInteger()), with_ordinality="position")
+        .render_derived("attrs")
+    )
+    ordered_names = (
+        select(
+            func.to_jsonb(
+                func.coalesce(
+                    func.array_agg(
+                        aggregate_order_by(cast(attributes.c.attname, Text()), columns.c.position)
+                    ),
+                    array([], type_=Text()),
+                )
+            )
+        )
+        .select_from(
+            columns.join(
+                attributes,
+                and_(
+                    attributes.c.attrelid == observed.c.tgrelid,
+                    attributes.c.attnum == columns.c.num,
+                ),
+            )
+        )
+        .correlate(observed)
+        .scalar_subquery()
+    )
+    return _catalog_failure(
+        select(item)
+        .select_from(
+            items.outerjoin(
+                observed,
+                and_(
+                    observed.c.tgrelid == func.to_regclass(item["relation"].astext),
+                    observed.c.tgname == item["name"].astext,
+                    ~observed.c.tgisinternal,
+                ),
+            )
+        )
+        .where(
+            or_(
+                observed.c.oid.is_(None),
+                observed.c.tgenabled.not_in(("O", "A")),
+                observed.c.tgfoid.is_distinct_from(func.to_regprocedure(item["function"].astext)),
+                observed.c.tgtype != cast(item["type"].astext, Integer()),
+                observed.c.tgdeferrable.is_distinct_from(
+                    cast(item["deferrable"].astext, Boolean())
+                ),
+                observed.c.tginitdeferred.is_distinct_from(
+                    cast(item["deferred"].astext, Boolean())
+                ),
+                ordered_names.is_distinct_from(item["columns"]),
+                func.pg_get_expr(observed.c.tgqual, observed.c.tgrelid).is_distinct_from(
+                    item["when"].astext
+                ),
+                func.encode(observed.c.tgargs, "hex").is_distinct_from(item["args"].astext),
+            )
+        ),
+        _diagnostic("native execution guard differs: %s.%s", "relation", "name"),
+    )
+
+
+def index_catalog_checks():
+    from . import native_catalog as catalog
+
+    expected = core_variable("expected", JSONB())
+    items = _json_items(expected["indexes"], "item")
+    item = items.c.value
+    observed = catalog.index.alias("i")
+    return _catalog_failure(
+        select(item)
+        .select_from(
+            items.outerjoin(
+                observed, observed.c.indexrelid == func.to_regclass(item["index"].astext)
+            )
+        )
+        .where(
+            or_(
+                observed.c.indexrelid.is_(None),
+                ~observed.c.indisvalid,
+                ~observed.c.indisready,
+                observed.c.indrelid.is_distinct_from(func.to_regclass(item["relation"].astext)),
+                func.pg_get_indexdef(observed.c.indexrelid).is_distinct_from(
+                    item["definition"].astext
+                ),
+            )
+        ),
+        "native source search index differs",
+    )
+
+
+def native_check_catalog_checks():
+    from . import native_catalog as catalog
+
+    expected = core_variable("expected", JSONB())
+    items = _json_items(expected["checks"], "item")
+    item = items.c.value
+    observed = catalog.constraint.alias("c")
+    return _catalog_failure(
+        select(item)
+        .select_from(
+            items.outerjoin(
+                observed,
+                and_(
+                    observed.c.conrelid == func.to_regclass(item["relation"].astext),
+                    observed.c.conname == item["name"].astext,
+                ),
+            )
+        )
+        .where(
+            or_(
+                observed.c.oid.is_(None),
+                ~observed.c.convalidated,
+                func.pg_get_constraintdef(observed.c.oid).is_distinct_from(
+                    item["definition"].astext
+                ),
+            )
+        ),
+        _diagnostic("native CHECK expression differs: %s", "relation"),
+    )
+
+
 def admission_kernel(source: str, metadata) -> str:
     """Compose typed programs at the body boundaries of the retained SQL guard."""
     statements = parse_sql(source)
@@ -99,11 +361,31 @@ def admission_kernel(source: str, metadata) -> str:
     first, last = openings[0], endings[-1]
     if last.start <= first.end or body[last.end + 1 :].strip() not in {"", ";"}:
         raise ValueError("admission source has an invalid outer procedural body")
+    programs = (
+        (
+            _PHYSICAL_PROGRAM,
+            "\n".join(
+                (
+                    PHYSICAL_CATALOG_START,
+                    _statements(physical_catalog_checks(metadata), " "),
+                    PHYSICAL_CATALOG_END,
+                )
+            ),
+        ),
+        (_TRIGGER_PROGRAM, _statements(trigger_catalog_checks(), " ")),
+        (_INDEX_PROGRAM, _statements(index_catalog_checks(), " ")),
+        (_CHECK_PROGRAM, _statements(native_check_catalog_checks(), " ")),
+    )
+    retained = body[first.end + 1 : last.start]
+    for marker, program in programs:
+        if retained.count(marker) != 1:
+            raise ValueError("admission source requires one declared catalog program position")
+        retained = retained.replace(marker, program, 1)
     body_literal.sval = "\n".join(
         (
             body[: first.end + 1],
             _statements(release_preconditions(metadata), " "),
-            body[first.end + 1 : last.start],
+            retained,
             CATALOG_END,
             _statements(release_semantic_checks(metadata), " "),
             _statements(native_receipt_admission(metadata), " "),

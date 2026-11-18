@@ -3,8 +3,9 @@
 import json
 from hashlib import sha256
 
+import psycopg
 import pytest
-from sqlalchemy import Column, MetaData, Table, Text, func, literal, select
+from sqlalchemy import Column, MetaData, Table, Text, func, literal, select, text
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateSchema
@@ -182,3 +183,205 @@ def test_release_semantic_guards_follow_explicit_physical_relations():
         "target archive contains legacy execution model",
     ):
         assert refusal in source
+
+
+def test_catalog_programs_bind_the_explicit_physical_contract_relation():
+    from types import SimpleNamespace
+
+    from pglast import parse_plpgsql, parse_sql
+
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.native_admission_release import physical_catalog_checks
+
+    declared = metadata.tables["sem.physical_contract"].to_metadata(
+        MetaData(), name="captured_physical_contract"
+    )
+    proposed = SimpleNamespace(tables={"sem.physical_contract": declared})
+    source = function(
+        "public",
+        "captured_catalog_checks",
+        parameters=(Parameter("expected", pg_type("jsonb")),),
+        returns=pg_type("void"),
+        body=Block(physical_catalog_checks(proposed), (Local("spec", pg_type("jsonb")),)),
+    )
+    assert parse_sql(source) and parse_plpgsql(source)
+    assert "sem.captured_physical_contract" in source
+    assert "FROM sem.physical_contract " not in source
+
+
+@pytest.fixture
+def catalog_program_connection(infrastructure_rollback):
+    from sqlalchemy.schema import CreateTable
+
+    from corpus_structure.semantic.native_admission_release import (
+        index_catalog_checks,
+        native_check_catalog_checks,
+        physical_catalog_checks,
+        trigger_catalog_checks,
+    )
+
+    connection = infrastructure_rollback
+    connection.execute(CreateSchema("catalog_admission_control"))
+    connection.exec_driver_sql(
+        "CREATE TABLE catalog_admission_control.items ("
+        "value integer,other integer,CONSTRAINT positive_value CHECK (value>0))"
+    )
+    connection.exec_driver_sql(
+        "CREATE INDEX item_value_idx ON catalog_admission_control.items(value)"
+    )
+    connection.exec_driver_sql(
+        "CREATE VIEW catalog_admission_control.projected AS SELECT 1 AS value"
+    )
+    connection.exec_driver_sql(
+        "CREATE FUNCTION catalog_admission_control.touch() RETURNS trigger "
+        "LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$"
+    )
+    connection.exec_driver_sql(
+        "CREATE TRIGGER positive_guard BEFORE UPDATE OF value,other "
+        "ON catalog_admission_control.items FOR EACH ROW "
+        "EXECUTE FUNCTION catalog_admission_control.touch('first','second')"
+    )
+    contract = Table(
+        "catalog_contract",
+        MetaData(),
+        Column("physical_id", Text),
+        Column("source_digest", Text),
+        Column("checks", JSONB),
+        schema="pg_temp",
+    )
+    connection.execute(CreateTable(contract))
+    checks = [
+        dict(
+            relation="catalog_admission_control.items",
+            name="positive_value",
+            expression="(value > 0)",
+        )
+    ]
+    connection.execute(
+        contract.insert().values(
+            physical_id="physical:control", source_digest="checks:control", checks=checks
+        )
+    )
+    from types import SimpleNamespace
+
+    target = SimpleNamespace(tables={"sem.physical_contract": contract})
+    statements = (
+        *physical_catalog_checks(target),
+        *trigger_catalog_checks(),
+        *index_catalog_checks(),
+        *native_check_catalog_checks(),
+    )
+    source = function(
+        "pg_temp",
+        "admit_catalog_programs",
+        parameters=(Parameter("expected", pg_type("jsonb")),),
+        returns=pg_type("void"),
+        body=Block(statements, (Local("spec", pg_type("jsonb")),)),
+        search_path=("pg_catalog", "pg_temp"),
+    )
+    execute_native_sql(connection, source)
+    expected = dict(
+        physical_id="physical:control",
+        physical_checks_source_digest="checks:control",
+        physical_relations=["catalog_admission_control.items"],
+        views=[dict(relation="catalog_admission_control.projected", query="SELECT 1 AS value")],
+        triggers=[
+            dict(
+                relation="catalog_admission_control.items",
+                name="positive_guard",
+                function="catalog_admission_control.touch()",
+                type=19,
+                deferrable=False,
+                deferred=False,
+                columns=["value", "other"],
+                when=None,
+                args=b"first\0second\0".hex(),
+            )
+        ],
+        indexes=[
+            dict(
+                index="catalog_admission_control.item_value_idx",
+                relation="catalog_admission_control.items",
+                definition="CREATE INDEX item_value_idx ON catalog_admission_control.items USING btree (value)",
+            )
+        ],
+        checks=[
+            dict(
+                relation="catalog_admission_control.items",
+                name="positive_value",
+                definition="CHECK ((value > 0))",
+            )
+        ],
+    )
+    return connection, contract, checks, expected
+
+
+def test_catalog_programs_accept_exact_independent_declarations(catalog_program_connection):
+    connection, _, _, expected = catalog_program_connection
+    connection.execute(
+        text("SELECT pg_temp.admit_catalog_programs(CAST(:expected AS jsonb))"),
+        {"expected": json.dumps(expected)},
+    )
+
+
+@pytest.mark.parametrize(
+    "defect,diagnostic",
+    [
+        ("source", "physical CHECK contract is unavailable"),
+        (
+            "expression",
+            "physical CHECK expression differs: catalog_admission_control.items.positive_value",
+        ),
+        ("extra-check", "unexpected physical CHECK"),
+        ("view", "native selected-fact view differs"),
+        (
+            "trigger-columns",
+            "native execution guard differs: catalog_admission_control.items.positive_guard",
+        ),
+        (
+            "trigger-args",
+            "native execution guard differs: catalog_admission_control.items.positive_guard",
+        ),
+        (
+            "trigger-type",
+            "native execution guard differs: catalog_admission_control.items.positive_guard",
+        ),
+        ("index", "native source search index differs"),
+        ("check-definition", "native CHECK expression differs: catalog_admission_control.items"),
+    ],
+)
+def test_catalog_programs_refuse_changed_catalog_or_expected_fact(
+    catalog_program_connection, defect, diagnostic
+):
+    connection, contract, checks, expected = catalog_program_connection
+    if defect == "source":
+        expected["physical_checks_source_digest"] = "another-source"
+    elif defect == "expression":
+        checks[0]["expression"] = "(value >= 0)"
+        connection.execute(contract.update().values(checks=checks))
+    elif defect == "extra-check":
+        connection.exec_driver_sql(
+            "ALTER TABLE catalog_admission_control.items ADD CONSTRAINT extra_positive CHECK(other>0)"
+        )
+    elif defect == "view":
+        expected["views"][0]["query"] = "SELECT 2 AS value"
+    elif defect == "trigger-columns":
+        expected["triggers"][0]["columns"].reverse()
+    elif defect == "trigger-args":
+        expected["triggers"][0]["args"] = b"first\0changed\0".hex()
+    elif defect == "trigger-type":
+        expected["triggers"][0]["type"] = 17
+    elif defect == "index":
+        expected["indexes"][0]["definition"] += " WHERE value>1"
+    else:
+        expected["checks"][0]["definition"] = "CHECK ((value >= 0))"
+    with (
+        pytest.raises(DBAPIError, match=diagnostic.replace(".", r"\.")) as captured,
+        connection.begin_nested(),
+    ):
+        connection.execute(
+            text("SELECT pg_temp.admit_catalog_programs(CAST(:expected AS jsonb))"),
+            {"expected": json.dumps(expected)},
+        )
+    assert isinstance(captured.value.orig, psycopg.Error)
+    assert captured.value.orig.sqlstate == "23514"

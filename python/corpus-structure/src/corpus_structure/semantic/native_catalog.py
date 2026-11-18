@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     Float,
     Integer,
+    SmallInteger,
     Text,
     case,
     cast,
@@ -19,7 +20,7 @@ from sqlalchemy import (
     table,
     true,
 )
-from sqlalchemy.dialects.postgresql import JSONB, OID, REGCLASS, aggregate_order_by, dialect
+from sqlalchemy.dialects.postgresql import BYTEA, JSONB, OID, REGCLASS, aggregate_order_by, dialect
 from sqlalchemy.types import UserDefinedType
 
 
@@ -84,6 +85,31 @@ trigger = _catalog(
     tgname=Text,
     tgisinternal=Boolean,
     tgenabled=Text,
+    tgfoid=OID,
+    tgtype=SmallInteger,
+    tgdeferrable=Boolean,
+    tginitdeferred=Boolean,
+    tgattr=ARRAY(SmallInteger),
+    tgqual=_CatalogType("pg_node_tree"),
+    tgargs=BYTEA,
+    tgoldtable=Text,
+    tgnewtable=Text,
+)
+constraint = _catalog(
+    "pg_constraint",
+    oid=OID,
+    conrelid=OID,
+    conname=Text,
+    contype=Text,
+    convalidated=Boolean,
+    conbin=_CatalogType("pg_node_tree"),
+)
+index = _catalog(
+    "pg_index",
+    indexrelid=OID,
+    indrelid=OID,
+    indisvalid=Boolean,
+    indisready=Boolean,
 )
 roles = _catalog(
     "pg_roles",
@@ -429,15 +455,7 @@ available_extension = _catalog("pg_available_extension_versions", name=Text, ver
 
 
 def trigger_check_context(parent, name):
-    selected = _catalog(
-        "pg_trigger",
-        tgfoid=OID,
-        tgrelid=OID,
-        tgname=Text,
-        tgisinternal=Boolean,
-        tgoldtable=Text,
-        tgnewtable=Text,
-    )
+    selected = trigger
     return select(
         selected.c.tgfoid.label("function_oid"),
         cast(cast(selected.c.tgrelid, REGCLASS), Text).label("relation"),
