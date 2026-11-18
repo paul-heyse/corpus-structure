@@ -33,6 +33,22 @@ corrections `C1`–`C7` and rule impacts `RC01`–`RC07`. Supporting pages hold 
 every remedy is Proposed, no decision record is changed, and every finding is Deferred until a
 plan selects it.
 
+## Unified domain model and execution review
+
+[Unified domain model and execution](design_review_unified-domain-model-and-execution_2026-11-18.md) (2026-11-18) is a
+combined production-scope design/target review at `main` `d78c98765`, consuming audit
+publication `90467bde0`. Its concerns are a unified domain data model (FP-04, A2), execution
+fit (FP-07, A4) and application code kept away from SQL text; the data-model libraries and
+DuckDB 2.0 are weighed as hypotheses and cachetools 8.0 receives a full cache design. It gives
+a fact-authority table, an identity design, the order of the remaining PostgreSQL conversion,
+a DuckDB judgment over the analytical inventory and, in its
+[cache design](unified-domain-model-and-execution/cache-design.md), six in-process tiers and
+two on-disk tiers. It adds findings `F01`–`F04` and proposes rule impacts `RC01`–`RC13` for
+operator confirmation. Its [dispositions](unified-domain-model-and-execution/dispositions.md)
+cover DA-068 to DA-086, DA-033 and DA-058. It is separate from the declared-data-operations
+plan and the production-efficiency review and re-owns nothing from them. Decision: Revise;
+every remedy is Proposed and every disposition Deferred until a plan selects it.
+
 ## Test domain model and execution review
 
 [Test domain model and execution](design_review_test-domain-model-and-execution_2026-11-17.md)
