@@ -1,0 +1,3 @@
+from typer import Option as Opt
+
+def other(flag: bool = Opt(False)) -> None: ...

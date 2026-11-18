@@ -163,3 +163,12 @@ O01–O08: scoped preparation, immutable regional state, dependency-driven overl
 resident provider lanes, batching, coordinated resource/device policy and operational control.
 It recommends a local hybrid and identifies stage-barrier, admission and batch-attribution changes.
 Recommendations remain Proposed; implementation planning and adoption are separate.
+
+## Library-discovery tooling — 2026-11-17
+
+The [library-discovery tooling review](library-discovery-tooling_2026-11-17.md) develops O01–O10
+for a Typer and Rich tool under `tooling/` that supports the leverage-library-discovery skill:
+an evidence envelope, baseline and installation snapshot, a Griffe inventory of what a library
+offers, an `ast` and LibCST usage census, and their comparison with ty-reported deprecated use.
+It finds ADR-0072's revisit trigger met and recommends a uv workspace member. Recommendations
+remain Proposed; planning and adoption are separate.
