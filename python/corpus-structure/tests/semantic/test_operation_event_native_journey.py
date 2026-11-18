@@ -292,9 +292,9 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
     by_source = {source_pin(item)["source"]: item.body["text"] for item in case["originals"]}
     for observation in case["frame"].frame.observations:
         expected_features = (
-            (log1p(8), log1p(6), 4 / 29, 1.0)
+            (log1p(8), log1p(6), 4 / 29, 0.0)
             if by_source[observation.selection.source.source] == "We define variance as spread."
-            else (log1p(4), log1p(7), 4 / 26, 1.0)
+            else (log1p(4), log1p(7), 4 / 26, 0.0)
         )
         assert observation.features == pytest.approx(expected_features)
     for observation, prediction in zip(

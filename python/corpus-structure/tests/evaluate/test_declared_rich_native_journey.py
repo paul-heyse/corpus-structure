@@ -73,24 +73,32 @@ def test_actual_rich_admission_keeps_complete_reading_authority_separate_from_sc
 
     journey = current_rich_policy
     fitted = complete_policy_fit(journey)
-    authorization_cut, authorizations, *_ = journey.selected_products(
-        journey.kernel.purpose("write"),
-        fitted.demand_id,
-        kind="https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization",
-        scope={
-            "operation_id": "record_policy.authorize",
-            "product_ids": [fitted.authorization_product_id],
-        },
-    )
-    ((authorization, authorization_body),) = authorizations
-    assert authorization_body == fitted.authorization
+    from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
+    from corpus_structure.semantic.demand_results import read_demand_result
+
+    with journey.kernel.purpose("write").begin() as connection:
+        authorization_page = read_demand_result(
+            connection,
+            fitted.demand_id,
+            project_id=PROJECT,
+            scope={
+                "operation_id": "record_policy.authorize",
+                "product_ids": [fitted.authorization_product_id],
+            },
+        )
+    (authorization_header,) = authorization_page.members()
+    assert authorization_header["product_id"] == fitted.authorization_product_id
+    assert authorization_header["body"] == fitted.authorization
+    authorization_cut = authorization_page.cut
     assert authorization_cut.record["scope"] == {
         "operation_id": "record_policy.authorize",
         "product_ids": [fitted.authorization_product_id],
     }
     assert authorization_cut.record["selection"]["version"] == "data-demand-public-selection-v1"
-    (authorization_entry,) = authorization["_selected_entries"]
-    assert authorization_entry.read.cut_id == authorization_cut.identity
+    authorization = SelectedSourceSetEntry.from_selected_header(
+        authorization_header, authorization_cut
+    )
+    assert authorization.read.cut_id == authorization_cut.identity
     source = next(
         source
         for source in journey.sources

@@ -9,7 +9,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.data_operation_identity import body_identity, semantic_value
@@ -763,17 +763,41 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
             kernel, pending, monkeypatch, exchange_output=failure == "ordinary-output"
         )
 
-    # Revoke the actual original C, not an equal body, a guessed receipt or a
-    # selected alias. Common reverse impact must reach issuer and ordinary dossier.
+    # Each authored demand has its own admission of C, even for equal content.
+    # Revoke the later issuer's exact pin, then the earlier issuer pin explicitly
+    # selected by the dossier and ordinary report-support source set.
     from typing import cast
 
     from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.metadata import table
 
     (original_c,) = [
+        value for value in complete["authored_admissions"] if value["selection_name"] == "pass:C"
+    ]
+    (earlier_c,) = [
         value for value in retained["authored_admissions"] if value["selection_name"] == "pass:C"
     ]
+    assert original_c["admission_id"] != earlier_c["admission_id"]
+    original_support = table("ops.data_derivation_original_support")
     with kernel.engine.begin() as connection:
+        later_support = set(
+            connection.scalars(
+                select(original_support.c.admission_id).where(
+                    original_support.c.derivation_id == actual_admission.row["derivation_id"]
+                )
+            )
+        )
+        earlier_support = set(
+            connection.scalars(
+                select(original_support.c.admission_id).where(
+                    original_support.c.derivation_id == admission.row["derivation_id"]
+                )
+            )
+        )
+        assert original_c["admission_id"] in later_support
+        assert earlier_c["admission_id"] not in later_support
+        assert earlier_c["admission_id"] in earlier_support
         assert (
             connection.scalar(
                 text("SELECT ops.ddo_node_valid('episode',:episode)"),
@@ -788,19 +812,28 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
             )
             is True
         )
-    with kernel.purpose("write").begin() as connection:
-        DataOperationStorage(connection).revoke_data_support(
-            cast(
-                WireRevokeDataSupportRequest,
-                dict(
-                    project_id=PROJECT,
-                    original_source=comparison.context.original_source,
-                    selector_kind="original-admission",
-                    selector=original_c["admission_id"],
-                    reason="controlled actual structural C revocation",
-                ),
-            )
-        )
+    import psycopg
+
+    withdrawal = cast(
+        WireRevokeDataSupportRequest,
+        dict(
+            project_id=PROJECT,
+            original_source=comparison.context.original_source,
+            selector_kind="original-admission",
+            selector=original_c["admission_id"],
+            reason="controlled actual structural C revocation",
+        ),
+    )
+    # The original C is protected evaluator data. Ordinary write capability
+    # authorizes ordinary withdrawals, without granting this protected effect.
+    with (
+        pytest.raises(DBAPIError, match="evaluator data requires evaluator purpose") as refusal,
+        kernel.purpose("write").begin() as connection,
+    ):
+        DataOperationStorage(connection).revoke_data_support(withdrawal)
+    assert isinstance(refusal.value.orig, psycopg.errors.InsufficientPrivilege)
+    with kernel.purpose("evaluate").begin() as connection:
+        DataOperationStorage(connection).revoke_data_support(withdrawal)
     with kernel.engine.begin() as connection:
         assert (
             connection.scalar(
@@ -809,6 +842,18 @@ def test_actual_structural_authorship_issuer_dossier_selected_gap_and_detached_e
             )
             is False
         )
+    with kernel.purpose("evaluate").begin() as connection:
+        DataOperationStorage(connection).revoke_data_support(
+            cast(
+                WireRevokeDataSupportRequest,
+                {
+                    **withdrawal,
+                    "selector": earlier_c["admission_id"],
+                    "reason": "controlled exact earlier structural C dossier support revocation",
+                },
+            )
+        )
+    with kernel.engine.begin() as connection:
         assert (
             connection.scalar(
                 text("SELECT ops.ddo_node_valid('episode',:episode)"),
@@ -859,9 +904,8 @@ def _assert_native_issuer_refusal(kernel, pending, monkeypatch, *, exchange_outp
         ):
             if exchange_output:
                 exchanged = deepcopy(payload)
-                value = decode_semantic_value(
-                    exchanged["completion"]["outputs"][0]["product"]["body"]
-                )
+                output = exchanged["completion"]["outputs"][0]["product"]
+                value = decode_semantic_value(output["body"])
                 import json
 
                 statement = decode_semantic_value(json.loads(value["statement_meaning_json"]))
@@ -869,11 +913,10 @@ def _assert_native_issuer_refusal(kernel, pending, monkeypatch, *, exchange_outp
                 value["statement_meaning_json"] = canonical_bytes(
                     semantic_value(statement)
                 ).decode()
-                exchanged["completion"]["outputs"][0]["product"]["body"] = semantic_value(value)
-                assert (
-                    exchanged["completion"]["execution_evidence"]
-                    == payload["completion"]["execution_evidence"]
-                )
+                altered = semantic_value(value)
+                output["body"] = payload["completion"]["outputs"][0]["product"]["body"]
+                assert exchanged == payload
+                output["body"] = altered
                 payload = exchanged
             try:
                 return actual(storage, payload)

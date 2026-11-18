@@ -26,6 +26,8 @@ from semantic.data_operation_kernel_support import (
     split_captured_operations,
 )
 
+from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
+
 NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
 
 
@@ -103,7 +105,7 @@ class RichAdmissionSelection:
 def run_rich_admission(
     journey,
     readings: ReadingPopulation,
-    authorization,
+    authorization: SelectedSourceSetEntry,
     *,
     selected_source,
     inference,
@@ -154,9 +156,7 @@ def run_rich_admission(
         FrozenSourceSet.from_selected(
             "rich-readings", tuple(selected_entry(row) for row, _ in resolved)
         ),
-        FrozenSourceSet.from_selected(
-            "rich-policy-authorizations", (selected_entry(authorization),)
-        ),
+        FrozenSourceSet.from_selected("rich-policy-authorizations", (authorization,)),
     )
     pending = request(
         journey,
