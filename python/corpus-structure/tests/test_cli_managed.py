@@ -52,6 +52,28 @@ def test_failed_window_and_late_reader(tmp_path):
     assert store.collect(apply=True, now=expiry).removed == [result.id]
 
 
+def test_grouped_execution_failure_preserves_unresolved_physical_custody(tmp_path):
+    from corpus_structure.core.work import PhysicalRetirementUncertain
+
+    store = ResultStore(tmp_path)
+    failure = ExceptionGroup(
+        "failed execution cleanup",
+        [
+            RuntimeError("ordinary work failure"),
+            ExceptionGroup("child join", [PhysicalRetirementUncertain("child remains unproven")]),
+        ],
+    )
+    with pytest.raises(ExceptionGroup), store.operation("run", account=True) as result:
+        raise failure
+
+    manifest = store.show(result.id)
+    assert manifest.outcome == "failed"
+    assert manifest.operation_account is not None
+    assert manifest.operation_account.cleanup == "unresolved"
+    assert not manifest.custody_settled()
+    assert store.collect(apply=True, now=manifest.expiry()).removed == []
+
+
 def test_interrupted_effect_retains_its_exact_input_for_recovery(tmp_path):
     store = ResultStore(tmp_path)
     with store.operation("model.preview") as source:

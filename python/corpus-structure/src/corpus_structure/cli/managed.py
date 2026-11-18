@@ -384,9 +384,25 @@ class Invocation:
 
     def mark_cleanup(self, error: BaseException) -> None:
         from corpus_structure.core.db.store import cleanup_unresolved
+        from corpus_structure.core.work import PhysicalRetirementUncertain
 
-        if cleanup_unresolved(error):
-            self.manifest.details["custody_unsettled"] = True
+        pending = [error]
+        seen: set[int] = set()
+        while pending:
+            current = pending.pop()
+            if id(current) in seen:
+                continue
+            seen.add(id(current))
+            if isinstance(current, PhysicalRetirementUncertain) or cleanup_unresolved(current):
+                self.manifest.details["custody_unsettled"] = True
+                return
+            if isinstance(current, BaseExceptionGroup):
+                pending.extend(current.exceptions)
+            cause = current.__cause__
+            if cause is None and not current.__suppress_context__:
+                cause = current.__context__
+            if cause is not None:
+                pending.append(cause)
 
     def record_failure(
         self,
