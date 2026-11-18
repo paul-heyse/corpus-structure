@@ -53,6 +53,14 @@ cover DA-068 to DA-086, DA-033 and DA-058. It is separate from the declared-data
 plan and the production-efficiency review and re-owns nothing from them. Decision: Revise;
 every remedy is Proposed and every disposition Deferred until a plan selects it.
 
+The review was revised again on 2026-11-18 against source `5139eaba3`, after 127 further
+commits regenerated the admission modules and removed the hand-written SQL directory. The
+revision records which recommendations the new code delivered, changed or left open, re-argues
+`R02`, `R07` and `R16` (the lists the review wanted declared first were transcribed into
+Python, so the work becomes extracting them to a declared, per-release lowered source), adds
+recommendation `R17` and rule impact `RC15`, and changes `RC01` and `RC05`. Its "What changed in
+this revision" section lists the status of every recommendation, finding and rule impact.
+
 ## Test domain model and execution review
 
 [Test domain model and execution](design_review_test-domain-model-and-execution_2026-11-17.md)

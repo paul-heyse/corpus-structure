@@ -12,8 +12,21 @@ served query that declares no reuse basis uses `cut` (§4 T4), and the compiled 
 declaration validator also yields the list of unclassified declarations (§4 T1, review R16). See the
 [audit companion](../audits/design_review_unified-domain-model-and-execution_2026-11-18_audit.md).
 
+**Revised to current source, 2026-11-18.** An independent reviewer revised the principal review
+against source `5139eaba3` from input revision `c25cada3f`, consuming the diagnostic audit as
+updated at that source (its rebuilt [cache inventory](../../audit/model-and-execution.md#cache-inventory)
+and [identity inventory](../../audit/model-and-execution.md#identity-inventory)). This design was
+checked against that update and **stands**: no key, bound or invalidation premise below moved,
+because the owners it migrates (the query cache, the archive cache, the grammar memos, the spaCy
+holder, `semantic/metadata.py`, the wire caches apart from one line shift) have no change of
+substance in the range, and cachetools is still pinned at 7.2.7. The deltas are recorded where they
+fall, marked "Revision of 2026-11-18": a new content-keyed holder for the companion projection
+(§4 T1, §8), the removal of the per-request CPU global (§8), a larger native capture with the same
+rebuild pattern (§1, §4 T2), and no new tier candidate from the rebuilt inventory (§8). The judgments
+recorded with that mark are the revising reviewer's.
+
 **Baseline.** Source facts are from the frozen snapshot of commit `d78c98765`, Interface-checked
-by source inspection on 2026-11-18. Paths omit `python/corpus-structure/src/corpus_structure/`.
+by source inspection on 2026-11-18; facts marked "Revision of 2026-11-18" are from `5139eaba3`. Paths omit `python/corpus-structure/src/corpus_structure/`.
 Every design statement is **Proposed**. No speedup is claimed anywhere; where a tier removes
 work, the work removed is named, and whether its removal is material is left unmeasured.
 
@@ -51,6 +64,8 @@ What exists today (verified in source, with the cache inventory helper's map):
   twice per `require_data_operation_native` call on the execution path
   (`semantic/data_operation_storage.py:1116–1131`) and three times per definition admission
   (`:1535–1558`) ([DA-083](../../audit/execution-fit.md#da-083));
+  (revision of 2026-11-18: unchanged at `:1127–1142` and `:1561, 1571`; each rebuild is larger,
+  99 captured modules and about 46 generator invocations);
 - the physical model compiled at import as a module global in every importing process
   (`semantic/metadata.py:32–50`), not reused by the capture, which compiles it again
   (`semantic/data_operation_storage.py:123–136`);
@@ -186,6 +201,15 @@ the physical model no longer compiles it at import.
 
 **Invalidation and events.** Identity in the key. The event `model` (published after a model
 change is applied, `schema/model_change.py` apply path) clears the tier to give memory back.
+
+**Revision of 2026-11-18.** The companion projection now holds its captured inputs and its
+projections in two `lru_cache`s keyed by the PDF domain contract, whose captured sources are its
+content identity (`semantic/companion_projection.py:561–617, 620`). That is the T1 key premise
+applied to one consumer, and it is sound; it also composes its own view and compiles the physical
+model once more (`:587`). In the target it becomes a projection of the T1 entry for the same
+captured sources, so the separate compile goes and the key stays content. Its `target_metadata`
+argument is keyed by object identity; under T1 the metadata is itself a projection of the entry, so
+that argument disappears from the key.
 
 **Repeated work removed.** The import-time double compile in every importing process
 (`semantic/metadata.py:32–50`); the physical compile inside every capture
@@ -462,7 +486,7 @@ release 2023). Persisting cachetools caches by pickling them.
 | `semantic/metadata.py:32–50` module globals compiled at import | T1 projections behind `current_model()` | Removes import-time compile from commands that do not need it |
 | Per-consumer `SchemaView` composition (eight sites, §4 T1) | T1 merged view and projections | One composer |
 | `semantic/data_operation_wire.py:46, 52, 261, 414, 450, 485` | T1 protocol projection; validators keyed by protocol content digest | The whole-capture tuple leaves every key |
-| `semantic/companion_projection.py:547` (`SchemaView(str(MODEL))` from disk, keyed by a `MetaData` object) | T1 projection keyed by model identity | |
+| `semantic/companion_projection.py:547` (`SchemaView(str(MODEL))` from disk, keyed by a `MetaData` object); revision of 2026-11-18: also `:561–617, 620`, content-keyed holders over the captured PDF domain sources | T1 projection keyed by model identity | The new holders already key by content; they lose their separate physical compile |
 | `semantic/pdf_contracts.py:81`, `semantic/pdf_lowering.py:107, 259`, `semantic/operation_reporting.py:63, 93, 118`, `semantic/pdf_records.py:33, 159, 165, 198` (no-argument process singletons reading package files) | T1 projections keyed by model identity, with custody for the files they read | Ends "first read in the process wins" for declarations |
 | No holder: `native_protocol_sources()` | T2 (authoring only) and D2 | Execution path stops calling it (R06) |
 | `semantic/prepare.py:599`; `semantic/pdf_contracts.py:55`; `semantic/pdf_lowering.py:168` | T3, bytes-bounded | |
@@ -473,8 +497,10 @@ release 2023). Persisting cachetools caches by pickling them.
 | `methods/math/grammar.py:309–327, 966–993` | T6 (`cached` with `condition`; `cachetools.func.lru_cache`) | Removes unlocked mutation from tool threads (F02) |
 | `semantic/scientific_evidence.py:192–255`, `semantic/rich_policy_binding.py:22–30` recipe per call | T1 projection derived from the policy declaration (R14) | Correctness fix first, caching follows |
 | File custody, query custody | T0, generalized to derived code custody | Registered for listing |
-| Execution host bases, CPU worker releases, native host residency | Unchanged owners (ADR-0125) | Registered for listing |
+| Execution host bases, CPU worker releases, native host residency | Unchanged owners (ADR-0125) | Registered for listing. Revision of 2026-11-18: cancellation is now bound per CPU invocation and the shared per-request global beside the worker releases is gone (`semantic/cpu_execution.py:359`, `5c5443d16`); worker releases stay unbounded within a worker's life, one entry per distinct capsule, which ADR-0125's lifecycle owns |
 | About 55 cheap `functools` caches, content-keyed parsers, `cached_property` | Unchanged | §7 |
+| Revision of 2026-11-18, rebuilt inventory: CPU call descriptors (`semantic/data_operation_cpu.py:189`, per worker, 64 entries); per-object `semantic_id` memos (`semantic/formal_products.py:150` and siblings); deployment expectation caches (`semantic/execution_admission.py`) | Unchanged | Each is content- or object-keyed and bounded or object-lived; none is a new tier candidate |
+| Revision of 2026-11-18, repeated work with no holder: release-content re-proof in the generated guard; frozen catalog verification rebuilt from the frozen guard (`semantic/native_admission.py:85–110`); a full native revision for a digest-only change | Not caches | The first is carried assurance (review R11), the second is off the acquisition path and low consequence, the third is identity (review R05, RC15) |
 
 ## 9. cachetools 8.0: what the design relies on, and the limits
 
@@ -525,6 +551,7 @@ Limits the design works around:
 | Two concurrent identical cold reads in the MCP server | Both derive | Both re-acquire authority; one derives, the other waits on the future and receives the same value or the same failure |
 | A model YAML change published while caches are warm | `semantic/metadata.py` keeps the import-time model until restart | The next `current_model()` sees the stat change through custody, re-hashes, builds a new T1 entry; T2 keys move with it; T3 and T4 entries for old releases stay valid for reads pinned to them; event `model` frees memory |
 | A generator module edited while the MCP server runs | The next port acquisition regenerates the capture, sees a different digest and refuses until a kernel revision is deployed | Code custody refuses on the next use of the edited generator (restart, as today for served code); execution paths do not regenerate and keep working against the installed kernel |
+| A captured Python helper that shapes no program is edited (revision of 2026-11-18; observed at N29) | The digest moves; a native revision is authored and deployed although it changes only digest literals; receipts replay | No program's bytes change; T2 regenerates the same bytes; no identity moves |
 | A library the generators import is bumped | Kernel digest, release id and every key built on them change | D2 key changes and the set regenerates; if no program's bytes change, kernel identity, validator identities and releases are unchanged |
 | An interrupted run is resumed | Request identity reuse decides (sound) | Unchanged; disk tiers are write-once with atomic replace, so an interrupted write leaves only a temporary directory that prune removes |
 
