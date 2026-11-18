@@ -71,12 +71,13 @@ def capture_native_authoring_inputs(
     from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_compilation import compile_data_operations
     from .data_operation_storage import (
+        native_logical_sources,
         native_operation_calls,
         native_operation_declarations,
         native_protocol_sources,
     )
     from .identity import canonical_bytes
-    from .pdf_domain import CONTRACT, PdfDomainContract, pdf_domain_sources
+    from .pdf_domain import CONTRACT, PREFIX, PdfDomainContract, pdf_domain_sources
     from .runtime_binding_native import runtime_binding_sql
     from .types import SourceArtifact
 
@@ -91,6 +92,9 @@ def capture_native_authoring_inputs(
         raise ValueError("native authoring requires captured physical sources and LinkML types")
     if pdf_actions is not None and pdf_sources is not None:
         raise ValueError("select PDF action input or an already captured PDF source cohort")
+    logical = native_logical_sources() if logical_sources is None else logical_sources
+    if pdf_sources is None and pdf_actions is None:
+        pdf_actions = SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"])
     pdf = (
         pdf_domain_sources(
             physical_sources=physical, linkml_types=types, actions_source=pdf_actions
@@ -107,7 +111,7 @@ def capture_native_authoring_inputs(
         linkml_types=types,
         target_metadata=selected,
         pdf_domain=domain,
-        logical_sources=logical_sources,
+        logical_sources=logical,
     )
     declarations = native_operation_declarations(native)
     calls = native_operation_calls(sources=native)
@@ -134,6 +138,8 @@ def capture_native_authoring_inputs(
                 "data_operation_runtime.py",
                 "native_admission.py",
                 "native_authoring.py",
+                "alembic_checks.py",
+                "alembic_indexes.py",
                 "native_objects.py",
                 "native_catalog.py",
                 "native_sql_body.py",

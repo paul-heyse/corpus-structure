@@ -51,7 +51,9 @@ def runtime_binding_sql(target):
                     )
                 ),
                 returns=pg_type(returns),
-                body=Block(body, tuple(Local(key, pg_type(kind)) for key, kind in locals_)),
+                body=Block(
+                    body, tuple(Local(key, pg_type(*kind.split("."))) for key, kind in locals_)
+                ),
                 security_definer=True,
                 search_path=("pg_catalog", "pg_temp"),
             )

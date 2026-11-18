@@ -244,6 +244,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         expected_predecessor,
         expected_target,
         target_metadata,
+        logical_sources,
         retire,
         recreate,
         data_steps,
@@ -252,6 +253,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         assert expected_predecessor == "before"
         assert expected_target == source_identity
         assert target_metadata.tables["data.project"].c.reviewed_fixture.nullable
+        assert b"SourceValue:" in logical_sources["observations.yaml"]
         assert {item.name for item in retire} == {"retired_fixture"}
         assert {item.name for item in recreate} == {"recreated_fixture"}
         assert [step.name for step in data_steps] == ["ddo_n1_relower"]

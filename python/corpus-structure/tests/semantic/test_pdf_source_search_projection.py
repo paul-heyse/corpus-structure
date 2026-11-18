@@ -118,7 +118,8 @@ def test_search_configuration_changes_the_vector_program_and_wire_together():
     target = compile_physical(physical, linkml_types=metadata.info["physical_linkml_types"])
     captured = capture_native_authoring_inputs(target_metadata=target)
     wire = wire_contracts(captured.native_sources)["ensure_pdf_search_projection"]["input"]
-    assert wire["properties"]["configuration"] == {"const": "simple"}
+    request = wire["definitions"]["ensure_pdf_search_projection_request"]
+    assert request["properties"]["configuration"] == {"const": "simple"}
     statement = search_projection_sql(captured.native_sources)
     assert "websearch_to_tsquery(CAST('simple' AS REGCONFIG)" in statement
     assert "configuration') IS DISTINCT FROM 'simple'" in statement
