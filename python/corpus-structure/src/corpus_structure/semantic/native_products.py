@@ -14,6 +14,8 @@ from sqlalchemy.schema import (
     MetaData,
 )
 
+from corpus_structure.schema.relational import physical_expression_sql
+
 from .prepared_sql import PreparedSQL
 
 if TYPE_CHECKING:
@@ -332,7 +334,7 @@ def current_admission_fields(
     if captured.physical_id != target_metadata.info["physical_model_id"]:
         raise ValueError("native authoring capture belongs to another physical model")
     check_sources = [
-        (relation.fullname, str(check.name), str(check.sqltext))
+        (relation.fullname, str(check.name), physical_expression_sql(check.sqltext))
         for relation in sorted(target_metadata.tables.values(), key=lambda item: item.fullname)
         for check in sorted(
             (item for item in relation.constraints if isinstance(item, CheckConstraint)),

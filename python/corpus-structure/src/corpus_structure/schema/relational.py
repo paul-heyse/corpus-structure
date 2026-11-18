@@ -10,10 +10,11 @@ import hashlib
 import json
 import keyword
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, Literal
 
 from linkml_runtime.linkml_model import SlotDefinition
 from pgvector.sqlalchemy import VECTOR as Vector
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -37,7 +38,8 @@ from sqlalchemy import (
     cast,
     func,
     literal,
-    text,
+    not_,
+    or_,
 )
 from sqlalchemy import column as sql_column
 from sqlalchemy.dialects.postgresql import (
@@ -104,6 +106,148 @@ def check_name(table: str, what: str, sql: str) -> str:
     if len(name) > MAX_NAME:
         raise ModelError([f"CHECK name {name} exceeds {MAX_NAME} characters"])
     return name
+
+
+class _PhysicalDeclaration(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class PhysicalField(_PhysicalDeclaration):
+    field: str
+
+
+class PhysicalSearchConfiguration(_PhysicalDeclaration):
+    search_configuration: str
+
+
+class PhysicalValue(_PhysicalDeclaration):
+    value: str | int | float | bool | None
+
+
+class PhysicalCall(_PhysicalDeclaration):
+    call: Literal[
+        "jsonb_typeof", "octet_length", "convert_to", "sha256", "encode",
+        "ops.pdf_product_descriptor",
+    ]
+    args: tuple[PhysicalExpression, ...]
+
+
+class PhysicalCast(_PhysicalDeclaration):
+    cast: Literal["text", "jsonb"]
+    value: PhysicalExpression
+
+
+class PhysicalOperator(_PhysicalDeclaration):
+    op: Literal[
+        "eq", "ne", "gt", "lt", "ge", "le", "distinct", "not_distinct", "regex",
+        "like", "concat", "json", "json_text", "all", "any", "not", "is_null",
+        "is_not_null", "in", "not_in", "between", "case",
+    ]
+    args: tuple[PhysicalExpression, ...]
+
+
+type PhysicalExpression = (
+    PhysicalField | PhysicalSearchConfiguration | PhysicalValue | PhysicalCall | PhysicalCast | PhysicalOperator
+)
+for _declaration in (PhysicalCall, PhysicalCast, PhysicalOperator):
+    _declaration.model_rebuild()
+
+
+class PhysicalCheck(_PhysicalDeclaration):
+    name: str = Field(min_length=1, max_length=MAX_NAME)
+    predicate: PhysicalExpression
+
+
+class PhysicalIndex(_PhysicalDeclaration):
+    name: str | None = None
+    columns: tuple[str, ...] = ()
+    expression: PhysicalExpression | None = None
+    where: PhysicalExpression | None = None
+    collations: dict[str, str] = Field(default_factory=dict)
+    using: Literal["btree", "gin", "gist", "hash", "brin", "spgist"] = "btree"
+    include: tuple[str, ...] | None = None
+
+
+def _physical_expression(expression: PhysicalExpression, table: Table) -> ColumnElement[Any]:
+    """Bind finite physical predicates to the selected, typed relation."""
+    if isinstance(expression, PhysicalField):
+        if expression.field not in table.c:
+            raise ModelError([f"{table.fullname}: unknown physical field {expression.field!r}"])
+        return table.c[expression.field]
+    if isinstance(expression, PhysicalSearchConfiguration):
+        relation, field = expression.search_configuration.rsplit(".", 1)
+        source = table.metadata.tables.get(relation)
+        configuration = (source.c[field].info.get("search_configuration")
+                         if source is not None and field in source.c else None)
+        if not isinstance(configuration, str) or not configuration:
+            raise ModelError([f"{table.fullname}: unresolved search configuration reference"])
+        return literal(configuration, Text())
+    if isinstance(expression, PhysicalValue):
+        return literal(expression.value)
+    if isinstance(expression, PhysicalCast):
+        target_type: TypeEngine[Any] = Text() if expression.cast == "text" else JSONB()
+        return cast(_physical_expression(expression.value, table), target_type)
+    arguments = tuple(_physical_expression(arg, table) for arg in expression.args)
+    if isinstance(expression, PhysicalCall):
+        arities = {"jsonb_typeof": 1, "octet_length": 1, "convert_to": 2,
+                   "sha256": 1, "encode": 2, "ops.pdf_product_descriptor": 1}
+        if len(arguments) != arities[expression.call]:
+            raise ModelError([f"{table.fullname}: invalid {expression.call} argument count"])
+        function: Any = func
+        for part in expression.call.split("."):
+            function = getattr(function, part)
+        return function(*arguments)
+    op = expression.op
+    if op in {"all", "any"}:
+        if not arguments:
+            raise ModelError([f"{table.fullname}: empty physical Boolean expression"])
+        return and_(*arguments) if op == "all" else or_(*arguments)
+    arity = 1 if op in {"not", "is_null", "is_not_null"} else 3 if op in {"between", "case"} else 2
+    if op in {"in", "not_in"}:
+        if len(arguments) < 2 or not all(isinstance(arg, PhysicalValue) for arg in expression.args[1:]):
+            raise ModelError([f"{table.fullname}: physical membership requires literal choices"])
+        members = [arg.value for arg in expression.args[1:] if isinstance(arg, PhysicalValue)]
+        return arguments[0].in_(members) if op == "in" else arguments[0].not_in(members)
+    if len(arguments) != arity:
+        raise ModelError([f"{table.fullname}: invalid {op} operand count"])
+    first = arguments[0]
+    if op == "not":
+        return not_(first)
+    if op == "is_null":
+        return first.is_(None)
+    if op == "is_not_null":
+        return first.is_not(None)
+    if op == "case":
+        return case((first, arguments[1]), else_=arguments[2])
+    if op == "between":
+        return first.between(arguments[1], arguments[2])
+    second = arguments[1]
+    comparisons = {
+        "eq": first.__eq__, "ne": first.__ne__, "gt": first.__gt__, "lt": first.__lt__,
+        "ge": first.__ge__, "le": first.__le__, "distinct": first.is_distinct_from,
+        "not_distinct": first.is_not_distinct_from, "like": first.like,
+    }
+    if op in comparisons:
+        return comparisons[op](second)
+    if op == "regex":
+        return first.bool_op("~")(second)
+    result_type = {"concat": Text(), "json": JSONB(), "json_text": Text()}[op]
+    return first.op({"concat": "||", "json": "->", "json_text": "->>"}[op], return_type=result_type)(second)
+
+
+def physical_expression_sql(expression: ColumnElement[Any]) -> str:
+    """Render a bound CHECK without a relation qualifier for native scratch contexts."""
+    from sqlalchemy.dialects.postgresql import dialect
+
+    return str(expression.compile(dialect=dialect(paramstyle="named"),
+                                  compile_kwargs={"literal_binds": True, "include_table": False}))
+
+
+def _physical_checks(value: str, table: Table) -> tuple[PhysicalCheck, ...]:
+    try:
+        return TypeAdapter(tuple[PhysicalCheck, ...]).validate_json(value)
+    except ValidationError as error:
+        raise ModelError([f"{table.fullname}: invalid typed physical checks: {error}"]) from error
 
 
 # --- Compilation -------------------------------------------------------------------------------
@@ -280,6 +424,7 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                     server_default=default,
                     info={
                         **nominal(subsets[0], str(name), str(slot.name)),
+                        "search_configuration": annotations.get("ph:search_configuration"),
                         "minimum": slot.minimum_value,
                         "maximum": slot.maximum_value,
                         "pattern": slot.pattern,
@@ -311,25 +456,31 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
         table = Table(str(name), md, *columns, schema=subsets[0], info=table_info)
         for slot in view.class_induced_slots(name):
             if slot.equals_string is not None:
+                expression = table.c[str(slot.name)] == str(slot.equals_string)
                 sql = str(slot.name) + " = " + quote(str(slot.equals_string))
                 table.append_constraint(
-                    CheckConstraint(sql, name=check_name(table.name, str(slot.name), sql))
+                    CheckConstraint(expression, name=check_name(table.name, str(slot.name), sql))
                 )
             if view.get_enum(str(slot.range)) is not None:
-                sql = in_check(str(slot.name), (m.text for m in expand_enum(view, str(slot.range))))
+                members = tuple(m.text for m in expand_enum(view, str(slot.range)))
+                expression = table.c[str(slot.name)].in_(sorted(members))
+                sql = in_check(str(slot.name), members)
                 table.append_constraint(
-                    CheckConstraint(sql, name=check_name(table.name, str(slot.name), sql))
+                    CheckConstraint(expression, name=check_name(table.name, str(slot.name), sql))
                 )
             for bound, operator in ((slot.minimum_value, ">="), (slot.maximum_value, "<=")):
                 if bound is not None:
+                    expression = (table.c[str(slot.name)] >= bound if operator == ">="
+                                  else table.c[str(slot.name)] <= bound)
                     sql = f"{slot.name} {operator} {bound}"
                     table.append_constraint(
-                        CheckConstraint(sql, name=check_name(table.name, str(slot.name), sql))
+                        CheckConstraint(expression, name=check_name(table.name, str(slot.name), sql))
                     )
             if slot.pattern:
+                expression = table.c[str(slot.name)].bool_op("~")(str(slot.pattern))
                 sql = str(slot.name) + " ~ " + quote(str(slot.pattern))
                 table.append_constraint(
-                    CheckConstraint(sql, name=check_name(table.name, str(slot.name), sql))
+                    CheckConstraint(expression, name=check_name(table.name, str(slot.name), sql))
                 )
         for key_name, key in cls.unique_keys.items():
             constraint = PrimaryKeyConstraint if key_name == "primary_key" else UniqueConstraint
@@ -347,33 +498,34 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
                     local, target, name=fk.get("name"), info={"shared": tuple(local[:-1])}
                 )
             )
-        for sql in json.loads(ann.get("ph:checks", "[]")):
+        for declaration in _physical_checks(ann.get("ph:checks", "[]"), table):
             table.append_constraint(
-                CheckConstraint(sql, name=check_name(table.name, "physical", sql))
+                CheckConstraint(_physical_expression(declaration.predicate, table), name=declaration.name)
             )
-        for declaration in json.loads(ann.get("ph:indexes", "[]")):
-            if isinstance(declaration, dict):
-                expressions = (
-                    (text(declaration["expression"]),)
-                    if "expression" in declaration
-                    else tuple(
-                        table.c[c].collate(declaration["collations"][c])
-                        if c in declaration.get("collations", {})
-                        else table.c[c]
-                        for c in declaration["columns"]
-                    )
-                )
-                index = Index(
-                    declaration.get("name"),
-                    *expressions,
-                    postgresql_where=text(declaration["where"]) if "where" in declaration else None,
-                    postgresql_using=declaration.get("using", "btree"),
-                    postgresql_include=declaration.get("include"),
-                )
-                if "expression" in declaration:
-                    table.append_constraint(index)
-            else:
-                Index(None, *(table.c[c] for c in declaration))
+        for raw in json.loads(ann.get("ph:indexes", "[]")):
+            try:
+                declaration = PhysicalIndex.model_validate(raw if isinstance(raw, dict) else {"columns": raw})
+            except ValidationError as error:
+                raise ModelError([f"{table.fullname}: invalid typed physical index: {error}"]) from error
+            if bool(declaration.columns) == (declaration.expression is not None):
+                raise ModelError([f"{table.fullname}: index requires columns or an expression"])
+            for name in (*declaration.columns, *(declaration.include or ()), *declaration.collations):
+                if name not in table.c:
+                    raise ModelError([f"{table.fullname}: unknown physical index field {name!r}"])
+            expressions = (
+                (_physical_expression(declaration.expression, table),)
+                if declaration.expression is not None
+                else tuple(table.c[c].collate(declaration.collations[c])
+                           if c in declaration.collations else table.c[c]
+                           for c in declaration.columns)
+            )
+            Index(
+                declaration.name, *expressions,
+                postgresql_where=_physical_expression(declaration.where, table)
+                if declaration.where is not None else None,
+                postgresql_using=declaration.using,
+                postgresql_include=declaration.include,
+            )
     return md
 
 

@@ -547,6 +547,8 @@ def _physical_check_contract(connection, target_metadata, authoring):
     """Normalize declared CHECKs through PostgreSQL, never enroll live table drift."""
     from sqlalchemy import CheckConstraint
 
+    from corpus_structure.schema.relational import physical_expression_sql
+
     from .native_admission import _admission_descriptor
 
     descriptor = next(
@@ -577,7 +579,7 @@ def _physical_check_contract(connection, target_metadata, authoring):
             for item in relation.columns
         ]
         columns.extend(
-            "CONSTRAINT " + preparer.format_constraint(item) + " CHECK (" + str(item.sqltext) + ")"
+            "CONSTRAINT " + preparer.format_constraint(item) + " CHECK (" + physical_expression_sql(item.sqltext) + ")"
             for item in constraints
         )
         connection.exec_driver_sql(

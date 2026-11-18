@@ -103,7 +103,7 @@ classes:
   PdfArtifactPart:
     annotations:
       pds:upload_key: '["product_id","revision_id","stream_id","ordinal"]'
-      pds:upload_checks: '["byte_length = octet_length(body)", "byte_length > 0", "byte_length <= 65536", "sha256_digest = encode(sha256(body),''hex'')", "product_id = revision_id"]'
+      pds:upload_checks: '[{"name":"ck_pdf_stage_artifact_part_physical_9cde4d345e","predicate":{"op":"eq","args":[{"field":"byte_length"},{"call":"octet_length","args":[{"field":"body"}]}]}},{"name":"ck_pdf_stage_artifact_part_physical_f369db0b22","predicate":{"op":"gt","args":[{"field":"byte_length"},{"value":0}]}},{"name":"ck_pdf_stage_artifact_part_physical_3bbd16db25","predicate":{"op":"le","args":[{"field":"byte_length"},{"value":65536}]}},{"name":"ck_pdf_stage_artifact_part_physical_266e3bac59","predicate":{"op":"eq","args":[{"field":"sha256_digest"},{"call":"encode","args":[{"call":"sha256","args":[{"field":"body"}]},{"value":"hex"}]}]}},{"name":"ck_pdf_stage_artifact_part_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}}]'
     description: Ordered bounded exact bytes; offsets and inventory are verified by the artifact codec.
     attributes:
       product_id: {required: true}

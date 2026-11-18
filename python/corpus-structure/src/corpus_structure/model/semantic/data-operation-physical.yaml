@@ -68,7 +68,7 @@ classes:
     annotations:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
-      ph:checks: '["universe IN (''ordinary'',''source'',''evaluator'')"]'
+      ph:checks: '[{"name":"ck_data_kind_contract_physical_3d143bbee5","predicate":{"op":"in","args":[{"field":"universe"},{"value":"ordinary"},{"value":"source"},{"value":"evaluator"}]}}]'
   data_operation_definition:
     in_subset: [sem]
     attributes:
@@ -116,7 +116,7 @@ classes:
       primary_key: {unique_key_slots: [scope]}
     annotations:
       ph:read_roles: '[]'
-      ph:checks: '["epoch >= 0"]'
+      ph:checks: '[{"name":"ck_data_trust_scope_physical_33d5efbd04","predicate":{"op":"ge","args":[{"field":"epoch"},{"value":0}]}}]'
   data_demand:
     in_subset: [ops]
     attributes:
@@ -189,7 +189,7 @@ classes:
     annotations:
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns": ["release_id", "operation_id"], "target": "sem.data_operation_definition.release_id,operation_id"}]'
-      ph:checks: '["generation > 0"]'
+      ph:checks: '[{"name":"ck_data_request_physical_665a5d17f1","predicate":{"op":"gt","args":[{"field":"generation"},{"value":0}]}}]'
   data_request_generation:
     in_subset: [ops]
     attributes:
@@ -256,7 +256,7 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
-      ph:checks: '["ordinal >= 0", "\"end\" >= start", "start >= 0"]'
+      ph:checks: '[{"name":"ck_data_member_coordinate_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}},{"name":"ck_data_member_coordinate_physical_729b80c0bc","predicate":{"op":"ge","args":[{"field":"end"},{"field":"start"}]}},{"name":"ck_data_member_coordinate_physical_e27c55b78e","predicate":{"op":"ge","args":[{"field":"start"},{"value":0}]}}]'
   data_member_role:
     in_subset: [kb]
     attributes:
@@ -272,7 +272,7 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
-      ph:checks: '["ordinal >= 0", "position >= 0", "multiplicity > 0"]'
+      ph:checks: '[{"name":"ck_data_member_role_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}},{"name":"ck_data_member_role_physical_9039b28f88","predicate":{"op":"ge","args":[{"field":"position"},{"value":0}]}},{"name":"ck_data_member_role_physical_4c504f7e44","predicate":{"op":"gt","args":[{"field":"multiplicity"},{"value":0}]}}]'
   data_member_endpoint:
     in_subset: [kb]
     attributes:
@@ -288,7 +288,7 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}, {"columns": ["endpoint_product", "endpoint_member"], "target": "kb.data_product_member.product_id,member_id"}]'
-      ph:checks: '["ordinal >= 0"]'
+      ph:checks: '[{"name":"ck_data_member_endpoint_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}}]'
   data_member_coverage:
     in_subset: [kb]
     attributes:
@@ -305,7 +305,7 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
-      ph:checks: '["ordinal >= 0", "\"end\" >= start", "start >= 0"]'
+      ph:checks: '[{"name":"ck_data_member_coverage_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}},{"name":"ck_data_member_coverage_physical_729b80c0bc","predicate":{"op":"ge","args":[{"field":"end"},{"field":"start"}]}},{"name":"ck_data_member_coverage_physical_e27c55b78e","predicate":{"op":"ge","args":[{"field":"start"},{"value":0}]}}]'
   data_member_choice:
     in_subset: [kb]
     attributes:
@@ -321,7 +321,7 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
-      ph:checks: '["ordinal >= 0"]'
+      ph:checks: '[{"name":"ck_data_member_choice_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}}]'
   data_completion_intent:
     in_subset: [ops]
     attributes:
@@ -437,7 +437,7 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["derivation_id"], "target": "ops.data_derivation.id"}, {"columns": ["product_id"], "target": "kb.data_product.id"}, {"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
-      ph:checks: '["position >= 0", "multiplicity > 0"]'
+      ph:checks: '[{"name":"ck_data_derivation_input_physical_9039b28f88","predicate":{"op":"ge","args":[{"field":"position"},{"value":0}]}},{"name":"ck_data_derivation_input_physical_4c504f7e44","predicate":{"op":"gt","args":[{"field":"multiplicity"},{"value":0}]}}]'
   data_derivation_output:
     in_subset: [ops]
     attributes:
@@ -454,7 +454,7 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["derivation_id"], "target": "ops.data_derivation.id"}, {"columns": ["product_id"], "target": "kb.data_product.id"}, {"columns": ["product_id", "member_id"], "target": "kb.data_product_member.product_id,member_id"}]'
-      ph:checks: '["position >= 0", "multiplicity > 0"]'
+      ph:checks: '[{"name":"ck_data_derivation_output_physical_9039b28f88","predicate":{"op":"ge","args":[{"field":"position"},{"value":0}]}},{"name":"ck_data_derivation_output_physical_4c504f7e44","predicate":{"op":"gt","args":[{"field":"multiplicity"},{"value":0}]}}]'
   data_derivation_support:
     in_subset: [ops]
     attributes:
@@ -506,7 +506,7 @@ classes:
     unique_keys:
       primary_key: {unique_key_slots: [id]}
     annotations:
-      ph:indexes: '[["obligation_id","created_at","id"],{"columns":["demand_id","fate"],"include":["obligation_id","derivation_id","created_at"]},["request_id","generation"],{"columns":["derivation_id"],"where":"derivation_id IS NOT NULL"}]'
+      ph:indexes: '[["obligation_id","created_at","id"],{"columns":["demand_id","fate"],"include":["obligation_id","derivation_id","created_at"]},["request_id","generation"],{"columns":["derivation_id"],"where":{"op":"is_not_null","args":[{"field":"derivation_id"}]}}]'
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"}, {"columns": ["obligation_id"], "target": "ops.data_obligation.id"}, {"columns": ["request_id"], "target": "ops.data_request.id"}, {"columns": ["derivation_id"], "target": "ops.data_derivation.id"}]'
@@ -549,7 +549,7 @@ classes:
       ph:indexes: '[["demand_id","name","context_key","created_at","id"],["demand_id","selected_obligation_id"]]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns": ["demand_id"], "target": "ops.data_demand.id"},{"columns":["selected_obligation_id"],"target":"ops.data_obligation.id"}]'
-      ph:checks: '["selected_obligation_id IS NOT DISTINCT FROM (evidence->''selection''->>''obligation_id'')"]'
+      ph:checks: '[{"name":"ck_data_population_physical_3b9912663c","predicate":{"op":"not_distinct","args":[{"field":"selected_obligation_id"},{"op":"json_text","args":[{"op":"json","args":[{"field":"evidence"},{"value":"selection"}]},{"value":"obligation_id"}]}]}}]'
   original_source_admission:
     description: Authenticated original facts and their selected semantic product, never a computation.
     in_subset: [ops]
@@ -614,7 +614,7 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns":["request_id"],"target":"ops.data_request.id"},{"columns":["task_id"],"target":"ops.task.id"}]'
-      ph:checks: '["generation > 0", "attempt > 0"]'
+      ph:checks: '[{"name":"ck_data_attempt_failure_physical_665a5d17f1","predicate":{"op":"gt","args":[{"field":"generation"},{"value":0}]}},{"name":"ck_data_attempt_failure_physical_0c8a59b69d","predicate":{"op":"gt","args":[{"field":"attempt"},{"value":0}]}}]'
       ph:indexes: '[["request_id","generation","attempt"]]'
   data_demand_read:
     in_subset: [ops]
@@ -652,4 +652,4 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns":["read_id"],"target":"ops.data_demand_read.id"},{"columns":["scope"],"target":"ops.data_trust_scope.scope"}]'
-      ph:checks: '["epoch >= 0", "ordinary OR domain"]'
+      ph:checks: '[{"name":"ck_data_demand_read_scope_physical_33d5efbd04","predicate":{"op":"ge","args":[{"field":"epoch"},{"value":0}]}},{"name":"ck_data_demand_read_scope_physical_c29f6f0004","predicate":{"op":"any","args":[{"field":"ordinary"},{"field":"domain"}]}}]'

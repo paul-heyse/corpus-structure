@@ -404,9 +404,7 @@ classes:
       ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
         {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"}]'
-      ph:checks: '["minimum_cardinality IS NULL OR minimum_cardinality >= 0", "maximum_cardinality
-        IS NULL OR maximum_cardinality >= 0", "minimum_cardinality IS NULL OR maximum_cardinality
-        IS NULL OR minimum_cardinality <= maximum_cardinality"]'
+      ph:checks: '[{"name":"ck_property_applicability_physical_dd48c61c63","predicate":{"op":"any","args":[{"op":"is_null","args":[{"field":"minimum_cardinality"}]},{"op":"ge","args":[{"field":"minimum_cardinality"},{"value":0}]}]}},{"name":"ck_property_applicability_physical_8e24e7a9f5","predicate":{"op":"any","args":[{"op":"is_null","args":[{"field":"maximum_cardinality"}]},{"op":"ge","args":[{"field":"maximum_cardinality"},{"value":0}]}]}},{"name":"ck_property_applicability_physical_62e5012383","predicate":{"op":"any","args":[{"op":"is_null","args":[{"field":"minimum_cardinality"}]},{"op":"is_null","args":[{"field":"maximum_cardinality"}]},{"op":"le","args":[{"field":"minimum_cardinality"},{"field":"maximum_cardinality"}]}]}}]'
   identity_slot:
     in_subset:
     - sem
@@ -438,7 +436,7 @@ classes:
       ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"},
         {"columns": ["release_id", "property_id"], "target": "sem.property_definition.release_id,property_id"}]'
-      ph:checks: '["position >= 0"]'
+      ph:checks: '[{"name":"ck_identity_slot_physical_9039b28f88","predicate":{"op":"ge","args":[{"field":"position"},{"value":0}]}}]'
   vocabulary_member:
     in_subset:
     - sem
@@ -491,7 +489,7 @@ classes:
         - project_id
     annotations:
       ph:foreign_keys: '[{"columns": ["active_release_id"], "target": "sem.release.release_id"}]'
-      ph:checks: '["generation >= 0"]'
+      ph:checks: '[{"name":"ck_project_physical_8313aadc77","predicate":{"op":"ge","args":[{"field":"generation"},{"value":0}]}}]'
   sql_admission:
     description: Derived authored-SQL admission tied to the frozen dependency and
       physical catalog.
@@ -523,7 +521,7 @@ classes:
       ph:immutability: deployment
       ph:foreign_keys: '[{"columns": ["release_id", "input_kind", "input_name"], "target":
         "sem.input.release_id,input_kind,input_name"}]'
-      ph:checks: '["input_kind = ''dependency''"]'
+      ph:checks: '[{"name":"ck_sql_admission_physical_022451ced1","predicate":{"op":"eq","args":[{"field":"input_kind"},{"value":"dependency"}]}}]'
   document:
     in_subset:
     - kb
@@ -601,7 +599,7 @@ classes:
       ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"},
         {"columns": ["release_id", "class_id"], "target": "sem.class_definition.release_id,class_id"}]'
-      ph:checks: '["scope IN (''shape'',''accepted_value'')"]'
+      ph:checks: '[{"name":"ck_conditional_rule_physical_e64beec5ee","predicate":{"op":"in","args":[{"field":"scope"},{"value":"shape"},{"value":"accepted_value"}]}}]'
   conditional_atom:
     in_subset:
     - sem
@@ -638,9 +636,7 @@ classes:
       ph:immutability: intrinsic
       ph:archive_role: projection
       ph:foreign_keys: '[{"columns": ["release_id", "rule_id"], "target": "sem.conditional_rule.release_id,rule_id"}]'
-      ph:checks: '["branch IN (''if'',''then'',''else'')", "position>=0", "presence
-        IN (''present'',''absent'',''optional'')", "choices IS NULL OR choices=''null''::jsonb
-        OR jsonb_typeof(choices)=''array''"]'
+      ph:checks: '[{"name":"ck_conditional_atom_physical_7349b348ce","predicate":{"op":"in","args":[{"field":"branch"},{"value":"if"},{"value":"then"},{"value":"else"}]}},{"name":"ck_conditional_atom_physical_80eec7c0dc","predicate":{"op":"ge","args":[{"field":"position"},{"value":0}]}},{"name":"ck_conditional_atom_physical_9beafb7d1a","predicate":{"op":"in","args":[{"field":"presence"},{"value":"present"},{"value":"absent"},{"value":"optional"}]}},{"name":"ck_conditional_atom_physical_84f8e0b15f","predicate":{"op":"any","args":[{"op":"is_null","args":[{"field":"choices"}]},{"op":"eq","args":[{"field":"choices"},{"cast":"jsonb","value":{"value":"null"}}]},{"op":"eq","args":[{"call":"jsonb_typeof","args":[{"field":"choices"}]},{"value":"array"}]}]}}]'
   metric_definition:
     in_subset:
     - sem
@@ -748,7 +744,7 @@ classes:
         - artifact_digest
     annotations:
       ph:immutability: immutable
-      ph:checks: '["artifact_digest = encode(sha256(content),''hex'')"]'
+      ph:checks: '[{"name":"ck_source_artifact_physical_b9e3edc5d9","predicate":{"op":"eq","args":[{"field":"artifact_digest"},{"call":"encode","args":[{"call":"sha256","args":[{"field":"content"}]},{"value":"hex"}]}]}}]'
   source_build:
     in_subset:
     - ops
@@ -824,9 +820,7 @@ classes:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id", "release_id"], "target": "ops.source_build.task_id,release_id"},
         {"columns": ["artifact_digest"], "target": "kb.source_artifact.artifact_digest"}]'
-      ph:checks: '["kind IN (''native'',''recognition_observation'',''integrated'')",
-        "product_key <> ''''", "content_digest ~ ''^[0-9a-f]{64}$''", "contract_digest
-        ~ ''^[0-9a-f]{64}$''"]'
+      ph:checks: '[{"name":"ck_pdf_product_physical_2b69fdd7c7","predicate":{"op":"in","args":[{"field":"kind"},{"value":"native"},{"value":"recognition_observation"},{"value":"integrated"}]}},{"name":"ck_pdf_product_physical_37bf79141e","predicate":{"op":"ne","args":[{"field":"product_key"},{"value":""}]}},{"name":"ck_pdf_product_physical_6452181ff1","predicate":{"op":"regex","args":[{"field":"content_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_product_physical_361bb11ec1","predicate":{"op":"regex","args":[{"field":"contract_digest"},{"value":"^[0-9a-f]{64}$"}]}}]'
   pdf_product_body:
     in_subset:
     - ops
@@ -853,7 +847,7 @@ classes:
         - product_key
     annotations:
       ph:immutability: immutable
-      ph:checks: '["descriptor = ops.pdf_product_descriptor(payload)"]'
+      ph:checks: '[{"name":"ck_pdf_product_body_physical_acbf4a8f01","predicate":{"op":"eq","args":[{"field":"descriptor"},{"call":"ops.pdf_product_descriptor","args":[{"field":"payload"}]}]}}]'
       ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"},
         {"columns": ["recipe_digest"], "target": "kb.source_artifact.artifact_digest"}]'
   pdf_product_input:
@@ -899,9 +893,8 @@ classes:
       ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"},
         {"columns": ["input_task_id", "input_product_key", "input_content_digest"],
         "target": "ops.pdf_product.task_id,product_key,content_digest"}]'
-      ph:checks: '["input_index >= 0", "role IN (''structural'',''recognition'',''alternative'',''policy_input'')",
-        "task_id <> input_task_id OR product_key <> input_product_key"]'
-      ph:indexes: '[["input_task_id", "input_product_key", "task_id", "product_key"]]'
+      ph:checks: '[{"name":"ck_pdf_product_input_physical_61d721fcae","predicate":{"op":"ge","args":[{"field":"input_index"},{"value":0}]}},{"name":"ck_pdf_product_input_physical_afd3c389de","predicate":{"op":"in","args":[{"field":"role"},{"value":"structural"},{"value":"recognition"},{"value":"alternative"},{"value":"policy_input"}]}},{"name":"ck_pdf_product_input_physical_6108ddec8c","predicate":{"op":"any","args":[{"op":"ne","args":[{"field":"task_id"},{"field":"input_task_id"}]},{"op":"ne","args":[{"field":"product_key"},{"field":"input_product_key"}]}]}}]'
+      ph:indexes: '[["input_task_id","input_product_key","task_id","product_key"]]'
   pdf_occurrence:
     in_subset:
     - kb
@@ -939,9 +932,8 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"}]'
-      ph:checks: '["occurrence_id <> ''''", "kind IN (''item'',''cell'',''formula'',''chart'',''text'',''region'')",
-        "pointer IS NOT DISTINCT FROM body->>''pointer''", "precision IN (''unknown'',''coarse'',''inherited'',''block'',''item'',''cell'',''word'',''glyph'')"]'
-      ph:indexes: '[["task_id", "product_key", "pointer", "occurrence_id"]]'
+      ph:checks: '[{"name":"ck_pdf_occurrence_physical_ec6f050edd","predicate":{"op":"ne","args":[{"field":"occurrence_id"},{"value":""}]}},{"name":"ck_pdf_occurrence_physical_367474e9a3","predicate":{"op":"in","args":[{"field":"kind"},{"value":"item"},{"value":"cell"},{"value":"formula"},{"value":"chart"},{"value":"text"},{"value":"region"}]}},{"name":"ck_pdf_occurrence_physical_4c3854096c","predicate":{"op":"not_distinct","args":[{"field":"pointer"},{"op":"json_text","args":[{"field":"body"},{"value":"pointer"}]}]}},{"name":"ck_pdf_occurrence_physical_77605f0884","predicate":{"op":"in","args":[{"field":"precision"},{"value":"unknown"},{"value":"coarse"},{"value":"inherited"},{"value":"block"},{"value":"item"},{"value":"cell"},{"value":"word"},{"value":"glyph"}]}}]'
+      ph:indexes: '[["task_id","product_key","pointer","occurrence_id"]]'
   pdf_relation:
     in_subset:
     - kb
@@ -970,7 +962,7 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"}]'
-      ph:checks: '["relation_id <> ''''", "kind IN (''correspondence'',''decision'')"]'
+      ph:checks: '[{"name":"ck_pdf_relation_physical_58def7fcc7","predicate":{"op":"ne","args":[{"field":"relation_id"},{"value":""}]}},{"name":"ck_pdf_relation_physical_fa34f4062b","predicate":{"op":"in","args":[{"field":"kind"},{"value":"correspondence"},{"value":"decision"}]}}]'
   pdf_relation_endpoint:
     in_subset:
     - kb
@@ -1016,9 +1008,8 @@ classes:
         "target_product_key", "target_content_digest"], "target": "ops.pdf_product.task_id,product_key,content_digest"},
         {"columns": ["target_task_id", "target_product_key", "occurrence_id"], "target":
         "kb.pdf_occurrence.task_id,product_key,occurrence_id"}]'
-      ph:checks: '["endpoint_index >= 0", "role IN (''input'',''output'',''alternative'',''evidence'')"]'
-      ph:indexes: '[["target_task_id", "target_product_key", "occurrence_id", "task_id",
-        "product_key"]]'
+      ph:checks: '[{"name":"ck_pdf_relation_endpoint_physical_379ac917ae","predicate":{"op":"ge","args":[{"field":"endpoint_index"},{"value":0}]}},{"name":"ck_pdf_relation_endpoint_physical_41bc0f1575","predicate":{"op":"in","args":[{"field":"role"},{"value":"input"},{"value":"output"},{"value":"alternative"},{"value":"evidence"}]}}]'
+      ph:indexes: '[["target_task_id","target_product_key","occurrence_id","task_id","product_key"]]'
   pdf_product_coverage:
     in_subset:
     - kb
@@ -1044,7 +1035,7 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns": ["task_id", "product_key"], "target": "ops.pdf_product.task_id,product_key"}]'
-      ph:checks: '["coverage_id <> ''''"]'
+      ph:checks: '[{"name":"ck_pdf_product_coverage_physical_93d06b5b0d","predicate":{"op":"ne","args":[{"field":"coverage_id"},{"value":""}]}}]'
   pdf_product_artifact:
     in_subset:
     - ops
@@ -1092,7 +1083,7 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key","artifact_digest"],"target":"ops.pdf_product_artifact.task_id,product_key,artifact_digest"}]'
-      ph:checks: '["row_count BETWEEN 0 AND 10000"]'
+      ph:checks: '[{"name":"ck_pdf_visual_index_physical_7d58eb3ad2","predicate":{"op":"between","args":[{"field":"row_count"},{"value":0},{"value":10000}]}}]'
   pdf_visual_locator:
     in_subset:
     - kb
@@ -1152,12 +1143,8 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key","artifact_digest"],"target":"ops.pdf_visual_index.task_id,product_key,artifact_digest"}]'
-      ph:indexes: "[[\"task_id\",\"product_key\",\"artifact_digest\",\"kind\",\"ordinal\"\
-        ],\n [\"task_id\",\"product_key\",\"artifact_digest\",\"parent_id\",\"ordinal\"\
-        ],\n {\"name\":\"ix_pdf_visual_locator_artifact_region\",\"columns\":[\"artifact_scope\"\
-        ,\"source_x\",\"source_y\"],\n  \"using\":\"gist\",\"where\":\"source_x IS\
-        \ NOT NULL AND source_y IS NOT NULL\"}]"
-      ph:checks: '["ordinal > 0", "occurrence_id <> ''''"]'
+      ph:indexes: '[["task_id","product_key","artifact_digest","kind","ordinal"],["task_id","product_key","artifact_digest","parent_id","ordinal"],{"name":"ix_pdf_visual_locator_artifact_region","columns":["artifact_scope","source_x","source_y"],"using":"gist","where":{"op":"all","args":[{"op":"is_not_null","args":[{"field":"source_x"}]},{"op":"is_not_null","args":[{"field":"source_y"}]}]}}]'
+      ph:checks: '[{"name":"ck_pdf_visual_locator_physical_e6a6a66cc0","predicate":{"op":"gt","args":[{"field":"ordinal"},{"value":0}]}},{"name":"ck_pdf_visual_locator_physical_ec6f050edd","predicate":{"op":"ne","args":[{"field":"occurrence_id"},{"value":""}]}}]'
   pdf_visual_cell:
     in_subset:
     - kb
@@ -1190,7 +1177,7 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key","artifact_digest","occurrence_id"],"target":"kb.pdf_visual_locator.task_id,product_key,artifact_digest,occurrence_id"}]'
-      ph:checks: '["cell_index >= 0"]'
+      ph:checks: '[{"name":"ck_pdf_visual_cell_physical_2c566a7c3d","predicate":{"op":"ge","args":[{"field":"cell_index"},{"value":0}]}}]'
   pdf_mapping_report:
     in_subset:
     - kb
@@ -1219,8 +1206,8 @@ classes:
     annotations:
       ph:immutability: immutable
       ph:foreign_keys: '[{"columns":["task_id","product_key","input_index"],"target":"ops.pdf_product_input.task_id,product_key,input_index"}]'
-      ph:checks: '["report_index >= 0", "input_index >= 0"]'
-      ph:indexes: '[["task_id", "product_key", "input_index", "report_index"]]'
+      ph:checks: '[{"name":"ck_pdf_mapping_report_physical_9c8bca1fd0","predicate":{"op":"ge","args":[{"field":"report_index"},{"value":0}]}},{"name":"ck_pdf_mapping_report_physical_61d721fcae","predicate":{"op":"ge","args":[{"field":"input_index"},{"value":0}]}}]'
+      ph:indexes: '[["task_id","product_key","input_index","report_index"]]'
   pdf_record_document:
     is_a: PdfRecordDocument
     in_subset:
@@ -1232,8 +1219,7 @@ classes:
         - revision_id
     annotations:
       ph:immutability: immutable
-      ph:checks: '["product_id <> ''''", "revision_id <> ''''", "native_schema_digest
-        ~ ''^[0-9a-f]{64}$''", "source_digest ~ ''^[0-9a-f]{64}$''"]'
+      ph:checks: '[{"name":"ck_pdf_record_document_physical_1246cec1c1","predicate":{"op":"ne","args":[{"field":"product_id"},{"value":""}]}},{"name":"ck_pdf_record_document_physical_b85b787d88","predicate":{"op":"ne","args":[{"field":"revision_id"},{"value":""}]}},{"name":"ck_pdf_record_document_physical_26e3a40d89","predicate":{"op":"regex","args":[{"field":"native_schema_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_record_document_physical_1b32a362eb","predicate":{"op":"regex","args":[{"field":"source_digest"},{"value":"^[0-9a-f]{64}$"}]}}]'
       ph:foreign_keys: '[{"columns": ["release_id"], "target": "sem.release.release_id"},
         {"columns": ["source_digest"], "target": "kb.source_artifact.artifact_digest"}]'
       ph:read_roles: '[]'
@@ -1254,10 +1240,7 @@ classes:
         - native_address
     annotations:
       ph:immutability: immutable
-      ph:checks: '["record_id <> ''''", "native_type <> ''''", "jsonb_typeof(scalars_json)
-        = ''object''", "jsonb_typeof(structure_json) = ''object''", "octet_length(convert_to(scalars_json::text,''UTF8''))
-        <= 65536", "octet_length(convert_to(structure_json::text,''UTF8'')) <= 65536",
-        "(native_address IS NULL) <> (native_address_stream_id IS NULL)"]'
+      ph:checks: '[{"name":"ck_pdf_record_native_physical_d10d461f9b","predicate":{"op":"ne","args":[{"field":"record_id"},{"value":""}]}},{"name":"ck_pdf_record_native_physical_1e27d9c8ce","predicate":{"op":"ne","args":[{"field":"native_type"},{"value":""}]}},{"name":"ck_pdf_record_native_physical_af247a6f3c","predicate":{"op":"eq","args":[{"call":"jsonb_typeof","args":[{"field":"scalars_json"}]},{"value":"object"}]}},{"name":"ck_pdf_record_native_physical_39016badae","predicate":{"op":"eq","args":[{"call":"jsonb_typeof","args":[{"field":"structure_json"}]},{"value":"object"}]}},{"name":"ck_pdf_record_native_physical_c4ce4d92f6","predicate":{"op":"le","args":[{"call":"octet_length","args":[{"call":"convert_to","args":[{"cast":"text","value":{"field":"scalars_json"}},{"value":"UTF8"}]}]},{"value":65536}]}},{"name":"ck_pdf_record_native_physical_c09752f060","predicate":{"op":"le","args":[{"call":"octet_length","args":[{"call":"convert_to","args":[{"cast":"text","value":{"field":"structure_json"}},{"value":"UTF8"}]}]},{"value":65536}]}},{"name":"ck_pdf_record_native_physical_4c7b8c414a","predicate":{"op":"ne","args":[{"op":"is_null","args":[{"field":"native_address"}]},{"op":"is_null","args":[{"field":"native_address_stream_id"}]}]}}]'
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"},
         {"columns": ["product_id", "revision_id", "native_address_stream_id"], "target":
         "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
@@ -1276,10 +1259,7 @@ classes:
         - ordinal
     annotations:
       ph:immutability: immutable
-      ph:checks: '["octet_length(convert_to(scalar_json::text,''UTF8'')) <= 65536",
-        "(value_kind = ''record'') = (record_id IS NOT NULL)", "(value_kind = ''parts'')
-        = (stream_id IS NOT NULL)", "value_kind = ''scalar'' OR scalar_json IS NULL",
-        "member_key IS NULL OR member_key_stream_id IS NULL"]'
+      ph:checks: '[{"name":"ck_pdf_record_membership_physical_b66e6eb309","predicate":{"op":"le","args":[{"call":"octet_length","args":[{"call":"convert_to","args":[{"cast":"text","value":{"field":"scalar_json"}},{"value":"UTF8"}]}]},{"value":65536}]}},{"name":"ck_pdf_record_membership_physical_8028c34622","predicate":{"op":"eq","args":[{"op":"eq","args":[{"field":"value_kind"},{"value":"record"}]},{"op":"is_not_null","args":[{"field":"record_id"}]}]}},{"name":"ck_pdf_record_membership_physical_df9d6518cd","predicate":{"op":"eq","args":[{"op":"eq","args":[{"field":"value_kind"},{"value":"parts"}]},{"op":"is_not_null","args":[{"field":"stream_id"}]}]}},{"name":"ck_pdf_record_membership_physical_341b42c0f9","predicate":{"op":"any","args":[{"op":"eq","args":[{"field":"value_kind"},{"value":"scalar"}]},{"op":"is_null","args":[{"field":"scalar_json"}]}]}},{"name":"ck_pdf_record_membership_physical_8bf5b8b4d7","predicate":{"op":"any","args":[{"op":"is_null","args":[{"field":"member_key"}]},{"op":"is_null","args":[{"field":"member_key_stream_id"}]}]}}]'
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"},
         {"columns": ["product_id", "revision_id", "parent_id"], "target": "kb.pdf_record_native.product_id,revision_id,record_id"},
         {"columns": ["product_id", "revision_id", "record_id"], "target": "kb.pdf_record_native.product_id,revision_id,record_id"},
@@ -1299,10 +1279,7 @@ classes:
         - reference_id
     annotations:
       ph:immutability: immutable
-      ph:checks: '["reference_id <> ''''", "(field_name IN (''source_cell_id'',''target_cell_id'')
-        AND native_pointer ~ ''^-?[0-9]+$'') OR (field_name NOT IN (''source_cell_id'',''target_cell_id'')
-        AND native_pointer LIKE ''#%'')", "(native_pointer IS NULL) <> (native_pointer_stream_id
-        IS NULL)"]'
+      ph:checks: '[{"name":"ck_pdf_record_reference_physical_b4d49caa5d","predicate":{"op":"ne","args":[{"field":"reference_id"},{"value":""}]}},{"name":"ck_pdf_record_reference_physical_84ee799da6","predicate":{"op":"any","args":[{"op":"all","args":[{"op":"in","args":[{"field":"field_name"},{"value":"source_cell_id"},{"value":"target_cell_id"}]},{"op":"regex","args":[{"field":"native_pointer"},{"value":"^-?[0-9]+$"}]}]},{"op":"all","args":[{"op":"not_in","args":[{"field":"field_name"},{"value":"source_cell_id"},{"value":"target_cell_id"}]},{"op":"like","args":[{"field":"native_pointer"},{"value":"#%"}]}]}]}},{"name":"ck_pdf_record_reference_physical_15d32f6137","predicate":{"op":"ne","args":[{"op":"is_null","args":[{"field":"native_pointer"}]},{"op":"is_null","args":[{"field":"native_pointer_stream_id"}]}]}}]'
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"},
         {"columns": ["product_id", "revision_id", "source_id"], "target": "kb.pdf_record_native.product_id,revision_id,record_id"},
         {"columns": ["product_id", "revision_id", "target_id"], "target": "kb.pdf_record_native.product_id,revision_id,record_id"},
@@ -1321,8 +1298,7 @@ classes:
         - stream_id
     annotations:
       ph:immutability: immutable
-      ph:checks: '["stream_id <> ''''", "serialization_sha256 ~ ''^[0-9a-f]{64}$''",
-        "byte_root ~ ''^[0-9a-f]{64}$''", "encoding_profile <> ''''"]'
+      ph:checks: '[{"name":"ck_pdf_artifact_stream_physical_94d0a9f5c9","predicate":{"op":"ne","args":[{"field":"stream_id"},{"value":""}]}},{"name":"ck_pdf_artifact_stream_physical_353c63835f","predicate":{"op":"regex","args":[{"field":"serialization_sha256"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_artifact_stream_physical_860f4eb238","predicate":{"op":"regex","args":[{"field":"byte_root"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_artifact_stream_physical_66ee4db5f7","predicate":{"op":"ne","args":[{"field":"encoding_profile"},{"value":""}]}}]'
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id"], "target": "ops.pdf_record_document.product_id,revision_id"}]'
       ph:read_roles: '[]'
   pdf_spool_producer:
@@ -1335,7 +1311,7 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"},{"columns":["task_id"],"target":"ops.task.id"}]'
-      ph:checks: '["producer_id ~ ''^[0-9a-f]{64}$''", "attempt > 0", "writer_device >= 0", "writer_inode > 0"]'
+      ph:checks: '[{"name":"ck_pdf_spool_producer_physical_98b7830f53","predicate":{"op":"regex","args":[{"field":"producer_id"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_spool_producer_physical_0c8a59b69d","predicate":{"op":"gt","args":[{"field":"attempt"},{"value":0}]}},{"name":"ck_pdf_spool_producer_physical_eb1cc2ad4b","predicate":{"op":"ge","args":[{"field":"writer_device"},{"value":0}]}},{"name":"ck_pdf_spool_producer_physical_0f61bc7e70","predicate":{"op":"gt","args":[{"field":"writer_inode"},{"value":0}]}}]'
   pdf_spool_contributor:
     is_a: PdfSpoolContributor
     in_subset: [ops]
@@ -1345,7 +1321,7 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"},{"columns":["producer_id"],"target":"ops.pdf_spool_producer.producer_id"}]'
-      ph:checks: '["manifest_digest = encode(sha256(manifest_bytes),''hex'')", "selection_digest = encode(sha256(selected_replays),''hex'')", "adopter_attempt > 0"]'
+      ph:checks: '[{"name":"ck_pdf_spool_contributor_physical_f8134fe49c","predicate":{"op":"eq","args":[{"field":"manifest_digest"},{"call":"encode","args":[{"call":"sha256","args":[{"field":"manifest_bytes"}]},{"value":"hex"}]}]}},{"name":"ck_pdf_spool_contributor_physical_be8cdbc620","predicate":{"op":"eq","args":[{"field":"selection_digest"},{"call":"encode","args":[{"call":"sha256","args":[{"field":"selected_replays"}]},{"value":"hex"}]}]}},{"name":"ck_pdf_spool_contributor_physical_84ad0c6425","predicate":{"op":"gt","args":[{"field":"adopter_attempt"},{"value":0}]}}]'
   pdf_stage_build:
     is_a: PdfStageBuild
     in_subset:
@@ -1361,8 +1337,7 @@ classes:
     annotations:
       ph:immutability: physical
       ph:read_roles: '[]'
-      ph:checks: '["build_id <> ''''", "source_digest ~ ''^[0-9a-f]{64}$''", "recipe_digest
-        ~ ''^[0-9a-f]{64}$''", "schema_digest ~ ''^[0-9a-f]{64}$''", "attempt > 0"]'
+      ph:checks: '[{"name":"ck_pdf_stage_build_physical_8147daae94","predicate":{"op":"ne","args":[{"field":"build_id"},{"value":""}]}},{"name":"ck_pdf_stage_build_physical_1b32a362eb","predicate":{"op":"regex","args":[{"field":"source_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_stage_build_physical_3058c3002b","predicate":{"op":"regex","args":[{"field":"recipe_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_stage_build_physical_6416099f87","predicate":{"op":"regex","args":[{"field":"schema_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_stage_build_physical_0c8a59b69d","predicate":{"op":"gt","args":[{"field":"attempt"},{"value":0}]}}]'
       ph:foreign_keys: '[{"columns": ["task_id"], "target": "ops.task.id"}, {"columns":
         ["release_id"], "target": "sem.release.release_id"}, {"columns": ["source_digest"],
         "target": "kb.source_artifact.artifact_digest"}]'
@@ -1390,9 +1365,7 @@ classes:
         - revision_id
     annotations:
       ph:immutability: immutable
-      ph:checks: '["product_id <> ''''", "revision_id <> ''''", "native_schema_digest
-        ~ ''^[0-9a-f]{64}$''", "source_digest ~ ''^[0-9a-f]{64}$''", "product_id =
-        revision_id"]'
+      ph:checks: '[{"name":"ck_pdf_stage_document_physical_1246cec1c1","predicate":{"op":"ne","args":[{"field":"product_id"},{"value":""}]}},{"name":"ck_pdf_stage_document_physical_b85b787d88","predicate":{"op":"ne","args":[{"field":"revision_id"},{"value":""}]}},{"name":"ck_pdf_stage_document_physical_26e3a40d89","predicate":{"op":"regex","args":[{"field":"native_schema_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_stage_document_physical_1b32a362eb","predicate":{"op":"regex","args":[{"field":"source_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_stage_document_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}}]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
       ph:read_roles: '[]'
   pdf_stage_native:
@@ -1412,11 +1385,7 @@ classes:
         - native_address
     annotations:
       ph:immutability: immutable
-      ph:checks: '["record_id <> ''''", "native_type <> ''''", "jsonb_typeof(scalars_json)
-        = ''object''", "jsonb_typeof(structure_json) = ''object''", "octet_length(convert_to(scalars_json::text,''UTF8''))
-        <= 65536", "octet_length(convert_to(structure_json::text,''UTF8'')) <= 65536",
-        "(native_address IS NULL) <> (native_address_stream_id IS NULL)", "product_id
-        = revision_id"]'
+      ph:checks: '[{"name":"ck_pdf_stage_native_physical_d10d461f9b","predicate":{"op":"ne","args":[{"field":"record_id"},{"value":""}]}},{"name":"ck_pdf_stage_native_physical_1e27d9c8ce","predicate":{"op":"ne","args":[{"field":"native_type"},{"value":""}]}},{"name":"ck_pdf_stage_native_physical_af247a6f3c","predicate":{"op":"eq","args":[{"call":"jsonb_typeof","args":[{"field":"scalars_json"}]},{"value":"object"}]}},{"name":"ck_pdf_stage_native_physical_39016badae","predicate":{"op":"eq","args":[{"call":"jsonb_typeof","args":[{"field":"structure_json"}]},{"value":"object"}]}},{"name":"ck_pdf_stage_native_physical_c4ce4d92f6","predicate":{"op":"le","args":[{"call":"octet_length","args":[{"call":"convert_to","args":[{"cast":"text","value":{"field":"scalars_json"}},{"value":"UTF8"}]}]},{"value":65536}]}},{"name":"ck_pdf_stage_native_physical_c09752f060","predicate":{"op":"le","args":[{"call":"octet_length","args":[{"call":"convert_to","args":[{"cast":"text","value":{"field":"structure_json"}},{"value":"UTF8"}]}]},{"value":65536}]}},{"name":"ck_pdf_stage_native_physical_4c7b8c414a","predicate":{"op":"ne","args":[{"op":"is_null","args":[{"field":"native_address"}]},{"op":"is_null","args":[{"field":"native_address_stream_id"}]}]}},{"name":"ck_pdf_stage_native_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}}]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
       ph:read_roles: '[]'
   pdf_stage_membership:
@@ -1433,10 +1402,7 @@ classes:
         - ordinal
     annotations:
       ph:immutability: immutable
-      ph:checks: '["octet_length(convert_to(scalar_json::text,''UTF8'')) <= 65536",
-        "(value_kind = ''record'') = (record_id IS NOT NULL)", "(value_kind = ''parts'')
-        = (stream_id IS NOT NULL)", "value_kind = ''scalar'' OR scalar_json IS NULL",
-        "member_key IS NULL OR member_key_stream_id IS NULL", "product_id = revision_id"]'
+      ph:checks: '[{"name":"ck_pdf_stage_membership_physical_b66e6eb309","predicate":{"op":"le","args":[{"call":"octet_length","args":[{"call":"convert_to","args":[{"cast":"text","value":{"field":"scalar_json"}},{"value":"UTF8"}]}]},{"value":65536}]}},{"name":"ck_pdf_stage_membership_physical_8028c34622","predicate":{"op":"eq","args":[{"op":"eq","args":[{"field":"value_kind"},{"value":"record"}]},{"op":"is_not_null","args":[{"field":"record_id"}]}]}},{"name":"ck_pdf_stage_membership_physical_df9d6518cd","predicate":{"op":"eq","args":[{"op":"eq","args":[{"field":"value_kind"},{"value":"parts"}]},{"op":"is_not_null","args":[{"field":"stream_id"}]}]}},{"name":"ck_pdf_stage_membership_physical_341b42c0f9","predicate":{"op":"any","args":[{"op":"eq","args":[{"field":"value_kind"},{"value":"scalar"}]},{"op":"is_null","args":[{"field":"scalar_json"}]}]}},{"name":"ck_pdf_stage_membership_physical_8bf5b8b4d7","predicate":{"op":"any","args":[{"op":"is_null","args":[{"field":"member_key"}]},{"op":"is_null","args":[{"field":"member_key_stream_id"}]}]}},{"name":"ck_pdf_stage_membership_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}}]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
       ph:read_roles: '[]'
   pdf_stage_reference:
@@ -1451,10 +1417,7 @@ classes:
         - reference_id
     annotations:
       ph:immutability: immutable
-      ph:checks: '["reference_id <> ''''", "(field_name IN (''source_cell_id'',''target_cell_id'')
-        AND native_pointer ~ ''^-?[0-9]+$'') OR (field_name NOT IN (''source_cell_id'',''target_cell_id'')
-        AND native_pointer LIKE ''#%'')", "(native_pointer IS NULL) <> (native_pointer_stream_id
-        IS NULL)", "product_id = revision_id"]'
+      ph:checks: '[{"name":"ck_pdf_stage_reference_physical_b4d49caa5d","predicate":{"op":"ne","args":[{"field":"reference_id"},{"value":""}]}},{"name":"ck_pdf_stage_reference_physical_84ee799da6","predicate":{"op":"any","args":[{"op":"all","args":[{"op":"in","args":[{"field":"field_name"},{"value":"source_cell_id"},{"value":"target_cell_id"}]},{"op":"regex","args":[{"field":"native_pointer"},{"value":"^-?[0-9]+$"}]}]},{"op":"all","args":[{"op":"not_in","args":[{"field":"field_name"},{"value":"source_cell_id"},{"value":"target_cell_id"}]},{"op":"like","args":[{"field":"native_pointer"},{"value":"#%"}]}]}]}},{"name":"ck_pdf_stage_reference_physical_15d32f6137","predicate":{"op":"ne","args":[{"op":"is_null","args":[{"field":"native_pointer"}]},{"op":"is_null","args":[{"field":"native_pointer_stream_id"}]}]}},{"name":"ck_pdf_stage_reference_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}}]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
       ph:read_roles: '[]'
   pdf_stage_artifact_stream:
@@ -1469,9 +1432,7 @@ classes:
         - stream_id
     annotations:
       ph:immutability: immutable
-      ph:checks: '["stream_id <> ''''", "serialization_sha256 ~ ''^[0-9a-f]{64}$''",
-        "byte_root ~ ''^[0-9a-f]{64}$''", "encoding_profile <> ''''", "product_id
-        = revision_id"]'
+      ph:checks: '[{"name":"ck_pdf_stage_artifact_stream_physical_94d0a9f5c9","predicate":{"op":"ne","args":[{"field":"stream_id"},{"value":""}]}},{"name":"ck_pdf_stage_artifact_stream_physical_353c63835f","predicate":{"op":"regex","args":[{"field":"serialization_sha256"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_stage_artifact_stream_physical_860f4eb238","predicate":{"op":"regex","args":[{"field":"byte_root"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_stage_artifact_stream_physical_66ee4db5f7","predicate":{"op":"ne","args":[{"field":"encoding_profile"},{"value":""}]}},{"name":"ck_pdf_stage_artifact_stream_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}}]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
       ph:read_roles: '[]'
   pdf_stage_access:
@@ -1520,9 +1481,7 @@ classes:
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"},
         {"columns":["predecessor_build_id"],"target":"ops.pdf_published_revision.build_id"}]'
-      ph:checks: '["check_name IN (''seal'', ''inventory'', ''access'', ''identity'',
-        ''projection'')", "CASE WHEN check_name IN (''identity'', ''projection'')
-        THEN result_digest ~ ''^[0-9a-f]{64}$'' ELSE result_digest = '''' END"]'
+      ph:checks: '[{"name":"ck_pdf_validation_check_physical_ecc52e1ec1","predicate":{"op":"in","args":[{"field":"check_name"},{"value":"seal"},{"value":"inventory"},{"value":"access"},{"value":"identity"},{"value":"projection"}]}},{"name":"ck_pdf_validation_check_physical_66f6a0607f","predicate":{"op":"case","args":[{"op":"in","args":[{"field":"check_name"},{"value":"identity"},{"value":"projection"}]},{"op":"regex","args":[{"field":"result_digest"},{"value":"^[0-9a-f]{64}$"}]},{"op":"eq","args":[{"field":"result_digest"},{"value":""}]}]}}]'
   pdf_build_validation:
     is_a: PdfBuildValidation
     in_subset:
@@ -1579,8 +1538,7 @@ classes:
       ph:indexes: '[["product_id","revision_id","family","ordinal","local_id"]]'
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
-      ph:checks: '["product_id = revision_id", "octet_length(body::text) <= 65536",
-        "jsonb_typeof(body) = ''object''"]'
+      ph:checks: '[{"name":"ck_pdf_stage_companion_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}},{"name":"ck_pdf_stage_companion_physical_fb42f25a72","predicate":{"op":"le","args":[{"call":"octet_length","args":[{"cast":"text","value":{"field":"body"}}]},{"value":65536}]}},{"name":"ck_pdf_stage_companion_physical_c92e13f700","predicate":{"op":"eq","args":[{"call":"jsonb_typeof","args":[{"field":"body"}]},{"value":"object"}]}}]'
   pdf_stage_endpoint:
     is_a: PdfRecordEndpoint
     in_subset:
@@ -1596,7 +1554,7 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
-      ph:checks: '["product_id = revision_id", "ordinal >= 0"]'
+      ph:checks: '[{"name":"ck_pdf_stage_endpoint_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}},{"name":"ck_pdf_stage_endpoint_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}}]'
   pdf_record_companion:
     is_a: PdfRecordCompanion
     in_subset:
@@ -1613,8 +1571,7 @@ classes:
       ph:indexes: '[["product_id","revision_id","family","ordinal","local_id"]]'
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
-      ph:checks: '["product_id = revision_id", "octet_length(body::text) <= 65536",
-        "jsonb_typeof(body) = ''object''"]'
+      ph:checks: '[{"name":"ck_pdf_record_companion_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}},{"name":"ck_pdf_record_companion_physical_fb42f25a72","predicate":{"op":"le","args":[{"call":"octet_length","args":[{"cast":"text","value":{"field":"body"}}]},{"value":65536}]}},{"name":"ck_pdf_record_companion_physical_c92e13f700","predicate":{"op":"eq","args":[{"call":"jsonb_typeof","args":[{"field":"body"}]},{"value":"object"}]}}]'
   pdf_record_endpoint:
     is_a: PdfRecordEndpoint
     in_subset:
@@ -1630,7 +1587,7 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns": ["product_id"], "target": "ops.pdf_stage_build.build_id"}]'
-      ph:checks: '["product_id = revision_id", "ordinal >= 0"]'
+      ph:checks: '[{"name":"ck_pdf_record_endpoint_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}},{"name":"ck_pdf_record_endpoint_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}}]'
   pdf_stage_companion_field:
     is_a: PdfRecordCompanionField
     in_subset:
@@ -1650,11 +1607,7 @@ classes:
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "family", "local_id"],
         "target": "ops.pdf_stage_companion.product_id,revision_id,family,local_id"},
         {"columns": ["product_id", "revision_id", "stream_id"], "target": "ops.pdf_stage_artifact_stream.product_id,revision_id,stream_id"}]'
-      ph:checks: '["product_id = revision_id", "(family = ''native_metadata'' AND
-        field_name = ''value'' AND scalar_kind = ''y'') OR (family = ''occurrence''
-        AND field_name = ''text'' AND scalar_kind = ''s'') OR (family = ''relation''
-        AND ((field_name = ''endpoints'' AND scalar_kind = ''y'') OR (field_name =
-        ''evidence'' AND scalar_kind = ''s'')))"]'
+      ph:checks: '[{"name":"ck_pdf_stage_companion_field_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}},{"name":"ck_pdf_stage_companion_field_physical_1a4ecc1ace","predicate":{"op":"any","args":[{"op":"all","args":[{"op":"eq","args":[{"field":"family"},{"value":"native_metadata"}]},{"op":"eq","args":[{"field":"field_name"},{"value":"value"}]},{"op":"eq","args":[{"field":"scalar_kind"},{"value":"y"}]}]},{"op":"all","args":[{"op":"eq","args":[{"field":"family"},{"value":"occurrence"}]},{"op":"eq","args":[{"field":"field_name"},{"value":"text"}]},{"op":"eq","args":[{"field":"scalar_kind"},{"value":"s"}]}]},{"op":"all","args":[{"op":"eq","args":[{"field":"family"},{"value":"relation"}]},{"op":"any","args":[{"op":"all","args":[{"op":"eq","args":[{"field":"field_name"},{"value":"endpoints"}]},{"op":"eq","args":[{"field":"scalar_kind"},{"value":"y"}]}]},{"op":"all","args":[{"op":"eq","args":[{"field":"field_name"},{"value":"evidence"}]},{"op":"eq","args":[{"field":"scalar_kind"},{"value":"s"}]}]}]}]}]}}]'
   pdf_record_companion_field:
     is_a: PdfRecordCompanionField
     in_subset:
@@ -1674,11 +1627,7 @@ classes:
       ph:foreign_keys: '[{"columns": ["product_id", "revision_id", "family", "local_id"],
         "target": "kb.pdf_record_companion.product_id,revision_id,family,local_id"},
         {"columns": ["product_id", "revision_id", "stream_id"], "target": "ops.pdf_artifact_stream.product_id,revision_id,stream_id"}]'
-      ph:checks: '["product_id = revision_id", "(family = ''native_metadata'' AND
-        field_name = ''value'' AND scalar_kind = ''y'') OR (family = ''occurrence''
-        AND field_name = ''text'' AND scalar_kind = ''s'') OR (family = ''relation''
-        AND ((field_name = ''endpoints'' AND scalar_kind = ''y'') OR (field_name =
-        ''evidence'' AND scalar_kind = ''s'')))"]'
+      ph:checks: '[{"name":"ck_pdf_record_companion_field_physical_a18559f6de","predicate":{"op":"eq","args":[{"field":"product_id"},{"field":"revision_id"}]}},{"name":"ck_pdf_record_companion_field_physical_1a4ecc1ace","predicate":{"op":"any","args":[{"op":"all","args":[{"op":"eq","args":[{"field":"family"},{"value":"native_metadata"}]},{"op":"eq","args":[{"field":"field_name"},{"value":"value"}]},{"op":"eq","args":[{"field":"scalar_kind"},{"value":"y"}]}]},{"op":"all","args":[{"op":"eq","args":[{"field":"family"},{"value":"occurrence"}]},{"op":"eq","args":[{"field":"field_name"},{"value":"text"}]},{"op":"eq","args":[{"field":"scalar_kind"},{"value":"s"}]}]},{"op":"all","args":[{"op":"eq","args":[{"field":"family"},{"value":"relation"}]},{"op":"any","args":[{"op":"all","args":[{"op":"eq","args":[{"field":"field_name"},{"value":"endpoints"}]},{"op":"eq","args":[{"field":"scalar_kind"},{"value":"y"}]}]},{"op":"all","args":[{"op":"eq","args":[{"field":"field_name"},{"value":"evidence"}]},{"op":"eq","args":[{"field":"scalar_kind"},{"value":"s"}]}]}]}]}]}}]'
   pdf_record_access:
     is_a: PdfRecordAccess
     in_subset:
@@ -1730,7 +1679,7 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"}]'
-      ph:checks: '["attempt > 0", "lowering_identity ~ ''^[0-9a-f]{64}$''", "logical_digest ~ ''^[0-9a-f]{64}$''", "native_document_digest ~ ''^[0-9a-f]{64}$''"]'
+      ph:checks: '[{"name":"ck_pdf_producer_certification_physical_0c8a59b69d","predicate":{"op":"gt","args":[{"field":"attempt"},{"value":0}]}},{"name":"ck_pdf_producer_certification_physical_147a30c894","predicate":{"op":"regex","args":[{"field":"lowering_identity"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_producer_certification_physical_fc0596295a","predicate":{"op":"regex","args":[{"field":"logical_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_producer_certification_physical_0238d0280f","predicate":{"op":"regex","args":[{"field":"native_document_digest"},{"value":"^[0-9a-f]{64}$"}]}}]'
   pdf_roundtrip_oracle:
     is_a: PdfRoundtripOracleReceipt
     in_subset: [ops]
@@ -1740,7 +1689,7 @@ classes:
       ph:immutability: physical
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"}]'
-      ph:checks: '["state IN (''running'',''passed'',''failed'',''interrupted'')", "state <> ''passed'' OR (actual_native_digest IS NOT DISTINCT FROM native_document_digest AND error_message IS NULL)"]'
+      ph:checks: '[{"name":"ck_pdf_roundtrip_oracle_physical_41441c1ae2","predicate":{"op":"in","args":[{"field":"state"},{"value":"running"},{"value":"passed"},{"value":"failed"},{"value":"interrupted"}]}},{"name":"ck_pdf_roundtrip_oracle_physical_bad2b1654f","predicate":{"op":"any","args":[{"op":"ne","args":[{"field":"state"},{"value":"passed"}]},{"op":"all","args":[{"op":"not_distinct","args":[{"field":"actual_native_digest"},{"field":"native_document_digest"}]},{"op":"is_null","args":[{"field":"error_message"}]}]}]}}]'
 
   pdf_source_search_population:
     description: Derived immutable search population, never source admission or read authority.
@@ -1764,7 +1713,7 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"}]'
-      ph:checks: '["configuration = ''english''", "row_count >= 0", "byte_count >= 0", "recipe_digest ~ ''^[0-9a-f]{64}$''", "set_digest ~ ''^[0-9a-f]{64}$''"]'
+      ph:checks: '[{"name":"ck_pdf_source_search_population_physical_92860a4e52","predicate":{"op":"eq","args":[{"field":"configuration"},{"search_configuration":"ops.pdf_source_search_section.search_vector"}]}},{"name":"ck_pdf_source_search_population_physical_dd30421036","predicate":{"op":"ge","args":[{"field":"row_count"},{"value":0}]}},{"name":"ck_pdf_source_search_population_physical_0adc216c35","predicate":{"op":"ge","args":[{"field":"byte_count"},{"value":0}]}},{"name":"ck_pdf_source_search_population_physical_3058c3002b","predicate":{"op":"regex","args":[{"field":"recipe_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_source_search_population_physical_4a8c98c0a2","predicate":{"op":"regex","args":[{"field":"set_digest"},{"value":"^[0-9a-f]{64}$"}]}}]'
   pdf_source_search_section:
     description: Recipe-qualified section text and PostgreSQL-owned English search vector.
     in_subset: [ops]
@@ -1788,7 +1737,7 @@ classes:
       ph:read_roles: '[]'
       ph:immutability: intrinsic
       ph:foreign_keys: '[{"columns":["population_id"],"target":"ops.pdf_source_search_population.population_id"}]'
-      ph:checks: '["membership IN (''direct'',''descendants'')", "projection_digest ~ ''^[0-9a-f]{64}$''", "packet_digest ~ ''^[0-9a-f]{64}$''"]'
+      ph:checks: '[{"name":"ck_pdf_source_search_section_physical_e3320d3f8a","predicate":{"op":"in","args":[{"field":"membership"},{"value":"direct"},{"value":"descendants"}]}},{"name":"ck_pdf_source_search_section_physical_3b4c8d7126","predicate":{"op":"regex","args":[{"field":"projection_digest"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_source_search_section_physical_057c8b46b6","predicate":{"op":"regex","args":[{"field":"packet_digest"},{"value":"^[0-9a-f]{64}$"}]}}]'
       ph:indexes: '[{"columns":["search_vector"],"using":"gin"}]'
 
   pdf_shared_stream:
@@ -1808,7 +1757,7 @@ classes:
       ph:immutability: pending-content
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["owner_build_id"],"target":"ops.pdf_stage_build.build_id"}]'
-      ph:checks: '["byte_length >= 0", "encoding_profile <> ''''", "byte_root ~ ''^[0-9a-f]{64}$''", "owner_attempt > 0", "owner_holder <> ''''"]'
+      ph:checks: '[{"name":"ck_pdf_shared_stream_physical_0392ce7ab3","predicate":{"op":"ge","args":[{"field":"byte_length"},{"value":0}]}},{"name":"ck_pdf_shared_stream_physical_66ee4db5f7","predicate":{"op":"ne","args":[{"field":"encoding_profile"},{"value":""}]}},{"name":"ck_pdf_shared_stream_physical_860f4eb238","predicate":{"op":"regex","args":[{"field":"byte_root"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_shared_stream_physical_047c94c0d5","predicate":{"op":"gt","args":[{"field":"owner_attempt"},{"value":0}]}},{"name":"ck_pdf_shared_stream_physical_f7de8bee3b","predicate":{"op":"ne","args":[{"field":"owner_holder"},{"value":""}]}}]'
   pdf_shared_stream_part:
     in_subset: [ops]
     attributes:
@@ -1827,7 +1776,7 @@ classes:
       ph:immutability: pending-content
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["project_id","encoding_profile","stream_length","byte_root"],"target":"ops.pdf_shared_stream.project_id,encoding_profile,byte_length,byte_root"}]'
-      ph:checks: '["ordinal >= 0", "byte_offset >= 0", "byte_length = octet_length(body)", "byte_length BETWEEN 1 AND 65536", "sha256_digest = encode(sha256(body),''hex'')"]'
+      ph:checks: '[{"name":"ck_pdf_shared_stream_part_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}},{"name":"ck_pdf_shared_stream_part_physical_5dc7051d0c","predicate":{"op":"ge","args":[{"field":"byte_offset"},{"value":0}]}},{"name":"ck_pdf_shared_stream_part_physical_9cde4d345e","predicate":{"op":"eq","args":[{"field":"byte_length"},{"call":"octet_length","args":[{"field":"body"}]}]}},{"name":"ck_pdf_shared_stream_part_physical_03740a74ac","predicate":{"op":"between","args":[{"field":"byte_length"},{"value":1},{"value":65536}]}},{"name":"ck_pdf_shared_stream_part_physical_266e3bac59","predicate":{"op":"eq","args":[{"field":"sha256_digest"},{"call":"encode","args":[{"call":"sha256","args":[{"field":"body"}]},{"value":"hex"}]}]}}]'
   pdf_shared_stream_verification:
     description: One actual byte fold, reusable only under the same immutable project/content key.
     in_subset: [ops]
@@ -1843,4 +1792,4 @@ classes:
       ph:immutability: immutable
       ph:read_roles: '[]'
       ph:foreign_keys: '[{"columns":["project_id","encoding_profile","byte_length","byte_root"],"target":"ops.pdf_shared_stream.project_id,encoding_profile,byte_length,byte_root"}]'
-      ph:checks: '["part_count >= 0"]'
+      ph:checks: '[{"name":"ck_pdf_shared_stream_verification_physical_ec5be43b92","predicate":{"op":"ge","args":[{"field":"part_count"},{"value":0}]}}]'

@@ -6,13 +6,14 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pglast import ast, enums
 from pglast.stream import RawStream
 from sqlalchemy import CheckConstraint, Column, MetaData, Table
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.schema import CreateTable
+from sqlalchemy.sql import visitors
 
 from .pdf_record_model import artifact_part_upload_table, record_upload_table
 
@@ -190,20 +191,27 @@ def shared_streams_sql(metadata) -> str:
 def part_upload_contract_table(model: MetaData | None = None) -> Table:
     """Only a private temporary normalized wire shape, never a durable part store."""
     upload = artifact_part_upload_table(model)
-    return Table(
+    contract = Table(
         "pdf_part_wire_contract",
         MetaData(info=dict(upload.metadata.info)),
         *(Column(column.name, column.type, nullable=column.nullable) for column in upload.columns),
-        *(
-            CheckConstraint(str(check.sqltext), name=check.name)
-            for check in sorted(
-                (check for check in upload.constraints if isinstance(check, CheckConstraint)),
-                key=lambda check: (str(check.name or ""), str(check.sqltext)),
-            )
-        ),
         prefixes=["TEMPORARY"],
         postgresql_on_commit="DROP",
     )
+    def replace_column(element: Any, **_kw: Any) -> Column[Any] | None:
+        return contract.c[element.name] if isinstance(element, Column) and element.table is upload else None
+
+    for check in sorted(
+        (check for check in upload.constraints if isinstance(check, CheckConstraint)),
+        key=lambda check: str(check.name or ""),
+    ):
+        expression = visitors.replacement_traverse(
+            check.sqltext, {},
+            replace_column,
+        )
+        contract.append_constraint(CheckConstraint(expression, name=check.name))
+    return contract
+
 
 
 def part_wire_contract_sql(metadata) -> str:

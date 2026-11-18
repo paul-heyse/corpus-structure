@@ -51,4 +51,4 @@ classes:
       unique_invocation: {unique_key_slots: [invocation_key]}
     annotations:
       ph:foreign_keys: '[{"columns":["release_id"],"target":"sem.release.release_id"},{"columns":["data_request_id"],"target":"ops.data_request.id"}]'
-      ph:checks: '["data_generation > 0", "invocation_key <> ''''", "attempt >= 0"]'
+      ph:checks: '[{"name":"ck_task_physical_6e2cd32965","predicate":{"op":"gt","args":[{"field":"data_generation"},{"value":0}]}},{"name":"ck_task_physical_8afd8b30fe","predicate":{"op":"ne","args":[{"field":"invocation_key"},{"value":""}]}},{"name":"ck_task_physical_3f232544ec","predicate":{"op":"ge","args":[{"field":"attempt"},{"value":0}]}}]'
