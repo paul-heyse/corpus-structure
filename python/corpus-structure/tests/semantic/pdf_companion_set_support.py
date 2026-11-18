@@ -1,10 +1,43 @@
-"""Independent raw-row construction for protected companion set refusal controls."""
+"""Controlled prepared fixtures and independent hostile rows for native refusal controls."""
 
 import pyarrow as pa
 
 from corpus_structure.semantic import _pdf_native_calls as calls
 from corpus_structure.semantic.arrow_transfer import copy_arrow_stream
 from corpus_structure.semantic.pdf_record_model import record_arrow_schema, record_write_profile
+
+
+def prepare_controlled_companions(connection, build, family, records, *, start_ordinal=0):
+    """Materialize bounded test input using the production pre-adoption encoder."""
+    from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
+    from corpus_structure.semantic.pdf_payloads import prepare_payload_family
+    from corpus_structure.semantic.pdf_publication import prepare_pdf_companion_batches
+
+    batches = []
+    prepare_pdf_companion_batches(
+        build,
+        family,
+        records,
+        on_batch=lambda name, batch: batches.append((name, batch)),
+        payload_family=(
+            prepare_payload_family(pdf_context_for_task(connection, build.task_id))
+            if family == "native_metadata"
+            else None
+        ),
+        start_ordinal=start_ordinal,
+    )
+    return batches
+
+
+def adopt_controlled_companions(
+    connection, build, family, records, replay_key, *, start_ordinal=0
+):
+    from corpus_structure.semantic.pdf_publication import adopt_prepared_pdf_companion_batches
+
+    batches = prepare_controlled_companions(
+        connection, build, family, records, start_ordinal=start_ordinal
+    )
+    adopt_prepared_pdf_companion_batches(connection, build, batches, replay_key)
 
 
 def adopt_raw_companion_set(connection, build, rows, *, replay_key, field_rows=()):

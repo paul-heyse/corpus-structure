@@ -7,8 +7,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.pdf_publication import adopt_pdf_companions
-from semantic.pdf_companion_set_support import adopt_raw_companion_set
+from semantic.pdf_companion_set_support import adopt_controlled_companions, adopt_raw_companion_set
 from semantic.pdf_staging_support import private_build as private_build
 
 
@@ -77,7 +76,7 @@ def test_companion_set_exact_replay_is_neutral_and_changed_duplicate_refuses(
     build = private_build
     for _ in range(2):
         with commit_writer_engine.begin() as connection:
-            adopt_pdf_companions(
+            adopt_controlled_companions(
                 connection, build, "occurrence", [occurrence("one"), occurrence("two")], "same-set"
             )
     with (

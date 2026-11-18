@@ -11,13 +11,13 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_publication import (
-    adopt_pdf_companions,
     freeze_pdf_build,
     prepare_pdf_build,
     published_pdf_revision,
     seal_pdf_build,
     validate_pdf_build,
 )
+from semantic.pdf_companion_set_support import adopt_controlled_companions
 from semantic.pdf_staging_support import create_private_build as create_private_build
 from semantic.pdf_staging_support import private_build as private_build
 
@@ -94,7 +94,7 @@ def test_freeze_prepare_validate_seal_and_replay(
             == 1
         )
     with pytest.raises(DBAPIError) as caught, commit_writer_engine.begin() as conn:
-        adopt_pdf_companions(
+        adopt_controlled_companions(
             conn,
             build,
             "health",
@@ -330,7 +330,7 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
         },
     )
     with commit_writer_engine.begin() as conn:
-        adopt_pdf_companions(
+        adopt_controlled_companions(
             conn,
             build,
             "native_metadata",
@@ -338,7 +338,7 @@ def test_large_metadata_field_preserves_bytes_and_typed_reader(
             "large-metadata",
         )
         # Exact replay reuses parts and typed row; it must not append a second value.
-        adopt_pdf_companions(
+        adopt_controlled_companions(
             conn,
             build,
             "native_metadata",
@@ -392,7 +392,7 @@ def test_metadata_parts_do_not_replace_semantic_schema_validation(
     from corpus_structure.semantic.pdf_payloads import PayloadContractError
 
     with pytest.raises(PayloadContractError), commit_writer_engine.begin() as conn:
-        adopt_pdf_companions(
+        adopt_controlled_companions(
             conn,
             private_build,
             "native_metadata",
@@ -405,12 +405,11 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
     create_private_build, commit_writer_engine, commit_reader_engine, tmp_path
 ):
     from corpus_structure.core.db.lifetime import BorrowerCancellation
-    from corpus_structure.orchestrate.pdf_streaming import (
-        adopt_pdf_companions as adopt_companion_rows,
-    )
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.pdf_publication import adopt_prepared_pdf_companion_batches
     from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader
     from corpus_structure.semantic.product_reference import ProductReference
+    from semantic.pdf_companion_set_support import prepare_controlled_companions
 
     build = create_private_build()
     occurrences = [
@@ -448,21 +447,21 @@ def test_large_relation_publishes_ordered_endpoints_and_exact_evidence(
             )
             > 65536
         )
-    # The real producer commits bounded append transactions, allowing the claim
-    # owner to renew between them. One 915-row transaction prevents that renewal.
+    with commit_writer_engine.connect() as connection:
+        batches = prepare_controlled_companions(connection, build, "occurrence", occurrences)
+    # Use the same bounded prepared batches as the producer, releasing the build
+    # fence after each append so the claim owner can renew between them.
     with create_private_build.maintained(build) as owner:
-        adopt_companion_rows(
-            commit_writer_engine,
-            build,
-            "occurrence",
-            occurrences,
-            "occurrences",
-            check_active=owner,
-            cancellation=BorrowerCancellation(),
-        )
+        for ordinal, batch in enumerate(batches):
+            owner()
+            with commit_writer_engine.begin() as connection:
+                adopt_prepared_pdf_companion_batches(
+                    connection, build, (batch,), f"occurrences:{ordinal}",
+                    cancellation=BorrowerCancellation(),
+                )
     with commit_writer_engine.begin() as conn:
         for _ in range(2):
-            adopt_pdf_companions(conn, build, "relation", [relation], "wide")
+            adopt_controlled_companions(conn, build, "relation", [relation], "wide")
 
         header = {k: v for k, v in relation.items() if k not in {"endpoints", "evidence"}}
         streams = {
@@ -600,7 +599,7 @@ def test_freeze_hashing_releases_task_lease_and_rechecks_append_inventory(
                 assert create_private_build.renew(heartbeat, build)["state"] == "renewed"
             if concurrent_append:
                 with commit_writer_engine.begin() as appender:
-                    adopt_pdf_companions(
+                    adopt_controlled_companions(
                         appender,
                         build,
                         "health",
@@ -721,7 +720,7 @@ def test_encoded_page_adoption_retains_original_ipc_bytes(
         },
     )
     with commit_writer_engine.begin() as conn:
-        adopt_pdf_companions(
+        adopt_controlled_companions(
             conn,
             build,
             "native_metadata",

@@ -12,7 +12,11 @@ from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.method import PdfRecordPublicationDraft
 from corpus_structure.orchestrate.pdf_streaming import publish_pdf_record_draft
-from corpus_structure.semantic.pdf_publication import COMPANION_BATCH_BYTES, COMPANION_BATCH_ROWS
+from corpus_structure.semantic.pdf_publication import (
+    COMPANION_BATCH_BYTES,
+    COMPANION_BATCH_ROWS,
+    COMPANION_STAGE_TARGETS,
+)
 
 
 def transaction_engine(transaction):
@@ -65,6 +69,7 @@ def test_validation_precedes_visibility_and_failure_never_seals(monkeypatch, tmp
         return "published"
 
     vars(publication).update(
+        COMPANION_STAGE_TARGETS=COMPANION_STAGE_TARGETS,
         COMPANION_BATCH_BYTES=COMPANION_BATCH_BYTES,
         COMPANION_BATCH_ROWS=COMPANION_BATCH_ROWS,
         retain_pdf_stage_recipe=retain,
@@ -183,6 +188,7 @@ def test_native_producer_reuses_qualified_publication_before_copy_or_inference(
         raise AssertionError("published reuse must not prepare or infer")
 
     vars(publication).update(
+        COMPANION_STAGE_TARGETS=COMPANION_STAGE_TARGETS,
         COMPANION_BATCH_BYTES=COMPANION_BATCH_BYTES,
         COMPANION_BATCH_ROWS=COMPANION_BATCH_ROWS,
         inspect_pdf_build=lambda *a, **k: state,
@@ -260,11 +266,12 @@ def test_draft_finishes_matching_immutable_content_without_lowering(
         raise AssertionError("frozen or published content must not be changed")
 
     vars(publication).update(
+        COMPANION_STAGE_TARGETS=COMPANION_STAGE_TARGETS,
         COMPANION_BATCH_BYTES=COMPANION_BATCH_BYTES,
         COMPANION_BATCH_ROWS=COMPANION_BATCH_ROWS,
         inspect_pdf_build=lambda *a, **k: state,
         retain_pdf_stage_recipe=lambda *a, **k: None,
-        adopt_pdf_companions=forbidden,
+        adopt_prepared_pdf_companion_batches=forbidden,
         freeze_pdf_build=forbidden,
         prepare_pdf_build=forbidden,
         validate_pdf_build=forbidden,

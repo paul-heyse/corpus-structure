@@ -226,7 +226,6 @@ def prepare_pdf_companion_batches(
     *,
     on_batch: Callable[[str, pa.RecordBatch], None],
     payload_family,
-    payload_family_factory=None,
     start_ordinal: int = 0,
     check_active: Callable[[], None] = lambda: None,
 ) -> None:
@@ -296,11 +295,9 @@ def prepare_pdf_companion_batches(
                 from .pdf_payloads import PROFILE, EncodedPagePayload
 
                 if codec is None:
-                    if payload_family_factory is None:
-                        raise ValueError(
-                            "PDF companion preparation requires the captured payload codec"
-                        )
-                    codec = payload_family_factory()
+                    raise ValueError(
+                        "PDF companion preparation requires the captured payload codec"
+                    )
                 if isinstance(value, EncodedPagePayload):
                     batch = codec.read_batch(
                         value.content,
@@ -445,71 +442,6 @@ def adopt_prepared_pdf_companion_batches(
             batches=(batch,),
             cancellation=cancellation,
         )
-    calls.adopt_pdf_companions(
-        conn,
-        build_id=build.build_id,
-        task_id=TaskId(build.task_id),
-        attempt=TaskAttempt(build.attempt),
-        holder=build.holder,
-        replay_key=replay_key,
-    )
-
-
-def adopt_pdf_companions(
-    conn: Connection,
-    build: PdfBuildRef,
-    family: str,
-    records: Iterable[Mapping[str, Any]],
-    replay_key: str,
-    *,
-    start_ordinal: int = 0,
-    cancellation: BorrowerCancellation | None = None,
-) -> None:
-    """COPY one typed companion set; its native adoption owns one build fence."""
-    from .arrow_transfer import copy_arrow_stream
-    from .pdf_contracts import pdf_context_for_task
-    from .pdf_payloads import prepare_payload_family
-    from .pdf_record_model import record_write_profile
-
-    def captured_codec():
-        codec = build._payload_family
-        if codec is None:
-            codec = prepare_payload_family(pdf_context_for_task(conn, build.task_id))
-            object.__setattr__(build, "_payload_family", codec)
-        return codec
-
-    from .pdf_shared_streams import PdfSharedStreamTransfer
-
-    shared_transfer = PdfSharedStreamTransfer()
-    calls.prepare_pdf_companions(conn)
-    profiles = {
-        name: record_write_profile(target, release_id=build.release_id)
-        for name, target in COMPANION_STAGE_TARGETS.items()
-    }
-
-    def copy(name, batch):
-        family = {"stream": "artifact_stream", "part": "artifact_part"}.get(name, name)
-        if shared_transfer.omit_verified_parts(conn, build, {family: (batch,)}):
-            return
-        target = COMPANION_STAGE_TARGETS[name]
-        copy_arrow_stream(
-            conn,
-            profiles[name],
-            target=("pg_temp", "pc_" + target.split(".")[1]),
-            batches=(batch,),
-            cancellation=cancellation,
-        )
-
-    prepare_pdf_companion_batches(
-        build,
-        family,
-        records,
-        on_batch=copy,
-        payload_family=build._payload_family,
-        payload_family_factory=captured_codec,
-        start_ordinal=start_ordinal,
-        check_active=cancellation.check_active if cancellation else lambda: None,
-    )
     calls.adopt_pdf_companions(
         conn,
         build_id=build.build_id,

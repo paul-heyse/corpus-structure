@@ -9,12 +9,12 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.pdf_publication import (
-    adopt_pdf_companions,
     freeze_pdf_build,
     prepare_pdf_build,
     validate_pdf_build,
 )
 from corpus_structure.semantic.pdf_record_identity import structured_payload_scalar
+from semantic.pdf_companion_set_support import adopt_controlled_companions
 from semantic.pdf_staging_support import create_private_build as create_private_build
 from semantic.pdf_staging_support import private_build as private_build
 
@@ -81,7 +81,7 @@ def test_frozen_capture_includes_actual_ipc_and_logical_scalar(
     )
     logical = prepare_payload_family().logical_digest(value)
     with commit_writer_engine.begin() as conn:
-        adopt_pdf_companions(
+        adopt_controlled_companions(
             conn,
             build,
             "native_metadata",

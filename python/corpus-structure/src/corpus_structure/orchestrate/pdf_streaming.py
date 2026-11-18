@@ -11,7 +11,7 @@ from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import ExitStack, closing, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
 
 import pyarrow as pa
 from sqlalchemy import Connection, Engine
@@ -49,78 +49,6 @@ def _pdf_transaction(engine: Engine, cancellation: BorrowerCancellation) -> Gene
     with engine.connect() as connection, cancellation.borrow(connection), connection.begin():
         yield connection
         cancellation.check_active()
-
-
-def adopt_pdf_companions(
-    engine: Engine,
-    build: PdfBuildRef,
-    family: str,
-    records: Iterable[Mapping[str, Any]],
-    replay_key: str,
-    *,
-    check_active: Callable[[], None],
-    cancellation: BorrowerCancellation,
-    start_ordinal: int = 0,
-) -> None:
-    """Prepare bounded row chunks before acquiring each protected append transaction.
-
-    Arrow IPC batches are transport units, not lease-fence units. A source iterator may
-    decode an arbitrarily large replay, but no checkout/task row lock spans that work.
-    Absolute offsets keep receipts stable across retry; individual content identities
-    remain the native companion/field identities, independently of chunking.
-    """
-    from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.pdf_payloads import EncodedPagePayload
-    from corpus_structure.semantic.pdf_publication import (
-        COMPANION_BATCH_BYTES,
-        COMPANION_BATCH_ROWS,
-        PdfCompanionRecord,
-    )
-    from corpus_structure.semantic.pdf_publication import (
-        adopt_pdf_companions as adopt_companion_set,
-    )
-
-    pending: list[Mapping[str, Any]] = []
-    size = 0
-    delivered = start_ordinal
-
-    def flush() -> None:
-        nonlocal size, delivered
-        if not pending:
-            return
-        check_active()
-        with _pdf_transaction(engine, cancellation) as connection:
-            adopt_companion_set(
-                connection,
-                build,
-                family,
-                pending,
-                replay_key=f"{replay_key}:rows:{delivered}",
-                start_ordinal=delivered,
-                cancellation=cancellation,
-            )
-        delivered += len(pending)
-        pending.clear()
-        size = 0
-        check_active()
-
-    for row in records:
-        check_active()
-        if isinstance(row, PdfCompanionRecord):
-            row_size = row.encoded_length
-        elif isinstance(row.get("value"), EncodedPagePayload):
-            row_size = len(row["value"].content) + len(
-                canonical_bytes({key: value for key, value in row.items() if key != "value"})
-            )
-        else:
-            row_size = len(canonical_bytes(dict(row)))
-        if pending and (
-            len(pending) >= COMPANION_BATCH_ROWS or size + row_size > COMPANION_BATCH_BYTES
-        ):
-            flush()
-        pending.append(row)
-        size += row_size
-    flush()
 
 
 def ipc_replay_batches(
