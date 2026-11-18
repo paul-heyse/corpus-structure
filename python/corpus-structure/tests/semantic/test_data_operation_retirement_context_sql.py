@@ -142,13 +142,12 @@ def test_declared_product_primary_identity_allows_equal_body_in_distinct_scopes(
 
 @pytest.mark.db
 def test_qualified_population_preserves_distinct_subject_definitions(semantic_bare_engine):
-    source = (
-        files("corpus_structure.semantic").joinpath("sql/data_operation_bindings.sql").read_text()
-    )
+    from corpus_structure.semantic.binding_recursive_native import binding_population_native_sql
+
+    source = binding_population_native_sql()
     start = source.index("CREATE OR REPLACE FUNCTION ops.ddo_project_population(")
-    end = source.index("-- Physical ledger slots", start)
     helpers = (
-        source[start:end]
+        source[start:]
         .replace("ops.ddo_project_population", "pg_temp.ddo_project_population")
         .replace("ops.ddo_binding_population_meaning", "pg_temp.ddo_binding_population_meaning")
     )

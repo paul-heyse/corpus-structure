@@ -10,9 +10,12 @@ from pathlib import Path
 
 from sqlalchemy import Connection
 
+from .binding_admission_native import binding_admission_native_sql
 from .binding_operand_native import binding_parameter_native_sql, binding_values_native_sql
+from .binding_predicate_native import binding_predicate_native_sql
 from .binding_recursive_native import (
     binding_branch_native_sql,
+    binding_consumed_producers_sql,
     binding_exact_float_sql,
     binding_population_native_sql,
 )
@@ -22,8 +25,6 @@ from .native_objects import NativeDefinition, definition_from_sql
 from .prepared_sql import prepare_sql
 from .source_set_native import binding_source_native_sql, source_set_native_sql
 from .types import SourceArtifact
-
-_SQL = Path(__file__).with_name("sql") / "data_operation_bindings.sql"
 
 
 def binding_native_sources(*, target_metadata=None) -> tuple[SourceArtifact, ...]:
@@ -44,6 +45,8 @@ def binding_native_sources(*, target_metadata=None) -> tuple[SourceArtifact, ...
                 "binding_primitives.py",
                 "binding_operand_native.py",
                 "binding_recursive_native.py",
+                "binding_predicate_native.py",
+                "binding_admission_native.py",
                 "binding_support_native.py",
                 "data_operation_model.py",
             )
@@ -71,7 +74,9 @@ def binding_native_sql(*, target_metadata=None) -> str:
         + binding_branch_native_sql()
         + binding_population_native_sql()
         + binding_support_native_sql(target_metadata)
-        + _SQL.read_text()
+        + binding_predicate_native_sql()
+        + binding_consumed_producers_sql()
+        + binding_admission_native_sql(target_metadata)
     )
 
 

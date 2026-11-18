@@ -829,3 +829,57 @@ def binding_population_native_sql():
         )
     )
     return "\n".join(out)
+
+
+def binding_consumed_producers_sql():
+    from .native_program import sql_function
+
+    selection = _value("selection", JSONB())
+    operation = _value("operation")
+    selected = _elements(selection["operations"], "selected")
+    dependencies = _texts(selected.c.value["dependencies"], "dependency").lateral("dependency")
+    discovery = _elements(selection["discovery"], "relation")
+    dependency_rows = selected.join(dependencies, literal(True))
+    direct = (
+        select(dependencies.c.value.label("id"))
+        .select_from(dependency_rows)
+        .where(selected.c.value["operation"].astext == operation)
+    )
+    incoming = select(discovery.c.value["producer"].astext.label("id")).where(
+        discovery.c.value["target"].astext == operation
+    )
+    seed = direct.union(incoming).subquery("seed")
+    allowed = select(seed.c.id).cte("allowed", recursive=True)
+    edge = (
+        select(dependencies.c.value.label("id"))
+        .select_from(dependency_rows)
+        .where(selected.c.value["operation"].astext == allowed.c.id)
+        .union(
+            select(discovery.c.value["target"].astext.label("id")).where(
+                discovery.c.value["producer"].astext == allowed.c.id
+            )
+        )
+        .lateral("edge")
+    )
+    allowed = allowed.union(select(edge.c.id).select_from(allowed.join(edge, literal(True))))
+    return (
+        sql_function(
+            "ops",
+            "ddo_consumed_producers",
+            parameters=(
+                Parameter("selection", pg_type("jsonb")),
+                Parameter("operation", pg_type("text")),
+            ),
+            returns=pg_type_array(),
+            body=select(
+                func.coalesce(
+                    func.array_agg(aggregate_order_by(allowed.c.id, allowed.c.id)),
+                    array([], type_=Text()),
+                )
+            ),
+            strict=True,
+            volatility="immutable",
+            search_path=("pg_catalog", "pg_temp"),
+        )
+        + ";\n"
+    )
