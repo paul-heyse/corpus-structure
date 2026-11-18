@@ -73,8 +73,10 @@ discovery and regional results. A cooperative stop followed a stalled whole-view
 direct process check and lease expiry established the old invocation's retirement. Retained
 products and the failed receipt stay in native custody.
 
-The N29 stage application has a different PDF capture recipe. Its whole-book demand uses the
-original bytes under the current native basis. Sentence and formal-evidence recipe identities
+N29 has a different PDF capture recipe. The matching canonical application deployment passed.
+The book project remains on N23 at generation 4 at the operator's stop. Post-migration original
+readback, activation and a new book invocation remain pending. That invocation uses the original
+bytes under the current native basis. Sentence and formal-evidence recipe identities
 still agree with N23. Reuse depends on exact resolved input and product identity under current
 trust. Whole-view composition, the same-demand no-work repeat and PE-S33 still require
 complete regional coverage.

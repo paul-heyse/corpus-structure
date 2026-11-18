@@ -1,6 +1,6 @@
 # Declared data operations — total governing model
 
-**Status · 2026-11-18. Stage runs N29 at generation 26. Canonical development migrated to N29 native and the matching application is in preparation. The 16 GiB N23 book invocation retained its 518-page capture and 3,411 sentence occurrences across 20 of 29 regions. Whole-view composition and DDO-12 qualification stay open.**
+**Status · 2026-11-18. Execution stopped at the operator’s request. Stage runs N29 at generation 26. Canonical N29 native and application deployment verified. The book project still selects N23 at generation 4. Its 16 GiB run retained the 518-page capture and 3,411 sentence occurrences across 20 of 29 regions. Whole-view composition and DDO-12 qualification remain open.**
 
 This coordinator is the sole owner of package readiness, source-qualified recommendation disposition,
 F/CA findings and preparation questions. Technical companions own contracts; dated sections below
@@ -1054,7 +1054,8 @@ and `runtime:39b1ad54f97d3d7471a9f613e7bf9a55a8988f5f1818a606bf3d2393f2f737fd`.
 
 **N23 book frontier · 2026-11-18.** The expanded population has 29 organized regions. The final
 read after the invocation ended counted 3,411 persisted native sentence occurrences across the 20
-completed source-native regions, with 1 to 1,035 sentences per region. It also retained 20 canonical
+completed source-native regions, with 1 to 1,035 sentences per region. These annotation products
+also contain 28,974 token occurrences and 2,695 annotation blocks. The run retained 20 canonical
 projections, nine reused N21 formal derivations, six math extractions, five normalizations, four HanLP products
 and one construction product. Nine sentence attempts timed out in settlement. Twenty unfinished
 formal requests attached to the earlier native capture. The observed older subset held one
@@ -1090,7 +1091,14 @@ custody. Registration `6f6d282c38d1428ba83ae104c2de0749` and stage deployment
 resolving the archived executable basis. The separate composition case reached a missing source
 closure dependency. The ordering helper now belongs to the captured view source and its existing
 view-assets contract. Static capture and presentation passed (`e4a41c0a621f435596e96646f557af85`).
-The bounded actual published-source fan-in retry `0c9a6b78093e48ab94dec7b5ccc88d2b` is running.
+The two-region fixture later exposed a cross-release discovery gap (`3fed447a2a5649538c80ac05c1ed7c47`).
+Attachment can fulfill an equivalent discovery from an earlier release, while native population
+closure requires the producer request to belong to the demand's release. Reconcile these decisions
+with exact output, population membership and trust requirements. N29 book discovery has a changed
+recipe and uses fresh execution. The corrected fixture obtains same-release discovery before
+checking composition. Its private retry `82ba77a0731148faa0bd827ead1373cb` was interrupted at the
+operator's request. Its processes and private PostgreSQL resources were verified retired. Final
+native fan-in assertions remain unverified.
 Earlier setup refusals `b835d7a52d3f48959a017522781fe584` and `95d2f8d225964d30aecd1bcecefbe933`
 retain their unmatched installed capture context.
 
@@ -1108,7 +1116,10 @@ for `release:39b654165bfeec988e53c9d96871e59038eed3281dd8b08713ff05d48cacff3f` a
 `runtime:e639e1aaf3f7ae23c30bedf90839f3a4c3d72676aa1891f9afefd4a33f940fec`.
 Canonical `ci db migrate --expected-predecessor semantic_ddo_pe_n23` advanced the same canonical
 database OID 131763263 to N29 after confirming the previous book workers had exited and the
-remaining leases expired. Application admission and original readback are pending on that target.
+remaining leases expired. Canonical deployment `2822093d357943f08924a66b36f0db09` committed archive
+and admission and verified the exact N29 application before the interrupt reached command exit.
+The managed result settled passed. Separate canonical database and release checks, original
+readback and book activation remain pending. The book project still selects N23 at generation 4.
 
 Positioned construction validation now checks authenticated native and synthetic projection pieces,
 including zero-width anchors and the exact contextual pointer. The focused actual producer and
@@ -1123,7 +1134,16 @@ Authenticated N23 and N29 archives show changed PDF capture, organization, disco
 construction recipes. Sentence and formal-evidence definition, eligibility and recipe identities
 agree. Regeneration uses the original 518-page PDF and the 16 GiB policy. Equivalent completed
 products and retained intents still require exact binding and current trust for reuse. The
-full downstream coverage, unchanged repeat and PE-S33 comparison remain open.
+full downstream coverage, unchanged repeat and PE-S33 comparison remain open. The N29 book
+invocation remained unstarted at the operator's stop.
+
+**Provider checkpoint · 2026-11-18.** The three-page Standard `ci ingest` run under N29 passed on
+stage (`a07387006ae24cc582efd811db952d87`). The owned Nemotron generation
+`2fd81673cc4e40abb26322ea828f097c` returned its managed generation record and handled GPU phase
+control. Its counters showed zero completed inference requests. The one-page Integrated recognition
+check `30d1b87cc0874d52af674a31f9e69cde` was interrupted before demand registration. The service and
+worker exited. Port 8035 closed, and the unrelated GPU workload remained. Actual Nemotron inference
+on N29 remains unverified.
 
 ## Production-efficiency integration · 2026-11-17
 
@@ -3389,7 +3409,7 @@ coherent integrated native source; prior previews establish only their recorded 
 | DDO-07/08 | Source/primary/downstream increments and real port adoption; enclosing packages open | I02 all remaining legacy operations and consumers; I04 capability-based shared execution; I08 acquisition-test consolidation; rich producer integration with I05. |
 | DDO-09 | Source currentness/impact and graph foundations have bounded receipts. The copied-task writer path is retired. CA-11/12 Python repairs have scoped controls. | I03 deliberate fate partition and I05 rich currentness/reuse qualification, including stale-cut refusals and source-free populations. |
 | DDO-10 | Source/graph CLI/MCP/export and selected prediction inspection have focused receipts. Structural withdrawal/detached export and ordinary rich admission passed. Retained runtime readers require explicit release/runtime pins. | I06 remaining artifact/variant and public/native continuation qualification, including rich named queries, references and grading. Keep target-model difference distinct from source drift and currentness. |
-| DDO-11 | Stage runs N29 at generation 26. Canonical development migrated to N29 native. All 29 originals were verified across nine projects after the N23 cutover. The former database is fenced. | Admit the N29 application and recheck original custody, finish book regeneration, and verify remaining consumer and retirement scope. |
+| DDO-11 | Stage runs N29 at generation 26. Canonical N29 native and application deployment verified. The book project still selects N23 at generation 4. All 29 originals were last verified after the N23 cutover. The former database is fenced. | Recheck canonical original custody, activate N29 for the book, finish regeneration, and verify remaining consumer and retirement scope. |
 | DDO-12 | No assembled completion; earlier passes scoped only | Final-source functional/native/fault/provider/nonfunctional union for complete replacement and retirement, including target-native source/evaluation journeys. |
 
 The [current execution](#scoped-acquisition-and-native-authoring-integration--2026-11-18) owns

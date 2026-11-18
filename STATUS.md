@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-18. Stage runs N29 at generation 26. Canonical development migrated to N29 native and is preparing the matching application. The 16 GiB N23 book run retained the certified 518-page capture and 3,411 sentence occurrences across 20 of 29 regions. Whole-view composition and DDO-12 qualification are open._
+_Updated 2026-11-18. Stage runs N29 at generation 26. Canonical N29 native and application deployment verified. The book project still selects N23 at generation 4. The 16 GiB N23 run retained its 518-page capture and 3,411 sentence occurrences across 20 of 29 regions. Execution stopped at the operator’s request._
 
 ## Current owners
 
@@ -36,9 +36,11 @@ _Updated 2026-11-18. Stage runs N29 at generation 26. Canonical development migr
 - **Passed**. N26 stage native and matching application deployment (`807d9b5e7cbc43c3851a379856694465`, `17d653eb8f7e43bb9f4a485dfea58b24`), separate database and release checks, and activation at generation 24 using captured source. Three live PDF and class-contract cases passed (`b4f36707ab3c4ae59241e9361de8ae42`).
 - **Passed**. On N27, actual rich reading support, pagination, source revocation and old-continuation refusal passed (`3ac6b20e39ae45eba61e9e27edb2a731`). The prior read-scope, mixed-source and incorrect refusal expectation cases remain held in the coordinator.
 - **Passed**. N27 native rollback replay, registration and stage deployment (`9d07de54d89d4cd6815ee98a71a0559a`, `3f797a74fc4a46c79df689f276600322`, `29580fefed314891937ffa5c4462047b`), five native seal controls (`215ea070fec44bb0bdc2950a210eea5c`), matching application deployment (`547a2b79e3c94536a45bb215799046ef`), `ci db check`, `ci release check` and activation at generation 25.
-- **Mixed**. N28 rollback replay, registration and native stage deployment passed. All eight actual cross-release cases passed in `2f72731ae5c443fa9b619838c936ccdb`. The one composition case exposed a missing captured dependency. The dependency and source closure are repaired (`e4a41c0a621f435596e96646f557af85`), and a bounded native retry is running.
+- **Mixed**. Eight native cross-release cases passed (`2f72731ae5c443fa9b619838c936ccdb`). The composition source-closure repair passed its focused checks (`e4a41c0a621f435596e96646f557af85`). The final native fixture retry was interrupted with cleanup established (`82ba77a0731148faa0bd827ead1373cb`). The coordinator owns the cross-release discovery gap exposed during that work.
 - **Passed**. N29 stage native and application deployment (`16e5153df53e4fdb8c3b15a8674b0ee5`, `02e840dccf3440f5b56678712773aa88`), database and release checks, and activation at generation 26. The typed catalog harness passed fresh installation and ACL verification (`a6c08b4e7a40477dabd3ce8d420a99dd`). Canonical `ci db migrate --expected-predecessor semantic_ddo_pe_n23` reached N29.
 - **Passed**. Positioned construction regression (`f974ee4895954253b5e10b588050b4d7`), nine repeated-worker and stream controls (`59123cb5b90a4e4288ffdcb3d6966922`, `6a911059dc674f6d81adde33f2f16a06`) and 15 managed-custody controls (`cd8f6700b3ef4c0ab6c4ba55071fc839`).
+- **Passed**. Canonical N29 `ci model change deploy` completed archive, admission and verification (`2822093d357943f08924a66b36f0db09`). Book activation and post-migration original readback remain pending.
+- **Interrupted**. The three-page Standard staging run passed (`a07387006ae24cc582efd811db952d87`). The one-page Integrated Nemotron check stopped before demand registration (`30d1b87cc0874d52af674a31f9e69cde`). Zero inference requests completed on the owned generation. The service and GPU worker exited.
 - **Passed**. On integrated N24 source, `uv run ci check --only types` (`17816270a4ca472aad42e20214a065a0`), `uv run ci check --only lint` (`e0f42d18b8694e1f95e34bf24f6e26d3`) and `uv run ruff format --check` passed.
 - **Passed**. The CA-11/12 native retry (`011c37441f84406fbd53c9ef3b002101`) covered three cases, including project-owned null-source population acquisition and all six explicit graph and impact continuation conflicts. The initial fixture read/write transaction refusal remains held (`68f1175dbf0441918c2ca923f556fbbf`).
 - **Scoped:** 73 PDF controls passed at N12 (`f6544d5c3bee4cb5af0360c23596e8b8`). N13's integrated attempt `be66da57a0a44cf3b6aa420cb7e77c37` reported 135 passes and 13 failures. Later N16 verified the three real E5 cases and N22 passed both binding refusal matrices.
@@ -53,5 +55,5 @@ _Updated 2026-11-18. Stage runs N29 at generation 26. Canonical development migr
 ## Next execution
 
 - Resolve the native consumer prerequisites recorded by TDM, then reconcile the qualification union with `ci test review`. See the [TDM closeout](docs/plans/test-domain-model-and-execution_2026-11-17.md#tdm-18).
-- Settle the native composition control and canonical N29 application, then recheck original custody.
-- Regenerate the book under N29's changed capture recipe with its scoped 16 GiB budget. Complete the downstream coverage, no-work repeat and PE-S33 comparison. DDO-12 owns the required native, provider, public, fault and repository-check union. Chandra OCR remains excluded.
+- On resumption, run the separate canonical database and release checks, recheck original custody, and activate N29 for the book. Complete the bounded native composition control and Integrated Nemotron verification.
+- The N29 book retry remains unstarted. Its Standard capture, downstream coverage, no-work repeat and PE-S33 comparison remain open. DDO-12 owns the qualification union. Chandra OCR remains excluded.
