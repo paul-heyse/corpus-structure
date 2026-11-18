@@ -21,6 +21,15 @@ from corpus_structure.semantic.observations import source_value
 from semantic.test_declared_contextual_operations import inputs
 
 
+@pytest.fixture(autouse=True)
+def generated_scoring_functions(native_rollback):
+    from corpus_structure.semantic.contextual_scoring_native import contextual_scoring_native_sql
+    from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
+
+    with native_owner(native_rollback.connection, "corpus_sem_publisher"):
+        execute_native_sql(native_rollback.connection, contextual_scoring_native_sql())
+
+
 def native_scores(connection, values, policy):
     return connection.scalar(
         select(
