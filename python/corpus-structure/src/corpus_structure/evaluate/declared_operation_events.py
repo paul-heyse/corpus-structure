@@ -216,9 +216,7 @@ def execute_frame_profile(receiver, question, reports, sources):
     raise SemanticRefusal("event frame requires its acquired selected-source CPU plan")
 
 
-def execute_frame_kernel(
-    input_basis: list, historical_capsule: str, *, prepared, check_active
-) -> dict:
+def execute_frame_kernel(input_basis: list, historical_capsule: str, *, prepared, check_active):
     from corpus_structure.semantic.cpu_execution import hydrate_capsule
     from corpus_structure.semantic.data_operation_cpu_basis import (
         cpu_authority_reply,
@@ -431,7 +429,7 @@ def execute_fit_profile(receiver, frame, specification):
     ).model_dump(mode="json")
 
 
-def execute_fit_kernel(input_basis: list, *, check_active) -> dict:
+def execute_fit_kernel(input_basis: list, *, check_active):
     from corpus_structure.semantic.data_operation_cpu_basis import (
         cpu_authority_reply,
         cpu_basis_values,
@@ -664,7 +662,7 @@ def validate_operation_event_authority_leaf(leaf, *, products, kinds, definition
     return leaf
 
 
-def execute_score_kernel(input_basis: list, *, check_active) -> dict:
+def execute_score_kernel(input_basis: list, *, check_active):
     from corpus_structure.semantic.data_operation_cpu_basis import (
         cpu_authority_reply,
         cpu_basis_values,
