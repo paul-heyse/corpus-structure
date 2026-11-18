@@ -9,24 +9,43 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from pglast.stream import RawStream
 from sqlalchemy import (
     BigInteger,
+    Column,
     Text,
     and_,
     any_,
     bindparam,
     case,
+    column,
     func,
     literal,
-    literal_column,
     or_,
     select,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by, array, dialect
+from sqlalchemy.dialects.postgresql import ARRAY, aggregate_order_by, array
 from sqlalchemy.sql import Select, visitors
 from sqlalchemy.sql.elements import BindParameter
 
 from .metadata import table
+from .native_objects import NativeDefinition, NativeIdentity, native_privilege_sql
+from .native_program import (
+    Block,
+    If,
+    Local,
+    Parameter,
+    Perform,
+    Raise,
+    ReturnQuery,
+    SelectInto,
+    column_type,
+    core_variable,
+    function,
+    pg_type,
+    sql_function,
+)
+from .native_sql_body import sql_standard_definition
 from .product_reference import ProductReference
 
 
@@ -278,60 +297,70 @@ def published_read_statements(*, target_metadata=None) -> dict[str, Select]:
     }
 
 
-def _published_read_selectors():
-    return {
+def _published_read_selectors(name, statement):
+    names = {
         "sections": (),
-        "section_nodes": (("p_section", Text()), ("p_membership", Text())),
-        "items": (("p_pointers", ARRAY(Text())),),
-        "region": (("p_pointer", Text()), ("p_region_index", BigInteger())),
-        "section_reports": (("p_pointers", ARRAY(Text())), ("p_sections", ARRAY(Text()))),
-        "item_page": (
-            ("p_section", Text()),
-            ("p_membership", Text()),
-            ("p_pointer", Text()),
-            ("p_after", BigInteger()),
-            ("p_limit", BigInteger()),
-        ),
-        "regions": (("p_pointer", Text()),),
-        "region_batch": (("p_pointers", ARRAY(Text())),),
-        "item_ancestors": (("p_pointer", Text()),),
-    }
-
-
-def _published_read_guard(name):
-    pointers = """
-IF p_pointers IS NULL OR array_position(p_pointers,NULL) IS NOT NULL THEN RAISE EXCEPTION
-'published item pointers are required' USING ERRCODE='22023'; END IF;"""
-    return {
-        "sections": "",
-        "section_nodes": """
-IF p_section IS NULL OR p_membership IS NULL OR p_membership NOT IN
-('direct','descendants') OR NOT EXISTS(SELECT FROM kb.pdf_record_access a WHERE
- a.product_id=published.build_id AND a.revision_id=published.build_id AND
- a.pointer=p_section AND (a.label IN ('section','chapter') OR
- (p_section='#/body' AND p_membership='direct' AND a.parent_pointer IS NULL
- AND a.content_layer='body' AND a.native_json->>'self_ref'='#/body'))) THEN RAISE EXCEPTION
-'invalid published section selection' USING ERRCODE='22023'; END IF;""",
-        "items": pointers,
-        "section_reports": """
-IF p_pointers IS NULL OR p_sections IS NULL OR array_position(p_pointers,NULL) IS NOT NULL
-OR array_position(p_sections,NULL) IS NOT NULL THEN RAISE EXCEPTION
-'published report pointers/sections are required' USING ERRCODE='22023'; END IF;""",
-        "region": """
-IF p_pointer IS NULL OR p_region_index IS NULL OR p_region_index<0 THEN RAISE EXCEPTION
-'invalid published region selector' USING ERRCODE='22023'; END IF;""",
-        "item_page": """
-IF p_membership IS NULL OR p_membership NOT IN ('direct','descendants') OR
-p_after IS NULL OR p_after< -1 OR p_limit IS NULL OR p_limit<1 OR p_limit>1000 THEN
-RAISE EXCEPTION 'invalid published item page selector' USING ERRCODE='22023'; END IF;""",
-        "regions": """
-IF p_pointer IS NULL THEN RAISE EXCEPTION 'published item pointer is required'
-USING ERRCODE='22023'; END IF;""",
-        "region_batch": pointers,
-        "item_ancestors": """
-IF p_pointer IS NULL THEN RAISE EXCEPTION 'published item pointer is required'
-USING ERRCODE='22023'; END IF;""",
+        "section_nodes": ("p_section", "p_membership"),
+        "items": ("p_pointers",),
+        "region": ("p_pointer", "p_region_index"),
+        "section_reports": ("p_pointers", "p_sections"),
+        "item_page": ("p_section", "p_membership", "p_pointer", "p_after", "p_limit"),
+        "regions": ("p_pointer",),
+        "region_batch": ("p_pointers",),
+        "item_ancestors": ("p_pointer",),
     }[name]
+    types = {
+        element.key: element.type
+        for element in visitors.iterate(statement)
+        if isinstance(element, BindParameter)
+    }
+    return tuple((key, types[key]) for key in names)
+
+
+def _published_read_guards(name, selectors, access, published) -> tuple[If, ...]:
+    value = {key: core_variable(key, kind) for key, kind in selectors}
+    if name == "sections":
+        return ()
+    if name in {"items", "region_batch"}:
+        pointers = value["p_pointers"]
+        condition = or_(pointers.is_(None), func.array_position(pointers, None).is_not(None))
+        message = "published item pointers are required"
+    elif name == "section_nodes":
+        section, membership = value["p_section"], value["p_membership"]
+        selected = access.alias("a")
+        valid = select(1).select_from(selected).where(
+            selected.c.product_id == published["build_id"],
+            selected.c.revision_id == published["build_id"],
+            selected.c.pointer == section,
+            or_(
+                selected.c.label.in_(("section", "chapter")),
+                and_(
+                    section == "#/body", membership == "direct",
+                    selected.c.parent_pointer.is_(None), selected.c.content_layer == "body",
+                    selected.c.native_json["self_ref"].astext == "#/body",
+                ),
+            ),
+        ).exists()
+        condition = or_(section.is_(None), membership.is_(None), membership.not_in(("direct", "descendants")), ~valid)
+        message = "invalid published section selection"
+    elif name == "section_reports":
+        pointers, sections = value["p_pointers"], value["p_sections"]
+        condition = or_(pointers.is_(None), sections.is_(None), func.array_position(pointers, None).is_not(None), func.array_position(sections, None).is_not(None))
+        message = "published report pointers/sections are required"
+    elif name == "region":
+        pointer, region = value["p_pointer"], value["p_region_index"]
+        condition = or_(pointer.is_(None), region.is_(None), region < 0)
+        message = "invalid published region selector"
+    elif name == "item_page":
+        membership, after, limit = value["p_membership"], value["p_after"], value["p_limit"]
+        condition = or_(membership.is_(None), membership.not_in(("direct", "descendants")), after.is_(None), after < -1, limit.is_(None), limit < 1, limit > 1000)
+        message = "invalid published item page selector"
+    elif name in {"regions", "item_ancestors"}:
+        condition = value["p_pointer"].is_(None)
+        message = "published item pointer is required"
+    else:
+        raise ValueError("unknown published reader selector")
+    return (If(condition, (Raise(message, "22023"),)),)
 
 
 def _published_read_native(statement, selectors):
@@ -340,7 +369,7 @@ def _published_read_native(statement, selectors):
 
     def replace(element, **kw):
         if isinstance(element, BindParameter) and element.key in variables:
-            return literal_column(variables[element.key], type_=element.type)
+            return core_variable(variables[element.key], element.type)
         return None
 
     native = visitors.replacement_traverse(statement, {}, replace)
@@ -349,47 +378,81 @@ def _published_read_native(statement, selectors):
     return native
 
 
+def _reader_identity(name, parameters):
+    return NativeIdentity("function", "ops", name, tuple(RawStream()(item.type_) for item in parameters))
+
+
 def published_readers_sql(*, target_metadata=None) -> str:
     """Guard exact publication first, then call its private Core-derived SQL body."""
-    pg = dialect(paramstyle="named")
-    quote = pg.identifier_preparer.quote
+    selected_table = table if target_metadata is None else target_metadata.tables.__getitem__
+    publication = selected_table("ops.pdf_published_revision")
+    access = selected_table("kb.pdf_record_access")
+    published = {field.name: core_variable("published", field.type, field.name) for field in publication.c}
+    producer_parameters = tuple(
+        Parameter(key, column_type(field)) for key, field in (
+            ("p_task", publication.c.task_id), ("p_product", publication.c.product_key),
+            ("p_digest", publication.c.logical_digest),
+        )
+    )
+    placement_parameters = tuple(
+        Parameter(key, column_type(field)) for key, field in (
+            ("p_build", access.c.product_id), ("p_revision", access.c.revision_id),
+        )
+    )
     result = []
     for name, statement in published_read_statements(target_metadata=target_metadata).items():
-        selectors = _published_read_selectors()[name]
+        selectors = _published_read_selectors(name, statement)
+        selector_parameters = tuple(Parameter(key, column_type(Column(key, kind))) for key, kind in selectors)
+        columns = tuple((field.name, column_type(Column(field.name, field.type))) for field in statement.selected_columns)
+        returns = pg_type("record")
+        returns.setof = True
+        public_name = "read_pdf_published_" + name
+        private_name = public_name + "_rows"
+        private_parameters = (*placement_parameters, *selector_parameters)
+        public_parameters = (*producer_parameters, *selector_parameters)
+        private_identity = _reader_identity(private_name, private_parameters)
+        public_identity = _reader_identity(public_name, public_parameters)
         native = _published_read_native(statement, selectors)
-        body = str(native.compile(dialect=pg, compile_kwargs={"literal_binds": True}))
-        selector_parameters = "".join(
-            "," + key + " " + typ.compile(dialect=pg) for key, typ in selectors
+        private = sql_standard_definition(
+            NativeDefinition(
+                private_identity,
+                sql_function(
+                    "ops", private_name, parameters=private_parameters, returns=returns,
+                    table_columns=columns, body=native, volatility="stable",
+                    search_path=("pg_catalog", "pg_temp"),
+                ),
+                "published-document:private-body", owner="corpus_sem_publisher",
+            ),
+            native,
         )
-        selector_types = "".join("," + typ.compile(dialect=pg) for _, typ in selectors)
-        selector_arguments = "".join("," + key for key, _ in selectors)
-        columns = ",".join(
-            quote(key) + " " + column.type.compile(dialect=pg)
-            for key, column in statement.selected_columns.items()
+        revision = func.ops.read_pdf_published_revision(*(
+            core_variable(parameter.name, field.type) for parameter, field in zip(
+                producer_parameters, (publication.c.task_id, publication.c.product_key, publication.c.logical_digest), strict=True,
+            )
+        )).table_valued(*(column(field.name, field.type) for field in publication.c))
+        rows = getattr(func.ops, private_name)(
+            published["build_id"], published["build_id"],
+            *(core_variable(key, kind) for key, kind in selectors),
+        ).table_valued(*(column(field.name, field.type) for field in statement.selected_columns))
+        public = function(
+            "ops", public_name, parameters=public_parameters, returns=returns,
+            table_columns=columns, volatility="stable", security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
+            body=Block((
+                SelectInto(select(*revision.c), ("published",), strict=True),
+                Perform(func.ops.require_pdf_operation(published["release_id"], "read_native_source")),
+                *_published_read_guards(name, selectors, access, published),
+                ReturnQuery(select(*rows.c)),
+            ), (Local("published", publication),)),
         )
-        function = "ops.read_pdf_published_" + name
-        private = function + "_rows"
-        result.append(f"""CREATE OR REPLACE FUNCTION {private}(
-p_build text,p_revision text{selector_parameters})
-RETURNS TABLE({columns}) LANGUAGE sql STABLE SECURITY INVOKER
-SET search_path=pg_catalog,pg_temp BEGIN ATOMIC {body}; END;
-REVOKE ALL ON FUNCTION {private}(text,text{selector_types}) FROM PUBLIC;
-CREATE OR REPLACE FUNCTION {function}(
-p_task bigint,p_product text,p_digest text{selector_parameters})
-RETURNS TABLE({columns}) LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path=pg_catalog,pg_temp AS $read$
-DECLARE published ops.pdf_published_revision;
-BEGIN
- SELECT * INTO STRICT published FROM ops.read_pdf_published_revision(p_task,p_product,p_digest);
- PERFORM ops.require_pdf_operation(published.release_id,'read_native_source');
- {_published_read_guard(name)}
- RETURN QUERY SELECT * FROM {private}(published.build_id,published.build_id{selector_arguments});
-END $read$;
-REVOKE ALL ON FUNCTION {function}(bigint,text,text{selector_types}) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION {function}(bigint,text,text{selector_types})
-TO corpus_sem_reader,corpus_sem_writer,corpus_sem_evaluator;
-""")
-    return "\n".join(result)
+        result.extend((
+            private.sql,
+            native_privilege_sql(private_identity, "PUBLIC", grant=False),
+            public,
+            native_privilege_sql(public_identity, "PUBLIC", grant=False),
+            *(native_privilege_sql(public_identity, role, "EXECUTE") for role in ("corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator")),
+        ))
+    return ";\n".join(result) + ";\n"
 
 
 def published_reader_definitions(connection, *, target_metadata=None):
@@ -423,59 +486,3 @@ def published_reader_definitions(connection, *, target_metadata=None):
             )
         )
     return tuple(result)
-
-
-def published_address_precondition_sql() -> str:
-    """Refuse legacy addresses lacking an exact published placement before successor DDL.
-
-    This does not create compatibility publications or authorize migration. The
-    native authoring owner runs it before adding/backfilling required placement.
-    """
-    published = table("ops.pdf_published_revision").alias("published")
-    checks = []
-    pg = dialect(paramstyle="named")
-    for name, target in (
-        ("kb.source_view", "kb.pdf_record_access"),
-        ("ops.native_region_artifact", "kb.pdf_record_region"),
-    ):
-        consumer = table(name).alias("prior")
-        relation = table(target).alias("address")
-        placement_fk = next(
-            key
-            for key in table(name).foreign_key_constraints
-            if key.referred_table.fullname == "ops.pdf_published_revision"
-        )
-        address_fk = next(
-            key
-            for key in table(name).foreign_key_constraints
-            if key.referred_table.fullname == target
-        )
-        publication_match = [
-            published.c[element.column.name] == consumer.c[element.parent.name]
-            for element in placement_fk.elements
-            if element.parent.name != "native_build_id"
-        ]
-        address_match = [
-            relation.c[element.column.name]
-            == (
-                published.c.build_id
-                if element.parent.name in {"native_build_id", "native_revision_id"}
-                else consumer.c[element.parent.name]
-            )
-            for element in address_fk.elements
-        ]
-        valid = (
-            select(literal(1))
-            .select_from(published.join(relation, and_(*address_match)))
-            .where(*publication_match)
-            .correlate(consumer)
-            .exists()
-        )
-        unbound = select(literal(1)).select_from(consumer).where(~valid)
-        query = str(unbound.compile(dialect=pg, compile_kwargs={"literal_binds": True}))
-        checks.append(
-            f"IF EXISTS({query}) THEN RAISE EXCEPTION "
-            "'unbound legacy published address in %; preserve archived revision', "
-            f"'{name}' USING ERRCODE='55000'; END IF;"
-        )
-    return "DO $placement$ BEGIN " + "\n".join(checks) + " END $placement$;"

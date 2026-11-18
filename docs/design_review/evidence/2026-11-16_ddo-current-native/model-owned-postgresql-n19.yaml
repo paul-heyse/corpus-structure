@@ -1,0 +1,4 @@
+# Capture the typed publication readers and exact operation-event score acquisition.
+baseline: HEAD
+native_predecessor: semantic_ddo_pe_n18
+native_revision: semantic_ddo_pe_n19

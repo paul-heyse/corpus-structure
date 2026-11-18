@@ -289,35 +289,63 @@ def test_exact_binding_refuses_mismatched_semantic_pin_and_address_placement():
 
 
 def test_finite_readers_resolve_both_placement_coordinates_and_guard_before_projection():
-    from pglast import parse_sql
+    from pglast import ast, enums, parse_plpgsql, parse_sql
+    from pglast.stream import RawStream
     from sqlalchemy.dialects.postgresql import dialect
 
     statements = published_read_statements()
-    assert set(statements) == {
-        "sections",
-        "section_nodes",
-        "items",
-        "region",
-        "section_reports",
-        "item_page",
-        "regions",
-        "region_batch",
-        "item_ancestors",
+    selectors = {
+        "sections": (),
+        "section_nodes": ("p_section", "p_membership"),
+        "items": ("p_pointers",),
+        "region": ("p_pointer", "p_region_index"),
+        "section_reports": ("p_pointers", "p_sections"),
+        "item_page": ("p_section", "p_membership", "p_pointer", "p_after", "p_limit"),
+        "regions": ("p_pointer",),
+        "region_batch": ("p_pointers",),
+        "item_ancestors": ("p_pointer",),
     }
+    assert set(statements) == set(selectors)
     for statement in statements.values():
         params = statement.compile(dialect=dialect()).params
         assert {"_native_build_id", "_native_revision_id"} <= params.keys()
-    sql = published_readers_sql()
-    assert parse_sql(sql)
-    for block in sql.split("CREATE OR REPLACE FUNCTION ")[1:]:
-        if block.split("(", 1)[0].endswith("_rows"):
-            assert "LANGUAGE sql STABLE SECURITY INVOKER" in block
-            assert "BEGIN ATOMIC" in block
-            assert "FROM PUBLIC" in block
-            assert "GRANT EXECUTE" not in block
-            continue
-        assert block.index("INTO STRICT published") < block.index("RETURN QUERY")
-        assert "ops.require_pdf_operation(published.release_id,'read_native_source')" in block
+    parsed = parse_sql(published_readers_sql())
+    declarations = [raw.stmt for raw in parsed if isinstance(raw.stmt, ast.CreateFunctionStmt)]
+    assert len(declarations) == 18
+    grants = [raw.stmt for raw in parsed if isinstance(raw.stmt, ast.GrantStmt)]
+    assert len(grants) == 45  # Each private/public pair revokes PUBLIC and grants three readers.
+    for declaration in declarations:
+        assert declaration.funcname and declaration.parameters and declaration.returnType
+        name = declaration.funcname[-1].sval
+        private = name.endswith("_rows")
+        family = name.removeprefix("read_pdf_published_").removesuffix("_rows")
+        arguments = tuple(parameter.name for parameter in declaration.parameters if parameter.mode != enums.FunctionParameterMode.FUNC_PARAM_TABLE)
+        expected = ("p_build", "p_revision") if private else ("p_task", "p_product", "p_digest")
+        assert arguments == (*expected, *selectors[family])
+        assert declaration.returnType.setof
+        assert tuple(parameter.name for parameter in declaration.parameters if parameter.mode == enums.FunctionParameterMode.FUNC_PARAM_TABLE) == tuple(statements[family].selected_columns.keys())
+        options = {option.defname: option.arg for option in declaration.options or ()}
+        assert options["volatility"].sval == "stable"
+        allowed = {
+            role.rolename for grant in grants if grant.is_grant
+            and any(target.objname[-1].sval == name for target in grant.objects or ())
+            for role in grant.grantees or ()
+        }
+        if private:
+            assert options["language"].sval == "sql"
+            assert "security" not in options or not options["security"].boolval
+            assert declaration.sql_body is not None and "as" not in options
+            assert allowed == set()
+        else:
+            assert options["language"].sval == "plpgsql"
+            assert options["security"].boolval
+            assert allowed == {"corpus_sem_reader", "corpus_sem_writer", "corpus_sem_evaluator"}
+            assert parse_plpgsql(RawStream()(declaration))
+            body = options["as"][0].sval
+            assert body.index("INTO STRICT published") < body.index("PERFORM ops.require_pdf_operation") < body.index("RETURN QUERY")
+            assert "'read_native_source'" in body
+            if family != "sections":
+                assert body.index("ERRCODE = '22023'") < body.index("RETURN QUERY")
 
 
 def test_selected_projection_refuses_absent_consumer_context_before_any_query():
@@ -447,3 +475,43 @@ def test_explicit_native_section_scope_does_not_expand_to_root_body():
     assert select_published_sections(
         rows, (), "descendants", dict(kind="native_sections", sections=["Target"])
     ) == ("#/groups/1",)
+
+
+@pytest.mark.parametrize(
+    "family,expected",
+    [
+        ("items", "p_pointers IS NULL OR array_position(p_pointers,NULL) IS NOT NULL"),
+        ("region_batch", "p_pointers IS NULL OR array_position(p_pointers,NULL) IS NOT NULL"),
+        ("section_reports", "p_pointers IS NULL OR p_sections IS NULL OR array_position(p_pointers,NULL) IS NOT NULL OR array_position(p_sections,NULL) IS NOT NULL"),
+        ("region", "p_pointer IS NULL OR p_region_index IS NULL OR p_region_index<0"),
+        ("item_page", "p_membership IS NULL OR p_membership NOT IN ('direct','descendants') OR p_after IS NULL OR p_after< -1 OR p_limit IS NULL OR p_limit<1 OR p_limit>1000"),
+        ("regions", "p_pointer IS NULL"),
+        ("item_ancestors", "p_pointer IS NULL"),
+        ("section_nodes", """p_section IS NULL OR p_membership IS NULL OR p_membership NOT IN ('direct','descendants')
+        OR NOT EXISTS(SELECT 1 FROM kb.pdf_record_access a
+        WHERE a.product_id=published.build_id AND a.revision_id=published.build_id AND a.pointer=p_section
+        AND (a.label IN ('section','chapter') OR (p_section='#/body' AND p_membership='direct'
+        AND a.parent_pointer IS NULL AND a.content_layer='body' AND a.native_json->>'self_ref'='#/body')))"""),
+    ],
+)
+def test_published_reader_selector_refusals_preserve_independent_predicates(family, expected):
+    from pglast import parse_sql
+    from sqlalchemy.dialects.postgresql import dialect
+    from sqlalchemy.sql.elements import ClauseElement
+
+    from corpus_structure.semantic.metadata import metadata
+    from corpus_structure.semantic.native_program import Raise, core_variable
+    from corpus_structure.semantic.published_document import (
+        _published_read_guards,
+        _published_read_selectors,
+    )
+
+    statement = published_read_statements()[family]
+    publication = metadata.tables["ops.pdf_published_revision"]
+    published = {field.name: core_variable("published", field.type, field.name) for field in publication.c}
+    (guard,) = _published_read_guards(family, _published_read_selectors(family, statement), metadata.tables["kb.pdf_record_access"], published)
+    assert isinstance(guard.condition, ClauseElement)
+    actual = str(guard.condition.compile(dialect=dialect(), compile_kwargs={"literal_binds": True}))
+    assert parse_sql("SELECT " + actual)[0].stmt == parse_sql("SELECT " + expected)[0].stmt
+    (refusal,) = guard.then
+    assert isinstance(refusal, Raise) and refusal.sqlstate == "22023"

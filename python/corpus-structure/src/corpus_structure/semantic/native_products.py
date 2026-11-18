@@ -136,6 +136,7 @@ def capture_native_authoring_inputs(
                 "native_products.py",
                 "companion_projection.py",
                 "companion_projection_native.py",
+                "published_document.py",
                 "projection_recipe.py",
                 "archive_projection_native.py",
                 "runtime_binding_native.py",
