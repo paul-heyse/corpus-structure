@@ -96,6 +96,13 @@ def test_captured_sql_scope_projection_follows_its_domain_function_providers():
     assert providers <= calls
     assert all(declarations[provider][0] < index for provider in providers)
     assert declarations[("ops", "ddo_scope")][0] < index
+    population = ("ops", "ddo_discovery_role_population")
+    visibility = ("ops", "ddo_read_visible")
+    index, discovery = declarations[population]
+    calls.clear()
+    Calls()(prepare_sql(body_source(discovery), source="captured-discovery-body").private_tree())
+    assert visibility in calls
+    assert declarations[visibility][0] < index
 
 
 def test_core_projection_capture_consumes_explicit_counterfactual_metadata_without_ambient_fallback(
