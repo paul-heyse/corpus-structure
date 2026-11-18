@@ -281,22 +281,49 @@ def test_actual_native_currentness_pins_target_and_continuation(declared_serving
         )
         assert all(row.member.subject != "not-in-demand" for row in uncorroborated.items)
         assert any("supplied population differs" in reason for reason in uncorroborated.unknowns)
-        if first.continuation is not None:
-            second = inspect_change_impact(
-                connection,
-                request.model_copy(update={"cursor": first.continuation}),
-                target_prepared=stage.prepared,
-            )
-            assert second.comparison_id == first.comparison_id
-            assert second.items[0].member != first.items[0].member
-            with pytest.raises(ValueError, match=r"comparison|scope"):
+        assert first.continuation is not None
+        second = inspect_change_impact(
+            connection,
+            request.model_copy(update={"cursor": first.continuation}),
+            target_prepared=stage.prepared,
+        )
+        assert second.comparison_id == first.comparison_id
+        assert second.items[0].member != first.items[0].member
+        import base64
+
+        from corpus_structure.semantic.data_operation_json import json_loads
+
+        cursor = json_loads(base64.urlsafe_b64decode(first.continuation))
+        pins = {
+            "read_id": cursor["before_read"],
+            "expected_cut": cursor["before_cut"],
+            "target_read_id": cursor["target_read"],
+            "expected_target_cut": cursor["target_cut"],
+        }
+        assert all(pins.values())
+        matching = inspect_change_impact(
+            connection,
+            request.model_copy(update={"cursor": first.continuation, **pins}),
+            target_prepared=stage.prepared,
+        )
+        assert matching == second
+        for field in pins:
+            with pytest.raises(ValueError, match="conflicts with explicit " + field):
                 inspect_change_impact(
                     connection,
                     request.model_copy(
-                        update={"cursor": first.continuation, "scope": {"subject": "other"}}
+                        update={"cursor": first.continuation, **pins, field: "wrong"}
                     ),
                     target_prepared=stage.prepared,
                 )
+        with pytest.raises(ValueError, match=r"comparison|scope"):
+            inspect_change_impact(
+                connection,
+                request.model_copy(
+                    update={"cursor": first.continuation, "scope": {"subject": "other"}}
+                ),
+                target_prepared=stage.prepared,
+            )
         assert first.before_cut["project_id"] == stage.project_id
         with pytest.raises(ValueError, match="project"):
             inspect_change_impact(
@@ -304,6 +331,49 @@ def test_actual_native_currentness_pins_target_and_continuation(declared_serving
                 request.model_copy(update={"project_id": "wrong"}),
                 target_prepared=stage.prepared,
             )
+
+
+def test_native_source_free_project_population_survives_currentness_acquisition(
+    declared_serving_case,
+):
+    from corpus_structure.semantic.data_operation_demands import (
+        DemandPlanner,
+        RootSubject,
+        freeze_demand,
+    )
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    model = stage.kernel.preparation.model
+    subjects = {"currentness:project:A", "currentness:project:B"}
+    frozen = freeze_demand(
+        model,
+        roots=tuple(RootSubject(subject, None, b"{}") for subject in sorted(subjects)),
+        targets=("urn:ddo-test:source",),
+        inference="actual-source-free-currentness",
+        execution_profile="execution:test",
+    )
+    with clone.writer.begin() as connection:
+        demand = DemandPlanner(model, DataOperationStorage(connection)).register(
+            frozen,
+            project=stage.project_id,
+            release=stage.prepared.release_id,
+            runtime=stage.runtime,
+        )["demand_id"]
+    request = ChangeImpactRequest(
+        project_id=stage.project_id,
+        before_demand_id=demand,
+        target_demand_id=demand,
+        target_release_id=stage.prepared.release_id,
+    )
+    with clone.reader.begin() as connection:
+        observed = inspect_change_impact(connection, request, target_prepared=stage.prepared)
+    assert observed.complete and observed.items
+    assert {row.member.subject for row in observed.items} == subjects
+    assert {row.member.original_source for row in observed.items} == {None}
+    assert {row.state for row in observed.items} == {"awaiting"}
+    assert all(row.member.analyzed_scope == {} for row in observed.items)
+    assert all("target_execution_not_settled" in row.reasons for row in observed.items)
 
 
 def test_population_context_uses_jsonb_number_meaning_without_bool_or_string_conflation():

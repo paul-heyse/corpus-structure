@@ -102,14 +102,20 @@ def build_declared_agent_recipe(
         demand = planner.register(
             frozen, project="ddo-test", release=kernel.prepared.release_id, runtime=kernel.runtime
         )["demand_id"]
-        (producer,) = planner.ready(planner.resume(demand), authorization=b"{}")
+        source_snapshot = planner.resume(demand)
+    with writer.begin() as connection:
+        planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+        (producer,) = planner.ready(source_snapshot, authorization=b"{}")
     source_claim = claim(kernel, json.loads(producer.native))
     source_receipt = publish(
         kernel, source_claim, retain(kernel, source_claim, outputs=recipe.source_values)
     )
     with writer.begin() as connection:
         planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-        (external,) = planner.ready(planner.resume(demand), authorization=b"{}")
+        external_snapshot = planner.resume(demand)
+    with writer.begin() as connection:
+        planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+        (external,) = planner.ready(external_snapshot, authorization=b"{}")
     external_claim = claim(kernel, json.loads(external.native))
     with writer.begin() as connection:
         packet = DataOperationStorage(connection).retain_external_data_packet(

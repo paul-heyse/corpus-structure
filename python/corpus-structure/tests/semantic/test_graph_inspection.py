@@ -9,6 +9,8 @@ from corpus_structure.semantic.graph_inspection import (
     GraphSnapshot,
     inspect_graph,
 )
+from semantic.declared_scenarios import declared_serving_case as declared_serving_case
+from semantic.declared_scenarios import declared_serving_seed as declared_serving_seed
 
 
 def snapshot():
@@ -222,3 +224,42 @@ def test_selected_continuation_checks_explicit_pins_before_reader(field, pin, ex
     else:
         with pytest.raises(ReaderEntered):
             read_graph_inspection(reader, selected)
+
+
+def test_actual_selected_graph_continuation_preserves_and_refuses_explicit_pins(
+    declared_serving_case,
+):
+    import base64
+
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.graph_inspection import read_graph_inspection
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    selected = GraphInspectionRequest(
+        release_id=stage.prepared.release_id,
+        demand_id=stage.demand_id,
+        project_id=stage.project_id,
+        projection="bound-requests",
+        limit=1,
+    )
+    first = read_graph_inspection(clone.reader.begin, selected)
+    assert first.standing == "complete" and first.continuation is not None
+    omitted = read_graph_inspection(
+        clone.reader.begin, selected.model_copy(update={"cursor": first.continuation})
+    )
+    assert omitted.snapshot_id == first.snapshot_id
+    assert omitted.items != first.items
+    cursor = json_loads(base64.urlsafe_b64decode(first.continuation))
+    pins = {"read_id": cursor["read_id"], "expected_cut": cursor["cut"]}
+    assert all(pins.values())
+    matching = read_graph_inspection(
+        clone.reader.begin,
+        selected.model_copy(update={"cursor": first.continuation, **pins}),
+    )
+    assert matching == omitted
+    for field in pins:
+        with pytest.raises(ValueError, match="invalid selected graph continuation"):
+            read_graph_inspection(
+                clone.reader.begin,
+                selected.model_copy(update={"cursor": first.continuation, **pins, field: "wrong"}),
+            )
