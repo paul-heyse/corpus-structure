@@ -338,9 +338,10 @@ def test_dependency_affinity_frees_content_and_cold_controls(tmp_path, coarse):
         )
     source = """import pytest
 from pathlib import Path
+from test_preparation import preparation_fixture
 @pytest.fixture(scope="session")
 def spike_content(): return object()
-@pytest.fixture(scope="session")
+@preparation_fixture("math_preparation", scope="session")
 def spike_readings(spike_content):
     with Path("read-count").open("a") as handle: handle.write("read\\n")
     return object()
@@ -405,7 +406,7 @@ def test_actual_math_collection_preparation_inventory(tmp_path):
     shared = {
         "python/corpus-structure/tests/math/test_property.py::test_corpus_layer_on_the_spike_pages",
         "python/corpus-structure/tests/math/test_spans.py::test_m09_on_the_spike_pages",
-        "python/corpus-structure/tests/math/test_scope.py::test_core_standing_contexts",
+        "python/corpus-structure/tests/math/test_scope.py::test_annotated_scopes_reported",
     }
     assert shared <= grouped
     # The controlled transport oracle takes retained content only and prepares its own Normal

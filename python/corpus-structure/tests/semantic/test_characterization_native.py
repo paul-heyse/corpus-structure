@@ -85,6 +85,7 @@ def positioned_formal(profiles):
     )
 
 
+@pytest.mark.parametrize("characterization_source", ["unprojected-formula"], indirect=True)
 def test_native_current_publication_replay_keeps_partial_family_and_exact_product(
     characterization_source,
 ):

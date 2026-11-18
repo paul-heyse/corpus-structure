@@ -41,7 +41,7 @@ def test_complete_docling_json_export_preserves_native_shape(published_pdf_sourc
 
 
 def test_published_capture_clones_share_one_conversion_and_refuse_new_work(
-    scenario_seeds, monkeypatch
+    scenario_seeds, monkeypatch, tmp_path
 ):
     from dataclasses import replace
 
@@ -87,6 +87,11 @@ def test_published_capture_clones_share_one_conversion_and_refuse_new_work(
             ):
                 source.register(connection, "source.pdf/capture")
     assert calls == [scenario.content]
+    with (
+        pytest.raises(ValueError, match="scenario needs a writable binding"),
+        scenario_seeds.commit_clone(scenario.bind(tmp_path / "writable-only")),
+    ):
+        pytest.fail("a bound PDF recipe was sealed")
     changed = replace(
         scenario, content=section_content((("text", "Different retained source", "", None),))
     )
