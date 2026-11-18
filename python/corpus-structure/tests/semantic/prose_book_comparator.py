@@ -20,6 +20,7 @@ from unittest.mock import patch
 
 from lark import UnexpectedInput
 
+from corpus_structure.semantic.characterization_ports import _ConstructionInputs
 from corpus_structure.semantic.construction_products import PreparedConstructionProfile
 from corpus_structure.semantic.constructions import forest
 from corpus_structure.semantic.constructions.declarations import GRAMMAR_FAMILIES
@@ -239,7 +240,8 @@ def compare_whole_book_construction(
         port._verify()
         inputs = port._inputs(values, binding)
         if (
-            inputs.source.value["source"]["document"] != BOOK_DOCUMENT
+            not isinstance(inputs, _ConstructionInputs)
+            or inputs.source.value["source"]["document"] != BOOK_DOCUMENT
             or not inputs.formal
             or inputs.native is None
         ):
