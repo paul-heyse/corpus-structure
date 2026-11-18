@@ -16,30 +16,35 @@ from corpus_structure.semantic.data_operation_identity import (
     canonical_identity,
 )
 from corpus_structure.semantic.data_operation_json import json_bytes
-from semantic.data_operation_identity_vectors import CONTEXTUAL_PRODUCTS, JSON_MEANING_VECTORS
+from semantic.data_operation_identity_vectors import (
+    CONTEXTUAL_PRODUCTS,
+    JSON_MEANING_VECTORS,
+    REQUEST,
+)
 
 
 @pytest.mark.db
 @pytest.mark.parametrize("vector", CONTEXTUAL_PRODUCTS, ids=lambda vector: vector.name)
 def test_deployed_contextual_product_identity_matches_literal(vector, native_read):
-    value = {
-        "body": "body:one",
-        "kind": "kind:one",
-        "subject": "local",
-        "subject_context": {
-            "project_id": vector.project,
-            "subject": "local",
-            "subject_definition": "document",
-            "original_source": vector.source,
-            "analyzed_scope": json.loads(vector.scope),
-        },
-    }
+    value = vector.native_json()
+    assert vector.context.scope.decode() in value
     connection = native_read
     actual = connection.execute(
         text("SELECT data.ddo_identity('product', data.ddo_json_meaning(CAST(:value AS jsonb)))"),
-        {"value": json.dumps(value)},
+        {"value": value},
     ).scalar_one()
     assert actual == "product:" + sha256(vector.literal).hexdigest()
+
+
+@pytest.mark.db
+def test_deployed_request_identity_matches_literal(native_read):
+    actual = native_read.execute(
+        text(
+            "SELECT data.ddo_identity('semantic-request', data.ddo_json_meaning(CAST(:value AS jsonb)))"
+        ),
+        {"value": REQUEST.native_json()},
+    ).scalar_one()
+    assert actual == "semantic-request:" + sha256(REQUEST.literal).hexdigest()
 
 
 @pytest.mark.db

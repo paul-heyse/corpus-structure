@@ -29,38 +29,58 @@ from corpus_structure.semantic.data_operation_identity import (
     semantic_value,
 )
 from corpus_structure.semantic.data_operation_model import SubjectContext
-from semantic.data_operation_identity_vectors import CONTEXTUAL_PRODUCTS
+from semantic.data_operation_identity_vectors import CONTEXTUAL_PRODUCTS, REQUEST, SubjectVector
+
+
+def _context(vector: SubjectVector) -> SubjectContext:
+    return SubjectContext(
+        vector.project,
+        vector.subject,
+        vector.source,
+        vector.scope,
+        subject_definition=vector.definition,
+    )
 
 
 @pytest.mark.parametrize("vector", CONTEXTUAL_PRODUCTS, ids=lambda vector: vector.name)
 def test_contextual_product_has_independent_literal_identity(vector):
-    context = SubjectContext(
-        vector.project, "local", vector.source, vector.scope, subject_definition="document"
+    actual = contextual_product_identity(
+        kind=vector.kind, context=_context(vector.context), body=vector.body
     )
-    actual = contextual_product_identity(kind="kind:one", context=context, body="body:one")
     assert actual.canonical_input == vector.literal
     assert actual.key == "product:" + sha256(vector.literal).hexdigest()
 
 
 def test_contextual_product_domain_nesting_and_local_subject_are_determinants():
     vector = CONTEXTUAL_PRODUCTS[0]
-    context = SubjectContext(
-        vector.project, "local", vector.source, vector.scope, subject_definition="document"
-    )
-    actual = contextual_product_identity(kind="kind:one", context=context, body="body:one")
+    context = _context(vector.context)
+    actual = contextual_product_identity(kind=vector.kind, context=context, body=vector.body)
     value = {
-        "body": "body:one",
-        "kind": "kind:one",
-        "subject": "local",
+        "body": vector.body,
+        "kind": vector.kind,
+        "subject": vector.context.subject,
         "subject_context": context.identity_record,
     }
     assert canonical_identity("other-product", value).canonical_input == vector.literal.replace(
         b'"ddo","product"', b'"ddo","other-product"', 1
     )
     assert canonical_identity("other-product", value).digest != actual.digest
-    flattened = {"body": "body:one", "kind": "kind:one", **context.identity_record}
+    flattened = {"body": vector.body, "kind": vector.kind, **context.identity_record}
     assert canonical_identity("product", flattened).digest != actual.digest
     assert len({sha256(vector.literal).hexdigest() for vector in CONTEXTUAL_PRODUCTS[:4]}) == 4
+
+
+def test_request_identity_has_independent_literal_frame():
+    actual = SemanticRequestKey(
+        REQUEST.recipe,
+        REQUEST.context.subject,
+        REQUEST.inputs,
+        REQUEST.parameters,
+        REQUEST.inference,
+        subject_context=_context(REQUEST.context),
+    ).identity
+    assert actual.canonical_input == REQUEST.literal
+    assert actual.key == "semantic-request:" + sha256(REQUEST.literal).hexdigest()
 
 
 @pytest.mark.parametrize(
@@ -405,7 +425,7 @@ def test_request_equivalence_is_separate_from_mutable_admission_and_runtime_cust
 
 
 def test_request_context_is_complete_and_immutable():
-    def key(project="project", source="original", scope=b'{"page":1}'):
+    def key(project="project", source="original", scope=b'{"page":1}', definition="document"):
         return SemanticRequestKey(
             "recipe",
             "local",
@@ -413,7 +433,7 @@ def test_request_context_is_complete_and_immutable():
             {},
             "inference",
             subject_context=SubjectContext(
-                project, "local", source, scope, subject_definition="document"
+                project, "local", source, scope, subject_definition=definition
             ),
         ).identity
 
@@ -424,9 +444,10 @@ def test_request_context_is_complete_and_immutable():
                 key(project="other").key,
                 key(source="other").key,
                 key(scope=b'{"page":2}').key,
+                key(definition="passage").key,
             }
         )
-        == 4
+        == 5
     )
     assert key(scope=b'{ "page" : 1 }') == key()
     assert key(scope=b'{"page":1.0}') == key()
