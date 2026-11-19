@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "id": "udm21.first-adoption",
+  "title": "Canonical intent reconciliation, original custody and first activation",
+  "group": null,
+  "package": "UDM-21",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the original book intent be reconciled from retained custody and N29 activated with the verified originals?",
+  "answers": [
+    "UDM-20 canonical standing",
+    "UDM-21 first adoption"
+  ],
+  "method": "Verify the historical archive with its version-matched reader. Compare every original against the reviewed inventory. Reconcile one exact native intent and independently read the receipt before guarded activation.",
+  "commands": [
+    "ci db check --release release:39b654165bfeec988e53c9d96871e59038eed3281dd8b08713ff05d48cacff3f --target development",
+    "ci release check --release release:39b654165bfeec988e53c9d96871e59038eed3281dd8b08713ff05d48cacff3f --target development",
+    "python verify_originals.py --release release:39b654165bfeec988e53c9d96871e59038eed3281dd8b08713ff05d48cacff3f",
+    "python reconcile_intent.py --commit --statement-timeout 360",
+    "ci release activate release:39b654165bfeec988e53c9d96871e59038eed3281dd8b08713ff05d48cacff3f --project nce-grinstead-snell-full-book --target development --expected-generation 4",
+    "ci release check --project nce-grinstead-snell-full-book --target development"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "README.md",
+      "role": "first-adoption-account",
+      "sha256": "cdd5b4ef7fae0656cc7d8ecbb7b20d6177f61c0b0efa56f0d50184e7bb7920a0"
+    },
+    {
+      "path": "raw",
+      "role": "acquired-canonical-readback",
+      "sha256": "c52d496e22841506a5bb2311ee823e7ee24cecf385b59f4ba8bdf5e2e163d7cf"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "verified_original_descriptors",
+      "value": 29,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "verified_local_paths",
+      "value": 28,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "reconciled_publications",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "canonical_book_generation",
+      "value": 5,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Canonical reconciliation published the original producer's one retained answer. The 29 originals and their 28 local paths matched the inventory. N29 activated the book at generation 5.",
+  "consumed_by": [
+    "UDM-20",
+    "UDM-21",
+    "UDM-23"
+  ]
+}

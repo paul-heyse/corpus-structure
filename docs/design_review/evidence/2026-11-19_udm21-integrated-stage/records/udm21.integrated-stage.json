@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "udm21.integrated-stage",
+  "title": "Actual Nemotron inference and restored launcher generation on N35",
+  "group": null,
+  "package": "UDM-21",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does one Integrated page invoke actual Nemotron inference and restore the owned launcher generation?",
+  "answers": [
+    "UDM-21 Integrated provider qualification"
+  ],
+  "method": "Run one new physical page through the admitted Integrated profile using matching archived source. Compare service and native receipt observations before and after.",
+  "commands": [
+    "ci ingest --source-root SOURCE_ROOT --request build/udm20-23/cold-request.json --json",
+    "curl -fsS http://127.0.0.1:8035/corpus/generation",
+    "curl -fsS http://127.0.0.1:8035/is_sleeping",
+    "curl -fsS http://127.0.0.1:8035/metrics"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "native-and-provider-readback",
+      "sha256": "301054754663498f6745c4006d2f4bcd2002ec65306d561eff34e3123b4338f1"
+    }
+  ],
+  "depends_on": [
+    "udm21.first-adoption"
+  ],
+  "results": [
+    {
+      "name": "completed_provider_requests",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "published_native_receipts",
+      "value": 5,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "One previously unseen page made two completed Nemotron requests. All five native operations fulfilled and the launcher returned to the same generation and sleep state.",
+  "consumed_by": [
+    "UDM-21",
+    "UDM-22"
+  ]
+}

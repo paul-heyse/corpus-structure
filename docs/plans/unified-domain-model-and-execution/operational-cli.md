@@ -1,7 +1,7 @@
 # Operational CLI: exact recovery, attributed observation and managed stop
 
-**Status:** Proposed. UDM-26 and UDM-27 are not started. Writing this plan authorizes no
-implementation.
+**Status:** Implemented source and scoped controls tested for UDM-26 and UDM-27. Native
+recovery, actual-provider retirement and assembled qualification remain open.
 **Created:** 2026-11-18.
 
 This companion owns **UDM-26**, the operator-facing run, recovery, inspection and change-impact
@@ -389,6 +389,28 @@ outcome. UDM-23 uses the installed command for actual controlled interruption an
 bounded fakes establish refusal/control logic, not actual-provider retirement qualification.
 
 ## Completion and documentation integration
+
+**Tested, 2026-11-19.** The installed passive preview returned its typed account with database
+and GPU acquisition unavailable. The joined `uv run ci test` selection of execution context,
+operational reports, managed stop and model inspection passed all 42 identities
+(`d5ab9e5caa774a199c69e878acb8572f`). It exercised exact fractional values through persisted scope
+and policy, distinct unavailable native views, and authenticated stop across processes. Pending
+stop, stale owner, terminal outcome and unresolved retirement have separate responses. The
+owning checks establish these bounded behaviors. Actual-provider drain and repeat across the
+exact recovered book demand remain in UDM-22 and UDM-23.
+
+An actual stage invocation used `ci run resume --result` and reacquired the original demand after
+its Docling capture had already published (`a725a0505d5a455a8fd7f78386805186`). The organizer
+subsequently refused stale runtime custody. While that invocation was active, the installed
+`ci results watch --seconds 3 --json` returned an available native view and continued execution.
+This closed a live watch defect that tried to read a recovery artifact before settlement.
+The integrated CLI and reader controls passed all 61 selections after that repair
+(`859248a2e468424baa6546ceeab22d5e`).
+
+The [D8 interface](../../design/D8-agent-and-query-interfaces.md#shared-policy-settings-status-and-characterization-resume)
+records the installed preview, managed resume and cooperative stop routes. Capturing a fractional
+scope uses the existing exact DDO JSON codec. Typed model and reuse-explanation reports retain
+their ordinary presentation route.
 
 The coordinator owns live package status and finding disposition. At implementation closure,
 update the CLI architectural owner and relevant operator guidance with the actual command

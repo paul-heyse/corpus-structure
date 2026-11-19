@@ -733,6 +733,17 @@ authority.
 
 #### UDM-10 code-closure follow-up
 
+**Tested increment · 2026-11-19.** Tagged values have a lightweight semantic owner. Direct
+consumers now import the value codec without loading operation identity. The semantic package
+initializer no longer re-exports preparation machinery. Selected reads pass an immutable native
+page and typed selection snapshot to the projection. Cursor encoding has its own small owner,
+the native demand report has a named builder, and callable discovery includes explicitly declared
+owners even when the entry module does not import them. The initial scope passed 245 selected
+controls and the selected-reader scope passed 75. Strict D2 remained prerequisite-blocked.
+The remaining determining contracts include renderer initialization and external behavior,
+authenticated model-derived codec inputs, and finite report policies for each selected family.
+These still govern D2, T4 and T14 in the [qualification companion](qualification.md#code-closure-and-real-reuse-qualification).
+
 **Partial implementation · 2026-11-19.** The bootstrap checks the executing package body and
 the exact sibling loader bytes. Package startup no longer scans the reader module population.
 Workload identity requires explicit callables, records eager initialization separately, and

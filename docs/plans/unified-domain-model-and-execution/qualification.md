@@ -458,8 +458,8 @@ expired, the package says so and proceeds with the existing scoped evidence and 
 
 ### Retained diagnosis and bounded control state — 2026-11-19
 
-**Partial.** Preservation and the historical failure-boundary diagnosis have been executed;
-regional performance reproduction and the remaining transition-head recovery observations remain open. The
+**Partial.** Preservation, the historical failure-boundary diagnosis and the native binding
+repair are verified. Actual regional workload and final composition confirmation remain open. The
 [retained diagnosis](../../design_review/evidence/2026-11-19_udm20-retained-diagnosis/README.md)
 and record `udm20.retained-diagnosis` distinguish recorded facts from unavailable current
 standing. The rest of this package's reproduction and instrumentation protocol remains work to
@@ -527,17 +527,27 @@ still required for transfer; a database outage preventing that proof leaves priv
 preserved and transfer refused. See the diagnosis for durable receipt links and the
 [recovery owner](operation-reuse-and-recovery.md#udm-25) for implementation and acceptance scope.
 
-**Remaining live observations.** Recover the original canonical intent's exact native
-standing through its recorded target when a valid reader is available, or explicitly record
-that it cannot be recovered; a missing stage row is not evidence of absence. The current
-managed inspector reports `NativeResultViolation` rather than that standing. Stage confirmation
-must independently bind OID `130661481` on `18/corpus:5434` and record its actual head,
-application-principal timeout settings, named statement durations/plans and wait state for
-bounded regional settlement, actual native composition, withheld-region behavior and the
-two/four/eight-input binding comparison. No stage instrumentation was applied in this inquiry.
-Neither the original final fan-in, its performance causes/margins, nor current transition-head
-recovery/discovery confirmation is closed by the preserved receipts. Provider and whole-book
-qualification remain UDM-22/23 work.
+**Tested, 2026-11-19, canonical readback.** All nine timed-out sentence tasks were joined to
+their retained scopes and each had zero retained intents and no live lease. The separate
+unpublished formal-evidence intent was reconciled exactly. Native publication preserved task
+24 attempt 1 as the original producer. [Canonical readback](../../design_review/evidence/2026-11-19_udm20-21-canonical/README.md)
+
+**Tested and Measured, 2026-11-19, N35 stage.** The application principals have zero configured
+session statement and lock deadlines. Binding now installs a finite transaction-local deadline
+and preserves a stricter caller deadline. Independent required roles now select each population
+before checking cardinality and coverage. The actual stage probe for eight independent roles
+with 2, 4 and 8 rows per role took 5.063 ms, 982.714 ms and more than 30 s before the change.
+Afterward the plans executed in 0.840 ms, 0.737 ms and 0.754 ms and retained all 16, 32 and 64
+role occurrences. Withholding one role preserved the seven peers and reported the missing
+cardinality. These measurements describe the bounded binding shape. The 88 native binding,
+deadline and claim controls passed together (`d661ac29d9b049288ca16ced6f671936`), including
+exact epoch custody, revocation fencing and lost acknowledgment recovery. [Stage evidence](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/README.md)
+
+**Remaining live observations.** Bounded regional settlement and the actual complete-family
+compositor still need their positive and withheld-input observations on the repaired stage.
+The first provider preparation attempts recorded source-root and stale-factory custody refusals.
+Their diagnostic role settings were restored. Provider and whole-book qualification remain
+UDM-22 and UDM-23 work.
 
 **Early diagnosis and later confirmation.** In the regional reproduction record the last durable
 boundary for the timed-out attempts. Inspect the exact native intent and publication standing
@@ -676,6 +686,17 @@ diagnosis itself (the capture settings, timeouts, sampling interval, scale) are 
 with the reading that shows the capture settings were removed.
 
 ## UDM-21 — Environments at the head
+
+**Tested, 2026-11-19.** Version-matched canonical checks and the authenticated reader verified
+all 29 originals and 28 local paths. Exact replay settled the one pending formal-evidence
+intent and an independent census found no live book leases. Compare-and-set activation
+advanced the book to N29 at generation 5. [First adoption](../../design_review/evidence/2026-11-19_udm20-21-canonical/README.md)
+
+**Tested, 2026-11-19.** The cold Integrated run on N35 and its matching application source
+at `22935afbf` completed two actual Nemotron requests and five native publications for one
+physical page (`31b3a333ee6043a4bc2df36b6e04b529`). The launcher completed sleep and wake.
+The generation response and awake state matched before and after the invocation. This closes
+the bounded Integrated check. [Stage receipt and provider readback](../../design_review/evidence/2026-11-19_udm21-integrated-stage/README.md)
 
 **Vision.** The package finishes the adoption of N29 that the earlier plan left pending, so that
 canonical development and the book project are in a known, checked state before the design
@@ -994,7 +1015,7 @@ only when both accounts are on the same commit.
 
 | Package | State |
 |---|---|
-| UDM-20 | Original managed outcomes and the sealed journal support the historical retain-intent failure boundary. Bounded N31/N32 stage controls establish discovery and conservative settlement at their own heads. Exact canonical intent standing, actual composition and regional timing, and confirmation on the repaired head remain open. [Diagnosis and evidence](#retained-book-diagnosis) |
-| UDM-21 | Not started |
-| UDM-22 | Not started |
-| UDM-23 | Not started |
+| UDM-20 | Canonical exact intent standing, independent role binding, finite deadlines and scoped recovery controls verified. The measured stage binding shape is improved. Regional settlement and complete-family composition remain open. [Diagnosis and evidence](#retained-book-diagnosis) |
+| UDM-21 | Complete. Original custody, exact intent reconciliation and book generation 5 at N29 verified. The actual one-page Integrated provider run and launcher restoration passed on N35. |
+| UDM-22 | `not_run`. Final-source qualification awaits UDM-20 confirmation and complete D2, T4 and T14 workload custody. |
+| UDM-23 | `not_run`. The second canonical adoption and whole-book run await UDM-20 and UDM-22. |

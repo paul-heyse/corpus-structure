@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-19. PostgreSQL stage runs N35 and its matching source-native statistical release at generation 32. Canonical development was last verified at N29. The book project was last verified at N23, generation 4, with a 518-page capture and 3,411 retained sentence occurrences across 20 of 29 regions._
+_Updated 2026-11-19. PostgreSQL stage runs N35 and its matching source-native statistical release at generation 32. Canonical development runs N29, selected by the book at generation 5 after original readback and exact intent reconciliation. The earlier 518-page capture and regional results remain in retained custody._
 
 ## Current owners
 
@@ -15,6 +15,11 @@ _Updated 2026-11-19. PostgreSQL stage runs N35 and its matching source-native st
 
 ## Last verified · 2026-11-19
 
+- **Passed.** The version-matched N29 reader verified 29 originals across 28 local paths. Native reconciliation published one previously unpublished intent. Compare-and-set activation and release readback verified book generation 5. [First adoption](docs/design_review/evidence/2026-11-19_udm20-21-canonical/README.md)
+- **Passed.** The N35 Integrated `ci ingest` ran two genuine Nemotron requests for one page and published five native receipts. Before and after launcher generation and sleep state agreed (`31b3a333ee6043a4bc2df36b6e04b529`). [Provider readback](docs/design_review/evidence/2026-11-19_udm21-integrated-stage/README.md)
+- **Passed.** The 88 native binding, deadline and claim controls passed (`d661ac29d9b049288ca16ced6f671936`). The measured two/four/eight-row role probe established bounded independent selection with a missing-role contrast. [Regional owner](docs/plans/unified-domain-model-and-execution/qualification.md#retained-book-diagnosis)
+- **Passed.** The 42 operational CLI and stop controls passed (`d5ab9e5caa774a199c69e878acb8572f`). Integrated `uv run ci check --only types` (`ab9722cfa3e54549a3a6e9d9fa6e0d13`) and Ruff (`3f2e7184f7a140afbf8164612dc28a23`) passed. [CLI scope](docs/plans/unified-domain-model-and-execution/operational-cli.md#completion-and-documentation-integration)
+- **Passed.** Offline `ci schema native-candidate --expected-predecessor semantic_ddo_pe_n35` compared 620 objects and reported no native change (`72298d09328a4017b8fd1e423e36b68d)). Strict renderer reuse remains with D2.
 - **Passed.** Repository checks via `uv run ci check --view steps` (`a4a1955217224a10adc19cd87049272f`) and `uv run ci docs check` (`7a917d8e1bee4530aee94fc966a6a248`).
 - **Passed.** Private `uv run ci test` verified changed-publisher installation, catalog and TEMP policy (`b15ece5221ec4868ab3f771d729f10be`). The [closure evidence](docs/design_review/evidence/2026-11-19_udm-audit-closure/README.md) records recovery ordering, managed analytics settings and the real GPU PDF resume test.
 
@@ -34,7 +39,7 @@ _Updated 2026-11-19. PostgreSQL stage runs N35 and its matching source-native st
 - **Passed.** `uv run ci check --only types` (`2fc20c5477c2477982bbea0008a4b26d`), `uv run ci check --only lint` (`de2889b5f2cb44b596f1d99a7bcd2c22`), dependency verification, `just model check` and `uv run ci docs check`.
 - **Passed.** `uv run ci test` selected 209 model, archive, CLI, runtime, PDF and serving checks on final source (`be2952456037438093905160b12094d6`). It included native change-impact pagination and private scientific policy admission. Broader provider and book qualification belong to UDM-22 and UDM-23.
 - **Observed.** Eight stage archives retained 187,696,277 declared bytes with eight cache hits on immediate repetition. The original serving-code observation identified 33 source sites. Selected readers derive a fresh page while withholding continuation and cached rows under incomplete identity. [Cache observations](docs/design_review/evidence/2026-11-19_udm13-cache-bounds/README.md)
-- **Partial.** The interrupted book run retained source and downstream work. The retained diagnosis identifies nine settlement timeouts at the completion-intent seal boundary. It cannot recover the original last unresolved intent's exact standing from the retained records. The [diagnosis](docs/plans/unified-domain-model-and-execution/qualification.md#retained-book-diagnosis) owns the narrower verified facts.
+- **Partial.** Canonical readback identifies all nine historical settlement regions and the separate intent that was reconciled. Regional settlement timing and composition are being confirmed on N35. [Diagnosis](docs/plans/unified-domain-model-and-execution/qualification.md#retained-book-diagnosis)
 - **Failed.** `uv run ci evidence check --json` still reports five errors in earlier DDO records (`bff157f214144921bed2e4539ecaf259`). The new UDM code-closure record finalized and the check reported no errors against it.
 - **Passed.** `uv run python docs/design_review/evidence/2026-11-19_udm-code-dependency-closure/probe.py` reproduced the four scans and showed where the analyzer over-includes an uncalled function and misses an indirect import in a bounded fixture. [Probe evidence](docs/design_review/evidence/2026-11-19_udm-code-dependency-closure/README.md)
 - **Passed.** The private authored entity smoke published and read the entity after fixing the live source locations and admitting the released `rich.admit` effect (`f41efa461e9a468d9fdeed434e0372cf` on the final rich-read source). Strict T4 and T14 await complete serving identity.
@@ -47,4 +52,4 @@ _Updated 2026-11-19. PostgreSQL stage runs N35 and its matching source-native st
 ## Next execution
 
 - Complete the [UDM-10 closure follow-up](docs/plans/unified-domain-model-and-execution/programs-identity-and-revisions.md#udm-10-code-closure) for the installed renderer and selected-reader projections. Verify the captured model and external runtime contracts, required initializer effects and semantic page callbacks. D2, T4 and T14 remain open.
-- The [qualification companion](docs/plans/unified-domain-model-and-execution/qualification.md) owns the regional performance reproduction, canonical adoption, the whole-book run and the final qualification union. Chandra OCR remains excluded.
+- Finish regional settlement and complete-family stage composition in the [qualification companion](docs/plans/unified-domain-model-and-execution/qualification.md). Then freeze the final source for the UDM-22 union before final-head canonical adoption and the UDM-23 whole-book run. Chandra OCR remains excluded.

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "cli.bfb03186111247ba9b97cf31e5c02420",
+  "title": "Retained CLI invocation bfb03186111247ba9b97cf31e5c02420",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What evidence did test produce for UDM-26?",
+  "answers": [],
+  "method": "Copy the selected published artifact under the invocation lease.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "invocation.json",
+      "role": "invocation-provenance",
+      "sha256": "ad894cf897446a25985460b5715e87c0e2ed6997cf93390d055292630c5c9d84"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/ordinary",
+      "role": "retained-artifact",
+      "sha256": "992884fd5baafa21c993c25f528ab029b5e40521d52dc844a279a1601e4724fc"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "invocation_outcome",
+      "value": "failed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "The retained invocation settled as failed.",
+  "consumed_by": [
+    "UDM-26"
+  ]
+}

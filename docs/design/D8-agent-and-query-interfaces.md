@@ -207,22 +207,23 @@ Protected inventory-summary SQL is deployed, with bounded native reader qualific
 and scoped native checks do not establish assembled qualification. The BEP checkpoint owns that
 remaining boundary; ADR-0091 owns the selected shared GPU-host foundation.
 
-`ci run resume RUN --characterization` resolves the versioned demand stored once in the first
-actual native run's `options`; later child runs store its anchor reference. It reconstructs the
-frozen source/release/dependency selections and freshness seed even when the named child is
-terminal, creates new runs for unfinished work and reuses exact compatible settled products.
-Original terminal attempts remain terminal. A different result-neutral capacity policy is
-permitted; inference changes use ordinary invalidation/provenance. Managed demand/report artifacts
-are delivered copies, not the sole authority after expiry. Interrupt reporting retains enough
-original binding and created-run/anchor correlation to invoke recovery without rebuilding selectors.
+**Implemented; scoped CLI controls Tested, 2026-11-19.** `ci run preview` shows captured source or
+demand selection, effective execution policy and configured target without acquiring native or
+provider work. `ci run resume --result RESULT_ID` starts a managed invocation from the captured
+request and policy. It resumes the exact native demand when registration already committed.
+The configured route supplies current credentials. Acquired physical target and recorded
+release/runtime are verified before execution. An explicit result-neutral policy override
+records its changed values. `ci run resume DEMAND_ID` accepts a deliberate native demand selection.
 
-`ci run cancel RUN` retains its run scope. Managed-operation cancellation/SIGINT stops its whole
-owned operation and reaches queued/native borrowers, bounded child drain/termination and custody
-restoration. Useful members beyond a cancelled run retain completion rights; future cancellation
-alone never establishes that native work stopped. Source and final consumer pins retain their
-original meaning throughout recovery. Retained characterization performs no new PDF recognition.
-Activation, selection and promotion remain separate explicit effects. The BEP and TC coordinators
-own their current combined consumer/full-book qualification scope.
+`ci run cancel DEMAND_ID` detaches native demand interest. Independent producer interest may
+remain useful. On Linux, `ci results stop RESULT_ID --reason REASON` submits a cooperative request
+to the exact managed owner through its invocation-scoped local control socket. The owner and
+caller check peer credentials, process-start identity and the invocation binding. The execution
+and host owners retain responsibility for admission, drain and custody. Pending, settled and
+unresolved states are reported separately. Source and final consumer pins retain their meaning
+through recovery. Activation, selection and promotion remain explicit effects.
+The [UDM qualification companion](../plans/unified-domain-model-and-execution/qualification.md)
+owns the in-flight provider, shared-interest and combined whole-book controls.
 
 > Decision: [ADR-0091](../adr/0091-gpu-native-environment-boundaries.md)
 
@@ -349,9 +350,10 @@ benefits remain Proposed and qualitative.
 `ci results inspect` selects summary, observations or local timeline with severity/stage/method
 filters and qualified provider/task/attempt identities. A timeline is parent-journal sequence;
 timestamps do not establish a global causal order. Native reader joins verify the acquired
-storage target and retain unavailable/unknown standing. Next actions distinguish native resume
-under the recorded project, managed watch and test-only recovery. `results watch` emits bounded
-append-only stderr updates and one final typed stdout result.
+storage target and retain unavailable or unknown standing. Next actions distinguish exact
+managed recovery, explicit native resume, managed watch and test retry. `results watch` emits
+bounded append-only stderr updates and one final typed stdout result. Exiting watch ends its
+display without changing execution or native interest.
 
 The managed owner admits only its registered observation role for live reads. Complete records
 have a64KiB encoded ceiling; the journal has an8MiB cap. A page independently bounds returned

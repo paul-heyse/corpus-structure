@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "cli.cbb3c92c527a44e384461b02cd735353",
+  "title": "Retained CLI invocation cbb3c92c527a44e384461b02cd735353",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What evidence did test produce for UDM-10?",
+  "answers": [],
+  "method": "Copy the selected published artifact under the invocation lease.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "invocation.json",
+      "role": "invocation-provenance",
+      "sha256": "e44b5a9deec652589464b278753bde536d2d65aedd486dd191ca35d28741cf49"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/ordinary",
+      "role": "retained-artifact",
+      "sha256": "9fccaa0d5b9931a169aea1dd46650a793d0c9d37cce66cb967b48cae1f721a52"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "invocation_outcome",
+      "value": "blocked",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "blocked",
+  "conclusion": "The retained invocation settled as blocked.",
+  "consumed_by": [
+    "UDM-10"
+  ]
+}
