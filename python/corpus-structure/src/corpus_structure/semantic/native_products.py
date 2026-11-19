@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from functools import cached_property
 from hashlib import sha256
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pglast import ast
@@ -36,10 +37,12 @@ class NativeAuthoringProvenance:
 
     model_id: str
     inputs: tuple[tuple[str, str], ...]
+    generator: dict = field(default_factory=dict)
 
     def descriptor_fields(self) -> dict:
         return {
             "model_id": self.model_id,
+            "generator": self.generator,
             "inputs": [{"name": name, "sha256": digest} for name, digest in self.inputs],
         }
 
@@ -83,7 +86,6 @@ def _capture_native_authoring_inputs(
         execution_projection_check_program,
         scientific_layout_program,
     )
-    from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_protocol import data_task_guard_program
     from .data_operation_storage import (
         _native_protocol_sources,
@@ -110,7 +112,10 @@ def _capture_native_authoring_inputs(
         pdf_actions = SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"])
     pdf = (
         pdf_domain_sources(
-            physical_sources=physical, linkml_types=types, actions_source=pdf_actions
+            physical_sources=physical,
+            linkml_types=types,
+            actions_source=pdf_actions,
+            include_producer=False,
         )
         if pdf_sources is None
         else tuple(pdf_sources)
@@ -135,7 +140,6 @@ def _capture_native_authoring_inputs(
     )
     sources = (
         *native,
-        *capture_port_generator_sources(),
         *pdf,
         *(
             SourceArtifact("physical/" + name, content)
@@ -268,10 +272,20 @@ def current_authoring_provenance(
     inputs: NativeAuthoringInputs | None = None,
 ) -> NativeAuthoringProvenance:
     """Fingerprint one explicit current native capture, never an application release."""
+    from .code_identity import capture_code_identity
+
     captured = capture_native_authoring_inputs() if inputs is None else inputs
+    generator = capture_code_identity(
+        Path(__file__).resolve().parents[1],
+        (
+            "corpus_structure.semantic.target_installation",
+            "corpus_structure.semantic.data_operation_artifacts",
+        ),
+    )
     return NativeAuthoringProvenance(
         sha256(captured.model.content).hexdigest(),
         tuple((item.name, item.digest) for item in captured.sources),
+        generator.provenance(),
     )
 
 

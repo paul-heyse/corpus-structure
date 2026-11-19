@@ -210,6 +210,7 @@ classes:
       contract: {range: SemanticText, required: true}
       role: {range: SemanticText, required: true}
       content_digest: {range: SemanticText}
+      reuse_eligible: {range: boolean}
   OperationExternal:
     attributes:
       version: {range: SemanticText, required: true}

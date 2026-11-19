@@ -991,6 +991,11 @@ def verify_detached_result(
                 decode_semantic_value(binding["parameters"]),
                 binding["inference"],
                 subject_context=context,
+                execution_scope=(
+                    record["demand_id"]
+                    if not definition["support_contract"]["reuse_eligible"]
+                    else None
+                ),
             ).identity.key
             if expected != request["request_key"]:
                 raise ValueError("detached request differs from its exact selected meaning")

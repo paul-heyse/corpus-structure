@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import inspect
 import json
 from dataclasses import dataclass, replace
@@ -189,40 +188,12 @@ def execute_canonical_projection(receiver, inventory):
 def canonical_profile_assets():
     from corpus_structure.methods.native_evidence_layers import SPACY_FAMILIES
 
-    source = Path(__file__).read_bytes()
-    module = ast.parse(source)
-    names = {
-        "canonical_packet_values",
-        "canonical_projection_spec",
-        "PreparedCanonicalProfile",
-        "CanonicalProduct",
-    }
-    selected = [
-        (node.name, ast.dump(node, include_attributes=False))
-        for node in module.body
-        if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names
-    ]
-    from .sentence_products import _semantic_nodes
+    from .operation_code_assets import code_asset
 
-    return SourceArtifact(
+    return code_asset(
         "canonical/profile-assets",
-        canonical_bytes(
-            dict(
-                definitions=selected,
-                families=SPACY_FAMILIES[:2],
-                manifests=Path(__file__)
-                .with_name("characterization_manifests.py")
-                .read_bytes()
-                .hex(),
-                annotation_projection=_semantic_nodes(
-                    Path(__file__).with_name("sentence_products.py").read_bytes(),
-                    ("_id", "source_annotation_member_values"),
-                ),
-                original_subject=_semantic_nodes(
-                    Path(__file__).with_name("source_products.py").read_bytes(), ("source_subject",)
-                ),
-            )
-        ),
+        (execute_canonical_projection, PreparedCanonicalProfile.project, canonical_projection_spec),
+        parameters={"families": SPACY_FAMILIES[:2]},
     )
 
 
@@ -240,6 +211,7 @@ def canonical_execution_custody():
     return SourceArtifact(
         "canonical/execution-custody",
         canonical_bytes(dict(files=[(path.name, path.read_bytes().hex()) for path in paths])),
+        runtime_transport=True,
     )
 
 

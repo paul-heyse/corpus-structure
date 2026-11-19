@@ -77,13 +77,19 @@ def table_policy(relation) -> PrivilegePolicy:
 
 
 def desired_policies(metadata, native) -> tuple[PrivilegePolicy, ...]:
+    return declared_policies(
+        metadata, ((obj.identity.schema, obj.catalog.get("acl", ())) for obj in native)
+    )
+
+
+def declared_policies(metadata, object_grants) -> tuple[PrivilegePolicy, ...]:
     tables = [table_policy(table) for table in metadata.sorted_tables]
     usages = {str(table.schema): {PUBLISHER} for table in metadata.sorted_tables}
     for table in tables:
         usages[table["name"].split(".")[0]].update(row[0] for row in table["acl"])
-    for obj in native:
-        usages.setdefault(obj.identity.schema, {PUBLISHER}).update(
-            row[0] for row in obj.catalog.get("acl", ()) if row[0].startswith("corpus_")
+    for schema, grants in object_grants:
+        usages.setdefault(schema, {PUBLISHER}).update(
+            role for role, _, _ in grants if role.startswith("corpus_")
         )
     schemas: list[PrivilegePolicy] = [
         {

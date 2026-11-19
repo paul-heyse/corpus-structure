@@ -208,7 +208,38 @@ def pdf_transform_custody(
             worker_source=worker.read_bytes().hex(),
             interpreter_digest=_file_hash(interpreter),
         )
-    return SourceArtifact("pdf-" + mode + "/execution-custody", canonical_bytes(record))
+    return SourceArtifact(
+        "pdf-" + mode + "/execution-custody",
+        canonical_bytes(record),
+        runtime_transport=True,
+    )
+
+
+def pdf_transform_assets(record):
+    from .operation_code_assets import code_asset
+
+    mode = record["mode"]
+    material = {key: record[key] for key in ("mode", "options", "input_operation")}
+    if mode == "enriched":
+        material["recipe"] = record["native"]["recipe"]
+    if mode == "recognized":
+        material.update(
+            recognition_bytes=record["recognition_bytes"],
+            worker_digest=record["worker_digest"],
+            interpreter_digest=record["interpreter_digest"],
+        )
+    return code_asset(
+        "pdf-" + mode + "/profile-assets",
+        (
+            PreparedPdfTransform.transform,
+            PreparedPdfTransform.recognize,
+            execute_pdf_organization,
+            execute_pdf_enrichment,
+            execute_pdf_integration,
+            execute_pdf_observation,
+        ),
+        parameters=material,
+    )
 
 
 def recognition_policy_asset(record):
@@ -291,6 +322,7 @@ def pdf_transform_operation_sources(mode, **profile):
         ),
         boundary_contracts=(
             custody,
+            pdf_transform_assets(json.loads(custody.content)),
             pdf_helper_asset(),
             *(
                 (recognition_policy_asset(json.loads(custody.content)),)
@@ -1414,6 +1446,7 @@ class PreparedPdfTransformPort:
             self.custody,
             assets=(
                 asset,
+                pdf_transform_assets(record),
                 *((recognition_policy_asset(record),) if self.profile.mode == "recognized" else ()),
             ),
             functions=(

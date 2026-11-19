@@ -14,127 +14,21 @@ from importlib.machinery import PathFinder, SourceFileLoader
 from pathlib import Path
 from types import ModuleType
 
-RICH_QUERY_SOURCES = (
-    "_query_custody.py",
-    "semantic/file_custody.py",
-    "semantic/rich_queries.py",
-    "semantic/selected_query_cache.py",
-    "semantic/demand_results.py",
-    "semantic/demand_queries.py",
-    "semantic/native_source_view.py",
-    "semantic/rich_statistics_queries.py",
-    "serve/rich_queries.py",
-    "serve/rich_knowledge.py",
-    "semantic/rich_graph_validation.py",
-    "semantic/rich_knowledge_contracts.py",
-    "semantic/rich_decisions.py",
-    "semantic/rich_value_graph.py",
-    "semantic/rich_identity_exclusions.py",
-    "semantic/declared_structural_references.py",
-    "semantic/structural_base.py",
-    "semantic/qualification_meaning.py",
-    "semantic/reference_positions.py",
-    "semantic/statement_types.py",
-    "semantic/alias_policy.py",
-    "semantic/label_normalization.py",
-    "core/tex.py",
-    "semantic/source_types.py",
-    "model/semantic/source-vocabularies.yaml",
-    "model/semantic/core.yaml",
-    "model/semantic/observations.yaml",
-    "semantic/data_operation_identity.py",
-    "semantic/data_operation_json.py",
-    "semantic/data_operation_model.py",
-    "semantic/data_operation_ports.py",
-    "semantic/data_operation_support.py",
-    "semantic/data_operation_wire.py",
-    "semantic/property_roles.py",
-    "semantic/identity.py",
-    "semantic/value_codec.py",
-    "semantic/types.py",
-    "semantic/unicode_identity.py",
-    "semantic/graph_runtime.py",
-)
-COMPOSITE_READ_SOURCES = (
-    *(name for name in RICH_QUERY_SOURCES if name != "semantic/rich_statistics_queries.py"),
-    "serve/selected_contributions.py",
-    "serve/contribution_facets.py",
-    "serve/identity_exclusion_comparison.py",
-    "semantic/nonrich_contribution_facets.py",
-    "semantic/candidate_contribution_facets.py",
-    "semantic/data_operation_kind_refinements.py",
-    "semantic/graph_topology.py",
-    "semantic/observations.py",
-    "semantic/structural_products.py",
-    "semantic/artifact_identity.py",
-    "semantic/characterization.py",
-    "semantic/contextual_links.py",
-    "semantic/contribution_facets.py",
-    "semantic/identity_exclusion_comparison.py",
-    "semantic/rich_proposals.py",
-    "semantic/demand_results.py",
-    "semantic/data_operation_read_index.py",
-    "semantic/authority_leaf.py",
-    "semantic/declared_structural_admission.py",
-    "semantic/operation_policy.py",
-    "evaluate/selected_operation_events.py",
-    "evaluate/declared_operation_events.py",
-    "semantic/execution_evidence_leaf.py",
-    "semantic/record_policy_authority.py",
-    "semantic/record_policy.py",
-)
-GROUPED_INTERPRETATION_SOURCES = tuple(
-    dict.fromkeys(
-        (
-            *COMPOSITE_READ_SOURCES,
-            "serve/interpretations.py",
-            "semantic/grouped_record_interpretations.py",
-            "semantic/authored_interpretations.py",
-            "semantic/interpretations.py",
-            "semantic/terminology.py",
-            "serve/interpretation_authoring.py",
-            "methods/record_readings.py",
-            "semantic/record_contracts.py",
-            "semantic/declared_candidate_products.py",
-            "semantic/reading_resolution_products.py",
-            "semantic/finite_interpretation_products.py",
-        )
-    )
-)
-STRUCTURAL_READ_SOURCES = tuple(
-    dict.fromkeys(
-        (
-            *COMPOSITE_READ_SOURCES,
-            "serve/selected_structural.py",
-            "serve/structural_products.py",
-            "serve/structural_gaps.py",
-            "serve/source_decision_journey.py",
-            "serve/selected_structural_admission.py",
-            "serve/selected_math.py",
-            "semantic/source_products.py",
-            "semantic/contextual_operations.py",
-            "semantic/declared_structural_admission.py",
-            "semantic/structural_admission.py",
-        )
-    )
-)
-_CURRENT_READ_SOURCES = tuple(
-    dict.fromkeys(
-        (
-            *RICH_QUERY_SOURCES,
-            *COMPOSITE_READ_SOURCES,
-            *GROUPED_INTERPRETATION_SOURCES,
-            *STRUCTURAL_READ_SOURCES,
-        )
-    )
+# Entry modules declare serving responsibilities. The module walk supplies their
+# complete imported source set before any of their lazy imports run.
+READ_ENTRY_MODULES = (
+    "corpus_structure.serve.rich_queries",
+    "corpus_structure.semantic.demand_queries",
+    "corpus_structure.serve.selected_structural",
+    "corpus_structure.serve.structural_products",
+    "corpus_structure.serve.interpretations",
+    "corpus_structure.serve.contribution_facets",
+    "corpus_structure.serve.identity_exclusion_comparison",
+    "corpus_structure.serve.selected_structural_review",
 )
 _BASE = Path(__file__).resolve().parent
-_NAMES = {
-    "corpus_structure." + name[:-3].replace("/", "."): str(_BASE / name)
-    for name in _CURRENT_READ_SOURCES
-    if name.endswith(".py")
-}
-_KNOWN_PATHS = frozenset(_NAMES.values())
+_NAMES: dict[str, str] = {}
+_KNOWN_PATHS: frozenset[str] = frozenset()
 _EXECUTED: dict[ModuleType, tuple[str, str]] = {}
 _EXPECTED: ContextVar[dict[str, str] | None] = ContextVar("query_source_custody", default=None)
 
@@ -187,13 +81,13 @@ class _CustodyFinder:
         if any(vars(module).get("__name__") == fullname for module in _EXECUTED):
             raise SourceCustodyError("query-helper reload is unsupported; restart the process")
         expected = _EXPECTED.get() or {}
-        if fullname not in _NAMES and not expected:
+        if not fullname.startswith("corpus_structure.") and fullname not in _NAMES and not expected:
             return None
         spec = PathFinder.find_spec(fullname, path, target)
         if spec is None or not isinstance(spec.loader, SourceFileLoader) or spec.origin is None:
             return None
         origin = str(Path(spec.origin).resolve())
-        if origin in _KNOWN_PATHS or origin in expected:
+        if Path(origin).is_relative_to(_BASE) or origin in _KNOWN_PATHS or origin in expected:
             spec.loader = _CapturedLoader(fullname, spec.origin)
             return spec
         return None
@@ -207,6 +101,35 @@ def install(bootstrap_source: bytes) -> None:
     )
     if not any(isinstance(finder, _CustodyFinder) for finder in sys.meta_path):
         sys.meta_path.insert(0, _CustodyFinder())
+    # Discover source without importing target modules. Discovery itself runs
+    # through this already installed loader under its known fixed root.
+    from corpus_structure.semantic.code_identity import capture_code_identity
+
+    global _KNOWN_PATHS
+    # The fixed package bootstrap compiles the captured custody source. Verify
+    # its active function against the current code before promising package bytes.
+    import types
+
+    package = sys.modules["corpus_structure"]
+    package_path = _BASE / "__init__.py"
+    package_source = package_path.read_bytes()
+    compiled = compile(package_source, str(package_path), "exec", dont_inherit=True)
+    expected = next(
+        item
+        for item in compiled.co_consts
+        if isinstance(item, types.CodeType) and item.co_name == "_install_query_custody"
+    )
+    active = vars(package)["_install_query_custody"].__code__
+    if (active.co_code, active.co_names, active.co_consts) != (
+        expected.co_code,
+        expected.co_names,
+        expected.co_consts,
+    ):
+        raise SourceCustodyError("package bootstrap differs; restart the process")
+    _EXECUTED[package] = (str(package_path), sha256(package_source).hexdigest())
+    closure = capture_code_identity(_BASE, READ_ENTRY_MODULES)
+    _NAMES.update((item.module, str(_BASE / item.filename)) for item in closure.modules)
+    _KNOWN_PATHS = frozenset(_NAMES.values())
     from corpus_structure.semantic.file_custody import verified_file
 
     verified_file(Path(__file__).resolve(), sha256(bootstrap_source).hexdigest())
@@ -224,7 +147,7 @@ def _check_loaded(expected: dict[str, str]) -> None:
             or str(Path(vars(module).get("__file__", "")).resolve()) != path
         ):
             raise SourceCustodyError("query-helper module changed; restart the process")
-    known_paths = {str(_BASE / name) for name in _CURRENT_READ_SOURCES if not name.endswith(".py")}
+    known_paths = set(_KNOWN_PATHS)
     for name, path in _NAMES.items():
         if path not in expected:
             continue

@@ -7,7 +7,6 @@ from pydantic import ValidationError
 
 from corpus_structure.evaluate.assessment_graph import assessment_graph_snapshot
 from corpus_structure.semantic.composed import data_operation_dependencies
-from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.data_operation_model import MODEL_VERSION, SubjectContext
@@ -48,7 +47,7 @@ def assessment_recipe():
     )
     native = native_protocol_sources()
     dependencies = data_operation_dependencies(
-        ResolvedDependencies((*native, *capture_port_generator_sources())),
+        ResolvedDependencies(native),
         (source, native_operation_declarations(native)),
         formal_operation_sources(),
     )

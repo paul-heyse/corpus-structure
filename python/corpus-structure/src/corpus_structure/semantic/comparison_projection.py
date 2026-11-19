@@ -49,7 +49,7 @@ class PredicateProjection:
 @dataclass(frozen=True, config=ConfigDict(extra="forbid"))
 class ComparisonProjection:
     abi: Literal["comparison-projection-1"]
-    compiler_version: Literal["24"]
+    compiler_version: Literal["25"]
     operation: Literal["scientific_policy"]
     default: Literal["non-provenance-qualification-is-context-v1"]
     qualifications: tuple[QualificationProjection, ...]

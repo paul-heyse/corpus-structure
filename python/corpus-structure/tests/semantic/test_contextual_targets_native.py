@@ -16,7 +16,6 @@ from corpus_structure.semantic.contextual_operations import (
     contextual_operation_declarations,
 )
 from corpus_structure.semantic.contextual_selection import freeze_contextual_target_demand
-from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
     DiscoverySelection,
@@ -79,7 +78,7 @@ def contextual_target_recipe(tmp_path_factory):
     )
     native = native_protocol_sources()
     dependencies = data_operation_dependencies(
-        ResolvedDependencies((*native, *capture_port_generator_sources())),
+        ResolvedDependencies(native),
         declarations=(
             native_operation_declarations(native),
             contextual_encoder_declarations(),

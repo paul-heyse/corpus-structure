@@ -118,17 +118,8 @@ def test_missing_resolved_native_source_or_duplicate_variant_refuses():
         )
 
 
-def test_captured_generator_and_effective_role_correspondence_cannot_silently_drift():
-    from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
-
+def test_effective_role_correspondence_cannot_silently_drift():
     model, calls = inputs()
-    sources = capture_port_generator_sources()
-    first = sources[0]
-    changed = (replace(first, content=first.content + b"\n# changed"), *sources[1:])
-    with pytest.raises(ValueError, match="differs from captured"):
-        compile_data_operation_artifacts(
-            model, calls, native_source_digest="trusted-native", generator_sources=changed
-        )
     parameter = replace(calls[0][1].parameters[0], name="other")
     call = replace(calls[0][1], parameters=(parameter,))
     with pytest.raises(ValueError, match="role correspondence"):
@@ -136,7 +127,6 @@ def test_captured_generator_and_effective_role_correspondence_cannot_silently_dr
             model,
             ((calls[0][0], call),),
             native_source_digest="trusted-native",
-            generator_sources=sources,
         )
 
 

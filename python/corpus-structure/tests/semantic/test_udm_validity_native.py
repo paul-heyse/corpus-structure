@@ -186,7 +186,7 @@ def test_n29_conversion_and_conservative_settlement(
     reason="requires an explicit observation of the owned transition stage",
 )
 def test_deployed_transition_conservative_settlement(native_settings, tmp_path):
-    from corpus_structure.semantic.migrations import current_revision
+    from corpus_structure.semantic.migrations import current_revision, head_revision
     from corpus_structure.semantic.storage_target import acquired_target
 
     deployment = native_settings.deployment
@@ -203,7 +203,7 @@ def test_deployed_transition_conservative_settlement(native_settings, tmp_path):
                 "corpus_structure_ddo_stage",
                 5434,
             )
-            assert current_revision(connection) == "semantic_ddo_pe_n32"
+            assert current_revision(connection) == head_revision()
         project = "udm-transition-conservative-" + uuid4().hex[:12]
         _conservative_settlement(engine, native_settings, tmp_path, project=project)
     finally:

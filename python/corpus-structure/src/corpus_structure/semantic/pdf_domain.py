@@ -132,7 +132,7 @@ def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=
 
 
 def pdf_domain_sources(
-    *, physical_sources=None, linkml_types=None, actions_source=None
+    *, physical_sources=None, linkml_types=None, actions_source=None, include_producer=True
 ) -> tuple[SourceArtifact, ...]:
     """Acquire current PDF helper assets without an execution catalog/compiler."""
     actions, action_sources, diagnostics = _action_sources(
@@ -149,7 +149,7 @@ def pdf_domain_sources(
 
     sources = (
         *action_sources,
-        *lowering_sources(action_sources),
+        *lowering_sources(action_sources, include_producer=include_producer),
         SourceArtifact(ANALYSIS_RUNTIME, canonical_bytes(dict(analysis_runtime()))),
         SourceArtifact(
             PREFIX + "schema/pdf_products", root.joinpath("pdf-products.yaml").read_bytes()

@@ -7,7 +7,7 @@ import json
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from importlib.metadata import version
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -37,7 +37,7 @@ from .enriched_document_products import (
     compose_enriched_document_values,
     ordered_captured_composition_inputs,
 )
-from .formal_products import FormalEvidenceProduct, _semantic_nodes, retained_formal_product
+from .formal_products import FormalEvidenceProduct, retained_formal_product
 from .identity import canonical_bytes
 from .python_operation_sources import PythonSource, PythonSourceCollection
 from .sentence_products import SourceAnnotations
@@ -45,155 +45,31 @@ from .source_products import FrozenNativeSource, source_subject
 from .types import PreparedRelease, SourceArtifact
 
 
+@lru_cache(maxsize=3)
 def _semantic_assets(profile: str) -> SourceArtifact:
+    from .operation_code_assets import code_asset
+
     root = Path(__file__).parent
-    common = (
-        "established_validity.py",
-        "characterization.py",
-        "characterization_manifests.py",
-        "characterization_evidence.py",
-        "constructions/declarations.py",
-        "constructions/nodes.py",
-    )
-    files = {
-        "construction": (
-            *common,
-            "formal_readings.py",
-            "constructions/forest.py",
-            "constructions/lexical.py",
-            "constructions/layers.py",
-            "constructions/reuse.py",
-            "constructions/named.py",
-            "constructions/named_nominations.py",
-            "constructions/math_scope.py",
-            "constructions/navigation.py",
-            "constructions/navigation_rules.json",
-            "constructions/navigation_coverage.json",
-            "constructions/navigation_native_pieces.json",
-            "constructions/retained_rules.py",
-            "constructions/retained_rules.json",
-            "constructions/grammars/prose.lark",
-        ),
-        "contextual": (*common, "constructions/evaluation.py"),
-        "view": ("enriched_document_products.py",),
+    entries = {
+        "construction": (execute_construction_kernel, PreparedConstructionProfile.run),
+        "contextual": (execute_contextual_kernel, PreparedContextualProfile.run),
+        "view": (execute_view_kernel, compose_enriched_document),
     }
-    selected = {
-        "construction": (
-            "_INVENTORIES",
-            "_MEMBER_VARIANTS",
-            "ConstructionOptions",
-            "CharacterizationSnapshot",
-            "InterpretedProduct",
-            "construction_product_values",
-            "interpreted_product_value",
-            "_requested_regions",
-            "interpreted_member_contracts",
-            "ConstructionProduct",
-            "validate_interpreted_product",
-            "validate_construction_product",
-            "PreparedConstructionProfile",
-        ),
-        "contextual": (
-            "_INVENTORIES",
-            "_MEMBER_VARIANTS",
-            "CharacterizationSnapshot",
-            "InterpretedProduct",
-            "ConstructionProduct",
-            "ContextualMeaningProduct",
-            "PreparedContextualProfile",
-            "contextual_product_values",
-            "interpreted_member_contracts",
-            "validate_interpreted_product",
-        ),
-        "view": (),
-    }
-    if profile not in files:
+    paths = ("model/semantic/data-operation-constructions.yaml",)
+    if profile == "construction":
+        paths += (
+            "semantic/constructions/navigation_rules.json",
+            "semantic/constructions/navigation_coverage.json",
+            "semantic/constructions/navigation_native_pieces.json",
+            "semantic/constructions/retained_rules.json",
+            "semantic/constructions/grammars/prose.lark",
+        )
+    if profile not in entries:
         raise ValueError("unknown concrete characterization asset profile")
-    return SourceArtifact(
+    return code_asset(
         "characterization/" + profile + "-assets",
-        canonical_bytes(
-            dict(
-                source_files=[(name, (root / name).read_bytes().hex()) for name in files[profile]],
-                native_working=_semantic_nodes(
-                    (root / "constructions/matching.py").read_bytes(),
-                    (
-                        "RAW_GROUP",
-                        "Match",
-                        "PreparedConstructions",
-                        "_working_document",
-                        "retained_native_vocab",
-                        "retained_native_documents",
-                    ),
-                )
-                if profile == "construction"
-                else (),
-                named_rule_engine=(root.parent / "methods/annotation_rules.py").read_bytes().hex()
-                if profile == "construction"
-                else None,
-                native_view=(root.parent / "ingest/annotation_views.py").read_bytes().hex()
-                if profile == "construction"
-                else None,
-                typed_profile=_semantic_nodes(
-                    (root / "construction_products.py").read_bytes(), selected[profile]
-                ),
-                kernel=_semantic_nodes(
-                    Path(__file__).read_bytes(),
-                    (
-                        "_semantic_assets",
-                        "_body",
-                        "_ConstructionInputs",
-                        "_ContextualInputs",
-                        "_DocumentInputs",
-                        "PreparedCharacterizationPort._inputs",
-                        "PreparedCharacterizationPort._roles",
-                        "PreparedCharacterizationPort._formal",
-                        "PreparedCharacterizationPort._retained",
-                        "execute_" + profile + "_profile",
-                        "execute_" + profile + "_kernel",
-                    ),
-                ),
-                references=_semantic_nodes(
-                    (root / "data_product_reference.py").read_bytes(),
-                    (
-                        "DataProductReference",
-                        "DataProductMemberReference",
-                        "member_reference",
-                        "read_member_reference",
-                    ),
-                ),
-                native_access=_semantic_nodes(
-                    (root / "sentence_products.py").read_bytes(),
-                    (
-                        "_id",
-                        "source_annotation_member_values",
-                        "source_annotation_rows",
-                        "retained_source_annotation_products",
-                        "validate_source_annotations",
-                    ),
-                )
-                if profile == "construction"
-                else (),
-                source_access=_semantic_nodes(
-                    (root / "source_products.py").read_bytes(),
-                    (
-                        "NativeSourceSelectorIndex",
-                        "FrozenNativeSource.value",
-                        "FrozenNativeSource.selector_index",
-                    ),
-                ),
-                model=(root.parent / "model/semantic/data-operation-constructions.yaml")
-                .read_bytes()
-                .hex(),
-                libraries={
-                    name: version(name)
-                    for name in (
-                        ("lark", "pydantic", "spacy")
-                        if profile == "construction"
-                        else ("pydantic",)
-                    )
-                },
-            )
-        ),
+        entries[profile],
+        tuple((name, root.parent / name) for name in paths),
     )
 
 
@@ -234,6 +110,7 @@ def _execution_custody() -> SourceArtifact:
     return SourceArtifact(
         "characterization/execution-custody",
         canonical_bytes(dict(files=[(name, (root / name).read_bytes().hex()) for name in names])),
+        runtime_transport=True,
     )
 
 

@@ -412,7 +412,7 @@ def definition_admission_native_programs(
                         intent.c.request_id == e("request_id"),
                         intent.c.generation == e("generation"),
                     ),
-                    Assign("r", func.ops.ddo_require_episode_correspondence(e(), i())),
+                    Assign("r", func.ops.ddo_require_episode_definition_correspondence(e(), i())),
                     Return(literal(True)),
                 ),
                 (Return(literal(False)),),

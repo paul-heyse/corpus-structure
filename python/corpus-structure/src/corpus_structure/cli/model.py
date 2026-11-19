@@ -210,6 +210,12 @@ class CandidateOperationCounts(BaseModel):
     ordinary: int = Field(ge=0)
 
 
+class CandidateAuthoringProvenance(BaseModel):
+    model_id: str
+    inputs: list[dict[str, str]]
+    generator: dict
+
+
 class CandidateInspection(EffectGuidance):
     candidate_id: str
     preview_id: str | None
@@ -608,13 +614,13 @@ def _preview_guidance(
                     action_conditions=tuple(conditions),
                 )
         check_preview(root, staged)
-        if staged.request.native_requested and (
+        if staged.effects.native and (
             not staged.authoring_target or staged.authoring_identity is None
         ):
             return EffectGuidance(action_detail="the native authoring target is unavailable")
         conditions = (
             ("verify the bound development target and native predecessor",)
-            if staged.request.native_requested
+            if staged.effects.native
             else ()
         )
         return EffectGuidance(
@@ -1103,9 +1109,9 @@ def inspect_candidate(
     ctx: typer.Context,
     candidate_id: Annotated[str, typer.Argument(metavar="CANDIDATE_ID")],
     view: Annotated[
-        Literal["summary", "operations", "ordinary", "sql", "contract"],
+        Literal["summary", "operations", "ordinary", "sql", "contract", "provenance"],
         typer.Option(
-            help="Select summary, native operations, ordinary Alembic/Python, SQL changes or contract."
+            help="Select summary, native operations, ordinary Alembic/Python, SQL changes, contract or authoring provenance."
         ),
     ] = "summary",
     after: Annotated[
@@ -1193,6 +1199,26 @@ def inspect_candidate(
             binding = Candidate.model_validate_json(
                 _load_artifact(store, candidate_id, "model.candidate", "deployment")
             )
+            if view == "provenance":
+                import os
+
+                from corpus_structure.semantic.native_admission import recorded_authoring_provenance
+
+                if binding.revision is None:
+                    raise ResultError("candidate has no native revision authoring provenance")
+                name = "native_operations.json"
+                with store.open_artifact(candidate_id, "candidate") as (_, directory):
+                    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)
+                    with os.fdopen(fd, "rb") as stream:
+                        raw = stream.read()
+                if sha256(raw).hexdigest() != binding.hashes.get(name):
+                    raise ResultError("frozen native operations differ from candidate binding")
+                provenance = recorded_authoring_provenance(raw)
+                emit(
+                    CandidateAuthoringProvenance.model_validate(provenance.descriptor_fields()),
+                    json=json_,
+                )
+                return
             if view == "contract":
                 from corpus_structure.semantic.contract_inspection import inspect_contract
                 from corpus_structure.semantic.inspection_capsule import open_capsule
@@ -1459,6 +1485,7 @@ def preview(
         ChangeRequest,
         physical_release_sources,
         prepare_preview,
+        preview_native_delta,
     )
     from corpus_structure.schema.model_deployment import (
         capture_authoring_base,
@@ -1481,35 +1508,26 @@ def preview(
             else:
                 raw = read_request_bytes(request)
                 bound = ChangeRequest.model_validate(yaml.safe_load(raw.decode("utf-8")))
-            if bound.native_predecessor and not any(
-                (
-                    bound.deployment,
-                    bound.physical,
-                    bound.logical_sources,
-                    bound.archive_release,
-                    bound.packs,
-                    bound.data_operations,
-                    bound.source_migrations,
-                    bound.retire,
-                    bound.recreate,
-                    bound.data_steps,
+            native_delta = preview_native_delta(root, bound, predecessor=bound.native_predecessor)
+            native = bound.native_effect(native_delta)
+            if (
+                native_delta is not None
+                and native_delta.unchanged
+                and not native
+                and not any(
+                    (
+                        bound.deployment_requested,
+                        bound.physical,
+                        bound.logical_sources,
+                        bound.archive_release,
+                        bound.source_migrations,
+                    )
                 )
             ):
                 from corpus_structure.cli.schema import emit_unchanged_native
-                from corpus_structure.semantic.metadata import get_metadata
-                from corpus_structure.semantic.native_revision_compare import (
-                    unchanged_native_programs,
-                )
-                from corpus_structure.semantic.target_installation import (
-                    capture_target_installation,
-                )
 
-                comparison = unchanged_native_programs(
-                    capture_target_installation(get_metadata()), bound.native_predecessor
-                )
-                if comparison is not None:
-                    emit_unchanged_native(result, comparison, json_=json_)
-                    return
+                emit_unchanged_native(result, native_delta, json_=json_)
+                return
             from corpus_structure.schema.model_explanation import capture_sql_changes
 
             with _retained_sql_explanation(
@@ -1522,19 +1540,19 @@ def preview(
                 authoring_identity = None
                 native_base = None
                 deployment_base = None
-                if bound.native_requested or bound.deployment:
+                if native or bound.deployment_requested:
                     model_stage(result, "bind deployment target")
                     settings = state(ctx).settings()
                     profile, destination = deployment_settings(settings, bound.deployment_profile)
                     target = target_fingerprint(destination)
-                    if bound.native_requested:
+                    if native:
                         authoring_target = target_fingerprint(settings)
                         authoring_identity, native_base = capture_authoring_base(
                             settings, authoring_target, bound.native_predecessor
                         )
                     if profile == "development" and authoring_identity is not None:
                         target_identity, deployment_base = authoring_identity, native_base
-                    elif bound.native_requested:
+                    elif native:
                         target_identity, deployment_base = capture_authoring_base(
                             destination, target, bound.native_predecessor
                         )
@@ -1569,10 +1587,12 @@ def preview(
                 dependencies = None
                 release = None
                 physical_id = None
-                if bound.native_requested:
+                if native:
                     from corpus_structure.schema.physical import physical_sources_id
 
-                    physical_sources = physical_release_sources(root, bound.physical)
+                    physical_sources = physical_release_sources(
+                        root, bound.physical, logical_sources=bound.logical_sources
+                    )
                     if physical_sources is not None:
                         physical_id = physical_sources_id(physical_sources)
                 if bound.archive_release or (
@@ -1580,7 +1600,9 @@ def preview(
                 ):
                     from corpus_structure.schema.physical import physical_sources_id
 
-                    physical_sources = physical_release_sources(root, bound.physical)
+                    physical_sources = physical_release_sources(
+                        root, bound.physical, logical_sources=bound.logical_sources
+                    )
                     if physical_sources is not None:
                         physical_id = physical_sources_id(physical_sources)
                     prepared_inputs = _prepare_release(
@@ -1673,6 +1695,7 @@ def preview(
                     authoring_identity=authoring_identity,
                     native_base=native_base,
                     deployment_base=deployment_base,
+                    native_delta=native_delta,
                     comparison=impact,
                     source_comparison=source_impact,
                     query_analysis=query_analysis,
@@ -1882,6 +1905,7 @@ def candidate(
         check_preview,
         native_intent,
         native_model_inputs,
+        preview_native_delta,
     )
     from corpus_structure.schema.model_deployment import (
         Candidate,
@@ -1937,7 +1961,9 @@ def candidate(
                 }
             )
             with _retained_sql_explanation(result, retained) as sql_holder:
-                revision = staged.request.declared_native_revision
+                revision = (
+                    staged.request.declared_native_revision if staged.effects.native else None
+                )
                 if (
                     not (staged.effects.admission or staged.effects.native)
                     or not staged.target
@@ -1948,6 +1974,15 @@ def candidate(
                 with writer_lock(root):
                     model_stage(result, "verify preview and prepare release")
                     check_preview(root, staged, applied=True)
+                    if not staged.effects.native and staged.effects.native_delta is not None:
+                        reviewed = staged.effects.native_delta
+                        if (
+                            preview_native_delta(
+                                root, staged.request, predecessor=reviewed.head_revision
+                            )
+                            != reviewed
+                        ):
+                            raise ModelError(["native comparison changed after preview"])
                     prepared = None
                     release_inputs = None
                     capsule: bytes | None = None
@@ -2008,13 +2043,10 @@ def candidate(
                             None,
                             expected_predecessor=staged.request.native_predecessor,
                             expected_target=staged.authoring_identity,
-                            **(
-                                {"native_base": staged.native_base}
-                                if staged.native_base is not None
-                                else {}
-                            ),
+                            native_base=staged.native_base,
                             target_metadata=target_metadata,
                             logical_sources=native_model_inputs(root, preview=staged),
+                            reviewed_delta=staged.effects.native_delta,
                             retire=retired,
                             recreate=recreated,
                             data_steps=staged.data_steps,

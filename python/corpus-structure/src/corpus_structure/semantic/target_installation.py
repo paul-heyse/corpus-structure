@@ -123,6 +123,7 @@ def capture_target_installation(
             linkml_types=selected.info["physical_linkml_types"],
             actions_source=pdf_actions
             or SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"]),
+            include_producer=False,
         )
     foundation = foundation_programs(selected, value_codec_source=logical["value-codec.yaml"])
     descriptor = pdf_descriptor_programs()

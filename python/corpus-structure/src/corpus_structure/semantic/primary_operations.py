@@ -149,7 +149,6 @@ def primary_operation_inputs(
         full_document_view_operation_sources,
     )
     from .construction_products import construction_product_inputs
-    from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_storage import native_operation_declarations, native_protocol_sources
     from .declaration_products import declaration_inputs, declaration_operation_sources
     from .formal_products import formal_operation_sources
@@ -477,12 +476,11 @@ def primary_operation_inputs(
                 SourceArtifact("operation-selection.json", canonical_bytes(requested_operations)),
             ),
         )
-    generator = capture_port_generator_sources()
     return PrimaryOperationInputs(
         bundle,
         data_operation_dependencies(
             ResolvedDependencies(
-                (*dependencies.artifacts, *native, *generator),
+                (*dependencies.artifacts, *native),
                 dependencies.vocabularies,
                 dependencies.ontology_sources,
             ),

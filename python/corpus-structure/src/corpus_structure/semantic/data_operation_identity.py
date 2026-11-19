@@ -363,6 +363,8 @@ def validate_opaque_boundary(boundary: Mapping[str, Any]) -> None:
     """Require captured bytes or an immutable resolved contract, for every frontend."""
     for name in ("reference", "contract", "role"):
         _identifier(boundary.get(name), f"opaque boundary {name}")
+    if not isinstance(boundary.get("reuse_eligible", True), bool):
+        raise ValueError("opaque boundary reuse_eligible must be boolean")
     digest = boundary.get("content_digest")
     if digest is None:
         # Resolution/admission belongs to the effective-model owner. A mutable
@@ -506,6 +508,7 @@ class SemanticRequestKey:
     parameters: Any
     inference: str
     subject_context: SubjectContext = field(kw_only=True)
+    execution_scope: str | None = field(default=None, kw_only=True)
     identity: CanonicalIdentity = field(init=False)
 
     def __post_init__(self) -> None:
@@ -525,6 +528,11 @@ class SemanticRequestKey:
                     "inputs": self.inputs,
                     "parameters": self.parameters,
                     "inference": _identifier(self.inference, "request inference policy"),
+                    **(
+                        {"execution_scope": _identifier(self.execution_scope, "execution scope")}
+                        if self.execution_scope is not None
+                        else {}
+                    ),
                 },
             ),
         )

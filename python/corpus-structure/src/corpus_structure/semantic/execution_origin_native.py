@@ -222,6 +222,21 @@ def execution_origin_programs(model, routine, row, rf, obj, reject, lookup):
                 "23514",
             ),
             reject(
+                and_(
+                    row("definition_", definitions, "support_contract")["reuse_eligible"].astext
+                    == "false",
+                    or_(
+                        origin("request_id").is_distinct_from(rf("id")),
+                        origin("generation").is_distinct_from(rf("generation")),
+                        origin("task_id").is_distinct_from(target_task("id")),
+                        origin("attempt").is_distinct_from(target_task("attempt")),
+                        origin("holder").is_distinct_from(target_task("claimed_by")),
+                    ),
+                ),
+                "attempt-only completion cannot be adopted by another producer attempt",
+                "23514",
+            ),
+            reject(
                 ~or_(
                     and_(
                         origin("task_id") == target_task("id"),

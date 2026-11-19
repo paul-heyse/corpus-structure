@@ -109,12 +109,12 @@ class PdfIntegrationOperation:
         "opaque": [
             {
                 "reference": "corpus_structure.semantic.pdf_transforms.execute_pdf_integration",
-                "contract": "pdf-integrated/execution-custody",
+                "contract": "pdf-integrated/profile-assets",
                 "role": "owned-native-pdf-capture",
             },
             {
                 "reference": "corpus_structure.semantic.pdf_capture.PdfCaptureProduct",
-                "contract": "pdf-integrated/execution-custody",
+                "contract": "pdf-integrated/profile-assets",
                 "role": "whole-authenticated-publication",
             },
         ],
@@ -126,7 +126,7 @@ class PdfIntegrationOperation:
             },
             {
                 "reference": "frozen-native-pdf-recipe",
-                "contract": "pdf-integrated/execution-custody",
+                "contract": "pdf-integrated/profile-assets",
                 "role": "native-parser-models-and-publication-projection",
             },
         ],

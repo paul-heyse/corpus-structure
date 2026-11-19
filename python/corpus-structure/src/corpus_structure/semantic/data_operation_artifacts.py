@@ -10,34 +10,14 @@ import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
-from pathlib import Path
 
 from .data_operation_identity import ENCODING_VERSION
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, OperationRole
 from .identity import canonical_bytes
 from .native_call_contracts import OperationCallBinding, OperationFieldBinding
 from .native_call_generation import render_call_bindings, render_call_identifiers
-from .types import SourceArtifact
 
 GENERATOR_VERSION = "data-operation-ports-v1"
-_GENERATOR_FILES = (
-    "data_operation_artifacts.py",
-    "native_call_generation.py",
-    "native_call_contracts.py",
-    "native_call_sources.py",
-    "data_operation_ports.py",
-    "data_operation_cpu.py",
-    "data_operation_wire.py",
-    "data_operation_json.py",
-)
-
-
-def capture_port_generator_sources() -> tuple[SourceArtifact, ...]:
-    """Acquire installed generator/runtime sources once, at explicit acquisition."""
-    return tuple(
-        SourceArtifact("generator/" + name, Path(__file__).with_name(name).read_bytes())
-        for name in _GENERATOR_FILES
-    )
 
 
 @dataclass(frozen=True)
@@ -61,7 +41,6 @@ def compile_data_operation_artifacts(
     *,
     native_source_digest: str,
     native_program_digests: Mapping[str, str] | None = None,
-    generator_sources: tuple[SourceArtifact, ...] | None = None,
 ) -> DataOperationArtifacts:
     """Derive immutable products using the same native/nominal/Pydantic emitter.
 
@@ -70,17 +49,6 @@ def compile_data_operation_artifacts(
     The caller archives these products and native admission authenticates them;
     producing this object does not admit a model or authorize SQL execution.
     """
-    # Normal release preparation supplies the archived acquisition explicitly.
-    # Standalone callers can deliberately acquire the current implementation.
-    captured = capture_port_generator_sources() if generator_sources is None else generator_sources
-    acquired = {source.name: source.content for source in captured}
-    if len(acquired) != len(captured) or set(acquired) != {
-        "generator/" + name for name in _GENERATOR_FILES
-    }:
-        raise ValueError("generator source acquisition is incomplete or repeated")
-    current = {source.name: source.content for source in capture_port_generator_sources()}
-    if acquired != current:
-        raise ValueError("installed generator differs from captured preparation dependencies")
     if not native_source_digest:
         raise ValueError("trusted native correspondence source identity is required")
     calls = tuple((owner, replace(call, requires_context=True)) for owner, call in native_calls)
@@ -124,18 +92,6 @@ def compile_data_operation_artifacts(
             ).hexdigest(),
             "native_source_digest": native_source_digest,
             "correspondence_digest": correspondence,
-            "generator_digest": sha256(
-                canonical_bytes(
-                    tuple(
-                        (name, sha256(content).hexdigest())
-                        for name, content in sorted(acquired.items())
-                    )
-                )
-            ).hexdigest(),
-            "renderer_digest": sha256(acquired["generator/native_call_generation.py"]).hexdigest(),
-            "runtime_ports_digest": sha256(
-                acquired["generator/data_operation_ports.py"]
-            ).hexdigest(),
             "calls_digest": sha256(source).hexdigest(),
             "identifiers_digest": sha256(identifiers).hexdigest(),
             "calls": records,

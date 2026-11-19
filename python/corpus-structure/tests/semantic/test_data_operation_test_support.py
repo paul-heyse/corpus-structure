@@ -80,7 +80,6 @@ def test_actual_package_kernel_inputs_preserve_read_only_source_custody(monkeypa
     from pathlib import Path
 
     from corpus_structure.semantic.composed import data_operation_dependencies
-    from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
     from corpus_structure.semantic.data_operation_storage import (
         native_operation_declarations,
         native_protocol_sources,
@@ -104,7 +103,7 @@ def test_actual_package_kernel_inputs_preserve_read_only_source_custody(monkeypa
     sources = source_discovery_operation_sources()
     native = native_protocol_sources()
     dependencies = data_operation_dependencies(
-        ResolvedDependencies((*native, *capture_port_generator_sources())),
+        ResolvedDependencies(native),
         (native_operation_declarations(native),),
         sources,
     )
@@ -235,7 +234,7 @@ def test_actual_package_kernel_inputs_preserve_read_only_source_custody(monkeypa
     invalid = replace(
         inputs,
         dependencies=data_operation_dependencies(
-            ResolvedDependencies((*native, *capture_port_generator_sources())),
+            ResolvedDependencies(native),
             (native_operation_declarations(native),),
             invalid_sources,
         ),

@@ -813,7 +813,7 @@ def _rich_producer_programs(p):
                     ),
                     Assign(
                         "r",
-                        func.ops.ddo_require_episode_correspondence(
+                        func.ops.ddo_require_episode_rich_correspondence(
                             p.row("producing", "ops.data_derivation"),
                             p.row("intent", "ops.data_completion_intent"),
                         ),

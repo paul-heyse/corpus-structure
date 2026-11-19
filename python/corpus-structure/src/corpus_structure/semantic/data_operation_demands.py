@@ -1032,7 +1032,9 @@ class DemandPlanner:
                 ),
                 execution_profile=frozen["execution_profile"],
             )
-            request, admission = project_operation_binding(self.model, resolved)
+            request, admission = project_operation_binding(
+                self.model, resolved, execution_scope=snapshot["demand_id"]
+            )
             inputs, support, population_refs = [], [], []
             for role in resolved.roles:
                 if role.population_witness is not None:

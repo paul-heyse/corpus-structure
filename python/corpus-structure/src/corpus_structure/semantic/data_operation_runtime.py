@@ -97,7 +97,7 @@ def prepare_data_operation_runtime(
     if not execution_profile or not python_version:
         raise RuntimeBindingError("target runtime requires execution profile and interpreter")
     model = bound_data_operation_model(prepared)
-    sources = _inputs(inputs)
+    sources = _inputs(tuple(item for item in inputs if not item.authoring_provenance))
     identities = [{"name": source.name, "sha256": source.digest} for source in sources]
     artifact = runtime_artifact_identity({"python": python_version, "inputs": identities})
     attestation = execution_attestation(

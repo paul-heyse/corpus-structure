@@ -224,7 +224,7 @@ def test_current_release_guards_require_current_archive_and_projection_compiler(
     projection = function_bodies(execution_projection_check_sql(get_metadata()))[
         "sem.require_execution_projection"
     ]
-    assert "document ->> 'format') IS DISTINCT FROM 'semantic-release-archive-3'" in archive
+    assert "document ->> 'format') IS DISTINCT FROM 'semantic-release-archive-4'" in archive
     # IS DISTINCT FROM also rejects missing compiler metadata; accepting only 24
     # leaves historical compilers outside both current guard boundaries.
     assert "manifest['profile']) ->> 'compiler_version') IS DISTINCT FROM '24'" in archive

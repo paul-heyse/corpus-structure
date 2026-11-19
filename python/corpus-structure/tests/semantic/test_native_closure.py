@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from decimal import Decimal
+from hashlib import sha256
 from uuid import uuid4
 
 import pytest
@@ -257,9 +259,12 @@ def test_frozen_head_witness_preserves_its_explicit_authoring_provenance():
 
     from corpus_structure.semantic.native_admission import recorded_authoring_provenance
 
-    provenance = recorded_authoring_provenance(head.content.decode())
-    assert provenance.model_id == recorded["model_id"]
-    assert [{"name": name, "sha256": digest} for name, digest in provenance.inputs] == recorded[
+    state = Path(head_script.path).with_name(revision.NATIVE_STATE_FILE).read_bytes()
+    assert sha256(state).hexdigest() == revision.NATIVE_STATE_SHA256
+    provenance = recorded_authoring_provenance(state)
+    sidecar = json.loads(state)["authoring_provenance"]
+    assert provenance.model_id == sidecar["model_id"]
+    assert [{"name": name, "sha256": digest} for name, digest in provenance.inputs] == sidecar[
         "inputs"
     ]
 

@@ -22,22 +22,28 @@ def _admission_descriptor(admission):
     return literal_json_descriptor(admission, "data.execution_contract_descriptor")
 
 
-def recorded_authoring_provenance(admission: str) -> NativeAuthoringProvenance:
-    """Read only the two authoring fields from an explicit immutable revision witness."""
-    descriptor = _admission_descriptor(admission)
-    model_id, inputs = descriptor["model_id"], descriptor["inputs"]
+def recorded_authoring_provenance(state: bytes) -> NativeAuthoringProvenance:
+    """Read authoring provenance from an authenticated frozen native state sidecar."""
+    import json
+
+    document = json.loads(state)
+    if document.get("version") != 2 or not isinstance(document.get("authoring_provenance"), dict):
+        raise ValueError("native state lacks its current authoring provenance")
+    provenance = document["authoring_provenance"]
+    model_id, inputs = provenance["model_id"], provenance["inputs"]
     if not isinstance(model_id, str) or not isinstance(inputs, list):
         raise ValueError("native authoring witness has malformed provenance")
     if any(
         not isinstance(item, dict)
         or set(item) != {"name", "sha256"}
-        or not isinstance(item["name"], str)
-        or not isinstance(item["sha256"], str)
+        or not all(isinstance(value, str) for value in item.values())
         for item in inputs
     ):
         raise ValueError("native authoring witness has malformed input provenance")
     return NativeAuthoringProvenance(
-        model_id, tuple((item["name"], item["sha256"]) for item in inputs)
+        model_id,
+        tuple((item["name"], item["sha256"]) for item in inputs),
+        provenance.get("generator", {}),
     )
 
 

@@ -331,7 +331,12 @@ def acquire_python_execution(
         for item in json.loads(runtime.manifest)["implementation_inputs"]
     }
     if any(
-        ("data-operations/contracts/" + contract.name, contract.digest) not in retained_contracts
+        (
+            ("runtime-transport/" if contract.runtime_transport else "data-operations/contracts/")
+            + contract.name,
+            contract.digest,
+        )
+        not in retained_contracts
         for contract in sources.boundary_contracts
     ):
         raise SemanticRefusal("Python boundary contract differs from acquired runtime custody")

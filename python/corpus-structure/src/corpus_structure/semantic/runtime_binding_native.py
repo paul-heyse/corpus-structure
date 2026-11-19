@@ -253,10 +253,7 @@ def runtime_binding_programs(target):
                             ),
                             SelectInto(
                                 select(value).where(
-                                    value["name"].astext
-                                    == literal("data-operations/contracts/").concat(
-                                        item["runtime_contract"].astext
-                                    )
+                                    value["name"].astext == item["runtime_contract"].astext
                                 ),
                                 ("runtime_source",),
                                 strict=True,

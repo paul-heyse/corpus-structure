@@ -45,6 +45,9 @@ def test_target_preparation_archives_without_legacy_acquisition(tmp_path):
     assert not any(a.name.startswith("execution/") for a in deps.artifacts)
     _validate_manifest(bundle, deps, profile, prepared)
     archive = _archive_bytes(bundle, deps, prepared)
+    from corpus_structure.semantic.release_identity import material_dependencies
+
+    material = material_dependencies(deps)
     source_rows = [
         {
             "input_kind": kind,
@@ -52,7 +55,7 @@ def test_target_preparation_archives_without_legacy_acquisition(tmp_path):
             "content": source.content,
             "content_digest": source.digest,
         }
-        for kind, sources in (("source", bundle.sources), ("dependency", deps.artifacts))
+        for kind, sources in (("source", bundle.sources), ("dependency", material.artifacts))
         for source in sources
     ]
     for kind, content in (

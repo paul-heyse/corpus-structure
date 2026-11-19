@@ -863,6 +863,7 @@ def binding_branches(metadata):
         )
     ).where(
         _set_valid(candidate_validity, "use", candidates.c.use_id),
+        func.ops.ddo_episode_current_valid(candidates.c.episode_id, release, type_=Boolean()),
         func.ops.ddo_kind_access(candidates.c.parent_kind),
         func.ops.ddo_body_access(candidates.c.projected_kind, candidates.c.projected_body),
     )

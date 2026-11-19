@@ -304,6 +304,7 @@ class OpaqueBoundary:
     contract: str
     role: str
     content_digest: str | None = None
+    reuse_eligible: bool = field(default=True, kw_only=True)
 
 
 @dataclass(frozen=True)

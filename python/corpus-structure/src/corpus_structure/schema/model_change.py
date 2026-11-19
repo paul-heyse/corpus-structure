@@ -44,6 +44,7 @@ from corpus_structure.schema.source_migrations import (
 )
 from corpus_structure.semantic.effect_policy import ApprovedEffect
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
+from corpus_structure.semantic.native_revision_compare import NativeProgramDelta
 from corpus_structure.semantic.projection_analysis_products import ProjectionAnalysisComparison
 from corpus_structure.semantic.source_comparison import EffectiveChangeComparison
 from corpus_structure.semantic.storage_target import StorageTarget
@@ -174,6 +175,19 @@ class ChangeRequest(NativeIntent):
     def native_requested(self) -> bool:
         return self.native_predecessor is not None or self.declared_native_revision is not None
 
+    @property
+    def deployment_requested(self) -> bool:
+        return self.deployment or bool(
+            self.native_requested and (self.data_operations or self.packs)
+        )
+
+    def native_effect(self, delta: NativeProgramDelta | None) -> bool:
+        return self.native_requested and (
+            delta is None
+            or not delta.unchanged
+            or bool(self.retire or self.recreate or self.data_steps)
+        )
+
 
 class FileEffect(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -192,6 +206,7 @@ class ChangeEffects(BaseModel):
     physical: tuple[str, str] | None
     native: bool
     native_basis: tuple[str, ...]
+    native_delta: NativeProgramDelta | None = None
     admission: bool
     admission_applicable: bool
     release: Literal["unchanged", "changed", "uncompared", "not_applicable"]
@@ -349,7 +364,9 @@ def compilation_fingerprint(
     )
     from corpus_structure.semantic.identity import canonical_bytes
 
-    physical = physical_release_sources(root, request.physical)
+    physical = physical_release_sources(
+        root, request.physical, logical_sources=request.logical_sources
+    )
     acquired = None
     acquired_files = ()
     if request.data_operations:
@@ -480,11 +497,15 @@ def native_intent(retire: tuple[NativeEffect, ...], recreate: tuple[NativeEffect
     return removed, replaced
 
 
-def _physical_closure(root: Path, content: str, *, baseline: str | None = None) -> dict[str, bytes]:
+def _physical_closure(
+    root: Path, content: str, *, baseline: str | None = None, proposed: dict[str, str] | None = None
+) -> dict[str, bytes]:
     def read(name: str) -> bytes | None:
         if name == PHYSICAL_ROOT:
             return content.encode()
         relative = (_PHYSICAL_DIR / name).as_posix()
+        if proposed is not None and relative in proposed:
+            return proposed[relative].encode()
         value = _git(root, "show", f"{baseline}:{relative}") if baseline else _read(root, relative)
         return None if value is None else value.encode()
 
@@ -495,9 +516,12 @@ def _physical_worktree_files(sources: dict[str, bytes]) -> dict[str, str]:
     return {(_PHYSICAL_DIR / name).as_posix(): value.decode() for name, value in sources.items()}
 
 
-def physical_release_sources(root: Path, proposed: str | None = None) -> dict[str, bytes] | None:
-    content = _read(root, _PHYSICAL) if proposed is None else proposed
-    return None if content is None else _physical_closure(root, content)
+def physical_release_sources(
+    root: Path, proposed: str | None = None, *, logical_sources: tuple[LogicalSourceEdit, ...] = ()
+) -> dict[str, bytes] | None:
+    changes = {item.path: item.content for item in logical_sources}
+    content = changes.get(_PHYSICAL, _read(root, _PHYSICAL)) if proposed is None else proposed
+    return None if content is None else _physical_closure(root, content, proposed=changes)
 
 
 def approved_physical_metadata(root: Path, preview: ChangePreview):
@@ -532,6 +556,28 @@ def native_model_inputs(root: Path, *, preview: ChangePreview | None = None) -> 
     return sources
 
 
+def preview_native_delta(root: Path, request: ChangeRequest, *, predecessor: str | None):
+    from corpus_structure.semantic.migrations import head_revision
+    from corpus_structure.semantic.native_revision_compare import compare_native_programs
+    from corpus_structure.semantic.target_installation import capture_target_installation
+
+    if predecessor is None or predecessor != head_revision():
+        return None
+    sources = physical_release_sources(
+        root, request.physical, logical_sources=request.logical_sources
+    )
+    if sources is None:
+        raise ModelError(["native comparison requires its physical declaration"])
+    logical = native_model_inputs(root)
+    changes = {item.path: item.content.encode() for item in request.logical_sources}
+    logical = {
+        name: changes.get((_PHYSICAL_DIR / name).as_posix(), content)
+        for name, content in logical.items()
+    }
+    installation = capture_target_installation(compile_physical(sources), logical_sources=logical)
+    return compare_native_programs(installation, predecessor)
+
+
 def prepare_preview(
     root: Path,
     request: ChangeRequest,
@@ -551,6 +597,7 @@ def prepare_preview(
     release_artifacts_sha256: str | None = None,
     expected_physical: str | None = None,
     prepared_application: PreparedRelease | None = None,
+    native_delta: NativeProgramDelta | None = None,
 ) -> ChangePreview:
     root = root.resolve()
     if request.source_migrations and not request.data_operations:
@@ -643,7 +690,7 @@ def prepare_preview(
         new.physical()
     for item in request.logical_sources:
         new.view(Path(item.path).name)
-    native = request.native_requested
+    native = request.native_effect(native_delta)
     physical_edits = (
         any(
             item.source in physical_source_closure(PHYSICAL_ROOT, new.sources.get)
@@ -655,13 +702,13 @@ def prepare_preview(
     if (physical_edits or request.retire or request.recreate) and not native:
         raise ModelError(["physical and native object effects require a native revision request"])
     native_intent(request.retire, request.recreate)
-    if (native or request.deployment) != bool(target):
+    if (native or request.deployment_requested) != bool(target):
         raise ModelError(["a deployment preview requires a configured target binding"])
-    if request.deployment_profile and (not target or request.deployment_profile != target_profile):
+    if request.deployment_profile and target and request.deployment_profile != target_profile:
         raise ModelError(["deployment profile differs from the requested target"])
     if native != bool(authoring_target):
         raise ModelError(["a native preview requires its development authoring target"])
-    if native != bool(request.native_revision):
+    if native and not request.native_revision:
         raise ModelError(
             [
                 "a native change requires an Alembic revision; None predecessor explicitly requests an empty root"
@@ -974,6 +1021,11 @@ def prepare_preview(
     native_basis = tuple(
         reason
         for applies, reason in (
+            (native and request.native_predecessor is None, "empty_native_root"),
+            (
+                native and native_delta is not None and not native_delta.unchanged,
+                "native_program_delta",
+            ),
             (physical is not None and physical[0] != physical[1], "trusted_physical_change"),
             (bool(request.retire), "explicit_native_retirement"),
             (bool(request.recreate), "explicit_native_recreation"),
@@ -982,7 +1034,7 @@ def prepare_preview(
         if applies
     )
     if native and not native_basis:
-        native_basis = ("explicit_native_authoring",)
+        raise ModelError(["native revision requires a reviewed difference from the frozen head"])
     checks = ["compiled_model_comparison", "exact_file_bytes"]
     if native:
         checks.extend(("physical_compilation", "acquired_predecessor", "native_admission"))
@@ -1028,6 +1080,7 @@ def prepare_preview(
             physical=physical,
             native=native,
             native_basis=native_basis,
+            native_delta=native_delta,
             admission=admission,
             admission_applicable=bool(local_release),
             release=release_effect,
@@ -1107,7 +1160,7 @@ def apply_preview(
     settled: list[str] = []
     with preparation.writer_lock(root):
         check_preview(root, preview)
-        if preview.request.native_requested and native_fence is None:
+        if preview.effects.native and native_fence is None:
             raise ModelError(["native predecessor has not been checked"])
         with native_fence or nullcontext():
             for effect in preview.files:

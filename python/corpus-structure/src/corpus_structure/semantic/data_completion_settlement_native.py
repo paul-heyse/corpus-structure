@@ -548,7 +548,6 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
     }
     guards = (
         "ddo_require_external_completion",
-        *family_guards,
         "ddo_require_policy_authorization_completion",
         "ddo_require_structural_admission_completion",
         "ddo_require_structural_dossier_completion",
@@ -586,28 +585,56 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
             if name == "ddo_require_external_completion"
             else getattr(func.ops, name)(r, completion)
         )
-        if name in family_guards:
-            checks.append(
-                If(
-                    selected_family(
-                        model, rf("release_id"), rf("operation_id"), family_guards[name]
-                    ),
-                    (invocation,),
-                )
-            )
-        else:
-            checks.append(invocation)
+        checks.append(invocation)
+    completion_parameters = (
+        ("r", "ops.data_request"),
+        ("completion", "jsonb"),
+        ("producer_task", "bigint"),
+        ("producer_attempt", "bigint"),
+        ("producer_holder", "text"),
+    )
+    routine(
+        "ops",
+        "ddo_require_completion_invariants",
+        completion_parameters,
+        checks,
+        stable=True,
+    )
+    families = core_variable("families", JSONB())
+    selective = tuple(
+        If(
+            families.has_key(family),
+            (Perform(getattr(func.ops, guard)(r, completion)),),
+        )
+        for guard, family in family_guards.items()
+    )
+    routine(
+        "ops",
+        "ddo_require_completion_families",
+        (("r", "ops.data_request"), ("completion", "jsonb"), ("families", "jsonb")),
+        selective,
+        stable=True,
+    )
     routine(
         "ops",
         "ddo_require_completion_correspondence",
+        completion_parameters,
         (
-            ("r", "ops.data_request"),
-            ("completion", "jsonb"),
-            ("producer_task", "bigint"),
-            ("producer_attempt", "bigint"),
-            ("producer_holder", "text"),
+            Perform(
+                func.ops.ddo_require_completion_invariants(
+                    r, completion, producer_task, producer_attempt, producer_holder
+                )
+            ),
+            Perform(
+                func.ops.ddo_require_completion_families(
+                    r,
+                    completion,
+                    func.ops.ddo_current_validation_identities(
+                        rf("release_id"), rf("operation_id"), type_=JSONB()
+                    ),
+                )
+            ),
         ),
-        checks,
         stable=True,
     )
 
@@ -633,7 +660,7 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
     )
     routine(
         "ops",
-        "ddo_require_episode_correspondence",
+        "ddo_require_episode_identity",
         (("producing", "ops.data_derivation"), ("original", "ops.data_completion_intent")),
         (
             lookup(
@@ -668,32 +695,19 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                 "episode terminal state differs from admitted completion",
                 "23514",
             ),
-            If(
-                ~func.ops.ddo_receipt_validation_current(
-                    row("receipt", receipt, "id"),
-                    func.ops.ddo_current_validation_identities(
-                        rf("release_id"), rf("operation_id"), type_=JSONB()
-                    ),
-                    type_=Boolean(),
-                ),
-                (
-                    reject(
-                        original("payload_digest").is_distinct_from(
-                            func.ops.ddo_digest(original_payload)
-                        ),
-                        "historical intent payload digest differs",
-                        "23514",
-                    ),
-                    Perform(
-                        func.ops.ddo_require_completion_correspondence(
-                            r,
-                            original_payload,
-                            original("producer_task_id"),
-                            original("producer_attempt"),
-                            original("producer_holder"),
-                        )
-                    ),
-                ),
+            reject(
+                original("payload_digest").is_distinct_from(func.ops.ddo_digest(original_payload)),
+                "historical intent payload digest differs",
+                "23514",
+            ),
+            Perform(
+                func.ops.ddo_require_completion_invariants(
+                    r,
+                    original_payload,
+                    original("producer_task_id"),
+                    original("producer_attempt"),
+                    original("producer_holder"),
+                )
             ),
             Return(r),
         ),
@@ -701,6 +715,87 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
         returns="ops.data_request",
         stable=True,
     )
+
+    episode_parameters = (
+        ("producing", "ops.data_derivation"),
+        ("original", "ops.data_completion_intent"),
+    )
+
+    def episode_setup():
+        return (
+            Assign("r", func.ops.ddo_require_episode_identity(pf(), original())),
+            lookup(
+                "receipt",
+                receipt,
+                receipt.c.derivation_id == pf("id"),
+                receipt.c.intent_id == original("id"),
+            ),
+            Assign(
+                "missing",
+                func.ops.ddo_missing_validation_identities(
+                    row("receipt", receipt, "id"),
+                    func.ops.ddo_current_validation_identities(
+                        rf("release_id"), rf("operation_id"), type_=JSONB()
+                    ),
+                    type_=JSONB(),
+                ),
+            ),
+        )
+
+    episode_locals = (
+        Local("r", request),
+        Local("receipt", receipt),
+        Local("missing", pg_type("jsonb")),
+    )
+    routine(
+        "ops",
+        "ddo_require_episode_correspondence",
+        episode_parameters,
+        (
+            *episode_setup(),
+            Perform(
+                func.ops.ddo_require_completion_families(
+                    r, original_payload, core_variable("missing", JSONB())
+                )
+            ),
+            If(
+                core_variable("missing", JSONB()).has_key("conservative"),
+                (
+                    reject(
+                        ~func.ops.ddo_conservative_dependencies_valid(pf("id"), type_=Boolean()),
+                        "conservative completion trust changed",
+                        "23514",
+                    ),
+                ),
+            ),
+            Return(r),
+        ),
+        episode_locals,
+        returns="ops.data_request",
+        stable=True,
+    )
+    for family in family_programs(model):
+        if not family.guards:
+            continue
+        routine(
+            "ops",
+            "ddo_require_episode_" + family.family.replace("-", "_") + "_correspondence",
+            episode_parameters,
+            (
+                *episode_setup(),
+                If(
+                    core_variable("missing", JSONB()).has_key(family.family),
+                    tuple(
+                        Perform(getattr(func.ops, guard)(r, original_payload))
+                        for guard in family.guards
+                    ),
+                ),
+                Return(r),
+            ),
+            episode_locals,
+            returns="ops.data_request",
+            stable=True,
+        )
 
     selected_output, cut = core_variable("output_", JSONB()), core_variable("cut", JSONB())
     outs = items(completion["outputs"], "output_row")

@@ -36,6 +36,7 @@ from corpus_structure.cli.managed import OperationAccount
 from corpus_structure.cli.output import JsonOpt, diagnostic, emit
 from corpus_structure.cli.target import ConfiguredSelection, current_selection, selection_summary
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
+from corpus_structure.semantic.native_revision_compare import NativeProgramDelta
 from corpus_structure.semantic.refusals import trusted_operation_model_id
 from corpus_structure.semantic.storage_target import StorageTarget
 
@@ -45,6 +46,7 @@ if TYPE_CHECKING:
     from corpus_structure.cli.managed import Invocation
     from corpus_structure.schema.data_steps import FrozenDataStep
     from corpus_structure.semantic.native_objects import NativeIdentity
+    from corpus_structure.semantic.target_installation import TargetInstallation
 
 
 def model_stage(result: Invocation, name: str, **details: object) -> None:
@@ -400,6 +402,7 @@ class NativeCandidateResult(BaseModel):
     acquired_target: StorageTarget | None = None
     selection: ConfiguredSelection | None = None
     operation_account: OperationAccount | None = None
+    native_delta: NativeProgramDelta | None = None
 
 
 class NativeUnchangedResult(BaseModel):
@@ -473,12 +476,15 @@ def author_native_candidate(
     retire: frozenset[NativeIdentity] = frozenset(),
     recreate: frozenset[NativeIdentity] = frozenset(),
     data_steps: tuple[FrozenDataStep, ...] = (),
+    installation: TargetInstallation | None = None,
+    reviewed_delta: NativeProgramDelta | None = None,
 ) -> tuple[NativeCandidateResult, dict[str, bytes]]:
     """Use the owned rollback-only authoring connection to prepare immutable product bytes."""
     from hashlib import sha256
 
     from sqlalchemy.engine import make_url
 
+    from corpus_structure.schema.declarations import ModelError
     from corpus_structure.semantic.alembic_native import NativeTransitionOp
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.metadata import get_metadata
@@ -531,8 +537,18 @@ def author_native_candidate(
     )
     if assert_explicit_route(selected)["dbname"] != authoring_database:
         raise SemanticRefusal("configured authoring database conflicts with its libpq route")
-    target_metadata = get_metadata() if target_metadata is None else target_metadata
-    installation = capture_target_installation(target_metadata, logical_sources=logical_sources)
+    from corpus_structure.semantic.native_revision_compare import compare_native_programs
+
+    if installation is None:
+        target_metadata = get_metadata() if target_metadata is None else target_metadata
+        installation = capture_target_installation(target_metadata, logical_sources=logical_sources)
+    comparison = (
+        compare_native_programs(installation, expected_predecessor)
+        if expected_predecessor is not None
+        else None
+    )
+    if reviewed_delta is not None and reviewed_delta != comparison:
+        raise ModelError(["native comparison changed after preview"])
     with (
         open_runtime_engine(selected, "ci-native-candidate", purpose="maintenance") as engine,
         engine.connect() as conn,
@@ -650,6 +666,7 @@ def author_native_candidate(
         native_operations=len(native),
         ordinary_operations=len(upgrade_ops.ops) - len(native),
         acquired_target=target,
+        native_delta=comparison,
         products=[
             ArtifactRow(kind=name, hash=sha256(content).hexdigest())
             for name, content in products.items()
@@ -728,8 +745,6 @@ def native_candidate_(
             OSError,
         ),
     ):
-        if out is not None and out.exists():
-            raise SemanticRefusal("native authoring delivery requires a new directory")
         store = result_store(ctx)
         with store.operation("schema.native-candidate", observations=observations) as result:
             model_stage(result, "resolve native authoring intent")
@@ -739,21 +754,23 @@ def native_candidate_(
                 else NativeIntent.model_validate(yaml.safe_load(intent.read_bytes()))
             )
             retire, recreate = native_intent(requested.retire, requested.recreate)
+            installation = None
             if expected_predecessor is not None and not (retire or recreate):
                 from corpus_structure.semantic.metadata import get_metadata
                 from corpus_structure.semantic.native_revision_compare import (
-                    unchanged_native_programs,
+                    compare_native_programs,
                 )
                 from corpus_structure.semantic.target_installation import (
                     capture_target_installation,
                 )
 
-                comparison = unchanged_native_programs(
-                    capture_target_installation(get_metadata()), expected_predecessor
-                )
-                if comparison is not None:
+                installation = capture_target_installation(get_metadata())
+                comparison = compare_native_programs(installation, expected_predecessor)
+                if comparison is not None and comparison.unchanged:
                     emit_unchanged_native(result, comparison, json_=json_)
                     return
+            if out is not None and out.exists():
+                raise SemanticRefusal("native authoring delivery requires a new directory")
             model_stage(result, "rollback-only authoring")
             report, products = author_native_candidate(
                 state(ctx).settings(),
@@ -761,6 +778,7 @@ def native_candidate_(
                 expected_predecessor=expected_predecessor,
                 retire=retire,
                 recreate=recreate,
+                installation=installation,
             )
             model_stage(result, "publish native candidate")
             report = publish_native_candidate(result, report, products)

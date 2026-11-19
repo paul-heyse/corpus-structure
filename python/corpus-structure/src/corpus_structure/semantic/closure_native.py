@@ -345,6 +345,20 @@ def closure_foundation_parts(target):
             *manifest_inputs,
             refuse(
                 or_(
+                    manifest["version"].astext.is_distinct_from("semantic-release-manifest-2"),
+                    manifest["artifacts"].is_distinct_from(archive_pairs),
+                    manifest["products_digest"].astext.is_distinct_from(
+                        sha(
+                            func.convert_to(
+                                func.data.canonical_json(products.op("-")("release_id")), "UTF8"
+                            )
+                        )
+                    ),
+                ),
+                "archive generated products differ from release identity",
+            ),
+            refuse(
+                or_(
                     archive_pairs.is_distinct_from(declared_pairs),
                     select(1)
                     .where(archived_inputs, inputs.c.content_digest != sha(inputs.c.content))

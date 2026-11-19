@@ -114,16 +114,8 @@ def _selected_query_rows(page, request):
 def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
     from corpus_structure.serve.rich_queries import installed_read_implementation
 
-    sources = (
-        "_query_custody.py",
-        "semantic/demand_queries.py",
-        "semantic/demand_results.py",
-        "semantic/selected_query_cache.py",
-        "semantic/data_operation_json.py",
-        "semantic/native_source_view.py",
-    )
     with installed_read_implementation(
-        type(request), sources=sources, profile="demand-query-v2"
+        type(request), entry="corpus_structure.semantic.demand_queries", profile="demand-query-v2"
     ) as implementation:
         return _serve_demand_query(connection, request, implementation)
 

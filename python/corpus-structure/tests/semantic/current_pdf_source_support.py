@@ -16,7 +16,6 @@ from pdf_controlled_support import ControlledPdfContent
 from scenario_recipes import register_scenario_builder
 
 from corpus_structure.semantic.composed import data_operation_dependencies
-from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_storage import (
     native_operation_declarations,
@@ -68,7 +67,7 @@ def compose_current_pdf_recipe(directory, *, name, bundle, operation_sources, de
     native = native_protocol_sources()
     pdf = pdf_domain_dependencies(ResolvedDependencies())
     dependencies = data_operation_dependencies(
-        ResolvedDependencies((*pdf.artifacts, *native, *capture_port_generator_sources())),
+        ResolvedDependencies((*pdf.artifacts, *native)),
         (native_operation_declarations(native), *declarations),
         operation_sources(recipe, assets, capture),
     )

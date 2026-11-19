@@ -372,17 +372,8 @@ def _conservative_validity(model: MetaData) -> ProgramDeclaration:
         .correlate(requests)
         .scalar_subquery()
     )
-    installed = func.sem.data_operation_native_descriptor(type_=JSONB())["validator_identities"]
     checked = (
-        select(
-            and_(
-                func.ops.ddo_receipt_validation_current(
-                    receipts.c.id,
-                    func.jsonb_build_object("conservative", installed["conservative"].astext),
-                ),
-                func.ops.ddo_trust_snapshot_meaning(receipts.c.trust_snapshot) == epoch_map,
-            )
-        )
+        select(func.ops.ddo_trust_snapshot_meaning(receipts.c.trust_snapshot) == epoch_map)
         .select_from(
             receipts.join(derivations, receipts.c.derivation_id == derivations.c.id).join(
                 requests, derivations.c.request_id == requests.c.id

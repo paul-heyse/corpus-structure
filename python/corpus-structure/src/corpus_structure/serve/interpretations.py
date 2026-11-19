@@ -96,7 +96,6 @@ def group_selected_interpretations(
 ) -> InterpretationAnswer:
     """Read complete occurrence groups from exact selected candidate universes."""
     from corpus_structure._query_custody import (
-        GROUPED_INTERPRETATION_SOURCES,
         SourceCustodyError,
     )
     from corpus_structure.serve.rich_queries import installed_read_implementation
@@ -104,7 +103,7 @@ def group_selected_interpretations(
     try:
         with installed_read_implementation(
             type(request),
-            sources=GROUPED_INTERPRETATION_SOURCES,
+            entry="corpus_structure.serve.interpretations",
             profile="grouped-source-records-2",
         ) as implementation:
             return _group_selected_interpretations(connection, request, implementation)

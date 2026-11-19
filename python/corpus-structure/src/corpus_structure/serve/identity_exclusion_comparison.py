@@ -101,11 +101,13 @@ def _selected_snapshot(connection, pin, request, stack):
 
 
 def compare_selected_exclusions(connection, request: ExclusionComparisonRequest):
-    from corpus_structure._query_custody import COMPOSITE_READ_SOURCES, SourceCustodyError
+    from corpus_structure._query_custody import SourceCustodyError
 
     try:
         with installed_read_implementation(
-            type(request), sources=COMPOSITE_READ_SOURCES, profile=VERSION
+            type(request),
+            entry="corpus_structure.serve.identity_exclusion_comparison",
+            profile=VERSION,
         ) as implementation:
             return _compare(connection, request, implementation)
     except SourceCustodyError as error:

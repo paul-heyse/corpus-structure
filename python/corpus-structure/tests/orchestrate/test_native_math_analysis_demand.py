@@ -14,7 +14,6 @@ from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelR
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.semantic import SourceArtifact, SourceBundle
 from corpus_structure.semantic.composed import data_operation_dependencies
-from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_service import (
     create_native_demand,
@@ -72,7 +71,7 @@ def recipe():
     )
     native = native_protocol_sources()
     dependencies = data_operation_dependencies(
-        ResolvedDependencies((*native, *capture_port_generator_sources())),
+        ResolvedDependencies(native),
         (
             native_operation_declarations(native),
             source_profile_declarations(),

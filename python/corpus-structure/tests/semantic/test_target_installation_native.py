@@ -281,7 +281,7 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
         require_archive_fence,
     )
     from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.native_revision_compare import unchanged_native_programs
+    from corpus_structure.semantic.native_revision_compare import compare_native_programs
     from corpus_structure.semantic.target_installation import foundation_programs
     from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
     from semantic.data_operation_demand_support import attach, claim, publish, retain
@@ -319,6 +319,19 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
         "ddo_impl_consume_data_completion_draft",
         "ddo_impl_register_data_execution_origin",
         "ddo_current_validation_identities",
+        "ddo_missing_validation_identities",
+        "ddo_require_episode_identity",
+        "ddo_require_completion_invariants",
+        "ddo_require_completion_families",
+        "ddo_require_episode_artifact_correspondence",
+        "ddo_require_episode_contextual_correspondence",
+        "ddo_require_episode_definition_correspondence",
+        "ddo_require_episode_operation_event_correspondence",
+        "ddo_require_episode_record_fit_correspondence",
+        "ddo_require_episode_record_grade_correspondence",
+        "ddo_require_episode_rich_correspondence",
+        "ddo_require_consuming_episode",
+        "ddo_episode_current_valid",
         "ddo_receipt_validation_current",
         "ddo_reconfirm_completion_validity",
         "pdf_spool_material_identity",
@@ -354,6 +367,11 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
         key = program.declaration.identity
         if key.name == "activate_release":
             assert "data.prove_execution_release" in desired[key].statements[0]
+        elif key.name == "require_archive_bytes":
+            archive_check = desired[key].statements[0]
+            assert "semantic-release-archive-4" in archive_check
+            assert "archive generated products differ from release identity" in archive_check
+            assert "products_digest" in archive_check
         else:
             assert desired[key].statements == frozen_n31[key].statements
         assert current_acl[key] == (
@@ -363,10 +381,25 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
     # Resolve this genuinely registered immutable root. A reader must not need
     # access to the maintenance-only Alembic table to authenticate its contract.
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
-    unchanged = unchanged_native_programs(fresh_target_epoch, revision.revision)
-    assert unchanged is not None
+    unchanged = compare_native_programs(fresh_target_epoch, revision.revision)
+    assert unchanged is not None and unchanged.unchanged
     assert unchanged.object_count == len(authoring.desired)
     assert unchanged.kernel_identity == manifest.kernel_identity
+    changed_program = next(
+        item for item in fresh_target_epoch.programs if item.identity.name == "read_demand_result"
+    )
+    variant = replace(
+        fresh_target_epoch,
+        programs=tuple(
+            replace(item, sql=item.sql + "\n-- fixture changed the exact installed statement")
+            if item.identity == changed_program.identity
+            else item
+            for item in fresh_target_epoch.programs
+        ),
+    )
+    delta = compare_native_programs(variant, revision.revision)
+    assert delta is not None and delta.changed == (changed_program.identity,)
+    assert not (delta.added or delta.retired or delta.privileges_changed or delta.unchanged)
     admitter = principal_engine(native_settings, "admit", engine.url.database)
     try:
         with admitter.begin() as connection:

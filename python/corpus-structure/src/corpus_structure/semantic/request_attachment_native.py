@@ -1572,6 +1572,15 @@ def _attachment_program(model, protocol: bytes):
                 func.data.ddo_field(meaning, "inference").is_distinct_from(
                     func.jsonb_build_array("string", binding["inference"].astext)
                 ),
+                func.data.ddo_field(meaning, "execution_scope").is_distinct_from(
+                    case(
+                        (
+                            defn("support_contract")["reuse_eligible"].astext == "false",
+                            func.jsonb_build_array("string", d("id")),
+                        ),
+                        else_=null(),
+                    )
+                ),
             ),
             "request identity differs from compiled binding",
             "23514",
@@ -1708,15 +1717,19 @@ def _attachment_program(model, protocol: bytes):
                 episodes.c.request_id == r("id"),
                 or_(
                     episodes.c.generation == r("generation"),
-                    select(1)
-                    .select_from(model.tables["ops.data_draft_consumption"])
-                    .where(
-                        model.tables["ops.data_draft_consumption"].c.intent_id
-                        == episodes.c.intent_id,
-                        model.tables["ops.data_draft_consumption"].c.request_id == r("id"),
-                        model.tables["ops.data_draft_consumption"].c.generation == r("generation"),
-                    )
-                    .exists(),
+                    and_(
+                        defn("support_contract")["reuse_eligible"].astext == "true",
+                        select(1)
+                        .select_from(model.tables["ops.data_draft_consumption"])
+                        .where(
+                            model.tables["ops.data_draft_consumption"].c.intent_id
+                            == episodes.c.intent_id,
+                            model.tables["ops.data_draft_consumption"].c.request_id == r("id"),
+                            model.tables["ops.data_draft_consumption"].c.generation
+                            == r("generation"),
+                        )
+                        .exists(),
+                    ),
                 ),
                 func.ops.ddo_node_valid("episode", episodes.c.id, type_=Boolean()),
             )
@@ -1731,6 +1744,7 @@ def _attachment_program(model, protocol: bytes):
                 _check(
                     or_(
                         d("strength") != "value",
+                        defn("support_contract")["reuse_eligible"].astext == "false",
                         defn("support_contract")["provenance"].astext != "value_substitution",
                         ~substitution,
                         select(input_roles.c.value)
@@ -1745,7 +1759,18 @@ def _attachment_program(model, protocol: bytes):
                 ),
             ),
         ),
-        If(episode.is_(None), generation_steps),
+        If(
+            episode.is_(None),
+            generation_steps,
+            (
+                Perform(
+                    func.ops.ddo_require_consuming_episode(
+                        episode,
+                        func.jsonb_populate_record(_value("r"), _object(**request_updates)),
+                    )
+                ),
+            ),
+        ),
         SelectInto(
             select(intents.c.id).where(
                 intents.c.request_id == r("id"),

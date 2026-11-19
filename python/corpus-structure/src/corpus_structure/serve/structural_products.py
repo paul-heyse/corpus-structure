@@ -192,12 +192,13 @@ def dossier_member_page(report, *, population, offset, limit):
 
 
 def inspect_selected_dossier(conn, request: SelectedDossierRequest):
-    from corpus_structure._query_custody import STRUCTURAL_READ_SOURCES
 
     from .rich_queries import installed_read_implementation
 
     with installed_read_implementation(
-        type(request), sources=STRUCTURAL_READ_SOURCES, profile="selected-structural-read-v1"
+        type(request),
+        entry="corpus_structure.serve.structural_products",
+        profile="selected-structural-read-v1",
     ) as implementation:
         if request.implementation is not None and request.implementation != implementation:
             raise ValueError("dossier resource differs from its installed implementation")

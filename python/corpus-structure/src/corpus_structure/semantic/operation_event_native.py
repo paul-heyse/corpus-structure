@@ -1359,7 +1359,12 @@ def _dependencies(p):
                         intent.table.c.request_id == producer("request_id"),
                         intent.table.c.generation == producer("generation"),
                     ),
-                    Assign("r", func.ops.ddo_require_episode_correspondence(producer(), intent())),
+                    Assign(
+                        "r",
+                        func.ops.ddo_require_episode_operation_event_correspondence(
+                            producer(), intent()
+                        ),
+                    ),
                     If(
                         input_role(p.model, r("release_id"), r("operation_id"), "question"),
                         (

@@ -14,8 +14,8 @@ from pydantic import BaseModel, TypeAdapter
 
 from .refusals import SemanticRefusal
 
-SEMANTIC_COMPILER_VERSION: Literal["24"] = "24"
-SEMANTIC_ARCHIVE_FORMAT = "semantic-release-archive-3"
+SEMANTIC_COMPILER_VERSION: Literal["25"] = "25"
+SEMANTIC_ARCHIVE_FORMAT = "semantic-release-archive-4"
 SEMANTIC_PROFILE_VERSIONS = ("semantic-1", "semantic-2")
 BOUNDARY_ABI_VERSION = "13"
 
@@ -24,6 +24,9 @@ BOUNDARY_ABI_VERSION = "13"
 class SourceArtifact:
     name: str
     content: bytes
+    authoring_provenance: bool = field(default=False, kw_only=True)
+    runtime_transport: bool = field(default=False, kw_only=True)
+    reuse_eligible: bool = field(default=True, kw_only=True)
 
     @property
     def digest(self) -> str:

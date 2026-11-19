@@ -1575,7 +1575,17 @@ def compile_data_operations(
         if binding_id in kinds or binding_id in nodes:
             _fail(binding_id, "generated binding identity collides with another owned fact")
         bindings.append(binding)
-        assets = tuple(OpaqueBoundary(**record) for record in raw.get("assets", []))
+        assets = tuple(
+            replace(
+                asset,
+                reuse_eligible=asset.reuse_eligible
+                and supplied_contracts[asset.contract].reuse_eligible,
+            )
+            if asset.contract in supplied_contracts
+            else asset
+            for record in raw.get("assets", [])
+            for asset in (OpaqueBoundary(**record),)
+        )
         from .data_operation_identity import validate_opaque_boundary
 
         for asset in assets:
@@ -2384,7 +2394,9 @@ def project_population_witness(
     return meaning
 
 
-def project_operation_binding(model: EffectiveDataOperationModel, binding):
+def project_operation_binding(
+    model: EffectiveDataOperationModel, binding, *, execution_scope: str | None = None
+):
     """Construct DDO-02 request/admission identities from the compiled role policies.
 
     This pure projection does not resolve native rows, assert support validity or
@@ -2594,6 +2606,9 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
             ]
             for name, scope in wire_json_loads(binding.source_sets).items()
         }
+    reusable = all(asset.reuse_eligible for asset in operation.assets)
+    if not reusable and execution_scope is None:
+        _fail(operation.semantic_id, "attempt-only execution requires its demand scope")
     request = SemanticRequestKey(
         recipe,
         binding.subject,
@@ -2601,6 +2616,7 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
         parameters,
         binding.inference,
         subject_context=binding.subject_context,
+        execution_scope=execution_scope if not reusable else None,
     )
     admission = AdmissionManifest(
         request.identity.key,

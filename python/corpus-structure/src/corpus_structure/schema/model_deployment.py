@@ -113,7 +113,7 @@ class Candidate(BaseModel):
         if (
             not preview.target
             or not preview.target_profile
-            or bool(revision) != preview.request.native_requested
+            or bool(revision) != preview.effects.native
             or bool(revision) != bool(preview.authoring_target)
         ):
             raise ModelError(

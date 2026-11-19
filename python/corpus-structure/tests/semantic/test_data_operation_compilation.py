@@ -1789,3 +1789,58 @@ def test_unsupported_python_nullable_collection_members_remain_incomplete(annota
     assert not any(
         kind.semantic_id == "urn:test:nullable-python/property/value" for kind in model.kinds
     )
+
+
+def test_incomplete_asset_allows_attributed_execution_but_isolates_demand_reuse():
+    captured = SourceArtifact("producer-code", b"observed code", reuse_eligible=False)
+    declaration = contract()
+    declaration["assets"] = [
+        {
+            "reference": "producer:code",
+            "contract": captured.name,
+            "role": "producing-code",
+            "content_digest": captured.digest,
+        }
+    ]
+    model = compile_data_operations(
+        declarations=declarations(declaration), captured_contracts=(captured,)
+    )
+    assert model.operations[0].assets[0].content_digest == captured.digest
+    assert model.operations[0].assets[0].reuse_eligible is False
+    binding = resolved_binding(model)
+    with pytest.raises(PreparationError, match="attempt-only execution requires its demand scope"):
+        project_operation_binding(model, binding)
+    first, _ = project_operation_binding(model, binding, execution_scope="demand:first")
+    resumed, _ = project_operation_binding(model, binding, execution_scope="demand:first")
+    unrelated, _ = project_operation_binding(model, binding, execution_scope="demand:other")
+    assert first.identity.key == resumed.identity.key
+    assert first.identity.key != unrelated.identity.key
+    assert first.execution_scope == "demand:first"
+    # Complete code keeps the material request basis independent of orchestration.
+    complete = compile_data_operations(
+        declarations=declarations(declaration),
+        captured_contracts=(replace(captured, reuse_eligible=True),),
+    )
+    complete_binding = resolved_binding(complete)
+    left, _ = project_operation_binding(complete, complete_binding, execution_scope="demand:first")
+    right, _ = project_operation_binding(complete, complete_binding, execution_scope="demand:other")
+    assert left.identity.key == right.identity.key
+    assert left.execution_scope is None
+
+
+def test_python_asset_and_opaque_boundaries_retain_actual_reuse_eligibility():
+    captured = SourceArtifact("producer-code", b"observed code", reuse_eligible=False)
+    metadata = contract()
+    metadata["assets"] = [
+        {"reference": "producer:code", "contract": captured.name, "role": "producing-code"}
+    ]
+    metadata["opaque"] = [
+        {"reference": "outside", "contract": captured.name, "role": "producing-code"}
+    ]
+    model = compile_data_operations(
+        python_sources=python_inputs(operation_source(metadata=metadata), boundaries=(captured,))
+    )
+    assert model.operations[0].assets[0].reuse_eligible is False
+    # A captured immutable digest authenticates observed execution meaning; it
+    # cannot turn the incomplete generating implementation into reusable code.
+    assert model.operations[0].assets[0].content_digest == captured.digest

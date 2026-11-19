@@ -189,12 +189,7 @@ def _publish_derivation(model: MetaData) -> NativeRoutine:
                 or_(intent("generation") == generation, consumed_draft),
             ),
             (
-                If(
-                    receipt("validating_kernel_digest").is_distinct_from(
-                        native_identity_field("source_digest")
-                    ),
-                    (Perform(func.ops.ddo_reconfirm_completion_validity(receipt("id"))),),
-                ),
+                Perform(func.ops.ddo_reconfirm_completion_validity(receipt("id"))),
                 Return(
                     _record(
                         payload=publication_response(

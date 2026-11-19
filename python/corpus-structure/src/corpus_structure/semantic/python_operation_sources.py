@@ -948,6 +948,12 @@ class ClosedPythonSources:
                 metadata["assets"] = [
                     {
                         **asset,
+                        "reuse_eligible": asset.get("reuse_eligible", True)
+                        and (
+                            self.boundary_contracts[asset["contract"]].reuse_eligible
+                            if asset.get("contract") in self.boundary_contracts
+                            else True
+                        ),
                         **(
                             {"content_digest": self.boundary_contracts[asset["contract"]].digest}
                             if asset.get("content_digest") is None
@@ -961,8 +967,14 @@ class ClosedPythonSources:
                 OpaqueBoundary(**boundary) for boundary in metadata.get("opaque", ())
             )
             boundaries = tuple(
-                replace(boundary, content_digest=self.boundary_contracts[boundary.contract].digest)
-                if boundary.content_digest is None and boundary.contract in self.boundary_contracts
+                replace(
+                    boundary,
+                    content_digest=boundary.content_digest
+                    or self.boundary_contracts[boundary.contract].digest,
+                    reuse_eligible=boundary.reuse_eligible
+                    and self.boundary_contracts[boundary.contract].reuse_eligible,
+                )
+                if boundary.contract in self.boundary_contracts
                 else boundary
                 for boundary in boundaries
             )

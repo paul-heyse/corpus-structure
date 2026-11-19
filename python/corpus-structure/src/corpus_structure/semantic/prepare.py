@@ -27,8 +27,8 @@ from .conditional_rules import (
     compile_native_conditionals,
     inspect_rule_declarations,
 )
-from .determinants import ANALYSIS_LIBRARIES, determinant_version, release_library_versions
 from .determinants import BYTE_LIBRARIES as _LIBRARIES
+from .determinants import determinant_version, release_library_versions
 from .identity import canonical_bytes
 from .types import (
     BOUNDARY_ABI_VERSION,
@@ -954,36 +954,8 @@ def _prepare_release_uncached(
     )
     if data_operations is not None:
         diagnostics = (*diagnostics, *data_operations.diagnostics)
-    manifest = canonical_bytes(
-        {
-            "root": bundle.root,
-            **(
-                {"data_operation_model": sha256(data_operations.content).hexdigest()}
-                if data_operations is not None
-                else {}
-            ),
-            **(
-                {
-                    "data_operation_source_interfaces": sha256(
-                        data_operations.source_interfaces
-                    ).hexdigest()
-                }
-                if data_operations is not None and data_operations.source_interfaces is not None
-                else {}
-            ),
-            "profile": asdict(profile),
-            "libraries": {
-                name: value
-                for name, value in stack
-                if name in _LIBRARIES or name in ANALYSIS_LIBRARIES
-            },
-            "sources": sorted((s.name, s.digest) for s in bundle.sources),
-            "dependencies": sorted((a.name, a.digest) for a in dependencies.artifacts),
-            "ontology_sources": sorted(dependencies.ontology_sources),
-            "vocabularies": [asdict(v) for v in vocabularies],
-        }
-    )
-    release_id = "release:" + sha256(manifest).hexdigest()
+    # Generated products are release-independent until the final manifest is bound.
+    release_id, manifest = "", b""
     artifacts = [
         PreparedArtifact("definitions.json", canonical_bytes([asdict(d) for d in definitions])),
         PreparedArtifact("boundary_recipe.json", canonical_bytes(boundary_recipe)),
@@ -1004,10 +976,10 @@ def _prepare_release_uncached(
                     [
                         {"name": item.name, "sha256": item.digest}
                         for item in sorted(dependencies.artifacts, key=lambda item: item.name)
-                        if item.name.startswith(
+                        if not (item.authoring_provenance or item.runtime_transport)
+                        and item.name.startswith(
                             (
                                 "native/",
-                                "generator/",
                                 "data-operations/python/",
                                 "data-operations/contracts/",
                             )
@@ -1031,9 +1003,6 @@ def _prepare_release_uncached(
                 native_calls_from_dependencies(data_operations, dependencies),
                 native_source_digest=native_digest_from_dependencies(dependencies),
                 native_program_digests=native_program_closures(dependencies.artifacts).operations,
-                generator_sources=tuple(
-                    item for item in dependencies.artifacts if item.name.startswith("generator/")
-                ),
             )
             artifacts.extend(PreparedArtifact(name, content) for name, content in generated.files)
     from .pdf_domain import pdf_domain_artifacts
@@ -1414,4 +1383,11 @@ def _prepare_release_uncached(
             rich_context_profile(prepared)
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             _fail("rich_context_policy", RICH_CONTEXT_INPUT, str(exc), "unsupported")
-    return prepared
+    from dataclasses import replace
+
+    from .release_identity import release_manifest
+
+    manifest = release_manifest(bundle, dependencies, profile, prepared, dict(stack))
+    return replace(
+        prepared, manifest=manifest, release_id="release:" + sha256(manifest).hexdigest()
+    )

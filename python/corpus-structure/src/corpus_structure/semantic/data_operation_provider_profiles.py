@@ -110,32 +110,38 @@ def operation_profile(operation, contracts):
 
 def runtime_profiles(model, sources):
     """Resolve only explicitly supplied runtime archive inputs, never ambient resources."""
+    contract_prefix = "data-operations/contracts/"
+    transport_prefix = "runtime-transport/"
     contracts = tuple(
-        SourceArtifact(source.name.removeprefix("data-operations/contracts/"), source.content)
+        SourceArtifact(source.name.removeprefix(contract_prefix), source.content)
         for source in sources
-        if source.name.startswith("data-operations/contracts/")
+        if source.name.startswith(contract_prefix)
     )
+    by_profile = {}
+    for source in sources:
+        if not source.name.startswith((contract_prefix, transport_prefix)):
+            continue
+        try:
+            document = json.loads(source.content)
+        except ValueError:
+            continue
+        candidate = document.get("provider_profile") if isinstance(document, dict) else None
+        if isinstance(candidate, dict) and isinstance(identity := candidate.get("identity"), str):
+            by_profile.setdefault(identity, []).append((source, candidate))
     result = {}
     for operation in model.operations:
         profile = operation_profile(operation, contracts)
         if profile is None:
             continue
-        matches = []
-        for source in contracts:
-            try:
-                document = json.loads(source.content)
-            except ValueError:
-                continue
-            if isinstance(document, dict) and "provider_profile" in document:
-                candidate = document["provider_profile"]
-                if isinstance(candidate, dict) and candidate.get("identity") == profile["identity"]:
-                    matches.append((source, checked_attestation(candidate, profile)))
+        matches = by_profile.get(profile["identity"], ())
         if len(matches) != 1:
-            raise ValueError("provider operation requires one exact runtime profile attestation")
-        source, attestation = matches[0]
+            raise ValueError(
+                f"{operation.semantic_id}: provider operation requires one exact runtime profile attestation"
+            )
+        source, candidate = matches[0]
         result[operation.semantic_id] = {
             "profile": profile,
-            "attestation": attestation,
+            "attestation": checked_attestation(candidate, profile),
             "runtime_contract": source.name,
             "runtime_sha256": source.digest,
         }

@@ -91,12 +91,12 @@ class PdfEnrichmentOperation:
         "opaque": [
             {
                 "reference": "corpus_structure.semantic.pdf_transforms.execute_pdf_enrichment",
-                "contract": "pdf-enriched/execution-custody",
+                "contract": "pdf-enriched/profile-assets",
                 "role": "owned-native-pdf-capture",
             },
             {
                 "reference": "corpus_structure.semantic.pdf_capture.PdfCaptureProduct",
-                "contract": "pdf-enriched/execution-custody",
+                "contract": "pdf-enriched/profile-assets",
                 "role": "whole-authenticated-publication",
             },
         ],
@@ -108,7 +108,7 @@ class PdfEnrichmentOperation:
             },
             {
                 "reference": "frozen-native-pdf-recipe",
-                "contract": "pdf-enriched/execution-custody",
+                "contract": "pdf-enriched/profile-assets",
                 "role": "native-parser-models-and-publication-projection",
             },
         ],

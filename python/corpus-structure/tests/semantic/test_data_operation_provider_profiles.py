@@ -75,12 +75,13 @@ def test_profile_cannot_be_forged_by_copying_an_identity_or_contract_name():
         )
 
 
-def test_runtime_profiles_require_exact_captured_execution_asset_and_operation_coverage():
+@pytest.mark.parametrize("prefix", ("data-operations/contracts/", "runtime-transport/"))
+def test_runtime_profiles_require_exact_captured_execution_asset_and_operation_coverage(prefix):
     profile, attestation, source, operation = _facts()
     model = SimpleNamespace(operations=(operation,))
     semantic = SourceArtifact("data-operations/contracts/" + source.name, source.content)
     runtime = SourceArtifact(
-        "data-operations/contracts/provider/runtime",
+        prefix + "provider/runtime",
         canonical_bytes({"selection": {"provider": "fixed"}, "provider_profile": attestation}),
     )
     actual = runtime_profiles(model, (semantic, runtime))
@@ -91,6 +92,7 @@ def test_runtime_profiles_require_exact_captured_execution_asset_and_operation_c
         "sha256": source.digest,
     }
     assert actual["provider:one"]["runtime_sha256"] == runtime.digest
+    assert actual["provider:one"]["runtime_contract"] == runtime.name
     with pytest.raises(ValueError, match="one exact runtime"):
         runtime_profiles(model, (semantic,))
     with pytest.raises(ValueError, match="one exact runtime"):

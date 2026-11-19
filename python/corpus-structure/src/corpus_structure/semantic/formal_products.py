@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
-from functools import cached_property
+from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -644,36 +644,6 @@ def execute_formal_profile(receiver, source: FrozenFormalSource) -> FormalEviden
     return receiver.profile.run(source, receiver.options, check_active=receiver.check_active)
 
 
-def _semantic_nodes(content: bytes, names: tuple[str, ...]) -> tuple[tuple[str, str], ...]:
-    """Normalize the selected actual definitions, excluding transport-only siblings."""
-    import ast
-
-    module = ast.parse(content)
-    result = []
-    for path in names:
-        owner = module
-        for name in path.split("."):
-            if not isinstance(owner, (ast.Module, ast.ClassDef, ast.FunctionDef)):
-                raise ValueError("semantic asset slice does not name an owning definition: " + path)
-            matches = [
-                node
-                for node in owner.body
-                if (isinstance(node, (ast.ClassDef, ast.FunctionDef)) and node.name == name)
-                or (
-                    isinstance(node, ast.Assign)
-                    and any(
-                        isinstance(target, ast.Name) and target.id == name
-                        for target in node.targets
-                    )
-                )
-            ]
-            if len(matches) != 1:
-                raise ValueError("semantic asset slice has no unique actual definition: " + path)
-            owner = matches[0]
-        result.append((path, ast.dump(owner, include_attributes=False)))
-    return tuple(result)
-
-
 def formal_execution_custody() -> SourceArtifact:
     """Physical adapter/CPU/receipt code belongs to runtime custody, not recipe meaning."""
     root = Path(__file__).parent
@@ -686,75 +656,32 @@ def formal_execution_custody() -> SourceArtifact:
                 "files": [(name, (root / name).read_bytes().hex()) for name in names],
             }
         ),
+        runtime_transport=True,
     )
 
 
+@lru_cache(maxsize=1)
 def formal_profile_assets() -> SourceArtifact:
-    """Exact implementation/language bytes, separate from the resulting semantic facts."""
-    from importlib.metadata import version
+    """Capture formal production and the effective grammar assets it reads."""
+    from .operation_code_assets import code_asset
 
-    from corpus_structure.core import tex
-    from corpus_structure.methods.math import transform
-
-    root = Path(__file__).parent
-    paths = (
-        root / "established_validity.py",
-        root / "formal_evidence.py",
-        root / "formal_forest.py",
-        root / "formal_sources.py",
-        root / "structural_parsing.py",
-        root / "characterization.py",
-        root / "characterization_evidence.py",
-        root / "source_products.py",
-        root / "characterization_manifests.py",
-        root / "constructions/reuse.py",
-        root / "constructions/nodes.py",
-        root / "constructions/lexical.py",
-        Path(math_grammar.__file__),
-        Path(transform.__file__),
-        Path(tex.__file__),
-        math_grammar.SHIPPED,
-        math_grammar.EXTENSION,
-        _MODEL,
-        root.parent / "model/semantic/characterization.yaml",
-        root.parent / "model/semantic/data-operation-source.yaml",
-    )
-    # Labels are descriptive relative package addresses, never machine placement.
-    payload = {
-        "interpretation": "formal-semantic-assets-ast-v1",
-        "target": _semantic_nodes(
-            Path(__file__).read_bytes(),
-            (
-                "_INVENTORIES",
-                "_MEMBER_VARIANTS",
-                "_RecognizerSource",
-                "FormalEvidenceOptions",
-                "FormalEvidenceProduct",
-                "_values",
-                "formal_product_values",
-                "formal_positioned_lexicon",
-                "formal_member_contracts",
-                "validate_formal_product",
-                "retained_formal_product",
-                "PreparedFormalEvidence",
-                "PreparedFormalEvidencePort._completion",
-                "execute_formal_profile",
-                "_semantic_nodes",
-                "formal_profile_assets",
-            ),
+    root = Path(__file__).parents[1]
+    return code_asset(
+        "formal/profile-assets",
+        (
+            execute_formal_profile,
+            PreparedFormalEvidence.run,
+            extract_formal_facts,
+            validate_formal_product,
         ),
-        "sources": [
-            (
-                str(path.relative_to(root.parent))
-                if path.is_relative_to(root.parent)
-                else "sympy/grammar/latex.lark",
-                path.read_bytes().hex(),
-            )
-            for path in paths
-        ],
-        "libraries": {name: version(name) for name in ("lark", "sympy", "pydantic")},
-    }
-    return SourceArtifact("formal/profile-assets", canonical_bytes(payload))
+        (
+            ("sympy/grammar/latex.lark", math_grammar.SHIPPED),
+            ("grammar-extension", math_grammar.EXTENSION),
+            ("formal-members", _MODEL),
+            ("characterization", root / "model/semantic/characterization.yaml"),
+            ("data-operation-source", root / "model/semantic/data-operation-source.yaml"),
+        ),
+    )
 
 
 def formal_operation_sources():

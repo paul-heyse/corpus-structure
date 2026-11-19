@@ -64,11 +64,19 @@ class SelectedQueryCache:
         self.max_entries = max_entries
 
     def get(self, key: bytes):
+        from .serving_code import reusable_serving_code
+
+        if not reusable_serving_code():
+            return None
         with self._lock:
             value = self._rows.get(key)
             return None if value is None else value[1]
 
     def put(self, key: bytes, entry):
+        from .serving_code import reusable_serving_code
+
+        if not reusable_serving_code():
+            return False
         with self._lock:
             if len(key) + entry.byte_size > self._rows.maxsize:
                 return False
@@ -171,6 +179,13 @@ def byte_bounded_page(rows, *, offset, limit, max_bytes, report, row_fields=None
     report(end, values, more) supplies fresh cut/provenance and the ordinal cursor.
     Multiple output arrays can share one indivisible pagination unit (dossiers).
     """
+    from .serving_code import serving_report
+
+    original_report = report
+
+    def report(end, values, more):
+        return serving_report(original_report(end, values, more))
+
     fields = {"items": lambda value: (value,)} if row_fields is None else row_fields
     dynamic_names = {
         "cursor",

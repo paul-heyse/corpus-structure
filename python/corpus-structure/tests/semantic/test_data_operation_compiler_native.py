@@ -80,6 +80,7 @@ def _archive(connection, *, binding=None, mutation=None, provider=None):
         effects=[],
         capabilities={},
         provenance="value_substitution",
+        reuse_eligible=True,
         assets=[],
         numerical_policy=None,
         result_fields={},

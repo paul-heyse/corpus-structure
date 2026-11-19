@@ -126,43 +126,29 @@ def test_unknown_loader_cannot_gain_source_custody_from_matching_disk_bytes(prom
         custody.capture_sources((path,))
 
 
-def test_serving_basis_prepares_contract_and_library_versions_once(monkeypatch):
+def test_serving_basis_prepares_contract_once_and_checks_exact_imported_bytes(monkeypatch):
+    from corpus_structure.semantic.code_identity import CodeIdentity
+
     class Contract(BaseModel):
         value: int
 
-    schemas, versions = [], []
+    schemas, captures = [], []
     original_schema = Contract.model_json_schema
 
     def schema(*args, **kwargs):
         schemas.append(True)
         return original_schema(*args, **kwargs)
 
-    original_version = service.version
-
-    def version(name):
-        if name == "custody-test-library":
-            versions.append(name)
-            return "1.0"
-        return original_version(name)
+    def capture(*args, **kwargs):
+        captures.append(True)
+        return CodeIdentity(("custody_test",), (), (), (), b"{}")
 
     monkeypatch.setattr(Contract, "model_json_schema", schema)
-    monkeypatch.setattr(service, "version", version)
-    clock = file_custody.time_ns()
-    monkeypatch.setattr(file_custody, "time_ns", lambda: clock + 10_000_000_000)
-    sources = ("_query_custody.py", "semantic/file_custody.py", "serve/rich_queries.py")
-    with service.installed_read_implementation(
-        Contract, sources=sources, profile="custody-test", extra_libraries=("custody-test-library",)
-    ) as first:
-        pass
-
-    def no_rehash(*args, **kwargs):
-        raise AssertionError("cached serving basis rehashed source bytes")
-
-    monkeypatch.setattr(file_custody, "file_digest", no_rehash)
-    with service.installed_read_implementation(
-        Contract, sources=sources, profile="custody-test", extra_libraries=("custody-test-library",)
-    ) as second:
-        pass
-    assert first == second
+    monkeypatch.setattr("corpus_structure.semantic.code_identity.capture_code_identity", capture)
+    for _ in range(2):
+        with service.installed_read_implementation(
+            Contract, entry="custody_test", profile="custody-test"
+        ) as implementation:
+            assert implementation.complete
     assert schemas == [True]
-    assert versions == ["custody-test-library"]
+    assert captures == [True]

@@ -188,11 +188,11 @@ def unsupported_rows(scope, selected, request):
 
 
 def serve_contribution_facets(connection, request: ContributionFacetsRequest):
-    from corpus_structure._query_custody import COMPOSITE_READ_SOURCES, SourceCustodyError
+    from corpus_structure._query_custody import SourceCustodyError
 
     try:
         with installed_read_implementation(
-            type(request), sources=COMPOSITE_READ_SOURCES, profile=VERSION
+            type(request), entry="corpus_structure.serve.contribution_facets", profile=VERSION
         ) as implementation:
             return _serve(connection, request, implementation)
     except SourceCustodyError as error:

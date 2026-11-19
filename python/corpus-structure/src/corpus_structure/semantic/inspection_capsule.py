@@ -1,4 +1,4 @@
-"""Managed candidate custody for existing archive-3 products; opening never compiles."""
+"""Managed candidate custody for current release products; opening never compiles."""
 
 import json
 from dataclasses import asdict
@@ -14,9 +14,11 @@ def make_capsule(
     profile: PreparationProfile,
     prepared: PreparedRelease,
 ) -> bytes:
+    from .release_identity import material_dependencies
     from .releases import _archive_bytes, _validate_manifest
 
     _validate_manifest(bundle, dependencies, profile, prepared)
+    dependencies = material_dependencies(dependencies)
     archive = _archive_bytes(bundle, dependencies, prepared)
     inputs = [
         dict(

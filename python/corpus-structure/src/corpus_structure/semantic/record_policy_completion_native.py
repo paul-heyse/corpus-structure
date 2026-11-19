@@ -1731,7 +1731,12 @@ def _fit_completion(p):
                         intents.c.request_id == producer("request_id"),
                         intents.c.generation == producer("generation"),
                     ),
-                    Assign("r", func.ops.ddo_require_episode_correspondence(producer(), intent())),
+                    Assign(
+                        "r",
+                        func.ops.ddo_require_episode_record_fit_correspondence(
+                            producer(), intent()
+                        ),
+                    ),
                     ForQuery(
                         ("selected",),
                         select(selections),

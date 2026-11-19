@@ -193,6 +193,12 @@ def acquire_data_execution_basis(connection, release_id, runtime_id, *, source_r
         sources = PythonSourceCollection(())
     else:
         sources = captured[1]
+    from dataclasses import replace
+
+    from .composed import runtime_transport_inputs
+
+    transport = runtime_transport_inputs(runtime)
+    sources = replace(sources, boundary_contracts=(*sources.boundary_contracts, *transport))
     if source_root is None and sources.sources:
         raise SemanticRefusal("captured Python execution requires an explicit source root")
     root = source_root.resolve() if source_root is not None else None

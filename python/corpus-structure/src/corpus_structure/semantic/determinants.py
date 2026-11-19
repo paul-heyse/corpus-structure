@@ -31,7 +31,14 @@ BYTE_LIBRARIES = (
     "python",
     "unicode-identity",
 )
-BOUNDARY_LIBRARIES = ("python", "pydantic", "pydantic-core", "jsonschema", "cattrs")
+BOUNDARY_LIBRARIES = (
+    "python",
+    "pydantic",
+    "pydantic-core",
+    "jsonschema",
+    "cattrs",
+    "unicode-identity",
+)
 DEPLOYMENT_LIBRARIES = ("sqlalchemy", "psycopg", "pglast", "alembic")
 ANALYSIS_LIBRARIES = ("sqlglot", "sqlalchemy", "linkml-runtime", "pyarrow", "pgvector", "pyyaml")
 

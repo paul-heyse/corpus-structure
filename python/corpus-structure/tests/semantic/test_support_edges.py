@@ -843,7 +843,7 @@ def test_owned_stage_transition_discovery_and_impact(tmp_path, monkeypatch):
 
     from corpus_structure.schema.model_deployment import deployment_settings
     from corpus_structure.semantic.data_operation_storage import native_source_digest
-    from corpus_structure.semantic.migrations import current_revision
+    from corpus_structure.semantic.migrations import current_revision, head_revision
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.storage_target import acquired_target
     from corpus_structure.settings import Settings
@@ -857,7 +857,7 @@ def test_owned_stage_transition_discovery_and_impact(tmp_path, monkeypatch):
             target = acquired_target(connection, purpose="maintenance")
             assert target.database_oid == 130661481
             assert target.port == 5434
-            assert current_revision(connection) == "semantic_ddo_pe_n32"
+            assert current_revision(connection) == head_revision()
             installed = connection.scalar(
                 text("SELECT sem.data_operation_native_descriptor()->>'source_digest'")
             )

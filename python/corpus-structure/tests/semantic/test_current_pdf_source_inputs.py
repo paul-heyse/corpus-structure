@@ -29,7 +29,7 @@ def test_pdf_preparation_reuses_only_a_live_binding_and_retains_evicted_resource
         return next(
             asset.content
             for asset in preparation.dependencies.artifacts
-            if asset.name == "data-operations/contracts/pdf-capture/execution-custody"
+            if asset.name == "runtime-transport/pdf-capture/execution-custody"
         )
 
     try:

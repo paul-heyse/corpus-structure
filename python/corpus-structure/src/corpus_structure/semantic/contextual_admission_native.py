@@ -738,7 +738,7 @@ def contextual_admission_native_programs(*, target_metadata=None) -> tuple[Progr
                     ),
                     Assign(
                         "r",
-                        func.ops.ddo_require_episode_correspondence(
+                        func.ops.ddo_require_episode_contextual_correspondence(
                             p.row("episode", "ops.data_derivation"),
                             p.row("intent", "ops.data_completion_intent"),
                         ),

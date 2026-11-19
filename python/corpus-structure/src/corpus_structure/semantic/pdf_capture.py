@@ -54,6 +54,8 @@ def pdf_capture_inputs(bundle):
 def pdf_capture_assets(recipe):
     from corpus_structure.ingest.pdf import pdf_package_versions
 
+    from .pdf_lowering import lowering_code_complete
+
     return SourceArtifact(
         "pdf-capture/profile-assets",
         canonical_bytes(
@@ -64,6 +66,7 @@ def pdf_capture_assets(recipe):
                 "model": _MODEL.read_bytes().hex(),
             }
         ),
+        reuse_eligible=lowering_code_complete(),
     )
 
 
@@ -109,6 +112,7 @@ def pdf_capture_custody(
                 "files": [(name, (root / name).read_bytes().hex()) for name in files],
             }
         ),
+        runtime_transport=True,
     )
 
 

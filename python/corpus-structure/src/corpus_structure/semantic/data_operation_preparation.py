@@ -242,7 +242,6 @@ def acquire_data_operation_inputs(
         )
         if declared.primary_profile is None or not declared.primary_profile.downstream:
             declarations = (*declarations, reading_resolution_declarations())
-    from .data_operation_artifacts import capture_port_generator_sources
     from .data_operation_storage import native_operation_declarations, native_protocol_sources
 
     if declared.primary_profile is not None:
@@ -310,10 +309,9 @@ def acquire_data_operation_inputs(
             composed.bundle, dependencies, composed.profile, tuple(sorted(captured.items()))
         )
     native = native_protocol_sources()
-    generator = capture_port_generator_sources()
     dependencies = data_operation_dependencies(
         ResolvedDependencies(
-            (*artifacts(declared.dependencies), *native, *generator),
+            (*artifacts(declared.dependencies), *native),
             ontology_sources=declared.ontology_sources,
         ),
         (

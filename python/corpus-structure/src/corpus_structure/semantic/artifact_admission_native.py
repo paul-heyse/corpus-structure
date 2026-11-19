@@ -227,7 +227,10 @@ def artifact_admission_native_programs(
                         intent.c.generation == e("generation"),
                     ),
                     Assign(
-                        "r", func.ops.ddo_require_episode_correspondence(e(), row("intent", intent))
+                        "r",
+                        func.ops.ddo_require_episode_artifact_correspondence(
+                            e(), row("intent", intent)
+                        ),
                     ),
                     Return(literal(True)),
                 ),

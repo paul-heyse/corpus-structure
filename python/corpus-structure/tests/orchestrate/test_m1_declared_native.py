@@ -27,7 +27,6 @@ from corpus_structure.semantic.composed import (
     data_operation_dependencies,
     read_data_operation_inputs,
 )
-from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
 from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
@@ -72,7 +71,7 @@ def _recipe(*, empty=False):
     native = native_protocol_sources()
     dependencies = data_operation_dependencies(
         ResolvedDependencies(
-            (*native, *capture_port_generator_sources(), *vocabulary_assets),
+            (*native, *vocabulary_assets),
             ontology_sources=ontology_sources,
         ),
         (native_operation_declarations(native),),

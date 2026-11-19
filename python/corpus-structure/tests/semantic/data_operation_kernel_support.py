@@ -105,7 +105,7 @@ class KernelRecipe:
     @property
     def requires_consumer_binding(self) -> bool:
         return self.captured_inputs is not None and any(
-            artifact.name == "data-operations/contracts/pdf-capture/execution-custody"
+            artifact.name == "runtime-transport/pdf-capture/execution-custody"
             for artifact in self.captured_inputs.dependencies.artifacts
         )
 

@@ -11,8 +11,6 @@ from dataclasses import asdict, dataclass
 from hashlib import sha256
 from typing import Annotated, Any
 
-import yaml
-from cattrs.errors import BaseValidationError
 from pydantic import Field, TypeAdapter
 from sqlalchemy import BigInteger, Connection, Text, bindparam, func, select
 
@@ -26,10 +24,7 @@ from .types import (
     PreparationProfile,
     PreparedRelease,
     ResolvedDependencies,
-    SourceArtifact,
     SourceBundle,
-    VocabularyMember,
-    VocabularySnapshot,
 )
 
 
@@ -75,6 +70,9 @@ def _products(prepared: PreparedRelease) -> dict[str, Any]:
 def _archive_bytes(
     bundle: SourceBundle, dependencies: ResolvedDependencies, prepared: PreparedRelease
 ) -> bytes:
+    from .release_identity import material_dependencies
+
+    dependencies = material_dependencies(dependencies)
     return canonical_bytes(
         {
             "format": SEMANTIC_ARCHIVE_FORMAT,
@@ -92,36 +90,15 @@ def _validate_manifest(
     profile: PreparationProfile,
     prepared: PreparedRelease,
 ) -> None:
+    from .release_identity import release_manifest
+
     try:
         libraries = release_library_versions(dependencies)
-    except ValueError as error:
+        expected = release_manifest(bundle, dependencies, profile, prepared, libraries)
+    except (ValueError, KeyError) as error:
         raise ReleaseConflict(str(error)) from error
-    manifest: dict[str, Any] = {
-        "root": bundle.root,
-        "profile": asdict(profile),
-        "libraries": libraries,
-        "sources": sorted((s.name, s.digest) for s in bundle.sources),
-        "dependencies": sorted((s.name, s.digest) for s in dependencies.artifacts),
-        "ontology_sources": sorted(dependencies.ontology_sources),
-        "vocabularies": [asdict(v) for v in prepared.vocabularies],
-    }
-    target = any(a.name.startswith("data-operations/") for a in dependencies.artifacts)
-    if target:
-        from .composed import data_operations_from_dependencies
-
-        model = data_operations_from_dependencies(
-            bundle, dependencies, prepared.definitions, prepared.vocabularies
-        )
-        if model is None:
-            raise ReleaseConflict("target release lacks its effective model")
-        manifest["data_operation_model"] = _digest(model.content)
-        if model.source_interfaces is not None:
-            manifest["data_operation_source_interfaces"] = _digest(model.source_interfaces)
-    expected = canonical_bytes(manifest)
     if prepared.manifest != expected or prepared.release_id != "release:" + _digest(expected):
-        raise ReleaseConflict(
-            "prepared release does not match exact inputs, profile or compiler versions"
-        )
+        raise ReleaseConflict("prepared release does not match exact material inputs and outputs")
     for values, identity in (
         (bundle.sources, "source"),
         (dependencies.artifacts, "dependency"),
@@ -330,6 +307,9 @@ def persist_release(
         "prepared_bytes": archive,
         "manifest_bytes": prepared.manifest,
     }
+    from .release_identity import material_dependencies
+
+    dependencies = material_dependencies(dependencies)
     inputs = [
         {
             "release_id": prepared.release_id,
@@ -436,99 +416,13 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
 def load_release_inputs(
     conn: Connection, release_id: str
 ) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]:
-    """Reprepare once, offline, and compare every archived product and exact byte string."""
-    table = _table("sem.release")
-    row = (
-        conn.execute(select(table).where(table.c.release_id == release_id)).mappings().one_or_none()
-    )
-    if row is None:
-        raise KeyError(release_id)
-    try:
-        archive_bytes = bytes(row["prepared_bytes"])
-        if _digest(archive_bytes) != row["content_digest"]:
-            raise ReleaseConflict("archive digest differs")
-        archive = json.loads(archive_bytes)
-        if archive["format"] != SEMANTIC_ARCHIVE_FORMAT:
-            raise ReleaseConflict("unsupported archive format")
-        inputs = _table("sem.input")
-        source: dict[tuple[str, str], bytes] = {}
-        for item in conn.execute(
-            select(inputs).where(inputs.c.release_id == release_id)
-        ).mappings():
-            content = bytes(item["content"])
-            if _digest(content) != item["content_digest"]:
-                raise ReleaseConflict("input digest differs")
-            source[item["input_kind"], item["input_name"]] = content
-        bundle = SourceBundle(
-            archive["root"],
-            tuple(SourceArtifact(name, source["source", name]) for name in archive["sources"]),
-        )
-        snapshots = tuple(
-            VocabularySnapshot(
-                enum=v["enum"],
-                members=tuple(VocabularyMember(**m) for m in v["members"]),
-                dependency=v["dependency"],
-                definition_digest=v["definition_digest"],
-                dependency_digest=v["dependency_digest"],
-                unchecked=tuple(v["unchecked"]),
-            )
-            for v in json.loads(source["vocabulary", "vocabulary"])
-        )
-        dependencies = ResolvedDependencies(
-            tuple(
-                SourceArtifact(name, source["dependency", name]) for name in archive["dependencies"]
-            ),
-            snapshots,
-            tuple(json.loads(source["ontology_sources", "ontology_sources"])),
-        )
-        profile = PreparationProfile(**json.loads(source["profile", "profile"]))
-        if profile.compiler_version != SEMANTIC_COMPILER_VERSION:
-            raise ReleaseConflict(
-                f"unsupported archive compiler {profile.compiler_version}; "
-                f"current compiler is {SEMANTIC_COMPILER_VERSION}"
-            )
-        if len(source) != len(bundle.sources) + len(dependencies.artifacts) + 3:
-            raise ReleaseConflict("unexpected archived inputs")
-        # Detect version changes before attempting to interpret with another compiler.
-        manifest = json.loads(bytes(row["manifest_bytes"]))
-        if manifest["libraries"] != release_library_versions(dependencies):
-            raise ReleaseConflict("archived compiler library versions differ")
-        from .prepare import prepare_release
+    """Authenticate material inputs/products and compare the protected projections."""
+    from .archive_reader import open_archived_release_inputs
 
-        prepared = prepare_release(bundle, dependencies, profile)
-        _validate_manifest(bundle, dependencies, profile, prepared)
-        if (
-            prepared.release_id != release_id
-            or prepared.manifest != bytes(row["manifest_bytes"])
-            or _archive_bytes(bundle, dependencies, prepared) != archive_bytes
-            or row["profile"] != profile.version
-        ):
-            raise ReleaseConflict("offline preparation differs from archived products")
-        artifacts = [
-            {
-                "release_id": release_id,
-                "artifact_name": item.kind,
-                "media_type": "application/octet-stream",
-                "content": item.content,
-                "content_digest": item.digest,
-            }
-            for item in prepared.artifacts
-        ]
-        _compare_rows(conn, "artifact", release_id, artifacts)
-        for name, expected in _projection_rows(prepared).items():
-            _compare_rows(conn, name, release_id, expected)
-        return bundle, dependencies, profile, prepared
-    except ReleaseConflict:
-        raise
-    except (
-        ValueError,
-        KeyError,
-        TypeError,
-        IndexError,
-        BaseValidationError,
-        yaml.YAMLError,
-    ) as exc:
-        raise ReleaseConflict(f"cannot reconstruct exact release {release_id}: {exc}") from exc
+    bundle, dependencies, profile, prepared = open_archived_release_inputs(conn, release_id)
+    for name, expected in _projection_rows(prepared).items():
+        _compare_rows(conn, name, release_id, expected)
+    return bundle, dependencies, profile, prepared
 
 
 def activation_token(conn: Connection, project_id: str) -> ActivationToken:

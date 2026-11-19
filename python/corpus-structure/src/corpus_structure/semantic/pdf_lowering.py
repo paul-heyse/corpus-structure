@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
+from hashlib import sha256
 from pathlib import Path
 
 from .determinants import determinant_version
@@ -12,98 +13,27 @@ from .types import SourceArtifact, SourceBundle
 
 LOWERING_CONTRACT = "implementation/pdf/lowering-contract.json"
 LOWERING_PREFIX = "implementation/pdf/lowering/"
-LOWERING_LIBRARIES = (
-    "docling-core",
-    "pydantic",
-    "pydantic-core",
-    "jsonschema",
-    "referencing",
-    "pyarrow",
-    "linkml",
-    "linkml-runtime",
-    "cattrs",
-    "PyYAML",
-    "sqlalchemy",
-    "pglast",
-    "python",
-    "unicode-identity",
+LOWERING_ENTRY_MODULES = (
+    "corpus_structure.semantic.pdf_records",
+    "corpus_structure.semantic.pdf_certification",
+    "corpus_structure.ingest.pdf_record_product",
+    "corpus_structure.semantic.pdf_integrated",
 )
-# Explicit runtime responsibility closure. These are captured bytes, not a
-# checkout hash substituted for an archived lowering contract.
-LOWERING_FILES = (
-    "semantic/pdf_lowering.py",
-    "semantic/pdf_certification.py",
-    "semantic/pdf_shared_streams.py",
-    "semantic/pdf_shared_stream_queries.py",
-    "semantic/pdf_shared_stream_writes.py",
-    "semantic/_pdf_native_calls.py",
-    "semantic/_pdf_native_ids.py",
-    "semantic/operation_value_types.py",
-    "semantic/native_sql_body.py",
-    "semantic/native_program.py",
-    "semantic/native_call_contracts.py",
-    "semantic/pdf_certification_native.py",
-    "semantic/pdf_publication_read_native.py",
-    "semantic/pdf_publication_native.py",
-    "semantic/pdf_companion_read_native.py",
-    "semantic/pdf_validation_read_native.py",
-    "semantic/pdf_domain_native.py",
-    "semantic/pdf_publication.py",
-    "semantic/pdf_record_reader.py",
-    "semantic/pdf_record_reader_native.py",
-    "semantic/pdf_record_context_native.py",
-    "semantic/pdf_record_event_queries.py",
-    "semantic/pdf_selected_source_native.py",
-    "semantic/pdf_record_pages_native.py",
-    "semantic/pdf_record_proof_native.py",
-    "semantic/pdf_record_digest_native.py",
-    "semantic/pdf_identity_frames_native.py",
-    "semantic/pdf_record_access_native.py",
-    "semantic/pdf_binary_identity_native.py",
-    "semantic/pdf_completion_native.py",
-    "semantic/pdf_target_identity_native.py",
-    "semantic/pdf_records.py",
-    "semantic/pdf_record_identity.py",
-    "semantic/pdf_record_model.py",
-    "semantic/pdf_staging.py",
-    "semantic/metadata.py",
-    "schema/physical.py",
-    "schema/relational.py",
-    "semantic/native_shapes.py",
-    "semantic/pdf_companion_adoption_native.py",
-    "semantic/pdf_staging_native.py",
-    "semantic/prepared_sql.py",
-    "semantic/pdf_payloads.py",
-    "semantic/pdf_payload_validation.py",
-    "semantic/pdf_ocr_contracts.py",
-    "semantic/pdf_contracts.py",
-    "semantic/pdf_integrated.py",
-    "semantic/pdf_integrated_native.py",
-    "semantic/pdf_observation_native.py",
-    "semantic/identity.py",
-    "semantic/value_codec.py",
-    "semantic/arrow_transfer.py",
-    "ingest/pdf.py",
-    "ingest/pdf_worker.py",
-    "ingest/pdf_stream_types.py",
-    "ingest/pdf_streaming.py",
-    "ingest/pdf_record_product.py",
-    "ingest/pdf_build_spool.py",
-    "ingest/pdf_hierarchy.py",
-    "ingest/pdf_assembly.py",
-    "ingest/pdf_candidate_source.py",
-    "ingest/pdf_candidates.py",
-    "ingest/pdf_ocr.py",
-    "ingest/pdf_reconciliation.py",
-    "model/semantic/pdf-records.yaml",
-    "model/semantic/pdf-staging.yaml",
-    "model/semantic/pdf-products.yaml",
-    "model/semantic/pdf-observation-vocabulary.yaml",
-    "model/compiled.py",
-    "model/semantic/native-field-kinds.yaml",
-    "model/semantic/pdf-payloads.yaml",
-    "model/semantic/core.yaml",
-    "model/semantic/docling-validation.schema.json",
+LOWERING_ENTRY_CALLABLES = (
+    "corpus_structure.semantic.pdf_records.iter_native_records",
+    "corpus_structure.semantic.pdf_records.reconstruct_native_document",
+    "corpus_structure.semantic.pdf_records.validate_native_callbacks",
+    "corpus_structure.semantic.pdf_certification.PdfProducerPayloads.certify",
+    "corpus_structure.semantic.pdf_certification.write_pdf_companion_sets",
+    "corpus_structure.ingest.pdf_record_product.native_publication_draft",
+    "corpus_structure.semantic.pdf_integrated.prepare_integrated_pdf_product",
+)
+
+PRODUCER_IDENTITY_INPUTS = frozenset(
+    {
+        "pdf-domain/" + LOWERING_CONTRACT,
+        "pdf-domain/" + LOWERING_PREFIX + "code/meaning.json",
+    }
 )
 
 
@@ -157,21 +87,21 @@ def _current_boundary():
     return sources, tuple(records)
 
 
-def lowering_sources(boundary_sources=None) -> tuple[SourceArtifact, ...]:
+def lowering_sources(boundary_sources=None, *, include_producer=True) -> tuple[SourceArtifact, ...]:
     """Prepare once for exact captured inputs; mutable file premises still recheck."""
     if boundary_sources is None:
         boundary_sources, records = _current_boundary()
         for record in records:
             record.check()
-    sources, records = _prepared_lowering_sources(tuple(boundary_sources))
+    sources, records = _prepared_lowering_sources(tuple(boundary_sources), include_producer)
     for record in records:
         record.check()
     return sources
 
 
 @lru_cache(maxsize=4)
-def _prepared_lowering_sources(boundary_sources):
-    sources, custody = _implementation_sources()
+def _prepared_lowering_sources(boundary_sources, include_producer):
+    sources, custody = _implementation_sources(include_producer)
     for record in custody:
         record.check()
     import yaml
@@ -183,6 +113,7 @@ def _prepared_lowering_sources(boundary_sources):
     from .pdf_record_model import record_arrow_schema
     from .pdf_staging import UPLOAD_STAGE_FAMILIES
     from .prepare import prepare_release
+    from .types import SEMANTIC_COMPILER_VERSION
 
     logical = {
         source.name.removeprefix("pdf-domain/logical/"): source.content
@@ -245,16 +176,29 @@ def _prepared_lowering_sources(boundary_sources):
             )
         ),
     )
+    if not include_producer:
+        return sources, custody
+    code = _lowering_code()
     contract = SourceArtifact(
         "pdf-domain/" + LOWERING_CONTRACT,
         canonical_bytes(
             {
-                "profile": "pdf-record-lowering-contract-v1",
+                "profile": "pdf-record-lowering-contract-v2",
+                "compiler_policy": SEMANTIC_COMPILER_VERSION,
+                "code_identity": {
+                    "complete": code.complete,
+                    "sha256": code.digest,
+                    "unknowns": sorted({(item.module, item.reason) for item in code.unknowns}),
+                },
                 "inputs": [
                     {"name": source.name, "sha256": source.digest}
                     for source in (*sources, *boundary_sources)
                 ],
-                "libraries": {name: determinant_version(name) for name in LOWERING_LIBRARIES},
+                "libraries": {
+                    **{distribution: version for _, distribution, version in code.distributions},
+                    "python": determinant_version("python"),
+                    "unicode-identity": determinant_version("unicode-identity"),
+                },
             }
         ),
     )
@@ -262,20 +206,57 @@ def _prepared_lowering_sources(boundary_sources):
 
 
 @lru_cache(maxsize=1)
-def _implementation_sources():
-    """A new target preparation cannot rebase already loaded executable code."""
+def _lowering_code():
+    from .code_identity import capture_code_identity
+
+    return capture_code_identity(
+        Path(__file__).resolve().parents[1],
+        LOWERING_ENTRY_MODULES,
+        callables=LOWERING_ENTRY_CALLABLES,
+    )
+
+
+def lowering_code_provenance() -> dict:
+    """Inspect exact generator custody independently of reusable output meaning."""
+    return _lowering_code().provenance()
+
+
+def lowering_code_complete() -> bool:
+    return _lowering_code().complete
+
+
+@lru_cache(maxsize=2)
+def _implementation_sources(include_producer):
+    """Capture normalized code meaning while retaining exact loaded-file custody."""
     from .file_custody import verified_file
 
     root = Path(__file__).resolve().parents[1]
-    sources = tuple(
-        SourceArtifact("pdf-domain/" + LOWERING_PREFIX + name, root.joinpath(name).read_bytes())
-        for name in LOWERING_FILES
+    native_schema = root / "model/semantic/docling-validation.schema.json"
+    schema_source = SourceArtifact(
+        "pdf-domain/" + LOWERING_PREFIX + "schema/docling-native.json", native_schema.read_bytes()
     )
-    custody = tuple(
-        verified_file(root / name, source.digest)
-        for name, source in zip(LOWERING_FILES, sources, strict=True)
+    schema_custody = verified_file(native_schema, schema_source.digest)
+    if not include_producer:
+        return (schema_source,), (schema_custody,)
+    code = _lowering_code()
+    sources = (
+        SourceArtifact("pdf-domain/" + LOWERING_PREFIX + "code/meaning.json", code.meaning),
+        schema_source,
+    )
+    custody = (
+        *tuple(
+            verified_file(root / source.filename, sha256(source.content).hexdigest())
+            for source in code.modules
+        ),
+        schema_custody,
     )
     return sources, custody
+
+
+def lowering_reuse_complete(context) -> bool:
+    """Computation is available when code identity is incomplete; reuse is withheld."""
+    require_lowering_identity(context)
+    return json.loads(context.domain.source(LOWERING_CONTRACT).content)["code_identity"]["complete"]
 
 
 def require_lowering_identity(context) -> str:

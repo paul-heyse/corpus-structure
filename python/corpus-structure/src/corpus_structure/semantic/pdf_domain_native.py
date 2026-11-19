@@ -1,10 +1,13 @@
 """Native PDF correspondence over frozen domain actions and input custody."""
 
+import json
+
 from sqlalchemy import Boolean, Text, cast, column, func, literal, select
 from sqlalchemy.dialects.postgresql import JSONB, insert
 
 from corpus_structure.schema.integrity import role_name
 
+from .identity import canonical_bytes
 from .metadata import get_metadata
 from .native_objects import (
     INTERNAL_PROGRAM,
@@ -30,14 +33,20 @@ from .native_program import (
 )
 from .native_program_registry import ProgramDeclaration
 from .pdf_domain import CONTRACT, HELPER_CONTRACT, PREFIX, pdf_domain_sources
+from .pdf_lowering import PRODUCER_IDENTITY_INPUTS
 
 
 def pdf_domain_native_programs(
     *, sources=None, target_metadata=None
 ) -> tuple[ProgramDeclaration, ...]:
     model = get_metadata() if target_metadata is None else target_metadata
-    captured = pdf_domain_sources() if sources is None else sources
-    digest = next(source.digest for source in captured if source.name == CONTRACT)
+    captured = pdf_domain_sources(include_producer=False) if sources is None else sources
+    native_facet = json.loads(
+        next(source.content for source in captured if source.name == CONTRACT)
+    )
+    native_inputs = [
+        item for item in native_facet.pop("inputs") if item["name"] not in PRODUCER_IDENTITY_INPUTS
+    ]
     inputs = model.tables["sem.input"]
     definitions = model.tables["sem.data_operation_definition"]
     contracts = model.tables["sem.pdf_operation_contract"]
@@ -69,6 +78,14 @@ def pdf_domain_native_programs(
     contract_scope = (*scope, inputs.c.input_name == CONTRACT)
     authenticated = func.encode(func.sha256(inputs.c.content), "hex") == inputs.c.content_digest
     document = cast(func.convert_from(inputs.c.content, "UTF8"), JSONB())
+
+    def matches_native_basis(value):
+        header = cast(literal(canonical_bytes(native_facet).decode()), JSONB())
+        inventory = cast(literal(canonical_bytes(native_inputs).decode()), JSONB())
+        return (value.op("-", return_type=JSONB())("inputs") == header) & value["inputs"].contains(
+            inventory
+        )
+
     contract_available = select(inputs.c.input_name).where(*contract_scope).exists()
     refusal = Raise("PDF domain contract differs", "23514")
     capability_refusal = Raise("PDF action/capability correspondence differs", "23514")
@@ -91,7 +108,7 @@ def pdf_domain_native_programs(
                 ),
                 SelectInto(
                     select(document.op("->", return_type=JSONB())("inputs")).where(
-                        *contract_scope, inputs.c.content_digest == digest, authenticated
+                        *contract_scope, matches_native_basis(document), authenticated
                     ),
                     ("expected_",),
                 ),
@@ -161,7 +178,7 @@ def pdf_domain_native_programs(
                     ~core_variable("found", Boolean()),
                     (If(contract_available, (refusal,)), Return()),
                 ),
-                If(fresh & (facet_digest != digest), (refusal,)),
+                If(fresh & matches_native_basis(facet).is_distinct_from(True), (refusal,)),
                 If(~supported, (capability_refusal,)),
                 # Forward DATA authenticates retained facts under their own
                 # manifest. Runtime reads require the current contract.
@@ -242,7 +259,15 @@ def pdf_domain_native_programs(
                         contracts.c.release_id == release,
                         contracts.c.operation_id == operation,
                         contracts.c.contract_id == operation,
-                        contracts.c.contract_digest == digest,
+                        select(inputs.c.input_name)
+                        .where(
+                            *contract_scope,
+                            inputs.c.content_digest == contracts.c.contract_digest,
+                            matches_native_basis(document),
+                            authenticated,
+                        )
+                        .correlate(contracts)
+                        .exists(),
                     )
                     .exists(),
                     (capability_refusal,),

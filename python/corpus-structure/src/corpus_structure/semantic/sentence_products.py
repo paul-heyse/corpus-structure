@@ -821,30 +821,6 @@ def prepare_sentence_profile(
     )
 
 
-def _semantic_nodes(content: bytes, names: tuple[str, ...]):
-    """Normalize the named real semantic definitions, excluding transport siblings."""
-    import ast
-
-    module = ast.parse(content)
-    result = []
-    for name in names:
-        matches = [
-            node
-            for node in module.body
-            if (isinstance(node, (ast.ClassDef, ast.FunctionDef)) and node.name == name)
-            or (
-                isinstance(node, ast.Assign)
-                and any(
-                    isinstance(target, ast.Name) and target.id == name for target in node.targets
-                )
-            )
-        ]
-        if len(matches) != 1:
-            raise ValueError("sentence semantic asset has no unique actual definition: " + name)
-        result.append((name, ast.dump(matches[0], include_attributes=False)))
-    return result
-
-
 def sentence_provider_asset(selection):
     from corpus_structure.methods.native_profiles import spacy_observation_policy
 
@@ -892,79 +868,37 @@ def sentence_execution_custody(
                 ],
             }
         ),
+        runtime_transport=True,
     )
 
 
 def sentence_profile_assets(
     configuration: SentenceConfig | None = None, *, selection=None
 ) -> SourceArtifact:
-    from importlib.metadata import version
-
     from corpus_structure.methods.native_evidence_layers import SPACY_COLUMNS, SPACY_FAMILIES
     from corpus_structure.methods.native_profiles import spacy_observation_policy, spacy_selection
 
+    from .operation_code_assets import code_asset
+
     configuration = configuration or SentenceConfig(exclude=("ner",))
     selection = spacy_selection(configuration) if selection is None else selection
-    root = Path(__file__).parent
-    paths = (
-        root / "source_products.py",
-        root / "characterization_manifests.py",
-        root.parent / "ingest/sentences.py",
-        root.parent / "methods/source_preparation.py",
-        _MODEL,
-        root.parent / "model/semantic/data-operation-source.yaml",
-    )
-    annotations = root.parent / "ingest/annotations.py"
-    return SourceArtifact(
+    root = Path(__file__).parents[1]
+    return code_asset(
         "sentences/profile-assets",
-        canonical_bytes(
-            {
-                "interpretation": "spacy-native-semantic-assets-ast-v1",
-                "native_families": SPACY_FAMILIES,
-                "native_family_columns": SPACY_COLUMNS,
-                "target": _semantic_nodes(
-                    Path(__file__).read_bytes(),
-                    (
-                        "_id",
-                        "validate_source_annotations",
-                        "_Block",
-                        "_blocks",
-                        "_detach_annotation_block",
-                        "source_annotation_rows",
-                        "retained_source_annotation_products",
-                        "source_annotation_member_values",
-                        "source_annotation_packets",
-                        "annotation_manifest",
-                        "spacy_family_coverage",
-                        "_semantic_nodes",
-                        "sentence_profile_assets",
-                    ),
-                ),
-                "native_columns": _semantic_nodes(
-                    annotations.read_bytes(),
-                    (
-                        "_ATTRIBUTES",
-                        "AnnotationAvailability",
-                        "annotation_availability",
-                        "native_token_columns",
-                        "AnnotationProfile",
-                        "AnnotationInput",
-                        "AnnotationProduct",
-                        "annotate",
-                        "restore_annotations",
-                    ),
-                ),
-                "sources": [
-                    (str(path.relative_to(root.parent)), path.read_bytes().hex()) for path in paths
-                ],
-                "profile": json.loads(
-                    selection.native.identity_projections(
-                        inference_policy=spacy_observation_policy()
-                    ).inference.canonical_input
-                ),
-                "libraries": {name: version(name) for name in ("spacy", "thinc", "pydantic")},
-            }
+        (execute_sentence_profile, PreparedSentenceProfile.run, validate_source_annotations),
+        (
+            ("sentence-annotations", _MODEL),
+            ("source-products", root / "model/semantic/data-operation-source.yaml"),
         ),
+        parameters={
+            "native_families": SPACY_FAMILIES,
+            "native_family_columns": SPACY_COLUMNS,
+            "inference": json.loads(
+                selection.native.identity_projections(
+                    inference_policy=spacy_observation_policy()
+                ).inference.canonical_input
+            ),
+        },
     )
 
 

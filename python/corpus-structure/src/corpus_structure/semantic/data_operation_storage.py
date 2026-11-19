@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -181,7 +181,7 @@ def _native_protocol_sources(
             ),
         ),
     )
-    return (
+    captured = (
         *(
             artifact
             for name, module, program in programs
@@ -620,6 +620,10 @@ def _native_protocol_sources(
             target_metadata=target_metadata,
         ),
     )
+    return tuple(
+        replace(item, authoring_provenance=True) if item.name.endswith(".py") else item
+        for item in captured
+    )
 
 
 def native_protocol_sources(
@@ -663,10 +667,11 @@ def _captured(sources) -> dict[str, bytes]:
     result = {source.name: source.content for source in sources}
     if len(result) != len(sources):
         raise ValueError("duplicate captured native protocol source")
+    # Released correspondence needs generated SQL and protocol artifacts.
     required = {
         "native/data-operation-protocol.yaml",
         *(
-            f"native/{name}.{extension}"
+            f"native/{name}.sql"
             for name in (
                 "demand-values",
                 "demand-validity",
@@ -676,103 +681,48 @@ def _captured(sources) -> dict[str, bytes]:
                 "demand-result",
                 "demand-derivation",
             )
-            for extension in ("py", "sql")
         ),
-        "native/data-operation-value-identity.py",
-        "native/data-operation-definition-projection.py",
         "native/pdf-source-search.sql",
         "native/pdf-source-search-contract.json",
         "native/data-operation-read.sql",
-        "native/data-operation-read.py",
         "native/data-product-admission.sql",
-        "native/data-product-admission-native.py",
         "native/data-operation-compiler.sql",
-        "native/data-operation-compiler.py",
-        "native/effect-policy.py",
         "native/data-operation-support-scopes.sql",
         "native/contextual-neighborhood.sql",
-        "native/contextual-neighborhood.py",
-        "native/data-operation-storage.py",
         "native/data-operation-product-validation.sql",
-        "native/data-operation-product-validation.py",
-        "native/data-operation-member-contracts.py",
         "native/data-operation-physical.yaml",
         "native/data-operation-bindings.sql",
-        "native/data-operation-binding-native.py",
-        "native/data-operation-wire-native.py",
-        "native/data-operation-wire.py",
         "native/data-operation-source-admission.sql",
-        "native/data-operation-source-native.py",
-        "native/data-operation-support.py",
         "native/data-operation-record-grade-native.sql",
         "native/data-operation-cpu-basis.sql",
-        "native/data-operation-cpu-basis.py",
         "native/data-operation-definition-admission.sql",
-        "native/data-operation-definition-admission.py",
         "native/data-operation-artifact-admission.sql",
-        "native/data-operation-artifact-admission.py",
         "native/data-operation-contextual-definition.sql",
-        "native/data-operation-contextual-definition.py",
         "native/data-operation-contextual-admission.sql",
-        "native/data-operation-contextual-admission.py",
         "native/data-operation-contextual-linguistics.sql",
-        "native/data-operation-contextual-linguistics.py",
-        "native/data-operation-contextual-linguistics-native.py",
         "native/data-operation-contextual-scoring.sql",
-        "native/data-operation-contextual-scoring.py",
-        "native/data-operation-contextual-score-query.py",
         "native/data-operation-contextual-witness.sql",
-        "native/data-operation-contextual-witness.py",
         "native/data-operation-source-values.sql",
         "native/data-operation-execution-evidence-leaf.sql",
         "native/data-operation-execution-evidence-leaf.json",
-        "native/data-operation-execution-evidence-leaf.py",
-        "native/data-operation-cpu-receipts.py",
         "native/data-operation-rich-admission.sql",
-        "native/data-operation-rich-admission.py",
-        "native/data-operation-record-grade-native.py",
         "native/data-operation-operation-event.sql",
-        "native/data-operation-operation-event-native.py",
-        "native/data-operation-operation-event-producers.py",
-        "native/data-operation-operation-event-methods.py",
         "native/data-operation-record-policy.sql",
         "native/data-operation-structural-admission.sql",
-        "native/data-operation-structural-admission-native.py",
-        "native/data-operation-structural-admission.py",
         "native/data-operation-record-grade.schema.json",
         "native/data-operation-operation-event-frame.schema.json",
-        "native/data-operation-operation-events.py",
-        "native/data-operation-record-grade.py",
         "native/data-operation-record-policy-completion.sql",
-        "native/data-operation-record-policy-completion.py",
-        "native/data-operation-record-policy.py",
-        "native/data-operation-record-policy-authority.py",
         "native/data-operation-authority-leaf.json",
-        "native/data-operation-authority-leaf.py",
     }
     required.update(
         {
             "native/source-admission-calls.json",
-            "native/original-document-contracts.py",
-            "native/original-documents.py",
             "native/source-originals.sql",
-            "native/identifiers.py",
-            "native/native-call-contracts.py",
-            "native/data-operation-kind-refinements.py",
-            "native/data-operation-graph-topology.py",
-            "native/data-operation-graph-runtime.py",
             "native/data-operation-graph-execution.json",
-            "native/data-operation-protocol.py",
             "native/data-operation-original-support-reference.json",
-            "native/data-operation-json.py",
-            "native/data-operation-projections.py",
-            "native/data-operation-provider-profiles.py",
             "native/data-operation-external.sql",
-            "native/external-execution-native.py",
             "native/population-acquisition.sql",
-            "native/population-acquisition.py",
             "native/request-attachment.sql",
-            "native/request-attachment.py",
         }
     )
     if not required <= result.keys():
@@ -1507,6 +1457,7 @@ def data_operation_definition_projection(
                 "input_roles": [role for role in roles if role["direction"] == "input"],
                 "output_roles": [role for role in roles if role["direction"] == "output"],
                 "support_contract": {
+                    "reuse_eligible": all(asset.reuse_eligible for asset in operation.assets),
                     "assets": archived_operations[operation.semantic_id]["assets"],
                     "numerical_policy": archived_operations[operation.semantic_id].get(
                         "numerical_policy"

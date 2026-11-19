@@ -85,12 +85,12 @@ class PdfOrganizationOperation:
         "opaque": [
             {
                 "reference": "corpus_structure.semantic.pdf_transforms.execute_pdf_organization",
-                "contract": "pdf-organized/execution-custody",
+                "contract": "pdf-organized/profile-assets",
                 "role": "owned-native-pdf-capture",
             },
             {
                 "reference": "corpus_structure.semantic.pdf_capture.PdfCaptureProduct",
-                "contract": "pdf-organized/execution-custody",
+                "contract": "pdf-organized/profile-assets",
                 "role": "whole-authenticated-publication",
             },
         ],
@@ -102,7 +102,7 @@ class PdfOrganizationOperation:
             },
             {
                 "reference": "frozen-native-pdf-recipe",
-                "contract": "pdf-organized/execution-custody",
+                "contract": "pdf-organized/profile-assets",
                 "role": "native-parser-models-and-publication-projection",
             },
         ],

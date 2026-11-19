@@ -211,10 +211,8 @@ def open_release_parts(
 
 def _open_release_parts_inputs(release_id: str, row: Any, input_rows: Any, artifact_rows: Any):
     """Keep authenticated original inputs beside the reconstructed products."""
-    from dataclasses import asdict
 
     from .determinants import boundary_compatible
-    from .identity import canonical_bytes
     from .releases import ReleaseConflict, _archive_bytes, _digest
     from .types import ResolvedDependencies
 
@@ -231,8 +229,6 @@ def _open_release_parts_inputs(release_id: str, row: Any, input_rows: Any, artif
             manifest["libraries"], str(manifest["profile"]["compiler_version"])
         ):
             raise ReleaseConflict("archived boundary library versions differ")
-        from dataclasses import asdict as product_dict
-
         from .archive_wire import decode_products, decode_vocabularies
 
         products = decode_products(archive["products"])
@@ -257,17 +253,6 @@ def _open_release_parts_inputs(release_id: str, row: Any, input_rows: Any, artif
         profile = PreparationProfile(**json.loads(source["profile", "profile"]))
         if profile.version not in SEMANTIC_PROFILE_VERSIONS or row["profile"] != profile.version:
             raise ReleaseConflict("unsupported archived profile")
-        expected: dict[str, Any] = {
-            "root": bundle.root,
-            "profile": asdict(profile),
-            "libraries": manifest["libraries"],
-            "sources": sorted((item.name, item.digest) for item in bundle.sources),
-            "dependencies": sorted((item.name, item.digest) for item in dependencies),
-            "ontology_sources": sorted(json.loads(source["ontology_sources", "ontology_sources"])),
-            # The input contains supplied dependency snapshots; the manifest contains
-            # resolved vocabularies, including enums authored in the source schema.
-            "vocabularies": [product_dict(v) for v in products.vocabularies],
-        }
         artifacts: list[PreparedArtifact] = []
         for item in artifact_rows:
             content = bytes(item["content"])
@@ -295,7 +280,6 @@ def _open_release_parts_inputs(release_id: str, row: Any, input_rows: Any, artif
             from .data_operation_model import read_effective_data_operations
 
             read_effective_data_operations(target_artifacts[0].content)
-            expected["data_operation_model"] = _digest(target_artifacts[0].content)
             interface_artifacts = [
                 a for a in ordered if a.kind == "data_operation_source_interfaces.json"
             ]
@@ -309,12 +293,21 @@ def _open_release_parts_inputs(release_id: str, row: Any, input_rows: Any, artif
                 )
                 if interfaces.model_digest != _digest(target_artifacts[0].content):
                     raise ReleaseConflict("source interfaces belong to another effective model")
-                expected["data_operation_source_interfaces"] = _digest(
-                    interface_artifacts[0].content
-                )
-        if canonical_bytes(expected) != manifest_bytes:
-            raise ReleaseConflict("archived input manifest differs")
         prepared = reconstruct_release(products, manifest_bytes, bundle, profile, ordered)
+        from .release_identity import release_manifest
+
+        ontology_sources = tuple(json.loads(source["ontology_sources", "ontology_sources"]))
+        if (
+            release_manifest(
+                bundle,
+                ResolvedDependencies(dependencies, (), ontology_sources),
+                profile,
+                prepared,
+                manifest["libraries"],
+            )
+            != manifest_bytes
+        ):
+            raise ReleaseConflict("archived material inputs or generated products differ")
         supplied = decode_vocabularies(json.loads(source["vocabulary", "vocabulary"]))
         if len({item.enum for item in supplied}) != len(supplied):
             raise ReleaseConflict("duplicate supplied vocabulary snapshots")
@@ -342,11 +335,7 @@ def _open_release_parts_inputs(release_id: str, row: Any, input_rows: Any, artif
             raise ReleaseConflict("archived products differ")
         return (
             bundle,
-            ResolvedDependencies(
-                dependencies,
-                supplied,
-                tuple(json.loads(source["ontology_sources", "ontology_sources"])),
-            ),
+            ResolvedDependencies(dependencies, supplied, ontology_sources),
             profile,
             prepared,
         )

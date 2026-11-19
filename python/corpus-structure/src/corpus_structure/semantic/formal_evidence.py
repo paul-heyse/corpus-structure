@@ -15,14 +15,12 @@ from datetime import date
 from decimal import Decimal
 from functools import lru_cache
 from hashlib import sha256
-from pathlib import Path
 from typing import Any, Protocol
 
 import lark
 from lark import Token, Tree, UnexpectedInput
 from lark.exceptions import VisitError
 
-from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.methods.math import grammar as math_grammar
 from corpus_structure.semantic.characterization import occurrence_id
@@ -373,31 +371,13 @@ def _math_grammar_identity(classes: math_grammar.MacroClass) -> str:
 
 @lru_cache(maxsize=1)
 def grammar_identity() -> str:
-    """The installed effective grammar family, including the unedited shipped grammar."""
-    recipes = {
-        name: sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
-        for name in (
-            "formal_evidence.py",
-            "formal_forest.py",
-            "formal_sources.py",
-            "structural_parsing.py",
-        )
-    }
-    recipes["math_frontend"] = sha256(Path(math_grammar.__file__).read_bytes()).hexdigest()
-    recipes["forest_adapter"] = sha256(
-        (Path(__file__).with_name("constructions") / "reuse.py").read_bytes()
-    ).hexdigest()
-    recipes["symbolic_nodes"] = sha256(
-        (Path(__file__).with_name("constructions") / "nodes.py").read_bytes()
-    ).hexdigest()
-    recipes["symbol_spelling"] = sha256(Path(tex.__file__).read_bytes()).hexdigest()
+    """The effective grammar family used to label formal recognizer evidence."""
     return sha256(
         canonical_bytes(
             dict(
                 field=field_grammar_identity(),
                 lexical=lexical_grammar_identity(),
                 math=math_grammar_identity(),
-                mapping=recipes,
             )
         )
     ).hexdigest()

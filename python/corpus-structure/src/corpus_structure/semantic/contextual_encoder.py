@@ -105,6 +105,7 @@ def contextual_encoder_custody(selection):
                 "artifacts": selection.artifacts,
             }
         ),
+        runtime_transport=True,
     )
 
 

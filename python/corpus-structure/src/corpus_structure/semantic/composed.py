@@ -17,6 +17,7 @@ _PREFIX = "execution/"
 # Current DDO products retain one exact source/declaration input namespace.
 _DATA_PREFIX = "data-operations/"
 _DATA_MANIFEST = _DATA_PREFIX + "manifest.json"
+_RUNTIME_TRANSPORT_PREFIX = "runtime-transport/"
 
 
 def data_operation_dependencies(
@@ -55,7 +56,9 @@ def data_operation_dependencies(
     module_names = [source.module for source in sources]
     if len(module_names) != len(set(module_names)):
         raise ValueError("duplicate data-operation Python module")
-    contracts = python_sources.boundary_contracts if python_sources is not None else ()
+    supplied_contracts = python_sources.boundary_contracts if python_sources is not None else ()
+    contracts = tuple(item for item in supplied_contracts if not item.runtime_transport)
+    transport = tuple(item for item in supplied_contracts if item.runtime_transport)
     contract_names = [source.name for source in contracts]
     if len(contract_names) != len(set(contract_names)):
         raise ValueError("duplicate Python boundary contract")
@@ -69,13 +72,18 @@ def data_operation_dependencies(
             "interpretation": python_sources.interpretation,
             "stub_policy": python_sources.stub_policy,
             "boundary_contracts": contract_names,
+            "boundary_reuse_eligibility": {item.name: item.reuse_eligible for item in contracts},
             **(
                 {"generated_interfaces": list(python_sources.generated_interfaces)}
                 if python_sources.generated_interfaces
                 else {}
             ),
             "sources": [
-                {"module": s.module, "filename": s.filename, "stub": s.stub is not None}
+                {
+                    "module": s.module,
+                    "filename": s.module.replace(".", "/") + ".py",
+                    "stub": s.stub is not None,
+                }
                 for s in sources
             ],
         },
@@ -89,8 +97,15 @@ def data_operation_dependencies(
         if source.stub is not None:
             artifacts.append(SourceArtifact(_DATA_PREFIX + f"python/{index}.pyi", source.stub))
     artifacts += [
-        SourceArtifact(_DATA_PREFIX + "contracts/" + s.name, s.content) for s in contracts
+        SourceArtifact(
+            _DATA_PREFIX + "contracts/" + s.name, s.content, reuse_eligible=s.reuse_eligible
+        )
+        for s in contracts
     ]
+    artifacts.extend(
+        SourceArtifact(_RUNTIME_TRANSPORT_PREFIX + item.name, item.content, runtime_transport=True)
+        for item in transport
+    )
     return ResolvedDependencies(
         (*dependencies.artifacts, *artifacts, *grammar_sources),
         dependencies.vocabularies,
@@ -138,6 +153,7 @@ def read_data_operation_inputs(dependencies: ResolvedDependencies):
             "interpretation",
             "stub_policy",
             "boundary_contracts",
+            "boundary_reuse_eligibility",
             "sources",
         }:
             raise ValueError("invalid Python operation input context")
@@ -161,6 +177,13 @@ def read_data_operation_inputs(dependencies: ResolvedDependencies):
             or len(set(contracts)) != len(contracts)
         ):
             raise ValueError("invalid Python boundary contract names")
+        reuse = python["boundary_reuse_eligibility"]
+        if (
+            not isinstance(reuse, dict)
+            or set(reuse) != set(contracts)
+            or any(type(value) is not bool for value in reuse.values())
+        ):
+            raise ValueError("invalid Python boundary reuse eligibility")
         expected.update(_DATA_PREFIX + "contracts/" + name for name in contracts)
         sources = []
         if not isinstance(python["sources"], list):
@@ -191,7 +214,11 @@ def read_data_operation_inputs(dependencies: ResolvedDependencies):
             python["interpretation"],
             python["stub_policy"],
             tuple(
-                SourceArtifact(name, supplied[_DATA_PREFIX + "contracts/" + name].content)
+                SourceArtifact(
+                    name,
+                    supplied[_DATA_PREFIX + "contracts/" + name].content,
+                    reuse_eligible=reuse[name],
+                )
                 for name in contracts
             ),
             tuple(generated_interfaces),
@@ -222,4 +249,17 @@ def data_operations_from_dependencies(
         definitions=definitions,
         vocabularies=tuple(vocabularies),
         captured_contracts=dependencies.artifacts,
+    )
+
+
+def runtime_transport_inputs(runtime):
+    """Read transport acquisition from the independently authenticated runtime archive."""
+    return tuple(
+        SourceArtifact(
+            name.removeprefix(_RUNTIME_TRANSPORT_PREFIX),
+            runtime.input(name).content,
+            runtime_transport=True,
+        )
+        for name, _ in runtime.implementation_digests
+        if name.startswith(_RUNTIME_TRANSPORT_PREFIX)
     )

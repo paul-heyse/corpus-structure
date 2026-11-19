@@ -737,7 +737,7 @@ def _request_cut_programs(model):
                         ),
                         Assign(
                             "r",
-                            func.ops.ddo_require_episode_correspondence(
+                            func.ops.ddo_require_episode_record_grade_correspondence(
                                 core_variable("producing", NullType()),
                                 core_variable("intent", NullType()),
                             ),

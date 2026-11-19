@@ -968,7 +968,6 @@ def current_query_release_pair():
     from semantic.pdf_domain_support import altered_domain
 
     from corpus_structure.semantic.composed import data_operation_dependencies
-    from corpus_structure.semantic.data_operation_artifacts import capture_port_generator_sources
     from corpus_structure.semantic.data_operation_storage import (
         native_operation_declarations,
         native_protocol_sources,
@@ -1015,7 +1014,6 @@ def current_query_release_pair():
                     SourceArtifact(CONTRACT, captured.content),
                     *captured.sources,
                     *native,
-                    *capture_port_generator_sources(),
                 )
             ),
             (SourceArtifact("native-query-preview.json", canonical_bytes(complete)),),

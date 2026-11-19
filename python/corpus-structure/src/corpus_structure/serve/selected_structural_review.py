@@ -11,7 +11,7 @@ from corpus_structure.semantic.demand_results import CutSelection
 
 from .demand_export import export_demand_result, verified_demand_export
 from .rich_queries import installed_read_implementation
-from .selected_structural import STRUCTURAL_READ_SOURCES, StructuralScope
+from .selected_structural import StructuralScope
 from .source_decision_journey import (
     SelectedSourceDecisionJourneyRequest,
     inspect_selected_source_journey,
@@ -70,7 +70,9 @@ def _replay(root, selection, native_digest):
         cut = CutSelection.from_native(manifest["cut"])
         release = cut.record["release_id"]
         with installed_read_implementation(
-            type(request), sources=STRUCTURAL_READ_SOURCES, profile="selected-structural-read-v1"
+            type(request),
+            entry="corpus_structure.serve.selected_structural",
+            profile="selected-structural-read-v1",
         ) as implementation:
             scope = StructuralScope(
                 cut,

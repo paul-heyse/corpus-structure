@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from corpus_structure._query_custody import STRUCTURAL_READ_SOURCES
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.nonrich_contribution_facets import read_nonrich_root
 from corpus_structure.semantic.observations import source_python
@@ -59,7 +58,9 @@ def structural_scope(connection, request, *, roots, source_products=()):
         max_support_edges=request.max_support_edges,
     )
     with installed_read_implementation(
-        type(request), sources=STRUCTURAL_READ_SOURCES, profile="selected-structural-read-v1"
+        type(request),
+        entry="corpus_structure.serve.selected_structural",
+        profile="selected-structural-read-v1",
     ) as implementation:
         if request.implementation is not None and request.implementation != implementation:
             raise ValueError("structural resource differs from its installed read implementation")
@@ -173,6 +174,9 @@ def producer(selected):
 
 
 def bounded_result(request, result):
+    from corpus_structure.semantic.serving_code import serving_report
+
+    result = serving_report(result)
     if len(json_bytes(result)) > request.max_bytes:
         raise ValueError("structural response exceeds max_bytes; narrow the page")
     return result

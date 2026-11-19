@@ -5,9 +5,8 @@ from __future__ import annotations
 import base64
 import unicodedata
 from contextlib import contextmanager
-from functools import cache, lru_cache
+from functools import lru_cache
 from hashlib import sha256
-from importlib.metadata import version
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -37,84 +36,50 @@ VERSION = "selected-rich-query-2"
 
 @contextmanager
 def rich_query_implementation(query):
-    """Bind actual installed helper objects and selected semantic libraries, never archived code."""
-    from corpus_structure._query_custody import RICH_QUERY_SOURCES
-
-    names = tuple(
-        name
-        for name in RICH_QUERY_SOURCES
-        if query.name
-        in {
-            "family_profile",
-            "construction_profile",
-            "families_where",
-            "parameter_mapping",
-            "transformations_of",
-            "relations_between",
-        }
-        or name != "semantic/rich_statistics_queries.py"
-    )
     with installed_read_implementation(
-        type(query),
-        sources=names,
-        profile=VERSION,
-        extra_libraries=("networkx",) if query.name == "relations_between" else (),
+        type(query), entry="corpus_structure.serve.rich_queries", profile=VERSION
     ) as identity:
         yield identity
 
 
-@cache
-def _library_version(name):
-    return version(name)
-
-
 @lru_cache(maxsize=64)
-def _installed_read_basis(contract, sources, profile, extra_libraries):
-    from corpus_structure._query_custody import capture_sources
+def _installed_read_basis(contract, entry, profile):
+    from corpus_structure.semantic.code_identity import capture_code_identity
 
     root = Path(__file__).resolve().parents[1]
-    captured = capture_sources(tuple(root / name for name in sources))
-    libraries = {
-        name: _library_version(name)
-        for name in (
-            "pydantic",
-            "cachetools",
-            "pydantic-core",
-            "python-rapidjson",
-            "regex",
-            "PyYAML",
-            "jsonschema",
-            "referencing",
-            "jsonschema-specifications",
-            *extra_libraries,
-        )
-    }
-    libraries["unicode"] = unicodedata.unidata_version
+    basis = capture_code_identity(root, (entry,))
+    # cachetools owns expendable row retention. Its release changes entry
+    # compatibility, while selected query semantics and cursor ordering stay here.
+    meaning = json_loads(basis.meaning)
+    meaning.get("distributions", {}).pop("cachetools", None)
+    from corpus_structure.model.compiled import running_model
+
     identity = sha256(
         json_bytes(
             dict(
                 version=profile,
-                sources={
-                    str(Path(path).relative_to(root)): digest for path, digest in captured.items()
-                },
+                code=meaning,
+                model=running_model().identity,
                 query_contract=contract.model_json_schema(),
-                libraries=libraries,
+                unicode=unicodedata.unidata_version,
             )
         )
     ).hexdigest()
-    return identity, captured
+    return identity, basis
 
 
 @contextmanager
-def installed_read_implementation(contract, *, sources, profile, extra_libraries=()):
-    """Name authenticated imported code; detect unsupported source/module drift."""
-    from corpus_structure._query_custody import query_sources
+def installed_read_implementation(contract, *, entry, profile):
+    """Authenticate determining source and carry explicit reusable-code standing."""
+    from corpus_structure._query_custody import capture_sources, query_sources
+    from corpus_structure.semantic.serving_code import ServingImplementation, serving_code
 
-    identity, captured = _installed_read_basis(
-        contract, tuple(sources), profile, tuple(extra_libraries)
-    )
-    with query_sources(captured):
-        yield identity
+    identity, basis = _installed_read_basis(contract, entry, profile)
+    root = Path(__file__).resolve().parents[1]
+    captured = capture_sources(tuple(root / item.filename for item in basis.modules))
+    implementation = ServingImplementation(identity, basis)
+    with query_sources(captured), serving_code(implementation):
+        yield implementation
 
 
 class RichQueryRequest(BaseModel):

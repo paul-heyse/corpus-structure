@@ -569,6 +569,7 @@ def _lowering_program(model, subject_scopes):
     )
     roles = _rows(operation["roles"], "roles", ordinal=True)
     support_roles = _rows(operation["roles"], "support_roles")
+    reuse_assets = _rows(operation["assets"], "reuse_assets")
     role_identities = _rows(archived["identities"], "role_identities")
     role_contract = (
         select(role_identities.c.value["key"].astext)
@@ -763,6 +764,11 @@ def _lowering_program(model, subject_scopes):
                         "exact",
                     ),
                     else_="value_substitution",
+                ),
+                "reuse_eligible",
+                ~_exists(
+                    reuse_assets,
+                    reuse_assets.c.value["reuse_eligible"].astext == "false",
                 ),
                 "assets",
                 operation["assets"],

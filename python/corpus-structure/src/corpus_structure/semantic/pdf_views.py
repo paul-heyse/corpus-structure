@@ -18,22 +18,11 @@ from .types import SourceArtifact
 
 
 def pdf_views_assets():
-    root = Path(__file__).parents[1]
-    files = (
-        "ingest/pdf_section_views.py",
-        "ingest/pdf_hierarchy.py",
-        "ingest/pdf_health.py",
-        "semantic/source_products.py",
-        "semantic/characterization_manifests.py",
-    )
-    return SourceArtifact(
+    from .operation_code_assets import code_asset
+
+    return code_asset(
         "pdf-views/profile-assets",
-        canonical_bytes(
-            {
-                "version": "published-source-views-v1",
-                "files": [(name, (root / name).read_bytes().hex()) for name in files],
-            }
-        ),
+        (execute_pdf_views, PreparedPdfViews.project),
     )
 
 
@@ -48,6 +37,7 @@ def pdf_views_custody():
     return SourceArtifact(
         "pdf-views/execution-custody",
         canonical_bytes({"files": [(name, (root / name).read_bytes().hex()) for name in files]}),
+        runtime_transport=True,
     )
 
 

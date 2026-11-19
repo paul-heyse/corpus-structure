@@ -93,12 +93,12 @@ class PdfObservationOperation:
         "opaque": [
             {
                 "reference": "corpus_structure.semantic.pdf_transforms.execute_pdf_observation",
-                "contract": "pdf-recognized/execution-custody",
+                "contract": "pdf-recognized/profile-assets",
                 "role": "owned-native-recognition-retention",
             },
             {
                 "reference": "corpus_structure.semantic.pdf_observations.PdfObservationSetProduct",
-                "contract": "pdf-recognized/execution-custody",
+                "contract": "pdf-recognized/profile-assets",
                 "role": "whole-authenticated-observation-set",
             },
         ],
@@ -110,7 +110,7 @@ class PdfObservationOperation:
             },
             {
                 "reference": "frozen-native-pdf-recipe",
-                "contract": "pdf-recognized/execution-custody",
+                "contract": "pdf-recognized/profile-assets",
                 "role": "native-parser-models-and-publication-projection",
             },
             {

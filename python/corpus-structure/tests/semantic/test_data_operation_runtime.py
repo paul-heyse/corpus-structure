@@ -243,3 +243,33 @@ def test_generated_runtime_replay_reads_named_fields_on_predecessor_column_order
             ).one() == (b"frozen-archive", "source-native")
         finally:
             transaction.rollback()
+
+
+def test_runtime_identity_excludes_authoring_provenance_and_retains_transport():
+    release = prepared()
+    worker = SourceArtifact("worker.py", b"def run(): return 1\n")
+    generator = SourceArtifact("generator/render.py", b"first", authoring_provenance=True)
+    transport = SourceArtifact(
+        "runtime-transport/pdf-capture/execution-custody", b"first location", runtime_transport=True
+    )
+    first = prepare_data_operation_runtime(
+        release, (worker, generator, transport), execution_profile="execution:one", observed={}
+    )
+    second = prepare_data_operation_runtime(
+        release,
+        (worker, replace(generator, content=b"changed"), transport),
+        execution_profile="execution:one",
+        observed={},
+    )
+    assert first.runtime_id == second.runtime_id
+    assert first.archive == second.archive
+    assert generator.name not in dict(first.implementation_digests)
+    assert first.input(transport.name).content == transport.content
+    moved = prepare_data_operation_runtime(
+        release,
+        (worker, generator, replace(transport, content=b"another location")),
+        execution_profile="execution:one",
+        observed={},
+    )
+    assert moved.runtime_id != first.runtime_id
+    validate_data_operation_runtime(moved, release)

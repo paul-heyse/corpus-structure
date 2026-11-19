@@ -50,35 +50,12 @@ from .native_program import (
 )
 from .native_program_registry import ProgramDeclaration
 
-# Output schemas/codecs and producer implementation bytes remain determining.
-# These transport/custody projections cannot change native output meaning; their
-# current validators and exact retained file ownership are applied on recovery.
+# The lowering contract supplies the derived code basis plus explicit schemas
+# and codecs. Transport custody remains outside these producing inputs.
 SPOOL_MATERIAL_PREFIX = "pdf-domain/implementation/pdf/lowering/"
-SPOOL_TRANSPORT_SOURCES = frozenset(
-    SPOOL_MATERIAL_PREFIX + name
-    for name in (
-        "semantic/pdf_lowering.py",
-        "semantic/_pdf_native_calls.py",
-        "semantic/_pdf_native_ids.py",
-        "semantic/pdf_staging_native.py",
-        "semantic/pdf_staging.py",
-        "semantic/metadata.py",
-        "ingest/pdf_build_spool.py",
-        "model/semantic/pdf-staging.yaml",
-        "model/compiled.py",
-    )
-)
 SPOOL_REQUIRED_MATERIAL = frozenset(
     SPOOL_MATERIAL_PREFIX + name
-    for name in (
-        "semantic/pdf_certification.py",
-        "semantic/pdf_records.py",
-        "semantic/pdf_record_identity.py",
-        "semantic/pdf_payload_validation.py",
-        "ingest/pdf_worker.py",
-        "model/semantic/docling-validation.schema.json",
-        "codec/inline-candidates.arrow",
-    )
+    for name in ("code/meaning.json", "schema/docling-native.json", "codec/inline-candidates.arrow")
 )
 
 
@@ -86,8 +63,10 @@ def spool_material_document(content: bytes) -> dict:
     """Project archived lowering custody; absence is never inferred equivalence."""
     document = json.loads(content)
     if (
-        set(document) != {"profile", "inputs", "libraries"}
-        or document["profile"] != "pdf-record-lowering-contract-v1"
+        set(document) != {"profile", "compiler_policy", "code_identity", "inputs", "libraries"}
+        or document["profile"] != "pdf-record-lowering-contract-v2"
+        or not isinstance(document.get("code_identity"), dict)
+        or document["code_identity"].get("complete") is not True
         or not isinstance(document["libraries"], dict)
         or not document["libraries"]
     ):
@@ -100,12 +79,7 @@ def spool_material_document(content: bytes) -> dict:
     ):
         raise ValueError("PDF spool lowering inventory is not exact")
     selected = sorted(
-        (
-            item
-            for item in inputs
-            if item["name"].startswith(SPOOL_MATERIAL_PREFIX)
-            and item["name"] not in SPOOL_TRANSPORT_SOURCES
-        ),
+        (item for item in inputs if item["name"].startswith(SPOOL_MATERIAL_PREFIX)),
         key=lambda item: item["name"],
     )
     if not SPOOL_REQUIRED_MATERIAL.issubset({item["name"] for item in selected}):
@@ -360,9 +334,7 @@ def pdf_spool_native_programs(
             .table_valued(column("value", JSONB()))
             .render_derived(name=name + "_input")
         )
-        selected = entries.c.value["name"].astext.startswith(
-            SPOOL_MATERIAL_PREFIX
-        ) & ~entries.c.value["name"].astext.in_(sorted(SPOOL_TRANSPORT_SOURCES))
+        selected = entries.c.value["name"].astext.startswith(SPOOL_MATERIAL_PREFIX)
         selected_inputs = (
             select(
                 func.jsonb_agg(aggregate_order_by(entries.c.value, entries.c.value["name"].astext))
@@ -406,7 +378,9 @@ def pdf_spool_native_programs(
                 lower.c.content_digest == digest(lower.c.content),
                 domain.c.content_digest == digest(domain.c.content),
                 domain.c.content_digest == domain_digest,
-                document["profile"].astext == "pdf-record-lowering-contract-v1",
+                document["profile"].astext == "pdf-record-lowering-contract-v2",
+                document["code_identity"]["complete"] == cast(literal("true"), JSONB()),
+                document["code_identity"]["sha256"].astext.bool_op("~")("^[0-9a-f]{64}$"),
                 func.jsonb_typeof(document["libraries"]) == "object",
                 document["libraries"] != cast(literal("{}"), JSONB()),
                 *required,
