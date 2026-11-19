@@ -339,7 +339,7 @@ package is not automatically one worker's assignment.
 | UDM-06 | Conservative validity for operations left undetermined, shown on the stage to fit settlement; the non-refusing `validity_claim_unprotected` report (native revision A) | UDM-05 | R16, RC14, DA-070 (part) | Private successor and concurrent stage settlement verified on N30. [Revision A evidence](unified-domain-model-and-execution/lowered-operation-facts-and-validity.md#revision-a-candidate-execution) |
 | UDM-07 | One declared support-edge meaning and one mapping; current-demand discovery closure (native revision B or transition for the discovery predicate) | UDM-02; the ruling on the population edge; early UDM-20 evidence for discovery | R08, DA-071, I03 | N31 active on the bounded stage and discovery acceptance observed. [Revision B evidence](unified-domain-model-and-execution/lowered-operation-facts-and-validity.md#revision-b-execution) |
 | UDM-08 | The execution path generates nothing | — | R06, F01, DA-083 | Complete. Private PostgreSQL acquisition and export verified |
-| UDM-09 | Typed program registry from generation to installation, declaring each program's purposes and the families it validates | —; it reads the compiled model of UDM-01 where that has landed | R04, DA-081, DA-074 (part) | Grant declarations integrated. Full registry remains open |
+| UDM-09 | Typed program registry from generation to installation, declaring each program's purposes and the families it validates | —; it reads the compiled model of UDM-01 where that has landed | R04, DA-081, DA-074 (part) | Six typed foundation programs and declared facade outputs integrated. [Registry evidence and remaining scope](unified-domain-model-and-execution/programs-identity-and-revisions.md#typed-foundation-registry) |
 | UDM-10 | Identity layers in two slices: code identity, with no revision; program, kernel and per-family validator identity, with the identity transition revision | Code-identity slice: none. Program, kernel and validator slice: UDM-09 and UDM-05 | R05, RC06, RC10, RC11, DA-068, DA-069, DA-076, DA-082 | Not started |
 | UDM-11 | A revision only when installed bytes differ. Its installed part, the explicit kernel predicate in the generated guard, joins the identity transition revision; the model-change commands change outside any revision | UDM-10 | RC15, DA-068 (part) | Not started |
 | UDM-12 | Carried assurance; the watermark without its kernel component (identity transition revision); role granularity only if its premise is settled before the freeze | UDM-08, UDM-10 | R11, R10, RC07, RC08, DA-033, DA-078 | Not started |
@@ -393,9 +393,9 @@ waiting for the model-impact view.
 **Native revisions.** The series plans three, authored and frozen close together in the order
 A, B, transition, and packages join them instead of adding their own. Revision A: UDM-05 and
 UDM-06, with UDM-18's decimal bound. N31 froze revision B with UDM-03 and UDM-07.
-Any installed changes from the remaining UDM-19 release-side authored-SQL retirement join
-the identity transition. The identity transition: UDM-10's native slice, the explicit kernel predicate of UDM-11 in the generated
-guard and the installed-object changes of UDM-12, and UDM-09's differing objects if its
+The identity transition includes any installed changes from UDM-19's remaining
+release-side authored-SQL retirement, UDM-10's native slice, the explicit UDM-11 kernel
+predicate, UDM-12's installed-object changes, and UDM-09's differing objects if its
 equality premise fails. UDM-11's model-change commands install nothing and change outside any
 revision. Role-granular watermarking joins the identity transition revision only if its
 soundness premise is settled before that revision is frozen; otherwise it is deferred, with
@@ -539,6 +539,18 @@ adoption belong to UDM-21.
 and `uv run ci docs check` (`12588b39cf4f4c5fbd9b40577d313f16`) passed. The full functional
 suite is `not_run`.
 
+### N31 stage and foundation registry increment
+
+The [revision B record](unified-domain-model-and-execution/lowered-operation-facts-and-validity.md#revision-b-execution)
+owns the stage acceptance and remaining discovery cases. The
+[registry record](unified-domain-model-and-execution/programs-identity-and-revisions.md#typed-foundation-registry)
+owns the six-program frozen comparison, static correspondence repair and remaining
+producer conversion. On 2026-11-18, `uv run ci test collect` selected 8,767 tests
+(`63075896cbe7498dacd10dca9892bdf5`). `uv run ci check --only types`
+(`612a77d77b8447fda7dfb765499dd416`), `uv run ci check --only lint`
+(`75ad9d0d221d4fd2b374177dae8b0a55`), `uv run ruff format --check` and
+`just model check` passed. UDM-22 owns the full functional and provider qualification.
+
 ### UDM-24 — closing
 
 After [UDM-22](unified-domain-model-and-execution/qualification.md) and UDM-23 have passed on
@@ -571,7 +583,7 @@ review. "Closure evidence" is what must be observed, not a claim that it has bee
 | [DA-078](../design_review/audit/execution-fit.md#da-078) coarse readiness watermark | UDM-12 | The watermark does not advance on a kernel-only change | Scheduled in part; role granularity follows its soundness argument |
 | [DA-079](../design_review/audit/boundaries-and-composition.md#da-079) unclassified concurrent-run refusal | — | — | Retained by the review with its reason |
 | [DA-080](../design_review/audit/boundaries-and-composition.md#da-080) superseded machinery | UDM-19 (migration trees, dead modules and functions, the stale preview explanation, authored-SQL machinery); UDM-04 (the earlier model); UDM-16 (uncalled kernels) | Each listed item is gone with its tests | Superseded preview, revision log, pack and key machinery, earlier model, and test-only evaluator removed. UDM-16 and the remaining UDM-19 work stay open |
-| [DA-081](../design_review/audit/semantic-model-and-authority.md#da-081) hand-kept program lists and text handoff | UDM-09 | One registry; generated objects and privileges equal the current frozen ones | Scheduled |
+| [DA-081](../design_review/audit/semantic-model-and-authority.md#da-081) hand-kept program lists and text handoff | UDM-09 | One registry; generated objects and privileges equal the current frozen ones | Foundation cohort integrated. Remaining producers, family claims and full installed comparison open |
 | [DA-082](../design_review/audit/execution-fit.md#da-082) hand-kept lowering list | UDM-10 | The lowering identity is derived; an unlisted dependency cannot exist | Scheduled |
 | [DA-083](../design_review/audit/execution-fit.md#da-083) capture rebuilt per acquisition | UDM-08, UDM-13 | Acquisition performs no generation | UDM-08 verified on private PostgreSQL. UDM-13 cache adoption open |
 | [DA-084](../design_review/audit/boundaries-and-composition.md#da-084) remaining hand-written PostgreSQL | UDM-17 | No hand-written PostgreSQL outside the stated exceptions | Scheduled |

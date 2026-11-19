@@ -269,12 +269,17 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
     tmp_path,
     monkeypatch,
 ):
-    from corpus_structure.semantic import data_operation_storage, migrations
+    from corpus_structure.semantic import (
+        data_operation_storage,
+        migrations,
+        native_program_registry,
+    )
     from corpus_structure.semantic.execution_admission import (
         ExecutionAdmissionError,
         require_archive_fence,
     )
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.target_installation import foundation_programs
     from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
     from semantic.data_operation_demand_support import attach, claim, publish, retain
     from semantic.data_operation_kernel_support import STORAGE, admit_kernel, prepare_kernel
@@ -303,6 +308,18 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
     assert all(
         current_acl[item] == previous_acl[item] for item in current_acl.keys() & previous_acl.keys()
     )
+    frozen_n31 = {
+        item.identity: item
+        for item in load_native_state(ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n31_native.json")
+    }
+    desired = {item.identity: item for item in authoring.desired}
+    for program in foundation_programs().programs:
+        key = program.declaration.identity
+        assert desired[key].statements == frozen_n31[key].statements
+        assert current_acl[key] == (
+            frozen_n31[key].catalog["owner"],
+            frozen_n31[key].catalog.get("acl"),
+        )
     # Resolve this genuinely registered immutable root. A reader must not need
     # access to the maintenance-only Alembic table to authenticate its contract.
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
@@ -320,6 +337,7 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
             execution.setattr(
                 data_operation_storage, "native_protocol_sources", unexpected_generation
             )
+            execution.setattr(native_program_registry, "render_programs", unexpected_generation)
             with engine.begin() as connection:
                 kernel = admit_kernel(connection, STORAGE, preparation=preparation)
             with admitter.begin() as connection:
@@ -455,6 +473,7 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
             execution.setattr(
                 data_operation_storage, "native_protocol_sources", unexpected_generation
             )
+            execution.setattr(native_program_registry, "render_programs", unexpected_generation)
             destination = tmp_path / "demand-export"
             exported = export_demand_result(
                 connection,

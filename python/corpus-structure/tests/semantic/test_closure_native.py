@@ -6,13 +6,13 @@ from pglast.stream import RawStream
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.closure_native import closure_native_sql
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import (
     definition_from_sql,
     execute_native_sql,
     prepare_native_authoring,
 )
+from corpus_structure.semantic.target_installation import foundation_programs
 from semantic.releases_support import stage
 
 
@@ -27,7 +27,7 @@ def test_generated_closure_receipts_bind_and_keep_mutation_guards(commit_db_engi
                 source="generated-closure",
                 owner="corpus_sem_publisher",
             )
-            for item in parse_sql(closure_native_sql(get_metadata()))
+            for item in parse_sql(foundation_programs(get_metadata()).native_closure)
         )
         ordinary = frozenset(
             item.identity
@@ -105,8 +105,8 @@ def test_closure_capture_includes_exact_compiler_and_generated_effect():
 
     captured = capture_target_installation(get_metadata())
     sources = {source.name: source.content for source in captured.authoring_inputs.sources}
-    assert sources["authoring/closure-native.sql"] == closure_native_sql(captured.metadata).encode()
-    assert b"def closure_native_sql" in sources["authoring/closure-native.py"]
+    assert sources["authoring/closure-native.sql"] == captured.foundation.native_closure.encode()
+    assert b"def closure_native_parts" in sources["authoring/closure-native.py"]
     declarations = parse_sql(sources["authoring/closure-native.sql"].decode())
     assert len(declarations) == 5
     assert all(isinstance(item.stmt, ast.CreateFunctionStmt) for item in declarations)

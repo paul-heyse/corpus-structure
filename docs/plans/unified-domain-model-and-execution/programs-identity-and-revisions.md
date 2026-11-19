@@ -834,12 +834,43 @@ continue to exercise exact input changes, compiler substitution and colliding su
 The private historical PDF case and nine cache and input controls passed
 (`64d1c4441f8c42508e8876bd3a8afc67`) on 2026-11-18.
 
+### Typed foundation registry
+
+Foundation declarations now retain the typed routine body through installation. SQLAlchemy
+visitors and pglast collect dependencies and model inputs. NetworkX derives deterministic
+installation order for SQL-language binding dependencies. Procedural calls retain their
+dependency identity while PostgreSQL resolves them at invocation. The registry refuses
+undeclared callees, ambiguous overloads, duplicate identities and installation cycles.
+
+The active cohort contains canonical JSON, decimal canonicalization, finite-float and
+archive validation, and the immutable-mutation and finalized-insert guards. Authoring
+holds the rendered cohort alongside the exact captured scripts and installs it directly.
+The per-function selectors and paired archive-guard parser for this cohort are retired.
+Model preview and the standalone model check also use one declaration of each generated
+facade's path and renderer.
+
+**Verified, 2026-11-18.** The identity, closure and native closure SQL scripts match
+their N31 generation byte for byte. The prospective native source digest changed
+from `53c1fd9e7cfd95f60f590f40d79f5eddbced6d6b2086294323eed20df596d6db` to
+`8098d39a4885613af8c801db43b2cdf60b9283948d129f71b33e9532679f7e7a`.
+Stage continues to acquire the frozen N31 kernel and application. The private fresh-install
+and closure suite passed all nine cases (`9b5ce53624b9489bbc6b6f7ad9aff445`). The fresh
+install matched normalized statements, owners and EXECUTE privileges for all six programs
+against frozen N31. Application admission, runtime acquisition and Parquet export passed
+with generation disabled. This fresh-install evidence covers the prospective source.
+
+The registry still needs the DDO, PDF and remaining admission producers, their wire
+entries and family claims, and a complete program manifest and install-order comparison.
+The interim family-program table and the remaining named-script selectors stay under
+UDM-09. The native descriptor includes the authoring capture, so registry source changes
+that affect the descriptor join UDM-10 and UDM-11's identity transition.
+
 ## State
 
 | Package | State |
 |---|---|
 | UDM-08 | Acquisition and export use retained identities and the running wire protocol. See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment) for evidence. |
-| UDM-09 | Grant declarations landed with UDM-03. Direct producer registration, callee analysis, generated installation order and the program manifest remain open. |
+| UDM-09 | Grant declarations and six typed foundation programs integrated. Remaining producers, family claims, manifest and install cutover are open. |
 | UDM-10 | Not started |
 | UDM-11 | Not started |
 | UDM-12 | Not started |

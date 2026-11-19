@@ -1016,7 +1016,8 @@ write transaction after acquiring a read. The value-substitution fixture declare
 for the synthetic consumer so the test exercises selective support rather than conservative
 project-wide invalidation. The repaired contexts, replacement-support attribution, and fresh
 installation with detached Parquet export passed all five selected cases
-(`3ecd964f625e4439b14cb5d38feb606f`).
+(`3ecd964f625e4439b14cb5d38feb606f`). Selective scheduling after a changed population member
+and historical PDF ancestry with an equal-value raw substitute remain in the complete matrix.
 
 ## State
 

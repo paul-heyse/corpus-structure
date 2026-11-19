@@ -31,6 +31,7 @@ from .native_program import (
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
@@ -62,8 +63,8 @@ def _members(value, *, ordinality=False):
     return fn.table_valued(field)
 
 
-def canonical_identity_sql(*, decimal_digits: int) -> str:
-    """Generate the canonical JSON traversal and finite decimal lexical projection."""
+def canonical_identity_programs(*, decimal_digits: int):
+    """Declare the canonical JSON traversal and finite decimal lexical projection."""
     value = core_variable("p", JSONB())
     elements = _members(value, ordinality=True)
     fields = func.jsonb_each(value).table_valued(column("key", Text()), column("value", JSONB()))
@@ -85,7 +86,7 @@ def canonical_identity_sql(*, decimal_digits: int) -> str:
         fields,
         "}",
     )
-    canonical_json = sql_function(
+    canonical_json = NativeRoutine(
         "data",
         "canonical_json",
         parameters=(Parameter("p", pg_type("jsonb")),),
@@ -118,7 +119,7 @@ def canonical_identity_sql(*, decimal_digits: int) -> str:
         .concat(".")
         .concat(func.substr(digits, cast(point + 1, Integer())))
     )
-    decimal = _value(
+    decimal = _value_routine(
         "decimal_canonical",
         (Parameter("raw", text_type),),
         "text",
@@ -174,7 +175,20 @@ def canonical_identity_sql(*, decimal_digits: int) -> str:
             Local("negative", pg_type("bool")),
         ),
     )
-    return native_sql_script((canonical_json, decimal))
+    from corpus_structure.schema.integrity import role_name
+
+    from .native_objects import INTERNAL_PROGRAM
+    from .native_program_registry import ProgramDeclaration
+
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="target-current:identity.sql",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        )
+        for routine in (canonical_json, decimal)
+    )
 
 
 def _lexical_timestamp(lexical):
@@ -232,8 +246,8 @@ def _field_guard():
     )
 
 
-def _value(name, parameters, result, steps, locals_=()):
-    return function(
+def _value_routine(name, parameters, result, steps, locals_=()):
+    return NativeRoutine(
         "data",
         name,
         parameters=parameters,
@@ -243,6 +257,10 @@ def _value(name, parameters, result, steps, locals_=()):
         volatility="immutable",
         strict=True,
     )
+
+
+def _value(name, parameters, result, steps, locals_=()):
+    return _value_routine(name, parameters, result, steps, locals_).render()
 
 
 def _normalize():

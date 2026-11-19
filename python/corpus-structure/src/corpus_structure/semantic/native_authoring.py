@@ -226,28 +226,6 @@ def _task_call_definitions(
     raise NativeAuthoringError(f"native task-call ABI declaration is absent: {name}")
 
 
-def _release_guard_definitions(connection, sql, *, source):
-    prepared = prepare_sql(sql, source=source)
-    definitions = []
-    for index, raw in enumerate(prepared.statements):
-        statement = raw.stmt
-        if isinstance(statement, ast.CreateFunctionStmt) and tuple(
-            part.sval for part in statement.funcname or ()
-        ) in {("sem", "require_archive_bytes"), ("sem", "require_execution_projection")}:
-            definitions.append(
-                definition_from_sql(
-                    connection,
-                    prepared.excerpt(index),
-                    source=source,
-                    owner=role_name("publisher"),
-                    program_access=INTERNAL_PROGRAM,
-                )
-            )
-    if len(definitions) != 2:
-        raise NativeAuthoringError(f"{source}: complete release guards are absent")
-    return tuple(definitions)
-
-
 def current_admission_definitions(connection, sql, *, source, require_descriptor=True):
     """Declare current purpose grants without historical migration-owner custody."""
     prepared = prepare_sql(sql, source=source)

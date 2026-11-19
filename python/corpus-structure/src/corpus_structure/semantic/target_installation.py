@@ -19,21 +19,26 @@ from .types import SourceArtifact
 
 if TYPE_CHECKING:
     from .native_products import NativeAuthoringInputs
+    from .native_program_registry import RenderedProgram
 
 
 @dataclass(frozen=True)
 class FoundationPrograms:
     identity: str
     closure: str
+    native_closure: str
+    programs: tuple[RenderedProgram, ...]
 
 
 def foundation_programs(
     target: MetaData | None = None, *, value_codec_source: bytes | None = None
 ) -> FoundationPrograms:
     """Generate the primitive programs used by current target installation."""
-    from .closure_native import closure_foundation_sql
-    from .data_operation_value_native import canonical_identity_sql
+    from .closure_native import closure_foundation_parts, closure_native_parts
+    from .data_operation_value_native import canonical_identity_programs
     from .metadata import get_metadata
+    from .native_objects import native_sql_script
+    from .native_program_registry import render_programs
     from .value_codec import VALUE_CODEC_SOURCE, decimal_digit_limit
 
     capture = None
@@ -42,9 +47,23 @@ def foundation_programs(
 
         capture = compiled_model({VALUE_CODEC_SOURCE: value_codec_source})
 
+    selected = get_metadata() if target is None else target
+    identity_declarations = canonical_identity_programs(decimal_digits=decimal_digit_limit(capture))
+    guards, closure_declarations = closure_foundation_parts(selected)
+    intrinsic_declarations, effects = closure_native_parts(selected)
+    programs = render_programs(
+        (*identity_declarations, *closure_declarations, *intrinsic_declarations),
+        registry_schemas=frozenset({"data", "sem"}),
+    )
+    statements = {program.declaration.identity: program.statement for program in programs}
+    intrinsic_statements = tuple(statements[item.identity] for item in intrinsic_declarations)
     return FoundationPrograms(
-        identity=canonical_identity_sql(decimal_digits=decimal_digit_limit(capture)),
-        closure=closure_foundation_sql(get_metadata() if target is None else target),
+        identity=native_sql_script(statements[item.identity] for item in identity_declarations),
+        closure=native_sql_script(
+            (*guards, *(statements[item.identity] for item in closure_declarations))
+        ),
+        native_closure=";\n".join((*intrinsic_statements, *effects)) + ";\n",
+        programs=programs,
     )
 
 
@@ -74,12 +93,12 @@ class TargetInstallation:
     metadata: MetaData
     pdf_sources: tuple[SourceArtifact, ...]
     authoring_inputs: NativeAuthoringInputs
+    foundation: FoundationPrograms
 
 
 def capture_target_installation(
     selected: MetaData, *, logical_sources: dict[str, bytes] | None = None
 ) -> TargetInstallation:
-    from .closure_native import closure_native_sql
     from .data_operation_storage import native_logical_sources
     from .native_products import capture_native_authoring_inputs
     from .pdf_binary_identity_native import pdf_artifact_identity_sql, pdf_binary_identity_sql
@@ -99,10 +118,14 @@ def capture_target_installation(
         pdf_sources=pdf_sources,
         logical_sources=logical,
         extra_sources=(
+            SourceArtifact(
+                "authoring/native-program-registry.py",
+                Path(__file__).with_name("native_program_registry.py").read_bytes(),
+            ),
             SourceArtifact("authoring/target_installation.py", Path(__file__).read_bytes()),
             SourceArtifact("authoring/identity.sql", foundation.identity.encode()),
             SourceArtifact("authoring/closure.sql", foundation.closure.encode()),
-            SourceArtifact("authoring/closure-native.sql", closure_native_sql(selected).encode()),
+            SourceArtifact("authoring/closure-native.sql", foundation.native_closure.encode()),
             SourceArtifact(
                 "authoring/closure-native.py",
                 Path(__file__).with_name("closure_native.py").read_bytes(),
@@ -133,7 +156,7 @@ def capture_target_installation(
             ),
         ),
     )
-    return TargetInstallation(selected, pdf_sources, inputs)
+    return TargetInstallation(selected, pdf_sources, inputs, foundation)
 
 
 def target_physical_prerequisites(connection, installation: TargetInstallation):
@@ -219,12 +242,12 @@ def target_native_definitions(connection, installation: TargetInstallation):
     from .native_authoring import (
         _pdf_payload_definitions,
         _publication_view_definitions,
-        _release_guard_definitions,
         _shape_definition,
         _task_call_definition,
     )
     from .native_objects import (
         INTERNAL_PROGRAM,
+        NativeAuthoringError,
         NativeProgramAccess,
         definition_from_sql,
         native_before_trigger_sql,
@@ -241,13 +264,20 @@ def target_native_definitions(connection, installation: TargetInstallation):
     definitions = []
     captured = {item.name: item.content for item in installation.authoring_inputs.sources}
     closure = captured["authoring/closure.sql"].decode()
+    if (
+        installation.foundation.identity.encode() != captured["authoring/identity.sql"]
+        or installation.foundation.closure.encode() != captured["authoring/closure.sql"]
+        or installation.foundation.native_closure.encode()
+        != captured["authoring/closure-native.sql"]
+    ):
+        raise NativeAuthoringError(
+            "foundation declarations differ from their captured install statements"
+        )
+    definitions.extend(
+        program.definition(connection) for program in installation.foundation.programs
+    )
     for filename, schema, name, purposes in (
-        ("identity.sql", "data", "canonical_json", ()),
-        ("identity.sql", "data", "decimal_canonical", ()),
-        ("closure.sql", "data", "require_float_lexical", ()),
         ("closure.sql", "sem", "require_admission_caller", ()),
-        ("closure-native.sql", "sem", "refuse_immutable_mutation", ()),
-        ("closure-native.sql", "sem", "guard_finalized_insert", ()),
         ("closure-native.sql", "sem", "record_deployment_admission", ("admit",)),
         ("closure-native.sql", "sem", "record_sql_admission", ("admit",)),
         ("closure-native.sql", "sem", "activate_release", ("admit",)),
@@ -266,8 +296,6 @@ def target_native_definitions(connection, installation: TargetInstallation):
                 if filename == "scientific_layout.sql"
                 else captured["authoring/closure-native.sql"].decode()
                 if filename == "closure-native.sql"
-                else captured["authoring/identity.sql"].decode()
-                if filename == "identity.sql"
                 else closure,
                 name=name,
                 schema=schema,
@@ -285,11 +313,14 @@ def target_native_definitions(connection, installation: TargetInstallation):
         )
     )
     definitions.extend(archive_native_definitions(connection, target_metadata=selected))
-    definitions.extend(
-        _release_guard_definitions(
+    definitions.append(
+        _task_call_definition(
             connection,
-            closure + "\n" + captured["authoring/execution-projection-check.sql"].decode(),
+            captured["authoring/execution-projection-check.sql"].decode(),
+            schema="sem",
+            name="require_execution_projection",
             source="target-current:release archive guards",
+            program_access=INTERNAL_PROGRAM,
         )
     )
     for name in ("validate_runtime_binding", "register_runtime_binding", "require_runtime_binding"):

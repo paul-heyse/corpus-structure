@@ -5,8 +5,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from corpus_structure.schema.code_generation import native_facades
 from corpus_structure.schema.declarations import ModelError
-from corpus_structure.schema.model_change import _native_facades, native_model_inputs
+from corpus_structure.schema.model_change import native_model_inputs
 from corpus_structure.schema.preparation import writer_lock
 from corpus_structure.semantic.metadata import get_metadata
 
@@ -17,7 +18,7 @@ def main(argv: list[str]) -> int:
         return 2
     repository = Path(__file__).resolve().parents[5]
     try:
-        files = _native_facades(get_metadata(), native_model_inputs(repository))
+        files = native_facades(get_metadata(), native_model_inputs(repository))
     except (ModelError, ValueError) as error:
         print(str(error), file=sys.stderr)
         return 1

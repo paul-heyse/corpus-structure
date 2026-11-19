@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.schema import preparation
-from corpus_structure.schema.code_generation import compilers
+from corpus_structure.schema.code_generation import compilers, native_facade_paths, native_facades
 from corpus_structure.schema.compiled_changes import (
     CompiledModelComparison,
     compare_compiled_models,
@@ -335,7 +335,6 @@ def compilation_fingerprint(
     Generator-owned output paths are excluded from implementation hashing: their
     authored inputs and exact reviewed output bytes have separate owners.
     """
-    from corpus_structure.schema.code_generation import CURRENT_OUTPUTS
     from corpus_structure.semantic.determinants import (
         ANALYSIS_LIBRARIES,
         BYTE_LIBRARIES,
@@ -383,7 +382,7 @@ def compilation_fingerprint(
             "ontology_sources": list(dependencies.ontology_sources),
             "profile": asdict(profile),
         }
-    generated = frozenset(CURRENT_OUTPUTS)
+    generated = native_facade_paths()
     implementation = []
     selected_package = root / preparation.PACKAGE_PATH
     running_package = Path(__file__).resolve().parents[1]
@@ -525,36 +524,6 @@ def native_model_inputs(root: Path, *, preview: ChangePreview | None = None) -> 
                 )
         sources[name] = content.encode()
     return sources
-
-
-def _native_facades(target, logical: dict[str, bytes]) -> dict[str, str]:
-    from corpus_structure.schema.code_generation import CURRENT_OUTPUTS, _format
-    from corpus_structure.semantic import pdf_call_generation, typed_generation
-    from corpus_structure.semantic.data_operation_wire import generated_wire_source
-    from corpus_structure.semantic.original_document_contracts import generated_source_calls
-    from corpus_structure.semantic.pdf_domain import PdfDomainContract
-    from corpus_structure.semantic.target_installation import capture_target_installation
-
-    captured = capture_target_installation(target, logical_sources=logical)
-    pdf, *sources = captured.pdf_sources
-    domain = PdfDomainContract(pdf.content, tuple(sources))
-    physical = target.info["physical_sources"]
-    values = (
-        generated_source_calls(target_metadata=target),
-        typed_generation.generated_source(target),
-        typed_generation.generated_identifiers(target),
-        typed_generation.generated_fates(physical["data-operation-native.yaml"]),
-        pdf_call_generation.generated_source(target_metadata=target, domain=domain),
-        pdf_call_generation.generated_enums(domain=domain),
-        _format(
-            "semantic/_data_operation_wire.py",
-            generated_wire_source(captured.authoring_inputs.native_sources),
-        ),
-    )
-    return {
-        (preparation.PACKAGE_PATH / path).as_posix(): content
-        for path, content in zip(CURRENT_OUTPUTS, values, strict=True)
-    }
 
 
 def prepare_preview(
@@ -723,7 +692,7 @@ def prepare_preview(
         current_logical = native_model_inputs(root)
         current.update(_physical_worktree_files(current_logical))
         logical = {name: new.sources[name] for name in current_logical}
-        generated.update(_native_facades(target_metadata, logical))
+        generated.update(native_facades(target_metadata, logical))
         for path in _git(
             root, "ls-files", "-z", "--", str(preparation.PACKAGE_PATH / "semantic")
         ).split("\0"):

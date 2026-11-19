@@ -498,6 +498,46 @@ def Do(block: Block) -> str:
     )
 
 
+@dataclass(frozen=True)
+class NativeRoutine:
+    schema: str
+    name: str
+    parameters: tuple[Parameter, ...]
+    returns: ast.TypeName
+    body: Block | Expression
+    table_columns: tuple[tuple[str, ast.TypeName], ...] = ()
+    security_definer: bool = False
+    search_path: tuple[str, ...] = ()
+    volatility: Literal["stable", "immutable", "volatile"] | None = None
+    strict: bool = False
+
+    @property
+    def argument_types(self) -> tuple[str, ...]:
+        return tuple(_render(parameter.type_) for parameter in self.parameters)
+
+    def render(self) -> str:
+        if isinstance(self.body, Block):
+            names = tuple(item.name for item in (*self.parameters, *self.body.locals))
+            if len(set(names)) != len(names):
+                raise ValueError("native function requires distinct parameters and locals")
+            language, body = "plpgsql", _body(self.body)
+        else:
+            language, body = "sql", _statement(self.body)
+        return _routine(
+            self.schema,
+            self.name,
+            self.parameters,
+            self.returns,
+            language,
+            body,
+            table_columns=self.table_columns,
+            security_definer=self.security_definer,
+            search_path=self.search_path,
+            volatility=self.volatility,
+            strict=self.strict,
+        )
+
+
 def function(
     schema: str,
     name: str,
@@ -511,22 +551,18 @@ def function(
     volatility: Literal["stable", "immutable", "volatile"] | None = None,
     strict: bool = False,
 ) -> str:
-    names = tuple(item.name for item in (*parameters, *body.locals))
-    if len(set(names)) != len(names):
-        raise ValueError("native function requires distinct parameters and locals")
-    return _routine(
+    return NativeRoutine(
         schema,
         name,
         parameters,
         returns,
-        "plpgsql",
-        _body(body),
-        table_columns=table_columns,
-        security_definer=security_definer,
-        search_path=search_path,
-        volatility=volatility,
-        strict=strict,
-    )
+        body,
+        table_columns,
+        security_definer,
+        search_path,
+        volatility,
+        strict,
+    ).render()
 
 
 def sql_function(
@@ -543,19 +579,18 @@ def sql_function(
     strict: bool = False,
 ) -> str:
     """Generate a SQL-language function under its existing text-body profile."""
-    return _routine(
+    return NativeRoutine(
         schema,
         name,
         parameters,
         returns,
-        "sql",
-        _statement(body),
-        table_columns=table_columns,
-        security_definer=security_definer,
-        search_path=search_path,
-        volatility=volatility,
-        strict=strict,
-    )
+        body,
+        table_columns,
+        security_definer,
+        search_path,
+        volatility,
+        strict,
+    ).render()
 
 
 def _routine(

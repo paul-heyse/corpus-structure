@@ -25,6 +25,7 @@ from .native_program import (
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -34,13 +35,12 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
 
 
-def _routine(schema, name, parameters, steps, *, locals_=(), **properties):
-    return function(
+def _typed_routine(schema, name, parameters, steps, *, locals_=(), **properties):
+    return NativeRoutine(
         schema,
         name,
         parameters=parameters,
@@ -51,10 +51,14 @@ def _routine(schema, name, parameters, steps, *, locals_=(), **properties):
     )
 
 
+def _routine(schema, name, parameters, steps, *, locals_=(), **properties):
+    return _typed_routine(schema, name, parameters, steps, locals_=locals_, **properties).render()
+
+
 def _finite_float():
     value = core_variable("value", Text())
     exponent = core_variable("exponent", Integer())
-    return _routine(
+    return _typed_routine(
         "data",
         "require_float_lexical",
         (Parameter("value", pg_type("text")),),
@@ -257,9 +261,10 @@ def _principal_guards():
     return runtime, admission
 
 
-def closure_foundation_sql(target):
-    """Generate archive verification alongside the database-purpose and value guards."""
-    from .native_objects import native_sql_script
+def closure_foundation_parts(target):
+    """Declare the independent archive/value programs and retained principal guard source."""
+    from .native_objects import INTERNAL_PROGRAM
+    from .native_program_registry import ProgramDeclaration
     from .types import SEMANTIC_ARCHIVE_FORMAT, SEMANTIC_COMPILER_VERSION, SEMANTIC_PROFILE_VERSIONS
 
     releases = target.tables["sem.release"]
@@ -312,7 +317,7 @@ def closure_foundation_sql(target):
     closed_metadata_inputs = tuple(
         (name, name) for name in ("profile", "vocabulary", "ontology_sources")
     )
-    archive_check = _routine(
+    archive_check = _typed_routine(
         "sem",
         "require_archive_bytes",
         (Parameter("r", column_type(releases.c.release_id)),),
@@ -406,10 +411,23 @@ def closure_foundation_sql(target):
         ),
         security_definer=True,
     )
-    return native_sql_script((*_principal_guards(), archive_check, _finite_float()))
+    return _principal_guards(), (
+        ProgramDeclaration(
+            archive_check,
+            source="target-current:release archive guards",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        ),
+        ProgramDeclaration(
+            _finite_float(),
+            source="target-current:closure.sql",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        ),
+    )
 
 
-def closure_native_sql(target):
+def closure_native_parts(target):
     finalized = target.tables["sem.release_finalization"]
     deployments = target.tables["sem.deployment_admission"]
     admissions = target.tables["sem.sql_admission"]
@@ -417,7 +435,7 @@ def closure_native_sql(target):
     r = core_variable("r", finalized.c.release_id.type)
 
     def routine(name, statements, parameters=(), *, returns=None, locals_=(), protected=True):
-        return function(
+        return NativeRoutine(
             "sem",
             name,
             parameters=parameters,
@@ -558,4 +576,18 @@ def closure_native_sql(target):
         returns=column_type(projects.c.generation),
         locals_=(Local("result", column_type(projects.c.generation)),),
     )
-    return ";\n".join((immutable, intrinsic, deployment, sql_admission, activation)) + ";\n"
+    from .native_objects import INTERNAL_PROGRAM
+    from .native_program_registry import ProgramDeclaration
+
+    intrinsic_programs = tuple(
+        ProgramDeclaration(
+            routine,
+            source="target-current:closure-native.sql",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        )
+        for routine in (immutable, intrinsic)
+    )
+    return intrinsic_programs, tuple(
+        routine.render() for routine in (deployment, sql_admission, activation)
+    )
