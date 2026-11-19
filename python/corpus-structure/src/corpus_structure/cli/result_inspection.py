@@ -201,7 +201,8 @@ def inspect_result(
         native = native_inspection(ctx, manifest, selection)
         captured = None
         unavailable_reason = None
-        if "execution_context" in manifest.artifacts:
+        has_context = "execution_context" in manifest.artifacts
+        if has_context and manifest.settled is not None:
             from .execution_context import read_execution_context
 
             account = read_execution_context(store, result)
@@ -213,6 +214,8 @@ def inspect_result(
                 if account.source_request is not None
                 else "native_request"
             )
+        elif has_context:
+            unavailable_reason = "Captured recovery inputs become available when this invocation settles."
         elif manifest.action in {"run", "run.resume", "ingest", "demands.execute"}:
             unavailable_reason = "No execution context was captured; exact source root and execution policy are required for direct demand recovery."
         actions = [
@@ -249,7 +252,7 @@ def inspect_result(
                 )
             )
             source_root = manifest.details.get("native_source_root")
-            if isinstance(source_root, str) and captured is None:
+            if isinstance(source_root, str) and not has_context:
                 actions.append(
                     NextAction(
                         kind="resume_demand",
@@ -268,7 +271,7 @@ def inspect_result(
                         required_inputs=("execution_policy",),
                     )
                 )
-            if "native" in manifest.artifacts:
+            if manifest.settled is not None and "native" in manifest.artifacts:
                 from corpus_structure.semantic.data_operation_json import wire_json_loads
 
                 retained = wire_json_loads(store.read_artifact(result, "native"))

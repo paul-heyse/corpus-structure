@@ -247,7 +247,7 @@ def test_recovery_wrong_configured_target_refuses_before_acquisition(
     assert len([item for item in results.iterdir() if item.is_dir() and len(item.name) == 32]) == 1
 
 
-def test_recovery_context_preserves_exact_fractional_numbers(tmp_path):
+def test_recovery_context_preserves_exact_fractional_numbers(cli, tmp_path):
     from decimal import Decimal
 
     from corpus_structure.cli.execution_context import (
@@ -302,8 +302,17 @@ def test_recovery_context_preserves_exact_fractional_numbers(tmp_path):
         ),
     )
     store = ResultStore(tmp_path / "results")
+    env = {"CORPUS_CI_RESULTS": str(store.root)}
     with store.operation("run") as invocation:
         retain_execution_context(invocation, account)
+        watched = cli("results", "watch", invocation.id, "--seconds", "0", "--json", env=env)
+        assert watched.exit_code == 0, watched.output
+        report = json.loads(watched.stdout)
+        assert report["outcome"] == "running"
+        inspection = report["inspection"]
+        assert "when this invocation settles" in inspection["recovery_unavailable_reason"]
+        assert "resume_result" not in {item["kind"] for item in inspection["next_actions"]}
+        assert invocation.manifest.outcome == "running"
     recovered = read_execution_context(store, invocation.id)
     assert recovered.native_request is not None
     assert recovered.native_request.roots[0].analyzed_scope["fraction"] == exact
