@@ -38,7 +38,10 @@ RICH_QUERY_SOURCES = (
     "semantic/alias_policy.py",
     "semantic/label_normalization.py",
     "core/tex.py",
-    "core/vocab.py",
+    "semantic/source_types.py",
+    "model/semantic/source-vocabularies.yaml",
+    "model/semantic/core.yaml",
+    "model/semantic/observations.yaml",
     "semantic/data_operation_identity.py",
     "semantic/data_operation_json.py",
     "semantic/data_operation_model.py",
@@ -129,6 +132,7 @@ _BASE = Path(__file__).resolve().parent
 _NAMES = {
     "corpus_structure." + name[:-3].replace("/", "."): str(_BASE / name)
     for name in _CURRENT_READ_SOURCES
+    if name.endswith(".py")
 }
 _KNOWN_PATHS = frozenset(_NAMES.values())
 _EXECUTED: dict[ModuleType, tuple[str, str]] = {}
@@ -220,7 +224,7 @@ def _check_loaded(expected: dict[str, str]) -> None:
             or str(Path(vars(module).get("__file__", "")).resolve()) != path
         ):
             raise SourceCustodyError("query-helper module changed; restart the process")
-    known_paths = set()
+    known_paths = {str(_BASE / name) for name in _CURRENT_READ_SOURCES if not name.endswith(".py")}
     for name, path in _NAMES.items():
         if path not in expected:
             continue

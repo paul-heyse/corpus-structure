@@ -859,34 +859,38 @@ class ClosedPythonSources:
             "unknowns": unknowns,
         }
 
+    def operation_metadata(self, exposed: str):
+        """Resolve authored operation fields before implementation or asset acquisition."""
+        obj = self.resolve(exposed)
+        metadata: dict = {}
+        field_owners: dict[str, str] = {}
+        ancestors = ()
+        if isinstance(obj, griffe.Class):
+            # Unsupported bases remain visible to slice admission below.
+            with suppress(griffe.AliasResolutionError, ValueError):
+                ancestors = tuple(base.path for base in reversed(obj.mro()))
+        role_origins = []
+        for owner in (*ancestors, exposed):
+            authored = self.metadata.get(owner, {})
+            fields = {
+                field: value for field, value in authored.items() if field != "role_overrides"
+            }
+            if "roles" in fields:
+                role_origins.clear()
+            metadata.update(fields)
+            field_owners.update({field: owner for field in fields})
+            if "role_overrides" in authored:
+                if not isinstance(obj, griffe.Class):
+                    _fail(owner, "role_overrides belongs to an inherited class declaration")
+                metadata["roles"] = _specialize_roles(metadata, authored["role_overrides"], owner)
+                role_origins.append(owner)
+        return metadata, field_owners, role_origins
+
     def operations(self) -> tuple[PythonOperationFacts, ...]:
         results = []
         for exposed in sorted(self.metadata):
             obj = self.resolve(exposed)
-            metadata: dict = {}
-            field_owners: dict[str, str] = {}
-            ancestors = ()
-            if isinstance(obj, griffe.Class):
-                # Unsupported bases remain visible to slice admission below.
-                with suppress(griffe.AliasResolutionError, ValueError):
-                    ancestors = tuple(base.path for base in reversed(obj.mro()))
-            role_origins = []
-            for owner in (*ancestors, exposed):
-                authored = self.metadata.get(owner, {})
-                fields = {
-                    field: value for field, value in authored.items() if field != "role_overrides"
-                }
-                if "roles" in fields:
-                    role_origins.clear()
-                metadata.update(fields)
-                field_owners.update({field: owner for field in fields})
-                if "role_overrides" in authored:
-                    if not isinstance(obj, griffe.Class):
-                        _fail(owner, "role_overrides belongs to an inherited class declaration")
-                    metadata["roles"] = _specialize_roles(
-                        metadata, authored["role_overrides"], owner
-                    )
-                    role_origins.append(owner)
+            metadata, field_owners, role_origins = self.operation_metadata(exposed)
             if metadata.get("abstract", False):
                 continue
             surfaces = []

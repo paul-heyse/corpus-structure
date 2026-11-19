@@ -40,6 +40,7 @@ from .native_program import (
     pg_type,
     sql_function,
 )
+from .value_codec import DECIMAL_LIMIT_MESSAGE
 
 _NON_VALUES = (
     "null",
@@ -61,7 +62,7 @@ def _members(value, *, ordinality=False):
     return fn.table_valued(field)
 
 
-def canonical_identity_sql() -> str:
+def canonical_identity_sql(*, decimal_digits: int) -> str:
     """Generate the canonical JSON traversal and finite decimal lexical projection."""
     value = core_variable("p", JSONB())
     elements = _members(value, ordinality=True)
@@ -100,8 +101,9 @@ def canonical_identity_sql() -> str:
         volatility="immutable",
         strict=True,
     )
-    raw, whole, fraction, digits, fixed = (
-        core_variable(name, Text()) for name in ("raw", "whole", "fraction", "digits", "fixed")
+    raw, whole, fraction, digits, fixed, exponent_digits = (
+        core_variable(name, Text())
+        for name in ("raw", "whole", "fraction", "digits", "fixed", "exponent_digits")
     )
     parts = core_variable("parts", ARRAY(Text()))
     point, exponent = (core_variable(name, BigInteger()) for name in ("point", "exponent"))
@@ -127,15 +129,27 @@ def canonical_identity_sql() -> str:
             ),
             Assign("negative", func.left(raw, 1) == "-"),
             Assign("parts", func.regexp_split_to_array(func.ltrim(raw, "+-"), "[eE]")),
-            Assign(
-                "exponent",
-                case((func.array_length(parts, 1) == 2, cast(parts[2], BigInteger())), else_=0),
-            ),
             Assign("whole", func.split_part(parts[1], ".", 1)),
             Assign("fraction", func.split_part(parts[1], ".", 2)),
-            Assign("digits", whole.concat(fraction)),
-            If(func.ltrim(digits, "0") == "", (Return(literal("0")),)),
-            Assign("point", func.length(whole) + exponent),
+            Assign("digits", func.ltrim(whole.concat(fraction), "0")),
+            If(digits == "", (Return(literal("0")),)),
+            Assign(
+                "exponent_digits", func.ltrim(func.ltrim(func.coalesce(parts[2], "0"), "+-"), "0")
+            ),
+            # Eleven significant exponent digits cannot be offset by a PostgreSQL text operand.
+            If(func.length(exponent_digits) > 10, (Raise(DECIMAL_LIMIT_MESSAGE, "23514"),)),
+            Assign(
+                "exponent",
+                case((func.left(parts[2], 1) == "-", -1), else_=1)
+                * cast(func.coalesce(func.nullif(exponent_digits, ""), "0"), BigInteger()),
+            ),
+            Assign("point", exponent + func.length(digits) - func.length(fraction)),
+            Assign("digits", func.rtrim(digits, "0")),
+            If(
+                func.greatest(point, 1) + func.greatest(func.length(digits) - point, 0)
+                > decimal_digits,
+                (Raise(DECIMAL_LIMIT_MESSAGE, "23514"),),
+            ),
             If(
                 point <= 0,
                 (Assign("fixed", leading_zeroes),),
@@ -147,22 +161,14 @@ def canonical_identity_sql() -> str:
                     ),
                 ),
             ),
-            Assign(
-                "whole",
-                func.coalesce(
-                    func.nullif(func.ltrim(func.split_part(fixed, ".", 1), "0"), ""), "0"
-                ),
-            ),
-            Assign("fraction", func.rtrim(func.split_part(fixed, ".", 2), "0")),
-            Return(
-                case((negative, "-"), else_="")
-                .concat(whole)
-                .concat(case((fraction != "", literal(".").concat(fraction)), else_=""))
-            ),
+            Return(case((negative, "-"), else_="").concat(fixed)),
         ),
         (
             Local("parts", parts_type),
-            *(Local(name, text_type) for name in ("whole", "fraction", "digits", "fixed")),
+            *(
+                Local(name, text_type)
+                for name in ("whole", "fraction", "digits", "fixed", "exponent_digits")
+            ),
             Local("point", pg_type("int8")),
             Local("exponent", pg_type("int8")),
             Local("negative", pg_type("bool")),

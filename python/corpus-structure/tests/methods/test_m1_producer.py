@@ -5,7 +5,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.core.vocab import ObservationOutcome
 from corpus_structure.methods import m1_source
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerReport
 from corpus_structure.methods.gliner_worker import (
@@ -15,6 +14,7 @@ from corpus_structure.methods.gliner_worker import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.m1_products import NativeCandidateData
+from corpus_structure.semantic.source_types import ObservationOutcome
 from methods.m1_producer_support import (
     ROOT as ROOT,
 )

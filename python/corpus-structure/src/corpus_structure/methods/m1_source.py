@@ -12,7 +12,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from corpus_structure.core.method import CoverageDraft
-from corpus_structure.core.vocab import ObservationOutcome
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.gliner import (
     ASSERTION_LITERAL_PACK,
@@ -35,6 +34,7 @@ from corpus_structure.semantic.source_contexts import (
     ContextRefused,
     NativeSpanEvidence,
 )
+from corpus_structure.semantic.source_types import ObservationOutcome
 
 FAMILIES = {
     "definition": ("DefinitionRecordFields", "term"),

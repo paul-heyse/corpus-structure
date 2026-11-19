@@ -15,12 +15,11 @@ from math_support import math_spans, read_spans
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
 from corpus_structure.core.tex import symbol_form
-from corpus_structure.core.values import Formula, SetValue
-from corpus_structure.core.vocab import BindKind, MathKind, ParseOutcome, SegmentKind
 from corpus_structure.methods.math.spans import (
     extract,
     formula_values,
 )
+from corpus_structure.semantic.source_types import MathKind, ParseOutcome, SegmentKind
 
 pytestmark = pytest.mark.filterwarnings("error::sympy.utilities.exceptions.SymPyDeprecationWarning")
 
@@ -97,15 +96,7 @@ def test_m11_values() -> None:
         "(0, 1)",
     )
     values = formula_values(read_spans(content, macros, ("e",)))
-    assert [type(v.value) for v in values] == [
-        SetValue,
-        Formula,
-        Formula,
-        Formula,
-        Formula,
-        Formula,
-    ]
-    assert [v.value.parse for v in values] == [
+    assert [v.parse for v in values] == [
         ParseOutcome.OK,
         ParseOutcome.OK,
         ParseOutcome.FAILED,
@@ -121,10 +112,8 @@ def test_m11_values() -> None:
         MathKind.LIST,
         None,  # interval or pair: no one kind
     ]
-    assert values[1].value.latex == "X_1 + \\sigma^2 e"
-    assert set(values[1].value.symbols) == {"X_1", "sigma"}  # the constant e is not free
-    assert all(b.bind is BindKind.UNRESOLVED for b in values[1].value.symbols.values())
-    assert set(values[3].value.symbols) == {"x_i"}  # the index i is not a symbol of its own
+    assert set(values[1].symbols) == {"X_1", "sigma"}  # the constant e is not free
+    assert set(values[3].symbols) == {"x_i"}  # the index i is not a symbol of its own
     assert values[2].parse_error == "incomplete"
     assert values[0].parse_error is None
 
@@ -174,8 +163,8 @@ def test_m09_on_the_spike_pages(spike_extraction: dict[str, Any]) -> None:
             checked += 1
         for value in page.values:
             reading = by_span[(value.segment.start, value.segment.end)]
-            assert value.value.parse is reading.result.status
-            for name in value.value.symbols:
+            assert value.parse is reading.result.status
+            for name in value.symbols:
                 assert name == symbol_form(name, page.macros)
         for relation in page.extraction.relations:
             assert (

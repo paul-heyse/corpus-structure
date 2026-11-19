@@ -2139,9 +2139,57 @@ def _binding_record(expression: BindingExpression, *, result_only: bool = False)
     return data
 
 
+def native_kind_dependencies(
+    model: EffectiveDataOperationModel,
+    *,
+    unavailable: frozenset[str] = frozenset(),
+    defer_invalid_members: bool = False,
+) -> tuple[set[str], dict[str, tuple[str, ...]]]:
+    """Resolve the nominal members represented in the installed kind contract."""
+    from .data_operation_kind_refinements import input_kind_refinements
+    from .data_operation_member_contracts import derive_member_kinds
+
+    roots = {
+        role.kind
+        for operation in model.operations
+        for role in operation.roles
+        if role.direction == "input"
+    }
+    used = {role.kind for operation in model.operations for role in operation.roles}
+    used.update(
+        model.subject_definition(operation.subject).identifier_kind
+        for operation in model.operations
+    )
+    used.update(
+        parameter["kind"]
+        for operation in model.operations
+        for parameter in json.loads(operation.parameters).values()
+        if isinstance(parameter, dict) and "kind" in parameter
+    )
+    refinements = input_kind_refinements(model, roots - unavailable) if roots else {}
+    used.update(kind for family in refinements.values() for kind in family)
+    dependencies: dict[str, tuple[str, ...]] = {}
+    pending = list(used - unavailable)
+    while pending:
+        kind = pending.pop()
+        if kind in dependencies:
+            continue
+        try:
+            members = derive_member_kinds(model, kind)
+        except PreparationError:
+            if not defer_invalid_members:
+                raise
+            # An explanatory compile can hold a kind the native projection will refuse.
+            members = ()
+        dependencies[kind] = members
+        pending.extend(member for member in members if member not in unavailable)
+    return roots, dependencies
+
+
 def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveIdentity, ...]:
     """Consume the DDO-02 encoding directly; never issue a reusable unknown recipe."""
     from .data_operation_identity import (
+        SemanticGraph,
         definition_fingerprint,
         eligibility_fingerprint,
         implementation_slice_fingerprint,
@@ -2156,8 +2204,26 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
     identities = []
     kinds = {}
     incomplete_kinds = {kind.semantic_id for kind in model.kinds if not kind.complete}
+    unavailable = frozenset(
+        kind.semantic_id
+        for kind in model.kinds
+        if incomplete_kinds.intersection(graph.closure((kind.semantic_id,)))
+    )
+    _, members = native_kind_dependencies(
+        model, unavailable=unavailable, defer_invalid_members=True
+    )
+    records = model.semantic_records()
+    records["edges"] = (
+        *records["edges"],
+        *(
+            asdict(SemanticEdge(kind, member, "member_contract"))
+            for kind, contained in members.items()
+            for member in contained
+        ),
+    )
+    graph = SemanticGraph(records)
     for kind in model.kinds:
-        if incomplete_kinds.intersection(graph.closure((kind.semantic_id,))):
+        if unavailable.intersection(graph.closure((kind.semantic_id,))):
             continue
         identity = kind_fingerprint(graph, kind.semantic_id)
         kinds[kind.semantic_id] = identity.key

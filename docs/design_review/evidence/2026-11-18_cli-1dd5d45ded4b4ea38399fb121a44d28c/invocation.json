@@ -1,0 +1,36 @@
+{
+  "id": "1dd5d45ded4b4ea38399fb121a44d28c",
+  "action": "run",
+  "stage": "demand_registered",
+  "started": 1795017104.1415005,
+  "settled": 1795023819.7332265,
+  "outcome": "failed",
+  "artifact_role": "native",
+  "custody": "settled",
+  "operation_account": {
+    "version": 1,
+    "outcome": "failed",
+    "cleanup": "established",
+    "failure": {
+      "kind": "execution",
+      "code": "NativeDemandExecutionError",
+      "message": "operation failed",
+      "reason": null,
+      "operation_id": null,
+      "database_effects": null
+    },
+    "known_effects": [],
+    "acquired_target": {
+      "database": "corpus_structure_dev",
+      "database_oid": 131763263,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "write"
+    },
+    "predecessor": null,
+    "reached_revision": null,
+    "release": "release:dafb0177a8e7359fe01e16f419376e92e6fe4bc30a392384824f385d93b55101",
+    "routing": null
+  }
+}

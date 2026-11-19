@@ -16,7 +16,10 @@ from typing import Literal, Protocol
 
 from corpus_structure.core.evidence import MacroDef, Segment
 from corpus_structure.core.tex import symbol_form
-from corpus_structure.core.vocab import (
+from corpus_structure.methods.math.spans import MathRelation, SpanValue, SymbolMention
+from corpus_structure.semantic.constructions.math_scope import Binders as Binders
+from corpus_structure.semantic.constructions.math_scope import MathScopeReadings
+from corpus_structure.semantic.source_types import (
     ANNOTATION_UNIT,
     SECTION_LIKE,
     MathKind,
@@ -24,9 +27,6 @@ from corpus_structure.core.vocab import (
     ScopeExtent,
     SegmentKind,
 )
-from corpus_structure.methods.math.spans import MathRelation, SpanValue, SymbolMention
-from corpus_structure.semantic.constructions.math_scope import Binders as Binders
-from corpus_structure.semantic.constructions.math_scope import MathScopeReadings
 
 
 class ScopeContent(Protocol):
@@ -138,7 +138,7 @@ def math_tokens(
         where = (value.segment.start, value.segment.end)
         free = by_span.get(where, [])
         rels = sorted(rel_by_span.get(where, []), key=lambda r: r.head)
-        read = value.value.parse in (ParseOutcome.OK, ParseOutcome.AMBIGUOUS)
+        read = value.parse in (ParseOutcome.OK, ParseOutcome.AMBIGUOUS)
         kind = value.math_kind if read else None
         equals = [r for r in rels if r.label == "equals"]
 
@@ -324,8 +324,8 @@ def scope_coverage(
             )
             continue
         value = interpretations[0]
-        if value.value.parse is not ParseOutcome.OK:
-            status = value.value.parse
+        if value.parse is not ParseOutcome.OK:
+            status = value.parse
             unsupported = value.parse_error in {
                 "unknown-command",
                 "unsupported-relation",
@@ -351,7 +351,7 @@ def scope_coverage(
             )
             continue
         source_mentions = mentions_by_span.get(key, [])
-        if value.value.symbols and not source_mentions:
+        if value.symbols and not source_mentions:
             results.append(
                 ScopeCoverage(segment, "unknown", "symbol occurrence extraction unavailable")
             )

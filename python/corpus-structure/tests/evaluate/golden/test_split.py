@@ -9,13 +9,13 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from corpus_structure.core.vocab import DocumentSplit
 from corpus_structure.evaluate.split import (
     SplitConfig,
     SplitDocument,
     SplitError,
     assign,
 )
+from corpus_structure.semantic.source_types import DocumentSplit
 
 ROOT = "siegrist_random/random"
 CHAPTER = [SplitDocument(i, f"{ROOT}/ch/Page{i}.html", "9") for i in range(1, 11)]

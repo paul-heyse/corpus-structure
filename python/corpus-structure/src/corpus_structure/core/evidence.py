@@ -27,7 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, m
 
 from corpus_structure.core import invariants
 from corpus_structure.core.canonical import CanonicalJsonError, canonical_json, digest, make_key
-from corpus_structure.core.vocab import DelimitingStatus, SegmentKind
+from corpus_structure.semantic.source_types import DelimitingStatus, SegmentKind
 
 # Macros are expanded by whole control-word name (D1 §6.2), so a name is a control word.
 MACRO_NAME = r"^\\[A-Za-z]+$"

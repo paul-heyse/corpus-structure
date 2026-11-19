@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "cli.bd3712ad858d44658dd7c13b07f20c88",
+  "title": "Retained CLI invocation bd3712ad858d44658dd7c13b07f20c88",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-18",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What evidence did test produce for unified-domain-model-and-execution?",
+  "answers": [],
+  "method": "Copy the selected published artifact under the invocation lease.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "invocation.json",
+      "role": "invocation-provenance",
+      "sha256": "7637c392483c9111703c2619c014a710afa4b0062be62e9799cea98b97fb2fe1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/ordinary",
+      "role": "retained-artifact",
+      "sha256": "7b9a56d0f46e2cfffc3c3efe66142e4a359a4d841815f980157ebd7c5aca97d5"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "invocation_outcome",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The retained invocation settled as passed.",
+  "consumed_by": [
+    "unified-domain-model-and-execution"
+  ]
+}

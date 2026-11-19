@@ -25,7 +25,6 @@ import pytest
 from archived_source import archived_rendition
 
 from corpus_structure.core import tex
-from corpus_structure.core.batch import CitationFrame, FrameEntry
 from corpus_structure.core.evidence import (
     MacroDef,
     RenditionContent,
@@ -117,7 +116,13 @@ def sentence_at(content: RenditionContent, start: int, end: int) -> Segment:
     raise AssertionError(f"no sentence [{start}, {end}) on the production rendition")
 
 
-def frame_of(view: ArchivedPage, sentences: dict[str, list[int]]) -> CitationFrame:
+@dataclass(frozen=True)
+class FrameEntry:
+    locator: str
+    text: str
+
+
+def frame_of(view: ArchivedPage, sentences: dict[str, list[int]]) -> dict[str, FrameEntry]:
     """The packet's frame of a spike unit on the production rendition: each sentence id's
     generated locator and text (the spike's offsets are the production rendition's, S1)."""
     index = LocatorIndex(view.content, view.page)
@@ -127,7 +132,7 @@ def frame_of(view: ArchivedPage, sentences: dict[str, list[int]]) -> CitationFra
         entries[sid] = FrameEntry(
             locator=str(index.generate(segment)), text=view.content.text(segment)
         )
-    return CitationFrame(entries)
+    return entries
 
 
 @dataclass(frozen=True)
@@ -136,7 +141,7 @@ class Env:
     view: Callable[[str], ArchivedPage]
     view_of: Callable[[str, bytes], ArchivedPage]
     raw: Callable[[str], bytes]
-    frame: Callable[[ArchivedPage, dict[str, list[int]]], CitationFrame]
+    frame: Callable[[ArchivedPage, dict[str, list[int]]], dict[str, FrameEntry]]
     fixtures: Path
 
 

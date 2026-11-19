@@ -11,12 +11,12 @@ from lark import Token, Tree
 from sympy.polys.polyerrors import BasePolynomialError
 
 from corpus_structure.core.tex import token_form
-from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.prepared import PreparedMathInput
 from corpus_structure.methods.math.transform import NotRepresentable
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.scientific_evidence import SIMPLIFY_SECONDS, scientific_model
+from corpus_structure.semantic.source_types import ParseOutcome
 
 POLICY = "pm2-exact-affine-1"
 

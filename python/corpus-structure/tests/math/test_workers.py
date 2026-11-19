@@ -101,7 +101,7 @@ def small_page():
     from math_support import PageContent
 
     from corpus_structure.core.evidence import RenditionContent, Segment
-    from corpus_structure.core.vocab import SegmentKind
+    from corpus_structure.semantic.source_types import SegmentKind
 
     text = r"Let \(x\) be real. Then \(x + 1\) is real and \(x = 1\)."
     spans = []
@@ -138,9 +138,9 @@ def test_real_spawn_transports_each_stage_without_preparation_or_reparsing():
     from lark import Token
     from math_support import extract_readings, read_content, scope_extraction
 
-    from corpus_structure.core.vocab import ParseOutcome, ScopeExtent
     from corpus_structure.methods.math import _tree
     from corpus_structure.methods.math.printer import print_tree
+    from corpus_structure.semantic.source_types import ParseOutcome, ScopeExtent
 
     page = small_page()
     ordinary_token = Token("CONTROL", "x", 0, 1, 1, 1, 2, 1)
@@ -174,7 +174,8 @@ def test_real_spawn_transports_each_stage_without_preparation_or_reparsing():
         page.page
     ] == reading_positions(readings)
     values, extraction = _run_pages(extract_readings, {page.page: readings}, workers=1)[page.page]
-    assert [v.value.latex for v in values] == ["x", "x + 1", "x = 1"]
+    assert [value.parse for value in values] == [ParseOutcome.OK] * 3
+    assert [value.symbols for value in values] == [frozenset({"x"})] * 3
     assert [(m.name, m.start, m.end) for m in extraction.mentions] == [
         ("x", 6, 7),
         ("x", 26, 27),

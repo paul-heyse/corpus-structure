@@ -51,9 +51,20 @@ def test_nonfinite_meaning_refuses(value):
         value_meaning(value)
 
 
-def test_exact_decimal_meaning_does_not_require_postgresql_numeric_capacity():
-    huge = "9" * 150000
-    tiny = "0." + "0" * 17000 + "1"
-    assert value_meaning(Decimal(huge)) == ["decimal", huge]
-    assert value_meaning(Decimal(tiny)) == ["decimal", tiny]
+def test_decimal_width_checks_canonical_form_before_expansion():
+    wide = "9" * 10000
+    assert value_meaning(Decimal(wide)) == ["decimal", wide]
+    assert value_meaning(Decimal("1e16383")) == ["decimal", "1" + "0" * 16383]
+    assert value_meaning(Decimal("1e-16383")) == ["decimal", "0." + "0" * 16382 + "1"]
     assert value_meaning(Decimal("-0.000e200000")) == ["decimal", "0"]
+    assert value_meaning(Decimal("12." + "0" * 20000)) == ["decimal", "12"]
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["1e16384", "1e-16384", "9" * 16385, "1e1000000000000000"],
+    ids=["wide", "tiny", "expanded", "large-exponent"],
+)
+def test_decimal_outside_canonical_width_refuses(value):
+    with pytest.raises(ValueError, match="canonical fixed-point digit limit"):
+        value_meaning(Decimal(value))

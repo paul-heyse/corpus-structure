@@ -19,7 +19,7 @@ import pytest
 
 from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.locators import LocatorIndex, parse
-from corpus_structure.core.vocab import SegmentKind
+from corpus_structure.semantic.source_types import SegmentKind
 
 
 class IngestResult(Protocol):

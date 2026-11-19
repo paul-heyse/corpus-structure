@@ -571,8 +571,77 @@ def test_capture_profile_acquires_only_its_pdf_configuration(tmp_path, monkeypat
     monkeypatch.setattr(
         pdf_capture, "pdf_capture_operation_sources", lambda *args, **kwargs: capture_sources
     )
-    acquired = _acquire_primary_profile(profile, read, tmp_path, capture_only=True)
+    acquired = _acquire_primary_profile(
+        profile, read, tmp_path, selected_modules=frozenset({"corpus_structure.ingest.pdf_capture"})
+    )
     assert reads == ["pdf-recipe", "pdf-assets"]
     assert acquired["capture_sources"] is capture_sources
     assert acquired["sentence_configuration"] is None
     assert acquired["hanlp_selection"] is None
+
+
+@pytest.mark.parametrize(
+    "root_operation", ["text.formal_evidence/source-native", "source.selected_views/discovery"]
+)
+def test_requested_primary_operation_skips_unrelated_unavailable_profiles(tmp_path, root_operation):
+    import yaml
+
+    from corpus_structure.semantic.composed import read_data_operation_inputs
+
+    root = inputs(tmp_path)
+    manifest = yaml.safe_load((root / "target.yaml").read_bytes())
+    manifest["requested_operations"] = [root_operation]
+    manifest["primary_profile"] = {
+        "sentence_configuration": "unavailable-sentence-config",
+        "sentence_selection": "unavailable-spacy",
+        "hanlp_selection": "unavailable-hanlp",
+        "math": "unavailable-math",
+        "capture": {
+            "recipe": "unavailable-pdf-recipe",
+            "assets_manifest": "unavailable-pdf-assets",
+            "assets_root": "unavailable-pdf-root",
+            "directory": "unused-pdf-directory",
+        },
+    }
+    (root / "target.yaml").write_text(yaml.safe_dump(manifest))
+    acquired = acquire_data_operation_inputs(root, "target.yaml")
+    assert set(dict(acquired.files)) == {"target.yaml", "schema.yaml", "operations.yaml"}
+    captured = read_data_operation_inputs(acquired.dependencies)
+    assert captured is not None
+    _, sources = captured
+    assert sources is not None
+    from corpus_structure.semantic.python_operation_sources import ClosedPythonSources
+
+    found = {json.loads(fact.metadata)["id"] for fact in ClosedPythonSources(sources).operations()}
+    assert root_operation in found
+    assert "segment.sentences/source-native" not in found
+    assert "text.hanlp_native/source-native" not in found
+
+
+def test_requested_primary_operation_reports_selected_missing_prerequisite(tmp_path):
+    import yaml
+
+    root = inputs(tmp_path)
+    manifest = yaml.safe_load((root / "target.yaml").read_bytes())
+    manifest["requested_operations"] = ["segment.sentences/source-native"]
+    manifest["primary_profile"] = {}
+    (root / "target.yaml").write_text(yaml.safe_dump(manifest))
+    with pytest.raises(ValueError, match="requires its sentence"):
+        acquire_data_operation_inputs(root, "target.yaml")
+
+
+def test_native_primary_request_acquires_no_provider_or_python_collection(tmp_path):
+    import yaml
+
+    from corpus_structure.semantic.composed import read_data_operation_inputs
+
+    root = inputs(tmp_path)
+    manifest = yaml.safe_load((root / "target.yaml").read_bytes())
+    manifest["requested_operations"] = ["data.read_demand_result"]
+    manifest["primary_profile"] = {"sentence_configuration": "unavailable-sentences"}
+    (root / "target.yaml").write_text(yaml.safe_dump(manifest))
+    acquired = acquire_data_operation_inputs(root, "target.yaml")
+    captured = read_data_operation_inputs(acquired.dependencies)
+    assert captured is not None and captured[1] is not None
+    assert captured[1].sources == ()
+    assert set(dict(acquired.files)) == {"target.yaml", "schema.yaml", "operations.yaml"}

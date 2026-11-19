@@ -15,7 +15,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_serializer
 
-from corpus_structure.core.vocab import CaseRule
+from corpus_structure.semantic.source_types import CaseRule
 
 from .alias_policy import label_normalizer
 from .data_operation_identity import semantic_value

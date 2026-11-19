@@ -10,10 +10,10 @@ from pathlib import Path
 import pytest
 import yaml
 
-from corpus_structure.core.vocab import StatementKind
 from corpus_structure.schema.rulelang import Language, RuleError, RuleErrorCode, Vocabulary
 from corpus_structure.semantic.rich_knowledge_sources import RULE_INPUT
 from corpus_structure.semantic.rich_rules import RichRulePolicy, RichRulePolicyRefused
+from corpus_structure.semantic.source_types import StatementKind
 
 REPO = Path(__file__).resolve().parents[4]
 
@@ -205,7 +205,6 @@ def _rule_cases():
     from decimal import Decimal
     from types import SimpleNamespace
 
-    from corpus_structure.core.vocab import MathKind, ParseOutcome
     from corpus_structure.semantic.rule_views import (
         BindingView,
         EntityView,
@@ -213,6 +212,7 @@ def _rule_cases():
         Reading,
         ValueView,
     )
+    from corpus_structure.semantic.source_types import MathKind, ParseOutcome
 
     entity = EntityView(
         "s",

@@ -52,10 +52,9 @@ from .native_program import (
     pg_type,
     sql_function,
 )
-from .record_policy_authority import GRADE_KIND, GRADE_OPERATION
+from .record_policy_authority import GRADE_KIND
 from .validity_programs import selected_family
 
-_PROTECTED_GRADES = (GRADE_OPERATION, "record_policy.fit", "record_policy.authorize")
 _READING = "resolve.m1_readings/declared"
 
 
@@ -303,7 +302,12 @@ def _finite_census(model):
         .correlate(definitions)
         .exists()
     )
-    denied = or_(definitions.c.operation_id.in_(_PROTECTED_GRADES), guarded)
+    denied = or_(
+        definitions.c.validity_families.contains(["record-grade"]),
+        definitions.c.validity_families.contains(["record-fit"]),
+        definitions.c.command_class == "policy",
+        guarded,
+    )
     requested = _items(_field("d", demand, "selection")["operations"], "requested")
     initial = (
         select(1)

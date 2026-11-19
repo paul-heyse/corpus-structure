@@ -1692,7 +1692,11 @@ def _failure_diagnostic(report: dict[str, Any]) -> dict[str, Any]:
     except UnicodeEncodeError:
         return {"diagnostic_truncated": True}
     if len(message) > 32768:
-        # The CLI redacts before clipping. Never pass a pre-clipped credential there.
+        # Preserve the complete driver diagnostic without the SQLAlchemy statement
+        # and parameters. The CLI can redact the whole diagnostic before display.
+        driver_message, separator, _statement = message.partition("\n[SQL:")
+        if message.startswith("sqlalchemy.exc.") and separator and len(driver_message) <= 32768:
+            return {"diagnostic": driver_message, "diagnostic_truncated": True}
         return {"diagnostic_truncated": True}
     return {"diagnostic": message}
 

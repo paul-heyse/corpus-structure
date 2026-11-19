@@ -21,7 +21,7 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from corpus_structure.core.vocab import DocumentSplit
+from corpus_structure.semantic.source_types import DocumentSplit
 
 TEST_EVERY = 5
 

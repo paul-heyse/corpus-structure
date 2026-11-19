@@ -33,7 +33,7 @@ from typing import Literal, NamedTuple, Self
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 from corpus_structure.core.evidence import RenditionContent, Segment, SegmentKind
-from corpus_structure.core.vocab import (
+from corpus_structure.semantic.source_types import (
     ANNOTATION_UNIT,
     SECTION_LABEL,
     SECTION_LIKE,

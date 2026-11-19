@@ -7,6 +7,7 @@ import subprocess
 import sys
 from dataclasses import replace
 from functools import lru_cache
+from pathlib import Path
 
 import pytest
 import yaml
@@ -138,10 +139,10 @@ def test_retained_analysis_read_does_not_consult_current_analyzer(monkeypatch):
 
 
 def test_cold_current_analysis_uses_proposed_profile_before_and_after_apply(tmp_path):
-    from corpus_structure.schema.model import MODEL_DIR
+    import corpus_structure
     from corpus_structure.schema.physical import PHYSICAL_ROOT, physical_source_closure
 
-    package = MODEL_DIR.parent
+    package = Path(corpus_structure.__file__).parent
     installed = tmp_path / package.name
     shutil.copytree(package, installed, ignore=shutil.ignore_patterns("__pycache__"))
     physical = installed / "model/semantic"

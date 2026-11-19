@@ -203,10 +203,9 @@ def located_sets(
                 view = env.view(unit["page"])
                 frame = env.frame(view, unit["sentences"])
                 index = LocatorIndex(view.content, view.page)
-                resolved = {sid: index.resolve(entry.locator) for sid, entry in frame.root.items()}
+                resolved = {sid: index.resolve(entry.locator) for sid, entry in frame.items()}
                 assert all(
-                    view.content.text(resolved[sid]) == entry.text
-                    for sid, entry in frame.root.items()
+                    view.content.text(resolved[sid]) == entry.text for sid, entry in frame.items()
                 )
                 cascades[(quote_set["units"], uid)] = Cascade(
                     view.content.canonical_text,

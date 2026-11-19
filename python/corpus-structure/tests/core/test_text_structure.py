@@ -101,8 +101,8 @@ def test_expansion_bound_retains_invocation_and_arguments() -> None:
 
 
 def test_native_missing_syntax_tree_is_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
-    from corpus_structure.core.vocab import ParseOutcome
     from corpus_structure.methods.math import grammar
+    from corpus_structure.semantic.source_types import ParseOutcome
 
     monkeypatch.setattr(
         grammar,

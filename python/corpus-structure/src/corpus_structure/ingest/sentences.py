@@ -30,7 +30,7 @@ from spacy.language import Language
 from spacy.tokens import Doc
 
 from corpus_structure.core.text_structure import source_atoms
-from corpus_structure.core.vocab import SegmentKind
+from corpus_structure.semantic.source_types import SegmentKind
 
 from .hosted_spacy import HostedPipeline
 

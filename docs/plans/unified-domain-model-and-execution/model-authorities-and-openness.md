@@ -1,6 +1,6 @@
 # Model authorities and openness: the compiled model, the declaration grammar, integrity vocabularies and the earlier model's retirement
 
-**Status:** In progress. UDM-01–03 have integrated source. UDM-04 retirement is partial.
+**Status:** UDM-01, UDM-02 and UDM-04 are integrated. UDM-03 native qualification and the registry grant join remain open.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-01** (one composer and one held compiled model),
@@ -802,12 +802,19 @@ helpers directly. The native facade, methods and LLM task producers use the rele
 live owners independent of the earlier model. The method result owns its source usage
 record. The unused candidate and translation modules were removed.
 
-The retirement search still finds active contracts from `core/vocab.py` and `core/_model`.
-Math span production uses the earlier formula, set and symbol-binding shapes. Observation
-payloads, authored batches and generated schemas require a consumer-by-consumer disposition.
-The earlier generator and both input YAML files remain until those consumers
-have a released contract or are retired. Retire the generated files and the earlier loader
-together after that work, then rerun the no-import search, collection and pack-openness controls.
+The follow-up removed the earlier core and system declarations, loader, generators, generated
+vocabularies and shapes, and the retired evaluator leaf. Current math spans consume parse status
+and free symbols from retained math results. Released source and evidence declarations own the
+remaining vocabularies. Independent citation and raw-source fixtures preserve their assertions
+without loading an earlier schema. Query custody captures the current typed vocabularies and
+their released schema inputs.
+
+**Tested, 2026-11-18.** The no-import search and test collection passed. Real statistics pack
+preparation extended `StatementKind` and `ClaimModality`, preserved the running model, and
+refused an extension of closed `ScopeExtent` (`0efb4e6a10334cdd9e033073eb057cb8`). The
+math, evidence and fixture selection passed 106 controls (`e02604c72ef6472aa6bd0da86299c76f`),
+and source-method, math transport and current comparison controls passed 54
+(`be241761315846b59bcf0898cc7cfeac`).
 
 **Tested, 2026-11-18.** The focused preview, composition and pack selection recorded 202 passes
 and two fixture failures (`3190f160c56249f7ad22d5000e70d569`). The native-only registration
@@ -836,4 +843,4 @@ released-model projections.
 | Package | State |
 |---|---|
 | UDM-01–03 | See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment) for the integrated source, package-local controls and native revision obligations |
-| UDM-04 | Compiled preview integrated. Live earlier-model shapes, vocabularies and their generators remain |
+| UDM-04 | Compiled preview integrated. Earlier model, generators, and test-only evaluator retired |

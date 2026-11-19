@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-18. Stage runs N29 at generation 26. Canonical N29 native and application deployment verified. The book project still selects N23 at generation 4. The 16 GiB N23 run retained its 518-page capture and 3,411 sentence occurrences across 20 of 29 regions. Execution stopped at the operator’s request._
+_Updated 2026-11-18. Stage has N30 native installed. Its bounded project last selected the N29 release at generation 26, and matching application admission is being repaired. Canonical N29 native and application deployment verified. The book project still selects N23 at generation 4 and retains the 518-page capture and 3,411 sentence occurrences across 20 of 29 regions._
 
 ## Current owners
 
@@ -16,7 +16,7 @@ _Updated 2026-11-18. Stage runs N29 at generation 26. Canonical N29 native and a
 
 ## Last verified · 2026-11-18
 
-- **Passed**. Private N29 successor and fresh-install ACL controls (`60fdd94b2f52482a9621eb9ba2427425`), including conservative settlement during revocation, retained inspection and verified detached export. The [validity companion](docs/plans/unified-domain-model-and-execution/lowered-operation-facts-and-validity.md#revision-a-candidate-execution) owns the commands and remaining revision A qualification.
+- **Passed**. Revision A N29 successor, decimal vectors, and fresh-install ACL/export controls (`05f630cfe3f24fb3b2801ef8dcf693c4`), plus the successor on the shared PostgreSQL test host (`e9f93946ff32479f9863dd03d72f60d0`). The [validity companion](docs/plans/unified-domain-model-and-execution/lowered-operation-facts-and-validity.md#revision-a-candidate-execution) owns this qualification.
 - **Passed**. UDM-00 `uv run ci adr lint` (`ce0017d7a1014f42b62635de4a6421d2`). The private PostgreSQL control (`e756ea3b74c64e4fba62167307c7db3e`) passed fresh installation, release acquisition and detached export. The [entry increment](docs/plans/unified-domain-model-and-execution_2026-11-19.md#entry-increment) records the N29 comparison, Pyrefly and Ruff checks, and remaining qualification.
 - **Passed**. `ci model change candidate`, `register` and `deploy` for N18 on stage OID 130661481 (`a788e18a9f8a45ffb0eb2f778cfc6695`, `c4ca7666d018455999fc367cac66616f`, `387d6cd73b9f4d41a7b987fa0914491e`). Seventeen native transitions replayed. Matching application deployment `75ab997d520949949668a053ad382749`, `ci db check`, and `ci release check` passed. `ci release activate` advanced the bounded stage project to generation 17.
 - **Passed**. `ci db migrate --expected-predecessor semantic_ddo_pe_n13` advanced canonical development OID 131763263 to N18. Matching application deployment `1dbade94903e42a890b255b6548de38f`, `ci db check`, `ci release check` and book project activation at generation 2 passed. The reader verified all 29 original descriptors and retained byte hashes across nine projects after migration. The former database remains fenced at OID 25921445.
@@ -55,6 +55,6 @@ _Updated 2026-11-18. Stage runs N29 at generation 26. Canonical N29 native and a
 
 ## Next execution
 
-- Finish UDM-04–05's remaining consumers and authority work. Join UDM-18's decimal bound to revision A, qualify the stage settlement and register the shared revision. Continue the full UDM-09 registry and revision B, then reconcile the qualification union with `ci test review` and the [TDM closeout](docs/plans/test-domain-model-and-execution_2026-11-17.md#tdm-18).
+- Complete N30 application admission and stage settlement verification. Finish UDM-07 and revision B, then continue the UDM-09 registry and reconcile final qualification with `ci test review` and the [TDM closeout](docs/plans/test-domain-model-and-execution_2026-11-17.md#tdm-18).
 - The [UDM qualification companion](docs/plans/unified-domain-model-and-execution/qualification.md) owns book resumption. Check the selected deployed revision and original custody before activation, then run the bounded native composition and Integrated Nemotron controls.
 - The N29 book retry remains unstarted. Its Standard capture, downstream coverage, no-work repeat and PE-S33 comparison remain open. DDO-12 owns the qualification union. Chandra OCR remains excluded.

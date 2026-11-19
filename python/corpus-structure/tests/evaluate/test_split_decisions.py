@@ -4,10 +4,10 @@ import json
 
 import pytest
 
-from corpus_structure.core.vocab import DocumentSplit
 from corpus_structure.evaluate.split import Assignment, SplitConfig, SplitDocument, SplitError
 from corpus_structure.evaluate.split_decisions import prepare_split_decision
 from corpus_structure.semantic.refusals import SemanticOperationRefusal
+from corpus_structure.semantic.source_types import DocumentSplit
 
 
 @pytest.mark.parametrize("chapter", [True, 3, 1.5, ["one"], {"id": "one"}])

@@ -14,13 +14,12 @@ from lark import Token, Tree
 
 from corpus_structure.core.evidence import Segment
 from corpus_structure.core.tex import symbol_form
-from corpus_structure.core.values import Formula, SetValue, SymbolBinding
-from corpus_structure.core.vocab import BindKind, MathKind, SegmentKind
 from corpus_structure.methods.math import _tree
 from corpus_structure.methods.math.grammar import (
     MathResult,
     Occurrence,
 )
+from corpus_structure.semantic.source_types import MathKind, ParseOutcome, SegmentKind
 
 MATH_KINDS = frozenset({SegmentKind.MATH_INLINE, SegmentKind.MATH_DISPLAY})
 _MATH_KIND = {
@@ -67,7 +66,8 @@ def _free(result: MathResult) -> list[Occurrence]:
 @dataclass(frozen=True, slots=True)
 class SpanValue:
     segment: Segment
-    value: Formula | SetValue
+    parse: ParseOutcome
+    symbols: frozenset[str]
     kind: str | None  # the detected kind: formula | relation | member | set_expr | list | ambiguous
     parse_error: str | None  # the failure category, when the value did not parse whole
 
@@ -81,19 +81,11 @@ def formula_values(readings: Sequence[SpanReading]) -> list[SpanValue]:
     out = []
     for reading in readings:
         result, latex = reading.result, reading.span.latex
-        symbols = {
-            symbol_form(latex[o.start : o.end], result.macros): SymbolBinding(
-                bind=BindKind.UNRESOLVED
-            )
-            for o in _free(result)
-        }
-        value: Formula | SetValue
-        if result.kind == "set_expr":
-            value = SetValue(t="set", latex=latex, symbols=symbols, parse=result.status)
-        else:
-            value = Formula(t="formula", latex=latex, symbols=symbols, parse=result.status)
+        symbols = frozenset(
+            symbol_form(latex[o.start : o.end], result.macros) for o in _free(result)
+        )
         error = result.failure.category if result.failure is not None else None
-        out.append(SpanValue(reading.span.segment, value, result.kind, error))
+        out.append(SpanValue(reading.span.segment, result.status, symbols, result.kind, error))
     return out
 
 

@@ -168,7 +168,7 @@ def resolve_rich_entities(
     qualified by the actual selected product reference, independent of arrival order.
     Missing keys and ungrounded key cycles retain their source-qualified identity.
     """
-    from corpus_structure.core.vocab import CaseRule
+    from corpus_structure.semantic.source_types import CaseRule
 
     from .alias_policy import label_normalizer
     from .expression_context import bind_expression_context

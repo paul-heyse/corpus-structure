@@ -7,7 +7,6 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from corpus_structure.core.method import ObservationDraft, UnitRef, UnitResult
-from corpus_structure.core.vocab import ObservationKind, ObservationOutcome
 from corpus_structure.semantic import (
     PreparationError,
     SourceArtifact,
@@ -25,6 +24,7 @@ from corpus_structure.semantic.record_contracts import (
     record_identity,
 )
 from corpus_structure.semantic.releases import _products
+from corpus_structure.semantic.source_types import ObservationKind, ObservationOutcome
 from corpus_structure.semantic.task_types import TaskUnitType
 from semantic.record_contracts_support import (
     PIN as PIN,

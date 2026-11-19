@@ -81,7 +81,7 @@ def primary_operation_inputs(
     extra_sources: PythonSourceCollection | None = None,
     declarations: tuple[SourceArtifact, ...] = (),
     requested_operations: tuple[str, ...] = (),
-    capture_only: bool = False,
+    selected_modules: frozenset[str] | None = None,
 ) -> PrimaryOperationInputs:
     """Acquire the selected full primary profile without starting a provider.
 
@@ -89,24 +89,45 @@ def primary_operation_inputs(
     by the caller. Compiled demand closure still decides which operations execute;
     captured availability does not select an operation or imply provider success.
     """
+    from .primary_acquisition import needs, requested_source_modules
+
+    if selected_modules is None and requested_operations:
+        selected_modules = requested_source_modules(
+            requested_operations,
+            organized=pdf_organization_sources is not None,
+            extra_sources=extra_sources,
+            declarations=declarations,
+        )
+    visual = visual and needs(
+        selected_modules, "ingest.chandra_mapping_operation", "ingest.pdf_visual_input_operation"
+    )
+    downstream = downstream and needs(
+        selected_modules,
+        "methods.predicate_declared",
+        "methods.scoped_relations_declared",
+        "methods.artifact_identity_declared",
+        "methods.definition_declared",
+        "methods.definition_applicability_declared",
+        "methods.definition_location",
+        "methods.definition_components_declared",
+        "methods.definition_named_declared",
+        "methods.dossier_declared",
+        "methods.structural_admission",
+        "methods.finite_interpretation",
+        "methods.reading_resolution",
+        "methods.structural_declared",
+        "methods.contextual_declared",
+        "methods.contextual_targets",
+        "methods.contextual_scoring",
+        "methods.contextual_witnesses",
+        "methods.clause_classification_declared",
+    )
     if contextual_retrieval_options is not None and not downstream and contextual_encoder is None:
         raise ValueError("contextual retrieval options require downstream or encoder dependencies")
     if visual and capture_sources is None:
         raise ValueError("visual preparation requires its actual captured PDF dependency")
     if dependencies is None:
         dependencies = ResolvedDependencies()
-    if capture_only:
-        return _capture_primary_inputs(
-            bundle,
-            dependencies,
-            capture_sources,
-            pdf_organization_sources,
-            pdf_enrichment_sources,
-            pdf_integration_sources,
-            extra_sources,
-            declarations,
-            requested_operations,
-        )
     if downstream or learned_selections is not None:
         from corpus_structure.methods.model_observation import DECLARED_MODEL_OBSERVATION_INPUT
 
@@ -143,8 +164,6 @@ def primary_operation_inputs(
         source_profile_operation_sources,
     )
 
-    if sentence_configuration is None or hanlp_selection is None:
-        raise ValueError("primary preparation requires explicitly acquired provider profiles")
     if capture_sources is not None:
         from .native_requests import pdf_region_inputs
 
@@ -155,35 +174,63 @@ def primary_operation_inputs(
     )
     bundle = declaration_inputs(bundle)
     declarations = (*declarations, source_profile_declarations())
-    collections = (
-        source_discovery_operation_sources(),
-        source_profile_operation_sources(),
-        sentence_operation_sources(sentence_configuration, selection=sentence_selection),
-        canonical_sentence_operation_sources(
-            sentence_configuration=sentence_configuration, include_dependencies=False
-        ),
-        hanlp_operation_sources(
-            hanlp_selection,
-            sentence_configuration=sentence_configuration,
-            include_dependencies=False,
-        ),
-        formal_operation_sources(),
-        declaration_operation_sources(),
-        characterization_operation_sources(
-            construction_options=construction_options, include_dependencies=False
-        ),
-        full_document_view_operation_sources(include_dependencies=False),
-    )
+    collections = ()
+    if needs(selected_modules, "methods.source_discovery"):
+        collections += (source_discovery_operation_sources(),)
+    if needs(selected_modules, "methods.source_profile"):
+        collections += (source_profile_operation_sources(),)
+    if needs(selected_modules, "methods.sentence_evidence"):
+        if sentence_configuration is None:
+            raise ValueError("selected sentence operation requires its explicit provider profile")
+        collections += (
+            sentence_operation_sources(sentence_configuration, selection=sentence_selection),
+        )
+    if needs(selected_modules, "methods.canonical_sentences"):
+        collections += (
+            canonical_sentence_operation_sources(
+                sentence_configuration=sentence_configuration, include_dependencies=False
+            ),
+        )
+    if needs(selected_modules, "methods.hanlp_evidence"):
+        if hanlp_selection is None:
+            raise ValueError("selected HanLP operation requires its explicit provider profile")
+        collections += (
+            hanlp_operation_sources(
+                hanlp_selection,
+                sentence_configuration=sentence_configuration,
+                include_dependencies=False,
+            ),
+        )
+    if needs(selected_modules, "methods.formal_evidence"):
+        collections += (formal_operation_sources(),)
+    if needs(selected_modules, "methods.declaration_syntax"):
+        collections += (declaration_operation_sources(),)
+    if needs(
+        selected_modules,
+        "methods.construction_characterization",
+        "methods.contextual_interpretation",
+        "methods.characterization",
+    ):
+        collections += (
+            characterization_operation_sources(
+                construction_options=construction_options, include_dependencies=False
+            ),
+        )
+    if needs(selected_modules, "methods.full_document_composition"):
+        collections += (full_document_view_operation_sources(include_dependencies=False),)
     if capture_sources is not None:
         from .native_requests import pdf_region_operation_sources
         from .pdf_views import pdf_views_operation_sources
 
-        collections = (
-            *collections,
-            pdf_views_operation_sources(capture_sources),
-            pdf_region_operation_sources(capture_sources),
-            captured_document_view_operation_sources(include_dependencies=False),
-        )
+        collections += (capture_sources,)
+        if needs(selected_modules, "ingest.pdf_views"):
+            collections += (pdf_views_operation_sources(capture_sources),)
+        if needs(selected_modules, "ingest.pdf_region_operation"):
+            collections += (pdf_region_operation_sources(capture_sources),)
+    if capture_sources is not None and needs(
+        selected_modules, "methods.captured_document_composition"
+    ):
+        collections += (captured_document_view_operation_sources(include_dependencies=False),)
     if visual:
         from .visual_requests import visual_external_declaration, visual_operation_sources
 
@@ -413,6 +460,10 @@ def primary_operation_inputs(
         )
     if extra_sources is not None:
         collections = (*collections, extra_sources)
+    native = native_protocol_sources()
+    declarations = (native_operation_declarations(native), *declarations)
+    if not collections:
+        collections = (PythonSourceCollection(()),)
     if requested_operations:
         collections = _selected_collections(collections, requested_operations, declarations)
     combined = combine_primary_sources(*collections)
@@ -426,7 +477,6 @@ def primary_operation_inputs(
                 SourceArtifact("operation-selection.json", canonical_bytes(requested_operations)),
             ),
         )
-    native = native_protocol_sources()
     generator = capture_port_generator_sources()
     return PrimaryOperationInputs(
         bundle,
@@ -436,69 +486,11 @@ def primary_operation_inputs(
                 dependencies.vocabularies,
                 dependencies.ontology_sources,
             ),
-            (native_operation_declarations(native), *declarations),
+            declarations,
             combined,
         ),
         PreparationProfile(version="semantic-2"),
         combined,
-    )
-
-
-def _capture_primary_inputs(
-    bundle,
-    dependencies,
-    capture,
-    organized,
-    enriched,
-    integrated,
-    extra,
-    declarations,
-    requested_operations,
-):
-    """Acquire the PDF capture workflow without unrelated NLP/provider profiles."""
-    from .data_operation_artifacts import capture_port_generator_sources
-    from .data_operation_storage import native_operation_declarations, native_protocol_sources
-    from .identity import canonical_bytes
-    from .native_requests import pdf_region_inputs
-    from .pdf_capture import pdf_capture_inputs
-    from .pdf_domain import pdf_domain_dependencies
-    from .pdf_views import pdf_views_operation_sources
-
-    if capture is None or not requested_operations:
-        raise ValueError("capture workflow requires its PDF acquisition and requested roots")
-    bundle = pdf_region_inputs(pdf_capture_inputs(bundle))
-    dependencies = pdf_domain_dependencies(dependencies)
-    collections = [pdf_views_operation_sources(capture)]
-    for mode, sources in (
-        ("organized", organized),
-        ("enriched", enriched),
-        ("integrated", integrated),
-    ):
-        if sources is not None:
-            collections.append(
-                pdf_views_operation_sources(capture, mode=mode, transformation_sources=sources)
-            )
-    if extra is not None:
-        collections.append(extra)
-    selected = _selected_collections(collections, requested_operations, declarations)
-    combined = combine_primary_sources(*selected)
-    native = native_protocol_sources()
-    dependencies = data_operation_dependencies(
-        ResolvedDependencies(
-            (
-                *dependencies.artifacts,
-                *native,
-                *capture_port_generator_sources(),
-                SourceArtifact("operation-selection.json", canonical_bytes(requested_operations)),
-            ),
-            dependencies.vocabularies,
-            dependencies.ontology_sources,
-        ),
-        (native_operation_declarations(native), *declarations),
-        combined,
-    )
-    return PrimaryOperationInputs(
-        bundle, dependencies, PreparationProfile(version="semantic-2"), combined
     )
 
 

@@ -11,13 +11,42 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
+from corpus_structure.model.compiled import CompiledModel, annotation_values, running_model
+
+VALUE_CODEC_SOURCE = "value-codec.yaml"
+DECIMAL_LIMIT_MESSAGE = "decimal exceeds canonical fixed-point digit limit"
+
+
+def decimal_digit_limit(model: CompiledModel | None = None) -> int:
+    capture = running_model() if model is None else model
+
+    def build():
+        value = annotation_values(capture.view(VALUE_CODEC_SOURCE).schema).get(
+            "cs:decimal_fixed_point_digits"
+        )
+        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 2_147_483_647:
+            raise ValueError("value codec requires a positive decimal digit limit")
+        return int.__int__(value)
+
+    return capture.projection((VALUE_CODEC_SOURCE, "decimal-digit-limit"), build)
+
 
 def decimal_text(value: Decimal) -> str:
     """Canonical finite decimal meaning, independent of scale or exponent spelling."""
     if not value.is_finite():
         raise ValueError("non-finite decimal")
-    text = format(value, "f") if value else "0"
-    return text.rstrip("0").rstrip(".") if "." in text else text
+    if not value:
+        return "0"
+    sign, digits, exponent = value.as_tuple()
+    assert isinstance(exponent, int)  # finite checked above
+    end = len(digits)
+    while digits[end - 1] == 0:
+        end -= 1
+    point = len(digits) + exponent
+    if max(point, 1) + max(end - point, 0) > decimal_digit_limit():
+        raise ValueError(DECIMAL_LIMIT_MESSAGE)
+    trimmed = Decimal((sign, digits[:end], point - end))
+    return format(trimmed, "f")
 
 
 def value_meaning(value: Any) -> Any:

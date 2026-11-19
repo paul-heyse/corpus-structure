@@ -109,3 +109,85 @@ def test_ci_schema_compile_prints_the_artifacts(cli, tmp_path: Path) -> None:
     assert len(list(tmp_path.glob("*.artifact"))) == len(out["artifacts"])
     refused = cli("schema", "compile", "--domains", str(tmp_path), "--domain", "nothere")
     assert refused.exit_code == 1 and "semantic.yaml" in refused.stderr
+
+
+def test_actual_pack_extends_released_statement_and_modality_vocabularies(tmp_path):
+    import shutil
+
+    import yaml
+
+    from corpus_structure.model.compiled import running_model
+
+    pack = tmp_path / "statistics"
+    shutil.copytree(DOMAINS / "statistics", pack)
+    path = pack / "semantic.yaml"
+    document = yaml.safe_load(path.read_bytes())
+    document.setdefault("enums", {}).update(
+        {
+            "ReviewedStatementKind": {
+                "inherits": ["StatementKind"],
+                "permissible_values": {"reviewed_statement": {}},
+            },
+            "ReviewedClaimModality": {
+                "inherits": ["ClaimModality"],
+                "permissible_values": {"reviewed_modality": {}},
+            },
+        }
+    )
+    path.write_text(yaml.safe_dump(document, sort_keys=False))
+    running = running_model()
+    before = running.identity
+    _, _, _, prepared = regeneration.prepare_pack(pack)
+    actual = {
+        item.enum: {member.value for member in item.members} for item in prepared.vocabularies
+    }
+    assert actual["ReviewedStatementKind"] == {
+        "definition",
+        "theorem",
+        "proposition",
+        "lemma",
+        "corollary",
+        "proof",
+        "example",
+        "exercise",
+        "solution",
+        "remark",
+        "convention",
+        "notation",
+        "assumption",
+        "narrative",
+        "reviewed_statement",
+    }
+    assert actual["ReviewedClaimModality"] == {
+        "asserted",
+        "supposed",
+        "defined",
+        "conventional",
+        "exemplified",
+        "posed",
+        "cited",
+        "reviewed_modality",
+    }
+    assert running_model() is running
+    assert running.identity == before
+
+
+def test_actual_pack_cannot_extend_released_closed_scope_extent(tmp_path):
+    import shutil
+
+    import pytest
+    import yaml
+
+    from corpus_structure.semantic.types import PreparationError
+
+    pack = tmp_path / "statistics"
+    shutil.copytree(DOMAINS / "statistics", pack)
+    path = pack / "semantic.yaml"
+    document = yaml.safe_load(path.read_bytes())
+    document.setdefault("enums", {})["ReviewedScope"] = {
+        "inherits": ["ScopeExtent"],
+        "permissible_values": {"unbounded": {}},
+    }
+    path.write_text(yaml.safe_dump(document, sort_keys=False))
+    with pytest.raises(PreparationError, match="cannot extend closed vocabulary ScopeExtent"):
+        regeneration.prepare_pack(pack)

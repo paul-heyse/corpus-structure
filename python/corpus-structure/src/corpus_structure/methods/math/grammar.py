@@ -85,7 +85,6 @@ from lark.lexer import PatternRE, PatternStr, TerminalDef
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef
-from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import _tree
 from corpus_structure.methods.math.transform import (
     NotRepresentable,
@@ -93,6 +92,7 @@ from corpus_structure.methods.math.transform import (
     symbol_name,
     transform,
 )
+from corpus_structure.semantic.source_types import ParseOutcome
 
 SHIPPED = Path(_sympy_lark.__file__).parent / "grammar" / "latex.lark"
 EXTENSION = Path(__file__).with_name("extension.lark")

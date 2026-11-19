@@ -5,13 +5,13 @@ from dataclasses import replace
 import pytest
 import sympy
 
-from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.pdf import FormulaOccurrence, FormulaRecognitionUnavailable
 from corpus_structure.semantic.math_context import (
     acquire_analysis_context_profile,
     prepare_interpretation_context,
 )
+from corpus_structure.semantic.source_types import ParseOutcome
 
 
 def context():

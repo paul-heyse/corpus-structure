@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from corpus_structure.core.vocab import CaseRule
+from corpus_structure.semantic.source_types import CaseRule
 
 from .identity import canonical_bytes
 from .label_normalization import LabelRules, normalize_label

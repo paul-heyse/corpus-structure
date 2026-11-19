@@ -2,7 +2,6 @@
 
 import pytest
 
-from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.prepared import PreparedMathInput
 from corpus_structure.methods.math.source_context import _heads
@@ -10,6 +9,7 @@ from corpus_structure.semantic.math_context import (
     acquire_analysis_context_profile,
     prepare_interpretation_context,
 )
+from corpus_structure.semantic.source_types import ParseOutcome
 from corpus_structure.semantic.types import PreparationError
 
 SOURCE = "text:7:text:" + "b" * 64

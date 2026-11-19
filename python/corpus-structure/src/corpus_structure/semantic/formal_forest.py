@@ -17,10 +17,10 @@ from lark.exceptions import VisitError
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef
-from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar
 from corpus_structure.semantic.constructions.nodes import Reference, identity
 from corpus_structure.semantic.constructions.reuse import ReusingForestTransformer
+from corpus_structure.semantic.source_types import ParseOutcome
 
 VOCABULARY = "formal-math-symbolic-1"
 FAMILY = "formal.math"

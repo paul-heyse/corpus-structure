@@ -18,7 +18,7 @@ from typing import Annotated, Any, Literal, NamedTuple, Protocol
 from pydantic import MISSING, BaseModel, ConfigDict, Field, JsonValue
 
 from corpus_structure.core.canonical import canonical_json, decimal_of_float
-from corpus_structure.core.vocab import (
+from corpus_structure.semantic.source_types import (
     MeasurementScope,
     ObservationKind,
     ObservationOutcome,

@@ -8,7 +8,6 @@ from annotation_support import controlled as controlled
 from semantic.m1_declared_products_test_support import configuration, record_schemas, sources
 from semantic.source_annotations_test_support import detached as detached
 
-from corpus_structure.core.vocab import ObservationOutcome
 from corpus_structure.methods.assertion_qualification import AssertionQualification
 from corpus_structure.methods.m1_source import M1CandidateProduct, configured_packs
 from corpus_structure.semantic import prepare_release
@@ -34,6 +33,7 @@ from corpus_structure.semantic.source_contexts import (
     source_slice,
 )
 from corpus_structure.semantic.source_products import source_subject
+from corpus_structure.semantic.source_types import ObservationOutcome
 from corpus_structure.semantic.types import PreparationProfile
 from methods.record_assembly_support import report
 

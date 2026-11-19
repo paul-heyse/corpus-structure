@@ -27,14 +27,23 @@ class FoundationPrograms:
     closure: str
 
 
-def foundation_programs(target: MetaData | None = None) -> FoundationPrograms:
+def foundation_programs(
+    target: MetaData | None = None, *, value_codec_source: bytes | None = None
+) -> FoundationPrograms:
     """Generate the primitive programs used by current target installation."""
     from .closure_native import closure_foundation_sql
     from .data_operation_value_native import canonical_identity_sql
     from .metadata import get_metadata
+    from .value_codec import VALUE_CODEC_SOURCE, decimal_digit_limit
+
+    capture = None
+    if value_codec_source is not None:
+        from corpus_structure.model.compiled import compiled_model
+
+        capture = compiled_model({VALUE_CODEC_SOURCE: value_codec_source})
 
     return FoundationPrograms(
-        identity=canonical_identity_sql(),
+        identity=canonical_identity_sql(decimal_digits=decimal_digit_limit(capture)),
         closure=closure_foundation_sql(get_metadata() if target is None else target),
     )
 
@@ -84,7 +93,7 @@ def capture_target_installation(
         linkml_types=selected.info["physical_linkml_types"],
         actions_source=SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"]),
     )
-    foundation = foundation_programs(selected)
+    foundation = foundation_programs(selected, value_codec_source=logical["value-codec.yaml"])
     inputs = capture_native_authoring_inputs(
         target_metadata=selected,
         pdf_sources=pdf_sources,

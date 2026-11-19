@@ -1732,12 +1732,9 @@ def failures(
                         )
                     if item.diagnostic is not None:
                         excerpt = _display_text(item.diagnostic)
-                        item.diagnostic_truncated = len(excerpt) > diagnostic_chars
-                        if (
-                            item.diagnostic_truncated
-                            and "\n" in item.diagnostic
-                            and diagnostic_chars >= 5
-                        ):
+                        clipped = len(excerpt) > diagnostic_chars
+                        item.diagnostic_truncated |= clipped
+                        if clipped and "\n" in item.diagnostic and diagnostic_chars >= 5:
                             head = min(220, (diagnostic_chars - 3) // 2)
                             tail = diagnostic_chars - head - 3
                             item.diagnostic = excerpt[:head] + " … " + excerpt[-tail:]

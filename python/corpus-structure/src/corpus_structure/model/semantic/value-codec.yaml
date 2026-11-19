@@ -1,0 +1,4 @@
+id: https://corpus-structure.dev/semantic/value-codec
+name: value_codec
+annotations:
+  cs:decimal_fixed_point_digits: 16384

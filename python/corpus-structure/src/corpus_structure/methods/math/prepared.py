@@ -15,7 +15,7 @@ import sympy
 from lark import Token, Tree
 
 from corpus_structure.core import tex
-from corpus_structure.core.vocab import ParseOutcome
+from corpus_structure.semantic.source_types import ParseOutcome
 
 from . import _tree, grammar
 from .native_context import PREDICATES, NativePremises

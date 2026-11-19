@@ -1,10 +1,8 @@
 """The `ci:invariant` templates (D2 §3.4): the behaviour behind each declared cross-field invariant.
 
-The model declares which template holds on which fields of a class; `core/_model/validators.py`
-is generated from those declarations and calls these functions, and M2 compiles the same
-declarations into CHECKs (F01). A field is absent when it is `MISSING` (or not a field of the
-object's form) or None. A violation raises `ValueError`, so a Pydantic validator that calls a
-generated validator reports it as a validation error.
+Typed consumers call these templates for the cross-field invariants they own. A field is
+absent when it is `MISSING` (or not a field of the object's form) or None. A violation raises
+`ValueError`, so Pydantic reports it as a validation error when called by a model validator.
 
 The templates:
 - `ordered(a, b)`: a < b, when both are present;

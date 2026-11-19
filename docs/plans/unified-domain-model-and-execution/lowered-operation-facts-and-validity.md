@@ -900,12 +900,12 @@ Their removal requires a declared owner or capability with equivalent protection
 negative control for foreign claimants. The remaining native owner captures and live-completion
 branches still need that disposition before every per-operation fact leaves generation.
 
-Authored workflow or requested operations now seed the required and alternative dependency
-closure. Source collections are projected onto that selection. Statistics authors `phase0`,
-and a capture-only workflow skips unrelated NLP and characterization profile reads. Other
-profile acquisition is still eager and needs to be selected by prerequisites before resolving
-unrelated provider assets. A manifest with neither workflow nor requested operations still
-authors the configured full profile deliberately.
+Authored workflows and explicit requests seed the required and alternative dependency closure
+before provider configuration, asset reads, and collection construction. The same path handles
+capture, arbitrary operation roots, and native-only requests. A selected learned collection
+still acquires its declared four-provider bundle. A manifest without a selection deliberately
+authors the configured full profile. Actual statistics acquisition passed for formal-only and
+source-only roots without provider profile reads, and for its configured `phase0` workflow.
 
 The declaration and batch compilation controls passed 30 cases on 2026-11-18
 (`b0154a806f1944f788d5b010bafb1c7e`). They cover prior N29 family membership, claim consistency,
@@ -940,6 +940,34 @@ shared object identities, classifier removal, conservative validator installatio
 demand export with the declared validity facts. The prior fresh-install result
 `e3db388b4bd24763ab99ea103e434ac0` found those facts missing from detached rows. The output
 now includes them so the detached verifier can compare them with the captured release.
+
+The follow-up moved grade and fit census protection onto lowered families and the declared
+policy command class. Separate family live checks all run for a multiply classified operation.
+Privileged-effect ownership keeps its existing pins where a copied declaration could otherwise
+claim authority. Revision A also incorporates DA-040. The captured value-codec policy limits
+canonical fixed-point decimals to 16,384 digits. Python and generated PostgreSQL check the
+canonical width before allocating the expansion or overflowing a PostgreSQL integer cast.
+
+**Tested, 2026-11-18.** The follow-up N29 successor, Python decimal vectors and fresh-install
+ACL/export selection passed all 20 controls (`05f630cfe3f24fb3b2801ef8dcf693c4`). The successor
+also passed on the shared PostgreSQL test host (`e9f93946ff32479f9863dd03d72f60d0`). Both earlier
+cohorts that held changed source during release preparation remain recorded
+(`f6f6d5c81b6b4bbdb9e73c10e96a5b99`, `0810024170434c7db1c50978e62c8815`).
+
+The stable declaration and acquisition selection passed 63 controls (`0fca0e69b426459993f8401917f7b715`).
+The managed A candidate (`0a24d6bc40db4aebb231ebde36bbb231`) replayed and was registered
+(`a9cb64e84a404513a6e67574727ef732`). Deployment `4bae9b8ceaf24df58c89074b0fb772eb`
+advanced the owned stage to N30 and archived the release. Definition admission refused
+`DdoFormalProduct` because five member identities changed under its existing container identity.
+The release identity projection now includes the native nominal member dependencies. The frozen
+N30 programs and historical kind rows retain their custody.
+The stage settlement observation passed against the installed N30 kernel (`43df462d22804d6d83d9020c7b6ed460`).
+It used a bounded synthetic project on the owned stage, observed both completion lock waits
+during revocation, and checked the resulting publication receipts and retained inspection.
+The corrected application-only deployment passed archive, admission, and verification on N30
+(`d807cfc761104106b3af8fae3aaea7a9`). It retained the exact N30 generator bytes and prepared a new
+application release with corrected nominal kind identities. The 21 nominal member controls passed
+(`b639e17532e24b25b1d5b9d143373595`).
 
 ```bash
 uv run ci test --native-host private --workers 2 -- \

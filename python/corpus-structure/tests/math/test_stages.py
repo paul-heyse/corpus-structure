@@ -12,13 +12,13 @@ import pytest
 import sympy
 from sympy.assumptions import global_assumptions
 
-from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.prepared import PreparedMathInput
 from corpus_structure.semantic.math_context import (
     acquire_analysis_context_profile,
     prepare_interpretation_context,
 )
+from corpus_structure.semantic.source_types import ParseOutcome
 
 
 def operand(text, **context):

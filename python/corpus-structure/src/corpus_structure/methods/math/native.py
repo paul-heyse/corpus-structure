@@ -11,7 +11,7 @@ from itertools import pairwise
 from typing import Any
 
 from corpus_structure.core.evidence import Segment
-from corpus_structure.core.vocab import ParseOutcome
+from corpus_structure.semantic.source_types import ParseOutcome
 
 from . import grammar
 from .source_context import _heads
@@ -541,7 +541,7 @@ def native_scope_layout(*, root, text, items, ancestors, pieces, domains=()):
     from types import SimpleNamespace
 
     from corpus_structure.core.evidence import Segment
-    from corpus_structure.core.vocab import SegmentKind
+    from corpus_structure.semantic.source_types import SegmentKind
 
     from .native_topology import prepare_native_topology_columns
 

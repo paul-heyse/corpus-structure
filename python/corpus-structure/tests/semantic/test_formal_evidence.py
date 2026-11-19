@@ -3,13 +3,13 @@
 import pytest
 from lark.exceptions import VisitError
 
-from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar as math_grammar
 from corpus_structure.semantic.formal_evidence import (
     decimal_value,
     nominate_fields,
 )
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions, FormalEvidenceProduct
+from corpus_structure.semantic.source_types import ParseOutcome
 from corpus_structure.semantic.structural_parsing import parse_comparison_literal, parse_threshold
 from semantic.formal_products_support import profile as profile
 from semantic.formal_products_support import selected_rows

@@ -991,3 +991,27 @@ def test_plain_value_equivalence_remains_independent_of_scientific_profile():
     ).equal
     with pytest.raises(ValueError, match="explicit captured analysis"):
         equivalent(expression("x"), expression("x+0"), {})
+
+
+@pytest.mark.parametrize(
+    "left,right,equal",
+    [
+        (r"b^{2}", r"b^2", True),
+        ("a + b", "b + a", True),
+        (r"\frac{a}{2}", "0.5 a", True),
+        ("a + 1", "a + 2", False),
+        ("y = 2 x", "2 x = y", True),
+        (r"e^{\ln x}", "x", False),
+    ],
+)
+def test_retained_mathematical_equivalence_vectors_use_current_contract(left, right, equal):
+    result = equivalent(expression(left), expression(right), {}, context_profile=analysis_context())
+    assert result.equal is equal
+
+
+def test_retained_reversed_inequality_requires_current_relation_proof():
+    result = equivalent(
+        expression("x < 1"), expression("1 > x"), {}, context_profile=analysis_context()
+    )
+    assert result.equal is False
+    assert result.outcome == "undecided"

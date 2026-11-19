@@ -364,7 +364,7 @@ def complete_m1_inspection(
     provider_evidence=None,
 ):
     """Map the kernel's terminal domain outcome once, retaining valid partial output."""
-    from corpus_structure.core.vocab import ObservationOutcome
+    from corpus_structure.semantic.source_types import ObservationOutcome
 
     from .data_operation_prepared_call import PreparedCallResult
 
@@ -487,8 +487,8 @@ class M1InvocationPlan:
     def plan(self, arguments, *, binding, check_active, execution_owner):
         from pydantic import TypeAdapter
 
-        from corpus_structure.core.vocab import ObservationOutcome
         from corpus_structure.methods.characterization_resources import ProviderExecutionReceipt
+        from corpus_structure.semantic.source_types import ObservationOutcome
 
         from .data_operation_cpu import PythonCPUDescriptor
         from .data_operation_stream import plan_cpu_coroutine

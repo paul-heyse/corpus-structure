@@ -10,10 +10,10 @@ from math_support import primary_scope_fixture, read_spans, segment_block
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import RenditionContent, Segment
 from corpus_structure.core.tex import symbol_form
-from corpus_structure.core.vocab import MathKind, ScopeExtent, SegmentKind
 from corpus_structure.ingest.sentences import SentenceConfig, split
 from corpus_structure.methods.math.scope import resolve_scopes
 from corpus_structure.methods.math.spans import extract, formula_values
+from corpus_structure.semantic.source_types import MathKind, ScopeExtent, SegmentKind
 
 
 def load(env: Any, name: str) -> dict[str, Any]:

@@ -6,7 +6,7 @@ from pathlib import Path
 from archived_source import archived_rendition
 
 from corpus_structure.core.locators import LocatorIndex
-from corpus_structure.core.vocab import SegmentKind
+from corpus_structure.semantic.source_types import SegmentKind
 
 
 def test_all_retained_corpus_inputs_have_bounded_nested_segments_and_stable_locators():

@@ -575,6 +575,7 @@ classes:
         required: true
 enums:
   ComparisonRelation:
+    annotations: {cs:openness: closed}
     permissible_values:
       '<': {}
       '<=': {}
@@ -583,6 +584,7 @@ enums:
       '>': {}
       '>=': {}
   ExpressionForm:
+    annotations: {cs:openness: closed}
     permissible_values:
       formula: {in_subset: [symbol_definition, binding_symbol_expression]}
       set: {}
@@ -590,22 +592,26 @@ enums:
       membership: {}
       list: {}
   ScopeExtent:
+    annotations: {cs:openness: closed}
     permissible_values:
       statement: {}
       section: {}
       document: {}
   Establishment:
+    annotations: {cs:openness: closed}
     permissible_values:
       stated: {in_subset: [source_admissible]}
       derived: {}
       agent_asserted: {in_subset: [source_admissible]}
   MissingReason:
+    annotations: {cs:openness: closed}
     permissible_values:
       absent: {}
       explicit_null: {}
       unknown: {}
       not_applicable: {}
   CoverageOutcome:
+    annotations: {cs:openness: closed}
     permissible_values:
       complete: {}
       partial: {}

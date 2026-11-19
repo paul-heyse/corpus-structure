@@ -440,8 +440,8 @@ def equivalent(
 
 
 def _entity_pairs(ref, pred, prepared, out, science_scope):
-    from corpus_structure.core.vocab import CaseRule
     from corpus_structure.semantic.alias_policy import label_normalizer
+    from corpus_structure.semantic.source_types import CaseRule
 
     normalize_label = label_normalizer(prepared)
     definitions = {d.iri: d for d in prepared.definitions}

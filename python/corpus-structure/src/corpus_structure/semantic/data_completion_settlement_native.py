@@ -760,20 +760,44 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                         ),
                     ),
                 ),
+            ),
+            If(
+                selected_family(model, rf("release_id"), rf("operation_id"), "record-fit"),
+                (
+                    ForQuery(
+                        ("selected",),
+                        select(fit_selections),
+                        (
+                            Perform(
+                                func.ops.ddo_record_fit_require_selection(
+                                    r,
+                                    core_variable("selected", Text(), "role_name"),
+                                    core_variable("selected", JSONB(), "selection"),
+                                    False,
+                                )
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            If(
+                selected_family(model, rf("release_id"), rf("operation_id"), "operation-event"),
                 (
                     If(
-                        selected_family(model, rf("release_id"), rf("operation_id"), "record-fit"),
+                        input_role(model, rf("release_id"), rf("operation_id"), "question"),
                         (
                             ForQuery(
-                                ("selected",),
-                                select(fit_selections),
+                                ("cut",),
+                                union(
+                                    select(question["original_selection"]),
+                                    select(question["prediction_selection"]),
+                                ),
                                 (
                                     Perform(
-                                        func.ops.ddo_record_fit_require_selection(
-                                            r,
-                                            core_variable("selected", Text(), "role_name"),
-                                            core_variable("selected", JSONB(), "selection"),
-                                            False,
+                                        func.ops.ddo_record_grade_require_cut(
+                                            rf("project_id"),
+                                            cut["cut_canonical_json"].astext,
+                                            cut["cut_id"].astext,
                                         )
                                     ),
                                 ),
@@ -781,104 +805,44 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                         ),
                         (
                             If(
-                                input_role(model, rf("release_id"), rf("operation_id"), "question")
-                                & selected_family(
-                                    model, rf("release_id"), rf("operation_id"), "operation-event"
+                                input_role(
+                                    model, rf("release_id"), rf("operation_id"), "specification"
                                 ),
                                 (
-                                    ForQuery(
-                                        ("cut",),
-                                        union(
-                                            select(question["original_selection"]),
-                                            select(question["prediction_selection"]),
-                                        ),
-                                        (
-                                            Perform(
-                                                func.ops.ddo_record_grade_require_cut(
-                                                    rf("project_id"),
-                                                    cut["cut_canonical_json"].astext,
-                                                    cut["cut_id"].astext,
-                                                )
-                                            ),
-                                        ),
+                                    Assign(
+                                        "cut",
+                                        func.ops.ddo_record_grade_input(
+                                            r, "specification", type_=JSONB()
+                                        )["body"]["frame"]["selection"],
                                     ),
-                                ),
-                                (
-                                    If(
-                                        input_role(
-                                            model,
-                                            rf("release_id"),
-                                            rf("operation_id"),
-                                            "specification",
+                                    Perform(
+                                        func.ops.ddo_record_fit_cut_scopes(rf("project_id"), cut)
+                                    ),
+                                    lookup(
+                                        "boundary",
+                                        reads,
+                                        reads.c.id == cut["read_id"].astext,
+                                        reads.c.demand_id == cut["demand_id"].astext,
+                                    ),
+                                    Perform(
+                                        func.ops.ddo_require_read_current(
+                                            row("boundary", reads), rf("project_id"), True
                                         )
-                                        & selected_family(
-                                            model,
-                                            rf("release_id"),
-                                            rf("operation_id"),
-                                            "operation-event",
-                                        ),
-                                        (
-                                            Assign(
-                                                "cut",
-                                                func.ops.ddo_record_grade_input(
-                                                    r, "specification", type_=JSONB()
-                                                )["body"]["frame"]["selection"],
-                                            ),
-                                            Perform(
-                                                func.ops.ddo_record_fit_cut_scopes(
-                                                    rf("project_id"), cut
-                                                )
-                                            ),
-                                            lookup(
-                                                "boundary",
-                                                reads,
-                                                reads.c.id == cut["read_id"].astext,
-                                                reads.c.demand_id == cut["demand_id"].astext,
-                                            ),
-                                            Perform(
-                                                func.ops.ddo_require_read_current(
-                                                    row("boundary", reads), rf("project_id"), True
-                                                )
-                                            ),
-                                        ),
-                                        (
-                                            If(
-                                                and_(
-                                                    selected_family(
-                                                        model,
-                                                        rf("release_id"),
-                                                        rf("operation_id"),
-                                                        "contextual",
-                                                    )
-                                                    & input_role(
-                                                        model,
-                                                        rf("release_id"),
-                                                        rf("operation_id"),
-                                                        "policy",
-                                                    )
-                                                    & ~input_role(
-                                                        model,
-                                                        rf("release_id"),
-                                                        rf("operation_id"),
-                                                        "scores",
-                                                    ),
-                                                    completion["outcome"].astext == "success",
-                                                ),
-                                                (
-                                                    reject(
-                                                        ~contextual,
-                                                        "contextual linguistic premises changed",
-                                                        "23514",
-                                                    ),
-                                                ),
-                                            ),
-                                        ),
                                     ),
                                 ),
                             ),
                         ),
                     ),
                 ),
+            ),
+            If(
+                and_(
+                    selected_family(model, rf("release_id"), rf("operation_id"), "contextual"),
+                    input_role(model, rf("release_id"), rf("operation_id"), "policy"),
+                    ~input_role(model, rf("release_id"), rf("operation_id"), "scores"),
+                    completion["outcome"].astext == "success",
+                ),
+                (reject(~contextual, "contextual linguistic premises changed", "23514"),),
             ),
         ),
         (

@@ -1,15 +1,17 @@
 """Private N29 successor and actual settlement under declared validity."""
 
 import json
+import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from time import monotonic, sleep
 from typing import cast
+from uuid import uuid4
 
 import pytest
-from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from corpus_structure.cli.schema import _native_candidate_python
 from corpus_structure.schema.data_steps import DataStepRequest, prepare_data_steps
@@ -129,6 +131,23 @@ def test_n29_conversion_and_conservative_settlement(
             )
         ).all()
         assert staged == [("claimed", ["record-grade"], False), ("ordinary", [], False)]
+        decimal = text("SELECT data.decimal_canonical(:value)")
+        for value, expected in (
+            ("9" * 10000, "9" * 10000),
+            ("1e16383", "1" + "0" * 16383),
+            ("1e-16383", "0." + "0" * 16382 + "1"),
+            ("-000.0012300e+2", "-0.123"),
+            ("-0.00e9999999999999999999999", "0"),
+            ("12." + "0" * 20000, "12"),
+        ):
+            assert connection.scalar(decimal, {"value": value}) == expected
+        for value in ("1e16384", "1e-16384", "9" * 16385, "1e9999999999999999999999"):
+            with (
+                pytest.raises(DBAPIError, match="canonical fixed-point digit limit") as refusal,
+                connection.begin_nested(),
+            ):
+                connection.scalar(decimal, {"value": value})
+            assert getattr(refusal.value.orig, "sqlstate", None) == "23514"
         connection.exec_driver_sql(
             "CREATE TEMP TABLE validity_array_control "
             "(LIKE sem.data_operation_definition INCLUDING CONSTRAINTS)"
@@ -149,26 +168,69 @@ def test_n29_conversion_and_conservative_settlement(
                     "INSERT INTO validity_array_control TABLE validity_array_input"
                 )
 
+    _conservative_settlement(engine, native_settings, tmp_path, project="ddo-test")
+
+
+@pytest.mark.skipif(
+    os.environ.get("CORPUS_UDM_A_STAGE_OBSERVATION") != "130661481",
+    reason="requires an explicit observation of the owned revision A stage",
+)
+def test_deployed_a_conservative_settlement(native_settings, tmp_path):
+    from corpus_structure.semantic.migrations import current_revision
+    from corpus_structure.semantic.storage_target import acquired_target
+
+    deployment = native_settings.deployment
+    assert deployment is not None
+    maintenance = deployment.maintenance_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    engine = create_engine(
+        maintenance, connect_args={"application_name": "udm-a-stage-observation"}
+    )
+    try:
+        with engine.connect() as connection:
+            target = acquired_target(connection, purpose="maintenance")
+            assert (target.database_oid, target.database, target.port) == (
+                130661481,
+                "corpus_structure_ddo_stage",
+                5434,
+            )
+            assert current_revision(connection) == "semantic_ddo_pe_n30"
+        project = "udm-a-conservative-" + uuid4().hex[:12]
+        _conservative_settlement(engine, native_settings, tmp_path, project=project)
+    finally:
+        engine.dispose()
+
+
+def _conservative_settlement(engine, native_settings, tmp_path, *, project):
     declaration = json.loads(STORAGE.declaration_content or b"{}")
     for operation in declaration["operations"]:
         if operation["id"] == "urn:ddo-test:source":
             operation.pop("validity_family", None)
         else:
             operation["validity_family"] = ["none"]
-    recipe = replace(STORAGE, declaration_content=canonical_bytes(declaration))
+    recipe = replace(STORAGE, declaration_content=canonical_bytes(declaration), project_id=project)
     preparation = prepare_kernel(recipe, directory=tmp_path / "validity-basis")
     with engine.begin() as connection:
         assert preparation.prepared.native_kernel_digest == connection.scalar(
             text("SELECT sem.data_operation_native_descriptor()->>'source_digest'")
         )
         kernel = admit_kernel(connection, recipe, preparation=preparation)
-        connection.exec_driver_sql(
-            "INSERT INTO ops.data_trust_scope(scope,project_id,epoch) "
-            "VALUES ('unrelated-previous','ddo-test',4),('unrelated-other-project','another',9)"
+        connection.execute(
+            text(
+                "INSERT INTO ops.data_trust_scope(scope,project_id,epoch) "
+                "VALUES (:previous,:project,4),(:other,:other_project,9)"
+            ),
+            {
+                "previous": f"{project}:previous",
+                "project": project,
+                "other": f"{project}:other",
+                "other_project": f"{project}:other-project",
+            },
         )
 
     def leased(subject, original_source):
-        _, _, _, attached = attach(kernel, subject=subject, original_source=original_source)
+        _, _, _, attached = attach(
+            kernel, subject=subject, original_source=original_source, project_id=project
+        )
         return claim(kernel, attached, seconds=120)
 
     proof = leased("conservative:previous", "source:previous")
@@ -204,20 +266,23 @@ def test_n29_conversion_and_conservative_settlement(
             connection.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
             valid = text("SELECT ops.ddo_conservative_dependencies_valid(:episode)")
             assert connection.scalar(valid, {"episode": episode}) is True
-            connection.exec_driver_sql(
-                "INSERT INTO ops.data_trust_scope(scope,project_id,epoch) "
-                "VALUES ('unrelated-late','ddo-test',0)"
+            connection.execute(
+                text(
+                    "INSERT INTO ops.data_trust_scope(scope,project_id,epoch) "
+                    "VALUES (:late,:project,0)"
+                ),
+                {"late": f"{project}:late", "project": project},
             )
             assert connection.scalar(valid, {"episode": episode}) is True
             revocation = DataOperationStorage(connection).revoke_data_support(
                 cast(
                     WireRevokeDataSupportRequest,
                     {
-                        "project_id": "ddo-test",
+                        "project_id": project,
                         "original_source": "source:revocable",
                         "selector_kind": "derivation",
                         "selector": revoked,
-                        "reason": "private completion scope control",
+                        "reason": "conservative completion scope observation",
                     },
                 )
             )
@@ -231,8 +296,8 @@ def test_n29_conversion_and_conservative_settlement(
 
     published = [result for _, result in completed]
     assert len({item["derivation_id"] for item in published}) == 2
-    assert all(item["trust_snapshot"]["unrelated-previous"] == 4 for item in published)
-    assert all("unrelated-other-project" not in item["trust_snapshot"] for item in published)
+    assert all(item["trust_snapshot"][f"{project}:previous"] == 4 for item in published)
+    assert all(f"{project}:other" not in item["trust_snapshot"] for item in published)
     assert all(
         item["trust_snapshot"][revocation["scope"]] == revocation["epoch"] for item in published
     )

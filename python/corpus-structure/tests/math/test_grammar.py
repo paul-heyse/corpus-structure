@@ -17,10 +17,10 @@ import sympy
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef
-from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar as G
 from corpus_structure.methods.math.transform import NotRepresentable
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
+from corpus_structure.semantic.source_types import ParseOutcome
 
 pytestmark = pytest.mark.filterwarnings("error::sympy.utilities.exceptions.SymPyDeprecationWarning")
 

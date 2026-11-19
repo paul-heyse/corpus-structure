@@ -24,7 +24,6 @@ from lark.exceptions import VisitError
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef
-from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar as math_grammar
 from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.formal_forest import recognize_formal
@@ -35,6 +34,7 @@ from corpus_structure.semantic.formal_sources import (
     normalize_inline_equation,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.source_types import ParseOutcome
 from corpus_structure.semantic.structural_parsing import (
     COMPARISON_BASIS,
     FIELD_GRAMMAR,

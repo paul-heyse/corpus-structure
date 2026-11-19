@@ -966,6 +966,23 @@ def _fit_scopes(p):
 
     node_id, node_kind = core_variable("node", Text(), "id"), core_variable("node", Text(), "kind")
     operations = _items(d("selection")["operations"], "selected_operation")
+    definitions = p.table("sem.data_operation_definition")
+
+    def fit_or_authorization(release_id, operation_id):
+        return (
+            select(1)
+            .select_from(definitions)
+            .where(
+                definitions.c.release_id == release_id,
+                definitions.c.operation_id == operation_id,
+                or_(
+                    definitions.c.validity_families.contains(["record-fit"]),
+                    definitions.c.command_class == "policy",
+                ),
+            )
+            .exists()
+        )
+
     authorities = (
         select(1)
         .select_from(
@@ -992,9 +1009,7 @@ def _fit_scopes(p):
                 select(1)
                 .select_from(operations)
                 .where(
-                    _text(operations.c.value, "operation").in_(
-                        ("record_policy.fit", "record_policy.authorize")
-                    )
+                    fit_or_authorization(d("release_id"), _text(operations.c.value, "operation"))
                 )
                 .exists(),
                 "fit grade selection cannot select a fit or authorization census",
@@ -1013,8 +1028,8 @@ def _fit_scopes(p):
                             .where(
                                 producers.c.id == node_id,
                                 or_(
-                                    requests.c.operation_id.in_(
-                                        ("record_policy.fit", "record_policy.authorize")
+                                    fit_or_authorization(
+                                        producers.c.release_id, requests.c.operation_id
                                     ),
                                     authorities,
                                 ),

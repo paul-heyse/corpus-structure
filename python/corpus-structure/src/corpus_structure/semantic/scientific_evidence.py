@@ -24,8 +24,8 @@ import sympy
 
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.tex import token_form
-from corpus_structure.core.vocab import ParseOutcome
 from corpus_structure.methods.math import grammar
+from corpus_structure.semantic.source_types import ParseOutcome
 
 from .identity import canonical_bytes
 from .refusals import SemanticReason
@@ -1160,7 +1160,7 @@ class ReferenceComparisonScope:
 
 def read_reference_operand(value, *, prepared=None, capture=None, context_profile=None):
     from corpus_structure.core.evidence import MacroDef
-    from corpus_structure.core.vocab import ParseOutcome
+    from corpus_structure.semantic.source_types import ParseOutcome
 
     if value.get("language") not in {"tex", "latex"}:
         return None, "unsupported expression language"

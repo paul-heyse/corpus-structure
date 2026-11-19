@@ -31,7 +31,6 @@ from math_worker_transport import configure_worker_transport
 
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef, RenditionContent, Segment
-from corpus_structure.core.vocab import SegmentKind
 from corpus_structure.methods.math.grammar import PARSE_SECONDS
 from corpus_structure.methods.math.scope import Binders, Scope, resolve_scopes
 from corpus_structure.methods.math.spans import (
@@ -44,6 +43,7 @@ from corpus_structure.methods.math.spans import (
     formula_values,
 )
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
+from corpus_structure.semantic.source_types import SegmentKind
 
 _ENVIRONMENT_OPENER = "\\begin"
 

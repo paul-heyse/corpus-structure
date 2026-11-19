@@ -1,0 +1,87 @@
+id: https://corpus-structure.dev/semantic/source-vocabularies
+name: source_vocabularies
+prefixes:
+  cs: https://corpus-structure.dev/semantic/
+enums:
+  ParseOutcome:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      ok: {}
+      partial: {}
+      ambiguous: {}
+      failed: {}
+  SegmentKind:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      document: {in_subset: [section_like]}
+      section: {in_subset: [section_like]}
+      unit: {in_subset: [annotation_unit]}
+      paragraph: {in_subset: [top_level_annotation_unit]}
+      list: {}
+      list_item: {}
+      details: {}
+      math_display: {}
+      math_inline: {}
+      heading: {in_subset: [section_label]}
+      table: {}
+      table_row: {}
+      table_cell: {}
+      caption: {}
+      footnote: {}
+      figure: {}
+      sentence: {}
+      email_message: {in_subset: [annotation_unit]}
+      quoted_block: {}
+      signature: {}
+  DelimitingStatus:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      ok: {}
+      partial: {}
+      failed: {}
+  CaseRule:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      fold: {}
+      preserve: {}
+  ObservationKind:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      author_markup: {}
+      mention: {}
+      relation: {}
+      record: {}
+      attribute: {}
+      classification: {}
+      value: {}
+      scope: {}
+      link: {}
+      claim_proposal: {}
+      judgment: {}
+      verification: {}
+  ObservationOutcome:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      produced: {}
+      empty: {}
+      failed: {}
+  DocumentSplit:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      dev: {}
+      test: {}
+      reserved: {}
+  MathKind:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      formula: {}
+      relation: {}
+      membership: {}
+      set: {}
+      list: {}
+  UnitFeatureKind:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      segment_kind: {}
+      statement_kind: {}
+      claim_bearing: {}

@@ -8,7 +8,6 @@ import pytest
 from pydantic import BaseModel
 
 from corpus_structure.core.method import ObservationDraft, UnitRef, UnitResult
-from corpus_structure.core.vocab import ObservationKind, ObservationOutcome
 from corpus_structure.semantic import PreparedRelease, SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import (
@@ -17,6 +16,7 @@ from corpus_structure.semantic.observations import (
     source_python,
     source_value,
 )
+from corpus_structure.semantic.source_types import ObservationKind, ObservationOutcome
 from corpus_structure.semantic.task_types import TaskUnitType
 from semantic.observations_support import (
     malform_source_fields as malform_source_fields,

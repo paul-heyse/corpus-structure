@@ -31,7 +31,7 @@ from importlib import resources
 from typing import Any
 
 from corpus_structure.core.canonical import canonical_json
-from corpus_structure.core.vocab import UnitFeatureKind
+from corpus_structure.semantic.source_types import UnitFeatureKind
 
 PAGE_CHARS = 24_000
 PART_NAMES = ("system", "guideline", "reference", "format", "schema")

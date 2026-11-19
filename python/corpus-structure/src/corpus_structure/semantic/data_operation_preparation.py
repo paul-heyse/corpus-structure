@@ -246,26 +246,50 @@ def acquire_data_operation_inputs(
     from .data_operation_storage import native_operation_declarations, native_protocol_sources
 
     if declared.primary_profile is not None:
+        from .primary_acquisition import requested_source_modules
         from .primary_operations import primary_operation_inputs, primary_operation_targets
 
-        capture_only = declared.workflow == "capture" and not declared.requested_operations
-        primary = _acquire_primary_profile(
-            declared.primary_profile, read, root, capture_only=capture_only
-        )
+        capture = declared.primary_profile.capture
         selected_operations = declared.requested_operations
         if not selected_operations and declared.workflow is not None:
             selected_operations = primary_operation_targets(
                 declared.workflow,
-                captured=primary.get("capture_sources") is not None,
-                organized=primary.get("pdf_organization_sources") is not None,
+                captured=capture is not None,
+                organized=capture is not None and capture.organization_policy is not None,
                 pdf_mode=(
                     "integrated"
-                    if primary.get("pdf_integration_sources") is not None
+                    if capture is not None and capture.recognition is not None
                     else "enriched"
-                    if primary.get("pdf_enrichment_sources") is not None
+                    if capture is not None and capture.enrichment_options is not None
                     else "standard"
                 ),
             )
+
+        def additional_declarations():
+            if declared.primary_profile.external_protocol is None:
+                return ()
+            from .external_extraction import rich_external_declarations
+
+            return (
+                rich_external_declarations(
+                    _external_protocol(read(declared.primary_profile.external_protocol))
+                ),
+            )
+
+        selected_modules = (
+            requested_source_modules(
+                selected_operations,
+                organized=capture is not None and capture.organization_policy is not None,
+                extra_sources=sources,
+                declarations=declarations,
+                resolve_declarations=additional_declarations,
+            )
+            if selected_operations
+            else None
+        )
+        primary = _acquire_primary_profile(
+            declared.primary_profile, read, root, selected_modules=selected_modules
+        )
         composed = primary_operation_inputs(
             bundle,
             **primary,
@@ -275,7 +299,7 @@ def acquire_data_operation_inputs(
             extra_sources=sources,
             declarations=declarations,
             requested_operations=selected_operations,
-            capture_only=capture_only,
+            selected_modules=selected_modules,
         )
         dependencies = composed.dependencies
         if declared.pdf_contracts and declared.primary_profile.capture is None:
@@ -327,7 +351,7 @@ def _acquire_primary_profile(
     read: Callable[[str], bytes],
     root: Path,
     *,
-    capture_only: bool = False,
+    selected_modules: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """Reconstitute explicit frozen selections; never acquire a default provider."""
     from corpus_structure.ingest.sentences import SentenceConfig
@@ -373,14 +397,21 @@ def _acquire_primary_profile(
             verified_file(path, digest)
         return NativeSelection(native, assets)
 
+    from .primary_acquisition import needs
+
     arguments: dict[str, Any] = dict(sentence_configuration=None, hanlp_selection=None)
-    if not capture_only:
-        if (
-            profile.sentence_configuration is None
-            or profile.sentence_selection is None
-            or profile.hanlp_selection is None
-        ):
-            raise ValueError("primary preparation requires its sentence and HanLP profiles")
+    needs_sentences = needs(
+        selected_modules,
+        "methods.sentence_evidence",
+        "methods.canonical_sentences",
+        "methods.hanlp_evidence",
+        "methods.m1_declared",
+    )
+    if needs_sentences:
+        if profile.sentence_configuration is None or profile.sentence_selection is None:
+            raise ValueError(
+                "selected sentence operation requires its sentence configuration and provider selection"
+            )
         configuration = SentenceConfig.model_validate(
             yaml.safe_load(read(profile.sentence_configuration))
         )
@@ -390,91 +421,101 @@ def _acquire_primary_profile(
         arguments: dict[str, Any] = dict(
             sentence_configuration=configuration,
             sentence_selection=sentence,
-            hanlp_selection=selection(profile.hanlp_selection, "hanlp"),
-            downstream=profile.downstream,
-            visual=profile.visual,
         )
-        if profile.learned_selections is not None:
-            if set(profile.learned_selections) != {"maverick", "dipo", "d1", "gliner"}:
-                raise ValueError("learned primary profile requires all four explicit selections")
-            arguments["learned_selections"] = {
-                provider: selection(path, provider)
-                for provider, path in profile.learned_selections.items()
-            }
-        if profile.construction is not None:
-            from .construction_products import ConstructionOptions
+    if needs(selected_modules, "methods.hanlp_evidence"):
+        if profile.hanlp_selection is None:
+            raise ValueError("selected HanLP operation requires its explicit provider profile")
+        arguments["hanlp_selection"] = selection(profile.hanlp_selection, "hanlp")
+    arguments.update(downstream=profile.downstream, visual=profile.visual)
+    if profile.learned_selections is not None and needs(
+        selected_modules,
+        "methods.learned_primary",
+        "methods.clause_classification_declared",
+        "methods.definition_components_declared",
+    ):
+        if set(profile.learned_selections) != {"maverick", "dipo", "d1", "gliner"}:
+            raise ValueError("learned primary profile requires all four explicit selections")
+        arguments["learned_selections"] = {
+            provider: selection(path, provider)
+            for provider, path in profile.learned_selections.items()
+        }
+    if profile.construction is not None and needs(
+        selected_modules, "methods.construction_characterization"
+    ):
+        from .construction_products import ConstructionOptions
 
-            arguments["construction_options"] = ConstructionOptions.model_validate(
-                yaml.safe_load(read(profile.construction))
-            )
-        if profile.math is not None:
-            from .declared_math_products import DeclaredMathOptions
+        arguments["construction_options"] = ConstructionOptions.model_validate(
+            yaml.safe_load(read(profile.construction))
+        )
+    if profile.math is not None and needs(
+        selected_modules, "methods.math.declared", "methods.math.analysis"
+    ):
+        from .declared_math_products import DeclaredMathOptions
 
-            arguments["math_options"] = DeclaredMathOptions.model_validate(
-                yaml.safe_load(read(profile.math))
-            )
-        if profile.m1 is not None:
-            from corpus_structure.methods.m1_source import M1Config
+        arguments["math_options"] = DeclaredMathOptions.model_validate(
+            yaml.safe_load(read(profile.math))
+        )
+    if profile.m1 is not None and needs(selected_modules, "methods.m1_declared"):
+        from corpus_structure.methods.m1_source import M1Config
 
-            selected_m1 = M1Config.model_validate(yaml.safe_load(read(profile.m1.configuration)))
-            if selected_m1.native_execution_profile is None:
-                raise ValueError(
-                    "literal M1 acquisition requires its captured native execution profile"
-                )
-            selected_m1 = selected_m1.model_copy(
-                update={"snapshot": location(str(selected_m1.snapshot))}
+        selected_m1 = M1Config.model_validate(yaml.safe_load(read(profile.m1.configuration)))
+        if selected_m1.native_execution_profile is None:
+            raise ValueError(
+                "literal M1 acquisition requires its captured native execution profile"
             )
-            if not selected_m1.snapshot.is_dir():
-                raise ValueError("literal M1 model snapshot is unavailable")
-            schemas = tuple(
-                SourceArtifact(item.name, read(item.path)) for item in profile.m1.schemas
-            )
-            if len({item.name for item in schemas}) != len(
-                schemas
-            ) or profile.m1.schema_root not in {item.name for item in schemas}:
-                raise ValueError("literal M1 requires unique named schemas and its declared root")
-            arguments.update(
-                m1_configuration=selected_m1,
-                record_schemas=SourceBundle(profile.m1.schema_root, schemas),
-            )
-        if profile.contextual_retrieval_options is not None:
-            from .contextual_numerics import RetrievalNumericalPolicy
+        selected_m1 = selected_m1.model_copy(
+            update={"snapshot": location(str(selected_m1.snapshot))}
+        )
+        if not selected_m1.snapshot.is_dir():
+            raise ValueError("literal M1 model snapshot is unavailable")
+        schemas = tuple(SourceArtifact(item.name, read(item.path)) for item in profile.m1.schemas)
+        if len({item.name for item in schemas}) != len(schemas) or profile.m1.schema_root not in {
+            item.name for item in schemas
+        }:
+            raise ValueError("literal M1 requires unique named schemas and its declared root")
+        arguments.update(
+            m1_configuration=selected_m1,
+            record_schemas=SourceBundle(profile.m1.schema_root, schemas),
+        )
+    if profile.contextual_retrieval_options is not None and needs(
+        selected_modules,
+        "methods.contextual_declared",
+        "methods.contextual_encoding",
+        "methods.contextual_scoring",
+        "methods.contextual_targets",
+        "methods.contextual_witnesses",
+    ):
+        from .contextual_numerics import RetrievalNumericalPolicy
 
-            if not profile.downstream and profile.contextual_encoder is None:
-                raise ValueError(
-                    "contextual retrieval options require downstream or encoder dependencies"
-                )
-            arguments["contextual_retrieval_options"] = RetrievalNumericalPolicy.model_validate(
-                yaml.safe_load(read(profile.contextual_retrieval_options))
+        if not profile.downstream and profile.contextual_encoder is None:
+            raise ValueError(
+                "contextual retrieval options require downstream or encoder dependencies"
             )
-        if profile.contextual_encoder is not None:
-            from corpus_structure.methods.contextual_embeddings import EncoderProfile
+        arguments["contextual_retrieval_options"] = RetrievalNumericalPolicy.model_validate(
+            yaml.safe_load(read(profile.contextual_retrieval_options))
+        )
+    if profile.contextual_encoder is not None and needs(
+        selected_modules, "methods.contextual_encoding"
+    ):
+        from corpus_structure.methods.contextual_embeddings import EncoderProfile
 
-            from .contextual_encoder import ContextualEncoderSelection
+        from .contextual_encoder import ContextualEncoderSelection
 
-            encoder_profile = TypeAdapter(EncoderProfile).validate_json(
-                canonical_bytes(yaml.safe_load(read(profile.contextual_encoder.profile))),
-                strict=True,
-            )
-            arguments["contextual_encoder"] = ContextualEncoderSelection.acquire(
-                encoder_profile, location(profile.contextual_encoder.model_path)
-            )
-        if profile.external_protocol is not None:
-            from dataclasses import fields
-
-            from .data_operation_model import ExternalExecutorContract
-
-            selected = yaml.safe_load(read(profile.external_protocol))
-            if not isinstance(selected, dict) or set(selected) != {
-                field.name for field in fields(ExternalExecutorContract)
-            }:
-                raise ValueError(
-                    "external protocol requires its exact declared actor, model, instructions and reference scope"
-                )
-            arguments["external_protocol"] = TypeAdapter(ExternalExecutorContract).validate_json(
-                canonical_bytes(selected), strict=True
-            )
-    if profile.capture is not None:
+        encoder_profile = TypeAdapter(EncoderProfile).validate_json(
+            canonical_bytes(yaml.safe_load(read(profile.contextual_encoder.profile))),
+            strict=True,
+        )
+        arguments["contextual_encoder"] = ContextualEncoderSelection.acquire(
+            encoder_profile, location(profile.contextual_encoder.model_path)
+        )
+    if profile.external_protocol is not None and needs(
+        selected_modules, "methods.external_extraction"
+    ):
+        arguments["external_protocol"] = _external_protocol(read(profile.external_protocol))
+    if profile.capture is not None and (
+        selected_modules is None
+        or any(module.startswith("corpus_structure.ingest.pdf_") for module in selected_modules)
+    ):
         from corpus_structure.ingest.pdf import PdfRecipe
         from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
 
@@ -509,7 +550,9 @@ def _acquire_primary_profile(
             nemotron_endpoint=capture.nemotron_endpoint,
             require_nemotron_handoff=capture.require_nemotron_handoff,
         )
-        if capture.organization_policy is not None:
+        if capture.organization_policy is not None and needs(
+            selected_modules, "ingest.pdf_organization_operation"
+        ):
             from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
 
             from .pdf_transforms import pdf_transform_operation_sources
@@ -525,7 +568,12 @@ def _acquire_primary_profile(
             if capture.organization_policy is not None
             else "source.pdf/capture"
         )
-        if capture.enrichment_options is not None:
+        if capture.enrichment_options is not None and needs(
+            selected_modules,
+            "ingest.pdf_enrichment_operation",
+            "ingest.pdf_organized_enriched_operation",
+            "ingest.pdf_raw_enriched_operation",
+        ):
             from .pdf_transforms import PdfEnrichmentOptions, pdf_transform_operation_sources
 
             options = PdfEnrichmentOptions.model_validate(
@@ -540,7 +588,13 @@ def _acquire_primary_profile(
                 nemotron_endpoint=capture.nemotron_endpoint,
                 input_operation=input_operation,
             )
-        if capture.recognition is not None:
+        if capture.recognition is not None and needs(
+            selected_modules,
+            "ingest.pdf_observation_operation",
+            "ingest.pdf_integration_operation",
+            "ingest.pdf_organized_integrated_operation",
+            "ingest.pdf_raw_integrated_operation",
+        ):
             from corpus_structure.ingest.pdf_recognition import NemotronRecipe
 
             from .pdf_transforms import (
@@ -578,6 +632,24 @@ def _acquire_primary_profile(
                 input_operation=input_operation,
             )
     return arguments
+
+
+def _external_protocol(content: bytes):
+    from dataclasses import fields
+
+    from .data_operation_model import ExternalExecutorContract
+    from .identity import canonical_bytes
+
+    selected = yaml.safe_load(content)
+    if not isinstance(selected, dict) or set(selected) != {
+        field.name for field in fields(ExternalExecutorContract)
+    }:
+        raise ValueError(
+            "external protocol requires its exact declared actor, model, instructions and reference scope"
+        )
+    return TypeAdapter(ExternalExecutorContract).validate_json(
+        canonical_bytes(selected), strict=True
+    )
 
 
 def prepare_data_operation_inputs(

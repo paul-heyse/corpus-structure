@@ -39,7 +39,12 @@ if TYPE_CHECKING:
 _ROOT = Path(__file__).resolve().parents[1] / "model" / "semantic"
 
 
-NATIVE_LOGICAL_FILES = ("observations.yaml", "pdf-actions.yaml", "data-operation-wire-types.yaml")
+NATIVE_LOGICAL_FILES = (
+    "observations.yaml",
+    "pdf-actions.yaml",
+    "data-operation-wire-types.yaml",
+    "value-codec.yaml",
+)
 
 
 def native_logical_sources() -> dict[str, bytes]:
@@ -319,6 +324,7 @@ def native_protocol_sources(
             Path(__file__).with_name("contextual_witness_native.py").read_bytes(),
         ),
         *source_value_native_sources(logical["observations.yaml"]),
+        SourceArtifact("native/value-codec.yaml", logical["value-codec.yaml"]),
         SourceArtifact(
             "native/data-operation-execution-evidence-leaf.sql",
             execution_evidence_leaf_native_sql(target_metadata).encode(),

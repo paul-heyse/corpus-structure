@@ -6,7 +6,6 @@ from dataclasses import replace
 import pytest
 import yaml
 
-from corpus_structure.core.vocab import CaseRule
 from corpus_structure.evaluate.semantic_alignment import SemanticSide, align_semantic
 from corpus_structure.semantic.alias_policy import (
     ARTIFACT,
@@ -24,6 +23,7 @@ from corpus_structure.semantic.regeneration import (
     prepare_pack,
 )
 from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
+from corpus_structure.semantic.source_types import CaseRule
 from corpus_structure.semantic.types import (
     PreparedArtifact,
     ResolvedDependencies,

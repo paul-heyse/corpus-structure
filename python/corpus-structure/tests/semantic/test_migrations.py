@@ -42,13 +42,11 @@ def test_bootstrap_downgrade_refuses_destructive_reversal(commit_db_engine: Engi
         assert "data_request" in inspect(conn).get_table_names(schema="ops")
 
 
-def test_current_semantic_values_preserve_large_exact_lexical_content(
-    commit_db_engine: Engine,
-) -> None:
+def test_frozen_n29_replays_its_legacy_decimal_semantics(semantic_database_at) -> None:
     from corpus_structure.semantic.identity import canonical_bytes
 
     lexical = "9" * 10000
-    with commit_db_engine.begin() as conn:
+    with semantic_database_at("semantic_ddo_pe_n29") as engine, engine.begin() as conn:
         for tag, value, expected in (
             ("string", lexical, lexical),
             ("decimal", lexical, lexical),

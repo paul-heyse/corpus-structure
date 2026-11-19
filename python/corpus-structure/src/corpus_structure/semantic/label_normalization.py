@@ -7,7 +7,7 @@ import unicodedata
 import regex
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from corpus_structure.core.vocab import CaseRule
+from corpus_structure.semantic.source_types import CaseRule
 
 
 def collapse(text: str) -> str:

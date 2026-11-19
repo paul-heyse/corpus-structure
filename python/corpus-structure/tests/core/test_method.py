@@ -31,13 +31,25 @@ from corpus_structure.core.method import (
     config_references,
     payload_hash,
 )
-from corpus_structure.core.payloads import AuthorMarkupPayload, LinkPayload
-from corpus_structure.core.vocab import (
-    ConfidenceSource,
+from corpus_structure.semantic.source_types import (
     ObservationKind,
     ObservationOutcome,
 )
 from corpus_structure.semantic.task_types import TaskUnitType
+
+
+class LinkPayload(BaseModel):
+    pair: tuple[str, str]
+    candidate: str
+    score: float
+    features: dict[str, Any]
+    rank: int | None = None
+
+
+class AuthorMarkupPayload(BaseModel):
+    markup: str
+    value: str
+
 
 REPO = Path(__file__).resolve().parents[4]
 
@@ -144,8 +156,8 @@ def test_a_draft_names_its_payload_class_version_and_source() -> None:
     assert draft.confidence_source is METHOD_SOURCE
     own = ObservationDraft(kind=ObservationKind.LINK, payload=payload, payload_class=LinkPayload,
                            payload_version="1",
-                           confidence_source=ConfidenceSource.RULES)  # fmt: skip
-    assert own.confidence_source is ConfidenceSource.RULES
+                           confidence_source="rules")  # fmt: skip
+    assert own.confidence_source == "rules"
     with pytest.raises(TypeError, match="not the named"):
         ObservationDraft(kind=ObservationKind.LINK, payload=payload,
                          payload_class=AuthorMarkupPayload,
@@ -159,9 +171,9 @@ def test_a_draft_without_a_payload_class_fails_to_type_check(tmp_path: Path) -> 
     snippet = tmp_path / "draft.py"
     snippet.write_text(
         "from corpus_structure.core.method import ObservationDraft\n"
-        "from corpus_structure.core.payloads import LinkPayload\n"
-        "from corpus_structure.core.vocab import ObservationKind\n"
-        "def make(p: LinkPayload) -> object:\n"
+        "from pydantic import BaseModel\n"
+        "from corpus_structure.semantic.source_types import ObservationKind\n"
+        "def make(p: BaseModel) -> object:\n"
         "    return ObservationDraft(kind=ObservationKind.LINK, payload=p, payload_version='1')\n"
     )
     pyrefly = shutil.which("pyrefly")

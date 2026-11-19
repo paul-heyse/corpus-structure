@@ -2020,3 +2020,12 @@ def test_native_traceback_unsupported_unicode_is_an_explicit_whole_field_omissio
     assert all("unsupported Unicode" in item["reason"] for item in projected["omissions"])
     assert "safe prefix" not in json.dumps(projected)
     assert _failure_diagnostic(report) == {"diagnostic_truncated": True}
+
+
+def test_oversized_sqlalchemy_failure_retains_driver_diagnostic():
+    driver = "sqlalchemy.exc.IntegrityError: (psycopg.errors.CheckViolation) invalid scope"
+    report = {"longrepr": {"reprcrash": {"message": driver + "\n[SQL: " + "X" * 40000}}}
+    assert _failure_diagnostic(report) == {
+        "diagnostic": driver,
+        "diagnostic_truncated": True,
+    }

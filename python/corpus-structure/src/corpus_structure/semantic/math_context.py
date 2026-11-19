@@ -362,7 +362,7 @@ def validate_analysis_result(
     interpretation: str,
     completeness: str = "complete",
 ) -> None:
-    from corpus_structure.core.vocab import ParseOutcome
+    from corpus_structure.semantic.source_types import ParseOutcome
 
     actual = frozenset(produced)
     if interpretation not in (
