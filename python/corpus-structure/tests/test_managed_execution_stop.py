@@ -17,7 +17,8 @@ from corpus_structure.core.execution_control import ExecutionStopped, check_exec
 from corpus_structure.core.work import PhysicalRetirementUncertain
 
 pytestmark = pytest.mark.skipif(
-    not hasattr(socket, "SO_PEERCRED"), reason="the managed control route uses Linux peer credentials"
+    not hasattr(socket, "SO_PEERCRED"),
+    reason="the managed control route uses Linux peer credentials",
 )
 
 
@@ -42,7 +43,7 @@ def test_running_stop_uses_the_managed_owner_and_reports_custody(tmp_path, monke
                     if uncertain:
                         raise PhysicalRetirementUncertain("fixture remains owned") from error
                     raise
-        except (ExecutionStopped, PhysicalRetirementUncertain):
+        except ExecutionStopped, PhysicalRetirementUncertain:
             return
         except BaseException as error:
             failures.append(error)
@@ -52,7 +53,9 @@ def test_running_stop_uses_the_managed_owner_and_reports_custody(tmp_path, monke
     try:
         result = ready.get(timeout=10)
         monkeypatch.setattr("corpus_structure.cli.managed.result_store", lambda _ctx: store)
-        invocation = CliRunner().invoke(app, ["stop", result, "--reason", "controlled test", "--json"])
+        invocation = CliRunner().invoke(
+            app, ["stop", result, "--reason", "controlled test", "--json"]
+        )
         assert invocation.exit_code == 0, invocation.output
         assert json.loads(invocation.output)["state"] == "stop_requested"
         assert stop_result(store, result, "repeat").state == "stop_requested"

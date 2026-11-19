@@ -27,8 +27,12 @@ if TYPE_CHECKING:
 _MAX_MESSAGE = 8192
 _OWNER_FIELD = "execution_control"
 _State = Literal[
-    "stop_requested", "draining", "confirmed_retirement", "unresolved_custody",
-    "already_terminal", "unavailable",
+    "stop_requested",
+    "draining",
+    "confirmed_retirement",
+    "unresolved_custody",
+    "already_terminal",
+    "unavailable",
 ]
 
 
@@ -59,9 +63,14 @@ class StopReport(_Model):
 
 def _peer(endpoint: socket.socket) -> tuple[int, int]:
     size = struct.calcsize("3i")
-    pid, uid, _gid = struct.unpack("3i", endpoint.getsockopt(
-        socket.SOL_SOCKET, socket.SO_PEERCRED, size,
-    ))
+    pid, uid, _gid = struct.unpack(
+        "3i",
+        endpoint.getsockopt(
+            socket.SOL_SOCKET,
+            socket.SO_PEERCRED,
+            size,
+        ),
+    )
     return pid, uid
 
 
@@ -128,7 +137,7 @@ def stoppable_invocation(invocation: Invocation):
                             next_action=f"ci results show {owner.result}",
                         )
                         endpoint.sendall(report.model_dump_json().encode())
-                    except (OSError, ValidationError):
+                    except OSError, ValidationError:
                         continue
 
         listener_thread = Thread(target=listen, name="managed-execution-control")
@@ -179,13 +188,16 @@ def stop_result(store: ResultStore, result: str, reason: str) -> StopReport:
             with socket.socket(socket.AF_UNIX, socket.SOCK_SEQPACKET) as endpoint:
                 endpoint.settimeout(2)
                 endpoint.connect("\0" + owner.address)
-                if _peer(endpoint) != (owner.pid, owner.uid) or _started(owner.pid) != owner.started:
+                if (
+                    _peer(endpoint) != (owner.pid, owner.uid)
+                    or _started(owner.pid) != owner.started
+                ):
                     return observed()
                 request = _Stop(owner=owner, reason=safe_text(reason))
                 endpoint.sendall(request.model_dump_json().encode())
                 report = StopReport.model_validate_json(endpoint.recv(_MAX_MESSAGE + 1))
                 if report.result == result and report.state in {"stop_requested", "draining"}:
                     return report
-        except (OSError, ValueError, IndexError):
+        except OSError, ValueError, IndexError:
             return observed()
         return observed()

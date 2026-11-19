@@ -215,7 +215,9 @@ def inspect_result(
                 else "native_request"
             )
         elif has_context:
-            unavailable_reason = "Captured recovery inputs become available when this invocation settles."
+            unavailable_reason = (
+                "Captured recovery inputs become available when this invocation settles."
+            )
         elif manifest.action in {"run", "run.resume", "ingest", "demands.execute"}:
             unavailable_reason = "No execution context was captured; exact source root and execution policy are required for direct demand recovery."
         actions = [

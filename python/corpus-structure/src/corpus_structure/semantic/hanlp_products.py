@@ -625,6 +625,7 @@ def hanlp_execution_custody(selection=None):
                 provider_profile=hanlp_provider_attestation(selection),
             )
         ),
+        runtime_transport=True,
     )
 
 

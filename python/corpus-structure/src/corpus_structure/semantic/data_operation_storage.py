@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from .data_operation_model import EffectiveDataOperationModel
     from .types import PreparedRelease
 
+
 class DataOperationStorage(DataOperationCalls):
     """Connection-scoped invocation; transaction and commit custody stay with the caller."""
 
