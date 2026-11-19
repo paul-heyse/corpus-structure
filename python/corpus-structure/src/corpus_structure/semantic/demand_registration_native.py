@@ -20,7 +20,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, array, insert
 
-from .native_objects import native_sql_script
+from corpus_structure.schema.integrity import role_name
+
+from .data_operation_native_identity import native_identity_field
+from .native_objects import INTERNAL_PROGRAM, native_sql_script
 from .native_program import (
     Assign,
     Block,
@@ -28,6 +31,7 @@ from .native_program import (
     GetRowCount,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     PerformQuery,
@@ -37,9 +41,9 @@ from .native_program import (
     Sql,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 
 
 def _json(value):
@@ -343,7 +347,7 @@ def _authorize_selection(model, selection, release):
     )
 
 
-def _demand_registration(model: MetaData, lowering_digest: str) -> str:
+def _demand_registration(model: MetaData) -> NativeRoutine:
     demand = model.tables["ops.data_demand"]
     project = model.tables["data.project"]
     release_row = model.tables["sem.data_operation_release"]
@@ -559,7 +563,7 @@ def _demand_registration(model: MetaData, lowering_digest: str) -> str:
             else_=func.jsonb_build_object("state", "cancelled"),
         )
     )
-    return function(
+    return NativeRoutine(
         "ops",
         "register_data_demand",
         parameters=(Parameter("p_payload", pg_type("jsonb")),),
@@ -599,7 +603,8 @@ def _demand_registration(model: MetaData, lowering_digest: str) -> str:
                         .select_from(release_row)
                         .where(
                             matches_release(release_row),
-                            release_row.c.lowering_digest == lowering_digest,
+                            release_row.c.lowering_digest
+                            == native_identity_field("lowering_digest"),
                             release_row.c.model_digest == selection["model"].astext,
                         )
                         .exists(),
@@ -673,7 +678,7 @@ def _demand_registration(model: MetaData, lowering_digest: str) -> str:
     )
 
 
-def _cancel_demand(model: MetaData) -> str:
+def _cancel_demand(model: MetaData) -> NativeRoutine:
     from sqlalchemy import any_, update
     from sqlalchemy.dialects.postgresql import ARRAY
     from sqlalchemy.types import NullType
@@ -783,7 +788,7 @@ def _cancel_demand(model: MetaData) -> str:
     reason_stored = _owned_row("cancellation", cancellations, "reason")
     array_type = pg_type("text")
     array_type.arrayBounds = (ast.Integer(ival=-1),)
-    return function(
+    return NativeRoutine(
         "ops",
         "cancel_data_demand",
         parameters=(Parameter("p_payload", pg_type("jsonb")),),
@@ -963,7 +968,7 @@ def _cancel_demand(model: MetaData) -> str:
     )
 
 
-def _record_fate(model: MetaData, recordable_fates: tuple[str, ...]) -> str:
+def _record_fate(model: MetaData, recordable_fates: tuple[str, ...]) -> NativeRoutine:
     demands = model.tables["ops.data_demand"]
     obligations = model.tables["ops.data_obligation"]
     uses = model.tables["ops.demand_use"]
@@ -990,7 +995,7 @@ def _record_fate(model: MetaData, recordable_fates: tuple[str, ...]) -> str:
         .join(roles, true())
         .join(kinds, kinds.c.kind_contract == roles.c.value["kind_contract"].astext)
     )
-    return function(
+    return NativeRoutine(
         "ops",
         "record_data_fate",
         parameters=(Parameter("p_payload", pg_type("jsonb")),),
@@ -1065,20 +1070,35 @@ def _record_fate(model: MetaData, recordable_fates: tuple[str, ...]) -> str:
     )
 
 
-def demand_intent_sql(model: MetaData, *, lowering_digest: str, protocol: bytes) -> str:
+def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[ProgramDeclaration, ...]:
     from .data_operation_protocol import protocol_value_sets
 
-    return native_sql_script(
-        (
-            _demand_registration(model, lowering_digest),
-            _cancel_demand(model),
-            _record_fate(model, protocol_value_sets(protocol)["RecordableFate"]),
-            _close_population(model),
+    routines = (
+        _demand_registration(model),
+        _cancel_demand(model),
+        _record_fate(model, protocol_value_sets(protocol)["RecordableFate"]),
+        _close_population(model),
+    )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
         )
+        for routine in routines
     )
 
 
-def _close_population(model: MetaData) -> str:
+def demand_intent_sql(model: MetaData, *, protocol: bytes) -> str:
+    """Render captured intent programs before the owning wire-name projection."""
+    return native_sql_script(
+        declaration.routine.render()
+        for declaration in demand_intent_programs(model, protocol=protocol)
+    )
+
+
+def _close_population(model: MetaData) -> NativeRoutine:
     from sqlalchemy.dialects.postgresql import aggregate_order_by
 
     demand = model.tables["ops.data_demand"]
@@ -1316,7 +1336,7 @@ def _close_population(model: MetaData) -> str:
         )
         .on_conflict_do_nothing()
     )
-    return function(
+    return NativeRoutine(
         "ops",
         "close_data_population",
         parameters=(Parameter("p_payload", pg_type("jsonb")),),

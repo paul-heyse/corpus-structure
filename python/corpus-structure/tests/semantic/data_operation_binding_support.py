@@ -508,6 +508,8 @@ def discover(
     values=(5, 15, 25),
     inference="inference:test",
     member_contexts=None,
+    member_ids=None,
+    child_input_role=None,
     member_body_contexts=None,
     additional_discovery_targets=(),
     additional_roots=(),
@@ -536,7 +538,11 @@ def discover(
         targets=("urn:consumer",),
         inference=inference,
         execution_profile="execution:test",
-        discovery=(DiscoverySelection("urn:discover", "result", "urn:child", "all-items"),)
+        discovery=(
+            DiscoverySelection(
+                "urn:discover", "result", "urn:child", "all-items", child_input_role
+            ),
+        )
         + tuple(
             DiscoverySelection("urn:discover", "result", target, "all-items")
             for target in additional_discovery_targets
@@ -630,7 +636,7 @@ def discover(
     ]
     packets = [
         {
-            "member_id": f"m{value}",
+            "member_id": member_ids[position] if member_ids is not None else f"m{value}",
             "kind_contract": sample_kind,
             "context": {
                 "subject_definition": ddo_kernel["model"].operation("urn:child").subject,
@@ -662,7 +668,9 @@ def discover(
                         "outcome": "success",
                         "inputs": [],
                         "support": [],
-                        "implementation_revision": "native-test-source-v1",
+                        "implementation_revision": ddo_kernel["model"]
+                        .operation("urn:discover")
+                        .behavior,
                         "outputs": [
                             {
                                 "role": "result",

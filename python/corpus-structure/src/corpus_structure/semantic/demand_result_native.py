@@ -20,6 +20,7 @@ from sqlalchemy.types import NullType
 
 from corpus_structure.schema.integrity import role_name
 
+from .data_operation_native_identity import native_identity_field
 from .data_operation_projections import (
     read_access_universes,
     read_page,
@@ -38,13 +39,14 @@ from .demand_registration_native import (
     _required,
     _xid,
 )
-from .native_objects import native_sql_script
+from .native_objects import INTERNAL_PROGRAM, native_sql_script
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     PerformQuery,
     Raise,
@@ -53,9 +55,9 @@ from .native_program import (
     Sql,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 from .support_trust_native import trust_snapshot_changed
 
 
@@ -64,7 +66,7 @@ def _exact_row(table, *conditions):
 
 
 def _endpoint(name, body, locals_, *, request=True):
-    return function(
+    return NativeRoutine(
         "ops",
         name,
         parameters=(Parameter("p_payload", pg_type("jsonb")),) if request else (),
@@ -76,7 +78,7 @@ def _endpoint(name, body, locals_, *, request=True):
     )
 
 
-def _read_demand_result(model, kernel_digest):
+def _read_demand_result(model):
     demand = model.tables["ops.data_demand"]
     read = model.tables["ops.data_demand_read"]
     read_scope = model.tables["ops.data_demand_read_scope"]
@@ -222,7 +224,7 @@ def _read_demand_result(model, kernel_digest):
                         ).select_from(scope_rows),
                         ("acquired_scopes",),
                     ),
-                    Assign(("boundary", "kernel_digest"), literal(kernel_digest)),
+                    Assign(("boundary", "kernel_digest"), native_identity_field("read_closure")),
                     ForQuery(
                         ("scope_key",),
                         select(fact["scope"].astext).order_by(fact["scope"].astext),
@@ -467,21 +469,35 @@ def _revoke_support(model):
     )
 
 
-def demand_result_sql(model: MetaData, *, kernel_digest: str) -> str:
-    return native_sql_script(
-        (
-            _revoke_support(model),
-            _endpoint(
-                "ddo_result_bytes_refusal",
-                (
-                    Raise(
-                        "native product page exceeds max_bytes; reduce the page limit or select a larger explicit bound",
-                        "P0001",
-                    ),
+def demand_result_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
+    routines = (
+        _revoke_support(model),
+        _endpoint(
+            "ddo_result_bytes_refusal",
+            (
+                Raise(
+                    "native product page exceeds max_bytes; reduce the page limit or select a larger explicit bound",
+                    "P0001",
                 ),
-                (),
-                request=False,
             ),
-            _read_demand_result(model, kernel_digest),
+            (),
+            request=False,
+        ),
+        _read_demand_result(model),
+    )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
         )
+        for routine in routines
+    )
+
+
+def demand_result_sql(model: MetaData) -> str:
+    """Render the captured result programs with an explicit kernel determinant."""
+    return native_sql_script(
+        declaration.routine.render() for declaration in demand_result_programs(model)
     )

@@ -51,10 +51,6 @@ def _typed_routine(schema, name, parameters, steps, *, locals_=(), **properties)
     )
 
 
-def _routine(schema, name, parameters, steps, *, locals_=(), **properties):
-    return _typed_routine(schema, name, parameters, steps, locals_=locals_, **properties).render()
-
-
 def _finite_float():
     value = core_variable("value", Text())
     exponent = core_variable("exponent", Integer())
@@ -170,7 +166,7 @@ def _principal_guards():
         Local("principal", pg_type("name"), func.session_user()),
         Local("owner_oid", pg_type("oid")),
     )
-    runtime = _routine(
+    runtime = _typed_routine(
         "data",
         "require_runtime_principal",
         (Parameter("purpose", pg_type("text")),),
@@ -238,7 +234,7 @@ def _principal_guards():
         locals_=(*principal_locals, Local("required_role", pg_type("text"))),
         security_definer=True,
     )
-    admission = _routine(
+    admission = _typed_routine(
         "sem",
         "require_admission_caller",
         (),
@@ -262,8 +258,8 @@ def _principal_guards():
 
 
 def closure_foundation_parts(target):
-    """Declare the independent archive/value programs and retained principal guard source."""
-    from .native_objects import INTERNAL_PROGRAM
+    """Declare the independent archive, value, and principal guard programs."""
+    from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
     from .native_program_registry import ProgramDeclaration
     from .types import SEMANTIC_ARCHIVE_FORMAT, SEMANTIC_COMPILER_VERSION, SEMANTIC_PROFILE_VERSIONS
 
@@ -411,7 +407,20 @@ def closure_foundation_parts(target):
         ),
         security_definer=True,
     )
-    return _principal_guards(), (
+    runtime, admission = _principal_guards()
+    return (
+        ProgramDeclaration(
+            runtime,
+            source="target-current:closure.sql",
+            owner=role_name("publisher"),
+            access=NativeProgramAccess(purposes=("read", "write", "evaluate", "admit")),
+        ),
+        ProgramDeclaration(
+            admission,
+            source="target-current:closure.sql",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        ),
         ProgramDeclaration(
             archive_check,
             source="target-current:release archive guards",
@@ -430,7 +439,6 @@ def closure_foundation_parts(target):
 def closure_native_parts(target):
     finalized = target.tables["sem.release_finalization"]
     deployments = target.tables["sem.deployment_admission"]
-    admissions = target.tables["sem.sql_admission"]
     projects = target.tables["data.project"]
     r = core_variable("r", finalized.c.release_id.type)
 
@@ -532,18 +540,6 @@ def closure_native_parts(target):
         ),
         "deployment admission replay differs",
     )
-    sql_admission = receipt(
-        admissions,
-        "record_sql_admission",
-        (
-            ("r", "release_id"),
-            ("ik", "input_kind"),
-            ("n", "input_name"),
-            ("p", "physical_id"),
-            ("c", "content"),
-        ),
-        "SQL admission replay differs",
-    )
     project = core_variable("p", projects.c.project_id.type)
     parent = core_variable("parent", projects.c.active_release_id.type)
     generation = core_variable("g", projects.c.generation.type)
@@ -552,7 +548,7 @@ def closure_native_parts(target):
         (
             Perform(func.sem.require_admission_caller()),
             finalized_guard(),
-            Perform(func.data.require_execution_release(r)),
+            Perform(func.data.prove_execution_release(r)),
             SelectInto(
                 update(projects)
                 .where(
@@ -576,10 +572,10 @@ def closure_native_parts(target):
         returns=column_type(projects.c.generation),
         locals_=(Local("result", column_type(projects.c.generation)),),
     )
-    from .native_objects import INTERNAL_PROGRAM
+    from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
     from .native_program_registry import ProgramDeclaration
 
-    intrinsic_programs = tuple(
+    return tuple(
         ProgramDeclaration(
             routine,
             source="target-current:closure-native.sql",
@@ -587,7 +583,12 @@ def closure_native_parts(target):
             access=INTERNAL_PROGRAM,
         )
         for routine in (immutable, intrinsic)
-    )
-    return intrinsic_programs, tuple(
-        routine.render() for routine in (deployment, sql_admission, activation)
+    ) + tuple(
+        ProgramDeclaration(
+            routine,
+            source="target-current:closure-native.sql",
+            owner=role_name("publisher"),
+            access=NativeProgramAccess(purposes=("admit",)),
+        )
+        for routine in (deployment, activation)
     )

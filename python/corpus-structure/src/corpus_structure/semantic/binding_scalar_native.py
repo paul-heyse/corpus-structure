@@ -17,23 +17,25 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, array
 
 from .binding_primitives import BINDING_PRIMITIVE_ALIASES, BINDING_PRIMITIVES
+from .binding_recursive_native import _binding_declarations, _render_binding_programs
 from .native_program import (
     Assign,
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
     Return,
     SelectInto,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 
 
-def scalar_binding_native_sql():
+def _scalar_binding_native_routines():
     context = core_variable("context", JSONB())
     declared = core_variable("declared", Text())
     kind = core_variable("kind", Text())
@@ -54,7 +56,7 @@ def scalar_binding_native_sql():
     null_value = cast(literal("null"), JSONB())
 
     def routine(name, params, steps, *, returns="jsonb", locals_=(), strict=False):
-        return function(
+        return NativeRoutine(
             "ops",
             name,
             parameters=tuple(Parameter(key, pg_type(type_)) for key, type_ in params),
@@ -334,4 +336,13 @@ def scalar_binding_native_sql():
         ),
         locals_=(Local("expected", pg_type("text"), normalize_tag(kind)),),
     )
-    return ";\n".join((type_resolution, scalar, compare, typed)) + ";\n"
+    return type_resolution, scalar, compare, typed
+
+
+def scalar_binding_native_programs() -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations(_scalar_binding_native_routines())
+
+
+def scalar_binding_native_sql() -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(scalar_binding_native_programs(), separator="")

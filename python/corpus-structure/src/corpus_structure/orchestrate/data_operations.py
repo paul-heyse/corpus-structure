@@ -15,6 +15,7 @@ from contextlib import contextmanager, nullcontext
 from contextvars import copy_context
 from dataclasses import dataclass, field
 from datetime import datetime
+from hashlib import sha256
 from pathlib import Path
 from threading import Event, Lock, Thread
 from time import monotonic
@@ -37,12 +38,14 @@ from corpus_structure.semantic._data_operation_wire import (
     WireClaimDataRequestsClaimedResult,
     WireClaimDataRequestsRequest,
     WireCompletion,
+    WireRetainDataCompletionIntentRequest,
     wire_attempt_fence,
 )
 from corpus_structure.semantic.claim_lifetime import (
     ClaimFenceLost,
     ClaimSettlementUncertain,
 )
+from corpus_structure.semantic.completion_drafts import SUPPORTED_OPERATIONS, CompletionDraftStore
 from corpus_structure.semantic.cpu_execution import (
     CapacityExceeded,
     OwnedByteBudget,
@@ -646,6 +649,7 @@ class NativeDemandExecutor:
         host_run=None,
         execution_basis=None,
         native_io=None,
+        completion_drafts: CompletionDraftStore | None = None,
     ):
         if runtime.release_id != prepared.release_id:
             raise ValueError("runtime belongs to another release")
@@ -664,6 +668,8 @@ class NativeDemandExecutor:
         )
         self._contexts = {basis.key: self._target_context}
         self.source_root = source_root
+        self.completion_drafts = completion_drafts
+        self._draft_origins = {}
         self.model = self._target_context.model
         self.runtime_locations = runtime_locations
         self.schema = schema
@@ -1044,16 +1050,83 @@ class NativeDemandExecutor:
                 f"{self.policy.max_reply_bytes}-byte reply limit"
             )
 
-        def retain(calls):
-            return calls.retain_data_completion_intent(
-                {
-                    **claim.fence,
-                    "runtime_id": RuntimeId(claim.runtime_id),
-                    "completion": cast(WireCompletion, completion),
-                }
+        request: WireRetainDataCompletionIntentRequest = {
+            **claim.fence,
+            "runtime_id": RuntimeId(claim.runtime_id),
+            "completion": cast(WireCompletion, completion),
+        }
+        if self.completion_drafts is not None and ready.operation in SUPPORTED_OPERATIONS:
+            from dataclasses import asdict
+
+            draft = self.completion_drafts.acknowledge(
+                request,
+                release_id=claim.release_id,
+                operation=ready.operation,
+                basis=json_bytes(
+                    dict(
+                        execution_origin=self._draft_origins[(claim.task_id, claim.attempt)][
+                            "origin_id"
+                        ],
+                        identity={
+                            name: {"bytes": value.hex()} if isinstance(value, bytes) else value
+                            for name, value in asdict(port.identity).items()
+                        },
+                        binding=wire_json_loads(ready.binding),
+                        runtime_manifest_sha256=sha256(context.basis.runtime.manifest).hexdigest(),
+                        runtime_archive_sha256=sha256(context.basis.runtime.archive).hexdigest(),
+                    )
+                ),
+                check_active=lambda: owner.check_claim(claim),
             )
+            request = cast(WireRetainDataCompletionIntentRequest, draft.native_request())
+
+        def retain(calls):
+            return calls.retain_data_completion_intent(request)
 
         return owner.retain(claim, retain)["intent_id"]
+
+    def _recover_answer(self, ready, claim, owner):
+        """Native authority selects whether privately acknowledged bytes may be used."""
+        if self.completion_drafts is None or ready.operation not in SUPPORTED_OPERATIONS:
+            return None
+        from sqlalchemy.exc import DBAPIError
+
+        origins = self._draft_origins[(claim.task_id, claim.attempt)]
+        for candidate in origins["candidates"]:
+            for draft in self.completion_drafts.candidates(
+                candidate["request_id"], candidate["generation"]
+            ):
+                if wire_json_loads(draft.basis).get("execution_origin") != candidate["origin_id"]:
+                    continue
+                original = draft.native_request()
+
+                def consume(calls, *, candidate=candidate, draft=draft, original=original):
+                    return calls.consume_data_completion_draft(
+                        {
+                            **claim.fence,
+                            "origin_id": candidate["origin_id"],
+                            "draft_id": draft.identity,
+                            "completion": original["completion"],
+                        }
+                    )
+
+                try:
+                    return owner.retain(claim, consume)["intent_id"]
+                except DBAPIError as error:
+                    if getattr(error.orig, "sqlstate", None) not in {"P0001", "P0002", "23514"}:
+                        raise
+
+                    # A definitive candidate refusal rolled back its entire
+                    # transaction. Reuse the native renewal owner to establish
+                    # current authority before any fresh computation. Ambiguous
+                    # commit custody is ClaimSettlementUncertain and never enters
+                    # this DBAPI refusal branch.
+                    def current(calls):
+                        return calls.renew_data_request({**claim.fence, "lease_seconds": 300})
+
+                    if owner.retain(claim, current)["state"] != "renewed":
+                        raise
+        return None
 
     @staticmethod
     def _drop_hydration(physical, ready):
@@ -1155,6 +1228,18 @@ class NativeDemandExecutor:
                         "native reconciliation claim no longer has a retained intent"
                     )
                     continue
+                if (
+                    self.completion_drafts is not None
+                    and prepared.ready.operation in SUPPORTED_OPERATIONS
+                ):
+                    self._draft_origins[(prepared.claim.task_id, prepared.claim.attempt)] = (
+                        connection.calls.register_data_execution_origin(
+                            {
+                                **prepared.claim.fence,
+                                "runtime_id": RuntimeId(prepared.claim.runtime_id),
+                            }
+                        )
+                    )
                 if physical is None or claimed["action"] == "reconcile":
                     continue
                 context = self._execution_context(prepared.claim)
@@ -1361,6 +1446,8 @@ class NativeDemandExecutor:
                 raise ValueError("native claim state differs from active claim")
             if claimed["action"] == "reconcile":
                 receipt = self._reconcile(claim, claimed.get("retained_intent_id"), owner)
+            elif (recovered := self._recover_answer(ready, claim, owner)) is not None:
+                receipt = self._publish(claim, recovered, owner)
             elif (
                 self._execution_context(claim).model.operation(ready.operation).external is not None
             ):
@@ -1468,6 +1555,8 @@ class NativeDemandExecutor:
                         receipts.append(
                             self._reconcile(claim, claimed.get("retained_intent_id"), owner)
                         )
+                    elif (recovered := self._recover_answer(item, claim, owner)) is not None:
+                        receipts.append(self._publish(claim, recovered, owner))
                     else:
                         phase = "computation"
                         context = self._execution_context(claim)

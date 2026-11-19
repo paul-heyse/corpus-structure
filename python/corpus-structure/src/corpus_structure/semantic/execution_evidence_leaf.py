@@ -7,12 +7,15 @@ check its declared correspondence, not replay the undisclosed whole physical rep
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
 from ._data_operation_wire import WireAttemptFence, WireCompletion
 from .cpu_receipts import CPUExecutionReceipt
+
+if TYPE_CHECKING:
+    from .native_program_registry import ProgramDeclaration
 
 
 class NativeExecutionEvidenceLeaf(BaseModel):
@@ -254,27 +257,30 @@ def combine_execution_evidence_leaves(
     return result
 
 
-def execution_evidence_leaf_native_sql(model) -> str:
+def execution_evidence_leaf_native_programs(model) -> tuple[ProgramDeclaration, ...]:
     """Project one declared output while retaining its original private CPU proof."""
     from sqlalchemy import BigInteger, Text, and_, cast, column, func, literal, select
     from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
     from sqlalchemy.types import NullType
 
-    from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+    from corpus_structure.schema.integrity import role_name
+
+    from .native_objects import INTERNAL_PROGRAM
     from .native_program import (
         Assign,
         Block,
         If,
         Local,
+        NativeRoutine,
         Parameter,
         Raise,
         Return,
         SelectInto,
         core_relation_row,
         core_variable,
-        function,
         pg_type,
     )
+    from .native_program_registry import ProgramDeclaration
 
     episodes, requests, intents, receipts, products, outputs, uses, definitions = (
         model.tables[name]
@@ -363,7 +369,7 @@ def execution_evidence_leaf_native_sql(model) -> str:
         Parameter("selected_position", pg_type("int8")),
         Parameter("selected_use", pg_type("text")),
     )
-    program = function(
+    program = NativeRoutine(
         "ops",
         "ddo_cpu_execution_leaf",
         parameters=parameters,
@@ -586,7 +592,25 @@ def execution_evidence_leaf_native_sql(model) -> str:
             + (Local("member_index", pg_type("int8")), Local("result_field", pg_type("text"))),
         ),
     )
-    identity = NativeIdentity(
-        "function", "ops", "ddo_cpu_execution_leaf", ("text", "text", "text", "bigint", "text")
+    return (
+        ProgramDeclaration(
+            program,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        ),
     )
-    return native_sql_script((program, native_privilege_sql(identity, "PUBLIC", grant=False)))
+
+
+def execution_evidence_leaf_native_sql(model) -> str:
+    """Render the captured member projector and its existing private ACL projection."""
+    from .native_objects import native_privilege_sql, native_sql_script
+
+    return native_sql_script(
+        statement
+        for declaration in execution_evidence_leaf_native_programs(model)
+        for statement in (
+            declaration.routine.render(),
+            native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
+        )
+    )

@@ -1,17 +1,17 @@
 """Published-only bounded record access, composed into forward native authoring."""
 
-from pglast.stream import RawStream
 from sqlalchemy import BigInteger, MetaData, Numeric, Table, Text, cast, column, func, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.schema.integrity import role_name
 
 from .metadata import get_metadata
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import NativeProgramAccess, native_privilege_sql, native_sql_script
 from .native_program import (
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
@@ -19,17 +19,16 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration
 from .pdf_record_event_queries import (
     companion_event_query,
     companion_event_relation,
     native_event_query,
     native_event_relations,
 )
-from .pdf_record_pages_native import pdf_record_page_sql
+from .pdf_record_pages_native import pdf_record_page_programs, pdf_record_page_sql
 
 
 def pdf_record_reader_sql(*, target_metadata: MetaData | None = None) -> str:
@@ -37,7 +36,39 @@ def pdf_record_reader_sql(*, target_metadata: MetaData | None = None) -> str:
     return pdf_record_page_sql(model) + pdf_materialization_bound_sql(model)
 
 
-def _export_definition(model, name, product_parameter, query_builder, *, family=False):
+def pdf_record_reader_programs(
+    *, target_metadata: MetaData | None = None
+) -> tuple[ProgramDeclaration, ...]:
+    model = get_metadata() if target_metadata is None else target_metadata
+    return (*pdf_record_page_programs(model), *pdf_materialization_bound_programs(model))
+
+
+def _reader_program(routine: NativeRoutine) -> ProgramDeclaration:
+    return ProgramDeclaration(
+        routine,
+        "target-current:PDF publication",
+        role_name("publisher"),
+        NativeProgramAccess(purposes=("read", "write", "evaluate")),
+    )
+
+
+def _reader_sql(item: ProgramDeclaration) -> str:
+    return (
+        native_sql_script(
+            (
+                item.render(),
+                native_privilege_sql(item.identity, "PUBLIC", grant=False),
+                *(
+                    native_privilege_sql(item.identity, role, "execute")
+                    for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
+                ),
+            )
+        )
+        + "\n"
+    )
+
+
+def _export_program(model, name, product_parameter, query_builder, *, family=False):
     placement = model.tables["ops.pdf_published_revision"]
     fields = (
         ("p_task", placement.c.task_id),
@@ -55,7 +86,7 @@ def _export_definition(model, name, product_parameter, query_builder, *, family=
     returns = pg_type("jsonb")
     returns.setof = True
     query = query_builder(model, published)
-    definition = sql_function(
+    definition = NativeRoutine(
         "ops",
         name,
         parameters=parameters,
@@ -65,36 +96,27 @@ def _export_definition(model, name, product_parameter, query_builder, *, family=
         search_path=("pg_catalog", "pg_temp"),
         volatility="stable",
     )
-    identity = NativeIdentity(
-        "function", "ops", name, tuple(RawStream()(parameter.type_) for parameter in parameters)
-    )
-    return (
-        native_sql_script(
-            (
-                definition,
-                native_privilege_sql(identity, "PUBLIC", grant=False),
-                *(
-                    native_privilege_sql(identity, role, "execute")
-                    for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
-                ),
-            )
-        )
-        + "\n"
-    )
+    return _reader_program(definition)
 
 
-def pdf_native_export_sql(*, target_metadata: MetaData | None = None) -> str:
+def pdf_native_export_programs(
+    *, target_metadata: MetaData | None = None
+) -> tuple[ProgramDeclaration, ...]:
     """Read the ordered containment cursor for a published product."""
     model = get_metadata() if target_metadata is None else target_metadata
-    return _export_definition(
-        model,
-        "read_pdf_native_events",
-        "p_product",
-        lambda model, published: native_event_query(native_event_relations(model, published)),
+    return (
+        _export_program(
+            model,
+            "read_pdf_native_events",
+            "p_product",
+            lambda model, published: native_event_query(native_event_relations(model, published)),
+        ),
     )
 
 
-def pdf_companion_export_sql(*, target_metadata: MetaData | None = None) -> str:
+def pdf_companion_export_programs(
+    *, target_metadata: MetaData | None = None
+) -> tuple[ProgramDeclaration, ...]:
     """Read an exact companion, field and part cursor for a published product."""
 
     def query(model, published):
@@ -115,12 +137,12 @@ def pdf_companion_export_sql(*, target_metadata: MetaData | None = None) -> str:
         return companion_event_query(companion_event_relation(model, companions))
 
     model = get_metadata() if target_metadata is None else target_metadata
-    return _export_definition(
-        model, "read_pdf_companion_export_events", "p_key", query, family=True
+    return (
+        _export_program(model, "read_pdf_companion_export_events", "p_key", query, family=True),
     )
 
 
-def pdf_materialization_bound_sql(model: MetaData) -> str:
+def pdf_materialization_bound_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
     """Conservatively bound native and companion encoded inputs before transfer."""
     placement = model.tables["ops.pdf_published_revision"]
     task, product, digest = (
@@ -190,7 +212,7 @@ def pdf_materialization_bound_sql(model: MetaData) -> str:
     )
     total = core_variable("total", Numeric())
     name = "read_pdf_materialization_bound"
-    definition = function(
+    definition = NativeRoutine(
         "ops",
         name,
         parameters=(
@@ -215,17 +237,16 @@ def pdf_materialization_bound_sql(model: MetaData) -> str:
             (Local("published", placement), Local("total", pg_type("numeric"))),
         ),
     )
-    identity = NativeIdentity("function", "ops", name, ("bigint", "text", "text"))
-    return (
-        native_sql_script(
-            (
-                definition,
-                native_privilege_sql(identity, "PUBLIC", grant=False),
-                *(
-                    native_privilege_sql(identity, role, "execute")
-                    for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
-                ),
-            )
-        )
-        + "\n"
-    )
+    return (_reader_program(definition),)
+
+
+def pdf_native_export_sql(*, target_metadata: MetaData | None = None) -> str:
+    return _reader_sql(pdf_native_export_programs(target_metadata=target_metadata)[0])
+
+
+def pdf_companion_export_sql(*, target_metadata: MetaData | None = None) -> str:
+    return _reader_sql(pdf_companion_export_programs(target_metadata=target_metadata)[0])
+
+
+def pdf_materialization_bound_sql(model: MetaData) -> str:
+    return _reader_sql(pdf_materialization_bound_programs(model)[0])

@@ -25,6 +25,7 @@ from .native_program import (
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -32,12 +33,13 @@ from .native_program import (
     SelectInto,
     Sql,
     core_variable,
-    function,
     pg_type,
 )
 
 
-def attempt_release_native_sql(target, protocol: bytes, evidence_schema: bytes) -> str:
+def attempt_release_native_programs(
+    target, protocol: bytes, evidence_schema: bytes
+) -> tuple[NativeRoutine, ...]:
     definitions = yaml.safe_load(protocol)["definitions"]
     contract = definitions["release_data_attempt_request"]
     failure_contract = definitions["attempt_failure"]
@@ -57,6 +59,7 @@ def attempt_release_native_sql(target, protocol: bytes, evidence_schema: bytes) 
     task = target.tables["ops.task"]
     failures = target.tables["ops.data_attempt_failure"]
     intents = target.tables["ops.data_completion_intent"]
+    consumptions = target.tables["ops.data_draft_consumption"]
     products = target.tables["kb.data_product"]
     members = target.tables["kb.data_product_member"]
     p = core_variable("p", JSONB())
@@ -281,7 +284,7 @@ def attempt_release_native_sql(target, protocol: bytes, evidence_schema: bytes) 
         ),
     )
     return (
-        function(
+        NativeRoutine(
             "ops",
             "release_data_attempt",
             parameters=(Parameter("p_payload", pg_type("jsonb")),),
@@ -400,7 +403,18 @@ def attempt_release_native_sql(target, protocol: bytes, evidence_schema: bytes) 
                     ),
                     SelectInto(
                         select(intents.c.id).where(
-                            intents.c.request_id == rf("id"), intents.c.generation == generation
+                            intents.c.request_id == rf("id"),
+                            or_(
+                                intents.c.generation == generation,
+                                select(1)
+                                .select_from(consumptions)
+                                .where(
+                                    consumptions.c.intent_id == intents.c.id,
+                                    consumptions.c.request_id == rf("id"),
+                                    consumptions.c.generation == generation,
+                                )
+                                .exists(),
+                            ),
                         ),
                         ("retained",),
                     ),
@@ -443,6 +457,17 @@ def attempt_release_native_sql(target, protocol: bytes, evidence_schema: bytes) 
                     Local("question_request", pg_type("jsonb")),
                 ),
             ),
+        ),
+    )
+
+
+def attempt_release_native_sql(target, protocol: bytes, evidence_schema: bytes) -> str:
+    from .native_objects import native_sql_script
+
+    return (
+        native_sql_script(
+            routine.render()
+            for routine in attempt_release_native_programs(target, protocol, evidence_schema)
         )
-        + ";\n"
+        + "\n"
     )

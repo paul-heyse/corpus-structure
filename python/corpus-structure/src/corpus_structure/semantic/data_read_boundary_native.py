@@ -4,6 +4,7 @@ from pglast import ast, enums
 from sqlalchemy import Boolean, Text, and_, cast, column, exists, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB, array
 
+from .data_operation_native_identity import native_identity_field
 from .native_program import (
     Assign,
     Block,
@@ -11,6 +12,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     PerformQuery,
@@ -20,9 +22,7 @@ from .native_program import (
     call,
     column_type,
     core_variable,
-    function,
     pg_type,
-    sql_function,
     variable,
 )
 from .native_program import literal as pg_literal
@@ -36,7 +36,7 @@ def read_presentation_check(scope, public_disclosure):
     )
 
 
-def read_boundary_native_sql(target) -> str:
+def read_boundary_native_programs(target) -> tuple[NativeRoutine, ...]:
     reads = target.tables["ops.data_demand_read"]
     retained = target.tables["ops.data_demand_read_scope"]
     trust = target.tables["ops.data_trust_scope"]
@@ -59,7 +59,7 @@ def read_boundary_native_sql(target) -> str:
         return core_variable("admission", admissions.c[name].type, name)
 
     def sql(name, parameters, body, *, strict=False, definer=True):
-        return sql_function(
+        return NativeRoutine(
             "ops",
             name,
             parameters=parameters,
@@ -72,7 +72,7 @@ def read_boundary_native_sql(target) -> str:
         )
 
     def procedure(name, parameters, body, *, returns="jsonb", volatility=None):
-        return function(
+        return NativeRoutine(
             "ops",
             name,
             parameters=parameters,
@@ -95,7 +95,7 @@ def read_boundary_native_sql(target) -> str:
         select(
             and_(
                 read_field("id").is_not(None),
-                read_field("kernel_digest") == "__DDO_SOURCE_DIGEST__",
+                read_field("kernel_digest") == native_identity_field("read_closure"),
                 *(
                     read_field(name).is_not(None)
                     for name in (
@@ -320,4 +320,13 @@ def read_boundary_native_sql(target) -> str:
             )
         ),
     )
-    return ";\n".join((present, epochs, current, eligible, visible, valid)) + ";\n"
+    return (present, epochs, current, eligible, visible, valid)
+
+
+def read_boundary_native_sql(target) -> str:
+    from .native_objects import native_sql_script
+
+    return (
+        native_sql_script(routine.render() for routine in read_boundary_native_programs(target))
+        + "\n"
+    )

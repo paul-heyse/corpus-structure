@@ -20,15 +20,19 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import NullType
 
+from corpus_structure.schema.integrity import role_name
+
 from .data_operation_model import ReplicatePolicy
+from .data_operation_native_identity import native_identity_field
 from .demand_registration_native import _items, _json, _owned_row, _refusal
-from .native_objects import native_sql_script
+from .native_objects import INTERNAL_PROGRAM, native_sql_script
 from .native_program import (
     Block,
     Continue,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     PerformQuery,
@@ -36,10 +40,9 @@ from .native_program import (
     SelectInto,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration
 
 
 def _param(name, *datatype):
@@ -57,7 +60,7 @@ def _routine(
     definer=True,
     strict=False,
 ):
-    return function(
+    return NativeRoutine(
         "ops",
         name,
         parameters=params,
@@ -71,7 +74,7 @@ def _routine(
 
 
 def _query(name, params, kind, expression, *, strict=False):
-    return sql_function(
+    return NativeRoutine(
         "ops",
         name,
         parameters=params,
@@ -84,7 +87,7 @@ def _query(name, params, kind, expression, *, strict=False):
     )
 
 
-def _subject_authority(model, lowering_digest, scopes):
+def _subject_authority(model, scopes):
     definitions = model.tables["sem.data_operation_definition"]
     releases = model.tables["sem.data_operation_release"]
     subjects = model.tables["sem.data_subject_scope"]
@@ -135,7 +138,7 @@ def _subject_authority(model, lowering_digest, scopes):
                     or_(
                         _owned_row("facts", releases, "release_id").is_(None),
                         _owned_row("facts", releases, "lowering_digest").is_distinct_from(
-                            lowering_digest
+                            native_identity_field("lowering_digest")
                         ),
                     ),
                     "release facts require current authenticated re-lowering",
@@ -511,16 +514,31 @@ def _demand_authority(model):
     )
 
 
-def demand_authority_sql(
-    model: MetaData, *, lowering_digest: str, subject_scopes: tuple[str, ...]
-) -> str:
-    return native_sql_script(
-        (
-            *_subject_authority(model, lowering_digest, subject_scopes),
-            *_population_authority(model),
-            _bound_support(model),
-            *_demand_authority(model),
+def demand_authority_programs(
+    model: MetaData, *, subject_scopes: tuple[str, ...]
+) -> tuple[ProgramDeclaration, ...]:
+    routines = (
+        *_subject_authority(model, subject_scopes),
+        *_population_authority(model),
+        _bound_support(model),
+        *_demand_authority(model),
+    )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
         )
+        for routine in routines
+    )
+
+
+def demand_authority_sql(model: MetaData, *, subject_scopes: tuple[str, ...]) -> str:
+    """Render the existing capture with an explicit lowering determinant."""
+    return native_sql_script(
+        declaration.routine.render()
+        for declaration in demand_authority_programs(model, subject_scopes=subject_scopes)
     )
 
 

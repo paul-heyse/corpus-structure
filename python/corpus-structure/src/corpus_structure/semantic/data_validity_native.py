@@ -23,12 +23,15 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, array
 from sqlalchemy.types import NullType
 
-from .native_objects import native_sql_script
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM, native_sql_script
 from .native_program import (
     Assign,
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
@@ -37,12 +40,12 @@ from .native_program import (
     While,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
 from .native_program import (
     literal as pg_literal,
 )
+from .native_program_registry import ProgramDeclaration
 
 
 def _json(value):
@@ -72,7 +75,7 @@ def _exists(relation, *conditions):
 def _program(name, inputs, returns, body, locals_=(), *, columns=()):
     result = pg_type(returns)
     result.setof = bool(columns)
-    return function(
+    return NativeRoutine(
         "ops",
         name,
         parameters=inputs,
@@ -173,7 +176,7 @@ def _direct_program(model, parameters, kind, node_id):
     )
     from .validity_programs import family_validity
 
-    validity = family_validity(definitions, node_id)
+    validity = family_validity(model, definitions, node_id)
     producing = episodes.join(requests, requests.c.id == episodes.c.request_id)
     admitted_producer = _exists(
         producing.join(
@@ -497,7 +500,7 @@ def _closure_program(boundary, array_type, empty):
     )
 
 
-def data_validity_sql(model: MetaData) -> str:
+def data_validity_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
     parameters = (Parameter("p_kind", pg_type("text")), Parameter("p_id", pg_type("text")))
     demand_read = pg_type("ops", "data_demand_read")
     boundary = Parameter("boundary", demand_read, ast.A_Const(isnull=True))
@@ -520,19 +523,31 @@ def data_validity_sql(model: MetaData) -> str:
         .where(closure.c.kind == kind, closure.c.id == identity)
         .scalar_subquery()
     )
-    return native_sql_script(
-        (
-            _reference_program(model),
-            _edge_program(model, parameters, kind, identity),
-            _direct_program(
-                model, (*parameters, Parameter("boundary", demand_read)), kind, identity
-            ),
-            _closure_program(boundary, array_type, empty),
-            _program(
-                "ddo_node_valid",
-                (*parameters, boundary),
-                "bool",
-                (Return(func.coalesce(found, False)),),
-            ),
+    routines = (
+        _reference_program(model),
+        _edge_program(model, parameters, kind, identity),
+        _direct_program(model, (*parameters, Parameter("boundary", demand_read)), kind, identity),
+        _closure_program(boundary, array_type, empty),
+        _program(
+            "ddo_node_valid",
+            (*parameters, boundary),
+            "bool",
+            (Return(func.coalesce(found, False)),),
+        ),
+    )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
         )
+        for routine in routines
+    )
+
+
+def data_validity_sql(model: MetaData) -> str:
+    """Render the captured model-owned validity graph programs."""
+    return native_sql_script(
+        declaration.routine.render() for declaration in data_validity_programs(model)
     )

@@ -6,12 +6,18 @@ from sqlalchemy.dialects.postgresql import JSONB, insert
 from corpus_structure.schema.integrity import role_name
 
 from .metadata import get_metadata
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import (
+    INTERNAL_PROGRAM,
+    NativeProgramAccess,
+    native_privilege_sql,
+    native_sql_script,
+)
 from .native_program import (
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -20,13 +26,15 @@ from .native_program import (
     Sql,
     column_type,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 from .pdf_domain import CONTRACT, HELPER_CONTRACT, PREFIX, pdf_domain_sources
 
 
-def pdf_domain_native_sql(*, sources=None, target_metadata=None) -> str:
+def pdf_domain_native_programs(
+    *, sources=None, target_metadata=None
+) -> tuple[ProgramDeclaration, ...]:
     model = get_metadata() if target_metadata is None else target_metadata
     captured = pdf_domain_sources() if sources is None else sources
     digest = next(source.digest for source in captured if source.name == CONTRACT)
@@ -67,7 +75,7 @@ def pdf_domain_native_sql(*, sources=None, target_metadata=None) -> str:
     release_parameter = Parameter("p_release", column_type(inputs.c.release_id))
     policy = ("pg_catalog", "pg_temp")
 
-    read = function(
+    read = NativeRoutine(
         "ops",
         "pdf_contract_input",
         parameters=(release_parameter, Parameter("p_name", column_type(inputs.c.input_name))),
@@ -136,7 +144,7 @@ def pdf_domain_native_sql(*, sources=None, target_metadata=None) -> str:
         )
         .exists()
     )
-    admit = function(
+    admit = NativeRoutine(
         "sem",
         "admit_pdf_operation_contracts",
         parameters=(release_parameter, Parameter("p_new_release", pg_type("bool"))),
@@ -211,7 +219,7 @@ def pdf_domain_native_sql(*, sources=None, target_metadata=None) -> str:
         ),
     )
 
-    require = function(
+    require = NativeRoutine(
         "ops",
         "require_pdf_operation",
         parameters=(
@@ -242,28 +250,37 @@ def pdf_domain_native_sql(*, sources=None, target_metadata=None) -> str:
             ),
         ),
     )
-    read_id = NativeIdentity("function", "ops", "pdf_contract_input", ("text", "text"))
-    admit_id = NativeIdentity(
-        "function", "sem", "admit_pdf_operation_contracts", ("text", "boolean")
+    return (
+        ProgramDeclaration(
+            read, "authoring/pdf-domain.sql", role_name("publisher"), INTERNAL_PROGRAM
+        ),
+        ProgramDeclaration(
+            admit, "authoring/pdf-domain.sql", role_name("publisher"), INTERNAL_PROGRAM
+        ),
+        ProgramDeclaration(
+            require,
+            "authoring/pdf-domain.sql",
+            role_name("publisher"),
+            NativeProgramAccess(purposes=("write", "read", "admit", "evaluate")),
+        ),
     )
-    require_id = NativeIdentity("function", "ops", "require_pdf_operation", ("text", "text"))
+
+
+def pdf_domain_native_sql(*, sources=None, target_metadata=None) -> str:
     return (
         native_sql_script(
-            (
-                read,
-                native_privilege_sql(read_id, "PUBLIC", grant=False),
-                admit,
-                native_privilege_sql(admit_id, "PUBLIC", grant=False),
-                require,
-                native_privilege_sql(require_id, "PUBLIC", grant=False),
+            statement
+            for program in pdf_domain_native_programs(
+                sources=sources, target_metadata=target_metadata
+            )
+            for statement in (
+                program.routine.render(),
+                native_privilege_sql(program.identity, "PUBLIC", grant=False),
                 *(
-                    native_privilege_sql(require_id, role, "execute")
-                    for role in (
-                        role_name("writer"),
-                        role_name("reader"),
-                        role_name("admitter"),
-                        role_name("evaluator"),
+                    native_privilege_sql(
+                        program.identity, role, privilege.lower(), grant_option=option
                     )
+                    for role, privilege, option in program.access.grants(program.owner)
                 ),
             )
         )

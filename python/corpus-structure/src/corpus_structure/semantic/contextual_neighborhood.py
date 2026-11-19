@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from .contextual_numerics import default_retrieval_numerics
 from .contextual_operations import _PROFILE, _VECTORS, admitted_contextual_inventory
 from .identity import canonical_bytes
+from .native_program_registry import ProgramDeclaration
 from .types import SourceArtifact
 
 
@@ -67,7 +68,7 @@ def neighborhood_numerical_asset(policy=None):
     )
 
 
-def contextual_neighborhood_sql() -> str:
+def contextual_neighborhood_programs() -> tuple[ProgramDeclaration, ...]:
     """Compile exact mutual cosine neighborhoods over the retained typed JSON frame."""
     from decimal import Decimal
 
@@ -77,12 +78,15 @@ def contextual_neighborhood_sql() -> str:
     from sqlalchemy import case, distinct, exists, literal, literal_column, true
     from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION, aggregate_order_by
 
+    from corpus_structure.schema.integrity import role_name
+
+    from .native_objects import INTERNAL_PROGRAM
     from .native_program import (
+        NativeRoutine,
         Parameter,
         call,
         core_variable,
         pg_type,
-        sql_function,
         variable,
     )
     from .native_program import (
@@ -293,7 +297,7 @@ def contextual_neighborhood_sql() -> str:
             )
         )
     ).select_from(coverage)
-    return sql_function(
+    routine = NativeRoutine(
         "ops",
         "contextual_mutual_neighbors",
         parameters=tuple(
@@ -304,6 +308,19 @@ def contextual_neighborhood_sql() -> str:
         volatility="stable",
         search_path=("pg_catalog", "pg_temp"),
     )
+    return (
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        ),
+    )
+
+
+def contextual_neighborhood_sql() -> str:
+    """Render the captured kernel from its typed declaration."""
+    return contextual_neighborhood_programs()[0].routine.render()
 
 
 def neighborhood_kernel_asset():

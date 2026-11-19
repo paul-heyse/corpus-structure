@@ -55,3 +55,30 @@ enums:
         annotations: {cs:role: corpus_sem_admitter}
       maintenance:
         annotations: {cs:no_role: true}
+  PrivilegedEffect:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      native-rich-knowledge-admission:
+        annotations:
+          cs:purposes: {tag: 'cs:purposes', value: [write]}
+          cs:authorization: {tag: 'cs:authorization', value: [exact-rich-consolidation-and-record-policy]}
+          cs:idempotency: request-generation/exact-input-population
+          cs:fulfillment: native-publication-receipt
+      native-evaluator-policy-authorization:
+        annotations:
+          cs:purposes: {tag: 'cs:purposes', value: [evaluate]}
+          cs:authorization: {tag: 'cs:authorization', value: ['native-purpose:evaluate', exact-protected-policy-basis]}
+          cs:idempotency: request-generation/exact-instance
+          cs:fulfillment: native-publication-receipt
+      native-evaluator-structural-admission:
+        annotations:
+          cs:purposes: {tag: 'cs:purposes', value: [evaluate]}
+          cs:authorization: {tag: 'cs:authorization', value: ['native-purpose:evaluate', exact-protected-structural-adjudication]}
+          cs:idempotency: request-generation/exact-structural-statement
+          cs:fulfillment: native-publication-receipt
+      native-evaluator-operation-event-authorization:
+        annotations:
+          cs:purposes: {tag: 'cs:purposes', value: [evaluate]}
+          cs:authorization: {tag: 'cs:authorization', value: ['native-purpose:evaluate', exact-protected-operation-event-fit]}
+          cs:idempotency: request-generation/exact-fit
+          cs:fulfillment: native-publication-receipt

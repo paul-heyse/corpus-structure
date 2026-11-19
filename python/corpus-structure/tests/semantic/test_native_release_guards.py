@@ -12,13 +12,20 @@ from sqlalchemy.schema import CreateSchema
 
 from corpus_structure.semantic.native_admission import catalog_checks
 from corpus_structure.semantic.native_admission_release import (
-    native_receipt_admission,
+    deployment_receipt,
     release_preconditions,
 )
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.native_products import admission_kernel, function_bodies
-from corpus_structure.semantic.native_program import Block, Do, Local, Parameter, function, pg_type
-from native_test_support import principal_engine
+from corpus_structure.semantic.native_program import (
+    Block,
+    Do,
+    If,
+    Local,
+    Parameter,
+    function,
+    pg_type,
+)
 
 
 @pytest.fixture
@@ -38,6 +45,14 @@ def release_guard_context(infrastructure_commit_engine):
         Column("content", BYTEA),
         schema="sem",
     )
+    Table(
+        "artifact",
+        metadata,
+        Column("release_id", Text, primary_key=True),
+        Column("artifact_name", Text, primary_key=True),
+        Column("content", BYTEA),
+        schema="sem",
+    )
     with infrastructure_commit_engine.begin() as connection:
         connection.execute(CreateSchema("sem"))
         connection.execute(CreateSchema("data"))
@@ -46,19 +61,21 @@ def release_guard_context(infrastructure_commit_engine):
         connection.exec_driver_sql("""
             CREATE FUNCTION sem.require_execution_projection(text) RETURNS void LANGUAGE plpgsql AS $$ BEGIN RETURN; END $$;
             CREATE FUNCTION data.execution_contract_descriptor() RETURNS jsonb LANGUAGE sql AS $$ SELECT '{"physical_id":"physical-control"}'::jsonb $$;
+            CREATE FUNCTION sem.data_operation_native_descriptor() RETURNS jsonb LANGUAGE sql AS $$ SELECT '{"source_digest":"installed-kernel"}'::jsonb $$;
             CREATE FUNCTION sem.record_deployment_admission(text,text,text,text,bytea) RETURNS void LANGUAGE sql AS $$
             INSERT INTO sem.deployment_admission(release_id,physical_id,deployment_id,kind,content) VALUES($1,$2,$3,$4,$5) $$;
         """)
+        recorded, record = deployment_receipt(metadata)
         connection.exec_driver_sql(
             function(
                 "public",
                 "admission_receipt_control",
                 parameters=tuple(
                     Parameter(name, pg_type(kind))
-                    for name, kind in (("r", "text"), ("expected", "jsonb"), ("owner_name", "text"))
+                    for name, kind in (("r", "text"), ("expected", "jsonb"))
                 ),
                 returns=pg_type("void"),
-                body=Block(native_receipt_admission(metadata)),
+                body=Block((If(~recorded, (record,)),)),
                 security_definer=True,
                 search_path=("pg_catalog", "pg_temp"),
             )
@@ -90,11 +107,27 @@ def test_release_preconditions_preserve_finalization_and_unknown_release_refusal
             execute_native_sql(connection, program)
         connection.execute(release.insert().values(release_id="release-control"))
         execute_native_sql(connection, program)
+        artifacts = metadata.tables["sem.artifact"]
+        connection.execute(
+            artifacts.insert(),
+            [
+                {
+                    "release_id": "release-control",
+                    "artifact_name": "data_operations.json",
+                    "content": b"{}",
+                },
+                {
+                    "release_id": "release-control",
+                    "artifact_name": "data_operation_native_definitions.json",
+                    "content": b'{"native_digest":"other-kernel"}',
+                },
+            ],
+        )
+        with pytest.raises(DBAPIError, match="different native kernel"), connection.begin_nested():
+            execute_native_sql(connection, program)
 
 
-def test_native_receipt_requires_exact_identity_and_restricted_first_admission(
-    release_guard_context, native_settings
-):
+def test_native_receipt_requires_exact_identity(release_guard_context):
     engine, _, _, _, receipt = release_guard_context
     expected = {"physical_id": "physical-control", "detail": [1, None, "exact-bytes"]}
 
@@ -103,7 +136,6 @@ def test_native_receipt_requires_exact_identity_and_restricted_first_admission(
             func.public.admission_receipt_control(
                 "release-control",
                 literal(value, JSONB()),
-                "corpus_sem_publisher",
             )
         )
 
@@ -119,22 +151,12 @@ def test_native_receipt_requires_exact_identity_and_restricted_first_admission(
         )
         connection.execute(admission(expected))
         assert connection.scalar(select(func.count()).select_from(receipt)) == 1
-    reader = principal_engine(native_settings, "read", engine.url.database)
-    try:
-        with reader.connect() as connection:
-            connection.execute(admission(expected))
-            for changed in (
-                {**expected, "physical_id": "other-physical"},
-                {**expected, "detail": [1, None, "changed-bytes"]},
-            ):
-                with (
-                    pytest.raises(DBAPIError, match="restricted admission phase") as refusal,
-                    connection.begin_nested(),
-                ):
-                    connection.execute(admission(changed))
-                assert getattr(refusal.value.orig, "sqlstate", None) == "42501"
-    finally:
-        reader.dispose()
+        for changed in (
+            {**expected, "physical_id": "other-physical"},
+            {**expected, "detail": [1, None, "changed-bytes"]},
+        ):
+            connection.execute(admission(changed))
+        assert connection.scalar(select(func.count()).select_from(receipt)) == 3
 
 
 def test_catalog_extraction_retains_exact_old_and_current_catalog_area():
@@ -144,22 +166,24 @@ def test_catalog_extraction_retains_exact_old_and_current_catalog_area():
     from corpus_structure.semantic.native_admission import frozen_catalog_verification
 
     old = (ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n7_admission.sql").read_text()
-    current = admission_kernel()
-    for source in (old, current):
-        body = function_bodies(source)["data.require_execution_release"]
-        checks = catalog_checks(body)
-        assert "sem.physical_contract" in checks
-        assert "jsonb_array_elements" in checks and "'functions'" in checks
-        assert "sem.record_deployment_admission" not in checks
-        assert "release is not finalized" not in checks
-        verification = frozen_catalog_verification(body)
-        (parsed,) = parse_sql(verification)
-        assert isinstance(parsed.stmt, ast.DoStmt)
-        assert parsed.stmt.args is not None
-        content = parsed.stmt.args[0].arg
-        assert isinstance(content, ast.String) and content.sval is not None
-        assert checks in content.sval
-        assert parse_plpgsql(verification)
+    body = function_bodies(old)["data.require_execution_release"]
+    checks = catalog_checks(body)
+    assert "sem.physical_contract" in checks
+    assert "jsonb_array_elements" in checks and "'functions'" in checks
+    assert "sem.record_deployment_admission" not in checks
+    assert "release is not finalized" not in checks
+    verification = frozen_catalog_verification(body)
+    (parsed,) = parse_sql(verification)
+    assert isinstance(parsed.stmt, ast.DoStmt)
+    assert parsed.stmt.args is not None
+    content = parsed.stmt.args[0].arg
+    assert isinstance(content, ast.String) and content.sval is not None
+    assert checks in content.sval
+    assert parse_plpgsql(verification)
+    current = function_bodies(admission_kernel())
+    assert "sem.physical_contract" in current["data.prove_execution_catalog"]
+    assert "data.prove_execution_catalog()" in current["data.prove_execution_release"]
+    assert "sem.record_deployment_admission" not in current["data.prove_execution_catalog"]
 
 
 def test_release_semantic_guards_follow_explicit_physical_relations():
@@ -187,7 +211,6 @@ def test_release_semantic_guards_follow_explicit_physical_relations():
     assert "FROM sem.artifact" not in source
     for refusal in (
         "release contains unresolved or unchecked required semantics",
-        "required authored SQL lacks exact current physical admission",
         "archived DDO native constraint projection is missing or incompatible",
         "unsupported required native constraint scope or pattern",
         "unsupported required native binary inference profile",

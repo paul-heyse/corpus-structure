@@ -27,12 +27,18 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array, insert
 
+from corpus_structure.schema.integrity import role_name
+
+from .data_operation_native_identity import native_identity_field
+from .identity import canonical_bytes
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -41,13 +47,9 @@ from .native_program import (
     Sql,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
-
-SOURCE_DIGEST = "__DDO_SOURCE_DIGEST__"
-LOWERING_DIGEST = "__DDO_LOWERING_DIGEST__"
+from .native_program_registry import ProgramClosures, ProgramDeclaration
 
 
 def _json(value):
@@ -119,8 +121,9 @@ def _program(
     immutable=False,
     security=True,
     strict=False,
+    access=INTERNAL_PROGRAM,
 ):
-    return function(
+    routine = NativeRoutine(
         schema,
         name,
         parameters=parameters,
@@ -130,6 +133,9 @@ def _program(
         search_path=("pg_catalog", "pg_temp"),
         volatility="immutable" if immutable else "stable" if stable else None,
         strict=strict,
+    )
+    return ProgramDeclaration(
+        routine, source="data-operations:forward", owner=role_name("publisher"), access=access
     )
 
 
@@ -453,7 +459,7 @@ def _kind_contracts_program():
             func.coalesce(cast(kinds.c.value["complete"].astext, Boolean()), True),
         )
     )
-    return sql_function(
+    routine = NativeRoutine(
         "sem",
         "ddo_input_kind_contracts",
         parameters=(Parameter("p_model", pg_type("jsonb")), Parameter("p_kind", pg_type("text"))),
@@ -462,6 +468,12 @@ def _kind_contracts_program():
         volatility="immutable",
         strict=True,
         search_path=("pg_catalog", "pg_temp"),
+    )
+    return ProgramDeclaration(
+        routine,
+        source="data-operations:forward",
+        owner=role_name("publisher"),
+        access=INTERNAL_PROGRAM,
     )
 
 
@@ -493,9 +505,15 @@ def _classify_programs(model):
 
 
 def _lowering_program(model, subject_scopes):
-    from .validity_programs import FAMILY_PROGRAMS
+    lowering_digest = native_identity_field("lowering_digest")
+    from .validity_programs import family_programs
 
-    ready_families = tuple(entry.family for entry in FAMILY_PROGRAMS)
+    ready_families = tuple(
+        entry.family for entry in family_programs(model) if entry.family != "conservative"
+    )
+    from .effect_policy import privileged_effects
+
+    privileged_names = tuple(policy.name for policy in privileged_effects(model))
     artifacts, kinds, kind_releases, definitions, releases, scopes = (
         model.tables[name]
         for name in (
@@ -925,6 +943,19 @@ def _lowering_program(model, subject_scopes):
             "operation definition changed under admitted release",
         ),
     )
+    effect_rows = _rows(lowered["support_contract"]["effects"], "granted_effect")
+    operation_steps += (
+        _refuse(
+            _exists(
+                effect_rows,
+                effect_rows.c.value["name"].astext.in_(privileged_names),
+                ~func.ops.ddo_privileged_effect_eligible(
+                    lowered_value, effect_rows.c.value["name"].astext
+                ),
+            ),
+            "privileged effect does not satisfy its closed integrity contract",
+        ),
+    )
     subject_steps = (
         Sql(
             insert(scopes)
@@ -1017,7 +1048,7 @@ def _lowering_program(model, subject_scopes):
                     p["model_digest"].astext,
                     artifacts.c.content_digest,
                     p["native_digest"].astext,
-                    literal(LOWERING_DIGEST),
+                    lowering_digest,
                 ).where(native_projection),
             )
             .on_conflict_do_nothing()
@@ -1027,12 +1058,12 @@ def _lowering_program(model, subject_scopes):
             (
                 Sql(
                     releases.update()
-                    .values(lowering_digest=LOWERING_DIGEST)
+                    .values(lowering_digest=lowering_digest)
                     .where(
                         releases.c.release_id == p["release_id"].astext,
                         releases.c.model_digest == p["model_digest"].astext,
                         releases.c.native_kernel_digest == p["native_digest"].astext,
-                        releases.c.lowering_digest.is_distinct_from(LOWERING_DIGEST),
+                        releases.c.lowering_digest.is_distinct_from(lowering_digest),
                     )
                 ),
             ),
@@ -1048,7 +1079,7 @@ def _lowering_program(model, subject_scopes):
             or_(
                 header["model_digest"].is_distinct_from(p["model_digest"].astext),
                 header["native_kernel_digest"].is_distinct_from(p["native_digest"].astext),
-                header["lowering_digest"].is_distinct_from(LOWERING_DIGEST),
+                header["lowering_digest"].is_distinct_from(lowering_digest),
                 header["native_definitions_digest"].is_distinct_from(
                     select(artifacts.c.content_digest).where(native_projection).scalar_subquery()
                 ),
@@ -1150,21 +1181,51 @@ def _relower_program(model):
     )
 
 
-def compiler_native_sql(model, *, subject_scopes):
+def data_operation_native_descriptor_program(
+    source_digest: str, closures: ProgramClosures
+) -> ProgramDeclaration:
+    descriptor = NativeRoutine(
+        "sem",
+        "data_operation_native_descriptor",
+        parameters=(),
+        returns=pg_type("jsonb"),
+        body=select(
+            _object(
+                "version",
+                "data-operation-native-v1",
+                "source_digest",
+                source_digest,
+                "lowering_digest",
+                closures.lowering,
+                "read_closure",
+                closures.read,
+                "validator_identities",
+                cast(literal(canonical_bytes(closures.validators).decode()), JSONB()),
+            )
+        ),
+        volatility="immutable",
+        search_path=("pg_catalog", "pg_temp"),
+    )
+    return ProgramDeclaration(
+        descriptor,
+        source="data-operations:forward",
+        owner=role_name("publisher"),
+        access=NativeProgramAccess(purposes=("read", "write", "admit", "evaluate")),
+    )
+
+
+def compiler_native_programs(
+    model,
+    *,
+    subject_scopes,
+) -> tuple[ProgramDeclaration, ...]:
     """Compile the one release-lowering owner against its captured physical model."""
     if not subject_scopes or any(
         not isinstance(value, str) or not value for value in subject_scopes
     ):
         raise ValueError("compiler requires the captured closed subject scope vocabulary")
-    descriptor = sql_function(
-        "sem",
-        "data_operation_native_descriptor",
-        parameters=(),
-        returns=pg_type("jsonb"),
-        body=select(_object("version", "data-operation-native-v1", "source_digest", SOURCE_DIGEST)),
-        volatility="immutable",
-        search_path=("pg_catalog", "pg_temp"),
-    )
+    from .effect_policy import effect_native_programs
+
     admit = _program(
         "sem",
         "admit_data_operation_definitions",
@@ -1176,18 +1237,25 @@ def compiler_native_sql(model, *, subject_scopes):
                 )
             ),
         ),
+        access=NativeProgramAccess(purposes=("admit",)),
     )
     return (
+        *effect_native_programs(model),
+        _kind_contracts_program(),
+        *_provider_programs(model),
+        *_classify_programs(model),
+        _lowering_program(model, tuple(subject_scopes)),
+        admit,
+        _relower_program(model),
+    )
+
+
+def compiler_native_sql(model, *, subject_scopes) -> str:
+    """Render the captured lowering owners. The kernel descriptor is realized separately."""
+    return (
         ";\n".join(
-            (
-                descriptor,
-                _kind_contracts_program(),
-                *_provider_programs(model),
-                *_classify_programs(model),
-                _lowering_program(model, tuple(subject_scopes)),
-                admit,
-                _relower_program(model),
-            )
+            declaration.routine.render()
+            for declaration in compiler_native_programs(model, subject_scopes=subject_scopes)
         )
         + ";\n"
     )

@@ -2,68 +2,71 @@
 
 from corpus_structure.schema.integrity import role_name
 
+from .native_objects import (
+    INTERNAL_PROGRAM,
+    NativeProgramAccess,
+    native_owner_sql,
+    native_privilege_sql,
+    native_sql_script,
+)
+from .native_program_registry import ProgramDeclaration
 
-def observation_publication_sql(context=None, *, target_metadata=None) -> str:
+
+def observation_publication_programs(context=None, *, target_metadata=None):
     """Compile protected observation definitions from current captured models."""
-    from pglast.stream import RawStream
-
     from .metadata import get_metadata
-    from .native_objects import (
-        NativeIdentity,
-        native_owner_sql,
-        native_privilege_sql,
-        native_sql_script,
-    )
     from .pdf_contracts import trusted_pdf_context
     from .pdf_observation_native import (
-        observation_projection_declaration,
-        observation_publisher_declaration,
+        observation_projection_routine,
+        observation_publisher_routine,
     )
 
     context = trusted_pdf_context() if context is None else context
     model = get_metadata() if target_metadata is None else target_metadata
-    declarations = observation_value_declarations(context, target_metadata=model)
-    programs = [
-        RawStream()(declarations["ops", name])
-        for name in (
-            "pdf_observation_meaning",
-            "pdf_recognition_profile",
-            "pdf_observation_projection",
+    meaning, policy, envelope = observation_value_routines(context, target_metadata=model)
+    writer = NativeProgramAccess(purposes=("write",))
+    return tuple(
+        ProgramDeclaration(
+            routine, "target-current:PDF publication", role_name("publisher"), access
         )
-    ]
-    programs += [
-        observation_projection_declaration(context, model),
-        observation_publisher_declaration(context, model),
-    ]
-    signatures = (
-        ("pdf_observation_meaning", ("bytea",), False),
-        ("pdf_recognition_profile", ("text", "sem.data_operation_definition"), False),
-        ("pdf_observation_projection", ("jsonb", "bigint", "bigint", "text"), True),
-        (
-            "pdf_observation_projection_for_request",
-            ("jsonb", "bigint", "bigint", "text", "ops.data_request"),
-            False,
-        ),
-        (
-            "publish_pdf_observation",
-            ("bigint", "bigint", "text", "text", "text", "bytea", "bytea[]"),
-            True,
-        ),
+        for routine, access in (
+            (meaning, INTERNAL_PROGRAM),
+            (policy, INTERNAL_PROGRAM),
+            (envelope, writer),
+            (observation_projection_routine(context, model), INTERNAL_PROGRAM),
+            (observation_publisher_routine(context, model), writer),
+        )
     )
-    for name, parameters, writer in signatures:
-        identity = NativeIdentity("function", "ops", name, parameters)
-        programs += [
-            native_owner_sql(identity, role_name("publisher")),
-            native_privilege_sql(identity, "PUBLIC", grant=False),
-        ]
-        if writer:
-            programs.append(native_privilege_sql(identity, role_name("writer"), "EXECUTE"))
-    return native_sql_script(programs) + "\n"
 
 
-def observation_value_declarations(context, *, target_metadata=None):
+def observation_publication_sql(context=None, *, target_metadata=None) -> str:
+    programs = observation_publication_programs(context, target_metadata=target_metadata)
+    return (
+        native_sql_script(
+            (
+                *(item.render() for item in programs),
+                *(
+                    statement
+                    for item in programs
+                    for statement in (
+                        native_owner_sql(item.identity, item.owner),
+                        native_privilege_sql(item.identity, "PUBLIC", grant=False),
+                        *(
+                            native_privilege_sql(
+                                item.identity, role, privilege, grant_option=option
+                            )
+                            for role, privilege, option in item.access.grants(item.owner)
+                        ),
+                    )
+                ),
+            )
+        )
+        + "\n"
+    )
+
+
+def observation_value_routines(context, *, target_metadata=None):
     """Generate meaning, policy lookup and the current-request projection envelope."""
-    from pglast import ast, parse_sql
     from sqlalchemy import BigInteger, Text, cast, column, func, or_, select
     from sqlalchemy.dialects.postgresql import JSONB, array
 
@@ -72,13 +75,13 @@ def observation_value_declarations(context, *, target_metadata=None):
         Block,
         If,
         Local,
+        NativeRoutine,
         Parameter,
         Perform,
         Raise,
         Return,
         SelectInto,
         core_variable,
-        function,
         pg_type,
     )
     from .pdf_observations import (
@@ -99,7 +102,7 @@ def observation_value_declarations(context, *, target_metadata=None):
     support = core_variable("p_definition", JSONB(), "support_contract")
     asset, profile = (core_variable(name, JSONB()) for name in ("asset", "profile"))
     assets = func.jsonb_array_elements(support["assets"]).table_valued(column("value", JSONB()))
-    policy = function(
+    policy = NativeRoutine(
         "ops",
         "pdf_recognition_profile",
         parameters=(
@@ -178,7 +181,7 @@ def observation_value_declarations(context, *, target_metadata=None):
             ("release_id", "release_id"),
         )
     )
-    envelope = function(
+    envelope = NativeRoutine(
         "ops",
         "pdf_observation_projection",
         parameters=parameters,
@@ -219,7 +222,7 @@ def observation_value_declarations(context, *, target_metadata=None):
     specification = next(
         source.content for source in context.domain.sources if source.name == MEANING_SPEC
     )
-    meaning = function(
+    meaning = NativeRoutine(
         "ops",
         "pdf_observation_meaning",
         parameters=(Parameter("p_payload", pg_type("bytea")),),
@@ -229,8 +232,4 @@ def observation_value_declarations(context, *, target_metadata=None):
         strict=True,
         search_path=("pg_catalog", "pg_temp"),
     )
-    return {
-        tuple(part.sval for part in declaration.stmt.funcname or ()): declaration.stmt
-        for declaration in parse_sql(meaning + ";" + policy + ";" + envelope)
-        if isinstance(declaration.stmt, ast.CreateFunctionStmt)
-    }
+    return meaning, policy, envelope

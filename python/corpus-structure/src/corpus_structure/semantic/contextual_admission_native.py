@@ -14,7 +14,9 @@ from sqlalchemy import Integer, Text, and_, case, cast, column, func, literal, o
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array
 from sqlalchemy.types import NullType
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
@@ -23,6 +25,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -30,9 +33,9 @@ from .native_program import (
     SelectInto,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration, ProgramValidity
 from .validity_programs import input_role, operation_field, selected_family
 
 
@@ -148,11 +151,12 @@ class _ContextualPrograms:
         immutable=False,
         strict=False,
         definer=True,
+        validity=(),
     ):
         arguments = tuple(Parameter(key, pg_type(*kind.split("."))) for key, kind in parameters)
-        self.output.extend(
-            (
-                function(
+        self.output.append(
+            ProgramDeclaration(
+                NativeRoutine(
                     "ops",
                     name,
                     parameters=arguments,
@@ -163,19 +167,15 @@ class _ContextualPrograms:
                     security_definer=definer,
                     search_path=("pg_catalog", "pg_temp"),
                 ),
-                native_privilege_sql(
-                    NativeIdentity("function", "ops", name, tuple(kind for _, kind in parameters)),
-                    "PUBLIC",
-                    grant=False,
-                ),
+                source="data-operations:forward",
+                owner=role_name("publisher"),
+                access=INTERNAL_PROGRAM,
+                validity=validity,
             )
         )
 
-    def script(self):
-        return native_sql_script(self.output)
 
-
-def contextual_admission_native_sql(*, target_metadata=None) -> str:
+def contextual_admission_native_programs(*, target_metadata=None) -> tuple[ProgramDeclaration, ...]:
     p = _ContextualPrograms(target_metadata)
     from .contextual_encoder_batch import MEMBER_FAILURE_CODES, MEMBER_FAILURE_VERSION
 
@@ -696,6 +696,7 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
             p.local("definition", "sem.data_operation_definition"),
             p.local("original", "ops.data_request", request),
         ),
+        validity=(ProgramValidity("contextual", "completion_guard"),),
     )
     evidence_outputs = _items(
         p.row("intent", "ops.data_completion_intent", "payload")["outputs"], "output_row"
@@ -777,5 +778,18 @@ def contextual_admission_native_sql(*, target_metadata=None) -> str:
             p.local("intent", "ops.data_completion_intent"),
         ),
         returns="boolean",
+        validity=(ProgramValidity("contextual", "validator"),),
     )
-    return p.script()
+    return tuple(p.output)
+
+
+def contextual_admission_native_sql(*, target_metadata=None) -> str:
+    """Render the current captured private declarations."""
+    return native_sql_script(
+        statement
+        for declaration in contextual_admission_native_programs(target_metadata=target_metadata)
+        for statement in (
+            declaration.routine.render(),
+            native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
+        )
+    )

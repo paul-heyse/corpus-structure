@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from functools import cached_property
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
@@ -21,6 +22,7 @@ from .prepared_sql import PreparedSQL
 
 if TYPE_CHECKING:
     from .data_operation_model import EffectiveDataOperationModel
+    from .native_program_registry import ProgramDeclaration
     from .types import SourceArtifact
 
 
@@ -46,13 +48,23 @@ class NativeAuthoringProvenance:
 class NativeAuthoringInputs:
     """Closed current native authority, independent of application producer acquisition."""
 
-    model: EffectiveDataOperationModel
     sources: tuple[SourceArtifact, ...]
     physical_id: str
     native_sources: tuple[SourceArtifact, ...]
+    guard_programs: tuple[ProgramDeclaration, ...]
+
+    @cached_property
+    def model(self) -> EffectiveDataOperationModel:
+        from .data_operation_compilation import compile_data_operations
+        from .data_operation_storage import native_operation_declarations
+
+        return compile_data_operations(
+            declarations=(native_operation_declarations(self.native_sources),),
+            captured_contracts=self.sources,
+        )
 
 
-def capture_native_authoring_inputs(
+def _capture_native_authoring_inputs(
     *,
     target_metadata: MetaData | None = None,
     pdf_actions=None,
@@ -65,20 +77,19 @@ def capture_native_authoring_inputs(
     Application operations, providers and historical execution catalogs are not inputs
     to authoring the shared kernel. Frozen predecessors are separately supplied SQL.
     """
-    from dataclasses import asdict
     from pathlib import Path
 
-    from .archive_projection_native import execution_projection_check_sql, scientific_layout_sql
-    from .data_operation_artifacts import capture_port_generator_sources
-    from .data_operation_compilation import compile_data_operations
-    from .data_operation_protocol import render_data_task_guard
-    from .data_operation_storage import (
-        native_logical_sources,
-        native_operation_calls,
-        native_operation_declarations,
-        native_protocol_sources,
+    from .archive_projection_native import (
+        execution_projection_check_program,
+        scientific_layout_program,
     )
-    from .identity import canonical_bytes
+    from .data_operation_artifacts import capture_port_generator_sources
+    from .data_operation_protocol import data_task_guard_program
+    from .data_operation_storage import (
+        _native_protocol_sources,
+        native_logical_sources,
+    )
+    from .native_objects import native_sql_script
     from .pdf_domain import CONTRACT, PREFIX, PdfDomainContract, pdf_domain_sources
     from .runtime_binding_native import runtime_binding_sql
     from .types import SourceArtifact
@@ -108,18 +119,22 @@ def capture_native_authoring_inputs(
     domain = PdfDomainContract(
         contract.content, tuple(source for source in pdf if source.name != CONTRACT)
     )
-    native = native_protocol_sources(
+    native = _native_protocol_sources(
         physical_sources=physical,
         linkml_types=types,
         target_metadata=selected,
         pdf_domain=domain,
         logical_sources=logical,
     )
-    declarations = native_operation_declarations(native)
-    calls = native_operation_calls(sources=native)
+    archive_programs = (
+        execution_projection_check_program(selected),
+        scientific_layout_program(selected),
+    )
+    task_guard = data_task_guard_program(
+        physical["data-operation-native.yaml"], target_metadata=selected
+    )
     sources = (
         *native,
-        declarations,
         *capture_port_generator_sources(),
         *pdf,
         *(
@@ -127,10 +142,6 @@ def capture_native_authoring_inputs(
             for name, content in sorted(physical.items())
         ),
         SourceArtifact("physical/linkml-types.yaml", types),
-        SourceArtifact(
-            "authoring/native-fixed-calls.json",
-            canonical_bytes([(owner, asdict(call)) for owner, call in calls]),
-        ),
         *(
             SourceArtifact("authoring/" + name, Path(__file__).with_name(name).read_bytes())
             for name in (
@@ -184,29 +195,73 @@ def capture_native_authoring_inputs(
             "authoring/runtime-bindings.sql",
             runtime_binding_sql(selected).encode(),
         ),
-        SourceArtifact(
-            "authoring/execution-projection-check.sql",
-            execution_projection_check_sql(selected).encode(),
+        *(
+            SourceArtifact(program.source, (native_sql_script((program.render(),)) + "\n").encode())
+            for program in archive_programs
         ),
-        SourceArtifact("authoring/scientific-layout.sql", scientific_layout_sql(selected).encode()),
         SourceArtifact(
             "authoring/admission.sql",
             admission_kernel(target_metadata=selected).encode(),
         ),
-        SourceArtifact(
-            "authoring/data-operation-task-guard.sql",
-            render_data_task_guard(
-                physical["data-operation-native.yaml"], target_metadata=selected
-            ).encode(),
-        ),
+        SourceArtifact(task_guard.source, task_guard.render().encode()),
     )
     sources = (*sources, *extra_sources)
     names = [source.name for source in sources]
     if len(names) != len(set(names)):
         raise ValueError("native authoring source capture repeats an input")
     sources = tuple(sorted(sources, key=lambda item: item.name))
-    model = compile_data_operations(declarations=(declarations,), captured_contracts=sources)
-    return NativeAuthoringInputs(model, sources, selected.info["physical_model_id"], native)
+    return NativeAuthoringInputs(
+        sources, selected.info["physical_model_id"], native, (*archive_programs, task_guard)
+    )
+
+
+def bind_program_manifest(
+    inputs: NativeAuthoringInputs, manifest, closures
+) -> NativeAuthoringInputs:
+    from dataclasses import asdict
+
+    from .data_operation_storage import native_operation_calls, native_operation_declarations
+    from .identity import canonical_bytes
+    from .native_program_registry import PROGRAM_CLOSURES_SOURCE, PROGRAM_MANIFEST_SOURCE
+    from .types import SourceArtifact
+
+    artifact = SourceArtifact(PROGRAM_MANIFEST_SOURCE, manifest.content)
+    closure_artifact = SourceArtifact(PROGRAM_CLOSURES_SOURCE, closures.content)
+    native = (*inputs.native_sources, artifact, closure_artifact)
+    calls = native_operation_calls(sources=native)
+    sources = (
+        *inputs.sources,
+        artifact,
+        closure_artifact,
+        native_operation_declarations(native),
+        SourceArtifact(
+            "authoring/native-fixed-calls.json",
+            canonical_bytes([(owner, asdict(call)) for owner, call in calls]),
+        ),
+    )
+    return replace(
+        inputs, sources=tuple(sorted(sources, key=lambda item: item.name)), native_sources=native
+    )
+
+
+def capture_native_authoring_inputs(
+    *,
+    target_metadata=None,
+    pdf_actions=None,
+    pdf_sources=None,
+    extra_sources=(),
+    logical_sources=None,
+) -> NativeAuthoringInputs:
+    from .metadata import get_metadata
+    from .target_installation import capture_target_installation
+
+    return capture_target_installation(
+        get_metadata() if target_metadata is None else target_metadata,
+        logical_sources=logical_sources,
+        pdf_actions=pdf_actions,
+        pdf_sources=pdf_sources,
+        extra_sources=extra_sources,
+    ).authoring_inputs
 
 
 def current_authoring_provenance(
@@ -386,7 +441,6 @@ def current_admission_fields(
     descriptor["scientific_report_layout"] = layout
     descriptor["data_operation_abi"] = MODEL_VERSION
     descriptor["physical_id"] = target_metadata.info["physical_model_id"]
-    descriptor.update(current_authoring_provenance(captured).descriptor_fields())
     return descriptor
 
 

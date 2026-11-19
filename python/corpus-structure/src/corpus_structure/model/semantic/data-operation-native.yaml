@@ -1860,6 +1860,47 @@ definitions:
     - lease_until
     - trust_snapshot
     additionalProperties: false
+  register_data_execution_origin_request:
+    type: object
+    properties:
+      request_id: {$ref: '#/definitions/identifier'}
+      generation: {$ref: '#/definitions/positive_integer'}
+      task_id: {$ref: '#/definitions/task_id'}
+      attempt: {$ref: '#/definitions/positive_integer'}
+      holder: {$ref: '#/definitions/identifier'}
+      runtime_id: {$ref: '#/definitions/identifier'}
+    required: [request_id, generation, task_id, attempt, holder, runtime_id]
+    additionalProperties: false
+  register_data_execution_origin_result:
+    type: object
+    properties:
+      origin_id: {$ref: '#/definitions/identifier'}
+      candidates:
+        type: array
+        maxItems: 64
+        items:
+          type: object
+          properties:
+            origin_id: {$ref: '#/definitions/identifier'}
+            request_id: {$ref: '#/definitions/identifier'}
+            generation: {$ref: '#/definitions/positive_integer'}
+          required: [origin_id, request_id, generation]
+          additionalProperties: false
+    required: [origin_id, candidates]
+    additionalProperties: false
+  consume_data_completion_draft_request:
+    type: object
+    properties:
+      request_id: {$ref: '#/definitions/identifier'}
+      generation: {$ref: '#/definitions/positive_integer'}
+      task_id: {$ref: '#/definitions/task_id'}
+      attempt: {$ref: '#/definitions/positive_integer'}
+      holder: {$ref: '#/definitions/identifier'}
+      origin_id: {$ref: '#/definitions/identifier'}
+      draft_id: {$ref: '#/definitions/identifier'}
+      completion: {$ref: '#/definitions/completion'}
+    required: [request_id, generation, task_id, attempt, holder, origin_id, draft_id, completion]
+    additionalProperties: false
   retain_data_completion_intent_request:
     type: object
     properties:
@@ -2916,6 +2957,16 @@ operations:
   profile: command
   request: release_data_attempt_request
   result: release_data_attempt_result
+  purposes: [write, evaluate]
+- name: register_data_execution_origin
+  profile: command
+  request: register_data_execution_origin_request
+  result: register_data_execution_origin_result
+  purposes: [write, evaluate]
+- name: consume_data_completion_draft
+  profile: command
+  request: consume_data_completion_draft_request
+  result: retain_data_completion_intent_result
   purposes: [write, evaluate]
 - name: retain_data_completion_intent
   profile: command

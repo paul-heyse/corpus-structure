@@ -20,7 +20,16 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, array
 
-from .binding_recursive_native import _check, _elements, _json, _texts, _value, pg_type_array
+from .binding_recursive_native import (
+    _binding_declarations,
+    _check,
+    _elements,
+    _json,
+    _render_binding_programs,
+    _texts,
+    _value,
+    pg_type_array,
+)
 from .data_operation_model import BindingExpression
 from .data_operation_projections import binding_columns
 from .native_program import (
@@ -29,6 +38,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     SelectInto,
@@ -36,13 +46,13 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
 from .native_program import literal as pg_literal
+from .native_program_registry import ProgramDeclaration
 
 
-def binding_admission_native_sql(model):
+def _binding_admission_native_routine(model):
     demands, requests, definitions, artifacts, boundaries, populations, derivations = (
         model.tables[name]
         for name in (
@@ -728,9 +738,20 @@ def binding_admission_native_sql(model):
                     ),
                     Assign(
                         "expected",
-                        func.ops.ddo_binding_population_meaning(
-                            local["witness"],
-                            roledef["identity_requirements"].bool_op("?")("episode"),
+                        case(
+                            (
+                                or_(
+                                    local["states"][role].astext == "known-absent",
+                                    func.ops.ddo_binding_population_refs(
+                                        expression, local["context"]
+                                    ).bool_op("?")(role),
+                                ),
+                                func.ops.ddo_binding_population_meaning(
+                                    local["witness"],
+                                    roledef["identity_requirements"].bool_op("?")("episode"),
+                                ),
+                            ),
+                            else_=null(),
                         ),
                     ),
                     check(
@@ -795,52 +816,58 @@ def binding_admission_native_sql(model):
             ),
         )
     )
-    return (
-        function(
-            "ops",
-            "ddo_require_binding",
-            parameters=(
-                Parameter("p_demand", column_type(demands.c.id)),
-                Parameter("p_operation", column_type(definitions.c.operation_id)),
-                Parameter("p_subject", column_type(requests.c.subject)),
-                Parameter("p_request_meaning", pg_type("jsonb")),
-                Parameter("p_binding", pg_type("jsonb")),
-                Parameter("p_trust", pg_type("jsonb")),
-                Parameter("p_read_checked", pg_type("bool"), pg_literal(False)),
-            ),
-            returns=pg_type("void"),
-            volatility="stable",
-            security_definer=True,
-            search_path=("pg_catalog", "pg_temp"),
-            body=Block(
-                tuple(steps),
-                (
-                    Local("demand", demands),
-                    Local("request", requests),
-                    Local("native_population", populations),
-                    Local("boundary", boundaries),
-                    *(
-                        Local(
-                            name,
-                            pg_type("jsonb"),
-                            _json("{}")
-                            if name
-                            in {"roles", "populations", "witnesses", "semantic_witnesses", "states"}
-                            else None,
-                        )
-                        for name in local_names
-                    ),
-                    *(
-                        Local(name, pg_type("text"))
-                        for name in ("archive_digest", "role", "state", "projection_mode")
-                    ),
-                    Local("inactive", pg_type_array()),
-                    *(
-                        Local(name, pg_type("bigint"))
-                        for name in ("count_selected", "multiplicity", "ordinal")
-                    ),
+    return NativeRoutine(
+        "ops",
+        "ddo_require_binding",
+        parameters=(
+            Parameter("p_demand", column_type(demands.c.id)),
+            Parameter("p_operation", column_type(definitions.c.operation_id)),
+            Parameter("p_subject", column_type(requests.c.subject)),
+            Parameter("p_request_meaning", pg_type("jsonb")),
+            Parameter("p_binding", pg_type("jsonb")),
+            Parameter("p_trust", pg_type("jsonb")),
+            Parameter("p_read_checked", pg_type("bool"), pg_literal(False)),
+        ),
+        returns=pg_type("void"),
+        volatility="stable",
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            tuple(steps),
+            (
+                Local("demand", demands),
+                Local("request", requests),
+                Local("native_population", populations),
+                Local("boundary", boundaries),
+                *(
+                    Local(
+                        name,
+                        pg_type("jsonb"),
+                        _json("{}")
+                        if name
+                        in {"roles", "populations", "witnesses", "semantic_witnesses", "states"}
+                        else None,
+                    )
+                    for name in local_names
+                ),
+                *(
+                    Local(name, pg_type("text"))
+                    for name in ("archive_digest", "role", "state", "projection_mode")
+                ),
+                Local("inactive", pg_type_array()),
+                *(
+                    Local(name, pg_type("bigint"))
+                    for name in ("count_selected", "multiplicity", "ordinal")
                 ),
             ),
-        )
-        + ";\n"
+        ),
     )
+
+
+def binding_admission_native_programs(model) -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations((_binding_admission_native_routine(model),))
+
+
+def binding_admission_native_sql(model) -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(binding_admission_native_programs(model), separator="")

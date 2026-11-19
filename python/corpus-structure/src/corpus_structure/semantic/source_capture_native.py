@@ -3,25 +3,29 @@
 from sqlalchemy import Boolean, Text, and_, case, column, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB, array
 
+from corpus_structure.schema.integrity import role_name
+
 from .data_operation_support import OriginalDocumentRef
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
 from .native_program import (
     Assign,
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
     Return,
     SelectInto,
     core_variable,
-    function,
     pg_type,
 )
 from .native_program import literal as pg_literal
+from .native_program_registry import ProgramDeclaration
 
 
-def source_capture_native_sql(target) -> str:
+def source_capture_native_programs(target) -> tuple[ProgramDeclaration, ...]:
     document = target.tables["kb.document"]
     artifact = target.tables["kb.source_artifact"]
     request = target.tables["ops.data_request"]
@@ -49,8 +53,8 @@ def source_capture_native_sql(target) -> str:
     def field(local, table, name):
         return core_variable(local, table.c[name].type, name)
 
-    def routine(name, parameters, steps, locals_=()):
-        return function(
+    def routine(name, parameters, steps, locals_=(), *, access=INTERNAL_PROGRAM):
+        routine = NativeRoutine(
             "ops",
             name,
             parameters=parameters,
@@ -59,6 +63,12 @@ def source_capture_native_sql(target) -> str:
             volatility="stable",
             security_definer=True,
             search_path=("pg_catalog", "pg_temp"),
+        )
+        return ProgramDeclaration(
+            routine,
+            source="data-operation-source-admission:forward",
+            owner=role_name("publisher"),
+            access=access,
         )
 
     def refuse(condition, message, *, state="23514"):
@@ -290,6 +300,7 @@ def source_capture_native_sql(target) -> str:
             ),
         ),
         (Local("consumer", request),),
+        access=NativeProgramAccess(purposes=("write",)),
     )
     selected_inputs = (
         func.jsonb_array_elements(field("consumer", request, "binding")["inputs"])
@@ -344,4 +355,11 @@ def source_capture_native_sql(target) -> str:
             ),
         ),
     )
-    return ";\n".join((document_view, pdf_receipt, capture, capture_for_request)) + ";\n"
+    return document_view, pdf_receipt, capture, capture_for_request
+
+
+def source_capture_native_sql(target) -> str:
+    """Render captured source proofs from their owned declarations."""
+    return (
+        ";\n".join(item.routine.render() for item in source_capture_native_programs(target)) + ";\n"
+    )

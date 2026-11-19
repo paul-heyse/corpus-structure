@@ -2,7 +2,6 @@
 
 from collections.abc import Sequence
 
-from pglast.stream import RawStream
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -20,12 +19,15 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, aggregate_order_by
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -35,9 +37,9 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 from .pdf_payloads import FAMILY, PROFILE
 
 
@@ -65,7 +67,7 @@ def _row_value(name, table, field):
     return core_variable(name, table.c[field].type, field)
 
 
-def _private_function(
+def _private_program(
     name,
     params,
     kind,
@@ -79,7 +81,7 @@ def _private_function(
     parameters = tuple(Parameter(label, type_) for label, type_ in params)
     result = pg_type(kind)
     result.setof = setof
-    definition = function(
+    routine = NativeRoutine(
         "ops",
         name,
         parameters=parameters,
@@ -89,16 +91,33 @@ def _private_function(
         volatility="immutable" if immutable else "stable",
         strict=strict,
     )
-    identity = NativeIdentity(
-        "function", "ops", name, tuple(RawStream()(item.type_) for item in parameters)
+    return ProgramDeclaration(
+        routine, "authoring/pdf-record-digest.sql", role_name("publisher"), INTERNAL_PROGRAM
     )
-    return definition, native_privilege_sql(identity, "PUBLIC", grant=False)
+
+
+def _private_function(
+    name,
+    params,
+    kind,
+    steps: Sequence[Statement],
+    locals_=(),
+    *,
+    immutable=False,
+    strict=False,
+    setof=False,
+):
+    """Render the shared typed builder for the existing frame/target owners."""
+    program = _private_program(
+        name, params, kind, steps, locals_, immutable=immutable, strict=strict, setof=setof
+    )
+    return program.routine.render(), native_privilege_sql(program.identity, "PUBLIC", grant=False)
 
 
 def _text_identity():
     value = core_variable("p_value", Text())
     payload = core_variable("payload_", BYTEA())
-    return _private_function(
+    return _private_program(
         "pdf_identity_text",
         (("p_value", pg_type("text")),),
         "bytea",
@@ -157,7 +176,7 @@ def _inline_identity():
         ),
         Raise(literal("unsupported inline scalar kind ").op("||")(kind), "23514"),
     )
-    return _private_function(
+    return _private_program(
         "pdf_identity_inline",
         (("p_value", pg_type("jsonb")),),
         "bytea",
@@ -204,7 +223,7 @@ def _ascii_key_identity():
     interior = select(
         func.string_agg(escaped, aggregate_order_by(literal(""), codes.c.i))
     ).select_from(codes)
-    return _private_function(
+    return _private_program(
         "pdf_identity_ascii_string",
         (("p_text", pg_type("text")),),
         "text",
@@ -228,7 +247,7 @@ def _stream_identity(model, product, revision, placement_params):
             for field in ("encoding_profile", "byte_length", "byte_root")
         ),
     )
-    return _private_function(
+    return _private_program(
         "pdf_identity_stream_scalar",
         (*placement_params, ("p_stream", column_type(streams.c.stream_id))),
         "bytea",
@@ -293,7 +312,7 @@ def _companion_identity(model, product, revision, placement_params):
     )
     metadata = family == "native_metadata"
     logical = body["payload_logical_digest"].astext
-    return _private_function(
+    return _private_program(
         "pdf_identity_companion_scalar",
         (
             *placement_params,
@@ -393,7 +412,7 @@ def _fold_digest(model, product, revision, placement_params):
         .table_valued(column("frame", BYTEA()))
         .render_derived()
     )
-    return _private_function(
+    return _private_program(
         "pdf_record_logical_identity",
         placement_params,
         "text",
@@ -410,11 +429,11 @@ def _fold_digest(model, product, revision, placement_params):
     )
 
 
-def pdf_record_logical_identity_sql(*, target_metadata: MetaData | None = None) -> str:
-    """Compile the scalar, target lineage and ordered record identity programs."""
+def pdf_record_logical_identity_programs(
+    *, target_metadata: MetaData | None = None
+) -> tuple[ProgramDeclaration, ...]:
+    """Own scalar/fold routines; frame and target providers keep their own declarations."""
     from .metadata import get_metadata
-    from .pdf_identity_frames_native import pdf_identity_frame_declarations
-    from .pdf_target_identity_native import logical_target_identity
 
     model = get_metadata() if target_metadata is None else target_metadata
     header = model.tables["ops.pdf_record_document"]
@@ -424,15 +443,35 @@ def pdf_record_logical_identity_sql(*, target_metadata: MetaData | None = None) 
     )
     product = core_variable("p_product", header.c.product_id.type)
     revision = core_variable("p_revision", header.c.revision_id.type)
+    return (
+        _text_identity(),
+        _inline_identity(),
+        _ascii_key_identity(),
+        _stream_identity(model, product, revision, params),
+        _companion_identity(model, product, revision, params),
+        _fold_digest(model, product, revision, params),
+    )
+
+
+def pdf_record_logical_identity_sql(*, target_metadata: MetaData | None = None) -> str:
+    """Keep the exact interleaved capture order of the three producing owners."""
+    from .metadata import get_metadata
+    from .pdf_identity_frames_native import pdf_identity_frame_declarations
+    from .pdf_target_identity_native import logical_target_identity
+
+    model = get_metadata() if target_metadata is None else target_metadata
+    programs = pdf_record_logical_identity_programs(target_metadata=model)
+
+    def rendered(program):
+        return program.routine.render(), native_privilege_sql(
+            program.identity, "PUBLIC", grant=False
+        )
+
     return native_sql_script(
         (
-            *_text_identity(),
-            *_inline_identity(),
-            *_ascii_key_identity(),
-            *_stream_identity(model, product, revision, params),
-            *_companion_identity(model, product, revision, params),
+            *(statement for program in programs[:-1] for statement in rendered(program)),
             *logical_target_identity(model),
             *pdf_identity_frame_declarations(model),
-            *_fold_digest(model, product, revision, params),
+            *rendered(programs[-1]),
         )
     )

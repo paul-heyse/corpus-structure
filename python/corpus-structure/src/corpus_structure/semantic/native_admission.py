@@ -127,34 +127,32 @@ def frozen_catalog_verification(body: str) -> str:
     return RawStream()(envelope)
 
 
-def _descriptor_sql(descriptor):
-    from pglast import ast, enums
-    from pglast.stream import RawStream
+def execution_descriptor_program(descriptor):
     from sqlalchemy import Text, cast, literal, select
     from sqlalchemy.dialects.postgresql import JSONB
 
     from .identity import canonical_bytes
-    from .native_program import pg_type, sql_function
+    from .native_objects import NativeProgramAccess
+    from .native_program import NativeRoutine, pg_type
+    from .native_program_registry import ProgramDeclaration
 
-    role = ast.VariableSetStmt(
-        kind=enums.VariableSetKind.VAR_SET_VALUE,
-        name="role",
-        is_local=True,
-        args=(ast.A_Const(val=ast.String(sval=role_name("publisher"))),),
+    return ProgramDeclaration(
+        NativeRoutine(
+            "data",
+            "execution_contract_descriptor",
+            parameters=(),
+            returns=pg_type("jsonb"),
+            body=select(cast(literal(canonical_bytes(descriptor).decode(), Text()), JSONB())),
+            volatility="immutable",
+            search_path=("pg_catalog", "pg_temp"),
+        ),
+        "target-current:admission:execution_contract_descriptor",
+        role_name("publisher"),
+        NativeProgramAccess(purposes=("admit",)),
     )
-    definition = sql_function(
-        "data",
-        "execution_contract_descriptor",
-        parameters=(),
-        returns=pg_type("jsonb"),
-        body=select(cast(literal(canonical_bytes(descriptor).decode(), Text()), JSONB())),
-        volatility="immutable",
-        search_path=("pg_catalog", "pg_temp"),
-    )
-    return RawStream()(role) + ";\n" + definition + ";\n"
 
 
-def native_admission_sql(
+def describe_native_admission(
     sql,
     inputs,
     *,
@@ -225,7 +223,6 @@ def native_admission_sql(
 
     functions = {item["signature"]: item for item in descriptor["functions"]}
     update_function_inventory(functions, sql)
-    required_signature = "data.require_execution_release(text)"
     for native in native_objects:
         if native.identity.kind != "function":
             continue
@@ -372,11 +369,40 @@ def native_admission_sql(
     required = admission_kernel(target_metadata=target_metadata)
     if any("body_profile" in item and "dependencies" not in item for item in functions.values()):
         raise ValueError("SQL-standard admission requires a server-bound normalized native object")
+    from .native_admission_release import admission_programs
     from .native_products import function_bodies
 
     # Admission protects its own exact enforcing body too. The descriptor literal
     # is a separate function, so this digest has no self-reference.
-    functions[required_signature]["body_sha256"] = sha256(
-        function_bodies(required)["data.require_execution_release"].encode()
-    ).hexdigest()
-    return _descriptor_sql(descriptor) + required
+    bodies = function_bodies(required)
+    for program in admission_programs(target_metadata):
+        key = program.identity
+        functions[key.qualified]["body_sha256"] = sha256(
+            bodies[f"{key.schema}.{key.name}"].encode()
+        ).hexdigest()
+    return descriptor
+
+
+def native_admission_sql(
+    sql, inputs, *, base_descriptor, target_metadata, native_objects=(), physical_catalog=None
+):
+    from .native_objects import native_role_sql
+    from .native_products import admission_kernel
+
+    descriptor = execution_descriptor_program(
+        describe_native_admission(
+            sql,
+            inputs,
+            base_descriptor=base_descriptor,
+            target_metadata=target_metadata,
+            native_objects=native_objects,
+            physical_catalog=physical_catalog,
+        )
+    )
+    return (
+        native_role_sql(descriptor.owner)
+        + ";\n"
+        + descriptor.render()
+        + ";\n"
+        + admission_kernel(target_metadata=target_metadata)
+    )

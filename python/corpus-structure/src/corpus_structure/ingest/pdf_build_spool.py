@@ -58,6 +58,15 @@ class PdfSpoolProducerBasis:
             if re.fullmatch("[0-9a-f]{64}", digest) is None:
                 raise ValueError("PDF producer basis requires exact native/runtime digests")
 
+    def material_basis(self):
+        """Native authorization separately proves archived PDF output-contract identity."""
+        return (
+            self.operation,
+            self.recipe,
+            self.implementation,
+            self.execution_profile,
+        )
+
     def determining_basis(self):
         # Runtime IDs/manifests remain each contributor's actual provenance.
         # The admitted execution profile and implementation establish reuse fit.
@@ -120,6 +129,12 @@ class PdfSpoolPremises:
 
     def reusable_with(self, other: PdfSpoolPremises) -> bool:
         return self.producer.determining_basis() == other.producer.determining_basis() and (
+            self.material_basis() == other.material_basis()
+        )
+
+    def material_basis(self):
+        return (
+            self.producer.material_basis(),
             self.source_digest,
             self.native_recipe_digest,
             self.native_schema_digest,
@@ -127,14 +142,6 @@ class PdfSpoolPremises:
             self.asset_manifest_digest,
             self.packages,
             self.page_range,
-        ) == (
-            other.source_digest,
-            other.native_recipe_digest,
-            other.native_schema_digest,
-            other.payload_schema_digest,
-            other.asset_manifest_digest,
-            other.packages,
-            other.page_range,
         )
 
 
@@ -428,6 +435,9 @@ def verify_spool_recovery(
     before_attempt: int,
     premises: PdfSpoolPremises,
     check_active: Callable[[], None],
+    source_build: tuple[str, int] | None = None,
+    verify_compatibility: Callable[[PdfSpoolOwner, PdfSpoolPremises, PdfSpoolPremises], bool]
+    | None = None,
 ) -> tuple[VerifiedSpoolRecovery, ...]:
     """Acquire every registered prior writer before inspecting immutable entries.
 
@@ -436,10 +446,18 @@ def verify_spool_recovery(
     and no reader for a historical manifest protocol enters this path.
     """
     recovered = []
+    source_build_id, source_task_id = source_build or (build_id, task_id)
+    if source_build is not None and verify_compatibility is None:
+        raise ValueError("cross-build PDF uptake requires native compatibility authority")
+    if (root / source_build_id).resolve().parent != root.resolve():
+        raise ValueError("PDF source build escapes its custody root")
     try:
-        for directory in sorted((root / build_id).glob("attempt-*")):
+        for directory in sorted((root / source_build_id).glob("attempt-*")):
             check_active()
-            if directory.is_symlink() or directory.resolve().parent != (root / build_id).resolve():
+            if (
+                directory.is_symlink()
+                or directory.resolve().parent != (root / source_build_id).resolve()
+            ):
                 raise ValueError("PDF attempt directory escaped build-owned custody")
             writer = directory / "WRITER"
             try:
@@ -477,11 +495,11 @@ def verify_spool_recovery(
                     (header.get("version"), header.get("build_id"), header.get("task_id"))
                     != (
                         "pdf-build-spool-1",
-                        build_id,
-                        task_id,
+                        source_build_id,
+                        source_task_id,
                     )
                     or type(header.get("attempt")) is not int
-                    or header["attempt"] >= before_attempt
+                    or (source_build is None and header["attempt"] >= before_attempt)
                 ):
                     raise ValueError("PDF spool belongs to another build or current/future attempt")
                 holder = header.get("holder")
@@ -511,9 +529,28 @@ def verify_spool_recovery(
                 ):
                     raise ValueError("PDF spool has no registered native producer identity")
                 prior = _stored_premises(declarations[0])
+                source_owner = PdfSpoolOwner(
+                    source_build_id,
+                    source_task_id,
+                    header["attempt"],
+                    holder,
+                    producer_id,
+                    info.st_dev,
+                    info.st_ino,
+                )
                 if not prior.reusable_with(premises):
-                    # Positive retirement permits fresh execution, but never
-                    # reuse on a changed implementation/source/schema basis.
+                    compatible = (
+                        verify_compatibility is not None
+                        and prior.material_basis() == premises.material_basis()
+                        and verify_compatibility(source_owner, prior, premises)
+                    )
+                    if not compatible:
+                        os.close(descriptor)
+                        continue
+                elif source_build is not None and (
+                    verify_compatibility is None
+                    or not verify_compatibility(source_owner, prior, premises)
+                ):
                     os.close(descriptor)
                     continue
                 entries = []
@@ -548,15 +585,7 @@ def verify_spool_recovery(
                         _proof=_RECOVERY_PROOF,
                         root=directory.resolve(),
                         _descriptor=descriptor,
-                        owner=PdfSpoolOwner(
-                            build_id,
-                            task_id,
-                            header["attempt"],
-                            holder,
-                            producer_id,
-                            info.st_dev,
-                            info.st_ino,
-                        ),
+                        owner=source_owner,
                         premises=prior,
                         entries=tuple(entries),
                         manifest=manifest,

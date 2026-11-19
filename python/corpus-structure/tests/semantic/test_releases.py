@@ -389,57 +389,6 @@ def test_archive_retains_explicit_ontology_dependency_selection(commit_db_engine
         assert releases.load_release(conn, prepared.release_id) == prepared
 
 
-def test_sql_admission_and_pointer_share_activation_savepoint(
-    commit_db_engine: Engine,
-    commit_reader_engine: Engine,
-):
-    from corpus_structure.semantic.authored_sql import SQLAdmissionError
-
-    with commit_db_engine.begin() as conn:
-        *_, first = stage(conn)
-        bundle = source_bundle()
-        dependencies = ResolvedDependencies(
-            (SourceArtifact("authored-sql/scalar.sql", b"SELECT 1 AS value"),)
-        )
-        bundle, dependencies, profile, prepared = prepare_archive(bundle, dependencies)
-        releases.persist_release(conn, bundle, dependencies, profile, prepared)
-        pid = project(conn, first.release_id)
-        with pytest.raises(SQLAdmissionError, match="restricted reader"):
-            releases.activate_release(
-                conn,
-                pid,
-                prepared.release_id,
-                expected_parent=first.release_id,
-                expected_generation=0,
-            )
-        with (
-            commit_reader_engine.connect() as reader,
-            pytest.raises(releases.ActivationConflict),
-        ):
-            releases.activate_release(
-                conn,
-                pid,
-                prepared.release_id,
-                expected_parent=None,
-                expected_generation=0,
-                sql_reader=reader,
-            )
-        admission = table("sem.sql_admission")
-        assert conn.execute(select(admission.c.release_id)).all() == []
-        assert releases.activation_token(conn, pid) == releases.ActivationToken(first.release_id, 0)
-        with commit_reader_engine.connect() as reader:
-            token = releases.activate_release(
-                conn,
-                pid,
-                prepared.release_id,
-                expected_parent=first.release_id,
-                expected_generation=0,
-                sql_reader=reader,
-            )
-        assert token == releases.ActivationToken(prepared.release_id, 1)
-        assert conn.execute(select(admission.c.release_id)).scalars().all() == [prepared.release_id]
-
-
 def test_archive_fixture_has_actual_checked_ddo_inputs_without_legacy_compiler():
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 

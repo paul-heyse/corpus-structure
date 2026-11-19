@@ -20,13 +20,16 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import BYTEA, JSON, JSONB, aggregate_order_by
 from sqlalchemy.sql import quoted_name
 
+from corpus_structure.schema.integrity import role_name
+
 from .data_read_boundary_native import read_presentation_check
-from .native_objects import native_sql_script
+from .native_objects import INTERNAL_PROGRAM, native_sql_script
 from .native_program import (
     Assign,
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -34,10 +37,10 @@ from .native_program import (
     SelectInto,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
     variable,
 )
+from .native_program_registry import ProgramDeclaration
 
 
 def _object(**values):
@@ -68,7 +71,7 @@ def _folded_text(value):
     return func.btrim(func.regexp_replace(folded, spaces, " ", "g"), " ")
 
 
-def visual_candidate_program() -> str:
+def _visual_candidate_routine() -> NativeRoutine:
     """Preserve parent-first artifact ordinals through all candidate filters."""
     mapped = core_variable("mapped", JSONB())
     request = core_variable("p", JSONB())
@@ -254,7 +257,7 @@ def visual_candidate_program() -> str:
             )
         ),
     )
-    return function(
+    return NativeRoutine(
         "ops",
         "ddo_visual_candidate_rows",
         parameters=(Parameter("mapped", pg_type("jsonb")), Parameter("p", pg_type("jsonb"))),
@@ -268,7 +271,7 @@ def visual_candidate_program() -> str:
     )
 
 
-def _selected_visual_program(model: MetaData, artifact_schema: bytes) -> str:
+def _selected_visual_program(model: MetaData, artifact_schema: bytes) -> NativeRoutine:
     products = model.tables["kb.data_product"]
     reads = model.tables["ops.data_demand_read"]
     episodes = model.tables["ops.data_derivation"]
@@ -652,7 +655,7 @@ def _selected_visual_program(model: MetaData, artifact_schema: bytes) -> str:
         ),
         Return(_object(payload=values["result"])),
     )
-    return function(
+    return NativeRoutine(
         "ops",
         "read_selected_visual_evidence",
         parameters=(Parameter("p_payload", pg_type("jsonb")),),
@@ -678,7 +681,25 @@ def _selected_visual_program(model: MetaData, artifact_schema: bytes) -> str:
     )
 
 
+def visual_read_native_programs(
+    model: MetaData, artifact_schema: bytes
+) -> tuple[ProgramDeclaration, ...]:
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operation-source-admission:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        )
+        for routine in (
+            _visual_candidate_routine(),
+            _selected_visual_program(model, artifact_schema),
+        )
+    )
+
+
 def visual_read_programs(model: MetaData, artifact_schema: bytes) -> str:
+    """Render the protected candidate/visual implementations before wire projection."""
     return native_sql_script(
-        (visual_candidate_program(), _selected_visual_program(model, artifact_schema))
+        item.routine.render() for item in visual_read_native_programs(model, artifact_schema)
     )

@@ -192,13 +192,32 @@ def run_private_native_pdf_build(
                 assets.digest if assets is not None else None,
                 pdf_package_versions(),
             )
-            recovered = verify_spool_recovery(
-                directory,
-                build_id=build.build_id,
-                task_id=claim.task_id,
-                before_attempt=claim.attempt,
-                premises=premises,
-                check_active=check_active,
+            with _pdf_transaction(engine, cancellation) as connection:
+                candidate_rows = calls.read_pdf_spool_recovery_candidates(
+                    connection,
+                    build_id=build.build_id,
+                    task_id=TaskId(claim.task_id),
+                    attempt=TaskAttempt(claim.attempt),
+                    holder=holder,
+                    runtime_id=RuntimeId(claim.runtime_id),
+                )
+            candidates = {(row.build_id, row.task_id, row.producer_id) for row in candidate_rows}
+            selected_builds = sorted({(build_id, task_id) for build_id, task_id, _ in candidates})
+            recovered = tuple(
+                recovery
+                for selected_build in selected_builds
+                for recovery in verify_spool_recovery(
+                    directory,
+                    build_id=build.build_id,
+                    task_id=claim.task_id,
+                    before_attempt=claim.attempt,
+                    premises=premises,
+                    check_active=check_active,
+                    source_build=selected_build,
+                    verify_compatibility=lambda prior, _old, _current: (
+                        (prior.build_id, prior.task_id, prior.producer_id) in candidates
+                    ),
+                )
             )
 
             spool = PdfBuildSpool(
@@ -281,6 +300,33 @@ def run_private_native_pdf_build(
                         access_replay=copied[prior_reply.access_replay.path]
                         if prior_reply.access_replay is not None
                         else None,
+                    )
+                    from corpus_structure.semantic.pdf_spool_recertification import (
+                        rebind_pdf_recovery_reply,
+                        recertify_pdf_recovery,
+                    )
+
+                    reply = rebind_pdf_recovery_reply(
+                        reply,
+                        spool.root / "recovered-current",
+                        original_build=recovery.owner.build_id,
+                        original_release=recovery.premises.producer.release_id,
+                        build=build,
+                        on_replay=spool.append,
+                        check_active=check_active,
+                    )
+                    reply = recertify_pdf_recovery(
+                        reply,
+                        spool.root / "recovered-certification",
+                        original_release=recovery.premises.producer.release_id,
+                        validation_contract=validation_contract,
+                        lowering_identity=lowering_identity,
+                        build=build,
+                        source_digest=source_digest,
+                        recipe_digest=recipe.digest,
+                        schema_digest=schema_digest,
+                        on_replay=spool.append,
+                        check_active=check_active,
                     )
                     break
             if reply is None:

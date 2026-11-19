@@ -2,7 +2,7 @@
 
 import json
 
-from pglast import ast, enums, parse_sql
+from pglast import ast, enums
 from pglast.stream import RawStream
 from sqlalchemy import (
     Boolean,
@@ -24,38 +24,51 @@ from sqlalchemy.dialects.postgresql import BYTEA, JSONB, aggregate_order_by, arr
 
 from corpus_structure.schema.integrity import role_name
 
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
     SelectInto,
     core_variable,
-    function,
     pg_type,
 )
 from .native_program import literal as pg_literal
+from .native_program_registry import ProgramDeclaration
 
 
-def _read_routine(name, parameters, returns, body, *, immutable=False, definer=False, readers=()):
-    declaration = parse_sql(
-        function(
+def _read_routine(
+    name, parameters, returns, body, *, immutable=False, definer=False, access=INTERNAL_PROGRAM
+) -> ProgramDeclaration:
+    return ProgramDeclaration(
+        NativeRoutine(
             "ops",
             name,
-            parameters=parameters,
-            returns=pg_type(returns),
-            body=body,
+            parameters,
+            pg_type(returns),
+            body,
             security_definer=definer,
             search_path=("pg_catalog", "pg_temp"),
             volatility="immutable" if immutable else "stable",
-        )
-    )[0].stmt
-    if not isinstance(declaration, ast.CreateFunctionStmt):
-        raise ValueError("PDF companion reader requires its typed routine declaration")
+        ),
+        "authoring/pdf-companion-read.sql",
+        role_name("publisher"),
+        access,
+    )
+
+
+def _render_read_program(program):
+    declaration = program.render()
+    readers = tuple(role for role, _, _ in program.access.grants(program.owner))
+    name = program.routine.name
+    parameters = program.routine.parameters
+
     identity = ast.ObjectWithArgs(
         objname=(ast.String(sval="ops"), ast.String(sval=name)),
         objargs=tuple(parameter.type_ for parameter in parameters),
@@ -88,10 +101,16 @@ def _read_routine(name, parameters, returns, body, *, immutable=False, definer=F
                 behavior=enums.DropBehavior.DROP_RESTRICT,
             )
         )
-    return "\n".join(RawStream()(statement) + ";" for statement in statements) + "\n"
+    return (
+        "\n".join(
+            (statement if isinstance(statement, str) else RawStream()(statement)) + ";"
+            for statement in statements
+        )
+        + "\n"
+    )
 
 
-def pdf_native_record_shape_sql(schema_bytes: bytes | None = None):
+def pdf_native_record_shape_program(schema_bytes: bytes | None = None) -> ProgramDeclaration:
     """Compile the retained schema's declared/required/primitive scalar predicates."""
     from .pdf_records import prepare_native_schema_mapping
 
@@ -191,7 +210,7 @@ def pdf_native_record_shape_sql(schema_bytes: bytes | None = None):
     )
 
 
-def pdf_companion_field_read_sql(metadata):
+def pdf_companion_field_read_programs(metadata) -> tuple[ProgramDeclaration, ...]:
     """Read only the requested product/revision/field with its declared row columns."""
     fields = metadata.tables["kb.pdf_record_companion_field"]
     companions = metadata.tables["kb.pdf_record_companion"]
@@ -354,7 +373,17 @@ def pdf_companion_field_read_sql(metadata):
                 locals_,
             ),
             definer=True,
-            readers=(role_name("reader"), role_name("evaluator"), role_name("writer")),
+            access=NativeProgramAccess(purposes=("read", "evaluate", "write")),
         )
     )
-    return "".join(out)
+    return tuple(out)
+
+
+def pdf_native_record_shape_sql(schema_bytes: bytes | None = None):
+    return _render_read_program(pdf_native_record_shape_program(schema_bytes))
+
+
+def pdf_companion_field_read_sql(metadata):
+    return "".join(
+        _render_read_program(program) for program in pdf_companion_field_read_programs(metadata)
+    )

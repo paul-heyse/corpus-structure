@@ -16,6 +16,8 @@ from sqlalchemy.sql import visitors
 
 from corpus_structure.schema.integrity import role_name
 
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql
+from .native_program_registry import ProgramDeclaration
 from .pdf_record_model import artifact_part_upload_table, record_upload_table
 
 if TYPE_CHECKING:
@@ -217,19 +219,19 @@ def part_upload_contract_table(model: MetaData | None = None) -> Table:
     return contract
 
 
-def part_wire_contract_sql(metadata) -> str:
+def part_wire_contract_programs(metadata) -> tuple[ProgramDeclaration, ...]:
     """Protect the same declared temporary contract used by native authoring."""
     from .native_program import (
         Assign,
         Block,
         If,
         Local,
+        NativeRoutine,
         Perform,
         Raise,
         Return,
         Sql,
         call,
-        function,
         literal,
         pg_type,
         variable,
@@ -318,7 +320,7 @@ def part_wire_contract_sql(metadata) -> str:
             ),
         ),
     )
-    definition = function(
+    routine = NativeRoutine(
         "ops",
         "pdf_part_upload_contract",
         parameters=(),
@@ -365,20 +367,24 @@ def part_wire_contract_sql(metadata) -> str:
             ),
         ),
     )
-    revoke = ast.GrantStmt(
-        is_grant=False,
-        targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-        objtype=enums.ObjectType.OBJECT_FUNCTION,
-        objects=(
-            ast.ObjectWithArgs(
-                objname=(ast.String(sval="ops"), ast.String(sval="pdf_part_upload_contract")),
-                args_unspecified=False,
-            ),
+    return (
+        ProgramDeclaration(
+            routine,
+            "authoring/pdf-shared-streams.sql",
+            role_name("publisher"),
+            INTERNAL_PROGRAM,
         ),
-        grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-        behavior=enums.DropBehavior.DROP_RESTRICT,
     )
-    return definition + ";\n" + RawStream()(revoke) + ";\n"
+
+
+def part_wire_contract_sql(metadata) -> str:
+    (program,) = part_wire_contract_programs(metadata)
+    return (
+        program.routine.render()
+        + ";\n"
+        + native_privilege_sql(program.identity, "PUBLIC", grant=False)
+        + ";\n"
+    )
 
 
 def part_template(relation) -> str:

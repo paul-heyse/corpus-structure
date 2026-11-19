@@ -22,16 +22,11 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
 from types import CodeType, MappingProxyType, ModuleType, UnionType
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, cast, get_args, get_origin
-
-from corpus_structure.semantic._data_operation_wire import (
-    WirePublishDataDerivationRequest,
-)
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_origin
 
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
     from .data_operation_cpu import PythonCPUDescriptor
-    from .data_operation_storage import DataOperationStorage
     from .types import PreparedRelease
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
@@ -2266,50 +2261,3 @@ def _verify_consumed_globals(
         (modules[module_name], name, _STANDARD_BUILTINS.get(name, inspect.Parameter.empty))
         for module_name, name in dict.fromkeys((*checked, *uses))
     )
-
-
-@dataclass(frozen=True)
-class NativeCommandCompletion:
-    """A returned native effect receipt, never a payload-shaped stand-in."""
-
-    operation: str
-    result: RoleValue
-    receipt_id: str
-    derivation_id: str
-
-
-@dataclass(frozen=True)
-class ResolvedPublicationPort:
-    """Publication command boundary; transaction/receipt authority stays native."""
-
-    storage: DataOperationStorage
-    request_kind: str
-    result_kind: str
-
-    def invoke_json(self, value: RoleValue) -> NativeCommandCompletion:
-        if value.role != "request" or value.kind_contract != self.request_kind:
-            raise PortRefusal("publication command requires its captured nominal request")
-        result = self.storage.publish_data_derivation(
-            cast(WirePublishDataDerivationRequest, value.value())
-        )
-        if (
-            type(result.get("receipt_id")) is not str
-            or not result["receipt_id"]
-            or type(result.get("derivation_id")) is not str
-            or not result["derivation_id"]
-            or type(result.get("replayed")) is not bool
-        ):
-            raise PortRefusal("native publication did not return its required effect receipt")
-        from .data_operation_identity import semantic_value
-
-        return NativeCommandCompletion(
-            "data.publish_data_derivation",
-            RoleValue(
-                "result",
-                self.result_kind,
-                canonical_bytes(result),
-                canonical_bytes(semantic_value(result)),
-            ),
-            result["receipt_id"],
-            result["derivation_id"],
-        )

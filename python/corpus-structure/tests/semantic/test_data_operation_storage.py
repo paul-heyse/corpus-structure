@@ -68,7 +68,13 @@ def test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog():
     }
     assert all(call.parameters[0].native_parameter == "p_payload" for _, call in calls)
     assert all(call.result_fields[0].native_field == "payload" for _, call in calls)
-    assert all(call.source_digest == native_source_digest(captured) for _, call in calls)
+    from corpus_structure.semantic.data_operation_storage import native_program_closures
+
+    closures = native_program_closures(captured)
+    assert all(
+        call.source_digest == closures.operations[owner.removeprefix("data.")]
+        for owner, call in calls
+    )
     altered = tuple(
         replace(source, content=source.content + b"\n-- changed native behavior\n")
         if source.name.endswith(".sql")
@@ -2818,14 +2824,14 @@ def test_native_nominal_topology_capture_requires_every_selected_dependency(name
         "native/data-operation-graph-execution.json",
     ],
 )
-def test_native_nominal_topology_capture_binds_helper_bytes_and_execution(name):
+def test_native_program_manifest_keeps_topology_provenance_out_of_program_identity(name):
     sources = native_protocol_sources()
     initial = native_source_digest(sources)
     altered = tuple(
         replace(source, content=source.content + b"\n") if source.name == name else source
         for source in sources
     )
-    assert native_source_digest(altered) != initial
+    assert native_source_digest(altered) == initial
     assert native_source_digest(sources) == initial
 
 

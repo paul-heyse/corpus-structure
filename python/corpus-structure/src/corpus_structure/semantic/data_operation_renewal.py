@@ -22,19 +22,18 @@ from .native_program import (
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
     Return,
     SelectInto,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
 
 
-def renewal_native_sql(target, protocol: bytes) -> str:
+def renewal_native_programs(target, protocol: bytes) -> tuple[NativeRoutine, ...]:
     definitions = yaml.safe_load(protocol)["definitions"]
     request_contract = definitions["renew_data_request_request"]
     request = target.tables["ops.data_request"]
@@ -58,7 +57,7 @@ def renewal_native_sql(target, protocol: bytes) -> str:
     lease = cast(p["lease_seconds"].astext, Integer())
     holder = p["holder"].astext
     object_ = func.pg_catalog.jsonb_build_object
-    lost = sql_function(
+    lost = NativeRoutine(
         "ops",
         "ddo_lost_attempt",
         parameters=(Parameter("p", pg_type("jsonb")), Parameter("reason", pg_type("text"))),
@@ -123,7 +122,7 @@ def renewal_native_sql(target, protocol: bytes) -> str:
         )
     )
     lease_contract = request_contract["properties"]["lease_seconds"]
-    renew = function(
+    renew = NativeRoutine(
         "ops",
         "renew_data_request",
         parameters=(Parameter("p_payload", pg_type("jsonb")),),
@@ -236,4 +235,13 @@ def renewal_native_sql(target, protocol: bytes) -> str:
             ),
         ),
     )
-    return lost + ";\n" + renew + ";\n"
+    return (lost, renew)
+
+
+def renewal_native_sql(target, protocol: bytes) -> str:
+    from .native_objects import native_sql_script
+
+    return (
+        native_sql_script(routine.render() for routine in renewal_native_programs(target, protocol))
+        + "\n"
+    )

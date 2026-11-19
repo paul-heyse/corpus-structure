@@ -510,13 +510,25 @@ class NativeRoutine:
     search_path: tuple[str, ...] = ()
     volatility: Literal["stable", "immutable", "volatile"] | None = None
     strict: bool = False
+    sql_standard: bool = False
 
     @property
     def argument_types(self) -> tuple[str, ...]:
         return tuple(_render(parameter.type_) for parameter in self.parameters)
 
     def render(self) -> str:
-        if isinstance(self.body, Block):
+        sql_body = None
+        if self.sql_standard:
+            if isinstance(self.body, Block):
+                raise ValueError("SQL-standard routine requires one structured SELECT")
+            statements = prepare_sql(
+                _render(self.body), source="native SQL-standard SELECT"
+            ).private_tree()
+            if len(statements) != 1 or not isinstance(statements[0].stmt, ast.SelectStmt):
+                raise ValueError("SQL-standard routine requires one structured SELECT")
+            sql_body = ((statements[0].stmt,),)
+            language, body = "sql", ""
+        elif isinstance(self.body, Block):
             names = tuple(item.name for item in (*self.parameters, *self.body.locals))
             if len(set(names)) != len(names):
                 raise ValueError("native function requires distinct parameters and locals")
@@ -535,6 +547,7 @@ class NativeRoutine:
             search_path=self.search_path,
             volatility=self.volatility,
             strict=self.strict,
+            sql_body=sql_body,
         )
 
 
@@ -606,6 +619,7 @@ def _routine(
     volatility: Literal["stable", "immutable", "volatile"] | None,
     strict: bool,
     table_columns: tuple[tuple[str, ast.TypeName], ...] = (),
+    sql_body: tuple[tuple[ast.SelectStmt, ...], ...] | None = None,
 ) -> str:
     if security_definer and not search_path:
         raise ValueError("security definer function requires its declared search path")
@@ -632,7 +646,8 @@ def _routine(
                 ),
             )
         )
-    options.append(ast.DefElem(defname="as", arg=(ast.String(sval=body),)))
+    if sql_body is None:
+        options.append(ast.DefElem(defname="as", arg=(ast.String(sval=body),)))
     return _statement(
         ast.CreateFunctionStmt(
             replace=True,
@@ -659,6 +674,7 @@ def _routine(
             or None,
             returnType=returns,
             options=tuple(options),
+            sql_body=sql_body,
         )
     )
 
@@ -670,6 +686,18 @@ def void_call_function(
     security_definer: bool = False,
     search_path: tuple[str, ...] = (),
 ) -> str:
+    return void_call_routine(
+        binding, body=body, security_definer=security_definer, search_path=search_path
+    ).render()
+
+
+def void_call_routine(
+    binding: OperationCallBinding,
+    *,
+    body: Block,
+    security_definer: bool = False,
+    search_path: tuple[str, ...] = (),
+) -> NativeRoutine:
     """Generate a protected effect's declaration from the resolved caller contract."""
     if (
         binding.backend != "native"
@@ -692,7 +720,7 @@ def void_call_function(
         if resolved.multivalued:
             native.arrayBounds = (ast.Integer(ival=-1),)
         parameters.append(Parameter(field.native_parameter, native))
-    return function(
+    return NativeRoutine(
         names[0],
         names[1],
         parameters=tuple(parameters),

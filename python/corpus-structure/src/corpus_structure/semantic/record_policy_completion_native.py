@@ -36,7 +36,12 @@ from .data_operation_projections import (
     record_grade_census_nodes,
     selected_support_output,
 )
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import (
+    INTERNAL_PROGRAM,
+    NativeIdentity,
+    native_privilege_sql,
+    native_sql_script,
+)
 from .native_program import (
     Assign,
     Block,
@@ -44,6 +49,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -53,9 +59,9 @@ from .native_program import (
     SelectInto,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration, ProgramValidity
 from .record_policy_authority import DdoRecordPolicyAuthorization
 from .validity_programs import selected_family
 
@@ -107,7 +113,7 @@ def _digest_text(value):
 class _PolicyPrograms:
     def __init__(self, model: MetaData):
         self.model = model
-        self.output: list[str] = []
+        self.output: list[tuple[ProgramDeclaration, NativeIdentity | None]] = []
 
     def table(self, name):
         return self.model.tables[name]
@@ -142,33 +148,37 @@ class _PolicyPrograms:
         strict=False,
         private=True,
         definer=True,
+        validity=(),
     ):
         result = pg_type(returns)
         result.setof = setof or bool(columns)
         self.output.append(
-            function(
-                "ops",
-                name,
-                parameters=tuple(
-                    Parameter(key, pg_type(*kind.split("."))) for key, kind in parameters
+            (
+                ProgramDeclaration(
+                    NativeRoutine(
+                        "ops",
+                        name,
+                        parameters=tuple(
+                            Parameter(key, pg_type(*kind.split("."))) for key, kind in parameters
+                        ),
+                        returns=result,
+                        table_columns=tuple((key, pg_type(kind)) for key, kind in columns),
+                        body=Block(tuple(statements), tuple(locals_)),
+                        volatility="immutable" if immutable else "stable",
+                        strict=strict,
+                        security_definer=definer,
+                        search_path=("pg_catalog", "pg_temp"),
+                    ),
+                    source="data-operations:forward",
+                    owner=role_name("publisher"),
+                    access=INTERNAL_PROGRAM,
+                    validity=validity,
                 ),
-                returns=result,
-                table_columns=tuple((key, pg_type(kind)) for key, kind in columns),
-                body=Block(tuple(statements), tuple(locals_)),
-                volatility="immutable" if immutable else "stable",
-                strict=strict,
-                security_definer=definer,
-                search_path=("pg_catalog", "pg_temp"),
+                NativeIdentity("function", "ops", name, tuple(kind for _, kind in parameters))
+                if private
+                else None,
             )
         )
-        if private:
-            self.output.append(
-                native_privilege_sql(
-                    NativeIdentity("function", "ops", name, tuple(kind for _, kind in parameters)),
-                    "PUBLIC",
-                    grant=False,
-                )
-            )
 
     def restored_request(self, target, producer, intent):
         request = self.row(target, "ops.data_request")
@@ -204,7 +214,7 @@ class _PolicyPrograms:
         )
 
 
-def record_policy_completion_native_sql(model: MetaData) -> str:
+def _policy_completion_programs(model: MetaData) -> _PolicyPrograms:
     programs = _PolicyPrograms(model)
     _authorization_projection(programs)
     _authorization_completion(programs)
@@ -212,7 +222,30 @@ def record_policy_completion_native_sql(model: MetaData) -> str:
     _fit_scopes(programs)
     _fit_selected_grade(programs)
     _fit_completion(programs)
-    return native_sql_script(programs.output) + "\n"
+    return programs
+
+
+def record_policy_completion_native_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
+    return tuple(declaration for declaration, _ in _policy_completion_programs(model).output)
+
+
+def record_policy_completion_native_sql(model: MetaData) -> str:
+    """Render captured statements with their original explicit PUBLIC revocations."""
+    return (
+        native_sql_script(
+            statement
+            for declaration, revoke in _policy_completion_programs(model).output
+            for statement in (
+                declaration.routine.render(),
+                *(
+                    (native_privilege_sql(revoke, "PUBLIC", grant=False),)
+                    if revoke is not None
+                    else ()
+                ),
+            )
+        )
+        + "\n"
+    )
 
 
 def _authorization_projection(p):
@@ -428,7 +461,6 @@ def _authorization_completion(p):
                 (
                     _reject(
                         or_(
-                            definition("operation_id") == "record_policy.authorize",
                             select(1)
                             .select_from(effects)
                             .where(
@@ -441,6 +473,13 @@ def _authorization_completion(p):
                     ),
                     Return(),
                 ),
+            ),
+            _reject(
+                ~func.ops.ddo_privileged_effect_authorized(
+                    definition(), "native-evaluator-policy-authorization"
+                ),
+                "policy authorization lacks its independent release effect grant",
+                "42501",
             ),
             _reject(
                 ~func.pg_has_role(
@@ -615,8 +654,9 @@ def _authorization_completion(p):
                     .select_from(definitions)
                     .where(
                         definitions.c.release_id == r("release_id"),
-                        definitions.c.operation_id == "resolve.m1_readings/declared",
                         definitions.c.recipe == _text(expected, "reading_recipe"),
+                        definitions.c.profile == "derivation",
+                        definitions.c.support_contract["effects"] == _json([]),
                     )
                     .exists(),
                     ~expected_kind,
@@ -1665,6 +1705,7 @@ def _fit_completion(p):
                 for name in ("feature", "calibration", "output", "specification", "cpu_output")
             ),
         ),
+        validity=(ProgramValidity("record-fit", "completion_guard"),),
     )
 
     def producer(field=None):
@@ -1714,4 +1755,5 @@ def _fit_completion(p):
             p.local("intent", "ops.data_completion_intent"),
         ),
         returns="bool",
+        validity=(ProgramValidity("record-fit", "validator"),),
     )

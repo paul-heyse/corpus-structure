@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter
 
 from .identity import canonical_bytes
 from .types import SourceArtifact
 from .visual_evidence import VisualEvidencePin, VisualEvidenceRow
+
+if TYPE_CHECKING:
+    from .native_program_registry import ProgramDeclaration
 
 SOURCE = "native/data-operation-visual-read.schema.json"
 ARTIFACT_SOURCE = "native/data-operation-visual-artifact.schema.json"
@@ -111,6 +114,28 @@ def visual_read_sources(*, target_metadata=None) -> tuple[SourceArtifact, ...]:
             visual_read_programs(target_metadata, artifact_schema).encode(),
         ),
     )
+
+
+def visual_read_declarations(
+    *, target_metadata=None, sources=None
+) -> tuple[ProgramDeclaration, ...]:
+    """Use the exact captured artifact contract at the typed visual producer."""
+    from .metadata import get_metadata
+    from .native_objects import native_sql_script
+    from .visual_read_native import visual_read_native_programs
+
+    selected = get_metadata() if target_metadata is None else target_metadata
+    captured = visual_read_sources(target_metadata=selected) if sources is None else tuple(sources)
+    by_name = {source.name: source.content for source in captured}
+    declarations = visual_read_native_programs(selected, by_name[ARTIFACT_SOURCE])
+    if (
+        native_sql_script(item.routine.render() for item in declarations).encode()
+        != by_name["native/data-operation-visual-read.sql"]
+    ):
+        raise ValueError(
+            "visual source declarations differ from captured model/artifact statements"
+        )
+    return declarations
 
 
 def visual_read_sql(sources=None) -> str:

@@ -101,6 +101,241 @@ def test_installed_support_classifier_and_terminal_edges(
     _cross_release_population(engine, location, tmp_path, monkeypatch)
 
 
+def test_changed_population_member_reuses_unchanged_child_results(
+    semantic_bare_engine, fresh_target_epoch, tmp_path, monkeypatch
+):
+    from dataclasses import replace
+    from typing import cast as type_cast
+
+    from corpus_structure.semantic import migrations
+    from corpus_structure.semantic.data_operation_demands import DemandPlanner
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.identity import canonical_bytes
+    from semantic.data_operation_binding_support import discover
+    from semantic.data_operation_kernel_support import POPULATION, admit_kernel, prepare_kernel
+    from semantic.population_completion_support import complete_ready
+
+    engine = semantic_bare_engine
+    _, _, _, _, _, location = install_target_root(engine, fresh_target_epoch, tmp_path)
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
+    assert POPULATION.declaration_content is not None
+    declaration = json.loads(POPULATION.declaration_content)
+    for operation in declaration["operations"]:
+        operation["validity_family"] = ["none"]
+    child = next(
+        operation for operation in declaration["operations"] if operation["id"] == "urn:child"
+    )
+    child["dependencies"] = ["urn:discover"]
+    child["roles"].insert(
+        0,
+        dict(
+            name="item",
+            kind="Sample",
+            direction="input",
+            minimum=1,
+            maximum=1,
+            collection="scalar",
+            presence="required",
+            support=dict(
+                provenance="value_substitution",
+                source="same-original",
+                coverage=dict(role="item", description="selected-scope"),
+                identity_requirements=[],
+            ),
+        ),
+    )
+    child["binding"] = dict(operator="scan", roles=["item"])
+    contexts = tuple(
+        dict(subject="item:" + name, original_source="source:test", analyzed_scope={"page": 1})
+        for name in ("a", "b", "c")
+    )
+
+    def prepare(name, project):
+        recipe = replace(
+            POPULATION, project_id=project, declaration_content=canonical_bytes(declaration)
+        )
+        preparation = prepare_kernel(recipe, directory=tmp_path / name)
+        with engine.begin() as connection:
+            return admit_kernel(connection, recipe, preparation=preparation)
+
+    def children(kernel, demand):
+        with engine.begin() as connection:
+            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+            snapshot = planner.resume(demand["demand_id"])
+            producer = next(
+                use
+                for use in snapshot["uses"]
+                if use["products"]
+                and any(
+                    row["obligation_id"] == use["obligation_id"]
+                    and row["operation_id"] == "urn:discover"
+                    for row in snapshot["obligations"]
+                )
+            )
+        with engine.begin() as connection:
+            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+            planner.expand_discovery(
+                snapshot,
+                population="all-items",
+                product=producer["products"][0]["product_id"],
+                derivation=type_cast(str, producer["derivation_id"]),
+            )
+            snapshot = planner.resume(demand["demand_id"])
+        with engine.begin() as connection:
+            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+            ready = planner.ready(snapshot, authorization=b"{}")
+        return tuple(row for row in ready if row.operation == "urn:child")
+
+    old = prepare("original-members", "ddo-test")
+    first, _, old_population = discover(
+        old,
+        values=(5, 15, 25),
+        member_contexts=contexts,
+        member_ids=("a", "b", "c"),
+        child_input_role="item",
+    )
+    original_children = children(old, first)
+    assert {row.subject for row in original_children} == {"item:a", "item:b", "item:c"}
+    original = {
+        row.subject: complete_ready(old, row, value=value)
+        for row, value in zip(
+            sorted(original_children, key=lambda row: row.subject), (5, 15, 25), strict=True
+        )
+    }
+    next(operation for operation in declaration["operations"] if operation["id"] == "urn:discover")[
+        "behavior"
+    ] = "changed-discovery-members-v2"
+    current = prepare("changed-members", None)
+    assert current.identities["urn:child", "recipe"] == old.identities["urn:child", "recipe"]
+    second, _, current_population = discover(
+        current,
+        values=(5, 16, 25),
+        member_contexts=contexts,
+        member_ids=("a", "b", "c"),
+        child_input_role="item",
+    )
+    replacement = children(current, second)
+    original_requests = {row.subject: json.loads(row.request) for row in original_children}
+    for row in replacement:
+        if row.subject != "item:b":
+            assert json.loads(row.request) == original_requests[row.subject]
+    assert [row.subject for row in replacement] == ["item:b"]
+    changed = complete_ready(current, replacement[0], value=16)
+    with engine.begin() as connection:
+        snapshot = DemandPlanner(current.model, DataOperationStorage(connection)).resume(
+            second["demand_id"]
+        )
+        child_obligations = {
+            row["obligation_id"]: row["subject"]
+            for row in snapshot["obligations"]
+            if row["operation_id"] == "urn:child"
+        }
+        used = {
+            child_obligations[row["obligation_id"]]: row["derivation_id"]
+            for row in snapshot["uses"]
+            if row["obligation_id"] in child_obligations and row["fate"] == "fulfilled"
+        }
+    assert used == {
+        "item:a": original["item:a"]["derivation_id"],
+        "item:b": changed["derivation_id"],
+        "item:c": original["item:c"]["derivation_id"],
+    }
+    assert changed["derivation_id"] != original["item:b"]["derivation_id"]
+    with engine.begin() as connection:
+        planner = DemandPlanner(current.model, DataOperationStorage(connection))
+        ready = planner.ready(snapshot, authorization=b"{}")
+    aggregate = [row for row in ready if row.operation == "urn:consumer"]
+    assert len(aggregate) == 1
+    assert [
+        member.member for role in aggregate[0].binding_result.roles for member in role.members
+    ] == ["b"]
+    aggregate_receipt = complete_ready(current, aggregate[0], value=16)
+    with engine.connect() as connection:
+        observed = connection.scalar(
+            text(
+                "SELECT data.ddo_json(product.canonical_body) "
+                "FROM kb.data_product product JOIN ops.data_derivation_output output "
+                "ON output.product_id=product.id WHERE output.derivation_id=:episode "
+                "AND output.role='result' AND output.member_id IS NULL"
+            ),
+            {"episode": aggregate_receipt["derivation_id"]},
+        )
+    assert observed == 16
+    _assert_selected_substitution_scope(
+        engine, second, original["item:a"]["derivation_id"], old_population, current_population
+    )
+
+
+def _assert_selected_substitution_scope(
+    engine, demand, old_child, old_population, current_population
+):
+    from typing import cast as type_cast
+
+    from sqlalchemy import literal, select
+
+    from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
+    from corpus_structure.semantic.data_operation_projections import _support_walk
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.metadata import get_metadata
+
+    with engine.begin() as connection:
+        snapshot = DataOperationStorage(connection).read_demand_result(
+            {"demand_id": demand["demand_id"]}
+        )
+    obligation = next(
+        row
+        for row in snapshot["obligations"]
+        if row["operation_id"] == "urn:child" and row["subject"] == "item:a"
+    )
+    chosen = next(
+        row
+        for row in snapshot["uses"]
+        if row["obligation_id"] == obligation["obligation_id"] and row["fate"] == "fulfilled"
+    )
+    assert chosen["derivation_id"] == old_child
+    old_evidence, current_evidence = old_population["evidence"], current_population["evidence"]
+    expected = {
+        ("use", chosen["use_id"]),
+        ("episode", old_child),
+        ("use", old_evidence["admission_use_id"]),
+        ("episode", old_evidence["derivation_id"]),
+        ("use", current_evidence["admission_use_id"]),
+        ("episode", current_evidence["derivation_id"]),
+        ("population", current_population["population_id"]),
+    }
+    seed = select(literal("use").label("kind"), literal(chosen["use_id"]).label("id")).cte(
+        "selected_scope_seed"
+    )
+    scope = _support_walk(get_metadata(), seed, name="selected_scope_nodes")
+    with engine.begin() as connection:
+        assert set(connection.execute(select(scope))) == expected
+        DataOperationStorage(connection).revoke_data_support(
+            type_cast(
+                WireRevokeDataSupportRequest,
+                dict(
+                    project_id="ddo-test",
+                    original_source="source:test",
+                    selector_kind="derivation",
+                    selector=old_evidence["derivation_id"],
+                    reason="withdraw historical producer after authentic member substitution",
+                ),
+            )
+        )
+        assert (
+            connection.scalar(
+                text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": old_child}
+            )
+            is False
+        )
+        assert (
+            connection.scalar(
+                text("SELECT ops.ddo_node_valid('use',:use)"), {"use": chosen["use_id"]}
+            )
+            is True
+        )
+        assert set(connection.execute(select(scope))) == expected
+
+
 def _cross_release_population(engine, location, tmp_path, monkeypatch, *, project_id="ddo-test"):
     from dataclasses import replace
     from typing import cast
@@ -284,6 +519,10 @@ def _cross_release_population(engine, location, tmp_path, monkeypatch, *, projec
             )
             == old.prepared.release_id
         )
+    _assert_population_traversal(engine, current, demand, population)
+    _changed_discovery_recipe_refuses_old_population(
+        engine, current, evidence, project_id, tmp_path
+    )
     from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
     from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
 
@@ -325,6 +564,196 @@ def _cross_release_population(engine, location, tmp_path, monkeypatch, *, projec
                     "derivation_id": evidence["derivation_id"],
                     "member_role": "result",
                 },
+            )
+        )
+
+
+def _assert_population_traversal(engine, current, demand, parent):
+    from types import SimpleNamespace
+    from typing import cast as type_cast
+
+    import yaml
+    from sqlalchemy import Text, cast, false, literal, literal_column, select, true, union_all
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from corpus_structure.semantic._data_operation_wire import WireSelectDataPopulationRequest
+    from corpus_structure.semantic.data_operation_projections import _scope_projection
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.support_edges import support_edge_queries
+
+    with engine.begin() as connection:
+        storage = DataOperationStorage(connection)
+        snapshot = storage.read_demand_result({"demand_id": demand["demand_id"]})
+        consumer = next(
+            row for row in snapshot["obligations"] if row["operation_id"] == "urn:consumer"
+        )
+    with engine.begin() as connection:
+        selected = DataOperationStorage(connection).select_data_population(
+            type_cast(
+                WireSelectDataPopulationRequest,
+                dict(
+                    obligation_id=consumer["obligation_id"],
+                    population_name="selected-items",
+                    parent_population_id=parent["population_id"],
+                    read_id=snapshot["read_id"],
+                ),
+            )
+        )
+    metadata = get_metadata()
+    root = selected["population_id"]
+    producer_use = parent["evidence"]["admission_use_id"]
+    episode = parent["evidence"]["derivation_id"]
+    expected = {
+        ("population", root),
+        ("population", parent["population_id"]),
+        ("use", producer_use),
+        ("episode", episode),
+    }
+
+    def walk(model, profile):
+        closure = select(literal("population").label("kind"), literal(root).label("id")).cte(
+            "fixture_nodes", recursive=True
+        )
+        edges = union_all(
+            *(
+                query.correlate(closure)
+                for query in support_edge_queries(
+                    model,
+                    closure.c.kind,
+                    closure.c.id,
+                    profile,
+                    authority=lambda identity: false(),
+                    boundary=literal_column("NULL::ops.data_demand_read"),
+                    product_ids=cast(literal("[]"), JSONB()),
+                )
+            )
+        ).lateral("fixture_edges")
+        return closure.union(
+            select(edges.c.child_kind, edges.c.child_id)
+            .select_from(closure.join(edges, true()))
+            .where(edges.c.child_id.is_not(None))
+        )
+
+    with engine.connect() as connection:
+        for profile in ("scope", "public"):
+            assert set(connection.execute(select(walk(metadata, profile)))) == expected
+        validity = connection.execute(
+            text(
+                "SELECT kind,id,valid FROM ops.ddo_valid_closure('{}'::text[], '{}'::text[], "
+                "NULL::ops.data_demand_read, ARRAY[:population]::text[])"
+            ),
+            {"population": root},
+        ).all()
+        assert {(kind, identity) for kind, identity, _ in validity} == expected | {
+            ("producer", episode)
+        }
+        assert all(valid for _, _, valid in validity)
+        nodes = walk(metadata, "scope")
+        scopes = _scope_projection(
+            metadata,
+            nodes,
+            literal(snapshot["project_id"]),
+            select(cast(literal(None), Text()).label("source")).where(false()),
+            domain_dependencies=False,
+        )
+        expected_scope = connection.scalar(
+            text("SELECT ops.ddo_scope(:project,'source:test')"),
+            {"project": snapshot["project_id"]},
+        )
+        assert set(connection.scalars(scopes)) == {expected_scope}
+
+        sources = dict(metadata.info["physical_sources"])
+        document = yaml.safe_load(sources["operation-vocabularies.yaml"])
+        document["enums"]["SupportEdgeKind"]["permissible_values"]["population-parent"][
+            "annotations"
+        ]["cs:edge"]["value"]["profiles"].remove("scope")
+        sources["operation-vocabularies.yaml"] = yaml.safe_dump(document).encode()
+        candidate = SimpleNamespace(
+            tables=metadata.tables, info={**metadata.info, "physical_sources": sources}
+        )
+        assert set(connection.execute(select(walk(candidate, "scope")))) == expected - {
+            ("population", parent["population_id"])
+        }
+        assert set(connection.execute(select(walk(candidate, "public")))) == expected
+
+
+def _changed_discovery_recipe_refuses_old_population(
+    engine, current, evidence, project_id, tmp_path
+):
+    from dataclasses import replace
+    from typing import cast
+
+    from corpus_structure.semantic._data_operation_wire import (
+        WireCloseDataPopulationRequest,
+        WireRegisterDataDemandRequest,
+    )
+    from corpus_structure.semantic.data_operation_demands import (
+        DemandPlanner,
+        DiscoverySelection,
+        RootSubject,
+        freeze_demand,
+    )
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.identity import canonical_bytes
+    from semantic.data_operation_kernel_support import POPULATION, admit_kernel, prepare_kernel
+
+    assert POPULATION.declaration_content is not None
+    declaration = json.loads(POPULATION.declaration_content)
+    producer = next(row for row in declaration["operations"] if row["id"] == "urn:discover")
+    producer["behavior"] = "changed-native-discovery-v2"
+    recipe = replace(POPULATION, project_id=None, declaration_content=canonical_bytes(declaration))
+    preparation = prepare_kernel(recipe, directory=tmp_path / "changed-discovery-recipe")
+    with engine.begin() as connection:
+        changed = admit_kernel(connection, recipe, preparation=preparation)
+    assert (
+        changed.identities["urn:discover", "recipe"] != current.identities["urn:discover", "recipe"]
+    )
+    selection = freeze_demand(
+        changed.model,
+        roots=(RootSubject("doc", "source:test", canonical_bytes({"page": 1})),),
+        targets=("urn:consumer",),
+        inference="inference:test",
+        execution_profile="execution:test",
+        discovery=(DiscoverySelection("urn:discover", "result", "urn:child", "all-items"),),
+    ).record
+    with engine.begin() as connection:
+        storage = DataOperationStorage(connection)
+        registered = storage.register_data_demand(
+            cast(
+                WireRegisterDataDemandRequest,
+                dict(
+                    project_id=project_id,
+                    release_id=changed.prepared.release_id,
+                    runtime_id=changed.runtime,
+                    root=selection["roots"],
+                    selection=selection,
+                    strength="value",
+                ),
+            )
+        )
+    with engine.begin() as connection:
+        planner = DemandPlanner(changed.model, DataOperationStorage(connection))
+        snapshot = planner.resume(registered["demand_id"])
+    with engine.begin() as connection:
+        planner = DemandPlanner(changed.model, DataOperationStorage(connection))
+        ready = planner.ready(snapshot, authorization=b"{}")
+        assert len(ready) == 1 and ready[0].operation == "urn:discover"
+        assert json.loads(ready[0].native)["action"] == "compute"
+    with (
+        engine.begin() as connection,
+        pytest.raises(DBAPIError, match="population lacks admitted declared discovery output"),
+    ):
+        DataOperationStorage(connection).close_data_population(
+            cast(
+                WireCloseDataPopulationRequest,
+                dict(
+                    demand_id=registered["demand_id"],
+                    name="all-items",
+                    product_id=evidence["product_id"],
+                    derivation_id=evidence["derivation_id"],
+                    member_role="result",
+                ),
             )
         )
 
@@ -406,10 +835,10 @@ def test_native_witnesses_attribute_direct_and_selected_upstream_once():
 
 
 @pytest.mark.skipif(
-    not os.environ.get("CORPUS_UDM_B_STAGE_OBSERVATION"),
+    os.environ.get("CORPUS_UDM_TRANSITION_OBSERVATION") != "130661481",
     reason="explicit owned-stage observation is not selected",
 )
-def test_owned_stage_n31_discovery_and_impact(tmp_path, monkeypatch):
+def test_owned_stage_transition_discovery_and_impact(tmp_path, monkeypatch):
     from uuid import uuid4
 
     from corpus_structure.schema.model_deployment import deployment_settings
@@ -419,19 +848,21 @@ def test_owned_stage_n31_discovery_and_impact(tmp_path, monkeypatch):
     from corpus_structure.semantic.storage_target import acquired_target
     from corpus_structure.settings import Settings
 
-    assert os.environ["CORPUS_UDM_B_STAGE_OBSERVATION"] == "130661481"
+    assert os.environ["CORPUS_UDM_TRANSITION_OBSERVATION"] == "130661481"
     _, settings = deployment_settings(Settings(), "deployment")
-    with open_runtime_engine(settings, "udm-b-stage-observation", purpose="maintenance") as engine:
+    with open_runtime_engine(
+        settings, "udm-transition-stage-observation", purpose="maintenance"
+    ) as engine:
         with engine.connect() as connection:
             target = acquired_target(connection, purpose="maintenance")
             assert target.database_oid == 130661481
             assert target.port == 5434
-            assert current_revision(connection) == "semantic_ddo_pe_n31"
+            assert current_revision(connection) == "semantic_ddo_pe_n32"
             installed = connection.scalar(
                 text("SELECT sem.data_operation_native_descriptor()->>'source_digest'")
             )
             assert installed == native_source_digest(), (
                 "stage and observation source require the same captured kernel"
             )
-        project = "udm-b-stage-observation-" + uuid4().hex
+        project = "udm-transition-stage-observation-" + uuid4().hex
         _cross_release_population(engine, None, tmp_path, monkeypatch, project_id=project)

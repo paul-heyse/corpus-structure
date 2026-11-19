@@ -2,24 +2,16 @@
 
 from hashlib import sha256
 
-from pglast import ast
-
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
-from corpus_structure.semantic.pdf_publication_native import publication_sql
-from corpus_structure.semantic.pdf_publication_read_native import pdf_reference_bytes_equal_sql
-from corpus_structure.semantic.prepared_sql import prepare_sql
+from corpus_structure.semantic.pdf_publication_read_native import (
+    pdf_record_scope_health_program,
+    pdf_reference_bytes_equal_sql,
+)
 
 
 def test_scope_health_does_not_read_other_revision_health_or_formula_rows(infrastructure_rollback):
-    prepared = prepare_sql(publication_sql(), source="current PDF publication")
-    declaration = next(
-        prepared.excerpt(index)
-        for index, raw in enumerate(prepared.statements)
-        if isinstance(raw.stmt, ast.CreateFunctionStmt)
-        and tuple(part.sval for part in raw.stmt.funcname or ())
-        == ("ops", "pdf_record_scope_health")
-    )
+    declaration = pdf_record_scope_health_program(get_metadata()).render()
     conn = infrastructure_rollback
     tx = conn.begin_nested()
     conn.exec_driver_sql("CREATE SCHEMA ops")

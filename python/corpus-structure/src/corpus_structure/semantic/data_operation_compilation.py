@@ -2460,8 +2460,12 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
                 _fail(name, "bound member kind contract differs from the compiled kind")
             if role.collection == "sequence" and member.position is None:
                 _fail(name, "ordered members require explicit positions")
+            member_identity = member.product
+            if member.member is not None:
+                evidence = wire_json_loads(member.support_evidence)
+                member_identity = _text(evidence.get("member_body_identity"), name + "/member-body")
             value = {
-                "product": member.product,
+                "product": member_identity,
                 "kind": member.kind_contract,
                 "subject": member.subject,
                 "subject_definition": member.subject_definition,
@@ -2567,7 +2571,10 @@ def project_operation_binding(model: EffectiveDataOperationModel, binding):
             "value": OptionalValue(actual.state, collection if actual.state == "present" else None),
             "population_witness": project_population_witness(
                 witness, role.support.identity_requirements if role.support else (), model=model
-            ),
+            )
+            if requires_population(compiled_binding.expression, name)
+            or actual.state == "known-absent"
+            else None,
             "selected_alternative": actual.selected_alternative,
         }
         support[name] = {

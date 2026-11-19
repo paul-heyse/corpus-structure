@@ -1,16 +1,16 @@
 """Published proof reads over exact immutable record placement."""
 
-from pglast.stream import RawStream
 from sqlalchemy import BigInteger, MetaData, Text, column, func, literal, select, true
 from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.schema.integrity import role_name
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
-from .native_program import Parameter, column_type, core_variable, pg_type, sql_function
+from .native_objects import NativeProgramAccess, native_privilege_sql, native_sql_script
+from .native_program import NativeRoutine, Parameter, column_type, core_variable, pg_type
+from .native_program_registry import ProgramDeclaration
 
 
-def pdf_record_proof_sql(model: MetaData) -> str:
+def pdf_record_proof_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
     placement = model.tables["ops.pdf_published_revision"]
     pin = (
         ("p_task", placement.c.task_id),
@@ -80,7 +80,7 @@ def pdf_record_proof_sql(model: MetaData) -> str:
             )
         )
     )
-    statements = []
+    programs = []
     for name, query, datatype, columns in (
         (
             "read_pdf_record_identity_frames",
@@ -115,25 +115,38 @@ def pdf_record_proof_sql(model: MetaData) -> str:
     ):
         returns = pg_type(datatype)
         returns.setof = True
-        identity = NativeIdentity(
-            "function", "ops", name, tuple(RawStream()(parameter.type_) for parameter in parameters)
+        routine = NativeRoutine(
+            "ops",
+            name,
+            parameters=parameters,
+            returns=returns,
+            body=query,
+            table_columns=columns,
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
+            volatility="stable",
         )
-        statements.extend(
-            (
-                sql_function(
-                    "ops",
-                    name,
-                    parameters=parameters,
-                    returns=returns,
-                    body=query,
-                    table_columns=columns,
-                    security_definer=True,
-                    search_path=("pg_catalog", "pg_temp"),
-                    volatility="stable",
-                ),
-                native_privilege_sql(identity, "PUBLIC", grant=False),
-                native_privilege_sql(identity, role_name("reader"), "execute"),
-                native_privilege_sql(identity, role_name("evaluator"), "execute"),
+        programs.append(
+            ProgramDeclaration(
+                routine,
+                "authoring/pdf-record-proof.sql",
+                role_name("publisher"),
+                NativeProgramAccess(purposes=("read", "evaluate")),
             )
         )
-    return native_sql_script(statements)
+    return tuple(programs)
+
+
+def pdf_record_proof_sql(model: MetaData) -> str:
+    return native_sql_script(
+        statement
+        for program in pdf_record_proof_programs(model)
+        for statement in (
+            program.routine.render(),
+            native_privilege_sql(program.identity, "PUBLIC", grant=False),
+            *(
+                native_privilege_sql(program.identity, role, privilege.lower(), grant_option=option)
+                for role, privilege, option in program.access.grants(program.owner)
+            ),
+        )
+    )

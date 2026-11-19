@@ -27,34 +27,52 @@ from corpus_structure.schema.integrity import role_name
 from .binding_recursive_native import _check, _each, _elements, _json, _value
 from .data_operation_projections import lock_support_scopes
 from .native_definition_projection import NativeKindProjection
-from .native_objects import native_sql_script
+from .native_objects import INTERNAL_PROGRAM, native_sql_script
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Return,
     SelectInto,
     Sql,
     column_type,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration, ProgramValidity
 
 
 def _object(key, value):
     return func.jsonb_build_object(key, value, type_=JSONB())
 
 
+def _declaration(routine: NativeRoutine, *, validity=()) -> ProgramDeclaration:
+    return ProgramDeclaration(
+        routine,
+        source="data-operations:forward",
+        owner=role_name("publisher"),
+        access=INTERNAL_PROGRAM,
+        validity=validity,
+    )
+
+
 def _routine(
-    name, parameters, steps, locals_=(), *, returns="jsonb", definer=False, volatility=None
+    name,
+    parameters,
+    steps,
+    locals_=(),
+    *,
+    returns="jsonb",
+    definer=False,
+    volatility=None,
+    validity=(),
 ):
-    return (
-        function(
+    return _declaration(
+        NativeRoutine(
             "ops",
             name,
             parameters=parameters,
@@ -63,12 +81,12 @@ def _routine(
             security_definer=definer,
             volatility=volatility,
             search_path=("pg_catalog", "pg_temp"),
-        )
-        + ";\n"
+        ),
+        validity=validity,
     )
 
 
-def support_trust_native_sql(model):
+def support_trust_native_programs(model) -> tuple[ProgramDeclaration, ...]:
     """Generate support locks and trust checks from the captured physical model."""
     trust = model.tables["ops.data_trust_scope"]
     requests = model.tables["ops.data_request"]
@@ -283,8 +301,8 @@ def support_trust_native_sql(model):
         func.coalesce(row["support_references"], _json("[]")), "support_reference"
     )
     item = references.c.value
-    matches = (
-        sql_function(
+    matches = _declaration(
+        NativeRoutine(
             "ops",
             "ddo_support_reference_matches",
             parameters=(
@@ -323,23 +341,27 @@ def support_trust_native_sql(model):
             strict=True,
             search_path=("pg_catalog", "pg_temp"),
         )
-        + ";\n"
     )
+    return (
+        authorize,
+        scope,
+        meaning,
+        locked,
+        completion,
+        freeze,
+        matches,
+        _conservative_validity(model),
+    )
+
+
+def support_trust_native_sql(model) -> str:
+    """Render the original captured trust statements from typed declarations."""
     return "\n".join(
-        (
-            authorize,
-            scope,
-            meaning,
-            locked,
-            completion,
-            freeze,
-            matches,
-            _conservative_validity(model),
-        )
+        declaration.routine.render() + ";\n" for declaration in support_trust_native_programs(model)
     )
 
 
-def _conservative_validity(model: MetaData) -> str:
+def _conservative_validity(model: MetaData) -> ProgramDeclaration:
     receipts = model.tables["ops.data_publication_receipt"]
     derivations = model.tables["ops.data_derivation"]
     requests = model.tables["ops.data_request"]
@@ -350,11 +372,14 @@ def _conservative_validity(model: MetaData) -> str:
         .correlate(requests)
         .scalar_subquery()
     )
-    installed = func.sem.data_operation_native_descriptor(type_=JSONB())["source_digest"].astext
+    installed = func.sem.data_operation_native_descriptor(type_=JSONB())["validator_identities"]
     checked = (
         select(
             and_(
-                receipts.c.validating_kernel_digest == installed,
+                func.ops.ddo_receipt_validation_current(
+                    receipts.c.id,
+                    func.jsonb_build_object("conservative", installed["conservative"].astext),
+                ),
                 func.ops.ddo_trust_snapshot_meaning(receipts.c.trust_snapshot) == epoch_map,
             )
         )
@@ -372,16 +397,17 @@ def _conservative_validity(model: MetaData) -> str:
         (Return(func.coalesce(checked, false())),),
         returns="bool",
         volatility="stable",
+        validity=(ProgramValidity("conservative", "validator"),),
     )
 
 
-def support_scope_sql(model: MetaData) -> str:
+def support_scope_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
     """Generate the shared SQL-language scope projection after its domain providers."""
     result = pg_type("record")
     result.setof = True
-    return native_sql_script(
-        (
-            sql_function(
+    return (
+        _declaration(
+            NativeRoutine(
                 "ops",
                 "ddo_support_scopes",
                 parameters=(
@@ -396,7 +422,14 @@ def support_scope_sql(model: MetaData) -> str:
                 security_definer=True,
                 search_path=("pg_catalog", "pg_temp"),
             ),
-        )
+        ),
+    )
+
+
+def support_scope_sql(model: MetaData) -> str:
+    """Render the captured shared scope projection."""
+    return native_sql_script(
+        declaration.routine.render() for declaration in support_scope_programs(model)
     )
 
 

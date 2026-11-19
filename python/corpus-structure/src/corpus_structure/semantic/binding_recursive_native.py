@@ -15,12 +15,16 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, array
 
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -28,9 +32,25 @@ from .native_program import (
     ReturnQuery,
     SelectInto,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
+
+
+def _binding_declarations(routines) -> tuple[ProgramDeclaration, ...]:
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operation-bindings:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        )
+        for routine in routines
+    )
+
+
+def _render_binding_programs(declarations, *, separator="") -> str:
+    return separator.join(item.routine.render() + ";\n" for item in declarations)
 
 
 def _elements(value, name="entry"):
@@ -72,22 +92,19 @@ def _check(condition, message, state="P0001"):
 def _routine(
     name, steps, locals_=(), *, parameters=(("node", "jsonb"), ("context", "jsonb")), result="jsonb"
 ):
-    return (
-        function(
-            "ops",
-            name,
-            parameters=tuple(Parameter(name, pg_type(kind)) for name, kind in parameters),
-            returns=pg_type(result),
-            body=Block(tuple(steps), tuple(locals_)),
-            strict=True,
-            volatility="immutable",
-            search_path=("pg_catalog", "pg_temp"),
-        )
-        + ";\n"
+    return NativeRoutine(
+        "ops",
+        name,
+        parameters=tuple(Parameter(name, pg_type(kind)) for name, kind in parameters),
+        returns=pg_type(result),
+        body=Block(tuple(steps), tuple(locals_)),
+        strict=True,
+        volatility="immutable",
+        search_path=("pg_catalog", "pg_temp"),
     )
 
 
-def binding_exact_float_sql():
+def _binding_exact_float_routine():
     value, digits, exact_text = (_value(name) for name in ("value", "digits", "exact_text"))
     result = _value("result", Numeric())
     fraction, exponent, shift, signum, index, digit = (
@@ -153,7 +170,7 @@ def binding_exact_float_sql():
     )
 
 
-def binding_branch_native_sql():
+def _binding_branch_native_routines():
     node, context, item, child, selected, definition, refs = (
         _value(name, JSONB())
         for name in ("node", "context", "item", "child", "selected", "definition", "refs")
@@ -306,7 +323,7 @@ def binding_branch_native_sql():
         ),
     )
     out.append(
-        function(
+        NativeRoutine(
             "ops",
             "ddo_binding_inactive",
             parameters=(
@@ -327,7 +344,6 @@ def binding_branch_native_sql():
             volatility="immutable",
             search_path=("pg_catalog", "pg_temp"),
         )
-        + ";\n"
     )
     entries = _each(refs, "population_reference")
     entry_key, entry_value = _value("entry_key"), _value("entry_value", JSONB())
@@ -563,7 +579,7 @@ def binding_branch_native_sql():
         result="text",
     )
     out.append(population_projection)
-    return "\n".join(out)
+    return tuple(out)
 
 
 def pg_type_array():
@@ -574,7 +590,7 @@ def pg_type_array():
     return result
 
 
-def binding_population_native_sql():
+def _binding_population_native_routines():
     node, context = (_value(name, JSONB()) for name in ("node", "context"))
     names = _value("names", ARRAY(Text()))
     combinations = select(literal(0).label("n"), context["roles"].label("roles")).cte(
@@ -598,7 +614,7 @@ def binding_population_native_sql():
     assignments_type = pg_type("jsonb")
     assignments_type.setof = True
     out = [
-        function(
+        NativeRoutine(
             "ops",
             "ddo_binding_assignments",
             parameters=(
@@ -628,7 +644,6 @@ def binding_population_native_sql():
             volatility="immutable",
             search_path=("pg_catalog", "pg_temp"),
         )
-        + ";\n"
     ]
     members, evidence, result = (
         _value(name, JSONB()) for name in ("members", "evidence", "result")
@@ -828,12 +843,10 @@ def binding_population_native_sql():
             parameters=(("witness", "jsonb"), ("require_episode", "bool")),
         )
     )
-    return "\n".join(out)
+    return tuple(out)
 
 
-def binding_consumed_producers_sql():
-    from .native_program import sql_function
-
+def _binding_consumed_producers_routine():
     selection = _value("selection", JSONB())
     operation = _value("operation")
     selected = _elements(selection["operations"], "selected")
@@ -862,24 +875,57 @@ def binding_consumed_producers_sql():
         .lateral("edge")
     )
     allowed = allowed.union(select(edge.c.id).select_from(allowed.join(edge, literal(True))))
-    return (
-        sql_function(
-            "ops",
-            "ddo_consumed_producers",
-            parameters=(
-                Parameter("selection", pg_type("jsonb")),
-                Parameter("operation", pg_type("text")),
-            ),
-            returns=pg_type_array(),
-            body=select(
-                func.coalesce(
-                    func.array_agg(aggregate_order_by(allowed.c.id, allowed.c.id)),
-                    array([], type_=Text()),
-                )
-            ),
-            strict=True,
-            volatility="immutable",
-            search_path=("pg_catalog", "pg_temp"),
-        )
-        + ";\n"
+    return NativeRoutine(
+        "ops",
+        "ddo_consumed_producers",
+        parameters=(
+            Parameter("selection", pg_type("jsonb")),
+            Parameter("operation", pg_type("text")),
+        ),
+        returns=pg_type_array(),
+        body=select(
+            func.coalesce(
+                func.array_agg(aggregate_order_by(allowed.c.id, allowed.c.id)),
+                array([], type_=Text()),
+            )
+        ),
+        strict=True,
+        volatility="immutable",
+        search_path=("pg_catalog", "pg_temp"),
     )
+
+
+def binding_exact_float_programs() -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations((_binding_exact_float_routine(),))
+
+
+def binding_exact_float_sql() -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(binding_exact_float_programs(), separator="")
+
+
+def binding_branch_native_programs() -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations(_binding_branch_native_routines())
+
+
+def binding_branch_native_sql() -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(binding_branch_native_programs(), separator="\n")
+
+
+def binding_population_native_programs() -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations(_binding_population_native_routines())
+
+
+def binding_population_native_sql() -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(binding_population_native_programs(), separator="\n")
+
+
+def binding_consumed_producers_programs() -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations((_binding_consumed_producers_routine(),))
+
+
+def binding_consumed_producers_sql() -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(binding_consumed_producers_programs(), separator="")

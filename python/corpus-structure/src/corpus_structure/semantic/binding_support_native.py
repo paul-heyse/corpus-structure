@@ -3,20 +3,21 @@
 from sqlalchemy import Integer, Text, and_, case, cast, column, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 
+from .binding_recursive_native import _binding_declarations, _render_binding_programs
 from .native_program import (
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
     ReturnQuery,
     SelectInto,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration
 
 
 def _elements(value, name):
@@ -27,7 +28,7 @@ def _elements(value, name):
     )
 
 
-def binding_support_native_sql(model):
+def _binding_support_native_routines(model):
     def value(name, type_=None):
         return core_variable(name, JSONB() if type_ is None else type_)
 
@@ -42,7 +43,7 @@ def binding_support_native_sql(model):
     unique_value = unique.c.value
     common = dict(strict=True, search_path=("pg_catalog", "pg_temp"))
     out = [
-        function(
+        NativeRoutine(
             "ops",
             "ddo_input_support_selection",
             parameters=(Parameter("input_record", pg_type("jsonb")),),
@@ -97,10 +98,9 @@ def binding_support_native_sql(model):
             ),
             **common,
         )
-        + ";\n"
     ]
     out.append(
-        function(
+        NativeRoutine(
             "ops",
             "ddo_single_input_support_episode",
             parameters=(Parameter("input_record", pg_type("jsonb")),),
@@ -124,7 +124,6 @@ def binding_support_native_sql(model):
             ),
             **common,
         )
-        + ";\n"
     )
     outputs = model.tables["ops.data_derivation_output"]
     admissions = model.tables["ops.original_source_admission"]
@@ -162,7 +161,7 @@ def binding_support_native_sql(model):
     returns = pg_type("jsonb")
     returns.setof = True
     out.append(
-        function(
+        NativeRoutine(
             "ops",
             "ddo_input_support_refs",
             parameters=(
@@ -235,7 +234,6 @@ def binding_support_native_sql(model):
             ),
             **common,
         )
-        + ";\n"
     )
     reference = (
         func.ops.ddo_input_support_refs(binding, input_record)
@@ -249,7 +247,7 @@ def binding_support_native_sql(model):
         .subquery("selected")
     )
     out.append(
-        sql_function(
+        NativeRoutine(
             "ops",
             "ddo_input_support_episodes",
             parameters=(
@@ -269,12 +267,9 @@ def binding_support_native_sql(model):
             security_definer=True,
             **common,
         )
-        + ";\n"
     )
     # Native TABLE output carries named fields so ledger positions remain separate
     # from semantic occurrence positions.
-    from pglast import ast, enums, parse_sql
-    from pglast.stream import RawStream
 
     inputs, roledefs = value("inputs"), value("roledefs")
     entries = (
@@ -301,39 +296,41 @@ def binding_support_native_sql(model):
             Integer(),
         ),
     )
-    declaration = parse_sql(
-        sql_function(
+    result = pg_type("record")
+    result.setof = True
+    out.append(
+        NativeRoutine(
             "ops",
             "ddo_derivation_input_positions",
             parameters=(
                 Parameter("inputs", pg_type("jsonb")),
                 Parameter("roledefs", pg_type("jsonb")),
             ),
-            returns=pg_type("record"),
+            returns=result,
+            table_columns=(
+                ("input_record", pg_type("jsonb")),
+                ("physical_position", pg_type("integer")),
+            ),
             body=select(input_, position).select_from(
                 entries.join(definitions, roledef["name"].astext == input_["role"].astext)
             ),
             volatility="immutable",
             **common,
         )
-    )[0].stmt
-    if not isinstance(declaration, ast.CreateFunctionStmt) or declaration.returnType is None:
-        raise ValueError("binding ledger positions require a typed function declaration")
-    declaration.parameters = (
-        *(declaration.parameters or ()),
-        *(
-            ast.FunctionParameter(
-                name=name, argType=pg_type(kind), mode=enums.FunctionParameterMode.FUNC_PARAM_TABLE
-            )
-            for name, kind in (("input_record", "jsonb"), ("physical_position", "integer"))
-        ),
     )
-    declaration.returnType.setof = True
-    out.append(RawStream()(declaration) + ";\n")
-    return "\n".join(out)
+    return tuple(out)
 
 
 def _text_array():
     from sqlalchemy.dialects.postgresql import ARRAY
 
     return ARRAY(Text())
+
+
+def binding_support_native_programs(model) -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations(_binding_support_native_routines(model))
+
+
+def binding_support_native_sql(model) -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(binding_support_native_programs(model), separator="\n")

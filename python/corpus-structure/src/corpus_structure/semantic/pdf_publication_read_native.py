@@ -6,11 +6,17 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, array
 
 from corpus_structure.schema.integrity import role_name
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
-from .native_program import Parameter, column_type, core_variable, pg_type, sql_function
+from .native_objects import (
+    INTERNAL_PROGRAM,
+    NativeProgramAccess,
+    native_privilege_sql,
+    native_sql_script,
+)
+from .native_program import NativeRoutine, Parameter, column_type, core_variable, pg_type
+from .native_program_registry import ProgramDeclaration
 
 
-def pdf_reference_bytes_equal_sql(metadata):
+def pdf_reference_bytes_equal_program(metadata) -> ProgramDeclaration:
     streams = metadata.tables["ops.pdf_artifact_stream"]
     left, right = streams.alias("left_stream"), streams.alias("right_stream")
     product = core_variable("p_product", streams.c.product_id.type)
@@ -39,7 +45,7 @@ def pdf_reference_bytes_equal_sql(metadata):
     right_length, right_root, right_matches = representation(right, "p_right", "p_right_stream")
     text = pg_type("text")
     stream_id = column_type(streams.c.stream_id)
-    routine = sql_function(
+    routine = NativeRoutine(
         "ops",
         "pdf_reference_bytes_equal",
         parameters=(
@@ -57,13 +63,12 @@ def pdf_reference_bytes_equal_sql(metadata):
             func.coalesce(and_(left_length == right_length, left_root == right_root), False)
         ).select_from(anchor.outerjoin(left, left_matches).outerjoin(right, right_matches)),
     )
-    identity = NativeIdentity("function", "ops", "pdf_reference_bytes_equal", ("text",) * 6)
-    return (
-        native_sql_script((routine, native_privilege_sql(identity, "PUBLIC", grant=False))) + "\n"
+    return ProgramDeclaration(
+        routine, "authoring/pdf-publication-read.sql", role_name("publisher"), INTERNAL_PROGRAM
     )
 
 
-def pdf_record_scope_health_sql(metadata):
+def pdf_record_scope_health_program(metadata) -> ProgramDeclaration:
     published = metadata.tables["ops.pdf_published_revision"]
     companion = metadata.tables["kb.pdf_record_companion"]
     health, formula = companion.alias("health"), companion.alias("formula")
@@ -126,7 +131,7 @@ def pdf_record_scope_health_sql(metadata):
     )
     pointer_type = pg_type("text")
     pointer_type.arrayBounds = (ast.Integer(ival=-1),)
-    routine = sql_function(
+    routine = NativeRoutine(
         "ops",
         "pdf_record_scope_health",
         parameters=(
@@ -156,23 +161,15 @@ def pdf_record_scope_health_sql(metadata):
             published.c.logical_digest == digest,
         ),
     )
-    identity = NativeIdentity(
-        "function", "ops", "pdf_record_scope_health", ("bigint", "text", "text", "text[]")
-    )
-    return (
-        native_sql_script(
-            (
-                routine,
-                native_privilege_sql(identity, "PUBLIC", grant=False),
-                native_privilege_sql(identity, role_name("writer"), "execute"),
-                native_privilege_sql(identity, role_name("reader"), "execute"),
-            )
-        )
-        + "\n"
+    return ProgramDeclaration(
+        routine,
+        "authoring/pdf-publication-read.sql",
+        role_name("publisher"),
+        NativeProgramAccess(purposes=("write", "read")),
     )
 
 
-def pdf_publication_projection_sql(metadata):
+def pdf_publication_projection_program(metadata) -> ProgramDeclaration:
     """Bind the exact sealed producer receipt to its current PDF product."""
     from sqlalchemy import column, or_, tuple_
 
@@ -180,11 +177,11 @@ def pdf_publication_projection_sql(metadata):
         Block,
         If,
         Local,
+        NativeRoutine,
         Raise,
         Return,
         SelectInto,
         core_relation_row,
-        function,
     )
 
     publications = metadata.tables["ops.pdf_published_revision"]
@@ -303,7 +300,7 @@ def pdf_publication_projection_sql(metadata):
             *(item for field in health_fields for item in (field, health[field]))
         ),
     )
-    routine = function(
+    routine = NativeRoutine(
         "ops",
         "pdf_publication_projection",
         parameters=(
@@ -361,9 +358,34 @@ def pdf_publication_projection_sql(metadata):
             ),
         ),
     )
-    identity = NativeIdentity(
-        "function", "ops", "pdf_publication_projection", ("jsonb", "bigint", "bigint", "text")
+    return ProgramDeclaration(
+        routine, "authoring/pdf-publication-read.sql", role_name("publisher"), INTERNAL_PROGRAM
     )
+
+
+def _render_publication_program(program):
     return (
-        native_sql_script((routine, native_privilege_sql(identity, "PUBLIC", grant=False))) + "\n"
+        native_sql_script(
+            (
+                program.render(),
+                native_privilege_sql(program.identity, "PUBLIC", grant=False),
+                *(
+                    native_privilege_sql(program.identity, role, "execute")
+                    for role, _, _ in program.access.grants(program.owner)
+                ),
+            )
+        )
+        + "\n"
     )
+
+
+def pdf_reference_bytes_equal_sql(metadata):
+    return _render_publication_program(pdf_reference_bytes_equal_program(metadata))
+
+
+def pdf_record_scope_health_sql(metadata):
+    return _render_publication_program(pdf_record_scope_health_program(metadata))
+
+
+def pdf_publication_projection_sql(metadata):
+    return _render_publication_program(pdf_publication_projection_program(metadata))

@@ -92,6 +92,12 @@ classes:
       selected_replays: {range: bytes, required: true}
       adopter_attempt: {range: PdfRecordInteger, required: true}
       adopter_holder: {required: true}
+  PdfSpoolRecoveryCandidate:
+    description: Native authorized prior producer hint; file custody and contributor admission remain separate.
+    attributes:
+      build_id: {required: true}
+      task_id: {range: PdfRecordInteger, required: true}
+      producer_id: {required: true}
   PdfSpoolContributorReceipt:
     attributes:
       producer_id: {required: true}

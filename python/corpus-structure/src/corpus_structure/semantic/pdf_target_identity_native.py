@@ -15,6 +15,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, aggregate_order_by, array
 
+from .native_objects import native_privilege_sql
 from .native_program import (
     Assign,
     Continue,
@@ -34,10 +35,11 @@ from .native_program import (
     pg_type,
     variable,
 )
-from .pdf_record_digest_native import _json, _private_function
+from .native_program_registry import ProgramDeclaration
+from .pdf_record_digest_native import _json, _private_program
 
 
-def logical_target_identity(model: MetaData) -> tuple[str, str]:
+def _logical_target_identity_program(model: MetaData) -> ProgramDeclaration:
     products = model.tables["ops.pdf_product"]
     schema = products.schema
     assert schema is not None
@@ -327,7 +329,7 @@ def logical_target_identity(model: MetaData) -> tuple[str, str]:
         Assign("resolved_", func.jsonb_set(resolved, array([key_]), target)),
         Assign("progress_", literal(True)),
     )
-    return _private_function(
+    return _private_program(
         "pdf_identity_published_target",
         params,
         "jsonb",
@@ -383,3 +385,13 @@ def logical_target_identity(model: MetaData) -> tuple[str, str]:
         ),
         strict=True,
     )
+
+
+def logical_target_identity_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
+    return (_logical_target_identity_program(model),)
+
+
+def logical_target_identity(model: MetaData) -> tuple[str, str]:
+    """Render the explicitly declared identity helper and its public revoke."""
+    item = logical_target_identity_programs(model)[0]
+    return item.render(), native_privilege_sql(item.identity, "PUBLIC", grant=False)

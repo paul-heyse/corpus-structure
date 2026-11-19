@@ -22,15 +22,15 @@ from corpus_structure.schema.integrity import role_name
 from .native_program import (
     Assign,
     Block,
-    Comment,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
+    Return,
     SelectInto,
     core_variable,
-    function,
     pg_type,
 )
 
@@ -43,26 +43,39 @@ PHYSICAL_CATALOG_END = " -- native physical catalog checks complete"
 def release_preconditions(metadata):
     finalized = metadata.tables["sem.release_finalization"]
     release = metadata.tables["sem.release"]
+    artifacts = metadata.tables["sem.artifact"]
     selected = core_variable("r", Text())
+    release_artifacts = select(1).select_from(artifacts).where(artifacts.c.release_id == selected)
+    operation_model = release_artifacts.where(artifacts.c.artifact_name == "data_operations.json")
+    native_artifact = release_artifacts.where(
+        artifacts.c.artifact_name == "data_operation_native_definitions.json"
+    )
+    installed = cast(func.sem.data_operation_native_descriptor(), JSONB())
+    matching_kernel = native_artifact.where(
+        _decoded_json(artifacts.c.content)["native_digest"].astext
+        == installed["source_digest"].astext
+    )
     return (
         If(
             ~exists(select(1).select_from(finalized).where(finalized.c.release_id == selected)),
             (Raise("release is not finalized", "23514"),),
         ),
-        Perform(func.sem.require_execution_projection(selected)),
         If(
             ~exists(select(1).select_from(release).where(release.c.release_id == selected)),
             (Raise("unknown execution release", "23514"),),
+        ),
+        If(
+            or_(operation_model.exists(), native_artifact.exists()) & ~matching_kernel.exists(),
+            (Raise("release was prepared for a different native kernel; re-prepare it", "23514"),),
         ),
         Assign("expected", func.data.execution_contract_descriptor()),
     )
 
 
-def native_receipt_admission(metadata):
+def deployment_receipt(metadata):
     receipt = metadata.tables["sem.deployment_admission"]
     selected = core_variable("r", Text())
     expected = core_variable("expected", JSONB())
-    owner = core_variable("owner_name", Text())
     content = func.convert_to(cast(expected, Text()), "UTF8")
     identity = func.encode(func.sha256(content), "hex")
     physical_id = expected["physical_id"].astext
@@ -77,25 +90,8 @@ def native_receipt_admission(metadata):
             receipt.c.content == content,
         )
     )
-    authorized = or_(
-        func.pg_has_role(func.session_user(), role_name("admitter"), "USAGE"),
-        func.pg_has_role(func.session_user(), owner, "MEMBER"),
-    )
-    return (
-        If(
-            ~recorded,
-            (
-                If(
-                    ~authorized,
-                    (Raise("native admission requires restricted admission phase", "42501"),),
-                ),
-                Perform(
-                    func.sem.record_deployment_admission(
-                        selected, physical_id, identity, "native", content
-                    )
-                ),
-            ),
-        ),
+    return recorded, Perform(
+        func.sem.record_deployment_admission(selected, physical_id, identity, "native", content),
     )
 
 
@@ -342,35 +338,44 @@ def native_check_catalog_checks():
     )
 
 
-def admission_kernel(metadata) -> str:
-    """Generate the execution guard and its fixed purpose-role grants."""
+def admission_programs(metadata):
+    """Declare the fast release guard and the restricted full re-proof."""
     from .alembic_privileges import PUBLISHER, privilege_admission_checks
     from .native_admission_functions import function_catalog_checks
     from .native_admission_principals import principal_catalog_checks, restricted_principal_checks
     from .native_admission_tables import reader_catalog_checks, table_catalog_checks
     from .native_catalog import namespace_owner
-    from .native_objects import (
-        NativeIdentity,
-        native_owner_sql,
-        native_privilege_sql,
-        native_sql_script,
-    )
+    from .native_objects import NativeProgramAccess
+    from .native_program_registry import ProgramDeclaration
 
-    guard = NativeIdentity("function", "data", "require_execution_release", ("text",))
-    descriptor = NativeIdentity("function", "data", "execution_contract_descriptor")
-    body = function(
-        guard.schema,
-        guard.name,
-        parameters=(Parameter("r", pg_type("text")),),
-        returns=pg_type("void"),
-        volatility="volatile",
-        security_definer=True,
-        search_path=("pg_catalog", "pg_temp"),
-        body=Block(
+    selected = core_variable("r", Text())
+    recorded, record = deployment_receipt(metadata)
+    expected = Local("expected", pg_type("jsonb"))
+
+    def program(name, body, purposes, *, parameters=None):
+        return ProgramDeclaration(
+            NativeRoutine(
+                "data",
+                name,
+                parameters=(Parameter("r", pg_type("text")),) if parameters is None else parameters,
+                returns=pg_type("void"),
+                volatility="volatile",
+                security_definer=True,
+                search_path=("pg_catalog", "pg_temp"),
+                body=body,
+            ),
+            source="target-current:admission.sql",
+            owner=PUBLISHER,
+            access=NativeProgramAccess(purposes=purposes),
+        )
+
+    catalog = program(
+        "prove_execution_catalog",
+        Block(
             (
-                *release_preconditions(metadata),
+                Perform(func.sem.require_admission_caller()),
+                Assign("expected", func.data.execution_contract_descriptor()),
                 SelectInto(namespace_owner(), ("owner_name",)),
-                Comment(CATALOG_START),
                 *physical_catalog_checks(metadata),
                 *function_catalog_checks(),
                 *trigger_catalog_checks(),
@@ -381,30 +386,67 @@ def admission_kernel(metadata) -> str:
                 *principal_catalog_checks(),
                 *native_check_catalog_checks(),
                 *restricted_principal_checks(),
-                Comment(CATALOG_END.removeprefix(" -- ")),
-                *release_semantic_checks(metadata),
-                *native_receipt_admission(metadata),
             ),
             (
-                Local("expected", pg_type("jsonb")),
+                expected,
                 Local("spec", pg_type("jsonb")),
                 Local("owner_name", pg_type("text")),
             ),
         ),
+        ("admit",),
+        parameters=(),
     )
+    proof = program(
+        "prove_execution_release",
+        Block(
+            (
+                Perform(func.data.prove_execution_catalog()),
+                *release_preconditions(metadata),
+                Perform(func.sem.require_execution_projection(selected)),
+                *release_semantic_checks(metadata),
+                If(~recorded, (record,)),
+            ),
+            (expected,),
+        ),
+        ("admit",),
+    )
+    guard = program(
+        "require_execution_release",
+        Block(
+            (
+                *release_preconditions(metadata),
+                If(recorded, (Return(),)),
+                Perform(func.data.prove_execution_release(selected)),
+            ),
+            (expected,),
+        ),
+        ("write", "read", "evaluate", "admit"),
+    )
+    return catalog, proof, guard
+
+
+def admission_kernel(metadata) -> str:
+    from .native_objects import (
+        NativeDefinition,
+        NativeIdentity,
+        native_privilege_sql,
+        native_sql_script,
+    )
+
+    descriptor = NativeIdentity("function", "data", "execution_contract_descriptor")
     return native_sql_script(
         (
-            body,
-            native_owner_sql(guard, PUBLISHER),
-            native_privilege_sql(guard, "PUBLIC", grant=False),
             *(
-                native_privilege_sql(guard, role, "EXECUTE")
-                for role in (
-                    role_name("writer"),
-                    role_name("reader"),
-                    role_name("evaluator"),
-                    role_name("admitter"),
-                )
+                statement
+                for program in admission_programs(metadata)
+                for statement in NativeDefinition(
+                    program.identity,
+                    program.render(),
+                    program.source,
+                    program.owner,
+                    grants=program.access.grants(program.owner),
+                    program_access=program.access,
+                ).install_sql
             ),
             native_privilege_sql(descriptor, role_name("admitter"), "EXECUTE"),
         )
@@ -433,10 +475,7 @@ def _release_asset_checks(metadata):
     from sqlalchemy import and_
 
     release = metadata.tables["sem.release"]
-    inputs = metadata.tables["sem.input"]
-    admissions = metadata.tables["sem.sql_admission"]
     selected = core_variable("r", Text())
-    expected = core_variable("expected", JSONB())
     diagnostic = _json_items(
         _decoded_json(release.c.prepared_bytes)["products"]["diagnostics"], "diagnostic"
     )
@@ -459,48 +498,8 @@ def _release_asset_checks(metadata):
         )
         .exists()
     )
-    admitted = _decoded_json(admissions.c.content)
-    invalid_authored_sql = (
-        select(1)
-        .select_from(
-            inputs.outerjoin(
-                admissions,
-                and_(
-                    admissions.c.release_id == inputs.c.release_id,
-                    admissions.c.input_kind == inputs.c.input_kind,
-                    admissions.c.input_name == inputs.c.input_name,
-                    admissions.c.physical_id == expected["physical_id"].astext,
-                ),
-            )
-        )
-        .where(
-            inputs.c.release_id == selected,
-            inputs.c.input_kind == "dependency",
-            func.starts_with(inputs.c.input_name, "authored-sql/"),
-            or_(
-                func.right(inputs.c.input_name, 4) != ".sql",
-                func.length(inputs.c.input_name) <= func.length("authored-sql/.sql"),
-                func.encode(func.sha256(inputs.c.content), "hex").is_distinct_from(
-                    inputs.c.content_digest
-                ),
-                admissions.c.release_id.is_(None),
-                func.encode(func.sha256(admissions.c.content), "hex").is_distinct_from(
-                    admissions.c.content_digest
-                ),
-                admitted["sql"].astext.is_distinct_from(
-                    func.convert_from(inputs.c.content, "UTF8")
-                ),
-                admitted["release_id"].astext.is_distinct_from(selected),
-                admitted["physical_id"].astext.is_distinct_from(expected["physical_id"].astext),
-            ),
-        )
-        .exists()
-    )
     return (
         _refuse(rejected_diagnostic, "release contains unresolved or unchecked required semantics"),
-        _refuse(
-            invalid_authored_sql, "required authored SQL lacks exact current physical admission"
-        ),
     )
 
 
@@ -514,7 +513,6 @@ def _native_constraint_checks(metadata):
     selected = core_variable("r", Text())
     native, model = artifacts.alias("native"), artifacts.alias("model")
     native_value, model_value = _decoded_json(native.c.content), _decoded_json(model.c.content)
-    descriptor = cast(func.sem.data_operation_native_descriptor(), JSONB())
     archived = (
         select(native_value.label("projection"), model_value.label("model"))
         .select_from(
@@ -530,7 +528,6 @@ def _native_constraint_checks(metadata):
             native.c.release_id == selected,
             native.c.artifact_name == "data_operation_native_definitions.json",
             native_value["model_digest"].astext == func.encode(func.sha256(model.c.content), "hex"),
-            native_value["native_digest"].astext == descriptor["source_digest"].astext,
         )
         .cte("archived_native_constraint_projection")
     )
@@ -621,7 +618,7 @@ def _native_constraint_checks(metadata):
         (
             _refuse(
                 missing_projection,
-                "archived DDO native constraint projection is missing or incompatible with installed descriptor",
+                "archived DDO native constraint projection is missing or incompatible with the model",
             ),
             Raise("unsupported required native constraint scope or pattern", "23514"),
         ),

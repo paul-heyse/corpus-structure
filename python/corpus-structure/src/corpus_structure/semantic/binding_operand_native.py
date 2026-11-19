@@ -5,6 +5,7 @@ from dataclasses import fields
 from sqlalchemy import Boolean, Column, Text, cast, column, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB, aggregate_order_by, array
 
+from .binding_recursive_native import _binding_declarations, _render_binding_programs
 from .data_operation_model import SubjectContext
 from .native_program import (
     Assign,
@@ -13,6 +14,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -20,9 +22,9 @@ from .native_program import (
     SelectInto,
     column_type,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 
 
 def _elements(value, name="entry"):
@@ -42,7 +44,7 @@ def _entries(value, name="entry"):
 
 
 def _routine(name, parameters, steps, *, returns=None, locals_=()):
-    return function(
+    return NativeRoutine(
         "ops",
         name,
         parameters=tuple(Parameter(key, pg_type(type_)) for key, type_ in parameters),
@@ -58,7 +60,7 @@ def _check(condition, message):
     return If(condition, (Raise(message, "P0001"),))
 
 
-def binding_parameter_native_sql():
+def _binding_parameter_native_routines():
     node = core_variable("node", JSONB())
     names = core_variable("names", ARRAY(Text()))
     item = core_variable("item", JSONB())
@@ -234,10 +236,10 @@ def binding_parameter_native_sql():
             Local("kind", pg_type("text")),
         ),
     )
-    return ";\n".join((roles, validate)) + ";\n"
+    return roles, validate
 
 
-def binding_values_native_sql():
+def _binding_values_native_routine():
     """Evaluate frozen operands without reselecting products or physical aliases."""
     operand = core_variable("operand", JSONB())
     context = core_variable("context", JSONB())
@@ -503,4 +505,22 @@ def binding_values_native_sql():
             Local("result", pg_type("jsonb"), empty),
         ),
     )
-    return routine + ";\n"
+    return routine
+
+
+def binding_parameter_native_programs() -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations(_binding_parameter_native_routines())
+
+
+def binding_parameter_native_sql() -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(binding_parameter_native_programs(), separator="")
+
+
+def binding_values_native_programs() -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations((_binding_values_native_routine(),))
+
+
+def binding_values_native_sql() -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(binding_values_native_programs(), separator="")

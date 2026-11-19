@@ -93,6 +93,20 @@ actions:
     result_mode: scalar
     symbol: ops.register_pdf_spool_contributor
   - cardinality: many
+    id: read_pdf_spool_recovery_candidates
+    order_by: []
+    ordered: false
+    parameters:
+    - {name: build_id, native_parameter: p_build, nullable: false, source: 'model:PdfStageBuild.build_id'}
+    - {name: task_id, native_parameter: p_task, nullable: false, semantic_type: TaskId, source: 'model:PdfStageBuild.task_id'}
+    - {name: attempt, native_parameter: p_attempt, nullable: false, semantic_type: TaskAttempt, source: 'model:PdfStageBuild.attempt'}
+    - {name: holder, native_parameter: p_holder, nullable: false, source: 'model:PdfStageBuild.holder'}
+    - {name: runtime_id, native_parameter: p_runtime, nullable: false, semantic_type: RuntimeId, source: 'physical:sem.runtime_binding.runtime_id'}
+    result_fields: []
+    result_mode: table
+    result_source: model:PdfSpoolRecoveryCandidate
+    symbol: ops.read_pdf_spool_recovery_candidates
+  - cardinality: many
     id: read_pdf_spool_contributors
     order_by: [producer_id, manifest_digest, selection_digest]
     ordered: true

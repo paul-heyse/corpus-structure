@@ -12,11 +12,15 @@ from .contextual_admission_native import (
     _text,
     _value,
 )
+from .native_objects import native_privilege_sql, native_sql_script
 from .native_program import Assign, Perform, Return, SelectInto, core_relation_row
+from .native_program_registry import ProgramDeclaration
 from .validity_programs import input_role, selected_family
 
 
-def contextual_definition_native_sql(*, target_metadata=None) -> str:
+def contextual_definition_native_programs(
+    *, target_metadata=None
+) -> tuple[ProgramDeclaration, ...]:
     p = _ContextualPrograms(target_metadata)
     episodes, requests, receipts, outputs, intents = (
         p.table(name)
@@ -182,4 +186,16 @@ def contextual_definition_native_sql(*, target_metadata=None) -> str:
             p.local("component_id", "text"),
         ),
     )
-    return p.script()
+    return tuple(p.output)
+
+
+def contextual_definition_native_sql(*, target_metadata=None) -> str:
+    """Render the current captured private declarations."""
+    return native_sql_script(
+        statement
+        for declaration in contextual_definition_native_programs(target_metadata=target_metadata)
+        for statement in (
+            declaration.routine.render(),
+            native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
+        )
+    )

@@ -1,11 +1,12 @@
 """Compile artifact CPU result correspondence over captured physical contracts."""
 
-from pglast.stream import RawStream
 from sqlalchemy import MetaData, Text, cast, column, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 
+from corpus_structure.schema.integrity import role_name
+
 from .metadata import get_metadata
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
@@ -13,6 +14,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -21,13 +23,15 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration, ProgramValidity
 from .validity_programs import selected_family
 
 
-def artifact_admission_native_sql(*, target_metadata: MetaData | None = None) -> str:
+def artifact_admission_native_programs(
+    *, target_metadata: MetaData | None = None
+) -> tuple[ProgramDeclaration, ...]:
     model = get_metadata() if target_metadata is None else target_metadata
     definition = model.tables["sem.data_operation_definition"]
     request = model.tables["ops.data_request"]
@@ -78,28 +82,25 @@ def artifact_admission_native_sql(*, target_metadata: MetaData | None = None) ->
         definition.c.release_id == r("release_id"),
         definition.c.operation_id == r("operation_id"),
     )
-    programs: list[str] = []
+    programs: list[ProgramDeclaration] = []
 
-    def add(name, parameters, steps, locals_=(), *, returns="void"):
+    def add(name, parameters, steps, locals_=(), *, returns="void", validity=()):
         programs.append(
-            function(
-                "ops",
-                name,
-                parameters=parameters,
-                returns=pg_type(returns),
-                body=Block(tuple(steps), tuple(locals_)),
-                security_definer=True,
-                volatility="stable",
-                search_path=("pg_catalog", "pg_temp"),
-            )
-        )
-        programs.append(
-            native_privilege_sql(
-                NativeIdentity(
-                    "function", "ops", name, tuple(RawStream()(p.type_) for p in parameters)
+            ProgramDeclaration(
+                NativeRoutine(
+                    "ops",
+                    name,
+                    parameters=parameters,
+                    returns=pg_type(returns),
+                    body=Block(tuple(steps), tuple(locals_)),
+                    security_definer=True,
+                    volatility="stable",
+                    search_path=("pg_catalog", "pg_temp"),
                 ),
-                "PUBLIC",
-                grant=False,
+                source="data-operations:forward",
+                owner=role_name("publisher"),
+                access=INTERNAL_PROGRAM,
+                validity=validity,
             )
         )
 
@@ -201,6 +202,7 @@ def artifact_admission_native_sql(*, target_metadata: MetaData | None = None) ->
             Local("expected", pg_type("jsonb")),
             Local("result_field", pg_type("text")),
         ),
+        validity=(ProgramValidity("artifact", "completion_guard"),),
     )
 
     episode_id = core_variable("episode_id", episode.c.id.type)
@@ -234,5 +236,21 @@ def artifact_admission_native_sql(*, target_metadata: MetaData | None = None) ->
         ),
         (Local("episode", episode), Local("r", request), Local("intent", intent)),
         returns="bool",
+        validity=(ProgramValidity("artifact", "validator"),),
     )
-    return native_sql_script(programs) + "\n"
+    return tuple(programs)
+
+
+def artifact_admission_native_sql(*, target_metadata: MetaData | None = None) -> str:
+    """Render captured declarations and their existing private ACL projection."""
+    return (
+        native_sql_script(
+            statement
+            for declaration in artifact_admission_native_programs(target_metadata=target_metadata)
+            for statement in (
+                declaration.routine.render(),
+                native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
+            )
+        )
+        + "\n"
+    )

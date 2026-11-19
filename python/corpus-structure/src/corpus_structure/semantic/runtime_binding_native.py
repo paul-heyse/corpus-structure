@@ -3,6 +3,8 @@
 from sqlalchemy import Text, cast, column, distinct, exists, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, aggregate_order_by, array, insert
 
+from corpus_structure.schema.integrity import role_name
+
 from .data_operation_runtime import (
     ARCHIVE_FIELDS,
     ARCHIVE_VERSION,
@@ -10,12 +12,14 @@ from .data_operation_runtime import (
     MANIFEST_FIELDS,
     VERSION,
 )
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -23,12 +27,13 @@ from .native_program import (
     SelectInto,
     Sql,
     core_variable,
-    function,
     pg_type,
 )
 
 
-def runtime_binding_sql(target):
+def runtime_binding_programs(target):
+    from .native_program_registry import ProgramDeclaration
+
     artifacts = target.tables["sem.artifact"]
     bindings = target.tables["sem.runtime_binding"]
     r = core_variable("r", Text())
@@ -40,22 +45,17 @@ def runtime_binding_sql(target):
 
     def routine(name, body, *, locals_=(), returns="void", reads_bytes=True):
         count = 4 if reads_bytes else 2
-        return (
-            function(
-                "sem",
-                name,
-                parameters=tuple(
-                    Parameter(key, pg_type(kind))
-                    for key, kind in zip(
-                        parameter_names[:count], parameter_types[:count], strict=True
-                    )
-                ),
-                returns=pg_type(returns),
-                body=Block(body, tuple(Local(key, pg_type(kind)) for key, kind in locals_)),
-                security_definer=True,
-                search_path=("pg_catalog", "pg_temp"),
-            )
-            + ";\n"
+        return NativeRoutine(
+            "sem",
+            name,
+            parameters=tuple(
+                Parameter(key, pg_type(kind))
+                for key, kind in zip(parameter_names[:count], parameter_types[:count], strict=True)
+            ),
+            returns=pg_type(returns),
+            body=Block(body, tuple(Local(key, pg_type(kind)) for key, kind in locals_)),
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
         )
 
     def as_json(value):
@@ -352,4 +352,16 @@ def runtime_binding_sql(target):
         (check(~exists(select(1).where(*bound)), "unknown same-release runtime binding"),),
         reads_bytes=False,
     )
-    return validate + register + require
+    owner = role_name("publisher")
+    source = "target-current:runtime binding"
+    return (
+        ProgramDeclaration(validate, source, owner, INTERNAL_PROGRAM),
+        ProgramDeclaration(
+            register, source, owner, NativeProgramAccess(purposes=("write", "admit"))
+        ),
+        ProgramDeclaration(require, source, owner, INTERNAL_PROGRAM),
+    )
+
+
+def runtime_binding_sql(target):
+    return "".join(item.render() + ";\n" for item in runtime_binding_programs(target))

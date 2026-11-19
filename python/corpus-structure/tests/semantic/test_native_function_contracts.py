@@ -5,7 +5,7 @@ import json
 from sqlalchemy import Text, cast, literal, select
 from sqlalchemy.dialects.postgresql import JSONB
 
-from corpus_structure.semantic.native_admission import _descriptor_sql
+from corpus_structure.semantic.native_admission import execution_descriptor_program
 from corpus_structure.semantic.native_admission_functions import _normalized_function_checks
 from corpus_structure.semantic.native_catalog import procedure
 from corpus_structure.semantic.native_products import literal_json_descriptor
@@ -18,7 +18,9 @@ def test_generated_descriptor_preserves_json_and_sql_sensitive_literals():
         "items": [1, None, True],
     }
     assert (
-        literal_json_descriptor(_descriptor_sql(expected), "data.execution_contract_descriptor")
+        literal_json_descriptor(
+            execution_descriptor_program(expected).render(), "data.execution_contract_descriptor"
+        )
         == expected
     )
 

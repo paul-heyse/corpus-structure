@@ -9,12 +9,13 @@ from sqlalchemy.types import NullType
 from corpus_structure.schema.integrity import role_name
 
 from .companion_projection import FAMILIES, captured_projection, projection
-from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, definition_from_sql
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
 from .native_program import (
     Assign,
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -24,11 +25,9 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
-from .native_sql_body import sql_standard_definition
+from .native_program_registry import ProgramDeclaration, RenderedProgram
 from .projection_recipe import native_statement
 
 
@@ -71,7 +70,7 @@ def _internal_parameters(selected):
     )
 
 
-def pin_guard_sql(*, target_metadata=None, domain=None) -> str:
+def pin_guard_program(*, target_metadata=None, domain=None) -> ProgramDeclaration:
     selected = _selected(FAMILIES[0], target_metadata, domain)
     metadata = selected._physical
     demand = metadata.tables["ops.data_demand"]
@@ -81,7 +80,7 @@ def pin_guard_sql(*, target_metadata=None, domain=None) -> str:
     receipt = core_variable("receipt", JSONB())
     publication = receipt["publication"]
     boundary = core_variable("boundary", NullType())
-    return function(
+    routine = NativeRoutine(
         "ops",
         "require_published_companion_pin",
         parameters=_parameters(selected),
@@ -159,8 +158,16 @@ def pin_guard_sql(*, target_metadata=None, domain=None) -> str:
         ),
     )
 
+    return ProgramDeclaration(
+        routine, "companion-projections:pin", role_name("publisher"), INTERNAL_PROGRAM
+    )
 
-def family_sql(family: str, *, target_metadata=None, domain=None) -> str:
+
+def pin_guard_sql(*, target_metadata=None, domain=None) -> str:
+    return pin_guard_program(target_metadata=target_metadata, domain=domain).routine.render()
+
+
+def family_program(family: str, *, target_metadata=None, domain=None) -> ProgramDeclaration:
     selected = _selected(family, target_metadata, domain)
     metadata = selected._physical
     demand = metadata.tables["ops.data_demand"]
@@ -183,7 +190,7 @@ def family_sql(family: str, *, target_metadata=None, domain=None) -> str:
     else:
         body = native_statement(selected.body_statement, selected.recipe)
     schema, name = selected.function_name.split(".")
-    return function(
+    routine = NativeRoutine(
         schema,
         name,
         parameters=_parameters(selected),
@@ -214,8 +221,19 @@ def family_sql(family: str, *, target_metadata=None, domain=None) -> str:
         ),
     )
 
+    return ProgramDeclaration(
+        routine,
+        "companion-projections:" + family,
+        role_name("publisher"),
+        NativeProgramAccess(purposes=("read", "write", "evaluate")),
+    )
 
-def input_body_definition(connection, *, target_metadata=None, domain=None):
+
+def family_sql(family: str, *, target_metadata=None, domain=None) -> str:
+    return family_program(family, target_metadata=target_metadata, domain=domain).routine.render()
+
+
+def input_body_program(*, target_metadata=None, domain=None) -> ProgramDeclaration:
     """Private pure SELECT; the public wrapper retains its mandatory guard sequence."""
     selected = _selected("input", target_metadata, domain)
     internal = _internal_parameters(selected)
@@ -225,7 +243,7 @@ def input_body_definition(connection, *, target_metadata=None, domain=None):
         internal_bindings={binding: name for name, _, binding in internal},
     )
     schema, name = selected.function_name.split(".")
-    source = sql_function(
+    routine = NativeRoutine(
         schema,
         name + "_rows",
         parameters=(
@@ -235,43 +253,43 @@ def input_body_definition(connection, *, target_metadata=None, domain=None):
         returns=_table_return_type(),
         table_columns=tuple((item.name, column_type(item)) for item in selected.columns),
         body=statement,
+        sql_standard=True,
         volatility="volatile",
         security_definer=False,
         search_path=("pg_catalog", "pg_temp"),
     )
-    definition = definition_from_sql(
-        connection,
-        source,
-        source="companion-input:private-body",
-        owner=role_name("publisher"),
-        program_access=INTERNAL_PROGRAM,
+    return ProgramDeclaration(
+        routine,
+        "companion-input:private-body:sql-standard",
+        role_name("publisher"),
+        INTERNAL_PROGRAM,
     )
-    return sql_standard_definition(definition, statement)
 
 
-def companion_projection_definitions(connection, *, target_metadata=None, domain=None):
-    """Complete definitions with public guarded projections and one private rows helper."""
-    sources = (
-        ("pin", pin_guard_sql(target_metadata=target_metadata, domain=domain)),
+def companion_projection_programs(
+    *, target_metadata=None, domain=None
+) -> tuple[ProgramDeclaration, ...]:
+    """Declare the protected pin, pure bound input body and guarded public projections."""
+    return (
+        pin_guard_program(target_metadata=target_metadata, domain=domain),
+        input_body_program(target_metadata=target_metadata, domain=domain),
         *(
-            (family, family_sql(family, target_metadata=target_metadata, domain=domain))
+            family_program(family, target_metadata=target_metadata, domain=domain)
             for family in FAMILIES
         ),
     )
-    definitions = tuple(
-        definition_from_sql(
-            connection,
-            sql,
-            source="companion-projections:" + name,
-            owner=role_name("publisher"),
-            program_access=INTERNAL_PROGRAM
-            if name == "pin"
-            else NativeProgramAccess(purposes=("read", "write", "evaluate")),
-        )
-        for name, sql in sources
+
+
+def input_body_definition(connection, *, target_metadata=None, domain=None):
+    program = input_body_program(target_metadata=target_metadata, domain=domain)
+    return RenderedProgram(program, program.render(), frozenset(), frozenset()).definition(
+        connection
     )
-    return (
-        definitions[0],
-        input_body_definition(connection, target_metadata=target_metadata, domain=domain),
-        *definitions[1:],
+
+
+def companion_projection_definitions(connection, *, target_metadata=None, domain=None):
+    """Bind the explicitly declared functions without discovering declarations from SQL."""
+    return tuple(
+        RenderedProgram(item, item.render(), frozenset(), frozenset()).definition(connection)
+        for item in companion_projection_programs(target_metadata=target_metadata, domain=domain)
     )

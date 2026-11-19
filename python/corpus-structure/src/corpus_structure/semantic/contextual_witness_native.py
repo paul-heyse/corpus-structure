@@ -14,6 +14,7 @@ from .contextual_admission_native import (
     _text,
     _value,
 )
+from .native_objects import native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Continue,
@@ -27,10 +28,11 @@ from .native_program import (
     column_type,
     core_relation_row,
 )
+from .native_program_registry import ProgramDeclaration
 from .validity_programs import operation_field
 
 
-def contextual_witness_native_sql(*, target_metadata=None) -> str:
+def contextual_witness_native_programs(*, target_metadata=None) -> tuple[ProgramDeclaration, ...]:
     p = _ContextualPrograms(target_metadata)
     row, context, result = (_value(name) for name in ("row_meaning", "context_", "result"))
     p.add(
@@ -460,4 +462,16 @@ def contextual_witness_native_sql(*, target_metadata=None) -> str:
             p.local("name_", "text"),
         ),
     )
-    return p.script()
+    return tuple(p.output)
+
+
+def contextual_witness_native_sql(*, target_metadata=None) -> str:
+    """Render the current captured private declarations."""
+    return native_sql_script(
+        statement
+        for declaration in contextual_witness_native_programs(target_metadata=target_metadata)
+        for statement in (
+            declaration.routine.render(),
+            native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
+        )
+    )

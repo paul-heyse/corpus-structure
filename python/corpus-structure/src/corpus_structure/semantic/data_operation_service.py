@@ -222,6 +222,7 @@ def execute_data_demand(
     database_capacity: int | None = None,
     limit: int = 100,
     max_rounds: int = 100,
+    completion_draft_root: Path | None = None,
 ):
     """Resume exact retained intent with acquired source/runtime custody.
 
@@ -237,7 +238,27 @@ def execute_data_demand(
     with execution_host_scope() as host, host.run(selected_policy) as token:
         if purpose not in {"write", "evaluate"}:
             raise SemanticRefusal("native execution purpose must be write or evaluate")
+        completion_drafts = None
         with engine.begin() as connection:
+            if completion_draft_root is not None:
+                from hashlib import sha256
+
+                from .completion_drafts import CompletionDraftStore
+                from .storage_target import acquired_target
+
+                target = acquired_target(connection, purpose=purpose)
+                namespace = sha256(
+                    json_bytes(
+                        {
+                            "system_identifier": target.system_identifier,
+                            "database_oid": target.database_oid,
+                        }
+                    )
+                ).hexdigest()
+                completion_drafts = CompletionDraftStore(
+                    completion_draft_root / namespace,
+                    max_bytes=selected_policy.max_reply_bytes,
+                )
             if admission_engine is not None:
                 from .storage_target import acquired_target
 
@@ -278,6 +299,7 @@ def execute_data_demand(
             execution_host=host,
             host_run=token,
             execution_basis=basis,
+            completion_drafts=completion_drafts,
         )
         return executor.run(demand_id, limit=limit, max_rounds=max_rounds)
 

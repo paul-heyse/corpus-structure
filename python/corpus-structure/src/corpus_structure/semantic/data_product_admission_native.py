@@ -30,6 +30,7 @@ from .native_program import (
     GetRowCount,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -39,7 +40,6 @@ from .native_program import (
     Statement,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
 
@@ -51,41 +51,71 @@ class _Family:
     fields: tuple[tuple[str, str], ...]
     required: tuple[str, ...]
     optional: tuple[str, ...] = ()
+    variants: tuple[tuple[str, tuple[tuple[str, ...], tuple[str, ...]]], ...] = ()
 
 
-_FAMILIES = (
-    _Family(
-        "coordinate",
-        "coordinates",
-        tuple((name, name) for name in ("original_source", "start", "end", "page")),
-        ("original_source", "start", "end"),
-        ("page",),
-    ),
-    _Family(
-        "role",
-        "roles",
-        tuple((name, name) for name in ("role", "position", "multiplicity")),
-        ("role", "position", "multiplicity"),
-    ),
-    _Family(
-        "endpoint",
-        "endpoints",
-        (("role", "role"), ("endpoint_product", "product_id"), ("endpoint_member", "member_id")),
-        (),
-    ),
-    _Family(
-        "coverage",
-        "coverage",
-        tuple((name, name) for name in ("scope", "start", "end", "complete")),
-        ("scope", "start", "end", "complete"),
-    ),
-    _Family(
-        "choice",
-        "choices",
-        tuple((name, name) for name in ("choice_group", "alternative", "selected")),
-        ("choice_group", "alternative", "selected"),
-    ),
-)
+def _member_families(model):
+    import yaml
+
+    protocol = yaml.safe_load(model.info["physical_sources"]["data-operation-native.yaml"])
+    schemas = protocol["definitions"]
+    projections = (
+        (
+            "coordinate",
+            "coordinates",
+            ((name, name) for name in ("original_source", "start", "end", "page")),
+        ),
+        ("role", "roles", ((name, name) for name in ("role", "position", "multiplicity"))),
+        (
+            "endpoint",
+            "endpoints",
+            (
+                ("role", "role"),
+                ("endpoint_product", "product_id"),
+                ("endpoint_member", "member_id"),
+            ),
+        ),
+        ("coverage", "coverage", ((name, name) for name in ("scope", "start", "end", "complete"))),
+        (
+            "choice",
+            "choices",
+            ((name, name) for name in ("choice_group", "alternative", "selected")),
+        ),
+    )
+    members = schemas["product_member"]["properties"]
+    families = []
+    for name, attribute, fields in projections:
+        reference = members[attribute]["items"]["$ref"]
+        if not reference.startswith("#/definitions/"):
+            raise ValueError("member family requires a captured local protocol definition")
+        schema = schemas[reference.removeprefix("#/definitions/")]
+        fields = tuple(fields)
+        if name == "endpoint":
+            required, optional = (), ()
+            variants = {}
+            for branch in schema["oneOf"]:
+                scope = branch["properties"]["scope"]["const"]
+                order = ("scope", *(logical for _, logical in fields))
+                variants[scope] = (
+                    tuple(field for field in order if field in branch["required"]),
+                    tuple(
+                        field for field in branch["properties"] if field not in branch["required"]
+                    ),
+                )
+            if set(variants) != {"local", "external"}:
+                raise ValueError(
+                    "endpoint projection requires its local and external scope contracts"
+                )
+        else:
+            required = tuple(schema["required"])
+            optional = tuple(field for field in schema["properties"] if field not in required)
+            variants = {}
+            if {logical for _, logical in fields} != schema["properties"].keys():
+                raise ValueError("member family fields differ from physical projection: " + name)
+        families.append(
+            _Family(name, attribute, fields, required, optional, tuple(variants.items()))
+        )
+    return tuple(families)
 
 
 def _items(value, name, *, ordered=False):
@@ -125,15 +155,24 @@ def _fields(value, required, optional=()):
 
 
 def product_admission_native_sql(model: MetaData) -> str:
+    return (
+        native_sql_script(program.render() for program in product_admission_native_programs(model))
+        + "\n"
+    )
+
+
+def product_admission_native_programs(model: MetaData) -> tuple[NativeRoutine, ...]:
+    """Retain product realization bodies for the shared typed program registry."""
     output = []
-    _install_product(model, output)
-    _original_admission(model, output)
-    return native_sql_script(output) + "\n"
+    families = _member_families(model)
+    _install_product(model, output, families)
+    _original_admission(model, output, families)
+    return tuple(output)
 
 
 def _routine(output, name, params, statements, locals_=(), *, returns="jsonb"):
     output.append(
-        function(
+        NativeRoutine(
             "ops",
             name,
             parameters=tuple(Parameter(key, pg_type(kind)) for key, kind in params),
@@ -145,7 +184,7 @@ def _routine(output, name, params, statements, locals_=(), *, returns="jsonb"):
     )
 
 
-def _install_product(model, output):
+def _install_product(model, output, families):
     kind, releases, product, members = (
         model.tables[name]
         for name in (
@@ -222,7 +261,7 @@ def _install_product(model, output):
                     func.coalesce(m[family.attribute], empty) != empty,
                 ),
             )
-            for family in _FAMILIES
+            for family in families
         )
     )
     context_fields = ("subject", "subject_definition", "original_source", "analyzed_scope")
@@ -248,7 +287,7 @@ def _install_product(model, output):
         _fields(
             m,
             ("member_id", "kind_contract", "context", "body"),
-            tuple(f.attribute for f in _FAMILIES),
+            tuple(f.attribute for f in families),
         ),
         _fields(m["context"], context_fields),
         Assign("member_context", m["context"]),
@@ -438,17 +477,18 @@ def _install_product(model, output):
     family_steps: list[Statement] = [
         lookup("member_kind", kind, kind.c.kind_contract == m["kind_contract"].astext)
     ]
-    for family in _FAMILIES:
+    for family in families:
         values = _items(func.coalesce(m[family.attribute], empty), "family_entry", ordered=True)
         if family.name == "endpoint":
+            endpoint_shapes = dict(family.variants)
             validation = (
                 If(
                     family_value["scope"].astext == "local",
-                    (_fields(family_value, ("scope", "role", "member_id")),),
+                    (_fields(family_value, *endpoint_shapes["local"]),),
                     (
                         If(
                             family_value["scope"].astext == "external",
-                            (_fields(family_value, ("scope", "role", "product_id", "member_id")),),
+                            (_fields(family_value, *endpoint_shapes["external"]),),
                             (Raise("endpoint requires explicit local/external scope", "P0001"),),
                         ),
                     ),
@@ -541,7 +581,7 @@ def _install_product(model, output):
                 result.append(cast(value[logical_field].astext, relation.c[physical_field].type))
         return result
 
-    for family in _FAMILIES:
+    for family in families:
         relation = model.tables["kb.data_member_" + family.name]
         family_rows = _items(
             func.coalesce(member_rows.c.value[family.attribute], empty), "item", ordered=True
@@ -649,7 +689,7 @@ def _install_product(model, output):
     )
 
 
-def _original_admission(model, output):
+def _original_admission(model, output, families):
     demands, kinds, releases, admissions = (
         model.tables[name]
         for name in (
@@ -714,7 +754,7 @@ def _original_admission(model, output):
         "packet",
     )
     field_names = (
-        func.unnest(array([family.attribute for family in _FAMILIES]))
+        func.unnest(array([family.attribute for family in families]))
         .table_valued(column("field", Text()))
         .render_derived(name="family_field")
     )

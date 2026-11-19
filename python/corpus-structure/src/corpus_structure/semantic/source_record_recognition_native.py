@@ -5,24 +5,25 @@ from sqlalchemy.dialects.postgresql import JSONB, array
 
 from corpus_structure.schema.integrity import role_name
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import NativeProgramAccess, native_privilege_sql, native_sql_script
 from .native_program import (
     Block,
     CatchStrictLookup,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
     SelectInto,
     column_type,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 
 
-def source_record_recognition_sql(model: MetaData) -> str:
+def source_record_recognition_program(model: MetaData) -> ProgramDeclaration:
     """Require exact selected decision endpoints and retained original provider bytes."""
     published = model.tables["ops.pdf_published_revision"]
     companion = model.tables["kb.pdf_record_companion"]
@@ -176,15 +177,9 @@ def source_record_recognition_sql(model: MetaData) -> str:
         ),
         Return(provider["text"].astext),
     )
-    identity = NativeIdentity(
-        "function",
+    routine = NativeRoutine(
         "ops",
         "record_captured_recognition_text",
-        ("bigint", "text", "text", "text", "jsonb"),
-    )
-    definition = function(
-        identity.schema,
-        identity.name,
         parameters=(
             Parameter("p_task", column_type(published.c.task_id)),
             Parameter("p_key", column_type(published.c.product_key)),
@@ -217,13 +212,23 @@ def source_record_recognition_sql(model: MetaData) -> str:
         security_definer=True,
         search_path=("pg_catalog", "pg_temp"),
     )
+    return ProgramDeclaration(
+        routine,
+        "target-current:PDF publication",
+        role_name("publisher"),
+        NativeProgramAccess(purposes=("read", "write", "evaluate")),
+    )
+
+
+def source_record_recognition_sql(model: MetaData) -> str:
+    program = source_record_recognition_program(model)
     return native_sql_script(
         (
-            definition,
-            native_privilege_sql(identity, "PUBLIC", grant=False),
+            program.render(),
+            native_privilege_sql(program.identity, "PUBLIC", grant=False),
             *(
-                native_privilege_sql(identity, role, "EXECUTE")
-                for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
+                native_privilege_sql(program.identity, role, privilege, grant_option=option)
+                for role, privilege, option in program.access.grants(program.owner)
             ),
         )
     )

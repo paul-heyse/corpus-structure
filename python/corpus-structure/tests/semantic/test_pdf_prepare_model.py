@@ -5,11 +5,10 @@ from sqlalchemy import Column, MetaData, Text
 from sqlalchemy.dialects.postgresql import dialect
 
 from corpus_structure.semantic.metadata import get_metadata
-from corpus_structure.semantic.native_inventory import update_function_inventory
 from corpus_structure.semantic.pdf_publication_native import (
     _FINAL,
     _prepare_pdf_copy_statements,
-    publication_sql,
+    publication_control_programs,
 )
 from corpus_structure.semantic.pdf_staging import STAGE_FAMILIES
 
@@ -52,7 +51,9 @@ def test_frozen_region_copy_tracks_quoted_columns_and_new_model_fields():
 
 
 def test_frozen_prepare_declaration_matches_its_writer_grant():
-    inventory = {}
-    update_function_inventory(inventory, publication_sql())
-    prepare = inventory["ops.prepare_pdf_build(text,bigint,bigint,text,text)"]
-    assert prepare["execute_roles"] == ["corpus_sem_writer"]
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+
+    programs = publication_control_programs(get_metadata(), trusted_pdf_context().domain)
+    prepare = next(item for item in programs if item.identity.name == "prepare_pdf_build")
+    assert prepare.identity.arguments == ("text", "bigint", "bigint", "text", "text")
+    assert prepare.access.grants(prepare.owner) == (("corpus_sem_writer", "EXECUTE", False),)

@@ -692,12 +692,21 @@ def binding_branches(metadata):
             )
         ),
         support_evidence=_obj(
+            member_body_identity=case(
+                (
+                    projected.c.member_id.is_not(None),
+                    func.data.ddo_identity(
+                        "body", func.data.ddo_normalize(projected.c.projected_body)
+                    ),
+                ),
+                else_=null(),
+            ),
             producer_output=_obj(
                 member_id=admitted.c.output_member,
                 role=admitted.c.output_role,
                 position=admitted.c.output_position,
                 multiplicity=admitted.c.output_multiplicity,
-            )
+            ),
         ),
     )
     admitted_role = exists(
@@ -797,6 +806,15 @@ def binding_branches(metadata):
         .scalar_subquery()
     )
     evidence = _obj(
+        member_body_identity=case(
+            (
+                candidates.c.member_id.is_not(None),
+                func.data.ddo_identity(
+                    "body", func.data.ddo_normalize(candidates.c.projected_body)
+                ),
+            ),
+            else_=null(),
+        ),
         product_validation=func.ops.ddo_product_validation(
             candidates.c.episode_id, candidates.c.product_id
         ),
@@ -2094,7 +2112,6 @@ def _inputs_watermarks(metadata, bounded):
             visible=func.coalesce(facts, _json([])),
             source_sets=_var("d.selection", JSONB)["source_sets"],
             original_sources=_var("d.selection", JSONB)["original_sources"],
-            kernel=_var("boundary.kernel_digest", Text),
             trust=_var("boundary.trust_snapshot", JSONB),
         )
     )

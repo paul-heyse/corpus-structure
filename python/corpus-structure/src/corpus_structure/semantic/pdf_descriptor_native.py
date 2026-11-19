@@ -6,7 +6,7 @@ from sqlalchemy.dialects.postgresql import BYTEA, JSON, JSONB
 from corpus_structure.schema.integrity import role_name
 
 from .native_objects import (
-    NativeIdentity,
+    INTERNAL_PROGRAM,
     native_owner_sql,
     native_privilege_sql,
     native_sql_script,
@@ -17,16 +17,17 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Return,
     SelectInto,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 
 
-def pdf_descriptor_sql() -> str:
+def pdf_descriptor_programs() -> tuple[ProgramDeclaration, ...]:
     """Keep large record collections in JSON while retaining compact JSONB metadata."""
     payload = core_variable("p_payload", BYTEA())
     result = core_variable("result", JSONB())
@@ -40,10 +41,9 @@ def pdf_descriptor_sql() -> str:
     content = func.json_each(field_value).table_valued(
         column("key", Text()), column("value", JSON())
     )
-    identity = NativeIdentity("function", "ops", "pdf_product_descriptor", ("bytea",))
-    definition = function(
+    routine = NativeRoutine(
         "ops",
-        identity.name,
+        "pdf_product_descriptor",
         parameters=(Parameter("p_payload", pg_type("bytea")),),
         returns=pg_type("jsonb"),
         body=Block(
@@ -121,10 +121,24 @@ def pdf_descriptor_sql() -> str:
         strict=True,
         search_path=("pg_catalog", "pg_temp"),
     )
+    return (
+        ProgramDeclaration(
+            routine,
+            source="target-current:PDF descriptor CHECK prerequisite",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        ),
+    )
+
+
+def pdf_descriptor_sql() -> str:
+    """Render the captured descriptor statement and its existing ACL projection."""
     return native_sql_script(
-        (
-            definition,
-            native_owner_sql(identity, role_name("publisher")),
-            native_privilege_sql(identity, "PUBLIC", grant=False),
+        statement
+        for declaration in pdf_descriptor_programs()
+        for statement in (
+            declaration.routine.render(),
+            native_owner_sql(declaration.identity, declaration.owner),
+            native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
         )
     )

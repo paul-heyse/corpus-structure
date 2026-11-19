@@ -14,10 +14,8 @@ from corpus_structure.semantic.native_objects import (
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 from corpus_structure.semantic.pdf_domain import PREFIX
 from corpus_structure.semantic.pdf_publication_native import (
-    _publication_privileges_sql,
-    _published_revision_sql,
-    _published_validation_sql,
-    _published_views_sql,
+    published_pin_programs,
+    published_view_programs,
 )
 
 
@@ -72,25 +70,32 @@ def published_envelopes(infrastructure_rollback):
               SELECT $5 || jsonb_build_object('value',$5->'decoded')
             $$
         """)
+        from corpus_structure.semantic.native_program_registry import render_programs
+
         domain = trusted_pdf_context().domain
-        execute_native_sql(connection, _published_views_sql(model, domain))
-        execute_native_sql(connection, _published_revision_sql(model))
-        execute_native_sql(connection, _published_validation_sql(target_metadata=model))
-        # Independent signatures provide the other existing routines for ACL admission.
-        for signature in (
-            "check_pdf_build(text,bigint,bigint,text,text,text)",
-            "pdf_validation_contract(text)",
-            "pdf_projection_contract(text,text)",
-            "prepare_pdf_companions()",
-            "adopt_pdf_companions(text,bigint,bigint,text,text)",
-            "prepare_pdf_build(text,bigint,bigint,text,text)",
-        ):
-            connection.exec_driver_sql(
-                "CREATE FUNCTION ops."
-                + signature
-                + " RETURNS boolean LANGUAGE sql AS $$SELECT true$$"
-            )
-        execute_native_sql(connection, _publication_privileges_sql())
+        programs = render_programs(
+            (*published_pin_programs(model), *published_view_programs(model, domain)),
+            registry_schemas=frozenset({"ops"}),
+            prerequisites=frozenset(
+                {
+                    NativeIdentity(
+                        "function",
+                        "ops",
+                        "pdf_companion_body",
+                        ("text", "text", "text", "text", "jsonb"),
+                    ),
+                    NativeIdentity(
+                        "function",
+                        "ops",
+                        "pdf_companion_field_bytes",
+                        ("text", "text", "text", "text", "text"),
+                    ),
+                }
+            ),
+        )
+        for item in programs:
+            for statement in item.declared_definition.install_sql:
+                execute_native_sql(connection, statement)
     published = model.tables["ops.pdf_published_revision"]
     for build, task, key, release in (("b1", 7, "one", "r1"), ("b2", 8, "two", "r2")):
         connection.execute(

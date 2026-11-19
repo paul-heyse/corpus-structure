@@ -38,6 +38,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -47,7 +48,6 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
 from .native_shapes import record_shape_steps
@@ -132,7 +132,7 @@ def _context(model):
     return {name: core_variable("context", field.type, name) for name, field in columns.items()}
 
 
-def observation_projection_declaration(context, model):
+def observation_projection_routine(context, model):
     """Project only exact retained observations from the supplied request basis."""
     from pydantic import TypeAdapter
 
@@ -704,7 +704,7 @@ def observation_projection_declaration(context, model):
         Local("previous_outcome", pg_type("text")),
         Local("recovery_count", pg_type("integer"), literal(0)),
     )
-    return function(
+    return NativeRoutine(
         "ops",
         "pdf_observation_projection_for_request",
         parameters=(
@@ -722,7 +722,7 @@ def observation_projection_declaration(context, model):
     )
 
 
-def observation_publisher_declaration(context, model):
+def observation_publisher_routine(context, model):
     """Publish the finite decomposed observation with exact input/artifact custody."""
     tables = model.tables
     (
@@ -1924,7 +1924,7 @@ def observation_publisher_declaration(context, model):
         Local("idx", pg_type("bigint")),
         Local("eid", pg_type("bigint")),
     )
-    return function(
+    return NativeRoutine(
         "ops",
         "publish_pdf_observation",
         parameters=tuple(parameters),

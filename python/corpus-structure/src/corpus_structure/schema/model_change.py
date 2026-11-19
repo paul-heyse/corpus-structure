@@ -42,6 +42,7 @@ from corpus_structure.schema.source_migrations import (
     check_source_migration,
     prepare_source_migration,
 )
+from corpus_structure.semantic.effect_policy import ApprovedEffect
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
 from corpus_structure.semantic.projection_analysis_products import ProjectionAnalysisComparison
 from corpus_structure.semantic.source_comparison import EffectiveChangeComparison
@@ -146,6 +147,7 @@ class ChangeRequest(NativeIntent):
     deployment_profile: DeploymentProfile | None = None
     source_migrations: tuple[SourceMigration, ...] = ()
     data_steps: tuple[DataStepRequest, ...] = ()
+    effect_approvals: tuple[ApprovedEffect, ...] = ()
 
     @model_validator(mode="after")
     def explicit_application_runtime(self):
@@ -154,6 +156,10 @@ class ChangeRequest(NativeIntent):
         if len({step.name for step in self.data_steps}) != len(self.data_steps):
             raise ValueError("duplicate revision data step")
         executable = bool(self.data_operations and (self.deployment or self.native_requested))
+        if self.effect_approvals and not executable:
+            raise ValueError("effect approvals require an actual DDO application deployment")
+        if len(set(self.effect_approvals)) != len(self.effect_approvals):
+            raise ValueError("duplicate approved effect owner")
         if executable and (self.execution_profile is None or not self.execution_profile.strip()):
             raise ValueError("DDO application deployment requires an explicit execution_profile")
         if not executable and self.execution_profile is not None:

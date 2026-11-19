@@ -769,44 +769,6 @@ def test_data_stream_close_and_cancel_never_mark_prefix_complete(tmp_path, monke
     assert stream._iterator.gi_frame is None
 
 
-def test_publication_port_requires_the_native_effect_receipt_and_preserves_replay():
-    from unittest.mock import MagicMock
-
-    from corpus_structure.semantic.data_operation_ports import ResolvedPublicationPort
-    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-
-    seen = []
-    result = {
-        "receipt_id": "receipt:one",
-        "derivation_id": "derivation:original",
-        "replayed": False,
-        "trust_snapshot": {},
-    }
-
-    def publish(payload):
-        seen.append(("publish_data_derivation", payload))
-        return result
-
-    storage = MagicMock(spec=DataOperationStorage)
-    storage.publish_data_derivation.side_effect = publish
-    port = ResolvedPublicationPort(storage, "request:kind", "result:kind")
-    value = RoleValue("request", "request:kind", b'{"intent_id":"original"}')
-    first = port.invoke_json(value)
-    assert first.receipt_id == "receipt:one"
-    assert first.derivation_id == "derivation:original"
-    result["replayed"] = True
-    replay = port.invoke_json(value)
-    assert replay.receipt_id == first.receipt_id
-    assert replay.result.value()["replayed"] is True
-    assert seen == [("publish_data_derivation", {"intent_id": "original"})] * 2
-    result.clear()
-    result["output"] = first.result.value()
-    with pytest.raises(PortRefusal, match="required effect receipt"):
-        port.invoke_json(value)
-    with pytest.raises(PortRefusal, match="nominal request"):
-        port.invoke_json(RoleValue("request", "another:kind", value.content))
-
-
 @pytest.mark.parametrize("frozen", [False, True])
 def test_generated_dataclass_runtime_constructor_keeps_defaults_and_nominal_ingress(
     tmp_path, monkeypatch, frozen

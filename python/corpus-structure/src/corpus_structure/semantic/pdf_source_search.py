@@ -22,6 +22,8 @@ from .types import SourceArtifact
 if TYPE_CHECKING:
     from corpus_structure.serve.selected_pdf import SelectedPdfSource
 
+    from .native_program_registry import ProgramDeclaration
+
 PUBLICATION_FILL_BYTES = 128 * 1024 * 1024
 PUBLICATION_FILL_ROWS = 1_000_000
 CONTRACT = "native/pdf-source-search-contract.json"
@@ -121,18 +123,22 @@ def search_projection_sources(
     )
 
 
-def _search_pin_sql(
+def search_pin_native_programs(
     metadata, *, renderer: str, default_policy_digest: str, configuration: str
-) -> str:
+) -> tuple[ProgramDeclaration, ...]:
     """Authenticate one selected publication against its captured rendering recipe."""
     from sqlalchemy import Text, func, literal, select
     from sqlalchemy.dialects.postgresql import JSONB
 
+    from corpus_structure.schema.integrity import role_name
+
+    from .native_objects import INTERNAL_PROGRAM
     from .native_program import (
         Assign,
         Block,
         If,
         Local,
+        NativeRoutine,
         Parameter,
         Perform,
         Raise,
@@ -140,13 +146,13 @@ def _search_pin_sql(
         SelectInto,
         call,
         core_variable,
-        function,
         pg_type,
         variable,
     )
     from .native_program import (
         literal as pg_literal,
     )
+    from .native_program_registry import ProgramDeclaration
 
     publication = metadata.tables["ops.pdf_published_revision"]
     revision = publication.alias("revision")
@@ -164,140 +170,151 @@ def _search_pin_sql(
     def field(name: str):
         return core_variable("publication", publication.c[name].type, publication.c[name].name)
 
-    return (
-        function(
-            "ops",
-            "ddo_pdf_search_pin",
-            parameters=(
-                Parameter("p_source", pg_type("jsonb")),
-                Parameter("p_recipe", pg_type("jsonb")),
+    routine = NativeRoutine(
+        "ops",
+        "ddo_pdf_search_pin",
+        parameters=(
+            Parameter("p_source", pg_type("jsonb")),
+            Parameter("p_recipe", pg_type("jsonb")),
+        ),
+        returns=pg_type("jsonb"),
+        volatility="volatile",
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            locals=(
+                Local("selected", pg_type("jsonb")),
+                Local("publication", publication),
+                Local("policy_digest", pg_type("text")),
+                Local("policy", pg_type("bytea")),
+                Local("expected", pg_type("jsonb")),
+                Local("recipe_digest", pg_type("text")),
+                Local("population", pg_type("text")),
             ),
-            returns=pg_type("jsonb"),
-            volatility="volatile",
-            security_definer=True,
-            search_path=("pg_catalog", "pg_temp"),
-            body=Block(
-                locals=(
-                    Local("selected", pg_type("jsonb")),
-                    Local("publication", publication),
-                    Local("policy_digest", pg_type("text")),
-                    Local("policy", pg_type("bytea")),
-                    Local("expected", pg_type("jsonb")),
-                    Local("recipe_digest", pg_type("text")),
-                    Local("population", pg_type("text")),
+            statements=(
+                Assign(
+                    "selected",
+                    func.ops.ddo_impl_read_selected_pdf_source(source, type_=JSONB())["payload"],
                 ),
-                statements=(
-                    Assign(
-                        "selected",
-                        func.ops.ddo_impl_read_selected_pdf_source(source, type_=JSONB())[
-                            "payload"
-                        ],
+                Perform(func.ops.require_pdf_operation(release, literal("search_native_source"))),
+                SelectInto(
+                    select(*revision.c).where(
+                        revision.c.build_id == receipt["build_id"].astext,
+                        revision.c.task_id
+                        == receipt["task_id"].astext.cast(revision.c.task_id.type),
+                        revision.c.product_key == receipt["product_key"].astext,
+                        revision.c.logical_digest == receipt["logical_digest"].astext,
                     ),
-                    Perform(
-                        func.ops.require_pdf_operation(release, literal("search_native_source"))
+                    ("publication",),
+                    strict=True,
+                ),
+                SelectInto(
+                    select(input_.c.content, input_.c.content_digest).where(
+                        input_.c.release_id == release,
+                        input_.c.input_kind == "dependency",
+                        input_.c.input_name
+                        == "execution/implementation/pdf/section-text-recipe.json",
                     ),
-                    SelectInto(
-                        select(*revision.c).where(
-                            revision.c.build_id == receipt["build_id"].astext,
-                            revision.c.task_id
-                            == receipt["task_id"].astext.cast(revision.c.task_id.type),
-                            revision.c.product_key == receipt["product_key"].astext,
-                            revision.c.logical_digest == receipt["logical_digest"].astext,
-                        ),
-                        ("publication",),
-                        strict=True,
-                    ),
-                    SelectInto(
-                        select(input_.c.content, input_.c.content_digest).where(
-                            input_.c.release_id == release,
-                            input_.c.input_kind == "dependency",
-                            input_.c.input_name
-                            == "execution/implementation/pdf/section-text-recipe.json",
-                        ),
-                        ("policy", "policy_digest"),
-                    ),
-                    If(
-                        policy_digest.is_(None),
-                        (Assign("policy_digest", literal(default_policy_digest)),),
-                        (
-                            If(
-                                func.encode(func.sha256(policy), literal("hex")).is_distinct_from(
-                                    policy_digest
-                                ),
-                                (
-                                    Raise(
-                                        "search policy differs from retained release bytes", "23514"
-                                    ),
-                                ),
+                    ("policy", "policy_digest"),
+                ),
+                If(
+                    policy_digest.is_(None),
+                    (Assign("policy_digest", literal(default_policy_digest)),),
+                    (
+                        If(
+                            func.encode(func.sha256(policy), literal("hex")).is_distinct_from(
+                                policy_digest
                             ),
+                            (Raise("search policy differs from retained release bytes", "23514"),),
                         ),
                     ),
-                    Assign(
-                        "expected",
+                ),
+                Assign(
+                    "expected",
+                    func.jsonb_build_object(
+                        "version",
+                        "pdf-source-search-v1",
+                        "renderer",
+                        renderer,
+                        "policy_digest",
+                        policy_digest,
+                        "organization_owner",
                         func.jsonb_build_object(
-                            "version",
-                            "pdf-source-search-v1",
-                            "renderer",
-                            renderer,
-                            "policy_digest",
-                            policy_digest,
-                            "organization_owner",
-                            func.jsonb_build_object(
-                                "task_id",
-                                field("task_id"),
-                                "product_key",
-                                field("product_key"),
-                                "content_digest",
-                                field("logical_digest"),
-                            ),
-                            "analysis_eligible",
-                            True,
-                            type_=JSONB(),
+                            "task_id",
+                            field("task_id"),
+                            "product_key",
+                            field("product_key"),
+                            "content_digest",
+                            field("logical_digest"),
                         ),
-                    ),
-                    If(
-                        recipe.is_distinct_from(expected),
-                        (
-                            Raise(
-                                "search projection recipe differs from selected publication/code",
-                                "23514",
-                            ),
-                        ),
-                    ),
-                    Assign("recipe_digest", func.ops.ddo_digest(expected, type_=Text())),
-                    Assign(
-                        "population",
-                        literal("pdf-search:")
-                        + func.ops.ddo_digest(
-                            func.jsonb_build_array(
-                                source["project_id"].astext,
-                                field("build_id"),
-                                field("task_id"),
-                                field("product_key"),
-                                field("logical_digest"),
-                                recipe_digest,
-                                configuration,
-                            ),
-                            type_=Text(),
-                        ),
-                    ),
-                    Return(
-                        call(
-                            "pg_catalog",
-                            "jsonb_build_object",
-                            pg_literal("population_id"),
-                            variable("population"),
-                            pg_literal("recipe_digest"),
-                            variable("recipe_digest"),
-                            pg_literal("publication"),
-                            call("pg_catalog", "to_jsonb", variable("publication")),
-                            pg_literal("selected"),
-                            variable("selected"),
-                        )
+                        "analysis_eligible",
+                        True,
+                        type_=JSONB(),
                     ),
                 ),
+                If(
+                    recipe.is_distinct_from(expected),
+                    (
+                        Raise(
+                            "search projection recipe differs from selected publication/code",
+                            "23514",
+                        ),
+                    ),
+                ),
+                Assign("recipe_digest", func.ops.ddo_digest(expected, type_=Text())),
+                Assign(
+                    "population",
+                    literal("pdf-search:")
+                    + func.ops.ddo_digest(
+                        func.jsonb_build_array(
+                            source["project_id"].astext,
+                            field("build_id"),
+                            field("task_id"),
+                            field("product_key"),
+                            field("logical_digest"),
+                            recipe_digest,
+                            configuration,
+                        ),
+                        type_=Text(),
+                    ),
+                ),
+                Return(
+                    call(
+                        "pg_catalog",
+                        "jsonb_build_object",
+                        pg_literal("population_id"),
+                        variable("population"),
+                        pg_literal("recipe_digest"),
+                        variable("recipe_digest"),
+                        pg_literal("publication"),
+                        call("pg_catalog", "to_jsonb", variable("publication")),
+                        pg_literal("selected"),
+                        variable("selected"),
+                    )
+                ),
             ),
-        )
+        ),
+    )
+    return (
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        ),
+    )
+
+
+def _search_pin_sql(
+    metadata, *, renderer: str, default_policy_digest: str, configuration: str
+) -> str:
+    return (
+        search_pin_native_programs(
+            metadata,
+            renderer=renderer,
+            default_policy_digest=default_policy_digest,
+            configuration=configuration,
+        )[0].routine.render()
         + ";\n"
     )
 
@@ -307,6 +324,63 @@ def _running_contract() -> dict:
     return json.loads(
         next(source.content for source in search_projection_sources() if source.name == CONTRACT)
     )
+
+
+def search_projection_programs(
+    sources, *, target_metadata=None, pdf_domain=None
+) -> tuple[ProgramDeclaration, ...]:
+    """Bind captured rendering determinants at both actual typed search producers."""
+    from .pdf_domain import CONTRACT as PDF_CONTRACT
+    from .pdf_domain import PdfDomainContract, pdf_call_bindings, pdf_domain_sources
+    from .pdf_search_native import search_native_programs
+
+    captured = {source.name: source.content for source in sources}
+    if target_metadata is None:
+        physical = {
+            name.removeprefix("native/projection-physical/"): content
+            for name, content in captured.items()
+            if name.startswith("native/projection-physical/")
+        }
+        if physical:
+            from corpus_structure.schema.physical import compile_physical
+
+            target_metadata = compile_physical(
+                physical, linkml_types=captured["native/projection-linkml-types.yaml"]
+            )
+        else:
+            from .metadata import get_metadata
+
+            target_metadata = get_metadata()
+    if pdf_domain is None and target_metadata.info.get("physical_sources"):
+        domain_sources = pdf_domain_sources(
+            physical_sources=target_metadata.info["physical_sources"],
+            linkml_types=target_metadata.info["physical_linkml_types"],
+        )
+        contract = next(item.content for item in domain_sources if item.name == PDF_CONTRACT)
+        pdf_domain = PdfDomainContract(
+            contract, tuple(item for item in domain_sources if item.name != PDF_CONTRACT)
+        )
+    facts = json.loads(captured[CONTRACT])
+    pin = search_pin_native_programs(
+        target_metadata,
+        renderer=facts["renderer"],
+        default_policy_digest=facts["default_policy_digest"],
+        configuration=facts["configuration"],
+    )
+    search = search_native_programs(
+        target_metadata,
+        pdf_call_bindings(pdf_domain),
+        max_fill_bytes=facts["max_fill_bytes"],
+        configuration=facts["configuration"],
+    )
+    if "".join(item.routine.render() + ";\n" for item in pin).encode() != captured[_PIN_SQL]:
+        raise ValueError("search pin declarations differ from captured rendering/model statements")
+    if (
+        "".join(item.routine.render() + ";\n" for item in search).encode()
+        != captured["native/pdf-source-search.sql"]
+    ):
+        raise ValueError("search declarations differ from captured rendering/model statements")
+    return (*pin, *search)
 
 
 def search_projection_sql(sources) -> str:

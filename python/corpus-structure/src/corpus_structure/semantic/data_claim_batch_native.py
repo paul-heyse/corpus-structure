@@ -11,16 +11,16 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
     core_variable,
-    function,
     pg_type,
 )
 
 
-def claim_batch_native_sql(target):
+def claim_batch_native_programs(target) -> tuple[NativeRoutine, ...]:
     request = target.tables["ops.data_request"]
     p = core_variable("p", JSONB())
     item = core_variable("item", JSONB())
@@ -40,7 +40,7 @@ def claim_batch_native_sql(target):
         .render_derived(name="claim_item")
     )
     return (
-        function(
+        NativeRoutine(
             "ops",
             "claim_data_requests",
             parameters=(Parameter("p_payload", pg_type("jsonb")),),
@@ -125,6 +125,14 @@ def claim_batch_native_sql(target):
                     Local("cache_key", pg_type("text")),
                 ),
             ),
-        )
-        + ";\n"
+        ),
+    )
+
+
+def claim_batch_native_sql(target) -> str:
+    from .native_objects import native_sql_script
+
+    return (
+        native_sql_script(routine.render() for routine in claim_batch_native_programs(target))
+        + "\n"
     )

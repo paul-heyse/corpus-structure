@@ -153,26 +153,24 @@ def native_owner_sql(identity: NativeIdentity, owner: str) -> str:
     return RawStream()(statement)
 
 
-def native_before_trigger_sql(
+def native_before_trigger(
     relation: Table,
     name: str,
     routine: tuple[str, str],
     *,
     events: tuple[Literal["insert", "delete", "update", "truncate"], ...],
     row: bool = False,
-) -> str:
+) -> ast.CreateTrigStmt:
     """Build a PostgreSQL trigger on a captured physical relation."""
     # PostgreSQL TRIGGER_TYPE_* bits used by CreateTrigStmt.
     event_bits = {"insert": 4, "delete": 8, "update": 16, "truncate": 32}
-    return RawStream()(
-        ast.CreateTrigStmt(
-            trigname=name,
-            relation=ast.RangeVar(schemaname=relation.schema, relname=relation.name, inh=True),
-            funcname=tuple(ast.String(sval=part) for part in routine),
-            row=row,
-            timing=2,
-            events=sum(event_bits[event] for event in set(events)),
-        )
+    return ast.CreateTrigStmt(
+        trigname=name,
+        relation=ast.RangeVar(schemaname=relation.schema, relname=relation.name, inh=True),
+        funcname=tuple(ast.String(sval=part) for part in routine),
+        row=row,
+        timing=2,
+        events=sum(event_bits[event] for event in set(events)),
     )
 
 
@@ -340,6 +338,8 @@ class NativeDefinition:
     role_bindings: tuple[tuple[str, str], ...] = ()
     bind_owner: bool = False
     program_access: NativeProgramAccess | None = None
+    callees: frozenset[NativeIdentity] | None = None
+    validity: tuple[tuple[str, str], ...] = ()
 
     @property
     def catalog_version(self) -> int:
@@ -440,7 +440,7 @@ class NativeDefinition:
 
 
 def definition_from_sql(
-    connection: Connection,
+    connection: Connection | None,
     sql: str,
     *,
     source: str,
@@ -467,13 +467,15 @@ def definition_from_sql(
             }:
                 continue
             kind = RawStream()(parameter.argType)
-            type_oid = connection.scalar(select(cast(catalog_queries.pg.to_regtype(kind), OID)))
-            from .native_sql_body import catalog_path
+            canonical = kind
+            if connection is not None:
+                type_oid = connection.scalar(select(cast(catalog_queries.pg.to_regtype(kind), OID)))
+                from .native_sql_body import catalog_path
 
-            with catalog_path(connection):
-                canonical = connection.scalar(
-                    select(catalog_queries.pg.format_type(type_oid, None)),
-                )
+                with catalog_path(connection):
+                    canonical = connection.scalar(
+                        select(catalog_queries.pg.format_type(type_oid, None)),
+                    )
             if canonical is None:
                 raise NativeAuthoringError(f"{source}: unresolved input type {kind}")
             arguments.append(canonical)

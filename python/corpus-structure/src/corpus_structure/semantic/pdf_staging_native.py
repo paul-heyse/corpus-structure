@@ -5,6 +5,20 @@ from sqlalchemy.dialects.postgresql import dialect
 from corpus_structure.schema.integrity import role_name
 
 from .metadata import get_metadata
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, native_privilege_sql
+from .native_program_registry import ProgramDeclaration
+
+
+def _render_pdf_program(program: ProgramDeclaration) -> str:
+    statements = [
+        program.routine.render(),
+        native_privilege_sql(program.identity, "PUBLIC", grant=False),
+    ]
+    statements.extend(
+        native_privilege_sql(program.identity, role, privilege.lower(), grant_option=option)
+        for role, privilege, option in program.access.grants(program.owner)
+    )
+    return ";\n".join(statements) + ";\n"
 
 
 def native_payload_size_expression(relation):
@@ -52,11 +66,97 @@ def native_payload_size_sql(relation, *, alias="s") -> str:
     )
 
 
-def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
-    from pglast import ast, enums
-    from pglast.stream import RawStream
+def stage_prepare_program(model) -> ProgramDeclaration:
+    from .native_program import (
+        Assign,
+        Block,
+        Local,
+        NativeRoutine,
+        Parameter,
+        Perform,
+        call,
+        column_type,
+        literal,
+        pg_type,
+        variable,
+    )
+    from .pdf_shared_streams import pdf_scratch_prepare, pdf_stage_scratch_specs
 
+    build = model.tables["ops.pdf_stage_build"]
+    parameters = tuple(
+        Parameter(name, column_type(field))
+        for name, field in (
+            ("p_build", build.c.build_id),
+            ("p_task", build.c.task_id),
+            ("p_attempt", build.c.attempt),
+            ("p_holder", build.c.holder),
+        )
+    )
+    routine = NativeRoutine(
+        "ops",
+        "prepare_pdf_stage",
+        parameters=parameters,
+        returns=pg_type("void"),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            locals=(Local("build", build),),
+            statements=(
+                Assign(
+                    "build",
+                    call(
+                        "ops",
+                        "require_pdf_build",
+                        *(
+                            variable(name)
+                            for name in (
+                                "p_build",
+                                "p_task",
+                                "p_attempt",
+                                "p_holder",
+                            )
+                        ),
+                    ),
+                ),
+                Perform(
+                    call(
+                        "ops",
+                        "require_pdf_operation",
+                        variable("build", "release_id"),
+                        literal("adopt_pdf_batch"),
+                    )
+                ),
+                *(
+                    statement
+                    for spec in pdf_stage_scratch_specs(model)
+                    for statement in pdf_scratch_prepare(spec)
+                ),
+            ),
+        ),
+    )
+    return ProgramDeclaration(
+        routine,
+        "authoring/pdf-staging.sql",
+        role_name("publisher"),
+        NativeProgramAccess(purposes=("write",)),
+    )
+
+
+def stage_native_programs(*, target_metadata=None) -> tuple[ProgramDeclaration, ...]:
+    """Own staging routines only; domain, shared-stream and spool owners stay separate."""
+    model = get_metadata() if target_metadata is None else target_metadata
+    return (
+        stage_prepare_program(model),
+        stage_scratch_authorization_program(),
+        stage_batch_adoption_program(model),
+        *stage_lifecycle_programs(model),
+    )
+
+
+def stage_native_sql(*, target_metadata=None, pdf_sources=None, _include_owned=True) -> str:
     from .pdf_domain_native import pdf_domain_native_sql
+    from .pdf_shared_streams import part_wire_contract_sql, shared_streams_sql
+    from .pdf_spool_native import pdf_spool_native_sql
 
     if target_metadata is not None and pdf_sources is None:
         from .pdf_domain import pdf_domain_sources
@@ -67,118 +167,25 @@ def stage_native_sql(*, target_metadata=None, pdf_sources=None) -> str:
         )
     selected = get_metadata() if target_metadata is None else target_metadata
     sql = pdf_domain_native_sql(sources=pdf_sources, target_metadata=selected)
-    from .native_program import (
-        Assign,
-        Block,
-        Local,
-        Parameter,
-        Perform,
-        call,
-        column_type,
-        function,
-        literal,
-        pg_type,
-        variable,
-    )
-    from .pdf_shared_streams import (
-        part_wire_contract_sql,
-        pdf_scratch_prepare,
-        pdf_stage_scratch_specs,
-        shared_streams_sql,
-    )
-
-    sql += stage_scratch_authorization_sql()
+    if _include_owned:
+        sql += stage_scratch_authorization_sql()
     sql += part_wire_contract_sql(selected) + shared_streams_sql(selected)
-    specs = pdf_stage_scratch_specs(selected)
-    build_relation = selected.tables["ops.pdf_stage_build"]
-    prepare_parameters = tuple(
-        Parameter(name, column_type(field))
-        for name, field in (
-            ("p_build", build_relation.c.build_id),
-            ("p_task", build_relation.c.task_id),
-            ("p_attempt", build_relation.c.attempt),
-            ("p_holder", build_relation.c.holder),
-        )
-    )
-    sql += (
-        function(
-            "ops",
-            "prepare_pdf_stage",
-            parameters=prepare_parameters,
-            returns=pg_type("void"),
-            security_definer=True,
-            search_path=("pg_catalog", "pg_temp"),
-            body=Block(
-                locals=(Local("build", selected.tables["ops.pdf_stage_build"]),),
-                statements=(
-                    Assign(
-                        "build",
-                        call(
-                            "ops",
-                            "require_pdf_build",
-                            *(
-                                variable(name)
-                                for name in ("p_build", "p_task", "p_attempt", "p_holder")
-                            ),
-                        ),
-                    ),
-                    Perform(
-                        call(
-                            "ops",
-                            "require_pdf_operation",
-                            variable("build", "release_id"),
-                            literal("adopt_pdf_batch"),
-                        )
-                    ),
-                    *(statement for spec in specs for statement in pdf_scratch_prepare(spec)),
-                ),
-            ),
-        )
-        + ";\n"
-    )
+    if not _include_owned:
+        return sql
+    prepare = stage_prepare_program(selected)
+    sql += prepare.routine.render() + ";\n"
     sql += stage_batch_adoption_sql(selected)
     sql += stage_lifecycle_sql(selected)
-    prepare_identity = ast.ObjectWithArgs(
-        objname=(ast.String(sval="ops"), ast.String(sval="prepare_pdf_stage")),
-        objargs=tuple(parameter.type_ for parameter in prepare_parameters),
-        args_unspecified=False,
-    )
-    for allowed, grantee in (
-        (False, ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC)),
-        (
-            True,
-            ast.RoleSpec(
-                roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=role_name("writer")
-            ),
-        ),
-    ):
-        sql += (
-            RawStream()(
-                ast.GrantStmt(
-                    is_grant=allowed,
-                    targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-                    objtype=enums.ObjectType.OBJECT_FUNCTION,
-                    objects=(prepare_identity,),
-                    privileges=(ast.AccessPriv(priv_name="execute"),) if allowed else None,
-                    grantees=(grantee,),
-                    grant_option=False,
-                    behavior=enums.DropBehavior.DROP_RESTRICT,
-                )
-            )
-            + ";\n"
-        )
-    from .pdf_spool_native import pdf_spool_native_sql
-
+    sql += native_privilege_sql(prepare.identity, "PUBLIC", grant=False) + ";\n"
+    sql += native_privilege_sql(prepare.identity, role_name("writer"), "execute") + ";\n"
     sql += pdf_spool_native_sql(target_metadata=selected)
     return sql
 
 
-def stage_lifecycle_sql(model):
+def stage_lifecycle_programs(model) -> tuple[ProgramDeclaration, ...]:
     """Generate original custody and private-build fences from the supplied model."""
     from typing import Any
 
-    from pglast import ast, enums, parse_sql
-    from pglast.stream import RawStream
     from sqlalchemy import (
         BigInteger,
         Boolean,
@@ -202,6 +209,7 @@ def stage_lifecycle_sql(model):
         Block,
         If,
         Local,
+        NativeRoutine,
         Parameter,
         Perform,
         PerformQuery,
@@ -212,7 +220,6 @@ def stage_lifecycle_sql(model):
         Sql,
         column_type,
         core_variable,
-        function,
         pg_type,
     )
 
@@ -283,66 +290,23 @@ def stage_lifecycle_sql(model):
         stable=False,
         strict=False,
     ):
-        declaration = parse_sql(
-            function(
+        return ProgramDeclaration(
+            NativeRoutine(
                 "ops",
                 name,
                 parameters=parameters,
                 returns=returns,
                 body=Block(tuple(statements), tuple(locals_)),
+                table_columns=tuple((field, column_type(source)) for field, source in output),
                 security_definer=True,
                 search_path=("pg_catalog", "pg_temp"),
                 volatility="stable" if stable else None,
                 strict=strict,
-            )
-        )[0].stmt
-        if not isinstance(declaration, ast.CreateFunctionStmt):
-            raise ValueError("PDF lifecycle requires its typed native declaration")
-        if output:
-            declaration.parameters = (
-                *(declaration.parameters or ()),
-                *(
-                    ast.FunctionParameter(
-                        name=field,
-                        argType=column_type(source),
-                        mode=enums.FunctionParameterMode.FUNC_PARAM_TABLE,
-                    )
-                    for field, source in output
-                ),
-            )
-        identity = ast.ObjectWithArgs(
-            objname=(ast.String(sval="ops"), ast.String(sval=name)),
-            objargs=tuple(p.type_ for p in parameters),
-            args_unspecified=False,
+            ),
+            source="authoring/pdf-staging.sql",
+            owner=role_name("publisher"),
+            access=NativeProgramAccess(purposes=("write",)) if writer else INTERNAL_PROGRAM,
         )
-        revoke = ast.GrantStmt(
-            is_grant=False,
-            targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-            objtype=enums.ObjectType.OBJECT_FUNCTION,
-            objects=(identity,),
-            grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-            grant_option=False,
-            behavior=enums.DropBehavior.DROP_RESTRICT,
-        )
-        statements_ = [declaration, revoke]
-        if writer:
-            statements_.append(
-                ast.GrantStmt(
-                    is_grant=True,
-                    targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-                    objtype=enums.ObjectType.OBJECT_FUNCTION,
-                    objects=(identity,),
-                    privileges=(ast.AccessPriv(priv_name="execute"),),
-                    grantees=(
-                        ast.RoleSpec(
-                            roletype=enums.RoleSpecType.ROLESPEC_CSTRING,
-                            rolename=role_name("writer"),
-                        ),
-                    ),
-                    behavior=enums.DropBehavior.DROP_RESTRICT,
-                )
-            )
-        return ";\n".join(RawStream()(value) for value in statements_) + ";\n"
 
     out = []
     owner_local = Local("owner", pg_type("record"))
@@ -1013,13 +977,15 @@ def stage_lifecycle_sql(model):
             (build_local,),
         )
     )
-    return "\n".join(out)
+    return tuple(out)
 
 
-def stage_scratch_authorization_sql():
+def stage_lifecycle_sql(model) -> str:
+    return "\n".join(_render_pdf_program(program) for program in stage_lifecycle_programs(model))
+
+
+def stage_scratch_authorization_program() -> ProgramDeclaration:
     """Authorize actual scratch custody and compare declared native column/check shapes."""
-    from pglast import ast, enums
-    from pglast.stream import RawStream
     from sqlalchemy import (
         Boolean,
         Integer,
@@ -1036,7 +1002,16 @@ def stage_scratch_authorization_sql():
     from sqlalchemy.dialects.postgresql import OID, REGCLASS, array
 
     from .native_catalog import _catalog
-    from .native_program import Block, If, Local, Parameter, Raise, core_variable, function, pg_type
+    from .native_program import (
+        Block,
+        If,
+        Local,
+        NativeRoutine,
+        Parameter,
+        Raise,
+        core_variable,
+        pg_type,
+    )
 
     relation = _catalog(
         "pg_class",
@@ -1141,7 +1116,7 @@ def stage_scratch_authorization_sql():
             .scalar_subquery()
         )
 
-    sql = function(
+    routine = NativeRoutine(
         "ops",
         "require_pdf_stage_scratch",
         parameters=(
@@ -1170,28 +1145,17 @@ def stage_scratch_authorization_sql():
             ),
         ),
     )
-    revoke = ast.GrantStmt(
-        is_grant=False,
-        targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-        objtype=enums.ObjectType.OBJECT_FUNCTION,
-        objects=(
-            ast.ObjectWithArgs(
-                objname=(ast.String(sval="ops"), ast.String(sval="require_pdf_stage_scratch")),
-                objargs=(pg_type("text"), pg_type("regclass")),
-                args_unspecified=False,
-            ),
-        ),
-        grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-        grant_option=False,
-        behavior=enums.DropBehavior.DROP_RESTRICT,
+    return ProgramDeclaration(
+        routine, "authoring/pdf-staging.sql", role_name("publisher"), INTERNAL_PROGRAM
     )
-    return sql + ";\n" + RawStream()(revoke) + ";\n"
 
 
-def stage_batch_adoption_sql(model):
+def stage_scratch_authorization_sql() -> str:
+    return _render_pdf_program(stage_scratch_authorization_program())
+
+
+def stage_batch_adoption_program(model) -> ProgramDeclaration:
     """Compile bounded, named-column scratch admission and exact replay once."""
-    from pglast import ast, enums
-    from pglast.stream import RawStream
     from sqlalchemy import (
         BigInteger,
         Boolean,
@@ -1213,6 +1177,7 @@ def stage_batch_adoption_sql(model):
         Block,
         If,
         Local,
+        NativeRoutine,
         Parameter,
         Perform,
         PerformQuery,
@@ -1223,7 +1188,6 @@ def stage_batch_adoption_sql(model):
         Statement,
         column_type,
         core_variable,
-        function,
         pg_type,
     )
     from .pdf_shared_streams import pdf_stage_scratch_specs
@@ -1473,7 +1437,7 @@ def stage_batch_adoption_sql(model):
     )
     returns = pg_type(receipt.schema, receipt.name)
     returns.setof = True
-    declaration = function(
+    routine = NativeRoutine(
         "ops",
         "adopt_pdf_batch",
         parameters=parameters,
@@ -1494,31 +1458,13 @@ def stage_batch_adoption_sql(model):
             ),
         ),
     )
-    identity = ast.ObjectWithArgs(
-        objname=(ast.String(sval="ops"), ast.String(sval="adopt_pdf_batch")),
-        objargs=tuple(parameter.type_ for parameter in parameters),
-        args_unspecified=False,
+    return ProgramDeclaration(
+        routine,
+        "authoring/pdf-staging.sql",
+        role_name("publisher"),
+        NativeProgramAccess(purposes=("write",)),
     )
-    revoke = ast.GrantStmt(
-        is_grant=False,
-        targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-        objtype=enums.ObjectType.OBJECT_FUNCTION,
-        objects=(identity,),
-        grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-        grant_option=False,
-        behavior=enums.DropBehavior.DROP_RESTRICT,
-    )
-    grant = ast.GrantStmt(
-        is_grant=True,
-        targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-        objtype=enums.ObjectType.OBJECT_FUNCTION,
-        objects=(identity,),
-        privileges=(ast.AccessPriv(priv_name="execute"),),
-        grantees=(
-            ast.RoleSpec(
-                roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=role_name("writer")
-            ),
-        ),
-        behavior=enums.DropBehavior.DROP_RESTRICT,
-    )
-    return declaration + ";\n" + RawStream()(revoke) + ";\n" + RawStream()(grant) + ";\n"
+
+
+def stage_batch_adoption_sql(model) -> str:
+    return _render_pdf_program(stage_batch_adoption_program(model))

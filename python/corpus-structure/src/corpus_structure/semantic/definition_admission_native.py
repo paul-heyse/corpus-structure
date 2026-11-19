@@ -4,7 +4,6 @@ Component proof is shared by contextual applicability and other current consumer
 it does not depend on contextual numerical/source factory acquisition.
 """
 
-from pglast.stream import RawStream
 from sqlalchemy import (
     Integer,
     MetaData,
@@ -19,8 +18,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
+from corpus_structure.schema.integrity import role_name
+
 from .metadata import get_metadata
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
@@ -28,6 +29,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -36,14 +38,15 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration, ProgramValidity
 from .validity_programs import input_role, selected_family
 
 
-def definition_admission_native_sql(*, target_metadata: MetaData | None = None) -> str:
+def definition_admission_native_programs(
+    *, target_metadata: MetaData | None = None
+) -> tuple[ProgramDeclaration, ...]:
     model = get_metadata() if target_metadata is None else target_metadata
     definition = model.tables["sem.data_operation_definition"]
     request = model.tables["ops.data_request"]
@@ -117,42 +120,26 @@ def definition_admission_native_sql(*, target_metadata: MetaData | None = None) 
         definition.c.release_id == r("release_id"),
         definition.c.operation_id == r("operation_id"),
     )
-    programs: list[str] = []
+    programs: list[ProgramDeclaration] = []
 
-    def add(name, parameters, steps=(), locals_=(), *, returns="void", query=None):
-        if query is None:
-            programs.append(
-                function(
-                    "ops",
-                    name,
-                    parameters=parameters,
-                    returns=pg_type(returns),
-                    body=Block(tuple(steps), tuple(locals_)),
-                    security_definer=True,
-                    volatility="stable",
-                    search_path=("pg_catalog", "pg_temp"),
-                )
-            )
-        else:
-            programs.append(
-                sql_function(
-                    "ops",
-                    name,
-                    parameters=parameters,
-                    returns=pg_type(returns),
-                    body=query,
-                    volatility="immutable",
-                    strict=True,
-                    search_path=("pg_catalog", "pg_temp"),
-                )
-            )
+    def add(name, parameters, steps=(), locals_=(), *, returns="void", query=None, validity=()):
         programs.append(
-            native_privilege_sql(
-                NativeIdentity(
-                    "function", "ops", name, tuple(RawStream()(p.type_) for p in parameters)
+            ProgramDeclaration(
+                NativeRoutine(
+                    "ops",
+                    name,
+                    parameters=parameters,
+                    returns=pg_type(returns),
+                    body=Block(tuple(steps), tuple(locals_)) if query is None else query,
+                    security_definer=query is None,
+                    volatility="stable" if query is None else "immutable",
+                    strict=query is not None,
+                    search_path=("pg_catalog", "pg_temp"),
                 ),
-                "PUBLIC",
-                grant=False,
+                source="data-operations:forward",
+                owner=role_name("publisher"),
+                access=INTERNAL_PROGRAM,
+                validity=validity,
             )
         )
 
@@ -401,6 +388,7 @@ def definition_admission_native_sql(*, target_metadata: MetaData | None = None) 
             ),
         ),
         (Local("output", pg_type("jsonb")), Local("actual", pg_type("jsonb"))),
+        validity=(ProgramValidity("definition", "completion_guard"),),
     )
 
     episode_id = core_variable("episode_id", episode.c.id.type)
@@ -432,5 +420,21 @@ def definition_admission_native_sql(*, target_metadata: MetaData | None = None) 
         ),
         (Local("episode", episode), Local("r", request), Local("intent", intent)),
         returns="bool",
+        validity=(ProgramValidity("definition", "validator"),),
     )
-    return native_sql_script(programs) + "\n"
+    return tuple(programs)
+
+
+def definition_admission_native_sql(*, target_metadata: MetaData | None = None) -> str:
+    """Render captured declarations and their existing private ACL projection."""
+    return (
+        native_sql_script(
+            statement
+            for declaration in definition_admission_native_programs(target_metadata=target_metadata)
+            for statement in (
+                declaration.routine.render(),
+                native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
+            )
+        )
+        + "\n"
+    )

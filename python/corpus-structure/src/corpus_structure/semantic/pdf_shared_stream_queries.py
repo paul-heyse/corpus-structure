@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pglast import ast, enums, parse_sql
+from dataclasses import replace
+
+from pglast import ast, parse_sql
 from pglast.stream import RawStream
 from sqlalchemy import (
     ARRAY,
@@ -20,11 +22,15 @@ from sqlalchemy import (
     union_all,
 )
 
-from .native_program import Parameter, column_type, core_variable, literal, pg_type, sql_function
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql
+from .native_program import NativeRoutine, Parameter, column_type, core_variable, literal, pg_type
+from .native_program_registry import ProgramDeclaration
 from .pdf_record_model import artifact_part_upload_table
 
 
-def _query_function(
+def _query_program(
     name: str,
     parameters: tuple[Parameter, ...],
     query,
@@ -33,65 +39,58 @@ def _query_function(
     defaults: tuple[tuple[str, ast.Node], ...] = (),
     strict: bool = False,
     search_path: bool = True,
-) -> str:
-    """Decorate the shared routine compiler with SQL TABLE/default/strict nodes."""
-    declaration = sql_function(
+) -> ProgramDeclaration:
+    """Keep TABLE/default/strict properties on the routine itself."""
+    default_values = dict(defaults)
+    parameters = tuple(
+        replace(parameter, default=default_values.get(parameter.name, parameter.default))
+        for parameter in parameters
+    )
+    result = pg_type("record") if isinstance(returns, Table) else returns
+    if isinstance(returns, Table):
+        result.setof = True
+    routine = NativeRoutine(
         "ops",
         name,
         parameters=parameters,
-        returns=pg_type("record") if isinstance(returns, Table) else returns,
+        returns=result,
         body=query,
+        table_columns=tuple((column.name, column_type(column)) for column in returns.columns)
+        if isinstance(returns, Table)
+        else (),
         volatility="stable",
+        strict=strict,
         search_path=("pg_catalog", "pg_temp") if search_path else (),
     )
-    statement = parse_sql(declaration)[0].stmt
+    return ProgramDeclaration(
+        routine, "authoring/pdf-shared-stream-queries.sql", role_name("publisher"), INTERNAL_PROGRAM
+    )
+
+
+def _query_capture_sql(program: ProgramDeclaration) -> str:
+    """Preserve the qualified capture's historical option ordering only.
+
+    STRICT is authoritative on NativeRoutine; parsing here formats the old raw
+    capture and supplies no declaration, grant, signature or dependency facts.
+    """
+    routine = program.routine
+    statement = parse_sql(replace(routine, strict=False).render())[0].stmt
     if not isinstance(statement, ast.CreateFunctionStmt):
-        raise ValueError("shared-stream reader requires one typed function declaration")
-    default_values = dict(defaults)
-    inputs = tuple(statement.parameters or ())
-    for parameter in inputs:
-        if parameter.name in default_values:
-            parameter.defexpr = default_values[parameter.name]
-    if isinstance(returns, Table):
-        if statement.returnType is None:
-            raise ValueError("shared-stream reader requires its declared result type")
-        outputs = tuple(
-            ast.FunctionParameter(
-                name=column.name,
-                argType=column_type(column),
-                mode=enums.FunctionParameterMode.FUNC_PARAM_TABLE,
-            )
-            for column in returns.columns
-        )
-        statement.parameters = (*inputs, *outputs)
-        statement.returnType.setof = True
-    if strict:
+        raise ValueError("shared-stream capture requires its typed function")
+    if routine.strict:
         statement.options = (
             *(statement.options or ()),
-            ast.DefElem(
-                defname="strict",
-                arg=ast.Boolean(boolval=True),
-            ),
+            ast.DefElem(defname="strict", arg=ast.Boolean(boolval=True)),
         )
-    revoke = ast.GrantStmt(
-        is_grant=False,
-        targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-        objtype=enums.ObjectType.OBJECT_FUNCTION,
-        objects=(
-            ast.ObjectWithArgs(
-                objname=(ast.String(sval="ops"), ast.String(sval=name)),
-                objargs=tuple(parameter.type_ for parameter in parameters),
-                args_unspecified=False,
-            ),
-        ),
-        grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-        grant_option=False,
-        behavior=enums.DropBehavior.DROP_RESTRICT,
+    return (
+        RawStream()(statement)
+        + ";\n"
+        + native_privilege_sql(program.identity, "PUBLIC", grant=False)
+        + ";\n"
     )
-    return RawStream()(statement) + ";\n" + RawStream()(revoke) + ";\n"
 
 
-def shared_stream_queries_sql(model: MetaData) -> str:
+def shared_stream_queries_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
     """Generate the four stable readers against the supplied physical model.
 
     The part reader remains invoker-only and has no function SET clause, so
@@ -109,7 +108,7 @@ def shared_stream_queries_sql(model: MetaData) -> str:
     p_build = core_variable("p_build", build.c.build_id.type)
     project = func.ops.pdf_stream_project(p_build)
 
-    project_reader = _query_function(
+    project_reader = _query_program(
         "pdf_stream_project",
         (Parameter("p_build", pg_type("text")),),
         select(request.c.project_id)
@@ -148,7 +147,7 @@ def shared_stream_queries_sql(model: MetaData) -> str:
     upload = artifact_part_upload_table(model)
     text_array = pg_type("text")
     text_array.arrayBounds = (ast.Integer(ival=-1),)
-    part_reader = _query_function(
+    part_reader = _query_program(
         "pdf_artifact_parts",
         (
             Parameter("p_product", pg_type("text")),
@@ -183,7 +182,7 @@ def shared_stream_queries_sql(model: MetaData) -> str:
             for name in ("project_id", "encoding_profile", "byte_length", "byte_root")
         )
     )
-    ready_reader = _query_function(
+    ready_reader = _query_program(
         "pdf_shared_stream_ready",
         (
             Parameter("p_build", pg_type("text")),
@@ -209,7 +208,7 @@ def shared_stream_queries_sql(model: MetaData) -> str:
     owner_build = core_variable("content", content.c.owner_build_id.type, "owner_build_id")
     owner_attempt = core_variable("content", content.c.owner_attempt.type, "owner_attempt")
     owner_holder = core_variable("content", content.c.owner_holder.type, "owner_holder")
-    owner_reader = _query_function(
+    owner_reader = _query_program(
         "pdf_pending_stream_owner_dead",
         (Parameter("content", pg_type("ops", "pdf_shared_stream")),),
         select(
@@ -238,4 +237,8 @@ def shared_stream_queries_sql(model: MetaData) -> str:
         ),
         returns=pg_type("boolean"),
     )
-    return project_reader + part_reader + ready_reader + owner_reader
+    return project_reader, part_reader, ready_reader, owner_reader
+
+
+def shared_stream_queries_sql(model: MetaData) -> str:
+    return "".join(_query_capture_sql(program) for program in shared_stream_queries_programs(model))

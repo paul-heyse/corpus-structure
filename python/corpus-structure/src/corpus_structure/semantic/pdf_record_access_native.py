@@ -27,13 +27,16 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB, array
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
     CatchDataConversion,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
@@ -41,14 +44,14 @@ from .native_program import (
     _render,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 from .pdf_record_model import record_upload_table
 from .pdf_staging import stage_upload_profile
 
 
-def pdf_access_correspondence_sql(model: MetaData) -> str:
+def pdf_access_correspondence_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
     stream = model.tables["ops.pdf_artifact_stream"]
     output = []
     text = pg_type("text")
@@ -61,20 +64,21 @@ def pdf_access_correspondence_sql(model: MetaData) -> str:
 
     def routine(name, parameters, returns, statements, locals_=(), *, immutable=False):
         output.append(
-            function(
-                "ops",
-                name,
-                parameters=parameters,
-                returns=pg_type(returns),
-                search_path=("pg_catalog", "pg_temp"),
-                volatility="immutable" if immutable else "stable",
-                body=Block(tuple(statements), tuple(locals_)),
+            ProgramDeclaration(
+                NativeRoutine(
+                    "ops",
+                    name,
+                    parameters=parameters,
+                    returns=pg_type(returns),
+                    search_path=("pg_catalog", "pg_temp"),
+                    volatility="immutable" if immutable else "stable",
+                    body=Block(tuple(statements), tuple(locals_)),
+                ),
+                "authoring/pdf-record-access.sql",
+                role_name("publisher"),
+                INTERNAL_PROGRAM,
             )
         )
-        identity = NativeIdentity(
-            "function", "ops", name, tuple(_render(parameter.type_) for parameter in parameters)
-        )
-        output.append(native_privilege_sql(identity, "PUBLIC", grant=False))
 
     p_value, expected = (core_variable(name, JSONB()) for name in ("p_value", "p_expected"))
     actual_bytes, expected_bytes = (
@@ -306,10 +310,22 @@ def pdf_access_correspondence_sql(model: MetaData) -> str:
         (Local("stream_", stream), Local("payload_", pg_type("bytea"))),
     )
 
-    output.append(_access_checker_sql(model))
-    identity = NativeIdentity("function", "ops", "pdf_check_access_correspondence", ("text",))
-    output.append(native_privilege_sql(identity, "PUBLIC", grant=False))
-    return native_sql_script(output) + "\n"
+    output.append(_access_checker_program(model))
+    return tuple(output)
+
+
+def pdf_access_correspondence_sql(model: MetaData) -> str:
+    return (
+        native_sql_script(
+            statement
+            for program in pdf_access_correspondence_programs(model)
+            for statement in (
+                program.routine.render(),
+                native_privilege_sql(program.identity, "PUBLIC", grant=False),
+            )
+        )
+        + "\n"
+    )
 
 
 def _cycle_predicate(query: Select, cycles: Mapping[str, tuple[str, str, str]]) -> ast.SubLink:
@@ -332,7 +348,7 @@ def _cycle_predicate(query: Select, cycles: Mapping[str, tuple[str, str, str]]) 
     return ast.SubLink(subLinkType=enums.SubLinkType.EXISTS_SUBLINK, subselect=statement)
 
 
-def _access_checker_sql(model: MetaData) -> str:
+def _access_checker_program(model: MetaData) -> ProgramDeclaration:
     build = core_variable("p_build", Text())
     access = model.tables["kb.pdf_record_access"].alias("a")
     native = model.tables["kb.pdf_record_native"].alias("n")
@@ -803,7 +819,7 @@ def _access_checker_sql(model: MetaData) -> str:
             (Raise("native access regions differ from native provenance/pages", "23514"),),
         )
     )
-    return function(
+    routine = NativeRoutine(
         "ops",
         "pdf_check_access_correspondence",
         parameters=(Parameter("p_build", pg_type("text")),),
@@ -811,4 +827,7 @@ def _access_checker_sql(model: MetaData) -> str:
         volatility="stable",
         search_path=("pg_catalog", "pg_temp"),
         body=Block(tuple(statements)),
+    )
+    return ProgramDeclaration(
+        routine, "authoring/pdf-record-access.sql", role_name("publisher"), INTERNAL_PROGRAM
     )

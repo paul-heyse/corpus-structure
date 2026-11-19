@@ -9,7 +9,6 @@ from sqlalchemy.exc import DBAPIError
 from corpus_structure.semantic.data_completion_settlement_native import (
     completion_settlement_native_sql,
 )
-from corpus_structure.semantic.data_operation_storage import native_source_digest
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 
@@ -17,9 +16,7 @@ from corpus_structure.semantic.native_objects import execute_native_sql, native_
 def test_generated_settlement_programs_bind_in_actual_native_context(native_rollback):
     connection = native_rollback.connection
     execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
-    sql = completion_settlement_native_sql(get_metadata()).replace(
-        "__DDO_SOURCE_DIGEST__", native_source_digest()
-    )
+    sql = completion_settlement_native_sql(get_metadata())
     with native_owner(connection, "corpus_sem_publisher"):
         execute_native_sql(connection, sql)
         for signature in (

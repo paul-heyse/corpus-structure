@@ -1,6 +1,5 @@
 """Exact tagged structural statement lowering and protected native admission guards."""
 
-from pglast.stream import RawStream
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -13,14 +12,13 @@ from sqlalchemy import (
     literal,
     or_,
     select,
-    tuple_,
     union_all,
 )
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array, distinct_on
 
 from corpus_structure.schema.integrity import role_name
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
@@ -28,6 +26,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
@@ -36,13 +35,32 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
 from .native_program import (
     literal as native_literal,
 )
+from .native_program_registry import ProgramDeclaration
+
+
+def _structural_declaration(routine: NativeRoutine) -> ProgramDeclaration:
+    return ProgramDeclaration(
+        routine,
+        source="data-operations:forward",
+        owner=role_name("publisher"),
+        access=INTERNAL_PROGRAM,
+    )
+
+
+def _structural_pairs(programs):
+    return native_sql_script(
+        statement
+        for item in programs
+        for statement in (
+            item.routine.render(),
+            native_privilege_sql(item.identity, "PUBLIC", grant=False),
+        )
+    )
 
 
 def _json(value):
@@ -90,16 +108,16 @@ def _present(value):
     return func.coalesce(value, _json('["null"]')) != _json('["null"]')
 
 
-def structural_statement_native_sql():
+def _structural_statement_routines():
     """Compile tagged subtrees directly, preserving nulls and numeric meaning."""
-    programs: list[str] = []
+    programs: list[NativeRoutine] = []
 
     def add(name, parameters, *, query=None, steps=(), locals_=(), strict=True):
         parameters = tuple(
             Parameter(label, pg_type(type_), *default) for label, type_, *default in parameters
         )
         if query is None:
-            declaration = function(
+            declaration = NativeRoutine(
                 "ops",
                 "ddo_structural_" + name,
                 parameters=parameters,
@@ -115,7 +133,7 @@ def structural_statement_native_sql():
                 search_path=("pg_catalog", "pg_temp"),
             )
         else:
-            declaration = sql_function(
+            declaration = NativeRoutine(
                 "ops",
                 "ddo_structural_" + name,
                 parameters=parameters,
@@ -126,18 +144,6 @@ def structural_statement_native_sql():
                 search_path=("pg_catalog", "pg_temp"),
             )
         programs.append(declaration)
-        programs.append(
-            native_privilege_sql(
-                NativeIdentity(
-                    "function",
-                    "ops",
-                    "ddo_structural_" + name,
-                    tuple(RawStream()(item.type_) for item in parameters),
-                ),
-                "PUBLIC",
-                grant=False,
-            )
-        )
 
     fields = core_variable("fields", JSONB())
     pairs = _items(fields, "pairs_")
@@ -170,7 +176,7 @@ def structural_statement_native_sql():
         Parameter("exclude_names", pg_type("bool"), native_literal(False)),
     )
     programs.append(
-        sql_function(
+        NativeRoutine(
             "ops",
             "ddo_structural_pick",
             parameters=pick_parameters,
@@ -184,15 +190,6 @@ def structural_statement_native_sql():
             volatility="immutable",
             strict=True,
             search_path=("pg_catalog", "pg_temp"),
-        )
-    )
-    programs.append(
-        native_privilege_sql(
-            NativeIdentity(
-                "function", "ops", "ddo_structural_pick", ("jsonb", "text[]", "boolean")
-            ),
-            "PUBLIC",
-            grant=False,
         )
     )
 
@@ -785,19 +782,18 @@ def structural_statement_native_sql():
             ("citations", "jsonb"),
         ),
     )
-    return native_sql_script(programs) + "\n"
+    return tuple(programs)
 
 
-def _structural_command_helpers(model):
-    import json
-    from dataclasses import asdict
+def structural_statement_native_programs() -> tuple[ProgramDeclaration, ...]:
+    return tuple(_structural_declaration(routine) for routine in _structural_statement_routines())
 
-    from .declared_structural_admission import (
-        ADMISSION_EFFECT,
-        ADMISSION_FACTORY,
-        ADMISSION_OPERATION,
-    )
 
+def structural_statement_native_sql() -> str:
+    return _structural_pairs(structural_statement_native_programs()) + "\n"
+
+
+def _structural_command_programs(model):
     definitions = model.tables["sem.data_operation_definition"]
     products = model.tables["kb.data_product"]
 
@@ -809,92 +805,73 @@ def _structural_command_helpers(model):
 
     support = definition("support_contract")
     factory = support["capabilities"]["prepared_factory"]
-    return (
-        native_sql_script(
-            (
-                sql_function(
-                    "ops",
-                    "ddo_structural_command_eligible",
-                    parameters=(
-                        Parameter("definition", pg_type(str(definitions.schema), definitions.name)),
-                    ),
-                    returns=pg_type("bool"),
-                    volatility="immutable",
-                    strict=True,
-                    search_path=("pg_catalog", "pg_temp"),
-                    body=select(
-                        (definition("operation_id") == ADMISSION_OPERATION)
-                        & (definition("profile") == "command")
-                        & (support["capabilities"]["preparation"].astext == "native-publication")
-                        & (support["capabilities"]["forms"] == _json('["scalar"]'))
-                        & (factory["entrypoint"].astext == ADMISSION_FACTORY)
-                        & (
-                            support["effects"]
-                            == _json(json.dumps([asdict(ADMISSION_EFFECT)], separators=(",", ":")))
-                        )
-                        & factory["source_digest"].astext.op("~")("^[0-9a-f]{64}$")
-                        & definition("implementation_revision").like("implementation-slice:%")
-                    ),
+    return tuple(
+        _structural_declaration(routine)
+        for routine in (
+            NativeRoutine(
+                "ops",
+                "ddo_structural_command_eligible",
+                parameters=(
+                    Parameter("definition", pg_type(str(definitions.schema), definitions.name)),
                 ),
-                sql_function(
-                    "ops",
-                    "ddo_structural_product_reference",
-                    parameters=(
-                        Parameter("product", pg_type(str(products.schema), products.name)),
-                    ),
-                    returns=pg_type("jsonb"),
-                    volatility="immutable",
-                    strict=True,
-                    search_path=("pg_catalog", "pg_temp"),
-                    body=select(
-                        func.jsonb_build_object(
-                            *(
-                                part
-                                for pair in (
-                                    ("product_id", product("id")),
-                                    ("member_id", None),
-                                    *(
-                                        (name, product(name))
-                                        for name in (
-                                            "kind_contract",
-                                            "project_id",
-                                            "subject",
-                                            "subject_definition",
-                                            "original_source",
-                                        )
-                                    ),
-                                    (
-                                        "analyzed_scope_meaning",
-                                        func.data.canonical_json(
-                                            func.data.ddo_json_meaning(product("analyzed_scope"))
-                                        ),
-                                    ),
-                                )
-                                for part in pair
-                            ),
-                            type_=JSONB(),
+                returns=pg_type("bool"),
+                volatility="immutable",
+                strict=True,
+                search_path=("pg_catalog", "pg_temp"),
+                body=select(
+                    (
+                        func.ops.ddo_privileged_effect_eligible(
+                            core_variable("definition", JSONB()),
+                            "native-evaluator-structural-admission",
                         )
-                    ),
+                    )
+                    & (definition("profile") == "command")
+                    & (support["capabilities"]["preparation"].astext == "native-publication")
+                    & (support["capabilities"]["forms"] == _json('["scalar"]'))
+                    & (func.nullif(factory["entrypoint"].astext, "").is_not(None))
+                    & factory["source_digest"].astext.op("~")("^[0-9a-f]{64}$")
+                    & definition("implementation_revision").like("implementation-slice:%")
                 ),
-                *(
-                    native_privilege_sql(
-                        NativeIdentity(
-                            "function",
-                            "ops",
-                            name,
-                            (RawStream()(pg_type(str(table.schema), table.name)),),
+            ),
+            NativeRoutine(
+                "ops",
+                "ddo_structural_product_reference",
+                parameters=(Parameter("product", pg_type(str(products.schema), products.name)),),
+                returns=pg_type("jsonb"),
+                volatility="immutable",
+                strict=True,
+                search_path=("pg_catalog", "pg_temp"),
+                body=select(
+                    func.jsonb_build_object(
+                        *(
+                            part
+                            for pair in (
+                                ("product_id", product("id")),
+                                ("member_id", None),
+                                *(
+                                    (name, product(name))
+                                    for name in (
+                                        "kind_contract",
+                                        "project_id",
+                                        "subject",
+                                        "subject_definition",
+                                        "original_source",
+                                    )
+                                ),
+                                (
+                                    "analyzed_scope_meaning",
+                                    func.data.canonical_json(
+                                        func.data.ddo_json_meaning(product("analyzed_scope"))
+                                    ),
+                                ),
+                            )
+                            for part in pair
                         ),
-                        "PUBLIC",
-                        grant=False,
-                    )
-                    for name, table in (
-                        ("ddo_structural_command_eligible", definitions),
-                        ("ddo_structural_product_reference", products),
+                        type_=JSONB(),
                     )
                 ),
-            )
+            ),
         )
-        + "\n"
     )
 
 
@@ -923,44 +900,32 @@ def _completion_program(name, requests, steps, locals_):
         Parameter("r", pg_type(str(requests.schema), requests.name)),
         Parameter("completion", pg_type("jsonb")),
     )
-    return (
-        native_sql_script(
-            (
-                function(
-                    "ops",
-                    name,
-                    parameters=parameters,
-                    returns=pg_type("void"),
-                    body=Block(
+    return _structural_declaration(
+        NativeRoutine(
+            "ops",
+            name,
+            parameters=parameters,
+            returns=pg_type("void"),
+            body=Block(
+                (
+                    CatchStrictLookup(
+                        tuple(steps),
                         (
-                            CatchStrictLookup(
-                                tuple(steps),
-                                (
-                                    Raise(
-                                        "dossier admission cannot resolve exact ordinary issuer/report custody"
-                                        if name == "ddo_require_structural_dossier_completion"
-                                        else "structural admission cannot resolve exact original custody",
-                                        "23514",
-                                    ),
-                                ),
+                            Raise(
+                                "dossier admission cannot resolve exact ordinary issuer/report custody"
+                                if name == "ddo_require_structural_dossier_completion"
+                                else "structural admission cannot resolve exact original custody",
+                                "23514",
                             ),
                         ),
-                        tuple(locals_),
                     ),
-                    volatility="stable",
-                    security_definer=True,
-                    search_path=("pg_catalog", "pg_temp"),
                 ),
-                native_privilege_sql(
-                    NativeIdentity(
-                        "function", "ops", name, tuple(RawStream()(p.type_) for p in parameters)
-                    ),
-                    "PUBLIC",
-                    grant=False,
-                ),
-            )
+                tuple(locals_),
+            ),
+            volatility="stable",
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
         )
-        + "\n"
     )
 
 
@@ -1176,9 +1141,7 @@ def _structural_dossier_completion(model):
 def _structural_issuance_completion(model):
     from .declared_structural_admission import (
         ADMISSION_KIND,
-        ADMISSION_OPERATION,
         REFERENCE_KIND,
-        STRUCTURAL_REPORT_PRODUCERS,
     )
 
     definitions, requests, products, kinds, admissions, episodes, outputs, receipts, intents = (
@@ -1257,10 +1220,19 @@ def _structural_issuance_completion(model):
         )
         .join(intents, intents.c.id == episodes.c.intent_id)
     )
-    producers = tuple(
-        (variant, operation, factory)
-        for variant, entries in STRUCTURAL_REPORT_PRODUCERS.items()
-        for operation, factory in entries
+    producer_roles = _items(owner.c.output_roles, "admitted_report_output")
+    consumer_roles = _items(definition("input_roles"), "admitted_report_input")
+    admitted_report_shape = exists(
+        select(1)
+        .select_from(producer_roles.join(consumer_roles, literal(True)))
+        .where(
+            producer_roles.c.value["name"].astext == outputs.c.role,
+            producer_roles.c.value["kind_contract"].astext == report_product("kind_contract"),
+            consumer_roles.c.value["name"].astext == report_role,
+            consumer_roles.c.value["accepted_kind_contracts"].contains(
+                func.jsonb_build_array(report_product("kind_contract"))
+            ),
+        )
     )
     producer_factory = owner.c.support_contract["capabilities"]["prepared_factory"]
     producer_query = (
@@ -1275,9 +1247,8 @@ def _structural_issuance_completion(model):
             episodes.c.outcome == "success",
             owner.c.profile == "derivation",
             owner.c.support_contract["effects"] == _json("[]"),
-            tuple_(variant, owner.c.operation_id, producer_factory["entrypoint"].astext).in_(
-                producers
-            ),
+            admitted_report_shape,
+            func.nullif(producer_factory["entrypoint"].astext, "").is_not(None),
             producer_factory["source_digest"].astext.op("~")("^[0-9a-f]{64}$"),
             owner.c.implementation_revision.like("implementation-slice:%"),
             owner.c.recipe == episodes.c.recipe,
@@ -1494,7 +1465,6 @@ def _structural_issuance_completion(model):
                 (
                     _completion_refusal(
                         or_(
-                            definition("operation_id") == ADMISSION_OPERATION,
                             exists(
                                 select(1)
                                 .select_from(effects)
@@ -1508,6 +1478,13 @@ def _structural_issuance_completion(model):
                     ),
                     Return(),
                 ),
+            ),
+            _completion_refusal(
+                ~func.ops.ddo_privileged_effect_authorized(
+                    core_variable("definition", JSONB()), "native-evaluator-structural-admission"
+                ),
+                "structural admission lacks its independent release effect grant",
+                "42501",
             ),
             _completion_refusal(
                 ~func.pg_has_role(
@@ -1689,7 +1666,7 @@ def _structural_issuance_completion(model):
     )
 
 
-def structural_admission_native_sql(model):
+def _structural_admission_groups(model):
     from .declared_structural_admission import DdoStructuralAdmission
 
     fields = {
@@ -1707,23 +1684,38 @@ def structural_admission_native_sql(model):
     }
     if fields != DdoStructuralAdmission.model_fields.keys():
         raise ValueError("native structural disclosure must cover its exact public contract")
-    report_identity = NativeIdentity(
-        "function",
-        "ops",
-        "ddo_structural_report_support",
-        ("text", "ops.data_demand_read", "jsonb"),
+    return (
+        structural_statement_native_programs(),
+        _structural_command_programs(model),
+        (_structural_issuance_completion(model),),
+        (_structural_dossier_completion(model),),
+        (_structural_report_support(model),),
+    )
+
+
+def structural_admission_native_programs(model) -> tuple[ProgramDeclaration, ...]:
+    return tuple(item for group in _structural_admission_groups(model) for item in group)
+
+
+def structural_admission_native_sql(model) -> str:
+    """Render the established statement, command and independent completion groups."""
+    statements, commands, issuance, dossier, report = _structural_admission_groups(model)
+    command_sql = native_sql_script(
+        (
+            *(item.routine.render() for item in commands),
+            *(native_privilege_sql(item.identity, "PUBLIC", grant=False) for item in commands),
+        )
     )
     return (
-        structural_statement_native_sql()
-        + _structural_command_helpers(model)
-        + _structural_issuance_completion(model)
-        + _structural_dossier_completion(model)
-        + native_sql_script(
-            (
-                _structural_report_support(model),
-                native_privilege_sql(report_identity, "PUBLIC", grant=False),
-            )
-        )
+        _structural_pairs(statements)
+        + "\n"
+        + command_sql
+        + "\n"
+        + _structural_pairs(issuance)
+        + "\n"
+        + _structural_pairs(dossier)
+        + "\n"
+        + _structural_pairs(report)
     )
 
 
@@ -1740,12 +1732,12 @@ def _structural_report_support(model):
         CatchStrictLookup,
         If,
         Local,
+        NativeRoutine,
         Parameter,
         Return,
         SelectInto,
         core_relation_row,
         core_variable,
-        function,
         pg_type,
     )
 
@@ -1829,7 +1821,7 @@ def _structural_report_support(model):
         ),
     )
     policies = tuple(policy for policy, _, _ in variants)
-    return function(
+    routine = NativeRoutine(
         "ops",
         "ddo_structural_report_support",
         parameters=(
@@ -2080,3 +2072,4 @@ def _structural_report_support(model):
             ),
         ),
     )
+    return _structural_declaration(routine)

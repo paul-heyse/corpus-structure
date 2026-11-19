@@ -1,6 +1,7 @@
 """Model-owned original producer and immutable recovery contributor custody."""
 
-from pglast.stream import RawStream
+import json
+
 from sqlalchemy import (
     BigInteger,
     Column,
@@ -22,13 +23,19 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, ins
 from corpus_structure.schema.integrity import role_name
 
 from .metadata import get_metadata
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import (
+    INTERNAL_PROGRAM,
+    NativeProgramAccess,
+    native_privilege_sql,
+    native_sql_script,
+)
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -39,13 +46,76 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
+)
+from .native_program_registry import ProgramDeclaration
+
+# Output schemas/codecs and producer implementation bytes remain determining.
+# These transport/custody projections cannot change native output meaning; their
+# current validators and exact retained file ownership are applied on recovery.
+SPOOL_MATERIAL_PREFIX = "pdf-domain/implementation/pdf/lowering/"
+SPOOL_TRANSPORT_SOURCES = frozenset(
+    SPOOL_MATERIAL_PREFIX + name
+    for name in (
+        "semantic/pdf_lowering.py",
+        "semantic/_pdf_native_calls.py",
+        "semantic/_pdf_native_ids.py",
+        "semantic/pdf_staging_native.py",
+        "semantic/pdf_staging.py",
+        "semantic/metadata.py",
+        "ingest/pdf_build_spool.py",
+        "model/semantic/pdf-staging.yaml",
+        "model/compiled.py",
+    )
+)
+SPOOL_REQUIRED_MATERIAL = frozenset(
+    SPOOL_MATERIAL_PREFIX + name
+    for name in (
+        "semantic/pdf_certification.py",
+        "semantic/pdf_records.py",
+        "semantic/pdf_record_identity.py",
+        "semantic/pdf_payload_validation.py",
+        "ingest/pdf_worker.py",
+        "model/semantic/docling-validation.schema.json",
+        "codec/inline-candidates.arrow",
+    )
 )
 
 
-def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
+def spool_material_document(content: bytes) -> dict:
+    """Project archived lowering custody; absence is never inferred equivalence."""
+    document = json.loads(content)
+    if (
+        set(document) != {"profile", "inputs", "libraries"}
+        or document["profile"] != "pdf-record-lowering-contract-v1"
+        or not isinstance(document["libraries"], dict)
+        or not document["libraries"]
+    ):
+        raise ValueError("PDF spool has no supported original lowering snapshot")
+    inputs = document["inputs"]
+    if (
+        not isinstance(inputs, list)
+        or any(not isinstance(item, dict) or set(item) != {"name", "sha256"} for item in inputs)
+        or len({item["name"] for item in inputs}) != len(inputs)
+    ):
+        raise ValueError("PDF spool lowering inventory is not exact")
+    selected = sorted(
+        (
+            item
+            for item in inputs
+            if item["name"].startswith(SPOOL_MATERIAL_PREFIX)
+            and item["name"] not in SPOOL_TRANSPORT_SOURCES
+        ),
+        key=lambda item: item["name"],
+    )
+    if not SPOOL_REQUIRED_MATERIAL.issubset({item["name"] for item in selected}):
+        raise ValueError("PDF spool is missing original output-contract snapshots")
+    return {"profile": document["profile"], "libraries": document["libraries"], "inputs": selected}
+
+
+def pdf_spool_native_programs(
+    *, target_metadata: MetaData | None = None
+) -> tuple[ProgramDeclaration, ...]:
     """Compile current spool fences from the supplied captured physical model."""
     model = get_metadata() if target_metadata is None else target_metadata
     build = model.tables["ops.pdf_stage_build"]
@@ -95,15 +165,12 @@ def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
         ("p_holder", build.c.holder),
     )
     runtime_field = ("p_runtime", runtime.c.runtime_id)
-    programs, identities = [], []
+    programs = []
 
     def routine(name, fields, statements, locals_, *, result=None, output=()):
         parameters = tuple(Parameter(name, column_type(field)) for name, field in fields)
-        identities.append(
-            NativeIdentity("function", "ops", name, tuple(RawStream()(p.type_) for p in parameters))
-        )
         programs.append(
-            function(
+            NativeRoutine(
                 "ops",
                 name,
                 parameters=parameters,
@@ -270,8 +337,191 @@ def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
         .render_derived(name="inventory_member")
     )
 
-    def strip_runtime(producer):
-        return producer.op("-")("runtime_id").op("-")("runtime_manifest_digest")
+    def material_producer(producer):
+        for name in (
+            "runtime_id",
+            "runtime_manifest_digest",
+            "request_id",
+            "generation",
+            "release_id",
+            "definition_identity",
+            "definition",
+            "pdf_domain_digest",
+        ):
+            producer = producer.op("-")(name)
+        return producer
+
+    def material_domain_projection(release, domain_digest, name):
+        lower, domain = inputs.alias(name + "_lowering"), inputs.alias(name + "_domain")
+        document = json_bytes(lower.c.content)
+        domain_document = json_bytes(domain.c.content)
+        entries = (
+            func.jsonb_array_elements(document["inputs"])
+            .table_valued(column("value", JSONB()))
+            .render_derived(name=name + "_input")
+        )
+        selected = entries.c.value["name"].astext.startswith(
+            SPOOL_MATERIAL_PREFIX
+        ) & ~entries.c.value["name"].astext.in_(sorted(SPOOL_TRANSPORT_SOURCES))
+        selected_inputs = (
+            select(
+                func.jsonb_agg(aggregate_order_by(entries.c.value, entries.c.value["name"].astext))
+            )
+            .select_from(entries)
+            .where(selected)
+            .correlate(lower)
+            .scalar_subquery()
+        )
+        declared = (
+            func.jsonb_array_elements(domain_document["inputs"])
+            .table_valued(column("value", JSONB()))
+            .render_derived(name=name + "_declared")
+        )
+        required = tuple(
+            select(1)
+            .select_from(entries)
+            .where(
+                entries.c.value["name"].astext == required,
+                func.coalesce(entries.c.value["sha256"].astext, "").bool_op("~")("^[0-9a-f]{64}$"),
+            )
+            .correlate(lower)
+            .exists()
+            for required in sorted(SPOOL_REQUIRED_MATERIAL)
+        )
+        return (
+            select(
+                obj(
+                    profile=document["profile"],
+                    libraries=document["libraries"],
+                    inputs=selected_inputs,
+                )
+            )
+            .select_from(lower.join(domain, lower.c.release_id == domain.c.release_id))
+            .where(
+                lower.c.release_id == release,
+                lower.c.input_kind == "dependency",
+                domain.c.input_kind == "dependency",
+                lower.c.input_name == "pdf-domain/implementation/pdf/lowering-contract.json",
+                domain.c.input_name == "pdf-domain/contract.json",
+                lower.c.content_digest == digest(lower.c.content),
+                domain.c.content_digest == digest(domain.c.content),
+                domain.c.content_digest == domain_digest,
+                document["profile"].astext == "pdf-record-lowering-contract-v1",
+                func.jsonb_typeof(document["libraries"]) == "object",
+                document["libraries"] != cast(literal("{}"), JSONB()),
+                *required,
+                select(1)
+                .select_from(declared)
+                .where(
+                    declared.c.value["name"].astext == lower.c.input_name,
+                    declared.c.value["sha256"].astext == lower.c.content_digest,
+                )
+                .correlate(domain, lower)
+                .exists(),
+            )
+            .scalar_subquery()
+        )
+
+    material_release = core_variable("p_release", inputs.c.release_id.type)
+    material_digest = core_variable("p_domain_digest", inputs.c.content_digest.type)
+    routine(
+        "pdf_spool_material_identity",
+        (("p_release", inputs.c.release_id), ("p_domain_digest", inputs.c.content_digest)),
+        (Return(material_domain_projection(material_release, material_digest, "material_pdf")),),
+        (),
+        result=pg_type("jsonb"),
+    )
+
+    def material_domains_match(prior, current):
+        old = func.ops.pdf_spool_material_identity(
+            prior["release_id"].astext, prior["pdf_domain_digest"].astext
+        )
+        new = func.ops.pdf_spool_material_identity(
+            current["release_id"].astext, current["pdf_domain_digest"].astext
+        )
+        return func.coalesce(old == new, False)
+
+    def retired_producer(producer, premises):
+        failures = model.tables["ops.data_attempt_failure"]
+        return (
+            select(1)
+            .select_from(failures)
+            .where(
+                failures.c.request_id == premises["producer"]["request_id"].astext,
+                failures.c.generation
+                == cast(premises["producer"]["generation"].astext, failures.c.generation.type),
+                failures.c.task_id == row(producer, producers, "task_id"),
+                failures.c.attempt == row(producer, producers, "attempt"),
+                failures.c.holder == row(producer, producers, "holder"),
+            )
+            .exists()
+        )
+
+    # Discovery is only an authenticated candidate hint. Full manifest custody and
+    # selected-file correspondence are independently enforced at contribution.
+    candidate_premises = json_bytes(producers.c.premises_bytes)
+    current_producer = core_variable("candidate_basis_", JSONB())
+    failures = model.tables["ops.data_attempt_failure"]
+    candidate_retired = (
+        select(1)
+        .select_from(failures)
+        .where(
+            failures.c.request_id == candidate_premises["producer"]["request_id"].astext,
+            failures.c.generation
+            == cast(
+                candidate_premises["producer"]["generation"].astext, failures.c.generation.type
+            ),
+            failures.c.task_id == producers.c.task_id,
+            failures.c.attempt == producers.c.attempt,
+            failures.c.holder == producers.c.holder,
+        )
+        .exists()
+    )
+    candidate_output = (
+        ("build_id", producers.c.build_id),
+        ("task_id", producers.c.task_id),
+        ("producer_id", producers.c.producer_id),
+    )
+    candidate_result = pg_type("record")
+    candidate_result.setof = True
+    routine(
+        "read_pdf_spool_recovery_candidates",
+        (*fence_fields, runtime_field),
+        (
+            require_build,
+            require_operation,
+            SelectInto(select(basis_row).select_from(basis), ("basis_",), strict=True),
+            Assign("candidate_basis_", func.to_jsonb(core_variable("basis_", JSONB()))),
+            ReturnQuery(
+                select(*(field for _, field in candidate_output))
+                .where(
+                    candidate_retired,
+                    candidate_premises["producer"]["request_id"].astext
+                    == current_producer["request_id"].astext,
+                    material_producer(candidate_premises["producer"]).is_not_distinct_from(
+                        material_producer(current_producer)
+                    ),
+                    material_domains_match(candidate_premises["producer"], current_producer),
+                    candidate_premises["source_digest"].astext == row("b", build, "source_digest"),
+                    candidate_premises["native_recipe_digest"].astext
+                    == row("b", build, "recipe_digest"),
+                    candidate_premises["native_schema_digest"].astext
+                    == row("b", build, "schema_digest"),
+                )
+                .order_by(
+                    producers.c.task_id.desc(), producers.c.attempt.desc(), producers.c.producer_id
+                )
+                .limit(64)
+            ),
+        ),
+        (
+            Local("b", build),
+            Local("basis_", pg_type("record")),
+            Local("candidate_basis_", pg_type("jsonb")),
+        ),
+        result=candidate_result,
+        output=candidate_output,
+    )
 
     routine(
         "register_pdf_spool_contributor",
@@ -293,7 +543,8 @@ def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
             ),
             Assign("original_", json_bytes(row("producer_", producers, "premises_bytes"))),
             Assign(
-                "current_basis_", strip_runtime(func.to_jsonb(core_variable("current_", JSONB())))
+                "current_basis_",
+                material_producer(func.to_jsonb(core_variable("current_", JSONB()))),
             ),
             SelectInto(
                 select(json_bytes(producers.c.premises_bytes)).where(
@@ -306,14 +557,19 @@ def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
             ),
             refuse(
                 or_(
-                    row("producer_", producers, "build_id").is_distinct_from(p_build),
-                    row("producer_", producers, "task_id").is_distinct_from(p_task),
-                    row("producer_", producers, "attempt") > p_attempt,
-                    and_(
-                        row("producer_", producers, "attempt") == p_attempt,
-                        row("producer_", producers, "holder") != p_holder,
+                    ~or_(
+                        and_(
+                            row("producer_", producers, "task_id") == p_task,
+                            row("producer_", producers, "attempt") == p_attempt,
+                            row("producer_", producers, "holder") == p_holder,
+                        ),
+                        retired_producer("producer_", original),
                     ),
-                    strip_runtime(original["producer"]).is_distinct_from(current_basis),
+                    original["producer"]["request_id"].astext.is_distinct_from(
+                        current_premises["producer"]["request_id"].astext
+                    ),
+                    material_producer(original["producer"]).is_distinct_from(current_basis),
+                    ~material_domains_match(original["producer"], current_premises["producer"]),
                     original["source_digest"].astext.is_distinct_from(
                         row("b", build, "source_digest")
                     ),
@@ -346,7 +602,9 @@ def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
             refuse(
                 or_(
                     header["version"].astext.is_distinct_from("pdf-build-spool-1"),
-                    header["build_id"].astext.is_distinct_from(p_build),
+                    header["build_id"].astext.is_distinct_from(
+                        row("producer_", producers, "build_id")
+                    ),
                     *(
                         cast(header[key].astext, field.type).is_distinct_from(
                             row("producer_", producers, field.name)
@@ -544,7 +802,7 @@ def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
     )
     summary_parameters = (Parameter("p_build", column_type(build.c.build_id)),)
     programs.append(
-        sql_function(
+        NativeRoutine(
             "ops",
             "pdf_spool_contributors",
             parameters=summary_parameters,
@@ -552,11 +810,6 @@ def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
             body=aggregate,
             volatility="stable",
             search_path=("pg_catalog", "pg_temp"),
-        )
-    )
-    identities.append(
-        NativeIdentity(
-            "function", "ops", "pdf_spool_contributors", (RawStream()(summary_parameters[0].type_),)
         )
     )
     returned = (
@@ -591,15 +844,36 @@ def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
         result=result,
         output=output,
     )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="native/pdf-staging.sql",
+            owner=role_name("publisher"),
+            access=(
+                INTERNAL_PROGRAM
+                if routine.name in {"pdf_spool_contributors", "pdf_spool_material_identity"}
+                else NativeProgramAccess(purposes=("write",))
+            ),
+        )
+        for routine in programs
+    )
+
+
+def pdf_spool_native_sql(*, target_metadata: MetaData | None = None) -> str:
+    """Render the unchanged captured source from its typed owner declarations."""
+    programs = pdf_spool_native_programs(target_metadata=target_metadata)
     return (
         native_sql_script(
             (
-                *programs,
-                *(native_privilege_sql(identity, "PUBLIC", grant=False) for identity in identities),
+                *(program.routine.render() for program in programs),
                 *(
-                    native_privilege_sql(identity, role_name("writer"), "execute")
-                    for identity in identities
-                    if identity.name != "pdf_spool_contributors"
+                    native_privilege_sql(program.identity, "PUBLIC", grant=False)
+                    for program in programs
+                ),
+                *(
+                    native_privilege_sql(program.identity, role_name("writer"), "execute")
+                    for program in programs
+                    if program.access.purposes
                 ),
             )
         )

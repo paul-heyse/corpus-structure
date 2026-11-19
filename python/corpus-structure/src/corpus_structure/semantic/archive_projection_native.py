@@ -15,19 +15,23 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 
+from corpus_structure.schema.integrity import role_name
+
 from .data_operation_model import MODEL_VERSION
+from .native_objects import INTERNAL_PROGRAM, native_sql_script
 from .native_program import (
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
     SelectInto,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 from .scientific_evidence import SCIENTIFIC_POLICY_INPUT
 from .types import SEMANTIC_COMPILER_VERSION
 
@@ -56,9 +60,9 @@ def _row_array(rows):
     return select(_array(value, cast(value, Text()))).select_from(rows)
 
 
-def _guard(name, body, *locals_):
-    return (
-        function(
+def _guard(name, source, body, *locals_):
+    return ProgramDeclaration(
+        NativeRoutine(
             "sem",
             name,
             parameters=(Parameter("r", pg_type("text")),),
@@ -66,18 +70,21 @@ def _guard(name, body, *locals_):
             body=Block(body, tuple(Local(name, pg_type("jsonb")) for name in locals_)),
             security_definer=True,
             search_path=("pg_catalog", "pg_temp"),
-        )
-        + ";\n"
+        ),
+        source=source,
+        owner=role_name("publisher"),
+        access=INTERNAL_PROGRAM,
     )
 
 
-def scientific_layout_sql(target):
+def scientific_layout_program(target):
     release_id = core_variable("r", Text())
     recipe = core_variable("recipe", JSONB())
     supported = func.data.execution_contract_descriptor(type_=JSONB())["scientific_report_layout"]
     artifact = target.tables["sem.artifact"]
     return _guard(
         "require_scientific_layout",
+        "authoring/scientific-layout.sql",
         (
             SelectInto(
                 select(_json_bytes(artifact.c.content)).where(
@@ -111,7 +118,7 @@ def scientific_layout_sql(target):
     )
 
 
-def execution_projection_check_sql(target):
+def execution_projection_check_program(target):
     release_id = core_variable("r", Text())
     document = core_variable("document", JSONB())
     actual = core_variable("actual", JSONB())
@@ -218,6 +225,7 @@ def execution_projection_check_sql(target):
 
     return _guard(
         "require_execution_projection",
+        "authoring/execution-projection-check.sql",
         (
             SelectInto(
                 select(_json_bytes(release.c.prepared_bytes)).where(selected_release),
@@ -293,3 +301,7 @@ def execution_projection_check_sql(target):
         "actual",
         "expected",
     )
+
+
+def execution_projection_check_sql(target) -> str:
+    return native_sql_script((execution_projection_check_program(target).render(),)) + "\n"

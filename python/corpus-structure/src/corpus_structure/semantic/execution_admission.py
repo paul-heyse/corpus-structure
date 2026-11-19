@@ -42,6 +42,8 @@ def admit_execution_release(
 
 _DESCRIPTOR = "data.execution_contract_descriptor"
 _REQUIRED = "data.require_execution_release"
+_PROOF = "data.prove_execution_release"
+_CATALOG = "data.prove_execution_catalog"
 
 
 @dataclass(frozen=True)
@@ -50,6 +52,7 @@ class NativeExpectation:
     physical_id: str
     state: tuple[Path, str]
     admission_body: str
+    named_catalog_proof: bool = False
 
 
 def _revision_expectation(versions: Path, revision: str) -> NativeExpectation:
@@ -66,7 +69,8 @@ def require_frozen_native_revision(versions: Path, revision: str) -> str:
     expected = _revision_expectation(versions, revision)
     try:
         _frozen_functions(*expected.state)
-        _catalog_checks(expected.admission_body)
+        if not expected.named_catalog_proof:
+            _catalog_checks(expected.admission_body)
     except (NativeAuthoringError, OSError, ValueError) as exc:
         raise ExecutionAdmissionError(f"frozen native state is unavailable: {exc}") from exc
     return expected.physical_id
@@ -82,6 +86,7 @@ def verify_deployment_catalog(
     connection: Connection, *, revision: str | None = None, versions: Path | None = None
 ) -> str:
     """Verify the full known revision before an effect on the maintenance connection."""
+    from sqlalchemy import func, select
     from sqlalchemy.exc import DBAPIError
 
     from .migrations import ALEMBIC_DIR
@@ -92,16 +97,14 @@ def verify_deployment_catalog(
     expected = _deployment_expectation(connection, revision=revision, versions=versions)
     physical_id = expected.physical_id
     try:
-        verification = frozen_catalog_verification(expected.admission_body)
-        # Run the exact catalog clauses in the same search path as the authenticated
-        # guard, without running that guard's release-specific admission effects.
         savepoint = connection.begin_nested()
         try:
-            connection.exec_driver_sql("SET LOCAL search_path = pg_catalog, pg_temp")
-            execute_native_sql(
-                connection,
-                verification,
-            )
+            if expected.named_catalog_proof:
+                connection.execute(select(func.data.prove_execution_catalog()))
+            else:
+                verification = frozen_catalog_verification(expected.admission_body)
+                connection.exec_driver_sql("SET LOCAL search_path = pg_catalog, pg_temp")
+                execute_native_sql(connection, verification)
         finally:
             savepoint.rollback()
     except (DBAPIError, ValueError) as exc:
@@ -393,7 +396,8 @@ def _cached_selected_expectation(
         (sha256(body.encode()).hexdigest(), sha256(bodies[_REQUIRED].encode()).hexdigest()),
         descriptor["physical_id"],
         metadata.state,
-        bodies[_REQUIRED],
+        bodies.get(_CATALOG, bodies.get(_PROOF, bodies[_REQUIRED])),
+        _CATALOG in bodies,
     )
 
 
@@ -406,12 +410,13 @@ def _frozen_functions(path: Path, digest: str):
 def _cached_frozen_functions(path: Path, digest: str, _mtime: int, _ctime: int):
     from .native_authoring import load_native_state
 
-    selected = tuple(
-        item
+    selected = {
+        f"{item.identity.schema}.{item.identity.name}": item
         for item in load_native_state(path, digest=digest)
         if item.identity.kind == "function"
-        and f"{item.identity.schema}.{item.identity.name}" in {_DESCRIPTOR, _REQUIRED}
-    )
-    if len(selected) != 2:
+        and f"{item.identity.schema}.{item.identity.name}"
+        in {_DESCRIPTOR, _REQUIRED, _PROOF, _CATALOG}
+    }
+    if not {_DESCRIPTOR, _REQUIRED} <= selected.keys():
         raise ValueError(f"{path.name}: required native enforcement functions are unavailable")
-    return tuple(sorted(selected, key=lambda item: item.identity.qualified))
+    return tuple(selected[name] for name in sorted(selected))

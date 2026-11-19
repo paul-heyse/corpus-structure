@@ -96,6 +96,20 @@ classes:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["release_id"],"target":"sem.release.release_id"}]}
+  data_operation_effect_grant:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      operation_id: {range: string, required: true}
+      definition_identity: {range: string, required: true}
+      effect: {range: string, required: true}
+      contract: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, operation_id, effect]}
+    annotations:
+      ph:read_roles: {tag: 'ph:read_roles', value: []}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {tag: 'ph:foreign_keys', value: [{columns: [release_id, operation_id], target: 'sem.data_operation_definition.release_id,operation_id'}]}
   data_kind_release:
     in_subset: [sem]
     attributes:
@@ -326,6 +340,47 @@ classes:
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id","member_id"],"target":"kb.data_product_member.product_id,member_id"}]}
       ph:checks: {"tag":"ph:checks","value":[{"name":"ck_data_member_choice_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}}]}
+  data_execution_origin:
+    in_subset: [ops]
+    attributes:
+      id: {range: string, required: true}
+      request_id: {range: string, required: true}
+      generation: {range: integer, required: true}
+      task_id: {range: integer, required: true}
+      attempt: {range: integer, required: true}
+      holder: {range: string, required: true}
+      runtime_id: {range: string, required: true}
+      request_snapshot: {range: json_payload, required: true}
+      definition_snapshot: {range: json_payload, required: true}
+      created_at: {range: timestamp, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [id]}
+      unique_0: {unique_key_slots: [request_id, generation, task_id, attempt]}
+    annotations:
+      ph:frontier_guard: exempt
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["request_id","generation"],"target":"ops.data_request_generation.request_id,generation"},{"columns":["task_id"],"target":"ops.task.id"}]}
+  data_draft_consumption:
+    in_subset: [ops]
+    attributes:
+      origin_id: {range: string, required: true}
+      draft_id: {range: string, required: true}
+      intent_id: {range: string, required: true}
+      request_id: {range: string, required: true}
+      generation: {range: integer, required: true}
+      task_id: {range: integer, required: true}
+      attempt: {range: integer, required: true}
+      holder: {range: string, required: true}
+      created_at: {range: timestamp, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [origin_id]}
+      unique_0: {unique_key_slots: [request_id, generation]}
+    annotations:
+      ph:frontier_guard: exempt
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["origin_id"],"target":"ops.data_execution_origin.id"},{"columns":["intent_id"],"target":"ops.data_completion_intent.id"},{"columns":["request_id","generation"],"target":"ops.data_request_generation.request_id,generation"}]}
   data_completion_intent:
     in_subset: [ops]
     attributes:
@@ -490,6 +545,7 @@ classes:
       publishing_attempt: {range: integer, required: true}
       trust_snapshot: {range: json_payload, required: true}
       validating_kernel_digest: {range: string, required: false}
+      validation_identities: {range: json_payload, required: false}
     unique_keys:
       primary_key: {unique_key_slots: [id]}
       unique_0: {unique_key_slots: [intent_id]}
@@ -498,6 +554,20 @@ classes:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["intent_id"],"target":"ops.data_completion_intent.id"},{"columns":["derivation_id"],"target":"ops.data_derivation.id"}]}
+  data_validity_reconfirmation:
+    in_subset: [ops]
+    attributes:
+      receipt_id: {range: string, required: true}
+      validator_family: {range: string, required: true}
+      validator_identity: {range: string, required: true}
+      confirmed_at: {range: timestamp, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [receipt_id, validator_family, validator_identity]}
+    annotations:
+      ph:frontier_guard: exempt
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["receipt_id"],"target":"ops.data_publication_receipt.id"}]}
   demand_use:
     in_subset: [ops]
     attributes:

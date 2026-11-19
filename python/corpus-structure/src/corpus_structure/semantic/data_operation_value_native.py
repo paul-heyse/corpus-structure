@@ -37,9 +37,7 @@ from .native_program import (
     Return,
     SelectInto,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
 from .value_codec import DECIMAL_LIMIT_MESSAGE
 
@@ -119,7 +117,7 @@ def canonical_identity_programs(*, decimal_digits: int):
         .concat(".")
         .concat(func.substr(digits, cast(point + 1, Integer())))
     )
-    decimal = _value_routine(
+    decimal = _value(
         "decimal_canonical",
         (Parameter("raw", text_type),),
         "text",
@@ -212,7 +210,7 @@ def _field_guard():
     required_keys = func.unnest(required).table_valued(column("key", Text())).render_derived()
     text_array = pg_type("text")
     text_array.arrayBounds = (ast.Integer(ival=-1),)
-    return function(
+    return NativeRoutine(
         "ops",
         "ddo_fields",
         parameters=(
@@ -246,7 +244,7 @@ def _field_guard():
     )
 
 
-def _value_routine(name, parameters, result, steps, locals_=()):
+def _value(name, parameters, result, steps, locals_=()):
     return NativeRoutine(
         "data",
         name,
@@ -257,10 +255,6 @@ def _value_routine(name, parameters, result, steps, locals_=()):
         volatility="immutable",
         strict=True,
     )
-
-
-def _value(name, parameters, result, steps, locals_=()):
-    return _value_routine(name, parameters, result, steps, locals_).render()
 
 
 def _normalize():
@@ -548,7 +542,12 @@ def _decode():
     )
 
 
-def data_operation_value_sql() -> str:
+def data_operation_value_programs():
+    from corpus_structure.schema.integrity import role_name
+
+    from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
+    from .native_program_registry import ProgramDeclaration
+
     value = core_variable("v", JSONB())
     domain = core_variable("domain", Text())
     key = core_variable("k", Text())
@@ -561,7 +560,7 @@ def data_operation_value_sql() -> str:
         )
 
     def native_sql_function(schema, name, params, kind, expression):
-        return sql_function(
+        return NativeRoutine(
             schema,
             name,
             parameters=params,
@@ -572,39 +571,54 @@ def data_operation_value_sql() -> str:
             search_path=("pg_catalog", "pg_temp"),
         )
 
-    return native_sql_script(
-        (
-            _field_guard(),
-            _normalize(),
-            _json_meaning(),
-            native_sql_function(
-                "data",
-                "ddo_identity",
-                (Parameter("domain", pg_type("text")), body),
-                "text",
-                select(
-                    domain.op("||")(":").op("||")(
-                        digest(
-                            func.jsonb_build_array(
-                                "ddo",
-                                domain,
-                                ENCODING_VERSION,
-                                func.data.ddo_normalize(value),
-                            )
+    routines = (
+        _field_guard(),
+        _normalize(),
+        _json_meaning(),
+        native_sql_function(
+            "data",
+            "ddo_identity",
+            (Parameter("domain", pg_type("text")), body),
+            "text",
+            select(
+                domain.op("||")(":").op("||")(
+                    digest(
+                        func.jsonb_build_array(
+                            "ddo",
+                            domain,
+                            ENCODING_VERSION,
+                            func.data.ddo_normalize(value),
                         )
-                    ),
+                    )
                 ),
             ),
-            native_sql_function("ops", "ddo_digest", (body,), "text", select(digest(value))),
-            native_sql_function(
-                "data",
-                "ddo_field",
-                (body, Parameter("k", pg_type("text"))),
-                "jsonb",
-                select(
-                    members.c.value[1],
-                ).where(members.c.value[0].astext == key),
-            ),
-            _decode(),
-        )
+        ),
+        native_sql_function("ops", "ddo_digest", (body,), "text", select(digest(value))),
+        native_sql_function(
+            "data",
+            "ddo_field",
+            (body, Parameter("k", pg_type("text"))),
+            "jsonb",
+            select(
+                members.c.value[1],
+            ).where(members.c.value[0].astext == key),
+        ),
+        _decode(),
     )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="native/demand-values.sql",
+            owner=role_name("publisher"),
+            access=(
+                NativeProgramAccess(purposes=("read", "write", "evaluate"))
+                if routine.name == "ddo_field"
+                else INTERNAL_PROGRAM
+            ),
+        )
+        for routine in routines
+    )
+
+
+def data_operation_value_sql() -> str:
+    return native_sql_script(item.render() for item in data_operation_value_programs())

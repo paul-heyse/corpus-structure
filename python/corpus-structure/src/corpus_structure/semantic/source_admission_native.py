@@ -23,14 +23,17 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, array
 from sqlalchemy.types import TypeEngine
 
+from corpus_structure.schema.integrity import role_name
+
 from .data_read_boundary_native import read_presentation_check
-from .native_objects import native_sql_script
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, native_sql_script
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -38,10 +41,10 @@ from .native_program import (
     SelectInto,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
 from .native_program import literal as pg_literal
+from .native_program_registry import ProgramDeclaration
 
 
 def _json(value):
@@ -82,8 +85,9 @@ def _routine(
     volatility: Literal["stable", "volatile", "immutable"] = "stable",
     strict=False,
     protected=True,
+    access=INTERNAL_PROGRAM,
 ):
-    return function(
+    routine = NativeRoutine(
         "ops",
         name,
         parameters=parameters,
@@ -93,6 +97,12 @@ def _routine(
         strict=strict,
         security_definer=protected,
         search_path=("pg_catalog", "pg_temp"),
+    )
+    return ProgramDeclaration(
+        routine,
+        source="data-operation-source-admission:forward",
+        owner=role_name("publisher"),
+        access=access,
     )
 
 
@@ -1276,18 +1286,29 @@ def _observation_source(target):
             *(Local(name, pg_type("jsonb")) for name in ("receipt", "capture", "raw_capture")),
             Local("raw_product", products),
         ),
+        access=NativeProgramAccess(purposes=("write",)),
+    )
+
+
+def source_admission_native_programs(
+    target, *, capture_programs=()
+) -> tuple[ProgramDeclaration, ...]:
+    """The selected reader installs after its actual captured source providers."""
+
+    selected_source = _selected_read(target, observations=False)
+    return (
+        _native_source_body(),
+        _producing_request(target),
+        _selected_read(target, observations=True),
+        *capture_programs,
+        selected_source,
+        _observation_receipt(target),
+        _observation_source(target),
     )
 
 
 def source_admission_native_sql(target) -> str:
-    """Return the six source owners; capture programs are integrated by declaration."""
+    """Render six source owners; installation integrates typed capture providers."""
     return native_sql_script(
-        (
-            _native_source_body(),
-            _producing_request(target),
-            _selected_read(target, observations=True),
-            _selected_read(target, observations=False),
-            _observation_receipt(target),
-            _observation_source(target),
-        )
+        item.routine.render() for item in source_admission_native_programs(target)
     )

@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from pglast import ast, enums
-from pglast.stream import RawStream
 from sqlalchemy import (
     ARRAY,
     BigInteger,
@@ -24,20 +22,23 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import BIT, JSONB, aggregate_order_by
 
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql
 from .native_program import (
     Assign,
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
     SelectInto,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration
 from .types import SourceArtifact
 
 _INTEGER = r"^-?(0|[1-9][0-9]*)$"
@@ -108,8 +109,8 @@ def _aggregate(value, order):
 
 def _routine(
     name: str, parameters: tuple[Parameter, ...], returns: str, body: Block, *, strict=False
-) -> str:
-    definition = function(
+) -> NativeRoutine:
+    return NativeRoutine(
         "data",
         name,
         parameters=parameters,
@@ -119,30 +120,9 @@ def _routine(
         strict=strict,
         search_path=("pg_catalog", "pg_temp"),
     )
-    return definition + ";\n" + _revoke(name, parameters) + ";\n"
 
 
-def _revoke(name: str, parameters: tuple[Parameter, ...]) -> str:
-    return RawStream()(
-        ast.GrantStmt(
-            is_grant=False,
-            targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-            objtype=enums.ObjectType.OBJECT_FUNCTION,
-            objects=(
-                ast.ObjectWithArgs(
-                    objname=(ast.String(sval="data"), ast.String(sval=name)),
-                    objargs=tuple(parameter.type_ for parameter in parameters),
-                    args_unspecified=False,
-                ),
-            ),
-            grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-            grant_option=False,
-            behavior=enums.DropBehavior.DROP_RESTRICT,
-        )
-    )
-
-
-def source_value_native_sql(source: bytes) -> str:
+def source_value_native_programs(source: bytes) -> tuple[ProgramDeclaration, ...]:
     layout = _layout(source)
     p = core_variable("p", JSONB())
     kind = core_variable("kind", Text())
@@ -171,7 +151,7 @@ def source_value_native_sql(source: bytes) -> str:
         .scalar_subquery()
     )
     report_parameters = (Parameter("value", pg_type("jsonb")), Parameter("member", pg_type("text")))
-    report = sql_function(
+    report = NativeRoutine(
         "data",
         "report_field",
         parameters=report_parameters,
@@ -181,7 +161,6 @@ def source_value_native_sql(source: bytes) -> str:
         strict=True,
         search_path=("pg_catalog", "pg_temp"),
     )
-    report += ";\n" + _revoke("report_field", report_parameters) + ";\n"
 
     lexical = core_variable("lexical", Text())
     digits = core_variable("digits", Text())
@@ -483,12 +462,30 @@ def source_value_native_sql(source: bytes) -> str:
         ),
         (Local("result", pg_type("jsonb")),),
     )
-    return "".join(
-        (
-            report,
-            _routine("record_source_float", parameters, "float8", float_body, strict=True),
-            _routine("record_source_json", parameters, "jsonb", source_body),
-            _routine("record_json_source", parameters, "jsonb", encode_body, strict=True),
-            _routine("record_json_meaning", parameters, "jsonb", meaning_body),
+    routines = (
+        report,
+        _routine("record_source_float", parameters, "float8", float_body, strict=True),
+        _routine("record_source_json", parameters, "jsonb", source_body),
+        _routine("record_json_source", parameters, "jsonb", encode_body, strict=True),
+        _routine("record_json_meaning", parameters, "jsonb", meaning_body),
+    )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
         )
+        for routine in routines
+    )
+
+
+def source_value_native_sql(source: bytes) -> str:
+    """Render the captured codec and its original PUBLIC revocations."""
+    return "".join(
+        declaration.routine.render()
+        + ";\n"
+        + native_privilege_sql(declaration.identity, "PUBLIC", grant=False)
+        + ";\n"
+        for declaration in source_value_native_programs(source)
     )

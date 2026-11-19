@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
     from .data_operation_model import EffectiveDataOperationModel
     from .data_operation_runtime import RuntimeBinding
+    from .effect_policy import ApprovedEffect
     from .python_operation_sources import PythonSourceCollection
     from .types import PreparedRelease, SourceArtifact, SourceBundle
 
@@ -123,12 +124,22 @@ def _bound_data_operation_calls(model_content: bytes, correspondence: bytes):
     return calls
 
 
-def admit_data_operation_release(connection: Connection, prepared: PreparedRelease) -> str:
+def admit_data_operation_release(
+    connection: Connection,
+    prepared: PreparedRelease,
+    *,
+    effect_approvals: tuple[ApprovedEffect, ...] = (),
+) -> str:
     """Require the actual trusted kernel, then admit exact compiled definitions."""
     from .data_operation_storage import admit_data_operation_definitions
 
     model = bound_data_operation_model(prepared)
-    return admit_data_operation_definitions(connection, prepared, model)
+    result = admit_data_operation_definitions(connection, prepared, model)
+    if effect_approvals:
+        from .effect_policy import admit_effect_grants
+
+        admit_effect_grants(connection, prepared, model, effect_approvals)
+    return result
 
 
 def inspect_data_operation_release(
@@ -364,62 +375,3 @@ def recheck_cached_execution(connection, prepared, runtime, identity):
 
     require_data_operation_native(connection, prepared)
     _inspect_execution_identity(connection, prepared, runtime, identity)
-
-
-def _native_role_contracts(values) -> dict[str, str]:
-    """Consume the stable role coordinates from a schema-owned open semantic body."""
-    result = {}
-    for role in values:
-        if (
-            not isinstance(role, dict)
-            or not isinstance(role.get("name"), str)
-            or not isinstance(role.get("kind_contract"), str)
-        ):
-            raise SemanticRefusal("native admitted role lacks its nominal contract")
-        name, contract = role["name"], role["kind_contract"]
-        if name in result:
-            raise SemanticRefusal("native admitted roles contain duplicate names")
-        result[name] = contract
-    return result
-
-
-def acquire_publication_port(connection: Connection, prepared: PreparedRelease):
-    """Acquire the fixed receipt-bearing native command, not Python effect callbacks."""
-    from .data_operation_ports import ResolvedPublicationPort
-    from .data_operation_storage import DataOperationStorage, require_data_operation_native
-
-    model = bound_data_operation_model(prepared)
-    operation = model.operation("data.publish_data_derivation")
-    if operation.profile != "command" or not operation.effects:
-        raise SemanticRefusal("publication requires its captured effectful command contract")
-    roles = {role.name: role for role in operation.roles}
-    if set(roles) != {"request", "result"}:
-        raise SemanticRefusal("publication command correspondence differs")
-    contracts = {
-        identity.owner: identity.key for identity in model.identities if identity.domain == "kind"
-    }
-    require_data_operation_native(connection, prepared)
-    admitted = DataOperationStorage(connection).inspect_data_execution(
-        cast(
-            WireInspectDataExecutionRequest,
-            {
-                "release_id": prepared.release_id,
-                "operation_id": operation.semantic_id,
-            },
-        )
-    )
-    identities = {(value.owner, value.domain): value.key for value in model.identities}
-    if (
-        admitted["profile"] != "command"
-        or admitted["recipe"] != identities[operation.semantic_id, "recipe"]
-        or _native_role_contracts(admitted["input_roles"])
-        != {"request": contracts[roles["request"].kind]}
-        or _native_role_contracts(admitted["output_roles"])
-        != {"result": contracts[roles["result"].kind]}
-    ):
-        raise SemanticRefusal("publication command differs from native admitted release")
-    return ResolvedPublicationPort(
-        DataOperationStorage(connection),
-        contracts[roles["request"].kind],
-        contracts[roles["result"].kind],
-    )

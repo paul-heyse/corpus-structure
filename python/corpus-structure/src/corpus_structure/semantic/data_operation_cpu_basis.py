@@ -31,6 +31,7 @@ CPU_AUTHORITY_BATCH_REPLY_VERSION = "cpu-authority-batch-reply-1"
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
     from .data_operation_model import ResolvedRoleBinding
+    from .native_program_registry import ProgramDeclaration
 
 
 @dataclass(frozen=True)
@@ -459,7 +460,7 @@ def cpu_authority_batch_values(content: bytes, *, expected_members) -> tuple[Any
     return tuple(values)
 
 
-def cpu_input_basis_native_sql(*, target_metadata=None) -> str:
+def cpu_input_basis_native_programs(*, target_metadata=None) -> tuple[ProgramDeclaration, ...]:
     """Lower exact CPU input/producer/reply correspondence from captured relations."""
     from sqlalchemy import (
         BigInteger,
@@ -477,14 +478,17 @@ def cpu_input_basis_native_sql(*, target_metadata=None) -> str:
     )
     from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array
 
+    from corpus_structure.schema.integrity import role_name
+
     from .metadata import get_metadata
-    from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+    from .native_objects import INTERNAL_PROGRAM
     from .native_program import (
         Assign,
         Block,
         ForQuery,
         If,
         Local,
+        NativeRoutine,
         Parameter,
         Perform,
         Raise,
@@ -492,10 +496,10 @@ def cpu_input_basis_native_sql(*, target_metadata=None) -> str:
         SelectInto,
         column_type,
         core_variable,
-        function,
         pg_type,
         variable,
     )
+    from .native_program_registry import ProgramDeclaration
 
     model = get_metadata() if target_metadata is None else target_metadata
     requests = model.tables["ops.data_request"]
@@ -557,26 +561,20 @@ def cpu_input_basis_native_sql(*, target_metadata=None) -> str:
         parameters = (Parameter("r", pg_type("ops", "data_request")),)
         if reply:
             parameters += (Parameter("completion", pg_type("jsonb")),)
-        identity = NativeIdentity(
-            "function",
-            "ops",
-            name,
-            ("ops.data_request", "jsonb") if reply else ("ops.data_request",),
-        )
-        return native_sql_script(
-            (
-                function(
-                    "ops",
-                    name,
-                    parameters=parameters,
-                    returns=pg_type("jsonb"),
-                    body=Block(body, locals_),
-                    volatility="stable",
-                    security_definer=True,
-                    search_path=policy,
-                ),
-                native_privilege_sql(identity, "PUBLIC", grant=False),
-            )
+        return ProgramDeclaration(
+            NativeRoutine(
+                "ops",
+                name,
+                parameters=parameters,
+                returns=pg_type("jsonb"),
+                body=Block(body, locals_),
+                volatility="stable",
+                security_definer=True,
+                search_path=policy,
+            ),
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
         )
 
     selected, roles, support_refs, meaning, context_meaning, output_meaning = (
@@ -1175,4 +1173,21 @@ def cpu_input_basis_native_sql(*, target_metadata=None) -> str:
         ),
         reply=True,
     )
-    return native_sql_script((basis, producer, output)) + "\n"
+    return basis, producer, output
+
+
+def cpu_input_basis_native_sql(*, target_metadata=None) -> str:
+    """Render the captured CPU correspondence and existing PUBLIC revocations."""
+    from .native_objects import native_privilege_sql, native_sql_script
+
+    return (
+        native_sql_script(
+            statement
+            for declaration in cpu_input_basis_native_programs(target_metadata=target_metadata)
+            for statement in (
+                declaration.routine.render(),
+                native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
+            )
+        )
+        + "\n"
+    )

@@ -18,8 +18,9 @@ from corpus_structure.schema.integrity import role_name
 from .types import SourceArtifact
 
 if TYPE_CHECKING:
+    from .native_objects import NativeDefinition
     from .native_products import NativeAuthoringInputs
-    from .native_program_registry import RenderedProgram
+    from .native_program_registry import ProgramDeclaration, RenderedProgram
 
 
 @dataclass(frozen=True)
@@ -37,7 +38,7 @@ def foundation_programs(
     from .closure_native import closure_foundation_parts, closure_native_parts
     from .data_operation_value_native import canonical_identity_programs
     from .metadata import get_metadata
-    from .native_objects import native_sql_script
+    from .native_objects import NativeIdentity, native_sql_script
     from .native_program_registry import render_programs
     from .value_codec import VALUE_CODEC_SOURCE, decimal_digit_limit
 
@@ -49,41 +50,33 @@ def foundation_programs(
 
     selected = get_metadata() if target is None else target
     identity_declarations = canonical_identity_programs(decimal_digits=decimal_digit_limit(capture))
-    guards, closure_declarations = closure_foundation_parts(selected)
-    intrinsic_declarations, effects = closure_native_parts(selected)
+    closure_declarations = closure_foundation_parts(selected)
+    intrinsic_declarations = closure_native_parts(selected)
     programs = render_programs(
         (*identity_declarations, *closure_declarations, *intrinsic_declarations),
         registry_schemas=frozenset({"data", "sem"}),
+        prerequisites=frozenset(
+            {
+                NativeIdentity("function", "data", "execution_contract_descriptor"),
+                NativeIdentity("function", "data", "prove_execution_release", ("text",)),
+            }
+        ),
     )
     statements = {program.declaration.identity: program.statement for program in programs}
     intrinsic_statements = tuple(statements[item.identity] for item in intrinsic_declarations)
     return FoundationPrograms(
         identity=native_sql_script(statements[item.identity] for item in identity_declarations),
-        closure=native_sql_script(
-            (*guards, *(statements[item.identity] for item in closure_declarations))
-        ),
-        native_closure=";\n".join((*intrinsic_statements, *effects)) + ";\n",
+        closure=native_sql_script(statements[item.identity] for item in closure_declarations),
+        native_closure=native_sql_script(intrinsic_statements),
         programs=programs,
     )
 
 
 def target_task_guard_sql(protocol: bytes, *, target_metadata: MetaData) -> str:
     """Compile the current request/lease/receipt checks from captured physical input."""
-    from .data_operation_protocol import render_data_task_guard
+    from .data_operation_protocol import data_task_guard_program
 
-    return render_data_task_guard(protocol, target_metadata=target_metadata)
-
-
-def _task_guard_trigger_sql(target: MetaData) -> str:
-    from .native_objects import native_before_trigger_sql
-
-    return native_before_trigger_sql(
-        target.tables["ops.task"],
-        "zz_execution_task",
-        ("ops", "guard_execution_task"),
-        events=("insert", "update"),
-        row=True,
-    )
+    return data_task_guard_program(protocol, target_metadata=target_metadata).render()
 
 
 @dataclass(frozen=True)
@@ -94,30 +87,53 @@ class TargetInstallation:
     pdf_sources: tuple[SourceArtifact, ...]
     authoring_inputs: NativeAuthoringInputs
     foundation: FoundationPrograms
+    pdf_descriptor: tuple[ProgramDeclaration, ...]
+    pdf_identity: tuple[ProgramDeclaration, ...]
+    programs: tuple[NativeDefinition, ...] = ()
 
 
 def capture_target_installation(
-    selected: MetaData, *, logical_sources: dict[str, bytes] | None = None
+    selected: MetaData,
+    *,
+    logical_sources: dict[str, bytes] | None = None,
+    pdf_actions: SourceArtifact | None = None,
+    pdf_sources: tuple[SourceArtifact, ...] | None = None,
+    extra_sources: tuple[SourceArtifact, ...] = (),
 ) -> TargetInstallation:
+    from .data_operation_compiler_native import data_operation_native_descriptor_program
     from .data_operation_storage import native_logical_sources
-    from .native_products import capture_native_authoring_inputs
-    from .pdf_binary_identity_native import pdf_artifact_identity_sql, pdf_binary_identity_sql
-    from .pdf_descriptor_native import pdf_descriptor_sql
+    from .data_operation_wire import wire_operations
+    from .native_objects import native_sql_script
+    from .native_products import _capture_native_authoring_inputs, bind_program_manifest
+    from .native_program_registry import ProgramManifest, program_closures, render_programs
+    from .pdf_binary_identity_native import (
+        pdf_artifact_identity_programs,
+        pdf_binary_identity_programs,
+    )
+    from .pdf_descriptor_native import pdf_descriptor_programs
     from .pdf_domain import PREFIX, pdf_domain_sources
     from .source_record_recognition_native import source_record_recognition_sql
 
     logical = native_logical_sources() if logical_sources is None else logical_sources
-    pdf_sources = pdf_domain_sources(
-        physical_sources=selected.info["physical_sources"],
-        linkml_types=selected.info["physical_linkml_types"],
-        actions_source=SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"]),
-    )
+    if pdf_sources is not None and pdf_actions is not None:
+        raise ValueError("select PDF action input or an already captured PDF source cohort")
+    if pdf_sources is None:
+        pdf_sources = pdf_domain_sources(
+            physical_sources=selected.info["physical_sources"],
+            linkml_types=selected.info["physical_linkml_types"],
+            actions_source=pdf_actions
+            or SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"]),
+        )
     foundation = foundation_programs(selected, value_codec_source=logical["value-codec.yaml"])
-    inputs = capture_native_authoring_inputs(
+    descriptor = pdf_descriptor_programs()
+    binary = pdf_binary_identity_programs()
+    artifact = pdf_artifact_identity_programs(selected)
+    inputs = _capture_native_authoring_inputs(
         target_metadata=selected,
         pdf_sources=pdf_sources,
         logical_sources=logical,
         extra_sources=(
+            *extra_sources,
             SourceArtifact(
                 "authoring/native-program-registry.py",
                 Path(__file__).with_name("native_program_registry.py").read_bytes(),
@@ -132,7 +148,7 @@ def capture_target_installation(
             ),
             SourceArtifact(
                 "authoring/pdf-descriptor.sql",
-                pdf_descriptor_sql().encode(),
+                (native_sql_script(item.render() for item in descriptor) + "\n").encode(),
             ),
             SourceArtifact(
                 "authoring/pdf-descriptor.py",
@@ -140,11 +156,11 @@ def capture_target_installation(
             ),
             SourceArtifact(
                 "authoring/pdf-record-identity.sql",
-                pdf_binary_identity_sql().encode(),
+                (native_sql_script(item.render() for item in binary) + "\n").encode(),
             ),
             SourceArtifact(
                 "authoring/pdf-record-artifact-identity.sql",
-                pdf_artifact_identity_sql(selected).encode(),
+                (native_sql_script(item.render() for item in artifact) + "\n").encode(),
             ),
             SourceArtifact(
                 "authoring/pdf-captured-recognition.sql",
@@ -156,114 +172,169 @@ def capture_target_installation(
             ),
         ),
     )
-    return TargetInstallation(selected, pdf_sources, inputs, foundation)
+    provisional = TargetInstallation(
+        selected, pdf_sources, inputs, foundation, descriptor, (*binary, *artifact)
+    )
+    products = target_program_definitions(None, provisional)
+    definitions = (*target_physical_prerequisites(None, provisional), *products)
+    manifest = ProgramManifest.from_definitions(definitions)
+    closures = program_closures(
+        definitions, (item["name"] for item in wire_operations(inputs.native_sources))
+    )
+    native_descriptor = render_programs(
+        (data_operation_native_descriptor_program(manifest.kernel_digest, closures),),
+        registry_schemas=frozenset({"sem", "data", "ops"}),
+    )[0].declared_definition
+    return replace(
+        provisional,
+        authoring_inputs=bind_program_manifest(inputs, manifest, closures),
+        programs=(native_descriptor, *products),
+    )
 
 
 def target_physical_prerequisites(connection, installation: TargetInstallation):
     """The table-free current function used by the PDF body CHECK declaration."""
-    from .native_authoring import _task_call_definition
-    from .native_objects import INTERNAL_PROGRAM
+    from .native_program_registry import render_programs
 
-    source = next(
-        item.content.decode()
-        for item in installation.authoring_inputs.sources
-        if item.name == "authoring/pdf-descriptor.sql"
-    )
-    return (
-        _task_call_definition(
-            connection,
-            source,
-            schema="ops",
-            name="pdf_product_descriptor",
-            source="target-current:PDF descriptor CHECK prerequisite",
-            program_access=INTERNAL_PROGRAM,
-        ),
-    )
-
-
-def target_pdf_sql(installation: TargetInstallation) -> str:
-    from .pdf_completion_native import pdf_completion_native_sql
-    from .pdf_contracts import _context_from_domain
-    from .pdf_domain import CONTRACT, PdfDomainContract
-    from .pdf_integrated_native import observation_publication_sql
-    from .pdf_publication_native import publication_sql
-    from .pdf_record_access_native import pdf_access_correspondence_sql
-    from .pdf_record_digest_native import pdf_record_logical_identity_sql
-    from .pdf_record_proof_native import pdf_record_proof_sql
-    from .pdf_selected_source_native import selected_source_reader_sql
-    from .pdf_staging_native import stage_native_sql
-
-    contract = next(source for source in installation.pdf_sources if source.name == CONTRACT)
-    context = _context_from_domain(
-        None,
-        PdfDomainContract(
-            contract.content,
-            tuple(source for source in installation.pdf_sources if source.name != CONTRACT),
-        ),
-    )
-    return "\n".join(
-        (
-            next(
-                source.content.decode()
-                for source in installation.authoring_inputs.sources
-                if source.name == "authoring/pdf-record-identity.sql"
-            ),
-            next(
-                source.content.decode()
-                for source in installation.authoring_inputs.sources
-                if source.name == "authoring/pdf-record-artifact-identity.sql"
-            ),
-            stage_native_sql(
-                target_metadata=installation.metadata, pdf_sources=installation.pdf_sources
-            ),
-            publication_sql(target_metadata=installation.metadata, pdf_domain=context.domain),
-            pdf_record_logical_identity_sql(target_metadata=installation.metadata),
-            pdf_record_proof_sql(installation.metadata),
-            pdf_access_correspondence_sql(installation.metadata),
-            observation_publication_sql(context, target_metadata=installation.metadata),
-            next(
-                source.content.decode()
-                for source in installation.authoring_inputs.sources
-                if source.name == "authoring/pdf-captured-recognition.sql"
-            ),
-            pdf_completion_native_sql(installation.metadata),
-            selected_source_reader_sql(
-                target_metadata=installation.metadata, pdf_domain=context.domain
-            ),
+    return tuple(
+        item.definition(connection)
+        for item in render_programs(
+            installation.pdf_descriptor, registry_schemas=frozenset({"ops"})
         )
     )
 
 
-def target_native_definitions(connection, installation: TargetInstallation):
-    """Declare current owners directly; no frozen predecessors or legacy series catalog."""
-    from .archive_native import archive_native_definitions
-    from .companion_projection_native import companion_projection_definitions
-    from .data_operation_storage import data_operation_native_definitions
-    from .native_authoring import (
-        _pdf_payload_definitions,
-        _publication_view_definitions,
-        _shape_definition,
-        _task_call_definition,
-    )
-    from .native_objects import (
-        INTERNAL_PROGRAM,
-        NativeAuthoringError,
-        NativeProgramAccess,
-        definition_from_sql,
-        native_before_trigger_sql,
-    )
-    from .native_sql_body import published_revision_definition, published_validation_definition
+def target_trigger_programs(target: MetaData):
+    from .data_operation_storage import data_operation_immutable_relations
+    from .native_objects import native_before_trigger
+    from .native_program_registry import RelationProgramDeclaration
+
+    owner = role_name("publisher")
+
+    def trigger(relation, name, routine, source, events, *, row=False):
+        return RelationProgramDeclaration(
+            native_before_trigger(relation, name, routine, events=events, row=row),
+            source,
+            owner,
+        )
+
+    programs = [
+        trigger(
+            target.tables["ops.task"],
+            "zz_execution_task",
+            ("ops", "guard_execution_task"),
+            "target-current:request task fence",
+            ("insert", "update"),
+            row=True,
+        )
+    ]
+    intrinsic = set(data_operation_immutable_relations(target, target.info["physical_sources"]))
+    pending = {
+        item
+        for item in target.tables.values()
+        if item.info.get("immutability") == "pending-content"
+    }
+    for relation in sorted(target.tables.values(), key=lambda item: item.fullname):
+        if (
+            relation in intrinsic
+            or relation.info.get("immutability") in {"intrinsic", "immutable", "deployment"}
+            or relation.fullname == "sem.physical_contract"
+        ):
+            programs.append(
+                trigger(
+                    relation,
+                    "semantic_immutable",
+                    ("sem", "refuse_immutable_mutation"),
+                    "target-current:physical immutability",
+                    ("update", "delete", "truncate"),
+                )
+            )
+        if relation.info.get("frontier_guard") == "guarded":
+            programs.append(
+                trigger(
+                    relation,
+                    "ddo_read_frontier_guard",
+                    ("ops", "ddo_refuse_post_acquisition_graph_write"),
+                    "data-operation pinned frontier:forward",
+                    ("insert", "update", "delete", "truncate"),
+                )
+            )
+        if relation in pending:
+            is_component = any(
+                foreign.column.table in pending and foreign.column.table is not relation
+                for foreign in relation.foreign_keys
+            )
+            for events, row, name in (
+                (
+                    ("insert", "update", "delete") if is_component else ("update", "delete"),
+                    True,
+                    "pdf_shared_content_mutation",
+                ),
+                (("truncate",), False, "pdf_shared_content_truncate"),
+            ):
+                programs.append(
+                    trigger(
+                        relation,
+                        name,
+                        ("ops", "pdf_shared_stream_mutation_guard"),
+                        "target-current:pending and verified PDF bytes",
+                        events,
+                        row=row,
+                    )
+                )
+        if relation.info.get("archive_role") is not None:
+            programs.append(
+                trigger(
+                    relation,
+                    "finalized_release",
+                    ("sem", "guard_finalized_insert"),
+                    "target-current:finalized archive",
+                    ("insert",),
+                    row=True,
+                )
+            )
+    return tuple(programs)
+
+
+def target_native_declarations(installation: TargetInstallation):
+    """Bring every native owner into one program graph before rendering."""
+    from .archive_native import archive_native_programs
+    from .companion_projection_native import companion_projection_programs
+    from .data_operation_storage import data_operation_native_programs
+    from .native_admission_release import admission_programs
+    from .native_objects import NativeAuthoringError
+    from .pdf_companion_adoption_native import companion_adoption_programs
+    from .pdf_completion_native import pdf_completion_native_programs
+    from .pdf_contracts import _context_from_domain
     from .pdf_domain import CONTRACT, PdfDomainContract
-    from .published_document import published_reader_definitions
+    from .pdf_domain_native import pdf_domain_native_programs
+    from .pdf_identity_frames_native import pdf_identity_frame_programs
+    from .pdf_integrated_native import observation_publication_programs
+    from .pdf_publication_native import publication_native_programs
+    from .pdf_record_access_native import pdf_access_correspondence_programs
+    from .pdf_record_digest_native import pdf_record_logical_identity_programs
+    from .pdf_record_proof_native import pdf_record_proof_programs
+    from .pdf_selected_source_native import selected_source_reader_programs
+    from .pdf_shared_stream_queries import shared_stream_queries_programs
+    from .pdf_shared_stream_writes import shared_stream_writes_programs
+    from .pdf_shared_streams import part_wire_contract_programs
+    from .pdf_spool_native import pdf_spool_native_programs
+    from .pdf_staging_native import stage_native_programs
+    from .pdf_target_identity_native import logical_target_identity_programs
+    from .published_document import published_readers_programs
+    from .runtime_binding_native import runtime_binding_programs
+    from .source_record_recognition_native import (
+        source_record_recognition_program,
+        source_record_recognition_sql,
+    )
 
     selected = installation.metadata
     domain = PdfDomainContract(
         next(item.content for item in installation.pdf_sources if item.name == CONTRACT),
         tuple(item for item in installation.pdf_sources if item.name != CONTRACT),
     )
-    definitions = []
+    context = _context_from_domain(None, domain)
     captured = {item.name: item.content for item in installation.authoring_inputs.sources}
-    closure = captured["authoring/closure.sql"].decode()
     if (
         installation.foundation.identity.encode() != captured["authoring/identity.sql"]
         or installation.foundation.closure.encode() != captured["authoring/closure.sql"]
@@ -273,215 +344,44 @@ def target_native_definitions(connection, installation: TargetInstallation):
         raise NativeAuthoringError(
             "foundation declarations differ from their captured install statements"
         )
-    definitions.extend(
-        program.definition(connection) for program in installation.foundation.programs
-    )
-    for filename, schema, name, purposes in (
-        ("closure.sql", "sem", "require_admission_caller", ()),
-        ("closure-native.sql", "sem", "record_deployment_admission", ("admit",)),
-        ("closure-native.sql", "sem", "record_sql_admission", ("admit",)),
-        ("closure-native.sql", "sem", "activate_release", ("admit",)),
-        (
-            "closure.sql",
-            "data",
-            "require_runtime_principal",
-            ("read", "write", "evaluate", "admit"),
-        ),
-        ("scientific_layout.sql", "sem", "require_scientific_layout", ()),
+    if (
+        source_record_recognition_sql(selected).encode()
+        != captured["authoring/pdf-captured-recognition.sql"]
     ):
-        definitions.append(
-            _task_call_definition(
-                connection,
-                captured["authoring/scientific-layout.sql"].decode()
-                if filename == "scientific_layout.sql"
-                else captured["authoring/closure-native.sql"].decode()
-                if filename == "closure-native.sql"
-                else closure,
-                name=name,
-                schema=schema,
-                source="target-current:" + filename,
-                program_access=NativeProgramAccess(purposes=purposes)
-                if purposes
-                else INTERNAL_PROGRAM,
-            )
-        )
-    definitions.extend(
-        data_operation_native_definitions(
-            connection,
+        raise NativeAuthoringError("recognition declaration differs from its captured install SQL")
+    return (
+        *(item.declaration for item in installation.foundation.programs),
+        *installation.authoring_inputs.guard_programs,
+        *installation.pdf_identity,
+        *archive_native_programs(target_metadata=selected),
+        *runtime_binding_programs(selected),
+        *target_trigger_programs(selected),
+        *admission_programs(selected),
+        *data_operation_native_programs(
             target_metadata=selected,
             sources=installation.authoring_inputs.native_sources,
-        )
+            pdf_domain=domain,
+        ),
+        *pdf_domain_native_programs(sources=installation.pdf_sources, target_metadata=selected),
+        *part_wire_contract_programs(selected),
+        *shared_stream_queries_programs(selected),
+        *shared_stream_writes_programs(selected),
+        *stage_native_programs(target_metadata=selected),
+        *pdf_spool_native_programs(target_metadata=selected),
+        *publication_native_programs(selected, domain),
+        *companion_adoption_programs(context, selected),
+        *pdf_record_logical_identity_programs(target_metadata=selected),
+        *logical_target_identity_programs(selected),
+        *pdf_identity_frame_programs(selected),
+        *pdf_record_proof_programs(selected),
+        *pdf_access_correspondence_programs(selected),
+        *observation_publication_programs(context, target_metadata=selected),
+        source_record_recognition_program(selected),
+        *pdf_completion_native_programs(selected),
+        *selected_source_reader_programs(target_metadata=selected, pdf_domain=domain),
+        *published_readers_programs(target_metadata=selected),
+        *companion_projection_programs(target_metadata=selected, domain=domain),
     )
-    definitions.extend(archive_native_definitions(connection, target_metadata=selected))
-    definitions.append(
-        _task_call_definition(
-            connection,
-            captured["authoring/execution-projection-check.sql"].decode(),
-            schema="sem",
-            name="require_execution_projection",
-            source="target-current:release archive guards",
-            program_access=INTERNAL_PROGRAM,
-        )
-    )
-    for name in ("validate_runtime_binding", "register_runtime_binding", "require_runtime_binding"):
-        definitions.append(
-            _task_call_definition(
-                connection,
-                captured["authoring/runtime-bindings.sql"].decode(),
-                schema="sem",
-                name=name,
-                source="target-current:runtime binding",
-                program_access=NativeProgramAccess(purposes=("write", "admit"))
-                if name == "register_runtime_binding"
-                else INTERNAL_PROGRAM,
-            )
-        )
-    payload = target_pdf_sql(installation)
-    definitions.extend(
-        (
-            _shape_definition(connection, payload, source="target-current:PDF shape"),
-            *_pdf_payload_definitions(connection, payload, source="target-current:PDF publication"),
-            *_publication_view_definitions(connection, payload, source="target-current:PDF views"),
-            *published_reader_definitions(connection, target_metadata=selected),
-            *companion_projection_definitions(connection, target_metadata=selected, domain=domain),
-        )
-    )
-    definitions = [
-        published_revision_definition(item, target_metadata=selected)
-        if item.identity.name == "read_pdf_published_revision"
-        else published_validation_definition(item, target_metadata=selected)
-        if item.identity.name == "read_pdf_published_validation"
-        else item
-        for item in definitions
-    ]
-    # SQL-language bodies bind provider functions/views at CREATE time. Keep
-    # these established PDF prerequisites ahead of their dependent readers.
-    providers = (
-        "read_pdf_published_revision",
-        "pdf_companion_field_bytes",
-        "pdf_companion_body",
-        "pdf_selected_product",
-        "pdf_published_item",
-        "pdf_published_region",
-        "pdf_published_coverage",
-    )
-    definitions = [
-        *(item for name in providers for item in definitions if item.identity.name == name),
-        *(item for item in definitions if item.identity.name not in providers),
-    ]
-    task_guard = next(
-        source.content.decode()
-        for source in installation.authoring_inputs.sources
-        if source.name == "authoring/data-operation-task-guard.sql"
-    )
-    definitions.append(
-        definition_from_sql(
-            connection,
-            task_guard,
-            source="target-current:request task fence",
-            owner=role_name("publisher"),
-            program_access=INTERNAL_PROGRAM,
-        )
-    )
-    definitions.append(
-        definition_from_sql(
-            connection,
-            _task_guard_trigger_sql(selected),
-            source="target-current:request task fence",
-            owner=role_name("publisher"),
-        )
-    )
-    for relation in sorted(selected.tables.values(), key=lambda item: item.fullname):
-        if (
-            relation.info.get("immutability") in {"intrinsic", "immutable", "deployment"}
-            or relation.fullname == "sem.physical_contract"
-        ):
-            # DDO intrinsic relations already receive this exact guard from
-            # data_operation_native_definitions; the final identity check is exact.
-            definitions.append(
-                definition_from_sql(
-                    connection,
-                    native_before_trigger_sql(
-                        relation,
-                        "semantic_immutable",
-                        ("sem", "refuse_immutable_mutation"),
-                        events=("update", "delete", "truncate"),
-                    ),
-                    source="target-current:physical immutability",
-                    owner=role_name("publisher"),
-                )
-            )
-        if relation.fullname in {"ops.pdf_shared_stream", "ops.pdf_shared_stream_part"}:
-            for events, row, name in (
-                (
-                    ("insert", "update", "delete")
-                    if relation.name == "pdf_shared_stream_part"
-                    else ("update", "delete"),
-                    True,
-                    "pdf_shared_content_mutation",
-                ),
-                (("truncate",), False, "pdf_shared_content_truncate"),
-            ):
-                definitions.append(
-                    definition_from_sql(
-                        connection,
-                        native_before_trigger_sql(
-                            relation,
-                            name,
-                            ("ops", "pdf_shared_stream_mutation_guard"),
-                            events=events,
-                            row=row,
-                        ),
-                        source="target-current:pending and verified PDF bytes",
-                        owner=role_name("publisher"),
-                    )
-                )
-        if relation.info.get("archive_role") is not None:
-            definitions.append(
-                definition_from_sql(
-                    connection,
-                    native_before_trigger_sql(
-                        relation,
-                        "finalized_release",
-                        ("sem", "guard_finalized_insert"),
-                        events=("insert",),
-                        row=True,
-                    ),
-                    source="target-current:finalized archive",
-                    owner=role_name("publisher"),
-                )
-            )
-    unique = {}
-    for item in definitions:
-        if item.identity.kind == "function" and item.program_access is None:
-            raise ValueError(
-                "target function has no access declaration: " + item.identity.qualified
-            )
-        if item.identity in unique:
-            previous = unique[item.identity]
-            if (
-                previous.sql,
-                previous.owner,
-                previous.grants,
-                previous.enabled,
-                previous.role_bindings,
-                previous.bind_owner,
-                previous.program_access,
-            ) != (
-                item.sql,
-                item.owner,
-                item.grants,
-                item.enabled,
-                item.role_bindings,
-                item.bind_owner,
-                item.program_access,
-            ):
-                raise ValueError(
-                    "target native declaration differs under repeated identity: "
-                    + item.identity.qualified
-                )
-        unique[item.identity] = item
-    return tuple(unique.values())
 
 
 def target_admission_descriptor(installation: TargetInstallation, native_objects):
@@ -489,8 +389,10 @@ def target_admission_descriptor(installation: TargetInstallation, native_objects
     from pglast import ast, parse_sql
 
     from .native_products import relation_descriptor
+    from .native_program_registry import ProgramManifest
 
     selected = installation.metadata
+    manifest = ProgramManifest.from_definitions(tuple(native_objects))
     triggers = []
     for item in native_objects:
         if item.identity.kind != "trigger":
@@ -526,6 +428,8 @@ def target_admission_descriptor(installation: TargetInstallation, native_objects
             )
         )
     return dict(
+        program_manifest=manifest.inventory,
+        kernel_identity=manifest.kernel_identity,
         tables=[
             relation_descriptor(table)
             for table in sorted(selected.tables.values(), key=lambda table: table.fullname)
@@ -576,6 +480,30 @@ def target_authoring_scratch(connection, installation: TargetInstallation):
         savepoint.rollback()
 
 
+def target_program_definitions(connection, installation: TargetInstallation):
+    """Collect current programs using their typed declarations and exact authorities."""
+    if installation.programs:
+        return installation.programs
+
+    from .native_program_registry import EXECUTION_DESCRIPTOR, OPERATION_DESCRIPTOR, render_programs
+
+    declarations = target_native_declarations(installation)
+    prerequisites = {
+        EXECUTION_DESCRIPTOR,
+        *(program.identity for program in installation.pdf_descriptor),
+    }
+    if OPERATION_DESCRIPTOR not in {program.identity for program in declarations}:
+        prerequisites.add(OPERATION_DESCRIPTOR)
+    return tuple(
+        item.definition(connection)
+        for item in render_programs(
+            declarations,
+            registry_schemas=frozenset({"data", "ops", "sem", "kb", "cp", "eval"}),
+            prerequisites=frozenset(prerequisites),
+        )
+    )
+
+
 def prepare_target_authoring(
     connection,
     installation: TargetInstallation,
@@ -587,10 +515,9 @@ def prepare_target_authoring(
     owned_authoring=False,
 ):
     """Normalize captured target declarations against their explicit frozen predecessor."""
-    from .native_admission import native_admission_sql
+    from .native_admission import describe_native_admission, execution_descriptor_program
     from .native_authoring import (
         _declared_physical_catalog,
-        current_admission_definitions,
         definition_sql,
     )
     from .native_objects import (
@@ -599,17 +526,21 @@ def prepare_target_authoring(
         native_sql_script,
         prepare_native_authoring,
     )
-    from .native_products import admission_kernel
+    from .native_program_registry import PROGRAM_MANIFEST_SOURCE, ProgramManifest, render_programs
 
-    products = (
-        *target_native_definitions(connection, installation),
-        *current_admission_definitions(
-            connection,
-            admission_kernel(target_metadata=installation.metadata),
-            source="target-current:admission guard",
-            require_descriptor=False,
-        ),
+    products = target_program_definitions(connection, installation)
+    captured_manifest = next(
+        item.content
+        for item in installation.authoring_inputs.native_sources
+        if item.name == PROGRAM_MANIFEST_SOURCE
     )
+    if (
+        ProgramManifest.from_definitions((*physical_prerequisites, *products)).content
+        != captured_manifest
+    ):
+        raise NativeAuthoringError(
+            "server-resolved native declarations differ from the captured program manifest"
+        )
     fixed = {item.identity for item in physical_prerequisites}
     if fixed & (retire | recreate):
         raise NativeAuthoringError(
@@ -630,7 +561,7 @@ def prepare_target_authoring(
         recreate=recreate & product_ids,
         owned_authoring=owned_authoring,
     )
-    sql = native_admission_sql(
+    descriptor = describe_native_admission(
         native_sql_script(
             statement for item in physical_prerequisites for statement in item.statements
         )
@@ -644,8 +575,10 @@ def prepare_target_authoring(
         target_metadata=installation.metadata,
         physical_catalog=_declared_physical_catalog(connection, installation.metadata),
     )
-    admission = current_admission_definitions(connection, sql, source="target-current:admission")
-    complete = (*products[:-1], *admission)
+    rendered = render_programs(
+        (execution_descriptor_program(descriptor),), registry_schemas=frozenset({"data"})
+    )
+    complete = (*products, rendered[0].definition(connection))
     with target_authoring_scratch(connection, installation):
         remaining = prepare_native_authoring(
             connection,
@@ -690,15 +623,14 @@ def target_database_privileges_sql() -> str:
 def target_predecessor_descriptor(predecessor):
     """Read the complete registered target declaration, never installed desired meaning."""
     from .native_admission import _admission_descriptor
-    from .native_authoring import authored_admission_sql
-    from .native_objects import NativeAuthoring, NativeAuthoringError, NativeObject
+    from .native_authoring import frozen_admission_sql
+    from .native_objects import NativeAuthoringError, NativeObject
 
     if not predecessor or any(not isinstance(item, NativeObject) for item in predecessor):
         raise NativeAuthoringError(
             "target successor requires exact frozen native predecessor objects"
         )
-    frozen = NativeAuthoring(desired=predecessor, predecessor=predecessor)
-    admission = authored_admission_sql(frozen)
+    admission = frozen_admission_sql(predecessor)
     descriptor = _admission_descriptor(admission)
     legacy = {"ops.run", "ops.method", "ops.method_config", "kb.source_view", "data.fact"}
     if "analytical_abi" in descriptor or legacy & {

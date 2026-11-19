@@ -23,24 +23,25 @@ from .native_program import (
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
     Return,
     SelectInto,
     core_variable,
-    function,
     pg_type,
 )
 
 
-def claim_native_sql(target, protocol: bytes) -> str:
+def claim_native_programs(target, protocol: bytes) -> tuple[NativeRoutine, ...]:
     contract = yaml.safe_load(protocol)["definitions"]["claim_data_request_request"]
     request = target.tables["ops.data_request"]
     task = target.tables["ops.task"]
     packet = target.tables["ops.data_external_packet"]
     use = target.tables["ops.demand_use"]
     intents = target.tables["ops.data_completion_intent"]
+    consumptions = target.tables["ops.data_draft_consumption"]
     receipts = target.tables["ops.data_publication_receipt"]
     r = core_variable("r", Text())
     p = core_variable("p", JSONB())
@@ -78,7 +79,7 @@ def claim_native_sql(target, protocol: bytes) -> str:
         tf("lease_until").is_(None),
         tf("lease_until") <= func.clock_timestamp(),
     )
-    fence_guard = function(
+    fence_guard = NativeRoutine(
         "ops",
         "ddo_claim",
         parameters=(
@@ -109,12 +110,22 @@ def claim_native_sql(target, protocol: bytes) -> str:
     no_work = Return(object_("payload", object_("state", "no-work")))
     retained_query = select(intents.c.id).where(
         intents.c.request_id == rf("id"),
-        intents.c.generation == rf("generation"),
+        or_(
+            intents.c.generation == rf("generation"),
+            select(1)
+            .select_from(consumptions)
+            .where(
+                consumptions.c.intent_id == intents.c.id,
+                consumptions.c.request_id == rf("id"),
+                consumptions.c.generation == rf("generation"),
+            )
+            .exists(),
+        ),
         ~exists(select(1).select_from(receipts).where(receipts.c.intent_id == intents.c.id)),
     )
     binding = rf("binding").op("-", return_type=JSONB())(literal("execution_profile"))
     lease = cast(p["lease_seconds"].astext, Integer())
-    single_claim = function(
+    single_claim = NativeRoutine(
         "ops",
         "ddo_claim_data_request",
         parameters=(Parameter("p_payload", pg_type("jsonb")),),
@@ -285,4 +296,13 @@ def claim_native_sql(target, protocol: bytes) -> str:
             ),
         ),
     )
-    return fence_guard + ";\n" + single_claim + ";\n"
+    return (fence_guard, single_claim)
+
+
+def claim_native_sql(target, protocol: bytes) -> str:
+    from .native_objects import native_sql_script
+
+    return (
+        native_sql_script(routine.render() for routine in claim_native_programs(target, protocol))
+        + "\n"
+    )

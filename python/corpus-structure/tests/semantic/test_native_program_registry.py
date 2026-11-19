@@ -102,7 +102,11 @@ def test_identity_producer_declares_exact_recursive_callee_and_internal_access()
     assert rendered[0].callees == {NativeIdentity("function", "data", "canonical_json", ("jsonb",))}
     assert rendered[1].callees == frozenset()
     assert all(program.declaration.owner == role_name("publisher") for program in rendered)
-    assert all(program.declaration.access == INTERNAL_PROGRAM for program in rendered)
+    assert all(
+        isinstance(program.declaration, ProgramDeclaration)
+        and program.declaration.access == INTERNAL_PROGRAM
+        for program in rendered
+    )
     assert all(program.declaration.source == "target-current:identity.sql" for program in rendered)
 
 
@@ -137,6 +141,15 @@ def test_foundation_archive_and_float_programs_have_direct_typed_custody():
         NativeIdentity("function", "sem", "require_archive_bytes", ("text",)),
         NativeIdentity("function", "sem", "refuse_immutable_mutation"),
         NativeIdentity("function", "sem", "guard_finalized_insert"),
+        NativeIdentity("function", "data", "require_runtime_principal", ("text",)),
+        NativeIdentity("function", "sem", "require_admission_caller"),
+        NativeIdentity(
+            "function",
+            "sem",
+            "record_deployment_admission",
+            ("text", "text", "text", "text", "bytea"),
+        ),
+        NativeIdentity("function", "sem", "activate_release", ("text", "text", "text", "bigint")),
     }
     archive = programs[NativeIdentity("function", "sem", "require_archive_bytes", ("text",))]
     assert archive.callees == frozenset()
@@ -144,4 +157,72 @@ def test_foundation_archive_and_float_programs_have_direct_typed_custody():
     assert ("sem", "artifact", "content") in archive.model_inputs
     assert ("sem", "release", None) in archive.model_inputs
     assert all(item.declaration.owner == role_name("publisher") for item in programs.values())
-    assert all(item.declaration.access == INTERNAL_PROGRAM for item in programs.values())
+    external = {}
+    for item in programs.values():
+        assert isinstance(item.declaration, ProgramDeclaration)
+        if item.declaration.access != INTERNAL_PROGRAM:
+            external[item.declaration.identity.name] = item.declaration.access.purposes
+    assert external == {
+        "activate_release": ("admit",),
+        "record_deployment_admission": ("admit",),
+        "require_runtime_principal": ("read", "write", "evaluate", "admit"),
+    }
+
+
+def test_view_and_trigger_bind_their_providers_in_creation_order():
+    from pglast import ast, parse_sql
+
+    from corpus_structure.semantic.native_program_registry import RelationProgramDeclaration
+
+    def relation(sql):
+        statement = parse_sql(sql)[0].stmt
+        assert isinstance(statement, (ast.CreateTrigStmt, ast.ViewStmt))
+        return RelationProgramDeclaration(statement, "registry-control", "owner")
+
+    provider = _declaration("value", func.pg_catalog.current_user())
+    view = relation("CREATE OR REPLACE VIEW data.z_provider AS SELECT data.value()")
+    consumer = relation("CREATE OR REPLACE VIEW data.a_consumer AS SELECT * FROM data.z_provider")
+    trigger = relation(
+        "CREATE TRIGGER a_guard INSTEAD OF INSERT ON data.a_consumer "
+        "FOR EACH ROW EXECUTE FUNCTION data.guard()"
+    )
+    guard = _declaration("guard", func.pg_catalog.current_user())
+    declarations = (trigger, view, provider, consumer, guard)
+    programs = render_programs(declarations, registry_schemas=frozenset({"data"}))
+    assert [item.declaration.identity.name for item in programs] == [
+        "guard",
+        "value",
+        "z_provider",
+        "a_consumer",
+        "a_guard",
+    ]
+    assert programs[3].callees == {view.identity}
+    assert programs[4].callees == {consumer.identity, guard.identity}
+    changed = replace(view, source="relocated")
+    regenerated = render_programs(
+        (changed,),
+        registry_schemas=frozenset({"data"}),
+        prerequisites=frozenset({provider.identity}),
+    )
+    assert regenerated[0].program_identity == programs[2].program_identity
+
+
+def test_reference_collection_visits_shared_clauses_once(monkeypatch):
+    from corpus_structure.semantic.native_program_registry import _References
+
+    leaf = func.data.value()
+    get_children = leaf.get_children
+    visited = []
+
+    def observe(**options):
+        visited.append(leaf)
+        return get_children(**options)
+
+    monkeypatch.setattr(leaf, "get_children", observe)
+    expression = leaf
+    for _ in range(8):
+        expression = func.coalesce(expression, expression)
+    references = _References()
+    references.read(expression)
+    assert len(visited) == 1
+    assert references.calls == {("data", "value", 0)}

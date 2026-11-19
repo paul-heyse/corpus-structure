@@ -402,6 +402,33 @@ class NativeCandidateResult(BaseModel):
     operation_account: OperationAccount | None = None
 
 
+class NativeUnchangedResult(BaseModel):
+    outcome: Literal["no_native_change"] = "no_native_change"
+    head_revision: str
+    object_count: int
+    kernel_identity: str
+    result_id: str
+
+
+def emit_unchanged_native(result, comparison, *, json_: bool) -> None:
+    report = NativeUnchangedResult(
+        head_revision=comparison.head_revision,
+        object_count=comparison.object_count,
+        kernel_identity=comparison.kernel_identity,
+        result_id=result.id,
+    )
+    model_stage(result, "no native change")
+    result.settle(predecessor=report.head_revision)
+
+    def render(value):
+        table = Table("field", "value", title="no native change")
+        for key in ("head_revision", "object_count", "kernel_identity"):
+            table.add_row(key, str(getattr(value, key)))
+        return table
+
+    emit(report, json=json_, render=render)
+
+
 def _render_native_candidate(result):
     table = Table("field", "value", title="native candidate")
     for key in ("database", "predecessor", "output", "native_operations", "ordinary_operations"):
@@ -462,6 +489,7 @@ def author_native_candidate(
         verify_rendered_candidate,
     )
     from corpus_structure.semantic.native_objects import NativeAuthoringError
+    from corpus_structure.semantic.native_products import current_authoring_provenance
     from corpus_structure.semantic.refusals import SemanticRefusal
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.storage_target import (
@@ -591,6 +619,9 @@ def author_native_candidate(
                     {
                         "version": 2,
                         "predecessor": predecessor,
+                        "authoring_provenance": current_authoring_provenance(
+                            installation.authoring_inputs
+                        ).descriptor_fields(),
                         "operations": [operation_record(item) for item in native],
                         "privileges": list(script.privilege_policies),
                         "desired": [item.payload() for item in authoring.desired],
@@ -708,6 +739,21 @@ def native_candidate_(
                 else NativeIntent.model_validate(yaml.safe_load(intent.read_bytes()))
             )
             retire, recreate = native_intent(requested.retire, requested.recreate)
+            if expected_predecessor is not None and not (retire or recreate):
+                from corpus_structure.semantic.metadata import get_metadata
+                from corpus_structure.semantic.native_revision_compare import (
+                    unchanged_native_programs,
+                )
+                from corpus_structure.semantic.target_installation import (
+                    capture_target_installation,
+                )
+
+                comparison = unchanged_native_programs(
+                    capture_target_installation(get_metadata()), expected_predecessor
+                )
+                if comparison is not None:
+                    emit_unchanged_native(result, comparison, json_=json_)
+                    return
             model_stage(result, "rollback-only authoring")
             report, products = author_native_candidate(
                 state(ctx).settings(),

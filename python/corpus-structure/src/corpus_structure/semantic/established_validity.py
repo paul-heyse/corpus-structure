@@ -7,12 +7,15 @@ current support authority. Readers still acquire current support and caller righ
 from __future__ import annotations
 
 import json
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from .data_operation_identity import body_identity
 from .data_operation_json import json_bytes, json_loads
+
+if TYPE_CHECKING:
+    from .native_program_registry import ProgramDeclaration
 
 
 class ProductValidation(BaseModel):
@@ -124,28 +127,29 @@ def established_product_matches(proof, *, prepared, model, body, source, context
     )
 
 
-def product_validation_native_sql(*, target_metadata=None):
+def product_validation_native_programs(*, target_metadata=None) -> tuple[ProgramDeclaration, ...]:
     """Render validation correspondence from typed expressions and physical models."""
-    from pglast import ast, enums
-    from pglast.stream import RawStream
     from sqlalchemy import Text, cast, column, func, literal, or_, select, true
     from sqlalchemy.dialects.postgresql import JSONB, array
 
+    from corpus_structure.schema.integrity import role_name
+
     from .metadata import get_metadata as default_metadata
+    from .native_objects import INTERNAL_PROGRAM
     from .native_program import (
         Assign,
         Block,
         ForQuery,
         If,
         Local,
+        NativeRoutine,
         Parameter,
         Raise,
         core_parameter,
         core_variable,
-        function,
         pg_type,
-        sql_function,
     )
+    from .native_program_registry import ProgramDeclaration
 
     metadata = default_metadata() if target_metadata is None else target_metadata
     request = metadata.tables["ops.data_request"]
@@ -223,7 +227,7 @@ def product_validation_native_sql(*, target_metadata=None):
         Parameter("r", pg_type(str(request.schema), request.name)),
         Parameter("completion", pg_type("jsonb")),
     )
-    guard = function(
+    guard = NativeRoutine(
         "ops",
         "ddo_require_product_validations",
         parameters=guard_parameters,
@@ -320,7 +324,7 @@ def product_validation_native_sql(*, target_metadata=None):
         Parameter("episode_id", pg_type("text")),
         Parameter("product_id", pg_type("text")),
     )
-    reader = sql_function(
+    reader = NativeRoutine(
         "ops",
         "ddo_product_validation",
         parameters=reader_parameters,
@@ -331,31 +335,28 @@ def product_validation_native_sql(*, target_metadata=None):
         search_path=("pg_catalog", "pg_temp"),
     )
 
-    def revoke(name, parameters):
-        return RawStream()(
-            ast.GrantStmt(
-                is_grant=False,
-                targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-                objtype=enums.ObjectType.OBJECT_FUNCTION,
-                objects=(
-                    ast.ObjectWithArgs(
-                        objname=(ast.String(sval="ops"), ast.String(sval=name)),
-                        objargs=tuple(parameter.type_ for parameter in parameters),
-                        args_unspecified=False,
-                    ),
-                ),
-                grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-                behavior=enums.DropBehavior.DROP_RESTRICT,
-            )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
         )
+        for routine in (guard, reader)
+    )
+
+
+def product_validation_native_sql(*, target_metadata=None) -> str:
+    """Render trusted producer validation correspondence and its private ACLs."""
+    from .native_objects import native_privilege_sql
 
     return (
         ";\n".join(
-            (
-                guard,
-                revoke("ddo_require_product_validations", guard_parameters),
-                reader,
-                revoke("ddo_product_validation", reader_parameters),
+            statement
+            for item in product_validation_native_programs(target_metadata=target_metadata)
+            for statement in (
+                item.routine.render(),
+                native_privilege_sql(item.identity, "PUBLIC", grant=False),
             )
         )
         + ";\n"

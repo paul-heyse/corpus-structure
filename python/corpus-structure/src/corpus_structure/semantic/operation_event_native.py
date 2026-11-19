@@ -1,6 +1,6 @@
 """Captured native custody for selected operation-event frames and parameters."""
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 
 from sqlalchemy import (
@@ -22,15 +22,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
-from corpus_structure.evaluate.declared_operation_events import (
-    AUTHORIZATION_EFFECT,
-    AUTHORIZATION_FACTORY,
-    AUTHORIZATION_OPERATION,
-    NAMESPACE,
-)
+from corpus_structure.evaluate.declared_operation_events import NAMESPACE
+from corpus_structure.schema.integrity import role_name
 
 from .data_operation_projections import selected_support_output
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
@@ -38,6 +34,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -46,10 +43,9 @@ from .native_program import (
     SelectInto,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration, ProgramValidity
 from .types import SourceArtifact
 from .validity_programs import input_role, selected_family
 
@@ -118,7 +114,7 @@ class _Record:
 class _Programs:
     def __init__(self, model: MetaData):
         self.model = model
-        self.output: list[str] = []
+        self.output: list[ProgramDeclaration] = []
 
     def row(self, name, table):
         return _Record(name, self.model.tables[table])
@@ -136,42 +132,28 @@ class _Programs:
         strict=False,
         definer=True,
         query=None,
+        validity=(),
     ):
         kind = pg_type(returns)
         kind.setof = setof
         params = tuple(Parameter(key, pg_type(*type_.split("."))) for key, type_ in parameters)
-        if query is not None:
-            self.output.append(
-                sql_function(
-                    "ops",
-                    name,
-                    parameters=params,
-                    returns=kind,
-                    body=query,
-                    search_path=("pg_catalog", "pg_temp"),
-                    volatility="immutable" if immutable else "stable",
-                    strict=strict,
-                )
-            )
-        else:
-            self.output.append(
-                function(
-                    "ops",
-                    name,
-                    parameters=params,
-                    returns=kind,
-                    body=Block(tuple(steps), tuple(locals_)),
-                    security_definer=definer,
-                    search_path=("pg_catalog", "pg_temp"),
-                    volatility="immutable" if immutable else "stable",
-                    strict=strict,
-                )
-            )
         self.output.append(
-            native_privilege_sql(
-                NativeIdentity("function", "ops", name, tuple(kind for _, kind in parameters)),
-                "PUBLIC",
-                grant=False,
+            ProgramDeclaration(
+                NativeRoutine(
+                    "ops",
+                    name,
+                    parameters=params,
+                    returns=kind,
+                    body=query if query is not None else Block(tuple(steps), tuple(locals_)),
+                    security_definer=definer if query is None else False,
+                    search_path=("pg_catalog", "pg_temp"),
+                    volatility="immutable" if immutable else "stable",
+                    strict=strict,
+                ),
+                source="data-operations:forward",
+                owner=role_name("publisher"),
+                access=INTERNAL_PROGRAM,
+                validity=validity,
             )
         )
 
@@ -198,7 +180,7 @@ class _Programs:
         )
 
 
-def operation_event_native_sql(model: MetaData) -> str:
+def operation_event_native_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
     programs = _Programs(model)
     _eligibility(programs)
     _scopes(programs)
@@ -207,7 +189,22 @@ def operation_event_native_sql(model: MetaData) -> str:
     _require_parameters(programs)
     _completion(programs)
     _dependencies(programs)
-    return native_sql_script(programs.output) + "\n"
+    return tuple(programs.output)
+
+
+def operation_event_native_sql(model: MetaData) -> str:
+    """Render the current capture from its typed declarations."""
+    return (
+        native_sql_script(
+            statement
+            for declaration in operation_event_native_programs(model)
+            for statement in (
+                declaration.routine.render(),
+                native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
+            )
+        )
+        + "\n"
+    )
 
 
 def operation_event_native_sources(*, target_metadata: MetaData) -> tuple[SourceArtifact, ...]:
@@ -246,12 +243,13 @@ def _eligibility(p):
         definer=False,
         query=select(
             and_(
-                definition("operation_id") == AUTHORIZATION_OPERATION,
+                func.ops.ddo_privileged_effect_eligible(
+                    definition(), "native-evaluator-operation-event-authorization"
+                ),
                 definition("profile") == "command",
                 _text(capabilities, "preparation") == "native-publication",
                 capabilities["forms"] == _json(["scalar"]),
-                _text(capabilities, "prepared_factory", "entrypoint") == AUTHORIZATION_FACTORY,
-                contract["effects"] == _json([asdict(AUTHORIZATION_EFFECT)]),
+                func.nullif(_text(capabilities, "prepared_factory", "entrypoint"), "").is_not(None),
                 _text(capabilities, "prepared_factory", "source_digest").bool_op("~")(
                     "^[0-9a-f]{64}$"
                 ),
@@ -1009,7 +1007,7 @@ def _require_parameters(p):
             outputs.c.position == 0,
             outputs.c.multiplicity == 1,
             producer.c.outcome == "success",
-            requests.c.operation_id == AUTHORIZATION_OPERATION,
+            func.ops.ddo_operation_event_command_eligible(definitions.table_valued()),
             definitions.c.command_class == "operation_event",
             select(1)
             .select_from(support)
@@ -1106,6 +1104,12 @@ def _completion(p):
     fit_body = func.data.ddo_json(basis("canonical_body"), type_=JSONB())
     payload = fit_intent("payload")
     authorization = (
+        _reject(
+            ~func.ops.ddo_privileged_effect_authorized(
+                definition(), "native-evaluator-operation-event-authorization"
+            ),
+            "operation event authorization lacks its independent release effect grant",
+        ),
         _reject(
             or_(
                 ~func.coalesce(definition("command_class") == "operation_event", False),
@@ -1294,7 +1298,7 @@ def _completion(p):
                 "operation event completion changes exact current request/implementation",
             ),
             Assign("output", completion["outputs"][0]),
-            If(r("operation_id") == AUTHORIZATION_OPERATION, authorization, derivation),
+            If(definition("command_class") == "operation_event", authorization, derivation),
             _reject(
                 or_(
                     _text(output, "role").is_distinct_from(output_role),
@@ -1319,6 +1323,7 @@ def _completion(p):
             Local("selected", pg_type("jsonb")),
             Local("expected", pg_type("jsonb")),
         ),
+        validity=(ProgramValidity("operation-event", "completion_guard"),),
     )
 
 
@@ -1418,4 +1423,5 @@ def _dependencies(p):
             boundary.local(),
         ),
         returns="bool",
+        validity=(ProgramValidity("operation-event", "validator"),),
     )

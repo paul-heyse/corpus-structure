@@ -1,0 +1,179 @@
+"""Private custody survives failure before native intent without changing producer facts."""
+
+from concurrent.futures import ThreadPoolExecutor
+from hashlib import sha256
+
+import pytest
+
+from corpus_structure.semantic.completion_drafts import CompletionDraftStore
+
+
+def request():
+    return dict(
+        request_id="request:original",
+        generation=2,
+        task_id=5,
+        attempt=3,
+        holder="original-holder",
+        runtime_id="runtime:original",
+        completion=dict(
+            outcome="empty", outputs=[], inputs=[], support=[], implementation_revision="code:one"
+        ),
+    )
+
+
+def acknowledge(store, **changes):
+    return store.acknowledge(
+        changes.pop("request", request()),
+        release_id="release:original",
+        operation="source.pdf/capture",
+        basis=b'{"recipe":"recipe:one","binding":"binding:one"}',
+        check_active=changes.pop("check_active", lambda: None),
+        **changes,
+    )
+
+
+def test_known_rollback_and_lost_acknowledgment_preserve_exact_draft(tmp_path):
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    first = acknowledge(store)
+    # The settlement transaction fails after the independent private acknowledgment.
+    with pytest.raises(RuntimeError, match="rollback"):
+        raise RuntimeError("native intent rollback")
+    reopened = CompletionDraftStore(tmp_path, max_bytes=65536)
+    assert reopened.open(first.identity) == first
+    assert acknowledge(reopened) == first
+    assert first.native_request() == request()
+    assert tuple(reopened.candidates("request:original", 2)) == (first,)
+    assert tuple(reopened.candidates("request:other", 2)) == ()
+    assert first.release_id == "release:original"
+    assert len(tuple(tmp_path.glob("*.ack"))) == 1
+    assert sha256((tmp_path / (first.identity + ".ack")).read_bytes()).hexdigest() == first.identity
+
+
+def test_concurrent_acknowledgment_converges_on_one_exact_body(tmp_path):
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    with ThreadPoolExecutor(max_workers=3) as workers:
+        results = tuple(workers.map(lambda _: acknowledge(store), range(6)))
+    assert len({draft.identity for draft in results}) == 1
+    assert len(tuple(tmp_path.glob("*.body"))) == len(tuple(tmp_path.glob("*.ack"))) == 1
+
+
+def test_lost_claim_before_ack_keeps_body_inert(tmp_path):
+    calls = 0
+
+    def check_active():
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("claim lost")
+
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    with pytest.raises(RuntimeError, match="claim lost"):
+        acknowledge(store, check_active=check_active)
+    assert len(tuple(tmp_path.glob("*.body"))) == 1
+    assert tuple(tmp_path.glob("*.ack")) == ()
+    assert tuple(store.candidates("request:original", 2)) == ()
+    draft = acknowledge(store)
+    assert store.open(draft.identity).native_request() == request()
+
+
+def test_changed_body_or_unexpected_extent_refuses(tmp_path):
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    draft = acknowledge(store)
+    path = tmp_path / (draft.identity + ".body")
+    original = path.read_bytes()
+    path.write_bytes(original + b" ")
+    with pytest.raises(ValueError, match="extent"):
+        store.open(draft.identity)
+    path.write_bytes(original.replace(b"original-holder", b"forged---holder"))
+    with pytest.raises(ValueError, match="acknowledged body"):
+        store.open(draft.identity)
+
+
+def test_foreign_shape_and_oversized_drafts_refuse_before_ack(tmp_path):
+    store = CompletionDraftStore(tmp_path, max_bytes=100)
+    with pytest.raises(ValueError, match="byte bound"):
+        acknowledge(store)
+    assert not tuple(tmp_path.glob("*.ack"))
+    with pytest.raises(ValueError):
+        CompletionDraftStore(tmp_path, max_bytes=65536).open("../escape")
+
+
+def test_executor_acknowledges_before_native_rollback_and_retries_original_request(
+    tmp_path, monkeypatch
+):
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.orchestrate.data_operations import (
+        NativeDemandExecutor,
+        NativeRequestClaim,
+    )
+    from corpus_structure.semantic.data_operation_ports import PythonPortIdentity
+
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    executor = object.__new__(NativeDemandExecutor)
+    executor.completion_drafts = store
+    executor._draft_origins = {(5, 3): {"origin_id": "origin:actual"}}
+    executor.policy = CharacterizationExecutionPolicy(max_reply_bytes=65536)
+    operation = SimpleNamespace(output_witnesses=(), outcomes=("empty",))
+    context = SimpleNamespace(
+        model=SimpleNamespace(operation=lambda _: operation),
+        basis=SimpleNamespace(runtime=SimpleNamespace(manifest=b"runtime", archive=b"archive")),
+    )
+    monkeypatch.setattr(executor, "_execution_context", lambda claim: context)
+    claim = NativeRequestClaim(
+        "request:original",
+        2,
+        5,
+        3,
+        "original-holder",
+        "release:original",
+        datetime.now(UTC),
+        runtime_id="runtime:original",
+    )
+    ready = SimpleNamespace(operation="source.pdf/capture", binding=b'{"inputs":[],"support":[]}')
+    answer = SimpleNamespace(
+        operation=ready.operation,
+        outputs=(),
+        outcome="empty",
+        execution_evidence=None,
+        product_validation_evidence=None,
+        cpu_execution_evidence=None,
+        pdf_execution_evidence=None,
+        pdf_observation_evidence=None,
+        provider_execution_evidence=None,
+    )
+    port = SimpleNamespace(
+        identity=PythonPortIdentity(
+            "model",
+            ready.operation,
+            "definition",
+            "recipe",
+            "code:one",
+            "declaration",
+            "source",
+            b"{}",
+            "eligibility",
+        )
+    )
+    attempts = []
+
+    def retain(_, action):
+        assert len(tuple(tmp_path.glob("*.ack"))) == 1
+
+        def native(request):
+            attempts.append(request)
+            if len(attempts) == 1:
+                raise RuntimeError("intent rollback")
+            return {"intent_id": "intent:retained"}
+
+        return action(SimpleNamespace(retain_data_completion_intent=native))
+
+    owner = SimpleNamespace(check_claim=lambda _: None, retain=retain)
+    with pytest.raises(RuntimeError, match="intent rollback"):
+        executor._retain_answer(ready, claim, answer, port, owner)
+    assert executor._retain_answer(ready, claim, answer, port, owner) == "intent:retained"
+    assert attempts == [request(), request()]
+    assert len(tuple(tmp_path.glob("*.ack"))) == 1

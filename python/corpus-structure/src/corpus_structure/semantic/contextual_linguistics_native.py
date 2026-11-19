@@ -3,18 +3,20 @@
 from sqlalchemy import JSON, Integer, cast, column, func, literal, or_, select, true
 from sqlalchemy.dialects.postgresql import JSONB
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Block,
     If,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration
 
 
 def linguistic_observation_schema() -> bytes:
@@ -30,7 +32,7 @@ def linguistic_observation_schema() -> bytes:
     return canonical_bytes(generated_json_schema(schema))
 
 
-def contextual_linguistics_native_sql() -> str:
+def contextual_linguistics_native_programs() -> tuple[ProgramDeclaration, ...]:
     from .contextual_linguistics import linguistic_context_statement
 
     observed = core_variable("observed", JSONB())
@@ -66,7 +68,7 @@ def contextual_linguistics_native_sql() -> str:
     schema = cast(literal(linguistic_observation_schema().decode()), JSON())
     validator = "ddo_require_contextual_linguistic_observation"
     reader = "ddo_contextual_linguistic_context"
-    checked = function(
+    checked = NativeRoutine(
         "ops",
         validator,
         parameters=(Parameter("observed", pg_type("jsonb")),),
@@ -108,7 +110,7 @@ def contextual_linguistics_native_sql() -> str:
     )
     observation = linguistic_context_statement().subquery("observation")
     (value,) = observation.c
-    current = sql_function(
+    current = NativeRoutine(
         "ops",
         reader,
         parameters=(),
@@ -117,13 +119,26 @@ def contextual_linguistics_native_sql() -> str:
         search_path=("pg_catalog", "pg_temp"),
         body=select(func.ops.ddo_require_contextual_linguistic_observation(value)),
     )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        )
+        for routine in (checked, current)
+    )
+
+
+def contextual_linguistics_native_sql() -> str:
+    """Render the capture's definitions followed by their existing ACL projection."""
+    declarations = contextual_linguistics_native_programs()
     return native_sql_script(
         (
-            checked,
-            current,
-            native_privilege_sql(
-                NativeIdentity("function", "ops", validator, ("jsonb",)), "PUBLIC", grant=False
+            *(declaration.routine.render() for declaration in declarations),
+            *(
+                native_privilege_sql(declaration.identity, "PUBLIC", grant=False)
+                for declaration in declarations
             ),
-            native_privilege_sql(NativeIdentity("function", "ops", reader), "PUBLIC", grant=False),
         )
     )

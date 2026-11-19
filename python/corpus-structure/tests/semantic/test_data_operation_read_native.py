@@ -33,7 +33,7 @@ def test_program_cpu_reply_preserves_exact_utf8_receipt_and_declared_object(
         evidence["cpu_replies"] = [dict(value=7)]
     connection = infrastructure_rollback
     connection.exec_driver_sql("CREATE SCHEMA ops")
-    execute_native_sql(connection, _cpu_reply_program())
+    execute_native_sql(connection, _cpu_reply_program().render())
 
     def read():
         return connection.scalar(
@@ -76,7 +76,7 @@ def _body_fixture(connection):
             )
         )
     for program in _body_access_programs(get_metadata()):
-        execute_native_sql(connection, program)
+        execute_native_sql(connection, program.render())
 
 
 def _packet(kind, body):
@@ -220,7 +220,7 @@ def test_program_binding_requires_exact_read_and_frozen_operation_before_project
         )
     )
     for program in _binding_programs(get_metadata()):
-        execute_native_sql(connection, program)
+        execute_native_sql(connection, program.render())
     query = text(
         "SELECT * FROM ops.ddo_binding_rows('demand:literal',:operation,'{}'::jsonb,:read,NULL,CAST(:source AS jsonb),NULL,true,NULL,true)"
     )
@@ -258,7 +258,7 @@ def test_program_execution_inspection_returns_only_exact_selected_contract_runti
     payload, _ = _archive(connection)
     _admit(connection, payload)
     for program in _inspection_programs(get_metadata()):
-        execute_native_sql(connection, program)
+        execute_native_sql(connection, program.render())
     manifest, archive = b'{"retained":"manifest"}', b"actual retained runtime archive"
     connection.execute(
         insert(get_metadata().tables["sem.runtime_binding"]).values(

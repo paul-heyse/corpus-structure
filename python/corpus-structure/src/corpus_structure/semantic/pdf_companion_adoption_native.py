@@ -22,11 +22,15 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSON, JSONB, REGCLASS, array, insert
 
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import NativeProgramAccess
 from .native_program import (
     Assign,
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     PerformQuery,
@@ -36,9 +40,9 @@ from .native_program import (
     Statement,
     column_type,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 from .native_shapes import record_shape_expression
 from .pdf_payload_validation import metadata_classes
 from .pdf_payloads import FAMILY, PROFILE
@@ -47,7 +51,7 @@ from .pdf_staging import stage_upload_profile
 from .pdf_staging_native import native_payload_size_expression
 
 
-def companion_adoption_sql(context, metadata):
+def companion_adoption_programs(context, metadata) -> tuple[ProgramDeclaration, ...]:
     specs = pdf_companion_scratch_specs(metadata)
     targets = {spec.source.name: spec.source for spec in specs}
     scratch = {
@@ -641,34 +645,47 @@ def companion_adoption_sql(context, metadata):
             ("p_holder", build.c.holder),
         )
     )
-    return (
-        function(
-            "ops",
-            "prepare_pdf_companions",
-            parameters=(),
-            returns=pg_type("void"),
-            security_definer=True,
-            search_path=("pg_catalog", "pg_temp"),
-            body=Block(tuple(step for spec in specs for step in pdf_scratch_prepare(spec))),
-        )
-        + ";\n"
-        + function(
-            "ops",
-            "adopt_pdf_companions",
-            parameters=(*parameters, Parameter("p_key", pg_type("text"))),
-            returns=pg_type("void"),
-            security_definer=True,
-            search_path=("pg_catalog", "pg_temp"),
-            body=Block(
-                tuple(statements),
-                (
-                    Local("b", build),
-                    Local("n", pg_type("bigint")),
-                    Local("size_", pg_type("bigint")),
-                    Local("total", pg_type("bigint"), literal(0)),
-                    Local("total_bytes", pg_type("bigint"), literal(0)),
-                ),
+    prepare = NativeRoutine(
+        "ops",
+        "prepare_pdf_companions",
+        parameters=(),
+        returns=pg_type("void"),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(tuple(step for spec in specs for step in pdf_scratch_prepare(spec))),
+    )
+    adopt = NativeRoutine(
+        "ops",
+        "adopt_pdf_companions",
+        parameters=(*parameters, Parameter("p_key", pg_type("text"))),
+        returns=pg_type("void"),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            tuple(statements),
+            (
+                Local("b", build),
+                Local("n", pg_type("bigint")),
+                Local("size_", pg_type("bigint")),
+                Local("total", pg_type("bigint"), literal(0)),
+                Local("total_bytes", pg_type("bigint"), literal(0)),
             ),
+        ),
+    )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            "authoring/pdf-companion-adoption.sql",
+            role_name("publisher"),
+            NativeProgramAccess(purposes=("write",)),
         )
-        + ";\n"
+        for routine in (prepare, adopt)
+    )
+
+
+def companion_adoption_sql(context, metadata) -> str:
+    """Render bodies only; publication capture owns their existing raw ACL statements."""
+    return "".join(
+        program.routine.render() + ";\n"
+        for program in companion_adoption_programs(context, metadata)
     )

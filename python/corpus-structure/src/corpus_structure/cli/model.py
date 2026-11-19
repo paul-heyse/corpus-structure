@@ -361,14 +361,18 @@ def _retained_sql_explanation(result, explanation):
             _publish_sql_explanation(result, holder[0])
 
 
-def _retain_authored_sql(holder, dependencies, before=None, *, preserve=False):
-    from corpus_structure.schema.model_explanation import sql_change
-
-    current = {
+def _authored_sql_sources(dependencies):
+    return {
         item.name: item.content
         for item in dependencies.artifacts
         if item.name.startswith("authored-sql/")
     }
+
+
+def _retain_authored_sql(holder, dependencies, before=None, *, preserve=False):
+    from corpus_structure.schema.model_explanation import sql_change
+
+    current = _authored_sql_sources(dependencies)
     prior = {item.identity: item for item in holder[0].changes}
     if preserve:
         for name, item in prior.items():
@@ -1477,6 +1481,35 @@ def preview(
             else:
                 raw = read_request_bytes(request)
                 bound = ChangeRequest.model_validate(yaml.safe_load(raw.decode("utf-8")))
+            if bound.native_predecessor and not any(
+                (
+                    bound.deployment,
+                    bound.physical,
+                    bound.logical_sources,
+                    bound.archive_release,
+                    bound.packs,
+                    bound.data_operations,
+                    bound.source_migrations,
+                    bound.retire,
+                    bound.recreate,
+                    bound.data_steps,
+                )
+            ):
+                from corpus_structure.cli.schema import emit_unchanged_native
+                from corpus_structure.semantic.metadata import get_metadata
+                from corpus_structure.semantic.native_revision_compare import (
+                    unchanged_native_programs,
+                )
+                from corpus_structure.semantic.target_installation import (
+                    capture_target_installation,
+                )
+
+                comparison = unchanged_native_programs(
+                    capture_target_installation(get_metadata()), bound.native_predecessor
+                )
+                if comparison is not None:
+                    emit_unchanged_native(result, comparison, json_=json_)
+                    return
             from corpus_structure.schema.model_explanation import capture_sql_changes
 
             with _retained_sql_explanation(
@@ -1581,7 +1614,7 @@ def preview(
                 if bound.archive_release:
                     model_stage(result, "compare archived release")
                     from corpus_structure.semantic.read_snapshot import read_snapshot
-                    from corpus_structure.semantic.releases import open_release
+                    from corpus_structure.semantic.releases import open_release_inputs
                     from corpus_structure.semantic.runtime import open_runtime_engine
 
                     assert local is not None and dependencies is not None
@@ -1591,15 +1624,11 @@ def preview(
                         ) as engine,
                         read_snapshot(engine) as connection,
                     ):
-                        before = open_release(connection, bound.archive_release)
-                        from corpus_structure.semantic.authored_sql import _archive_inputs
-
+                        _, old_dependencies, _, before = open_release_inputs(
+                            connection, bound.archive_release
+                        )
                         _retain_authored_sql(
-                            sql_holder,
-                            dependencies,
-                            _archive_inputs(
-                                connection, bound.archive_release, include_physical=False
-                            ),
+                            sql_holder, dependencies, _authored_sql_sources(old_dependencies)
                         )
                         if bound.data_operations is not None:
                             from corpus_structure.semantic.data_operation_admission import (
@@ -1860,7 +1889,6 @@ def candidate(
         target_fingerprint,
     )
     from corpus_structure.schema.preparation import writer_lock
-    from corpus_structure.semantic.authored_sql import SQLAdmissionError, prepare_release_sql
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.prepared_sql import SQLSyntaxError
     from corpus_structure.semantic.releases import ReleaseConflict
@@ -1869,7 +1897,6 @@ def candidate(
         ModelError,
         ResultError,
         NativeAuthoringError,
-        SQLAdmissionError,
         SQLSyntaxError,
         OSError,
         ReleaseConflict,
@@ -1924,7 +1951,6 @@ def candidate(
                     prepared = None
                     release_inputs = None
                     capsule: bytes | None = None
-                    sql_inputs = None
                     if staged.effects.admission:
                         from corpus_structure.schema.model_change import compilation_fingerprint
                         from corpus_structure.semantic.inspection_capsule import open_capsule_inputs
@@ -1959,7 +1985,6 @@ def candidate(
                         _bundle, dependencies, _profile, prepared = release_inputs
                         staged.verify_release(prepared)
                         _retain_authored_sql(sql_holder, dependencies, preserve=True)
-                        sql_inputs = prepare_release_sql(prepared, dependencies)
                     runtime = _read_runtime(store, change, staged.runtime, prepared)
                     if runtime is not None:
                         _publish_runtime(result, runtime)
@@ -1978,13 +2003,6 @@ def candidate(
                         )
                         model_stage(result, "rollback-only authoring")
                         target_metadata = approved_physical_metadata(root, staged)
-                        if (
-                            sql_inputs is not None
-                            and sql_inputs.physical_id != target_metadata.info["physical_model_id"]
-                        ):
-                            raise SQLAdmissionError(
-                                "authored SQL physical model differs from the approved revision"
-                            )
                         native, products = author_native_candidate(
                             settings,
                             None,
@@ -2151,7 +2169,6 @@ def deploy(
     from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_deployment import Candidate, deploy_candidate
     from corpus_structure.schema.preparation import writer_lock
-    from corpus_structure.semantic.authored_sql import SQLAdmissionError
     from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
     from corpus_structure.semantic.migrations import MigrationPredecessorError
     from corpus_structure.semantic.refusals import SemanticRefusal
@@ -2160,7 +2177,6 @@ def deploy(
     expected = (
         ModelError,
         ResultError,
-        SQLAdmissionError,
         MigrationPredecessorError,
         ExecutionAdmissionError,
         SemanticRefusal,

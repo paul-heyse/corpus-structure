@@ -20,6 +20,7 @@ from sqlalchemy.dialects.postgresql import JSONB, array, distinct_on, insert
 from sqlalchemy.sql import update
 from sqlalchemy.types import NullType
 
+from .data_operation_native_identity import native_identity_field
 from .native_objects import native_sql_script
 from .native_program import (
     Assign,
@@ -28,6 +29,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Return,
@@ -35,7 +37,6 @@ from .native_program import (
     Sql,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
 
@@ -98,7 +99,7 @@ def _reject(when, message):
 
 
 def _procedure(name, steps, locals_):
-    return function(
+    return NativeRoutine(
         "ops",
         name,
         parameters=(Parameter("p_payload", pg_type("jsonb")),),
@@ -109,7 +110,7 @@ def _procedure(name, steps, locals_):
     )
 
 
-def _publish_derivation(model: MetaData, kernel_digest: str) -> str:
+def _publish_derivation(model: MetaData) -> NativeRoutine:
     requests = model.tables["ops.data_request"]
     tasks = model.tables["ops.task"]
     intents = model.tables["ops.data_completion_intent"]
@@ -117,6 +118,8 @@ def _publish_derivation(model: MetaData, kernel_digest: str) -> str:
     runtimes = model.tables["sem.runtime_binding"]
     definitions = model.tables["sem.data_operation_definition"]
     adoptions = model.tables["ops.data_intent_adoption"]
+    origins = model.tables["ops.data_execution_origin"]
+    consumptions = model.tables["ops.data_draft_consumption"]
     revocations = model.tables["ops.data_revocation"]
     episodes = model.tables["ops.data_derivation"]
     inputs = model.tables["ops.data_derivation_input"]
@@ -161,6 +164,17 @@ def _publish_derivation(model: MetaData, kernel_digest: str) -> str:
         .exists()
     )
 
+    consumed_draft = (
+        select(1)
+        .select_from(consumptions)
+        .where(
+            consumptions.c.intent_id == intent("id"),
+            consumptions.c.request_id == payload["request_id"].astext,
+            consumptions.c.generation == generation,
+        )
+        .exists()
+    )
+
     def publication_response(receipt, derivation, replayed, snapshot):
         return _record(
             receipt_id=receipt, derivation_id=derivation, replayed=replayed, trust_snapshot=snapshot
@@ -170,9 +184,17 @@ def _publish_derivation(model: MetaData, kernel_digest: str) -> str:
         SelectInto(_query(receipts).where(receipts.c.intent_id == intent("id")), ("receipt",)),
         If(
             and_(
-                core_variable("found", Boolean()), same_request, intent("generation") == generation
+                core_variable("found", Boolean()),
+                same_request,
+                or_(intent("generation") == generation, consumed_draft),
             ),
             (
+                If(
+                    receipt("validating_kernel_digest").is_distinct_from(
+                        native_identity_field("source_digest")
+                    ),
+                    (Perform(func.ops.ddo_reconfirm_completion_validity(receipt("id"))),),
+                ),
                 Return(
                     _record(
                         payload=publication_response(
@@ -265,7 +287,7 @@ def _publish_derivation(model: MetaData, kernel_digest: str) -> str:
         select(observations)
         .where(
             observations.c.request_id == request("id"),
-            observations.c.generation == request("generation"),
+            observations.c.generation == generation,
         )
         .ext(distinct_on(observations.c.obligation_id))
         .order_by(
@@ -297,7 +319,7 @@ def _publish_derivation(model: MetaData, kernel_digest: str) -> str:
                 recent.c.obligation_id,
                 case((result == "failed", "failed"), else_="fulfilled"),
                 request("id"),
-                request("generation"),
+                generation,
                 episode,
                 recent.c.selection,
                 snapshot,
@@ -337,11 +359,41 @@ def _publish_derivation(model: MetaData, kernel_digest: str) -> str:
             _reject(
                 or_(
                     ~same_request,
-                    intent("generation") != request("generation"),
-                    intent("generation") != generation,
+                    and_(
+                        ~consumed_draft,
+                        or_(
+                            intent("generation") != request("generation"),
+                            intent("generation") != generation,
+                        ),
+                    ),
                     ~or_(tuple_(*actual_producer) == tuple_(*active_attempt), linked_attempt),
                 ),
                 "intent is not bound to current attempt",
+            ),
+            If(
+                consumed_draft,
+                (
+                    Perform(func.ops.ddo_require_completion_live(composite, content)),
+                    SelectInto(
+                        select(origins.c.request_snapshot)
+                        .select_from(
+                            origins.join(consumptions, consumptions.c.origin_id == origins.c.id)
+                        )
+                        .where(
+                            consumptions.c.intent_id == intent("id"),
+                            consumptions.c.request_id == request("id"),
+                            consumptions.c.generation == generation,
+                        ),
+                        ("original_request_",),
+                        strict=True,
+                    ),
+                    Assign(
+                        "r",
+                        func.jsonb_populate_record(
+                            composite, core_variable("original_request_", JSONB())
+                        ),
+                    ),
+                ),
             ),
             Perform(func.ops.ddo_assert_support(composite, content["support"])),
             Perform(func.sem.require_runtime_binding(request("release_id"), intent("runtime_id"))),
@@ -611,7 +663,10 @@ def _publish_derivation(model: MetaData, kernel_digest: str) -> str:
                     publishing_task_id=task("id"),
                     publishing_attempt=task("attempt"),
                     trust_snapshot=snapshot,
-                    validating_kernel_digest=kernel_digest,
+                    validating_kernel_digest=native_identity_field("source_digest"),
+                    validation_identities=func.ops.ddo_current_validation_identities(
+                        request("release_id"), request("operation_id"), type_=JSONB()
+                    ),
                 )
             ),
             Sql(
@@ -632,6 +687,7 @@ def _publish_derivation(model: MetaData, kernel_digest: str) -> str:
         ),
         (
             Local("r", requests),
+            Local("original_request_", pg_type("jsonb")),
             Local("t", tasks),
             Local("i", intents),
             Local("receipt", receipts),
@@ -652,13 +708,14 @@ def _publish_derivation(model: MetaData, kernel_digest: str) -> str:
     )
 
 
-def _inspect_completion(model: MetaData) -> str:
+def _inspect_completion(model: MetaData) -> NativeRoutine:
     requests = model.tables["ops.data_request"]
     intents = model.tables["ops.data_completion_intent"]
     demands = model.tables["ops.data_demand"]
     observations = model.tables["ops.demand_use"]
     receipts = model.tables["ops.data_publication_receipt"]
     episodes = model.tables["ops.data_derivation"]
+    consumptions = model.tables["ops.data_draft_consumption"]
     payload = core_variable("p_payload", JSONB())
     request = _owned_row("r", requests)
     intent = _owned_row("i", intents)
@@ -669,6 +726,17 @@ def _inspect_completion(model: MetaData) -> str:
     demand = payload["demand_id"].astext
     request_id = payload["request_id"].astext
     generation = cast(payload["generation"].astext, requests.c.generation.type)
+    adopted = (
+        select(1)
+        .select_from(consumptions)
+        .where(
+            consumptions.c.intent_id == intents.c.id,
+            consumptions.c.request_id == request("id"),
+            consumptions.c.generation == generation,
+        )
+        .correlate(intents)
+        .exists()
+    )
     selected = _intent_lookup(intents, payload["intent_id"].astext)
     full = _record(
         state="committed",
@@ -743,7 +811,7 @@ def _inspect_completion(model: MetaData) -> str:
             SelectInto(
                 selected.where(
                     intents.c.request_id == request("id"),
-                    or_(~has_generation, intents.c.generation == generation),
+                    or_(~has_generation, intents.c.generation == generation, adopted),
                 ),
                 ("i",),
             ),
@@ -793,7 +861,9 @@ def _inspect_completion(model: MetaData) -> str:
     )
 
 
-def data_derivation_sql(model: MetaData, *, kernel_digest: str) -> str:
-    return native_sql_script(
-        (_publish_derivation(model, kernel_digest), _inspect_completion(model))
-    )
+def data_derivation_programs(model: MetaData) -> tuple[NativeRoutine, ...]:
+    return _publish_derivation(model), _inspect_completion(model)
+
+
+def data_derivation_sql(model: MetaData) -> str:
+    return native_sql_script(item.render() for item in data_derivation_programs(model))

@@ -7,6 +7,7 @@ Preparation does not import any operation implementation.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from hashlib import sha256
 from pathlib import Path
@@ -59,12 +60,13 @@ def compile_data_operation_artifacts(
     native_calls: tuple[tuple[str, OperationCallBinding], ...],
     *,
     native_source_digest: str,
+    native_program_digests: Mapping[str, str] | None = None,
     generator_sources: tuple[SourceArtifact, ...] | None = None,
 ) -> DataOperationArtifacts:
     """Derive immutable products using the same native/nominal/Pydantic emitter.
 
-    `native_calls` is acquired from the trusted physical-model owner. Its source
-    digest and complete resolved field representation are release determinants.
+    `native_calls` is acquired from the trusted physical-model owner. The kernel
+    identifies that acquisition and the program digests authenticate its calls.
     The caller archives these products and native admission authenticates them;
     producing this object does not admit a model or authorize SQL execution.
     """
@@ -90,7 +92,12 @@ def compile_data_operation_artifacts(
         if not any(i.owner == owner and i.domain == "recipe" for i in model.identities):
             raise ValueError("native correspondence requires a complete effective recipe")
         _validate_native_correspondence(model, operation, call)
-        if call.source_digest != native_source_digest:
+        expected = (
+            native_source_digest
+            if native_program_digests is None
+            else native_program_digests.get(call.id)
+        )
+        if call.source_digest != expected:
             raise ValueError("native correspondence source identity differs from captured source")
     wire_schemas = {
         call.id: _wire_boundary_schemas(model, model.operation(owner), call)

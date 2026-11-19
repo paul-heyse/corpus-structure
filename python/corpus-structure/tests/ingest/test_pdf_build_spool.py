@@ -349,3 +349,56 @@ def test_recovery_precedence_uses_authenticated_numeric_attempt(tmp_path):
     finally:
         for capability in capabilities:
             capability.close()
+
+
+def test_cross_build_uptake_requires_matching_material_and_native_authority(tmp_path):
+    from dataclasses import replace
+
+    from corpus_structure.ingest.pdf_build_spool import verify_spool_recovery
+
+    prior = exact_premises()
+    with spool(tmp_path) as writer:
+        writer.declare_premises(prior, "f" * 64)
+    target = replace(
+        prior,
+        producer=replace(
+            prior.producer,
+            request_id="request:next",
+            generation=2,
+            release_id="release:next",
+            definition="definition:next",
+            runtime_id="runtime:next",
+        ),
+    )
+    assert not prior.reusable_with(target)
+    assert prior.material_basis() == target.material_basis()
+    arguments = dict(
+        build_id="build:next",
+        task_id=9,
+        before_attempt=1,
+        premises=target,
+        check_active=lambda: None,
+        source_build=("build:one", 3),
+    )
+    with pytest.raises(ValueError, match="native compatibility"):
+        verify_spool_recovery(tmp_path, **arguments)
+    assert verify_spool_recovery(tmp_path, **arguments, verify_compatibility=lambda *_: False) == ()
+    seen = []
+
+    def admitted(owner, source, destination):
+        seen.append((owner, source, destination))
+        return True
+
+    recovered = verify_spool_recovery(tmp_path, **arguments, verify_compatibility=admitted)
+    try:
+        assert len(recovered) == 1
+        assert recovered[0].premises == prior
+        assert recovered[0].owner.build_id == "build:one"
+        assert seen[0][0].producer_id == "f" * 64
+    finally:
+        for capability in recovered:
+            capability.close()
+    seen.clear()
+    arguments["premises"] = replace(target, source_digest="0" * 64)
+    assert verify_spool_recovery(tmp_path, **arguments, verify_compatibility=admitted) == ()
+    assert seen == []

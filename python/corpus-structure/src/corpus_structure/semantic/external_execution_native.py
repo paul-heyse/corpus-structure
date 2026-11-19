@@ -20,13 +20,17 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array, insert
 
+from corpus_structure.schema.integrity import role_name
+
 from .binding_recursive_native import _check, _elements, _json, _texts, _value
+from .native_objects import INTERNAL_PROGRAM
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     PerformQuery,
@@ -36,10 +40,9 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration
 
 
 def _object(**fields):
@@ -48,7 +51,7 @@ def _object(**fields):
     )
 
 
-def external_execution_native_sql(model, protocol: bytes):
+def external_execution_native_programs(model, protocol: bytes) -> tuple[ProgramDeclaration, ...]:
     """Emit one authoritative native packet, attempt and immutable receipt owner."""
     schema = yaml.safe_load(protocol)
     definitions = schema["definitions"]
@@ -161,18 +164,15 @@ def external_execution_native_sql(model, protocol: bytes):
         )
 
     def procedure(name, parameters, steps, locals_=(), *, returns="jsonb", volatility=None):
-        return (
-            function(
-                "ops",
-                name,
-                parameters=parameters,
-                returns=pg_type(returns),
-                body=Block(tuple(steps), tuple(locals_)),
-                volatility=volatility,
-                security_definer=True,
-                search_path=("pg_catalog", "pg_temp"),
-            )
-            + ";\n"
+        return NativeRoutine(
+            "ops",
+            name,
+            parameters=parameters,
+            returns=pg_type(returns),
+            body=Block(tuple(steps), tuple(locals_)),
+            volatility=volatility,
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
         )
 
     def wire(name, steps, names):
@@ -297,63 +297,57 @@ def external_execution_native_sql(model, protocol: bytes):
     )
     input_result = pg_type("jsonb")
     input_result.setof = True
-    inputs_sql = (
-        sql_function(
-            "ops",
-            "ddo_external_input_rows",
-            parameters=(Parameter("r", pg_type(str(requests.schema), requests.name)),),
-            returns=input_result,
-            body=select(input_fields)
-            .select_from(
-                input_items.join(product, product.c.id == item["product_id"].astext).outerjoin(
-                    member,
-                    and_(
-                        member.c.product_id == product.c.id,
-                        member.c.member_id == item["member_id"].astext,
-                    ),
-                )
+    inputs_sql = NativeRoutine(
+        "ops",
+        "ddo_external_input_rows",
+        parameters=(Parameter("r", pg_type(str(requests.schema), requests.name)),),
+        returns=input_result,
+        body=select(input_fields)
+        .select_from(
+            input_items.join(product, product.c.id == item["product_id"].astext).outerjoin(
+                member,
+                and_(
+                    member.c.product_id == product.c.id,
+                    member.c.member_id == item["member_id"].astext,
+                ),
             )
-            .where(or_(item["member_id"].astext.is_(None), member.c.member_id.is_not(None)))
-            .order_by(input_items.c.ordinal),
-            volatility="stable",
-            search_path=("pg_catalog", "pg_temp"),
         )
-        + ";\n"
+        .where(or_(item["member_id"].astext.is_(None), member.c.member_id.is_not(None)))
+        .order_by(input_items.c.ordinal),
+        volatility="stable",
+        search_path=("pg_catalog", "pg_temp"),
     )
-    receipt_sql = (
-        sql_function(
-            "ops",
-            "ddo_external_receipt_value",
-            parameters=(Parameter("receipt", pg_type(str(receipts.schema), receipts.name)),),
-            returns=pg_type("jsonb"),
-            body=select(
-                _object(
-                    version="external-execution-receipt-v1",
-                    receipt_id=receipt("id"),
-                    **{
-                        name: receipt(name)
-                        for name in (
-                            "packet_id",
-                            "packet_digest",
-                            "request_id",
-                            "generation",
-                            "task_id",
-                            "attempt",
-                            "holder",
-                            "runtime_id",
-                            "admitting_principal",
-                            "actor_assertion",
-                            "model_assertion",
-                            "result_digest",
-                        )
-                    },
-                )
-            ),
-            volatility="immutable",
-            strict=True,
-            search_path=("pg_catalog", "pg_temp"),
-        )
-        + ";\n"
+    receipt_sql = NativeRoutine(
+        "ops",
+        "ddo_external_receipt_value",
+        parameters=(Parameter("receipt", pg_type(str(receipts.schema), receipts.name)),),
+        returns=pg_type("jsonb"),
+        body=select(
+            _object(
+                version="external-execution-receipt-v1",
+                receipt_id=receipt("id"),
+                **{
+                    name: receipt(name)
+                    for name in (
+                        "packet_id",
+                        "packet_digest",
+                        "request_id",
+                        "generation",
+                        "task_id",
+                        "attempt",
+                        "holder",
+                        "runtime_id",
+                        "admitting_principal",
+                        "actor_assertion",
+                        "model_assertion",
+                        "result_digest",
+                    )
+                },
+            )
+        ),
+        volatility="immutable",
+        strict=True,
+        search_path=("pg_catalog", "pg_temp"),
     )
     active_sql = procedure(
         "ddo_assert_external_active",
@@ -1164,18 +1158,33 @@ def external_execution_native_sql(model, protocol: bytes):
         ),
         ("r", "t", "packet"),
     )
-    return "\n".join(
-        (
-            inputs_sql,
-            receipt_sql,
-            active_sql,
-            retain_sql,
-            queue_sql,
-            claim_sql,
-            read_sql,
-            require_sql,
-            admit_sql,
-            inspect_sql,
-            release_sql,
+    routines = (
+        inputs_sql,
+        receipt_sql,
+        active_sql,
+        retain_sql,
+        queue_sql,
+        claim_sql,
+        read_sql,
+        require_sql,
+        admit_sql,
+        inspect_sql,
+        release_sql,
+    )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
         )
+        for routine in routines
+    )
+
+
+def external_execution_native_sql(model, protocol: bytes) -> str:
+    """Render the existing external execution capture before wire-name projection."""
+    return "\n".join(
+        declaration.routine.render() + ";\n"
+        for declaration in external_execution_native_programs(model, protocol)
     )

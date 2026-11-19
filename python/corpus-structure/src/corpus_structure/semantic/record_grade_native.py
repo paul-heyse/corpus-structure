@@ -1,7 +1,6 @@
 """Compile protected grading custody over exact native cuts and reference passes."""
 
 from pglast import ast
-from pglast.stream import RawStream
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -23,13 +22,15 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.types import NullType
 
+from corpus_structure.schema.integrity import role_name
+
 from .data_operation_projections import (
     cut_selection_projection,
     read_page,
     record_grade_census_nodes,
     record_grade_selected_outputs,
 )
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
@@ -39,6 +40,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -48,14 +50,11 @@ from .native_program import (
     While,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration, ProgramValidity
 from .record_policy_authority import GRADE_KIND
 from .validity_programs import selected_family
-
-_READING = "resolve.m1_readings/declared"
 
 
 def _json(value):
@@ -101,7 +100,17 @@ def _refuse(condition, message):
 
 
 def _defined(
-    schema, name, args, returns, *, body=None, query=None, locals_=(), columns=(), setof=False
+    schema,
+    name,
+    args,
+    returns,
+    *,
+    body=None,
+    query=None,
+    locals_=(),
+    columns=(),
+    setof=False,
+    validity=(),
 ):
     parameters = tuple(
         Parameter(label, pg_type(*type_.split(".")), *default) for label, type_, *default in args
@@ -111,33 +120,28 @@ def _defined(
     table_columns = tuple((label, pg_type(type_)) for label, type_ in columns)
     if query is None:
         assert body is not None
-        declaration = function(
-            schema,
-            name,
-            body=Block(tuple(body), tuple(locals_)),
-            table_columns=table_columns,
-            parameters=parameters,
-            returns=output,
-            volatility="stable",
-            search_path=("pg_catalog", "pg_temp"),
-            security_definer=True,
-        )
+        native_body = Block(tuple(body), tuple(locals_))
     else:
-        declaration = sql_function(
-            schema,
-            name,
-            body=query,
-            table_columns=table_columns,
-            parameters=parameters,
-            returns=output,
-            volatility="stable",
-            search_path=("pg_catalog", "pg_temp"),
-            security_definer=True,
-        )
-    identity = NativeIdentity(
-        "function", schema, name, tuple(RawStream()(item.type_) for item in parameters)
+        native_body = query
+    return (
+        ProgramDeclaration(
+            NativeRoutine(
+                schema,
+                name,
+                body=native_body,
+                table_columns=table_columns,
+                parameters=parameters,
+                returns=output,
+                volatility="stable",
+                search_path=("pg_catalog", "pg_temp"),
+                security_definer=True,
+            ),
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+            validity=validity,
+        ),
     )
-    return declaration, native_privilege_sql(identity, "PUBLIC", grant=False)
 
 
 def _grade(name, args, returns, **body):
@@ -758,6 +762,7 @@ def _request_cut_programs(model):
                 Local("intent", intents),
                 Local("captured", pg_type("record")),
             ),
+            validity=(ProgramValidity("record-grade", "validator"),),
         ),
     )
 
@@ -956,12 +961,15 @@ def _frame_program(model: MetaData):
                 differs(reading_request("operation_id"), reading("operation_id")),
                 differs(reading("profile"), "derivation"),
                 differs(reading("support_contract")["effects"], _json("[]")),
-                differs(
+                func.nullif(
                     reading("support_contract")["capabilities"]["prepared_factory"][
                         "entrypoint"
                     ].astext,
-                    "corpus_structure.methods.reading_resolution.ReadingResolutionOperation.acquire_port",
-                ),
+                    "",
+                ).is_(None),
+                reading("support_contract")["capabilities"]["prepared_factory"]["source_digest"]
+                .astext.op("~")("^[0-9a-f]{64}$")
+                .is_not(True),
                 differs(
                     j["reading_completion"]["implementation_revision"].astext,
                     reading("implementation_revision"),
@@ -1201,7 +1209,16 @@ def _frame_program(model: MetaData):
         ),
         _refuse(
             or_(
-                differs(obligation["operation_id"].astext, _READING),
+                ~select(1)
+                .select_from(definitions)
+                .where(
+                    definitions.c.release_id == selection_cut["release_id"].astext,
+                    definitions.c.operation_id == obligation["operation_id"].astext,
+                    definitions.c.recipe == question["reading_recipe"].astext,
+                    definitions.c.profile == "derivation",
+                    definitions.c.support_contract["effects"] == _json("[]"),
+                )
+                .exists(),
                 _different(
                     obligation, question_source, "subject", "subject_definition", "original_source"
                 ),
@@ -1301,7 +1318,7 @@ def _frame_program(model: MetaData):
             _rows(
                 definitions,
                 definitions.c.release_id == producer("release_id"),
-                definitions.c.operation_id == _READING,
+                definitions.c.recipe == producer("recipe"),
             ),
             ("reading",),
             strict=True,
@@ -1541,19 +1558,30 @@ def _completion_programs(model):
                     func.ops.ddo_record_grade_require_frame(r, func.data.ddo_json(result_body))
                 ),
             ),
+            validity=(ProgramValidity("record-grade", "completion_guard"),),
         ),
     )
 
 
+def record_grade_native_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
+    return (
+        *_class_contract(model),
+        *_grade_inputs(model),
+        *_finite_census(model),
+        *_cut_programs(model),
+        *_request_cut_programs(model),
+        *_frame_program(model),
+        *_completion_programs(model),
+    )
+
+
 def record_grade_native_sql(model: MetaData) -> str:
+    """Render the current capture from its typed declarations."""
     return native_sql_script(
-        (
-            *_class_contract(model),
-            *_grade_inputs(model),
-            *_finite_census(model),
-            *_cut_programs(model),
-            *_request_cut_programs(model),
-            *_frame_program(model),
-            *_completion_programs(model),
+        statement
+        for declaration in record_grade_native_programs(model)
+        for statement in (
+            declaration.routine.render(),
+            native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
         )
     )

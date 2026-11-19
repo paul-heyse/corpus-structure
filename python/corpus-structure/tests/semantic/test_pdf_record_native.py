@@ -146,9 +146,14 @@ def test_independent_model_edit_changes_ddl_arrow_boundary_and_admission(tmp_pat
 
 
 def test_current_publication_uses_record_products_without_legacy_bridges():
-    from corpus_structure.semantic.pdf_publication_native import publication_sql
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+    from corpus_structure.semantic.pdf_publication_native import publication_native_programs
 
-    sql = publication_sql()
+    sql = "\n".join(
+        item.render()
+        for item in publication_native_programs(get_metadata(), trusted_pdf_context().domain)
+    )
     assert "legacy_integrated_source_context" not in sql
     assert "FROM kb.native_document_" not in sql
     assert "FROM ops.native_document_product" not in sql

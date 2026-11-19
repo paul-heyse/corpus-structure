@@ -18,12 +18,13 @@ from sqlalchemy.dialects.postgresql import JSONB, array, insert
 
 from corpus_structure.schema.integrity import role_name
 
-from .native_objects import native_sql_script
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, native_sql_script
 from .native_program import (
     Assign,
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     PerformQuery,
@@ -35,15 +36,17 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
     variable,
 )
+from .native_program_registry import ProgramDeclaration
 
 ASSET_DIGEST_BASIS = "source-admission-helper-asset-digest"
 
 
-def source_original_programs(model: MetaData, asset_digest: str) -> str:
+def source_original_native_programs(
+    model: MetaData, asset_digest: str
+) -> tuple[ProgramDeclaration, ...]:
     """Render finalized helper admission and exact binary original registration."""
     from .original_document_contracts import ASSET, CONTRACT, OPERATION, ROLE
 
@@ -91,7 +94,7 @@ def source_original_programs(model: MetaData, asset_digest: str) -> str:
             ),
         )
     )
-    require = function(
+    require = NativeRoutine(
         "ops",
         "require_source_admission",
         parameters=(Parameter("p_release", column_type(finalization.c.release_id)),),
@@ -127,7 +130,7 @@ def source_original_programs(model: MetaData, asset_digest: str) -> str:
         type_=Boolean(),
     )
     payload = core_variable("p_payload", JSONB())
-    initialize = function(
+    initialize = NativeRoutine(
         "ops",
         "initialize_source_project",
         parameters=(Parameter("p_payload", pg_type("jsonb")),),
@@ -188,7 +191,7 @@ def source_original_programs(model: MetaData, asset_digest: str) -> str:
     )
     returns = pg_type("kb", "document")
     returns.setof = True
-    registration = function(
+    registration = NativeRoutine(
         "ops",
         "register_original_document",
         parameters=(
@@ -275,4 +278,23 @@ def source_original_programs(model: MetaData, asset_digest: str) -> str:
         security_definer=True,
         search_path=("pg_catalog", "pg_temp"),
     )
-    return native_sql_script((require, initialize, registration))
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operation-source-admission:forward",
+            owner=role_name("publisher"),
+            access=access,
+        )
+        for routine, access in (
+            (require, NativeProgramAccess(purposes=("write", "read", "admit", "evaluate"))),
+            (initialize, INTERNAL_PROGRAM),
+            (registration, NativeProgramAccess(purposes=("write",))),
+        )
+    )
+
+
+def source_original_programs(model: MetaData, asset_digest: str) -> str:
+    """Render the captured original helper asset with its explicit determinant."""
+    return native_sql_script(
+        item.routine.render() for item in source_original_native_programs(model, asset_digest)
+    )

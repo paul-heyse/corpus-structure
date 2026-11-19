@@ -24,6 +24,7 @@ def execute_native_intent(
     max_rounds=100,
     required_targets=None,
     registered=None,
+    completion_draft_root: Path | None = None,
 ):
     """Execute only one explicit intent; optional target restriction also checks resume."""
     from corpus_structure.semantic.data_operation_service import execute_data_demand
@@ -78,4 +79,5 @@ def execute_native_intent(
         project_id=project,
         nemotron_endpoint=methods.nemotron_endpoint,
         admission_engine=admission_engine,
+        completion_draft_root=completion_draft_root,
     )

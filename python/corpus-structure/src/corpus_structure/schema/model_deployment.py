@@ -688,12 +688,6 @@ def deploy_candidate(
     from sqlalchemy import text
     from sqlalchemy.exc import NoResultFound
 
-    from corpus_structure.semantic.authored_sql import (
-        SQLAdmissionError,
-        admit_archived_sql,
-        analyze_release_sql,
-        prepare_release_sql,
-    )
     from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
     from corpus_structure.semantic.data_operation_runtime import RuntimeBindingError
     from corpus_structure.semantic.execution_admission import (
@@ -713,7 +707,6 @@ def deploy_candidate(
     if target_fingerprint(destination) != binding.target:
         raise ModelError(["configured deployment target differs from the candidate"])
     prepared = None
-    sql_inputs = None
     if binding.release is None:
         if runtime is not None:
             raise ModelError(["native-only candidate cannot admit a runtime"])
@@ -730,7 +723,6 @@ def deploy_candidate(
             artifacts_sha256=binding.release_artifacts_sha256,
             binding="the candidate",
         )
-        sql_inputs = prepare_release_sql(prepared, deps)
         if binding.data_operations:
             if binding.runtime is None or runtime is None:
                 raise ModelError(["application candidate lacks exact reviewed runtime custody"])
@@ -817,11 +809,7 @@ def deploy_candidate(
 
         if binding.revision is not None:
             assert versions is not None
-            successor_physical = require_frozen_native_revision(versions, binding.revision)
-            if sql_inputs is not None and sql_inputs.physical_id != successor_physical:
-                raise SQLAdmissionError(
-                    "authored SQL physical model differs from the approved revision"
-                )
+            require_frozen_native_revision(versions, binding.revision)
             with _commit_deployment_effect(
                 conn,
                 "migration",
@@ -866,6 +854,21 @@ def deploy_candidate(
             return
         assert binding.release is not None and deployment is not None
         bundle, deps, profile, prepared = deployment
+        approvals = (
+            binding.preparation_request.effect_approvals
+            if binding.preparation_request is not None
+            else ()
+        )
+        expected_effects = []
+        if approvals:
+            from corpus_structure.semantic.data_operation_admission import (
+                bound_data_operation_model,
+            )
+            from corpus_structure.semantic.effect_policy import approved_effect_rows
+
+            expected_effects = approved_effect_rows(
+                prepared, bound_data_operation_model(prepared), approvals
+            )
         if writer is None or reader is None:
             writer, reader = open_purpose_routes()
 
@@ -883,16 +886,6 @@ def deploy_candidate(
 
             def verify_reader(snapshot: Connection) -> None:
                 verify(snapshot, "read")
-
-            analyzed = None
-            if sql_inputs is not None:
-                with _deployment_connection(reader) as sql_connection:
-                    analyzed = analyze_release_sql(
-                        sql_connection,
-                        sql_inputs,
-                        physical_id=physical_id,
-                        verify_target=verify_reader,
-                    )
 
             def exact_archive(snapshot: Connection) -> bool | None:
                 exists = snapshot.scalar(
@@ -946,6 +939,29 @@ def deploy_candidate(
                 )
                 if native is not True:
                     return native
+                if expected_effects:
+                    from sqlalchemy import select
+
+                    from corpus_structure.semantic.metadata import table
+
+                    grants = table("sem.data_operation_effect_grant")
+                    observed = {
+                        (row.operation_id, row.effect): (row.definition_identity, row.contract)
+                        for row in observing.execute(
+                            select(
+                                grants.c.operation_id,
+                                grants.c.effect,
+                                grants.c.definition_identity,
+                                grants.c.contract,
+                            ).where(grants.c.release_id == binding.release)
+                        )
+                    }
+                    for grant in expected_effects:
+                        key = grant["operation_id"], grant["effect"]
+                        if key not in observed:
+                            return False
+                        if observed[key] != (grant["definition_identity"], grant["contract"]):
+                            return None
                 if runtime is not None:
                     try:
                         retained = runtime_binding_for_release(
@@ -957,21 +973,7 @@ def deploy_candidate(
                         return None
                     if retained != runtime:
                         return None
-                if analyzed is None:
-                    return True
-                rows = observing.execute(
-                    text("""
-                        SELECT input_name, content, content_digest FROM sem.sql_admission
-                        WHERE release_id=:release AND physical_id=:physical_id
-                          AND input_kind='dependency'
-                    """),
-                    {"release": binding.release, "physical_id": physical_id},
-                )
-                observed = {name: (bytes(content), digest) for name, content, digest in rows}
-                exact = {
-                    name: (artifact.content, artifact.digest) for name, artifact in analyzed.items()
-                }
-                return True if observed == exact else None
+                return True
 
             def reconcile_admission() -> bool | None:
                 conn.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
@@ -1001,11 +1003,7 @@ def deploy_candidate(
             ):
                 verify(writer, "admit")
                 release_fence(writer)
-                if analyzed is not None:
-                    admit_archived_sql(
-                        writer, binding.release, analyzed=analyzed, physical_id=physical_id
-                    )
-                admit_data_operation_release(writer, prepared)
+                admit_data_operation_release(writer, prepared, effect_approvals=approvals)
                 if runtime is not None:
                     persist_runtime_binding(writer, prepared, runtime)
             with _deployment_connection(reader) as snapshot, snapshot.begin():

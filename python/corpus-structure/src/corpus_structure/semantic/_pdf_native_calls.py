@@ -4354,6 +4354,130 @@ def register_pdf_spool_contributor(
         return materialize_register_pdf_spool_contributor(row)
 
 
+READ_PDF_SPOOL_RECOVERY_CANDIDATES_CONTRACT_DIGEST = (
+    "1e679132279986a62f4ba92ae70065abdf4d8071af35d59975990f7bc52d6123"
+)
+
+
+class PdfSpoolRecoveryCandidate(NativeRowResult):
+    build_id: str
+    task_id: int
+    producer_id: str
+
+
+class _read_pdf_spool_recovery_candidatesRequest(OperationResult):
+    build_id: str
+    task_id: Annotated[
+        TaskId, Field(ge=TaskId(-9223372036854775808), le=TaskId(9223372036854775807))
+    ]
+    attempt: Annotated[
+        TaskAttempt,
+        Field(ge=TaskAttempt(-9223372036854775808), le=TaskAttempt(9223372036854775807)),
+    ]
+    holder: str
+    runtime_id: RuntimeId
+
+
+_read_pdf_spool_recovery_candidates_function = func.ops.read_pdf_spool_recovery_candidates(
+    bindparam("build_id", type_=Text()),
+    bindparam("task_id", type_=BigInteger()),
+    bindparam("attempt", type_=BigInteger()),
+    bindparam("holder", type_=Text()),
+    bindparam("runtime_id", type_=Text()),
+).table_valued(
+    column("build_id", Text()),
+    column("task_id", BigInteger()),
+    column("producer_id", Text()),
+)
+
+
+class _read_pdf_spool_recovery_candidatesColumns(Protocol):
+    build_id: Column[str]
+    task_id: Column[int]
+    producer_id: Column[str]
+
+
+_read_pdf_spool_recovery_candidates_columns = cast(
+    _read_pdf_spool_recovery_candidatesColumns, _read_pdf_spool_recovery_candidates_function.c
+)
+_read_pdf_spool_recovery_candidates_statement = select(
+    _read_pdf_spool_recovery_candidates_columns.build_id,
+    _read_pdf_spool_recovery_candidates_columns.task_id,
+    _read_pdf_spool_recovery_candidates_columns.producer_id,
+)
+
+
+def _read_pdf_spool_recovery_candidates_result(
+    row: tuple[str, int, str],
+) -> PdfSpoolRecoveryCandidate:
+    with native_result_scope("retain_pdf_original", "PdfSpoolRecoveryCandidate"):
+        return PdfSpoolRecoveryCandidate(
+            build_id=row[0],
+            task_id=row[1],
+            producer_id=row[2],
+        )
+
+
+def prepare_read_pdf_spool_recovery_candidates(
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    runtime_id: RuntimeId,
+    projection_context: PreparedRelease | None = None,
+) -> Select[str, int, str]:
+    _request = _read_pdf_spool_recovery_candidatesRequest(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        runtime_id=runtime_id,
+    )
+    if projection_context is not None:
+        require_call_context(
+            projection_context,
+            "retain_pdf_original",
+            "read_pdf_spool_recovery_candidates",
+            READ_PDF_SPOOL_RECOVERY_CANDIDATES_CONTRACT_DIGEST,
+        )
+    return _read_pdf_spool_recovery_candidates_statement.params(
+        **{
+            "build_id": _request.build_id,
+            "task_id": _request.task_id,
+            "attempt": _request.attempt,
+            "holder": _request.holder,
+            "runtime_id": _request.runtime_id,
+        }
+    )
+
+
+materialize_read_pdf_spool_recovery_candidates = _read_pdf_spool_recovery_candidates_result
+
+
+def read_pdf_spool_recovery_candidates(
+    conn: Connection,
+    *,
+    build_id: str,
+    task_id: TaskId,
+    attempt: TaskAttempt,
+    holder: str,
+    runtime_id: RuntimeId,
+    projection_context: PreparedRelease | None = None,
+) -> tuple[PdfSpoolRecoveryCandidate, ...]:
+    _statement = prepare_read_pdf_spool_recovery_candidates(
+        build_id=build_id,
+        task_id=task_id,
+        attempt=attempt,
+        holder=holder,
+        runtime_id=runtime_id,
+        projection_context=projection_context,
+    )
+    _native_result = conn.execute(_statement)
+    with native_result_scope("retain_pdf_original", "PdfSpoolRecoveryCandidate"):
+        return tuple(_read_pdf_spool_recovery_candidates_result(row) for row in _native_result)
+
+
 READ_PDF_SPOOL_CONTRIBUTORS_CONTRACT_DIGEST = (
     "ca4df249ef2fbfde28e65ee5f9c23436259cc96348d2136d2f35d3a54c2dbef1"
 )
@@ -6199,4 +6323,4 @@ def read_pdf_frozen_rows(
         return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
 
 
-CALL_CONTRACT_DIGEST = "e4baab0c8de5272194a4045720cd91464ccab683da7db6cd0c8da4707c5f47b3"
+CALL_CONTRACT_DIGEST = "06bb1913b50dae3b41f036422593c4e430896a83fee475e2c6a614d15c8eeaf0"

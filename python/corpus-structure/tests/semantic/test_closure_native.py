@@ -62,16 +62,6 @@ def test_generated_closure_receipts_bind_and_keep_mutation_guards(commit_db_engi
                     "c": b"exact control",
                 },
             ),
-            (
-                "record_sql_admission",
-                {
-                    "r": release,
-                    "ik": "dependency",
-                    "n": "opaque",
-                    "p": "physical:test",
-                    "c": b"exact control",
-                },
-            ),
         ):
             placeholders = ",".join(":" + key for key in parameters)
             statement = text("SELECT sem." + name + "(" + placeholders + ")")
@@ -108,5 +98,5 @@ def test_closure_capture_includes_exact_compiler_and_generated_effect():
     assert sources["authoring/closure-native.sql"] == captured.foundation.native_closure.encode()
     assert b"def closure_native_parts" in sources["authoring/closure-native.py"]
     declarations = parse_sql(sources["authoring/closure-native.sql"].decode())
-    assert len(declarations) == 5
+    assert len(declarations) == 4
     assert all(isinstance(item.stmt, ast.CreateFunctionStmt) for item in declarations)

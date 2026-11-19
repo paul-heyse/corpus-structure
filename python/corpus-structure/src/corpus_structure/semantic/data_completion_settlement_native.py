@@ -27,6 +27,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -37,18 +38,12 @@ from .native_program import (
     Statement,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
-from .validity_programs import FAMILY_PROGRAMS, input_role, selected_family
-
-# The captured program participates in the kernel digest. Its self-reference is
-# bound by the existing captured-kernel realization after the source is frozen.
-_KERNEL = "__DDO_SOURCE_DIGEST__"
+from .validity_programs import family_programs, input_role, selected_family
 
 
-def completion_settlement_native_sql(model: MetaData) -> str:
+def completion_settlement_native_programs(model: MetaData) -> tuple[NativeRoutine, ...]:
     output = []
     tables = model.tables
     request, definition, product, member = (
@@ -105,7 +100,7 @@ def completion_settlement_native_sql(model: MetaData) -> str:
         result = pg_type(*returns.split("."))
         result.setof = setof
         output.append(
-            function(
+            NativeRoutine(
                 schema,
                 name,
                 parameters=tuple(Parameter(key, pg_type(*kind.split("."))) for key, kind in params),
@@ -137,7 +132,7 @@ def completion_settlement_native_sql(model: MetaData) -> str:
     path_type = pg_type("text")
     path_type.arrayBounds = (ast.Integer(ival=-1),)
     output.append(
-        sql_function(
+        NativeRoutine(
             "data",
             "ddo_witness_path",
             parameters=(Parameter("pointer", pg_type("text")),),
@@ -484,12 +479,14 @@ def completion_settlement_native_sql(model: MetaData) -> str:
 
     _completion_proofs(model, output, routine, row, rf, obj, items, reject, lookup)
     _intent_settlement(model, output, routine, row, rf, obj, items, reject, lookup)
-    return native_sql_script(output) + "\n"
+    return tuple(output)
 
 
 def _completion_seal_value(rf, obj, *, payload_digest, runtime, snapshot):
     return obj(
-        kernel=_KERNEL,
+        validators=func.ops.ddo_current_validation_identities(
+            rf("release_id"), rf("operation_id"), type_=JSONB()
+        ),
         request=rf("id"),
         generation=rf("generation"),
         release=rf("release_id"),
@@ -518,7 +515,7 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
     )
     runtime = core_variable("runtime", Text())
     output.append(
-        sql_function(
+        NativeRoutine(
             "ops",
             "ddo_completion_seal",
             parameters=(
@@ -528,7 +525,7 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                 Parameter("snapshot", pg_type("jsonb")),
             ),
             returns=pg_type("jsonb"),
-            volatility="immutable",
+            volatility="stable",
             search_path=("pg_catalog", "pg_temp"),
             body=select(
                 _completion_seal_value(
@@ -546,7 +543,9 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
         core_variable(name, BigInteger()) for name in ("producer_task", "producer_attempt")
     )
     producer_holder = core_variable("producer_holder", Text())
-    family_guards = {guard: entry.family for entry in FAMILY_PROGRAMS for guard in entry.guards}
+    family_guards = {
+        guard: entry.family for entry in family_programs(model) for guard in entry.guards
+    }
     guards = (
         "ddo_require_external_completion",
         *family_guards,
@@ -670,7 +669,13 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                 "23514",
             ),
             If(
-                row("receipt", receipt, "validating_kernel_digest").is_distinct_from(_KERNEL),
+                ~func.ops.ddo_receipt_validation_current(
+                    row("receipt", receipt, "id"),
+                    func.ops.ddo_current_validation_identities(
+                        rf("release_id"), rf("operation_id"), type_=JSONB()
+                    ),
+                    type_=Boolean(),
+                ),
                 (
                     reject(
                         original("payload_digest").is_distinct_from(
@@ -872,6 +877,9 @@ def execution_evidence_differs(payload):
 
 
 def _intent_settlement(model, output, routine, row, rf, obj, items, reject, lookup):
+    from .execution_origin_native import execution_origin_programs
+
+    execution_origin_programs(model, routine, row, rf, obj, reject, lookup)
     request, task, intent, receipt, adoption, runtime, definition = (
         model.tables[name]
         for name in (
@@ -884,6 +892,7 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
             "sem.data_operation_definition",
         )
     )
+    consumptions = model.tables["ops.data_draft_consumption"]
     p = core_variable("p", JSONB())
     completion = p["completion"]
     snapshot, key = core_variable("snapshot", JSONB()), core_variable("key", Text())
@@ -1021,6 +1030,17 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
                     )
                 ),
             ),
+            reject(
+                select(1)
+                .select_from(consumptions)
+                .where(
+                    consumptions.c.request_id == rf("id"),
+                    consumptions.c.generation == rf("generation"),
+                    consumptions.c.intent_id != key,
+                )
+                .exists(),
+                "immutable consumed draft must be adopted; a generation cannot replace its answer",
+            ),
             Assign("payload_digest_", func.ops.ddo_digest(completion)),
             Sql(
                 insert(intent)
@@ -1093,17 +1113,27 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
             reject(
                 or_(
                     original("request_id") != rf("id"),
-                    original("generation") != rf("generation"),
-                    original("generation")
-                    != cast(p["generation"].astext, intent.c.generation.type),
+                    rf("generation") != cast(p["generation"].astext, intent.c.generation.type),
+                    ~or_(
+                        original("generation") == rf("generation"),
+                        select(1)
+                        .select_from(consumptions)
+                        .where(
+                            consumptions.c.intent_id == original("id"),
+                            consumptions.c.request_id == rf("id"),
+                            consumptions.c.generation == rf("generation"),
+                        )
+                        .exists(),
+                    ),
                     select(1)
                     .select_from(receipt)
                     .where(receipt.c.intent_id == original("id"))
                     .exists(),
                 ),
-                "only unresolved exact generation intent can be adopted",
+                "only unresolved exact or natively mapped generation intent can be adopted",
             ),
             Perform(func.ops.ddo_assert_support(rf(), original("payload")["support"])),
+            Perform(func.ops.ddo_require_completion_live(rf(), original("payload"))),
             Sql(
                 insert(adoption)
                 .values(
@@ -1132,4 +1162,11 @@ def _intent_settlement(model, output, routine, row, rf, obj, items, reject, look
             Local("snapshot", pg_type("jsonb")),
         ),
         returns="jsonb",
+    )
+
+
+def completion_settlement_native_sql(model: MetaData) -> str:
+    return (
+        native_sql_script(item.render() for item in completion_settlement_native_programs(model))
+        + "\n"
     )

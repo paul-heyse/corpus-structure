@@ -18,13 +18,16 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, array
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
     Continue,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
@@ -34,11 +37,10 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
-from .pdf_record_digest_native import _bytes, _frame, _placed, _private_function, _row_value, _utf8
+from .native_program_registry import ProgramDeclaration
+from .pdf_record_digest_native import _bytes, _frame, _placed, _row_value, _utf8
 from .pdf_record_identity import _END, _START, _STEP, BLOCK_BYTES, MAX_FRAME_BYTES
 
 
@@ -63,7 +65,40 @@ def _array_type(datatype):
     return result
 
 
-def pdf_binary_identity_sql() -> str:
+def _private_routine(name, params, kind, steps, locals_=(), *, immutable=False, strict=False):
+    return NativeRoutine(
+        "ops",
+        name,
+        parameters=tuple(Parameter(label, type_) for label, type_ in params),
+        returns=pg_type(kind),
+        body=Block(tuple(steps), tuple(locals_)),
+        search_path=("pg_catalog", "pg_temp"),
+        volatility="immutable" if immutable else "stable",
+        strict=strict,
+    )
+
+
+def _declaration(routine: NativeRoutine) -> ProgramDeclaration:
+    return ProgramDeclaration(
+        routine,
+        source="target-current:PDF publication",
+        owner=role_name("publisher"),
+        access=INTERNAL_PROGRAM,
+    )
+
+
+def _render_capture(declarations: tuple[ProgramDeclaration, ...]) -> str:
+    return native_sql_script(
+        statement
+        for declaration in declarations
+        for statement in (
+            declaration.routine.render(),
+            native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
+        )
+    )
+
+
+def pdf_binary_identity_programs() -> tuple[ProgramDeclaration, ...]:
     """Keep byte framing, folds, UTF-8 admissibility and canonical scalar tags together."""
     payload = core_variable("p_payload", BYTEA())
     tag = core_variable("p_tag", BYTEA())
@@ -79,7 +114,7 @@ def pdf_binary_identity_sql() -> str:
         return func.ops.pdf_identity_frame(_utf8(tag), payload, type_=BYTEA())
 
     def declare(name, params, returns, body, locals_=()):
-        return _private_function(
+        return _private_routine(
             "pdf_identity_" + name,
             params,
             returns,
@@ -90,7 +125,7 @@ def pdf_binary_identity_sql() -> str:
         )
 
     start = "pdf_identity_fold_start"
-    start_declaration = sql_function(
+    start_declaration = NativeRoutine(
         "ops",
         start,
         parameters=(Parameter("p_domain", pg_type("text")),),
@@ -169,114 +204,107 @@ def pdf_binary_identity_sql() -> str:
         If(_size(body) + 17 > MAX_FRAME_BYTES, (Raise("record frame exceeds 64 KiB", "23514"),)),
         Return(frame("R", _concat(_length(cardinality), body))),
     )
-    return native_sql_script(
-        (
-            *declare(
-                "frame",
-                (("p_tag", pg_type("bytea")), payload_parameter),
-                "bytea",
-                (
-                    If(
-                        or_(_size(tag) != 1, _size(payload) > MAX_FRAME_BYTES),
-                        (
-                            Raise(
-                                "identity frame requires one-byte tag and bounded payload", "23514"
-                            ),
+    routines = (
+        declare(
+            "frame",
+            (("p_tag", pg_type("bytea")), payload_parameter),
+            "bytea",
+            (
+                If(
+                    or_(_size(tag) != 1, _size(payload) > MAX_FRAME_BYTES),
+                    (Raise("identity frame requires one-byte tag and bounded payload", "23514"),),
+                ),
+                Return(_concat(tag, _length(_size(payload)), payload)),
+            ),
+        ),
+        start_declaration,
+        declare(
+            "fold_step",
+            (state_parameter, ("p_ordinal", pg_type("int8")), payload_parameter),
+            "bytea",
+            (
+                If(
+                    or_(_size(state) != 32, ordinal < 0),
+                    (Raise("identity fold state/ordinal invalid", "23514"),),
+                ),
+                Return(
+                    func.sha256(
+                        _concat(_bytes(_STEP.hex()), state, _length(ordinal), frame("F", payload))
+                    )
+                ),
+            ),
+        ),
+        declare(
+            "fold_finish",
+            (state_parameter, ("p_count", pg_type("int8")), ("p_length", pg_type("int8"))),
+            "bytea",
+            (
+                If(
+                    or_(_size(state) != 32, count < 0, length < 0),
+                    (Raise("identity fold final inventory invalid", "23514"),),
+                ),
+                Return(
+                    func.sha256(_concat(_bytes(_END.hex()), state, _length(count), _length(length)))
+                ),
+            ),
+        ),
+        declare(
+            "byte_root",
+            (payload_parameter,),
+            "bytea",
+            (
+                While(
+                    offset <= _size(payload),
+                    (
+                        Assign("block_", func.substr(payload, offset, BLOCK_BYTES)),
+                        Assign(
+                            "state",
+                            func.ops.pdf_identity_fold_step(fold_state, block_index, block),
                         ),
+                        Assign("offset_", offset + _size(block)),
+                        Assign("ordinal", block_index + 1),
                     ),
-                    Return(_concat(tag, _length(_size(payload)), payload)),
+                ),
+                Return(
+                    func.ops.pdf_identity_fold_finish(
+                        fold_state, block_index, cast(_size(payload), BigInteger())
+                    )
                 ),
             ),
-            start_declaration,
-            native_privilege_sql(
-                NativeIdentity("function", "ops", start, ("text",)), "PUBLIC", grant=False
+            (
+                Local("state", pg_type("bytea"), func.ops.pdf_identity_fold_start("bytes")),
+                Local("ordinal", pg_type("int8"), literal(0)),
+                Local("offset_", pg_type("int4"), literal(1)),
+                Local("block_", pg_type("bytea")),
             ),
-            *declare(
-                "fold_step",
-                (state_parameter, ("p_ordinal", pg_type("int8")), payload_parameter),
-                "bytea",
-                (
-                    If(
-                        or_(_size(state) != 32, ordinal < 0),
-                        (Raise("identity fold state/ordinal invalid", "23514"),),
-                    ),
-                    Return(
-                        func.sha256(
-                            _concat(
-                                _bytes(_STEP.hex()), state, _length(ordinal), frame("F", payload)
-                            )
-                        )
-                    ),
-                ),
+        ),
+        _utf8_validation(payload, payload_parameter),
+        _canonical_scalar(payload, payload_parameter),
+        declare(
+            "record_frame",
+            (
+                ("p_schema", pg_type("text")),
+                ("p_family", pg_type("text")),
+                ("p_key", pg_type("text")),
+                ("p_names", _array_type("text")),
+                ("p_scalars", _array_type("bytea")),
             ),
-            *declare(
-                "fold_finish",
-                (state_parameter, ("p_count", pg_type("int8")), ("p_length", pg_type("int8"))),
-                "bytea",
-                (
-                    If(
-                        or_(_size(state) != 32, count < 0, length < 0),
-                        (Raise("identity fold final inventory invalid", "23514"),),
-                    ),
-                    Return(
-                        func.sha256(
-                            _concat(_bytes(_END.hex()), state, _length(count), _length(length))
-                        )
-                    ),
-                ),
+            "bytea",
+            frame_program,
+            (
+                Local("body_", pg_type("bytea")),
+                Local("i", pg_type("int4"), literal(1)),
+                Local("n", pg_type("int4"), func.cardinality(names)),
+                Local("names_", _array_type("text"), array((), type_=Text())),
             ),
-            *declare(
-                "byte_root",
-                (payload_parameter,),
-                "bytea",
-                (
-                    While(
-                        offset <= _size(payload),
-                        (
-                            Assign("block_", func.substr(payload, offset, BLOCK_BYTES)),
-                            Assign(
-                                "state",
-                                func.ops.pdf_identity_fold_step(fold_state, block_index, block),
-                            ),
-                            Assign("offset_", offset + _size(block)),
-                            Assign("ordinal", block_index + 1),
-                        ),
-                    ),
-                    Return(
-                        func.ops.pdf_identity_fold_finish(
-                            fold_state, block_index, cast(_size(payload), BigInteger())
-                        )
-                    ),
-                ),
-                (
-                    Local("state", pg_type("bytea"), func.ops.pdf_identity_fold_start("bytes")),
-                    Local("ordinal", pg_type("int8"), literal(0)),
-                    Local("offset_", pg_type("int4"), literal(1)),
-                    Local("block_", pg_type("bytea")),
-                ),
-            ),
-            *_utf8_validation(payload, payload_parameter),
-            *_canonical_scalar(payload, payload_parameter),
-            *declare(
-                "record_frame",
-                (
-                    ("p_schema", pg_type("text")),
-                    ("p_family", pg_type("text")),
-                    ("p_key", pg_type("text")),
-                    ("p_names", _array_type("text")),
-                    ("p_scalars", _array_type("bytea")),
-                ),
-                "bytea",
-                frame_program,
-                (
-                    Local("body_", pg_type("bytea")),
-                    Local("i", pg_type("int4"), literal(1)),
-                    Local("n", pg_type("int4"), func.cardinality(names)),
-                    Local("names_", _array_type("text"), array((), type_=Text())),
-                ),
-            ),
-        )
+        ),
     )
+    return tuple(_declaration(routine) for routine in routines)
+
+
+def pdf_binary_identity_sql() -> str:
+    """Render the captured binary identity statements and existing ACL projection."""
+    return _render_capture(pdf_binary_identity_programs())
 
 
 def _utf8_validation(payload, payload_parameter):
@@ -288,7 +316,7 @@ def _utf8_validation(payload, payload_parameter):
     def byte(position):
         return func.get_byte(payload, position)
 
-    return _private_function(
+    return _private_routine(
         "pdf_identity_utf8",
         (payload_parameter,),
         "bool",
@@ -354,7 +382,7 @@ def _canonical_scalar(payload, payload_parameter):
     text = func.convert_from(payload, "UTF8", type_=Text())
     float_tag = func.get_byte(payload, 0, type_=Integer()).bitwise_and(127)
     float_exponent = func.get_byte(payload, 1, type_=Integer()).bitwise_and(240)
-    return _private_function(
+    return _private_routine(
         "pdf_identity_scalar",
         (("p_kind", pg_type("text")), payload_parameter),
         "bytea",
@@ -396,7 +424,7 @@ def _canonical_scalar(payload, payload_parameter):
     )
 
 
-def pdf_artifact_identity_sql(model: MetaData) -> str:
+def pdf_artifact_identity_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
     """Verify a shared artifact before its descriptor contributes to a record digest."""
     streams = model.tables["ops.pdf_artifact_stream"]
     inputs = (
@@ -413,7 +441,7 @@ def pdf_artifact_identity_sql(model: MetaData) -> str:
     returns = pg_type("record")
     returns.setof = True
     name = "pdf_identity_verify_artifact"
-    definition = function(
+    routine = NativeRoutine(
         "ops",
         name,
         parameters=parameters,
@@ -439,13 +467,9 @@ def pdf_artifact_identity_sql(model: MetaData) -> str:
             (Local("stream_", streams),),
         ),
     )
-    return native_sql_script(
-        (
-            definition,
-            native_privilege_sql(
-                NativeIdentity("function", "ops", name, ("text", "text", "text")),
-                "PUBLIC",
-                grant=False,
-            ),
-        )
-    )
+    return (_declaration(routine),)
+
+
+def pdf_artifact_identity_sql(model: MetaData) -> str:
+    """Render the captured artifact verifier and its existing ACL projection."""
+    return _render_capture(pdf_artifact_identity_programs(model))

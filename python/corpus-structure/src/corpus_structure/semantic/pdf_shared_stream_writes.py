@@ -1,7 +1,8 @@
 """Model-owned transactional programs for immutable shared PDF bytes."""
 
-from pglast import ast, enums, parse_sql
-from pglast.stream import RawStream
+from dataclasses import replace
+
+from pglast import ast
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -23,6 +24,7 @@ from sqlalchemy.dialects.postgresql import BYTEA, JSONB, array, insert
 
 from corpus_structure.schema.integrity import role_name
 
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, native_privilege_sql
 from .native_program import (
     Assign,
     Block,
@@ -30,6 +32,7 @@ from .native_program import (
     ForRelation,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -40,77 +43,40 @@ from .native_program import (
     While,
     column_type,
     core_variable,
-    function,
     pg_type,
     variable,
 )
+from .native_program_registry import ProgramDeclaration
 from .pdf_record_model import artifact_part_upload_table
 
 
 def _routine(name, parameters, body, *, result=None, writer=False, defaults=(), trigger=False):
-    declaration = parse_sql(
-        function(
-            "ops",
-            name,
-            parameters=parameters,
-            returns=pg_type("record") if result else pg_type("trigger" if trigger else "void"),
-            body=body,
-            security_definer=writer,
-            search_path=("pg_catalog", "pg_temp"),
-        )
-    )[0].stmt
-    if not isinstance(declaration, ast.CreateFunctionStmt) or declaration.returnType is None:
-        raise ValueError("shared-byte writer requires its typed function declaration")
-    for param in declaration.parameters or ():
-        if param.name in dict(defaults):
-            param.defexpr = dict(defaults)[param.name]
-    if result:
-        declaration.returnType.setof = True
-        declaration.parameters = (
-            *(declaration.parameters or ()),
-            *(
-                ast.FunctionParameter(
-                    name=field,
-                    argType=pg_type(kind),
-                    mode=enums.FunctionParameterMode.FUNC_PARAM_TABLE,
-                )
-                for field, kind in result
-            ),
-        )
-    identity = ast.ObjectWithArgs(
-        objname=(ast.String(sval="ops"), ast.String(sval=name)),
-        objargs=tuple(p.type_ for p in parameters),
-        args_unspecified=False,
+    default_values = dict(defaults)
+    parameters = tuple(
+        replace(parameter, default=default_values.get(parameter.name, parameter.default))
+        for parameter in parameters
     )
-    revoke = ast.GrantStmt(
-        is_grant=False,
-        targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-        objtype=enums.ObjectType.OBJECT_FUNCTION,
-        objects=(identity,),
-        grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-        grant_option=False,
-        behavior=enums.DropBehavior.DROP_RESTRICT,
+    returns = pg_type("record") if result else pg_type("trigger" if trigger else "void")
+    returns.setof = bool(result)
+    routine = NativeRoutine(
+        "ops",
+        name,
+        parameters=parameters,
+        returns=returns,
+        body=body,
+        table_columns=tuple((field, pg_type(kind)) for field, kind in result) if result else (),
+        security_definer=writer,
+        search_path=("pg_catalog", "pg_temp"),
     )
-    statements = [declaration, revoke]
-    if writer:
-        grant = ast.GrantStmt(
-            is_grant=True,
-            targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-            objtype=enums.ObjectType.OBJECT_FUNCTION,
-            objects=(identity,),
-            privileges=(ast.AccessPriv(priv_name="execute"),),
-            grantees=(
-                ast.RoleSpec(
-                    roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=role_name("writer")
-                ),
-            ),
-            behavior=enums.DropBehavior.DROP_RESTRICT,
-        )
-        statements.append(grant)
-    return ";\n".join(RawStream()(statement) for statement in statements) + ";\n"
+    return ProgramDeclaration(
+        routine,
+        "authoring/pdf-shared-stream-writes.sql",
+        role_name("publisher"),
+        NativeProgramAccess(purposes=("write",)) if writer else INTERNAL_PROGRAM,
+    )
 
 
-def shared_stream_writes_sql(model):
+def shared_stream_writes_programs(model) -> tuple[ProgramDeclaration, ...]:
     build = model.tables["ops.pdf_stage_build"]
     content = model.tables["ops.pdf_shared_stream"]
     verified = model.tables["ops.pdf_shared_stream_verification"]
@@ -884,4 +850,19 @@ def shared_stream_writes_sql(model):
             defaults=(("p_complete", ast.A_Const(val=ast.Boolean(boolval=True))),),
         )
     )
-    return "\n".join(out)
+    return tuple(out)
+
+
+def shared_stream_writes_sql(model) -> str:
+    def render(program):
+        statements = (
+            program.routine.render(),
+            native_privilege_sql(program.identity, "PUBLIC", grant=False),
+            *(
+                native_privilege_sql(program.identity, role, privilege.lower(), grant_option=option)
+                for role, privilege, option in program.access.grants(program.owner)
+            ),
+        )
+        return ";\n".join(statements) + ";\n"
+
+    return "\n".join(render(program) for program in shared_stream_writes_programs(model))

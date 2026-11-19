@@ -21,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, array
 from sqlalchemy.sql.elements import Grouping
 
+from .binding_recursive_native import _binding_declarations, _render_binding_programs
 from .data_operation_source_sets import FrozenSourceSet, SourceSetEntry
 from .data_product_reference import DataProductMemberReference, DataProductReference
 from .native_program import (
@@ -29,20 +30,20 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
     Return,
     SelectInto,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration
 from .selected_support import AllAdmissibleAcquisition, SelectedSupportAcquisition, SourceReadBasis
 
 
-def source_set_native_sql() -> str:
+def _source_set_native_routines():
     source_sets = core_variable("source_sets", JSONB())
     reference = core_variable("reference", JSONB())
     source_set = core_variable("source_set", JSONB())
@@ -112,7 +113,7 @@ def source_set_native_sql() -> str:
         )
 
     def routine(name, params, statements, *, returns="void", locals_=(), strict=True):
-        return function(
+        return NativeRoutine(
             "ops",
             name,
             parameters=tuple(Parameter(name, pg_type(type_)) for name, type_ in params),
@@ -124,7 +125,7 @@ def source_set_native_sql() -> str:
         )
 
     ref_keys = keys(reference, "reference_key")
-    reference_check = sql_function(
+    reference_check = NativeRoutine(
         "ops",
         "ddo_semantic_source_reference",
         parameters=(Parameter("reference", pg_type("jsonb")),),
@@ -433,10 +434,10 @@ def source_set_native_sql() -> str:
             Local("proof_addresses", pg_type("jsonb")),
         ),
     )
-    return ";\n".join((reference_check, meaning, proof_match, validation)) + ";\n"
+    return reference_check, meaning, proof_match, validation
 
 
-def binding_source_native_sql() -> str:
+def _binding_source_native_routines():
     role = core_variable("roledef", JSONB())
     row = core_variable("row_value", JSONB())
     source_sets = core_variable("source_sets", JSONB())
@@ -459,7 +460,7 @@ def binding_source_native_sql() -> str:
     )
 
     def routine(name_, params, steps, *, locals_=(), strict=False):
-        return function(
+        return NativeRoutine(
             "ops",
             name_,
             parameters=tuple(Parameter(key, pg_type(type_)) for key, type_ in params),
@@ -661,4 +662,22 @@ def binding_source_native_sql() -> str:
             Local("target", pg_type("text")),
         ),
     )
-    return ";\n".join((source_address, source, population_product, subject)) + ";\n"
+    return source_address, source, population_product, subject
+
+
+def source_set_native_programs() -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations(_source_set_native_routines())
+
+
+def source_set_native_sql() -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(source_set_native_programs(), separator="")
+
+
+def binding_source_native_programs() -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations(_binding_source_native_routines())
+
+
+def binding_source_native_sql() -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(binding_source_native_programs(), separator="")

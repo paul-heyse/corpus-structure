@@ -2,6 +2,9 @@
 
 from corpus_structure.schema.integrity import role_name
 
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, native_privilege_sql
+from .native_program_registry import ProgramDeclaration
+
 GRADE_SCHEMA_SOURCE = "native/data-operation-record-grade.schema.json"
 EVENT_FRAME_SCHEMA_SOURCE = "native/data-operation-operation-event-frame.schema.json"
 EVENT_FRAME_KIND = (
@@ -123,64 +126,29 @@ def read_selected_feature_fit_frame(
     return {**result, "frame": restored.model_dump(mode="json")}
 
 
-def _revoke_policy(name, parameters):
-    from pglast import ast, enums
-    from pglast.stream import RawStream
-
-    return (
-        RawStream()(
-            ast.GrantStmt(
-                is_grant=False,
-                targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-                objtype=enums.ObjectType.OBJECT_FUNCTION,
-                objects=(
-                    ast.ObjectWithArgs(
-                        objname=(ast.String(sval="ops"), ast.String(sval=name)),
-                        objargs=tuple(parameter.type_ for parameter in parameters),
-                        args_unspecified=False,
-                    ),
-                ),
-                grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-                grant_option=False,
-                behavior=enums.DropBehavior.DROP_RESTRICT,
-            )
-        )
-        + ";\n"
-    )
-
-
-def record_policy_native_sql(*, target_metadata=None):
+def record_policy_native_programs(*, target_metadata=None) -> tuple[ProgramDeclaration, ...]:
     """Generate protected authority and feature-frame reads over captured metadata."""
-    from dataclasses import asdict
-
-    from sqlalchemy import Boolean, and_, case, cast, func, literal, or_, select
+    from sqlalchemy import Boolean, and_, case, func, or_, select
     from sqlalchemy.dialects.postgresql import JSONB
 
     from corpus_structure.evaluate.declared_operation_events import PARAMETERS_KIND
 
     from .binding_recursive_native import _check, _json, _value
     from .declared_structural_admission import ADMISSION_KIND
-    from .identity import canonical_bytes
     from .native_program import (
         Assign,
         Block,
         If,
         Local,
+        NativeRoutine,
         Parameter,
         Return,
         SelectInto,
         core_relation_row,
         core_variable,
-        function,
         pg_type,
-        sql_function,
     )
-    from .record_policy_authority import (
-        AUTHORIZATION_EFFECT,
-        AUTHORIZATION_FACTORY,
-        AUTHORIZATION_KIND,
-        AUTHORIZATION_OPERATION,
-    )
+    from .record_policy_authority import AUTHORIZATION_KIND
 
     if target_metadata is None:
         from .metadata import get_metadata
@@ -234,20 +202,16 @@ def record_policy_native_sql(*, target_metadata=None):
         )
 
     def sql(name, parameters, body, *, immutable=False, strict=False, definer=False):
-        return (
-            sql_function(
-                "ops",
-                name,
-                parameters=parameters,
-                returns=pg_type("boolean"),
-                body=body,
-                volatility="immutable" if immutable else "stable",
-                strict=strict,
-                security_definer=definer,
-                search_path=("pg_catalog", "pg_temp"),
-            )
-            + ";\n"
-            + _revoke_policy(name, parameters)
+        return NativeRoutine(
+            "ops",
+            name,
+            parameters=parameters,
+            returns=pg_type("boolean"),
+            body=body,
+            volatility="immutable" if immutable else "stable",
+            strict=strict,
+            security_definer=definer,
+            search_path=("pg_catalog", "pg_temp"),
         )
 
     parameters = (Parameter("definition", pg_type(str(definitions.schema), definitions.name)),)
@@ -257,13 +221,13 @@ def record_policy_native_sql(*, target_metadata=None):
         parameters,
         select(
             and_(
-                definition("operation_id") == AUTHORIZATION_OPERATION,
+                func.ops.ddo_privileged_effect_eligible(
+                    core_variable("definition", JSONB()), "native-evaluator-policy-authorization"
+                ),
                 definition("profile") == "command",
                 capabilities["preparation"].astext == "native-publication",
                 capabilities["forms"] == _json('["scalar"]'),
-                capabilities["prepared_factory"]["entrypoint"].astext == AUTHORIZATION_FACTORY,
-                definition("support_contract")["effects"]
-                == cast(literal(canonical_bytes([asdict(AUTHORIZATION_EFFECT)]).decode()), JSONB()),
+                func.nullif(capabilities["prepared_factory"]["entrypoint"].astext, "").is_not(None),
                 capabilities["prepared_factory"]["source_digest"].astext.op("~")("^[0-9a-f]{64}$"),
                 definition("implementation_revision").like("implementation-slice:%"),
             )
@@ -361,135 +325,153 @@ def record_policy_native_sql(*, target_metadata=None):
     parameters = tuple(
         Parameter(name, pg_type("text")) for name in ("episode", "selected_use", "read_id")
     )
-    summary = (
-        function(
-            "ops",
-            "ddo_policy_authority_summary",
-            parameters=parameters,
-            returns=pg_type("jsonb"),
-            volatility="stable",
-            security_definer=True,
-            search_path=("pg_catalog", "pg_temp"),
-            body=Block(
-                (
-                    _check(
-                        ~func.coalesce(
-                            func.ops.ddo_policy_authority_leaf(episode, type_=Boolean()), False
+    summary = NativeRoutine(
+        "ops",
+        "ddo_policy_authority_summary",
+        parameters=parameters,
+        returns=pg_type("jsonb"),
+        volatility="stable",
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                _check(
+                    ~func.coalesce(
+                        func.ops.ddo_policy_authority_leaf(episode, type_=Boolean()), False
+                    ),
+                    "ordinary policy authority summary requires an authenticated native issuer",
+                    "23514",
+                ),
+                selected(boundaries, boundaries.c.id == read_id, "boundary"),
+                _check(
+                    ~boundary("public_disclosure"),
+                    "policy authority summary requires its public acquisition",
+                    "23514",
+                ),
+                selected(episodes, episodes.c.id == episode, "d"),
+                _check(
+                    or_(d("completed_at") > boundary("frontier_at"), ~visible_publication),
+                    "policy issuer is outside selected native visibility",
+                    "23514",
+                ),
+                selected(outputs, outputs.c.derivation_id == episode, "output"),
+                selected(
+                    receipts,
+                    and_(
+                        receipts.c.derivation_id == episode,
+                        receipts.c.intent_id == d("intent_id"),
+                    ),
+                    "receipt",
+                ),
+                If(
+                    selected_use.is_not(None),
+                    (
+                        selected(
+                            uses,
+                            and_(uses.c.id == selected_use, uses.c.derivation_id == episode),
+                            "chosen",
                         ),
-                        "ordinary policy authority summary requires an authenticated native issuer",
-                        "23514",
-                    ),
-                    selected(boundaries, boundaries.c.id == read_id, "boundary"),
-                    _check(
-                        ~boundary("public_disclosure"),
-                        "policy authority summary requires its public acquisition",
-                        "23514",
-                    ),
-                    selected(episodes, episodes.c.id == episode, "d"),
-                    _check(
-                        or_(d("completed_at") > boundary("frontier_at"), ~visible_publication),
-                        "policy issuer is outside selected native visibility",
-                        "23514",
-                    ),
-                    selected(outputs, outputs.c.derivation_id == episode, "output"),
-                    selected(
-                        receipts,
-                        and_(
-                            receipts.c.derivation_id == episode,
-                            receipts.c.intent_id == d("intent_id"),
+                        _check(
+                            ~func.ops.ddo_read_visible(
+                                chosen("created_at"),
+                                chosen("created_xid"),
+                                _value("boundary"),
+                                type_=Boolean(),
+                            ),
+                            "policy authority use is outside selected native visibility",
+                            "23514",
                         ),
-                        "receipt",
-                    ),
-                    If(
-                        selected_use.is_not(None),
-                        (
-                            selected(
-                                uses,
-                                and_(uses.c.id == selected_use, uses.c.derivation_id == episode),
-                                "chosen",
-                            ),
-                            _check(
-                                ~func.ops.ddo_read_visible(
-                                    chosen("created_at"),
-                                    chosen("created_xid"),
-                                    _value("boundary"),
-                                    type_=Boolean(),
-                                ),
-                                "policy authority use is outside selected native visibility",
-                                "23514",
-                            ),
-                            Assign(
-                                "standing",
-                                case(
-                                    (
-                                        func.ops.ddo_node_valid(
-                                            "use", chosen("id"), _value("boundary"), type_=Boolean()
-                                        ),
-                                        "valid",
+                        Assign(
+                            "standing",
+                            case(
+                                (
+                                    func.ops.ddo_node_valid(
+                                        "use", chosen("id"), _value("boundary"), type_=Boolean()
                                     ),
-                                    else_="unavailable",
+                                    "valid",
                                 ),
-                            ),
-                        ),
-                        (
-                            Assign(
-                                "standing",
-                                case(
-                                    (
-                                        func.ops.ddo_node_valid(
-                                            "episode", episode, _value("boundary"), type_=Boolean()
-                                        ),
-                                        "valid",
-                                    ),
-                                    else_="unavailable",
-                                ),
+                                else_="unavailable",
                             ),
                         ),
                     ),
-                    Return(
-                        obj(
-                            format="ddo-native-authority-leaf-v1",
-                            derivation_id=episode,
-                            use_id=selected_use,
-                            issuer_operation=select(requests.c.operation_id)
-                            .where(requests.c.id == d("request_id"))
-                            .scalar_subquery(),
-                            release_id=d("release_id"),
-                            runtime_id=d("runtime_id"),
-                            recipe=d("recipe"),
-                            product_id=output("product_id"),
-                            kind_contract=select(products.c.kind_contract)
-                            .where(products.c.id == output("product_id"))
-                            .scalar_subquery(),
-                            intent_id=d("intent_id"),
-                            receipt_id=receipt("id"),
-                            standing=standing,
-                            protected_dependencies="undisclosed",
-                        )
+                    (
+                        Assign(
+                            "standing",
+                            case(
+                                (
+                                    func.ops.ddo_node_valid(
+                                        "episode", episode, _value("boundary"), type_=Boolean()
+                                    ),
+                                    "valid",
+                                ),
+                                else_="unavailable",
+                            ),
+                        ),
                     ),
                 ),
-                (
-                    *(
-                        Local(name, table)
-                        for name, table in (
-                            ("d", episodes),
-                            ("chosen", uses),
-                            ("boundary", boundaries),
-                            ("output", outputs),
-                            ("receipt", receipts),
-                        )
-                    ),
-                    Local("standing", pg_type("text")),
+                Return(
+                    obj(
+                        format="ddo-native-authority-leaf-v1",
+                        derivation_id=episode,
+                        use_id=selected_use,
+                        issuer_operation=select(requests.c.operation_id)
+                        .where(requests.c.id == d("request_id"))
+                        .scalar_subquery(),
+                        release_id=d("release_id"),
+                        runtime_id=d("runtime_id"),
+                        recipe=d("recipe"),
+                        product_id=output("product_id"),
+                        kind_contract=select(products.c.kind_contract)
+                        .where(products.c.id == output("product_id"))
+                        .scalar_subquery(),
+                        intent_id=d("intent_id"),
+                        receipt_id=receipt("id"),
+                        standing=standing,
+                        protected_dependencies="undisclosed",
+                    )
                 ),
             ),
-        )
-        + ";\n"
-        + _revoke_policy("ddo_policy_authority_summary", parameters)
+            (
+                *(
+                    Local(name, table)
+                    for name, table in (
+                        ("d", episodes),
+                        ("chosen", uses),
+                        ("boundary", boundaries),
+                        ("output", outputs),
+                        ("receipt", receipts),
+                    )
+                ),
+                Local("standing", pg_type("text")),
+            ),
+        ),
     )
-    return "\n".join((eligible, leaf, summary, _feature_fit_sql(model)))
+    return (
+        *(
+            ProgramDeclaration(
+                routine,
+                source="data-operations:forward",
+                owner=role_name("publisher"),
+                access=INTERNAL_PROGRAM,
+            )
+            for routine in (eligible, leaf, summary)
+        ),
+        *_feature_fit_programs(model),
+    )
 
 
-def _feature_fit_sql(model):
+def record_policy_native_sql(*, target_metadata=None) -> str:
+    """Render exact private issuer and restricted fit helpers from their declarations."""
+    return "\n".join(
+        item.routine.render()
+        + ";\n"
+        + native_privilege_sql(item.identity, "PUBLIC", grant=False)
+        + ";\n"
+        for item in record_policy_native_programs(target_metadata=target_metadata)
+    )
+
+
+def _feature_fit_programs(model):
     from sqlalchemy import (
         BigInteger,
         Boolean,
@@ -516,13 +498,13 @@ def _feature_fit_sql(model):
         Block,
         If,
         Local,
+        NativeRoutine,
         Parameter,
         Perform,
         Return,
         SelectInto,
         core_relation_row,
         core_variable,
-        function,
         pg_type,
     )
     from .record_policy_authority import GRADE_FACTORY, GRADE_KIND, GRADE_OPERATION
@@ -582,20 +564,21 @@ def _feature_fit_sql(model):
             select(core_relation_row(table)).select_from(table).where(condition), (target,), True
         )
 
-    def routine(name, parameters, steps, locals_=(), *, result="jsonb", stable=True):
-        return (
-            function(
-                "ops",
-                name,
-                parameters=parameters,
-                returns=pg_type(result),
-                body=Block(tuple(steps), tuple(locals_)),
-                volatility="stable" if stable else None,
-                security_definer=True,
-                search_path=("pg_catalog", "pg_temp"),
-            )
-            + ";\n"
-            + _revoke_policy(name, parameters)
+    def routine(
+        name, parameters, steps, locals_=(), *, result="jsonb", stable=True, access=INTERNAL_PROGRAM
+    ):
+        native = NativeRoutine(
+            "ops",
+            name,
+            parameters=parameters,
+            returns=pg_type(result),
+            body=Block(tuple(steps), tuple(locals_)),
+            volatility="stable" if stable else None,
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
+        )
+        return ProgramDeclaration(
+            native, source="data-operations:forward", owner=role_name("publisher"), access=access
         )
 
     principal = _value("principal")
@@ -680,6 +663,7 @@ def _feature_fit_sql(model):
         ),
         (Local("principal", pg_type("name"), func.session_user()),),
         result="void",
+        access=NativeProgramAccess(purposes=("fit",)),
     )
     contract, body = _value("contract"), _value("body", JSONB())
     decoded = func.data.ddo_json(body, type_=JSONB())
@@ -986,4 +970,4 @@ def _feature_fit_sql(model):
         ),
         stable=False,
     )
-    return "\n".join((principal_guard, body_access, read_frame))
+    return principal_guard, body_access, read_frame

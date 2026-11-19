@@ -253,6 +253,7 @@ def execute_request(
                     max_rounds=max_rounds,
                     required_targets=required_targets,
                     registered=registered,
+                    completion_draft_root=settings.paths.data_dir / "completion-drafts",
                 )
             except NativeDemandExecutionError as error:
                 retain_native_demand_result(invocation, error.result)

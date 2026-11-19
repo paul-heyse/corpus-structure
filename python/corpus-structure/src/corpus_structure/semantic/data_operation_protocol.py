@@ -116,11 +116,22 @@ def data_task_lifecycle(content: bytes) -> dict:
     return policy
 
 
-def render_data_task_guard(content: bytes, *, target_metadata) -> str:
+def data_task_guard_program(content: bytes, *, target_metadata):
     """Compile captured task columns and lifecycle policy into the trigger program."""
     from sqlalchemy import Text, and_, exists, func, or_, select, tuple_
 
-    from .native_program import Block, If, Raise, Return, core_variable, function, pg_type, variable
+    from .native_objects import INTERNAL_PROGRAM
+    from .native_program import (
+        Block,
+        If,
+        NativeRoutine,
+        Raise,
+        Return,
+        core_variable,
+        pg_type,
+        variable,
+    )
+    from .native_program_registry import ProgramDeclaration
 
     policy = data_task_lifecycle(content)
     task = target_metadata.tables["ops.task"]
@@ -192,7 +203,7 @@ def render_data_task_guard(content: bytes, *, target_metadata) -> str:
             ),
         ),
     )
-    return function(
+    routine = NativeRoutine(
         "ops",
         "guard_execution_task",
         parameters=(),
@@ -247,4 +258,10 @@ def render_data_task_guard(content: bytes, *, target_metadata) -> str:
                 Return(variable("new")),
             )
         ),
+    )
+    return ProgramDeclaration(
+        routine,
+        source="authoring/data-operation-task-guard.sql",
+        owner=role_name("publisher"),
+        access=INTERNAL_PROGRAM,
     )

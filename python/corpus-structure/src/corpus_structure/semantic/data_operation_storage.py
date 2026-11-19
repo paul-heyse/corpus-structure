@@ -51,7 +51,7 @@ def native_logical_sources() -> dict[str, bytes]:
     return {name: (_ROOT / name).read_bytes() for name in NATIVE_LOGICAL_FILES}
 
 
-def native_protocol_sources(
+def _native_protocol_sources(
     *,
     physical_sources=None,
     linkml_types=None,
@@ -69,6 +69,7 @@ def native_protocol_sources(
 
     from .artifact_admission_native import artifact_admission_native_sql
     from .authority_leaf import NativeAuthorityLeaf
+    from .completion_validation_native import completion_validation_programs
     from .contextual_admission_native import contextual_admission_native_sql
     from .contextual_definition_native import contextual_definition_native_sql
     from .contextual_linguistics_native import contextual_linguistics_native_sql
@@ -108,6 +109,7 @@ def native_protocol_sources(
     )
     from .external_execution_native import external_execution_native_sql
     from .graph_runtime import nx
+    from .native_objects import native_sql_script
     from .operation_event_native import operation_event_native_sources
     from .pdf_completion_native import pdf_completion_native_sql
     from .pdf_source_search import search_projection_sources
@@ -144,8 +146,6 @@ def native_protocol_sources(
     from .data_operation_projections import capture_projection_sources
 
     logical = native_logical_sources() if logical_sources is None else logical_sources
-    lowering_marker = "__DDO_LOWERING_DIGEST__"
-    kernel_marker = "__DDO_SOURCE_DIGEST__"
     programs = (
         ("demand-values", "data_operation_value_native.py", data_operation_value_sql()),
         ("demand-validity", "data_validity_native.py", data_validity_sql(target_metadata)),
@@ -155,7 +155,6 @@ def native_protocol_sources(
             "demand_authority_native.py",
             demand_authority_sql(
                 target_metadata,
-                lowering_digest=lowering_marker,
                 subject_scopes=subject_scope_values(),
             ),
         ),
@@ -164,7 +163,6 @@ def native_protocol_sources(
             "demand_registration_native.py",
             demand_intent_sql(
                 target_metadata,
-                lowering_digest=lowering_marker,
                 protocol=protocol,
             ),
         ),
@@ -173,7 +171,6 @@ def native_protocol_sources(
             "demand_result_native.py",
             demand_result_sql(
                 target_metadata,
-                kernel_digest=kernel_marker,
             ),
         ),
         (
@@ -181,7 +178,6 @@ def native_protocol_sources(
             "data_derivation_native.py",
             data_derivation_sql(
                 target_metadata,
-                kernel_digest=kernel_marker,
             ),
         ),
     )
@@ -439,8 +435,25 @@ def native_protocol_sources(
             Path(__file__).with_name("data_operation_compiler_native.py").read_bytes(),
         ),
         SourceArtifact(
+            "native/effect-policy.py", Path(__file__).with_name("effect_policy.py").read_bytes()
+        ),
+        SourceArtifact(
             "native/data-completion-settlement.sql",
             completion_settlement_native_sql(target_metadata).encode(),
+        ),
+        SourceArtifact(
+            "native/data-completion-validation.sql",
+            native_sql_script(
+                item.render() for item in completion_validation_programs(target_metadata)
+            ).encode(),
+        ),
+        SourceArtifact(
+            "native/completion-validation-native.py",
+            Path(__file__).with_name("completion_validation_native.py").read_bytes(),
+        ),
+        SourceArtifact(
+            "native/execution-origin-native.py",
+            Path(__file__).with_name("execution_origin_native.py").read_bytes(),
         ),
         SourceArtifact(
             "native/data-completion-settlement-native.py",
@@ -609,6 +622,43 @@ def native_protocol_sources(
     )
 
 
+def native_protocol_sources(
+    *,
+    physical_sources=None,
+    linkml_types=None,
+    target_metadata=None,
+    pdf_domain=None,
+    logical_sources=None,
+) -> tuple[SourceArtifact, ...]:
+    """Capture the exact installed program identities with their native model inputs."""
+    from corpus_structure.schema.physical import compile_physical
+
+    from .metadata import get_metadata
+    from .pdf_domain import CONTRACT
+    from .target_installation import capture_target_installation
+
+    target = target_metadata
+    if physical_sources is not None:
+        if not isinstance(linkml_types, bytes):
+            raise ValueError("explicit native physical inputs lack captured LinkML types")
+        if target is None:
+            target = compile_physical(physical_sources, linkml_types=linkml_types)
+        elif physical_sources != target.info.get(
+            "physical_sources"
+        ) or linkml_types != target.info.get("physical_linkml_types"):
+            raise ValueError("native program capture differs from the selected physical model")
+    if target is None:
+        target = get_metadata()
+    pdf = (
+        None
+        if pdf_domain is None
+        else (SourceArtifact(CONTRACT, pdf_domain.content), *pdf_domain.sources)
+    )
+    return capture_target_installation(
+        target, logical_sources=logical_sources, pdf_sources=pdf
+    ).authoring_inputs.native_sources
+
+
 def _captured(sources) -> dict[str, bytes]:
     result = {source.name: source.content for source in sources}
     if len(result) != len(sources):
@@ -638,6 +688,7 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-product-admission-native.py",
         "native/data-operation-compiler.sql",
         "native/data-operation-compiler.py",
+        "native/effect-policy.py",
         "native/data-operation-support-scopes.sql",
         "native/contextual-neighborhood.sql",
         "native/contextual-neighborhood.py",
@@ -745,132 +796,49 @@ def _protocol(sources=None) -> tuple[dict[str, Any], ...]:
 
 
 def native_source_digest(sources=None) -> str:
+    from .native_program_registry import PROGRAM_MANIFEST_SOURCE, ProgramManifest
+
     content = _captured(sources if sources is not None else native_protocol_sources())
-    return sha256(
-        canonical_bytes(
-            [
-                (name, value.decode())
-                for name, value in sorted(content.items())
-                if name.startswith("native/")
-            ]
-        )
-    ).hexdigest()
+    manifest = content.get(PROGRAM_MANIFEST_SOURCE)
+    if manifest is None:
+        raise ValueError("current native operation capture requires the exact program manifest")
+    return ProgramManifest.from_bytes(manifest).kernel_digest
 
 
-def _rename_native_entrypoints(sql: str, names: set[str]) -> str:
-    """Rename only selected declarations in a private parsed tree.
+def native_program_closures(sources):
+    from .native_program_registry import PROGRAM_CLOSURES_SOURCE, ProgramClosures
 
-    Reprinting is restricted to affected declarations and checked against their
-    exact body bytes. Scanner slices preserve unrelated SQL and surrounding text.
-    """
-    from pglast import ast
-    from pglast.stream import RawStream
-
-    from .native_sql_body import body_source
-    from .prepared_sql import prepare_sql
-
-    prepared = prepare_sql(sql, source="data-operation native declarations")
-    replacements = []
-    for index, raw in enumerate(prepared.private_tree()):
-        statement = raw.stmt
-        if not isinstance(statement, ast.CreateFunctionStmt):
-            continue
-        parts = tuple(part.sval for part in statement.funcname or ())
-        if len(parts) != 2 or parts[0] != "ops" or parts[1] not in names:
-            continue
-        before = body_source(statement)
-        statement.funcname = (ast.String(sval="ops"), ast.String(sval="ddo_impl_" + parts[1]))
-        rendered = RawStream()(statement)
-        reparsed = prepare_sql(rendered, source="renamed native declaration")
-        if len(reparsed.statements) != 1:
-            raise ValueError("native declaration rename changed statement cardinality")
-        renamed = reparsed.statements[0].stmt
-        if not isinstance(renamed, ast.CreateFunctionStmt) or body_source(renamed) != before:
-            raise ValueError("native declaration rename did not preserve exact function body")
-        replacements.append((prepared.slices[index], rendered))
-    for span, rendered in reversed(replacements):
-        sql = sql[: span.start] + rendered + sql[span.stop :]
-    return sql
+    retained = _captured(sources).get(PROGRAM_CLOSURES_SOURCE)
+    if retained is None:
+        raise ValueError("current native operation capture requires the program closure identities")
+    return ProgramClosures.from_bytes(retained)
 
 
 def native_sql(sources=None) -> str:
+    """Render the current operation programs for inspection and rollback-only tests."""
     from .native_objects import native_sql_script
 
-    captured = native_protocol_sources() if sources is None else tuple(sources)
-    bodies = _captured(captured)
-    sql = native_sql_script(
-        bodies[name].decode()
-        for name in (
-            "native/data-operation-source-values.sql",
-            "native/data-operation-cpu-basis.sql",
-            "native/data-operation-compiler.sql",
-            "native/data-operation-record-grade-native.sql",
-            "native/demand-values.sql",
-            "native/demand-trust.sql",
-            "native/data-read-boundary.sql",
-            "native/demand-validity.sql",
-            "native/demand-authority.sql",
-            "native/demand-intent.sql",
-            "native/demand-result.sql",
-            "native/demand-derivation.sql",
-            "native/data-completion-settlement.sql",
-            "native/data-operation-read.sql",
-            "native/data-product-admission.sql",
-            "native/request-attachment.sql",
-            "native/population-acquisition.sql",
-            "native/data-claim.sql",
-            "native/data-claim-batch.sql",
-            "native/data-operation-renewal.sql",
-            "native/data-attempt-release.sql",
-            "native/data-operation-product-validation.sql",
-            "native/contextual-neighborhood.sql",
-            "native/data-operation-definition-admission.sql",
-            "native/data-operation-artifact-admission.sql",
-            "native/data-operation-contextual-definition.sql",
-            "native/data-operation-contextual-linguistics.sql",
-            "native/data-operation-contextual-scoring.sql",
-            "native/data-operation-contextual-witness.sql",
-            "native/data-operation-contextual-admission.sql",
-            "native/data-operation-execution-evidence-leaf.sql",
-            "native/data-operation-structural-admission.sql",
-            "native/data-operation-operation-event.sql",
-            "native/data-operation-record-policy.sql",
-            "native/data-operation-record-policy-completion.sql",
-            "native/data-operation-rich-admission.sql",
-            # This SQL-language body binds all three domain scope providers at
-            # CREATE time. The core's PL/pgSQL callers bind it only after install.
-            "native/data-operation-support-scopes.sql",
-        )
+    return native_sql_script(
+        item.render() for item in data_operation_native_programs(sources=sources)
     )
-    sql += "\n" + bodies["native/data-operation-external.sql"].decode()
-    from .pdf_source_search import search_projection_sql
-
-    sql += "\n" + search_projection_sql(captured)
-    # Every private completion guard attests the same captured native kernel.
-    sql = sql.replace("__DDO_SOURCE_DIGEST__", native_source_digest(captured))
-    sql = sql.replace(
-        "__DDO_LOWERING_DIGEST__",
-        sha256(bodies["native/data-operation-compiler.sql"]).hexdigest(),
-    )
-    operations = _protocol(captured)
-    sql = _rename_native_entrypoints(sql, {item["name"] for item in operations})
-    return sql + _wire_wrapper_sql(captured, operations)
 
 
-def _wire_wrapper_sql(sources, operations) -> str:
+def _wire_wrapper_programs(sources, operations):
     from sqlalchemy import JSON, Boolean, literal, or_
 
     from .data_operation_wire import wire_contract_digest, wire_contracts
+    from .native_objects import NativeProgramAccess
     from .native_program import (
         Block,
         If,
+        NativeRoutine,
         Parameter,
         Raise,
         Return,
         core_variable,
-        function,
         pg_type,
     )
+    from .native_program_registry import ProgramDeclaration
 
     contracts = wire_contracts(sources)
     contract_digest = wire_contract_digest(sources)
@@ -883,32 +851,38 @@ def _wire_wrapper_sql(sources, operations) -> str:
             cast(schema, JSON()), cast(payload, JSON()), type_=Boolean()
         )
         result = getattr(func.ops, "ddo_impl_" + name)(payload, type_=JSONB())
-        wrappers.append(
-            function(
-                "ops",
-                name,
-                parameters=(Parameter("p_payload", pg_type("jsonb")),),
-                returns=pg_type("jsonb"),
-                body=Block(
-                    (
-                        If(
-                            or_(payload.is_(None), ~conforms),
-                            (Raise(f"native wire violates {name} input schema", "23514"),),
-                        ),
-                        Return(
-                            result.op("||", return_type=JSONB())(
-                                func.jsonb_build_object(
-                                    "contract_digest", contract_digest, type_=JSONB()
-                                )
+        routine = NativeRoutine(
+            "ops",
+            name,
+            parameters=(Parameter("p_payload", pg_type("jsonb")),),
+            returns=pg_type("jsonb"),
+            body=Block(
+                (
+                    If(
+                        or_(payload.is_(None), ~conforms),
+                        (Raise(f"native wire violates {name} input schema", "23514"),),
+                    ),
+                    Return(
+                        result.op("||", return_type=JSONB())(
+                            func.jsonb_build_object(
+                                "contract_digest", contract_digest, type_=JSONB()
                             )
-                        ),
-                    )
-                ),
-                security_definer=True,
-                search_path=("pg_catalog", "pg_temp"),
+                        )
+                    ),
+                )
+            ),
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
+        )
+        wrappers.append(
+            ProgramDeclaration(
+                routine,
+                source="data-operations:wire wrapper",
+                owner=role_name("publisher"),
+                access=NativeProgramAccess(purposes=tuple(item["purposes"])),
             )
         )
-    return "\n" + ";\n".join(wrappers) + ";\n"
+    return tuple(wrappers)
 
 
 def native_operation_declarations(sources=None) -> SourceArtifact:
@@ -916,7 +890,7 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
     from .data_operation_wire import wire_kind_declarations, wire_role_kind
 
     sources = native_protocol_sources() if sources is None else tuple(sources)
-    digest = native_source_digest(sources)
+    closure = native_program_closures(sources)
     from .original_document_contracts import operation_asset
 
     source_owner, source_asset = operation_asset(sources)
@@ -1026,7 +1000,7 @@ def native_operation_declarations(sources=None) -> SourceArtifact:
                     "cancellation": "transaction-boundary",
                     "ownership": "native-connection",
                 },
-                "behavior": "ddo-native-v1:" + digest,
+                "behavior": "ddo-native-v1:" + closure.operations[name],
                 "parameters": {},
                 "assets": [
                     admission_asset,
@@ -1052,7 +1026,7 @@ def native_operation_calls(
 ) -> tuple[tuple[str, OperationCallBinding], ...]:
     """Resolve the fixed protocol's signatures without accepting candidate SQL names."""
     sources = native_protocol_sources() if sources is None else tuple(sources)
-    digest = native_source_digest(sources)
+    closure = native_program_closures(sources)
     from .data_operation_wire import (
         wire_contract_digest,
         wire_contracts,
@@ -1073,7 +1047,9 @@ def native_operation_calls(
                 operation.semantic_id in captured or operation.behavior.startswith("ddo-native-v1:")
             ) and (
                 operation.semantic_id not in captured
-                or operation.behavior != "ddo-native-v1:" + digest
+                or operation.behavior
+                != "ddo-native-v1:"
+                + closure.operations[operation.semantic_id.removeprefix("data.")]
             ):
                 raise ValueError(
                     f"incompatible captured native protocol operation {operation.semantic_id}"
@@ -1116,7 +1092,7 @@ def native_operation_calls(
                     cardinality="one",
                     ordered=False,
                     result_mode="json",
-                    source_digest=digest,
+                    source_digest=closure.operations[name],
                     wire_contract_digest=wire_contract_digest(sources),
                 ),
             )
@@ -1874,13 +1850,55 @@ def data_operation_immutable_relations(target_metadata, physical_sources):
     return tuple(relations)
 
 
-def data_operation_native_definitions(connection, *, target_metadata=None, sources=None):
-    """Include every kernel function in normal server-normalized candidate custody."""
-    from pglast import ast
+def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_domain=None):
+    """Declare every operation implementation and its validated wire entry."""
+    from dataclasses import replace
 
-    from .native_objects import definition_from_sql, native_before_trigger_sql
-    from .native_program_capabilities import program_access
-    from .prepared_sql import prepare_sql
+    from .completion_validation_native import completion_validation_programs
+    from .contextual_definition_native import contextual_definition_native_programs
+    from .contextual_linguistics_native import contextual_linguistics_native_programs
+    from .contextual_neighborhood import contextual_neighborhood_programs
+    from .contextual_scoring_native import contextual_scoring_native_programs
+    from .contextual_witness_native import contextual_witness_native_programs
+    from .data_attempt_release_native import attempt_release_native_programs
+    from .data_claim_batch_native import claim_batch_native_programs
+    from .data_claim_native import claim_native_programs
+    from .data_completion_settlement_native import completion_settlement_native_programs
+    from .data_derivation_native import data_derivation_programs
+    from .data_operation_binding_native import binding_native_programs
+    from .data_operation_compiler_native import (
+        compiler_native_programs,
+        data_operation_native_descriptor_program,
+    )
+    from .data_operation_cpu_basis import cpu_input_basis_native_programs
+    from .data_operation_execution_evidence import SOURCE
+    from .data_operation_read_native import read_native_programs
+    from .data_operation_renewal import renewal_native_programs
+    from .data_operation_source_native import source_native_programs
+    from .data_operation_subjects import subject_scope_values
+    from .data_operation_value_native import data_operation_value_programs
+    from .data_product_admission_native import product_admission_native_programs
+    from .data_read_boundary_native import read_boundary_native_programs
+    from .data_validity_native import data_validity_programs
+    from .demand_authority_native import demand_authority_programs
+    from .demand_registration_native import demand_intent_programs
+    from .demand_result_native import demand_result_programs
+    from .established_validity import product_validation_native_programs
+    from .execution_evidence_leaf import execution_evidence_leaf_native_programs
+    from .external_execution_native import external_execution_native_programs
+    from .native_objects import INTERNAL_PROGRAM
+    from .native_program_registry import (
+        PROGRAM_MANIFEST_SOURCE,
+        ProgramDeclaration,
+    )
+    from .pdf_source_search import search_projection_programs
+    from .population_acquisition_native import population_acquisition_native_programs
+    from .record_policy_native import record_policy_native_programs
+    from .request_attachment_native import request_attachment_native_programs
+    from .source_value_native import source_value_native_programs
+    from .structural_admission_native import structural_admission_native_programs
+    from .support_trust_native import support_scope_programs
+    from .validity_programs import registered_family_sources
 
     if sources is not None:
         captured = tuple(sources)
@@ -1914,66 +1932,133 @@ def data_operation_native_definitions(connection, *, target_metadata=None, sourc
         raise ValueError(
             "native definitions and target metadata require the same captured physical sources"
         )
-    sql = native_sql(captured)
-    prepared = prepare_sql(sql, source="data-operations:forward")
-    from .validity_programs import validate_family_programs
+    operations = _protocol(captured)
+    public = {item["name"] for item in operations}
+    protocol = physical_sources["data-operation-native.yaml"]
+    if PROGRAM_MANIFEST_SOURCE in captured_map:
+        descriptor = (
+            data_operation_native_descriptor_program(
+                native_source_digest(captured), native_program_closures(captured)
+            ),
+        )
+    else:
+        descriptor = ()
+    scopes = subject_scope_values()
 
-    validate_family_programs(prepared.statements)
-    public = {item["name"]: item for item in _protocol(captured)}
-    definitions = []
-    for index, raw in enumerate(prepared.statements):
-        statement = raw.stmt
-        if not isinstance(statement, ast.CreateFunctionStmt):
-            continue
-        parts = tuple(part.sval for part in statement.funcname or ())
-        if len(parts) != 2:
-            raise ValueError("native function must have a schema-qualified identity")
-        schema, name = parts
-        access = program_access(schema, name, public)
-        definitions.append(
-            definition_from_sql(
-                connection,
-                prepared.excerpt(index),
-                source="data-operations:forward",
-                owner=role_name("publisher"),
-                program_access=access,
-            )
+    def declarations(source, routines):
+        return tuple(
+            ProgramDeclaration(routine, source, role_name("publisher"), INTERNAL_PROGRAM)
+            for routine in routines
         )
-    for relation in data_operation_immutable_relations(target_metadata, physical_sources):
-        definitions.append(
-            definition_from_sql(
-                connection,
-                native_before_trigger_sql(
-                    relation,
-                    "semantic_immutable",
-                    ("sem", "refuse_immutable_mutation"),
-                    events=("update", "delete", "truncate"),
-                ),
-                source="data-operation physical immutability:forward",
-                owner=role_name("publisher"),
-            )
-        )
-    for relation in target_metadata.tables.values():
-        if relation.info["frontier_guard"] != "guarded":
-            continue
-        definitions.append(
-            definition_from_sql(
-                connection,
-                native_before_trigger_sql(
-                    relation,
-                    "ddo_read_frontier_guard",
-                    ("ops", "ddo_refuse_post_acquisition_graph_write"),
-                    events=("insert", "update", "delete", "truncate"),
-                ),
-                source="data-operation pinned frontier:forward",
-                owner=role_name("publisher"),
-            )
-        )
-    from .data_operation_binding_native import binding_native_definitions
-    from .data_operation_source_native import source_native_definitions
 
-    return (
-        *definitions,
-        *binding_native_definitions(connection, sources=captured),
-        *source_native_definitions(connection, sources=captured),
+    cohorts = {
+        "native/demand-values.sql": data_operation_value_programs(),
+        "native/data-operation-compiler.sql": (
+            *descriptor,
+            *compiler_native_programs(target_metadata, subject_scopes=scopes),
+        ),
+        "native/data-operation-source-values.sql": source_value_native_programs(
+            captured_map["native/data-operation-source-values-model.yaml"]
+        ),
+        "native/data-operation-cpu-basis.sql": cpu_input_basis_native_programs(
+            target_metadata=target_metadata
+        ),
+        "native/data-operation-external.sql": external_execution_native_programs(
+            target_metadata, protocol
+        ),
+        "native/data-operation-read.sql": read_native_programs(target_metadata),
+        "native/demand-authority.sql": demand_authority_programs(
+            target_metadata, subject_scopes=scopes
+        ),
+        "native/demand-intent.sql": demand_intent_programs(target_metadata, protocol=protocol),
+        "native/demand-result.sql": demand_result_programs(target_metadata),
+        "native/demand-validity.sql": data_validity_programs(target_metadata),
+        **{
+            source: declarations(source, routines)
+            for source, routines in (
+                (
+                    "native/data-completion-validation.sql",
+                    completion_validation_programs(target_metadata),
+                ),
+                (
+                    "native/population-acquisition.sql",
+                    population_acquisition_native_programs(target_metadata),
+                ),
+                (
+                    "native/request-attachment.sql",
+                    request_attachment_native_programs(target_metadata, protocol),
+                ),
+                (
+                    "native/demand-derivation.sql",
+                    data_derivation_programs(target_metadata),
+                ),
+                (
+                    "native/data-completion-settlement.sql",
+                    completion_settlement_native_programs(target_metadata),
+                ),
+                (
+                    "native/data-product-admission.sql",
+                    product_admission_native_programs(target_metadata),
+                ),
+                ("native/data-claim.sql", claim_native_programs(target_metadata, protocol)),
+                ("native/data-claim-batch.sql", claim_batch_native_programs(target_metadata)),
+                (
+                    "native/data-attempt-release.sql",
+                    attempt_release_native_programs(
+                        target_metadata, protocol, captured_map[SOURCE]
+                    ),
+                ),
+                (
+                    "native/data-operation-renewal.sql",
+                    renewal_native_programs(target_metadata, protocol),
+                ),
+                ("native/data-read-boundary.sql", read_boundary_native_programs(target_metadata)),
+            )
+        },
+        "native/data-operation-execution-evidence-leaf.sql": execution_evidence_leaf_native_programs(
+            target_metadata
+        ),
+        "native/contextual-neighborhood.sql": contextual_neighborhood_programs(),
+        "native/data-operation-contextual-definition.sql": contextual_definition_native_programs(
+            target_metadata=target_metadata
+        ),
+        "native/data-operation-contextual-linguistics.sql": contextual_linguistics_native_programs(),
+        "native/data-operation-contextual-scoring.sql": contextual_scoring_native_programs(),
+        "native/data-operation-contextual-witness.sql": contextual_witness_native_programs(
+            target_metadata=target_metadata
+        ),
+        "native/data-operation-support-scopes.sql": support_scope_programs(target_metadata),
+        "native/data-operation-product-validation.sql": product_validation_native_programs(
+            target_metadata=target_metadata
+        ),
+        "native/data-operation-structural-admission.sql": structural_admission_native_programs(
+            target_metadata
+        ),
+        "native/data-operation-record-policy.sql": record_policy_native_programs(
+            target_metadata=target_metadata
+        ),
+        **dict(registered_family_sources(target_metadata)),
+    }
+    cohorts["native/pdf-source-search.sql"] = search_projection_programs(
+        captured, target_metadata=target_metadata, pdf_domain=pdf_domain
     )
+    cohorts["binding-programs"] = binding_native_programs(
+        target_metadata=target_metadata, sources=captured
+    )
+    cohorts["source-programs"] = source_native_programs(
+        target_metadata=target_metadata, sources=captured
+    )
+    implementations = {
+        source: tuple(
+            replace(item, routine=replace(item.routine, name="ddo_impl_" + item.routine.name))
+            if item.routine.schema == "ops" and item.routine.name in public
+            else item
+            for item in items
+        )
+        for source, items in cohorts.items()
+    }
+    declarations_by_source = {
+        **implementations,
+        "wire-wrappers": _wire_wrapper_programs(captured, operations),
+    }
+    return tuple(item for items in declarations_by_source.values() for item in items)

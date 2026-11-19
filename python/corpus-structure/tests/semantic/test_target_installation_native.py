@@ -112,6 +112,7 @@ def test_actual_physical_row_type_context_restores_existing_data_and_new_tables(
         Column("id", Integer, primary_key=True, autoincrement=False),
         Column("note", Text, server_default=text("'future'")),
         schema="row_type_control",
+        info={"read_roles": ()},
     )
     Table(
         "child",
@@ -119,6 +120,7 @@ def test_actual_physical_row_type_context_restores_existing_data_and_new_tables(
         Column("id", Integer, primary_key=True, autoincrement=False),
         Column("parent", Integer, ForeignKey("row_type_control.parent.id")),
         schema="row_type_control",
+        info={"read_roles": ()},
     )
     with semantic_bare_engine.begin() as connection:
         connection.exec_driver_sql("CREATE SCHEMA row_type_control")
@@ -279,6 +281,7 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
         require_archive_fence,
     )
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.native_revision_compare import unchanged_native_programs
     from corpus_structure.semantic.target_installation import foundation_programs
     from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
     from semantic.data_operation_demand_support import attach, claim, publish, retain
@@ -300,10 +303,38 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
     }
     assert {item.name for item in previous_acl.keys() - current_acl.keys()} == {
         "ddo_classify_validity",
+        "record_sql_admission",
+        "ddo_rich_producing_request",
     }
     assert {item.name for item in current_acl.keys() - previous_acl.keys()} == {
         "ddo_conservative_dependencies_valid",
         "ddo_support_reference_node",
+        "ddo_privileged_effect_eligible",
+        "ddo_privileged_effect_authorized",
+        "admit_data_operation_effect_grants",
+        "ddo_rich_producing_request",
+        "prove_execution_release",
+        "prove_execution_catalog",
+        "consume_data_completion_draft",
+        "ddo_impl_consume_data_completion_draft",
+        "ddo_impl_register_data_execution_origin",
+        "ddo_current_validation_identities",
+        "ddo_receipt_validation_current",
+        "ddo_reconfirm_completion_validity",
+        "pdf_spool_material_identity",
+        "read_pdf_spool_recovery_candidates",
+        "register_data_execution_origin",
+        "semantic_immutable",
+    }
+    assert {
+        (item.schema, item.relation)
+        for item in current_acl.keys() - previous_acl.keys()
+        if item.name == "semantic_immutable"
+    } == {
+        ("ops", "data_draft_consumption"),
+        ("ops", "data_execution_origin"),
+        ("ops", "data_validity_reconfirmation"),
+        ("sem", "data_operation_effect_grant"),
     }
     assert all(
         current_acl[item] == previous_acl[item] for item in current_acl.keys() & previous_acl.keys()
@@ -313,9 +344,18 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
         for item in load_native_state(ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n31_native.json")
     }
     desired = {item.identity: item for item in authoring.desired}
+    from corpus_structure.semantic.native_products import literal_json_descriptor
+
+    manifest = native_program_registry.ProgramManifest.from_definitions(authoring.desired)
+    descriptor = literal_json_descriptor(admission, "data.execution_contract_descriptor")
+    assert descriptor["kernel_identity"] == manifest.kernel_identity
+    assert canonical_bytes(descriptor["program_manifest"]) == canonical_bytes(manifest.inventory)
     for program in foundation_programs().programs:
         key = program.declaration.identity
-        assert desired[key].statements == frozen_n31[key].statements
+        if key.name == "activate_release":
+            assert "data.prove_execution_release" in desired[key].statements[0]
+        else:
+            assert desired[key].statements == frozen_n31[key].statements
         assert current_acl[key] == (
             frozen_n31[key].catalog["owner"],
             frozen_n31[key].catalog.get("acl"),
@@ -323,6 +363,10 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
     # Resolve this genuinely registered immutable root. A reader must not need
     # access to the maintenance-only Alembic table to authenticate its contract.
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
+    unchanged = unchanged_native_programs(fresh_target_epoch, revision.revision)
+    assert unchanged is not None
+    assert unchanged.object_count == len(authoring.desired)
+    assert unchanged.kernel_identity == manifest.kernel_identity
     admitter = principal_engine(native_settings, "admit", engine.url.database)
     try:
         with admitter.begin() as connection:

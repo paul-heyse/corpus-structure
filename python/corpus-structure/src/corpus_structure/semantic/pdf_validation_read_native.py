@@ -22,12 +22,16 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import BYTEA, DOUBLE_PRECISION, JSONB, array, insert
 
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import NativeProgramAccess
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     PerformQuery,
@@ -37,9 +41,9 @@ from .native_program import (
     Sql,
     column_type,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 
 
 def _equal_rows(model, current, previous, *relations):
@@ -74,7 +78,7 @@ def _equal_rows(model, current, previous, *relations):
     return and_(*predicates)
 
 
-def pdf_validation_native_programs(model, *, pdf_domain=None):
+def pdf_validation_program_declarations(model, *, pdf_domain=None) -> dict[str, ProgramDeclaration]:
     """Generate the three installed routines from one captured model/policy basis."""
     from .identity import canonical_bytes
     from .pdf_contracts import (
@@ -108,18 +112,20 @@ def pdf_validation_native_programs(model, *, pdf_domain=None):
         return core_variable(name, relation.c[field].type, field)
 
     def routine(name, parameters, result, body, *, stable=False):
-        return (
-            function(
+        return ProgramDeclaration(
+            NativeRoutine(
                 "ops",
                 name,
-                parameters=parameters,
-                returns=pg_type(result),
-                body=body,
+                parameters,
+                pg_type(result),
+                body,
                 security_definer=True,
                 search_path=("pg_catalog", "pg_temp"),
                 volatility="stable" if stable else None,
-            )
-            + ";\n"
+            ),
+            "authoring/pdf-validation-read.sql",
+            role_name("publisher"),
+            NativeProgramAccess(purposes=("write",)),
         )
 
     state, count, length, frame = (
@@ -533,4 +539,13 @@ def pdf_validation_native_programs(model, *, pdf_domain=None):
         "validation_contract": validation_contract,
         "projection_contract": projection_contract,
         "check_build": check_program,
+    }
+
+
+def pdf_validation_native_programs(model, *, pdf_domain=None):
+    return {
+        name: program.render() + ";\n"
+        for name, program in pdf_validation_program_declarations(
+            model, pdf_domain=pdf_domain
+        ).items()
     }

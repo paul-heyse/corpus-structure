@@ -1056,11 +1056,11 @@ def test_current_preview_retains_query_analysis_in_existing_model_view(
 
     from corpus_structure.cli import recipes
     from corpus_structure.schema import model_change
-    from corpus_structure.semantic import authored_sql, read_snapshot, releases, runtime
+    from corpus_structure.semantic import read_snapshot, releases, runtime
     from corpus_structure.semantic.projection_analysis_products import (
         compare_retained_projection_analysis,
     )
-    from corpus_structure.semantic.types import PreparationProfile
+    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 
     bundle, before, dependencies, after = current_query_release_pair
     monkeypatch.setattr(recipes, "checkout", lambda ctx: Path(__file__).parents[3])
@@ -1077,12 +1077,13 @@ def test_current_preview_retains_query_analysis_in_existing_model_view(
     )
     monkeypatch.setattr(
         releases,
-        "open_release",
+        "open_release_inputs",
         lambda connection, identity: (
-            before if identity == before.release_id else pytest.fail("wrong archived baseline")
+            (bundle, ResolvedDependencies(()), PreparationProfile(), before)
+            if identity == before.release_id
+            else pytest.fail("wrong archived baseline")
         ),
     )
-    monkeypatch.setattr(authored_sql, "_archive_inputs", lambda *args, **kwargs: {})
     expected = compare_retained_projection_analysis(before, after)
     captured = []
 

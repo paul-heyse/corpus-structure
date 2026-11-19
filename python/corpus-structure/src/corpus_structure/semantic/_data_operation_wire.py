@@ -812,6 +812,17 @@ class WireCloseDataPopulationResult(TypedDict):
     semantic_key: Required[WireIdentifier]
 
 
+class WireConsumeDataCompletionDraftRequest(TypedDict):
+    attempt: Required[WirePositiveInteger]
+    completion: Required[WireCompletion]
+    draft_id: Required[WireIdentifier]
+    generation: Required[WirePositiveInteger]
+    holder: Required[WireIdentifier]
+    origin_id: Required[WireIdentifier]
+    request_id: Required[WireIdentifier]
+    task_id: Required[WireTaskId]
+
+
 class WireDemandReadScope(TypedDict):
     operation_id: NotRequired[WireOperationId]
     original_source: NotRequired[WireOriginalSourceId | None]
@@ -1852,6 +1863,26 @@ class WireRegisterDataDemandResult(TypedDict):
     state: NotRequired[Literal["active", "cancelled"]]
 
 
+class WireRegisterDataExecutionOriginRequest(TypedDict):
+    attempt: Required[WirePositiveInteger]
+    generation: Required[WirePositiveInteger]
+    holder: Required[WireIdentifier]
+    request_id: Required[WireIdentifier]
+    runtime_id: Required[WireIdentifier]
+    task_id: Required[WireTaskId]
+
+
+class WireRegisterDataExecutionOriginResultCandidatesItem(TypedDict):
+    generation: Required[WirePositiveInteger]
+    origin_id: Required[WireIdentifier]
+    request_id: Required[WireIdentifier]
+
+
+class WireRegisterDataExecutionOriginResult(TypedDict):
+    candidates: Required[list[WireRegisterDataExecutionOriginResultCandidatesItem]]
+    origin_id: Required[WireIdentifier]
+
+
 class WireReleaseDataAttemptRequest(TypedDict):
     attempt: Required[TaskAttempt]
     failure: Required[WireAttemptFailure]
@@ -2213,6 +2244,22 @@ class DataOperationCalls:
         self, payload: WireReleaseDataAttemptRequest
     ) -> WireReleaseDataAttemptResult:
         return cast(WireReleaseDataAttemptResult, self._invoke("release_data_attempt", payload))
+
+    def register_data_execution_origin(
+        self, payload: WireRegisterDataExecutionOriginRequest
+    ) -> WireRegisterDataExecutionOriginResult:
+        return cast(
+            WireRegisterDataExecutionOriginResult,
+            self._invoke("register_data_execution_origin", payload),
+        )
+
+    def consume_data_completion_draft(
+        self, payload: WireConsumeDataCompletionDraftRequest
+    ) -> WireRetainDataCompletionIntentResult:
+        return cast(
+            WireRetainDataCompletionIntentResult,
+            self._invoke("consume_data_completion_draft", payload),
+        )
 
     def retain_data_completion_intent(
         self, payload: WireRetainDataCompletionIntentRequest

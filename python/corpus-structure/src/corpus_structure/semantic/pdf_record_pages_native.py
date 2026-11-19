@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 
 from pglast import ast
-from pglast.stream import RawStream
 from sqlalchemy import (
     Integer,
     MetaData,
@@ -24,12 +23,13 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, arr
 
 from corpus_structure.schema.integrity import role_name
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import NativeProgramAccess, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
@@ -38,10 +38,10 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
 from .native_program import literal as pg_literal
+from .native_program_registry import ProgramDeclaration
 from .pdf_record_model import artifact_part_upload_table
 
 
@@ -217,7 +217,9 @@ def _page(model: MetaData, spec: RecordPageFamily, build, filters, after, limit,
     )
 
 
-def pdf_record_page_sql(model: MetaData, *, frozen: bool = False) -> str:
+def pdf_record_page_programs(
+    model: MetaData, *, frozen: bool = False
+) -> tuple[ProgramDeclaration, ...]:
     """Read the same immutable record placement after acquiring the applicable pin."""
     placement = model.tables["ops.pdf_stage_build" if frozen else "ops.pdf_published_revision"]
     task = core_variable("p_task", placement.c.task_id.type)
@@ -277,7 +279,7 @@ def pdf_record_page_sql(model: MetaData, *, frozen: bool = False) -> str:
             ),
         )
         name = "read_pdf_frozen_rows"
-        roles = (role_name("writer"),)
+        purposes = ("write",)
     else:
         parameters = (
             task_parameter,
@@ -303,7 +305,7 @@ def pdf_record_page_sql(model: MetaData, *, frozen: bool = False) -> str:
             strict=True,
         )
         name = "read_pdf_record_rows"
-        roles = (role_name("reader"), role_name("writer"), role_name("evaluator"))
+        purposes = ("read", "write", "evaluate")
 
     branches = []
     for spec in _FAMILIES:
@@ -368,7 +370,7 @@ def pdf_record_page_sql(model: MetaData, *, frozen: bool = False) -> str:
     result.setof = True
     text_array = pg_type("text")
     text_array.arrayBounds = (ast.Integer(ival=-1),)
-    definition = function(
+    definition = NativeRoutine(
         "ops",
         name,
         parameters=parameters,
@@ -394,15 +396,29 @@ def pdf_record_page_sql(model: MetaData, *, frozen: bool = False) -> str:
             (Local("published", placement), Local("selected_stream_ids", text_array)),
         ),
     )
-    identity = NativeIdentity(
-        "function", "ops", name, tuple(RawStream()(item.type_) for item in parameters)
+    return (
+        ProgramDeclaration(
+            definition,
+            "target-current:PDF publication",
+            role_name("publisher"),
+            NativeProgramAccess(purposes=purposes),
+        ),
+    )
+
+
+def pdf_record_page_sql(model: MetaData, *, frozen: bool = False) -> str:
+    item = pdf_record_page_programs(model, frozen=frozen)[0]
+    roles = (
+        (role_name("writer"),)
+        if frozen
+        else (role_name("reader"), role_name("writer"), role_name("evaluator"))
     )
     return (
         native_sql_script(
             (
-                definition,
-                native_privilege_sql(identity, "PUBLIC", grant=False),
-                *(native_privilege_sql(identity, role, "execute") for role in roles),
+                item.render(),
+                native_privilege_sql(item.identity, "PUBLIC", grant=False),
+                *(native_privilege_sql(item.identity, role, "execute") for role in roles),
             )
         )
         + "\n"

@@ -75,12 +75,6 @@ def published_revision_statement(*, target_metadata=None):
     )
 
 
-def published_revision_definition(definition, *, target_metadata=None):
-    return sql_standard_definition(
-        definition, published_revision_statement(target_metadata=target_metadata)
-    )
-
-
 def published_validation_statement(*, target_metadata=None):
     """The original immutable receipt for an exact published pin, without revalidation."""
     from sqlalchemy import and_, literal_column, or_, select
@@ -190,12 +184,6 @@ def published_validation_statement(*, target_metadata=None):
                 ),
             ),
         )
-    )
-
-
-def published_validation_definition(definition, *, target_metadata=None):
-    return sql_standard_definition(
-        definition, published_validation_statement(target_metadata=target_metadata)
     )
 
 

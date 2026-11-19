@@ -2,10 +2,16 @@
 
 from corpus_structure.schema.integrity import role_name
 
+from .native_objects import (
+    INTERNAL_PROGRAM,
+    NativeProgramAccess,
+    native_privilege_sql,
+    native_sql_script,
+)
+from .native_program_registry import ProgramDeclaration
 
-def pdf_certification_native_sql(*, target_metadata=None) -> str:
-    from pglast import ast, enums, parse_sql
-    from pglast.stream import RawStream
+
+def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramDeclaration, ...]:
     from sqlalchemy import (
         BigInteger,
         Text,
@@ -30,6 +36,7 @@ def pdf_certification_native_sql(*, target_metadata=None) -> str:
         ForQuery,
         If,
         Local,
+        NativeRoutine,
         Parameter,
         Perform,
         Raise,
@@ -39,7 +46,6 @@ def pdf_certification_native_sql(*, target_metadata=None) -> str:
         Sql,
         column_type,
         core_variable,
-        function,
         pg_type,
     )
 
@@ -91,65 +97,22 @@ def pdf_certification_native_sql(*, target_metadata=None) -> str:
         writer=True,
         output=(),
     ):
-        declaration = parse_sql(
-            function(
+        return ProgramDeclaration(
+            NativeRoutine(
                 "ops",
                 name,
-                parameters=parameters,
-                returns=returns,
-                body=Block(tuple(statements), tuple(locals_)),
+                parameters,
+                returns,
+                Block(tuple(statements), tuple(locals_)),
+                table_columns=tuple((field, column_type(source)) for field, source in output),
                 security_definer=definer,
                 search_path=("pg_catalog", "pg_temp"),
                 volatility="stable" if stable else None,
-            )
-        )[0].stmt
-        if not isinstance(declaration, ast.CreateFunctionStmt):
-            raise ValueError("PDF certification requires a typed routine declaration")
-        if output:
-            declaration.parameters = (
-                *(declaration.parameters or ()),
-                *(
-                    ast.FunctionParameter(
-                        name=field,
-                        argType=column_type(source),
-                        mode=enums.FunctionParameterMode.FUNC_PARAM_TABLE,
-                    )
-                    for field, source in output
-                ),
-            )
-        identity = ast.ObjectWithArgs(
-            objname=(ast.String(sval="ops"), ast.String(sval=name)),
-            objargs=tuple(parameter.type_ for parameter in parameters),
-            args_unspecified=False,
+            ),
+            "authoring/pdf-certification.sql",
+            role_name("publisher"),
+            NativeProgramAccess(purposes=("write",)) if writer else INTERNAL_PROGRAM,
         )
-        revoke = ast.GrantStmt(
-            is_grant=False,
-            targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-            objtype=enums.ObjectType.OBJECT_FUNCTION,
-            objects=(identity,),
-            grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-            grant_option=False,
-            behavior=enums.DropBehavior.DROP_RESTRICT,
-        )
-        statements_ = [declaration, revoke]
-        if writer:
-            statements_.append(
-                ast.GrantStmt(
-                    is_grant=True,
-                    targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-                    objtype=enums.ObjectType.OBJECT_FUNCTION,
-                    objects=(identity,),
-                    privileges=(ast.AccessPriv(priv_name="execute"),),
-                    grantees=(
-                        ast.RoleSpec(
-                            roletype=enums.RoleSpecType.ROLESPEC_CSTRING,
-                            rolename=role_name("writer"),
-                        ),
-                    ),
-                    behavior=enums.DropBehavior.DROP_RESTRICT,
-                )
-            )
-        return ";\n".join(RawStream()(statement) for statement in statements_) + ";\n"
 
     out = []
     content, contract, item = (
@@ -703,4 +666,21 @@ def pdf_certification_native_sql(*, target_metadata=None) -> str:
             ),
         )
     )
-    return "\n".join(out)
+    return tuple(out)
+
+
+def pdf_certification_native_sql(*, target_metadata=None) -> str:
+    return "\n".join(
+        native_sql_script(
+            (
+                program.render(),
+                native_privilege_sql(program.identity, "PUBLIC", grant=False),
+                *(
+                    native_privilege_sql(program.identity, role, "execute")
+                    for role, _, _ in program.access.grants(program.owner)
+                ),
+            )
+        )
+        + "\n"
+        for program in pdf_certification_native_programs(target_metadata=target_metadata)
+    )

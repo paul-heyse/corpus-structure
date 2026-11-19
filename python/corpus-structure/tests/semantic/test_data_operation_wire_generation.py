@@ -23,7 +23,6 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.data_operation_storage import (
     DataOperationStorage,
-    _rename_native_entrypoints,
     native_operation_calls,
     native_operation_declarations,
     native_protocol_sources,
@@ -37,9 +36,7 @@ from corpus_structure.semantic.data_operation_wire import (
     wire_contracts,
     wire_operations,
 )
-from corpus_structure.semantic.native_sql_body import body_source
 from corpus_structure.semantic.operation_value_types import NativeResultViolation
-from corpus_structure.semantic.prepared_sql import prepare_sql
 
 REPO = Path(__file__).resolve().parents[4]
 
@@ -136,8 +133,13 @@ def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monk
         for item in native_operation_calls(model, sources=sources)
         if item[0] == "data.record_data_fate"
     )
+    from corpus_structure.semantic.data_operation_storage import native_program_closures
+
     artifact = compile_data_operation_artifacts(
-        model, calls, native_source_digest=native_source_digest(sources)
+        model,
+        calls,
+        native_source_digest=native_source_digest(sources),
+        native_program_digests=native_program_closures(sources).operations,
     )
     assert b"source_revision: Required[Literal['reviewed']]" in artifact.calls
     assert b"class WireRecordDataFateRequest(TypedDict)" in artifact.calls
@@ -315,30 +317,16 @@ def test_fixed_native_caller_preserves_nominal_ids_unions_and_required_keys(tmp_
     )
 
 
-def test_native_header_rename_changes_only_selected_declaration_and_preserves_body():
-    sql = """-- misleading CREATE OR REPLACE FUNCTION ops.claim_data_requests(
-SELECT 'CREATE OR REPLACE FUNCTION ops.claim_data_requests(';  -- untouched literal
-CREATE OR REPLACE FUNCTION "ops"."claim_data_requests"(p_payload jsonb) RETURNS jsonb
-LANGUAGE plpgsql AS $body$ BEGIN
- -- CREATE OR REPLACE FUNCTION ops.claim_data_requests(
- RETURN jsonb_build_object('header','CREATE OR REPLACE FUNCTION ops.claim_data_requests(');
-END $body$;
-CREATE FUNCTION ops.unrelated() RETURNS text LANGUAGE sql AS $$SELECT 'unchanged'$$;
-"""
-    changed = _rename_native_entrypoints(sql, {"claim_data_requests"})
-    before, after = prepare_sql(sql), prepare_sql(changed)
-    assert before.excerpt(0) == after.excerpt(0)
-    assert before.excerpt(2) == after.excerpt(2)
-    from pglast import ast
+def test_native_wire_facade_targets_the_exact_typed_implementation():
+    from corpus_structure.semantic.data_operation_storage import data_operation_native_programs
 
-    function_before, function_after = before.statements[1].stmt, after.statements[1].stmt
-    assert isinstance(function_before, ast.CreateFunctionStmt)
-    assert isinstance(function_after, ast.CreateFunctionStmt)
-    assert body_source(function_before) == body_source(function_after)
-    assert [part.sval for part in function_after.funcname or ()] == [
-        "ops",
-        "ddo_impl_claim_data_requests",
-    ]
+    programs = {item.identity.name: item for item in data_operation_native_programs()}
+    wrapper = programs["claim_data_requests"]
+    implementation = programs["ddo_impl_claim_data_requests"]
+    assert wrapper.identity.arguments == implementation.identity.arguments == ("jsonb",)
+    assert "ops.ddo_impl_claim_data_requests(p_payload)" in wrapper.render()
+    assert implementation.access.internal
+    assert wrapper.access.purposes == ("write", "evaluate")
 
 
 def test_database_capacity_comes_from_owned_pool_or_explicit_unmanaged_reservation():

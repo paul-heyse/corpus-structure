@@ -579,7 +579,6 @@ def release_activate(
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.cli.managed import ResultError
     from corpus_structure.cli.target import select_target
-    from corpus_structure.semantic.authored_sql import SQLAdmissionError
     from corpus_structure.semantic.releases import (
         ActivationConflict,
         activate_release,
@@ -594,7 +593,7 @@ def release_activate(
 
     with failure_boundary(
         json,
-        expected=(ActivationConflict, ResultError, SQLAdmissionError),
+        expected=(ActivationConflict, ResultError),
         report_expected_validation=False,
     ):
         selected, settings = select_target(ctx, target, effect=True)
@@ -624,10 +623,6 @@ def release_activate(
                 release,
                 expected_parent=before.release_id,
                 expected_generation=before.generation,
-                sql_reader=read,
-                verify_sql_reader=lambda reader_conn: verify_target(
-                    reader_conn, expected, purpose="read"
-                ),
             )
         emit(
             SelectionReport(

@@ -23,6 +23,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSONB, array
 
+from .native_objects import native_privilege_sql
 from .native_program import (
     Assign,
     ForQuery,
@@ -37,8 +38,9 @@ from .native_program import (
     core_variable,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 from .pdf_payloads import FAMILY
-from .pdf_record_digest_native import _placed, _private_function, _row_value, _utf8
+from .pdf_record_digest_native import _placed, _private_program, _row_value, _utf8
 from .pdf_record_identity import MAX_FRAME_BYTES, PROTOCOL, RECORD_PROFILE
 
 
@@ -157,7 +159,7 @@ def _ordered_frames(model, product, revision):
     return select(rows).order_by(rows.c.family.collate("C"), rows.c.key.collate("C"))
 
 
-def pdf_identity_frame_declarations(model: MetaData) -> tuple[str, str]:
+def _pdf_identity_frame_declarations_program(model: MetaData) -> ProgramDeclaration:
     header = model.tables["ops.pdf_record_document"]
     nodes = model.tables["kb.pdf_record_native"]
     members = model.tables["kb.pdf_record_membership"]
@@ -440,7 +442,7 @@ def pdf_identity_frame_declarations(model: MetaData) -> tuple[str, str]:
         Assign("count_", count + 1),
         Assign("length_", length + func.octet_length(frame)),
     )
-    return _private_function(
+    return _private_program(
         "pdf_record_identity_frames",
         params,
         "bytea",
@@ -530,3 +532,13 @@ def _array_type(datatype):
     result = pg_type(datatype)
     result.arrayBounds = (ast.Integer(ival=-1),)
     return result
+
+
+def pdf_identity_frame_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
+    return (_pdf_identity_frame_declarations_program(model),)
+
+
+def pdf_identity_frame_declarations(model: MetaData) -> tuple[str, str]:
+    """Render the explicitly declared identity helper and its public revoke."""
+    item = pdf_identity_frame_programs(model)[0]
+    return item.render(), native_privilege_sql(item.identity, "PUBLIC", grant=False)

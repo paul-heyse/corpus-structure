@@ -1023,12 +1023,14 @@ def _prepare_release_uncached(
             from .data_operation_storage import (
                 native_calls_from_dependencies,
                 native_digest_from_dependencies,
+                native_program_closures,
             )
 
             generated = compile_data_operation_artifacts(
                 data_operations,
                 native_calls_from_dependencies(data_operations, dependencies),
                 native_source_digest=native_digest_from_dependencies(dependencies),
+                native_program_digests=native_program_closures(dependencies.artifacts).operations,
                 generator_sources=tuple(
                     item for item in dependencies.artifacts if item.name.startswith("generator/")
                 ),

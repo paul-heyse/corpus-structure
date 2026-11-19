@@ -6,10 +6,14 @@ import json
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .identity import canonical_bytes
 from .native_call_contracts import OperationCallBinding, OperationFieldBinding
 from .types import SourceArtifact
+
+if TYPE_CHECKING:
+    from .native_program_registry import ProgramDeclaration
 
 OPERATION = "data.initialize_source_project"
 ASSET = "native/source-admission-calls.json"
@@ -211,6 +215,30 @@ def require_source_database_context(connection, prepared) -> None:
             )
         )
     ).scalar_one()
+
+
+def source_original_declarations(
+    *, target_metadata=None, sources=None
+) -> tuple[ProgramDeclaration, ...]:
+    """Regenerate from the explicit model and independently captured helper asset."""
+    from .metadata import get_metadata
+    from .native_objects import native_sql_script
+    from .original_document_native import source_original_native_programs
+
+    selected = get_metadata() if target_metadata is None else target_metadata
+    captured = (
+        source_admission_sources(target_metadata=selected) if sources is None else tuple(sources)
+    )
+    by_name = {source.name: source for source in captured}
+    declarations = source_original_native_programs(selected, by_name[ASSET].digest)
+    if (
+        native_sql_script(item.routine.render() for item in declarations).encode()
+        != by_name["native/source-originals.sql"].content
+    ):
+        raise ValueError(
+            "original source declarations differ from captured model/helper statements"
+        )
+    return declarations
 
 
 def source_original_sql(sources=None) -> str:

@@ -118,7 +118,6 @@ def test_target_native_capture_and_shared_task_checks_have_no_legacy_task_branch
     from corpus_structure.semantic.native_products import current_admission_fields
     from corpus_structure.semantic.target_installation import (
         capture_target_installation,
-        target_pdf_sql,
         target_task_guard_sql,
     )
 
@@ -149,7 +148,9 @@ def test_target_native_capture_and_shared_task_checks_have_no_legacy_task_branch
             "data completion requires receipt",
         )
     )
-    payload = target_pdf_sql(capture)
+    from corpus_structure.semantic.native_authoring import definition_sql
+
+    payload = definition_sql(capture.programs)
     assert parse_sql(payload)
     assert all(name not in payload for name in ("ops.run", "kb.source_view", "ops.method_config"))
     assert "ops.retain_pdf_original" in payload and "ops.seal_pdf_build" in payload
@@ -160,10 +161,8 @@ def test_captured_recognition_reader_is_an_exact_current_pdf_authoring_input():
 
     from pglast import parse_sql
 
-    from corpus_structure.semantic.native_inventory import update_function_inventory
     from corpus_structure.semantic.target_installation import (
         capture_target_installation,
-        target_pdf_sql,
     )
 
     capture = capture_target_installation(prepared_target())
@@ -176,11 +175,16 @@ def test_captured_recognition_reader_is_an_exact_current_pdf_authoring_input():
     # Offline PL/pgSQL parsing cannot resolve the actual ops composite row type.
     # The normal PostgreSQL authoring checker owns that installed-layout check.
     assert parse_sql(source.content.decode())
-    inventory = {}
-    update_function_inventory(inventory, target_pdf_sql(capture))
-    specification = inventory["ops.record_captured_recognition_text(bigint,text,text,text,jsonb)"]
-    assert specification["owner"] == "corpus_sem_publisher"
-    assert set(specification["execute_roles"]) == {
+    from corpus_structure.semantic.native_objects import NativeAuthoringError
+    from corpus_structure.semantic.target_installation import target_native_declarations
+
+    specification = next(
+        item
+        for item in capture.programs
+        if item.identity.name == "record_captured_recognition_text"
+    )
+    assert specification.owner == "corpus_sem_publisher"
+    assert {role for role, _, _ in specification.grants} == {
         "corpus_sem_reader",
         "corpus_sem_writer",
         "corpus_sem_evaluator",
@@ -201,8 +205,8 @@ def test_captured_recognition_reader_is_an_exact_current_pdf_authoring_input():
             ),
         ),
     )
-    assert "changed captured precision diagnostic" in target_pdf_sql(changed)
-    assert "original precision differs" not in target_pdf_sql(changed)
+    with pytest.raises(NativeAuthoringError, match="recognition declaration differs"):
+        target_native_declarations(changed)
 
 
 def test_target_observation_projection_uses_acquired_spec_after_ambient_source_restores(
@@ -211,14 +215,10 @@ def test_target_observation_projection_uses_acquired_spec_after_ambient_source_r
     import json
     from dataclasses import replace
 
-    from pglast import ast, parse_sql
-    from pglast.stream import RawStream
-
     from corpus_structure.semantic import pdf_domain
     from corpus_structure.semantic.pdf_observations import MEANING_SPEC
     from corpus_structure.semantic.target_installation import (
         capture_target_installation,
-        target_pdf_sql,
     )
     from corpus_structure.semantic.types import SourceArtifact
     from semantic.pdf_domain_support import altered_domain
@@ -246,13 +246,9 @@ def test_target_observation_projection_uses_acquired_spec_after_ambient_source_r
         acquisition.setattr(pdf_domain, "pdf_domain_sources", selected_sources)
         captured = capture_target_installation(prepared_target())
     statement = next(
-        row.stmt
-        for row in parse_sql(target_pdf_sql(captured))
-        if isinstance(row.stmt, ast.CreateFunctionStmt)
-        and row.stmt.funcname
-        and row.stmt.funcname[-1].sval == "pdf_observation_meaning"
+        item.sql for item in captured.programs if item.identity.name == "pdf_observation_meaning"
     )
-    assert "'seed',observed->'binding'->'seed'" not in RawStream()(statement)
+    assert "'seed',observed->'binding'->'seed'" not in statement
 
 
 def test_current_descriptor_and_projection_guard_do_not_inherit_obsolete_storage():
@@ -429,7 +425,7 @@ def test_explicit_pdf_metadata_controls_lossless_equality_and_native_read_types(
 
 
 def test_native_definition_source_cohort_cannot_be_mixed_with_another_physical_capture():
-    from corpus_structure.semantic.data_operation_storage import data_operation_native_definitions
+    from corpus_structure.semantic.data_operation_storage import data_operation_native_programs
     from corpus_structure.semantic.target_installation import capture_target_installation
 
     capture = capture_target_installation(prepared_target())
@@ -440,8 +436,8 @@ def test_native_definition_source_cohort_cannot_be_mixed_with_another_physical_c
     other = compile_physical(changed, linkml_types=get_metadata().info["physical_linkml_types"])
     # Refusal precedes any database type lookup or normalization effect.
     with pytest.raises(ValueError, match="same captured physical sources"):
-        data_operation_native_definitions(
-            None, target_metadata=other, sources=capture.authoring_inputs.native_sources
+        data_operation_native_programs(
+            target_metadata=other, sources=capture.authoring_inputs.native_sources
         )
 
 

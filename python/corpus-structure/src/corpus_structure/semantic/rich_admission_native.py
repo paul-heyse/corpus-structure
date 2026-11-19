@@ -13,7 +13,9 @@ from sqlalchemy import Boolean, Integer, Text, and_, cast, column, func, literal
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 from sqlalchemy.types import NullType
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
@@ -22,6 +24,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -29,10 +32,9 @@ from .native_program import (
     SelectInto,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration, ProgramValidity
 from .validity_programs import input_role, operation_field, selected_family
 
 
@@ -115,42 +117,28 @@ class _RichPrograms:
         strict=False,
         definer=True,
         setof=False,
+        validity=(),
     ):
         arguments = tuple(Parameter(key, pg_type(*kind.split("."))) for key, kind in parameters)
         result_type = pg_type(*returns.split("."))
         result_type.setof = setof
-        if sql:
-            rendered = sql_function(
-                "ops",
-                name,
-                parameters=arguments,
-                returns=result_type,
-                body=body,
-                volatility="immutable" if immutable else "stable",
-                strict=strict,
-                security_definer=definer,
-                search_path=("pg_catalog", "pg_temp"),
-            )
-        else:
-            rendered = function(
-                "ops",
-                name,
-                parameters=arguments,
-                returns=result_type,
-                body=Block(tuple(body), tuple(locals_)),
-                volatility="immutable" if immutable else "stable",
-                strict=strict,
-                security_definer=definer,
-                search_path=("pg_catalog", "pg_temp"),
-            )
-        self.output.extend(
-            (
-                rendered,
-                native_privilege_sql(
-                    NativeIdentity("function", "ops", name, tuple(kind for _, kind in parameters)),
-                    "PUBLIC",
-                    grant=False,
+        self.output.append(
+            ProgramDeclaration(
+                NativeRoutine(
+                    "ops",
+                    name,
+                    parameters=arguments,
+                    returns=result_type,
+                    body=body if sql else Block(tuple(body), tuple(locals_)),
+                    volatility="immutable" if immutable else "stable",
+                    strict=strict,
+                    security_definer=definer,
+                    search_path=("pg_catalog", "pg_temp"),
                 ),
+                source="data-operations:forward",
+                owner=role_name("publisher"),
+                access=INTERNAL_PROGRAM,
+                validity=validity,
             )
         )
 
@@ -335,15 +323,30 @@ def _rich_input_programs(p):
         p.row("definition", "sem.data_operation_definition", "support_contract"),
         p.row("intent", "ops.data_completion_intent", "payload"),
     )
+    grants = p.table("sem.data_operation_effect_grant")
+    effect_granted = (
+        select(1)
+        .select_from(grants)
+        .where(
+            grants.c.release_id
+            == p.row("definition", "sem.data_operation_definition", "release_id"),
+            grants.c.operation_id
+            == p.row("definition", "sem.data_operation_definition", "operation_id"),
+            grants.c.definition_identity
+            == p.row("definition", "sem.data_operation_definition", "definition_identity"),
+            grants.c.effect == _value("required_effect", Text()),
+            contract["effects"] == func.jsonb_build_array(grants.c.contract),
+        )
+        .exists()
+    )
     p.add(
         "ddo_rich_producing_request",
         (
             ("project", "text"),
             ("selected", "jsonb"),
-            ("operation_name", "text"),
-            ("factory_name", "text"),
             ("output_role", "text"),
             ("requires_cpu", "boolean"),
+            ("required_effect", "text"),
         ),
         (
             SelectInto(
@@ -403,16 +406,8 @@ def _rich_input_programs(p):
                         "rich",
                     ),
                     and_(
-                        _value("operation_name", Text()).is_not(None),
-                        p.row(
-                            "definition", "sem.data_operation_definition", "operation_id"
-                        ).is_distinct_from(_value("operation_name", Text())),
-                    ),
-                    and_(
-                        _value("factory_name", Text()).is_not(None),
-                        contract["capabilities"]["prepared_factory"][
-                            "entrypoint"
-                        ].astext.is_distinct_from(_value("factory_name", Text())),
+                        _value("required_effect", Text()).is_not(None),
+                        ~effect_granted,
                     ),
                     contract["capabilities"]["prepared_factory"]["source_digest"]
                     .astext.op("~")("^[0-9a-f]{64}$")
@@ -574,27 +569,20 @@ def _rich_producer_programs(p):
         )
     )
     contract = p.row("definition", "sem.data_operation_definition", "support_contract")
-    definition_op = p.row("definition", "sem.data_operation_definition", "operation_id")
-    effects = [
-        {
-            "name": "native-rich-knowledge-admission",
-            "authorization": ["exact-rich-consolidation-and-record-policy"],
-            "idempotency": "request-generation/exact-input-population",
-            "fulfillment": "native-publication-receipt",
-        }
-    ]
     p.add(
         "ddo_rich_command_eligible",
         (("definition", "sem.data_operation_definition"),),
         select(
             and_(
-                definition_op == "rich.admit",
+                func.ops.ddo_privileged_effect_eligible(
+                    core_variable("definition", JSONB()), "native-rich-knowledge-admission"
+                ),
                 p.row("definition", "sem.data_operation_definition", "profile") == "command",
                 contract["capabilities"]["preparation"].astext == "native-publication",
                 contract["capabilities"]["forms"] == _json(["scalar"]),
-                contract["capabilities"]["prepared_factory"]["entrypoint"].astext
-                == "corpus_structure.methods.rich_knowledge.RichKnowledgeAdmission.acquire_port",
-                contract["effects"] == _json(effects),
+                func.nullif(
+                    contract["capabilities"]["prepared_factory"]["entrypoint"].astext, ""
+                ).is_not(None),
                 contract["capabilities"]["prepared_factory"]["source_digest"].astext.op("~")(
                     "^[0-9a-f]{64}$"
                 ),
@@ -841,6 +829,7 @@ def _rich_producer_programs(p):
             p.local("intent", "ops.data_completion_intent"),
         ),
         returns="boolean",
+        validity=(ProgramValidity("rich", "validator"),),
     )
 
 
@@ -911,6 +900,7 @@ def _rich_preparation_programs(p):
                 ),
             ),
         ),
+        validity=(ProgramValidity("rich", "completion_guard"),),
     )
     selected, reference, item = (_value(name) for name in ("selected", "reference", "item"))
     basis, project = _value("basis"), _value("project", Text())
@@ -936,7 +926,7 @@ def _rich_preparation_programs(p):
             Assign("reference", _selected_reference(selected)),
             Assign(
                 request_name,
-                func.ops.ddo_rich_producing_request(project, reference, None, None, "result", True),
+                func.ops.ddo_rich_producing_request(project, reference, "result", True, None),
             ),
             _retained_completion(p, request_name, reference),
             Perform(
@@ -1155,12 +1145,19 @@ def _rich_admission_program(p):
                 message,
             )
         )
+    from .effect_policy import require_effect
+
+    admitted_effect = require_effect(
+        p.model,
+        lambda field: p.row("r", "ops.data_request", field),
+        "native-rich-knowledge-admission",
+    )
     p.add(
         "ddo_require_rich_admission_completion",
         (("r", "ops.data_request"), ("completion", "jsonb")),
         (
             If(
-                p.row("r", "ops.data_request", "operation_id").is_distinct_from("rich.admit"),
+                ~admitted_effect,
                 (
                     _reject(
                         foreign_effect, "rich admission effect requires its actual operation owner"
@@ -1191,12 +1188,7 @@ def _rich_admission_program(p):
             Assign(
                 "consolidation_request",
                 func.ops.ddo_rich_producing_request(
-                    project,
-                    admission["consolidation"],
-                    None,
-                    None,
-                    "consolidated",
-                    True,
+                    project, admission["consolidation"], "consolidated", True, None
                 ),
             ),
             _retained_completion(p, "consolidation_request", admission["consolidation"]),
@@ -1252,10 +1244,9 @@ def _rich_admission_program(p):
                         func.ops.ddo_rich_producing_request(
                             project,
                             reference,
-                            "rich.admit",
-                            "corpus_structure.methods.rich_knowledge.RichKnowledgeAdmission.acquire_port",
                             "admission",
                             False,
+                            "native-rich-knowledge-admission",
                         ),
                     ),
                     producer_episode("known_request", "known_episode"),
@@ -1361,10 +1352,9 @@ def _rich_admission_program(p):
                         func.ops.ddo_rich_producing_request(
                             project,
                             reference,
-                            "record_policy.authorize",
-                            "corpus_structure.methods.record_policy.RecordPolicyAuthorization.acquire_port",
                             "authorization",
                             False,
+                            "native-evaluator-policy-authorization",
                         ),
                     ),
                     _reject(
@@ -1408,7 +1398,7 @@ def _rich_admission_program(p):
                     Assign("reference", _selected_reference(selected)),
                     Perform(
                         func.ops.ddo_rich_producing_request(
-                            project, reference, literal(None), literal(None), literal(None), True
+                            project, reference, literal(None), True, None
                         )
                     ),
                     SelectInto(
@@ -1437,12 +1427,7 @@ def _rich_admission_program(p):
                     Assign(
                         "resolution_request",
                         func.ops.ddo_rich_producing_request(
-                            project,
-                            reference,
-                            "resolve.m1_readings/declared",
-                            "corpus_structure.methods.reading_resolution.ReadingResolutionOperation.acquire_port",
-                            "result",
-                            True,
+                            project, reference, "result", True, None
                         ),
                     ),
                     Assign(
@@ -1898,13 +1883,26 @@ def _rich_admission_program(p):
                 )
             ),
         ),
+        validity=(ProgramValidity("rich", "completion_guard"),),
     )
 
 
-def rich_admission_native_sql(*, target_metadata=None) -> str:
+def rich_admission_native_programs(*, target_metadata=None) -> tuple[ProgramDeclaration, ...]:
     programs = _RichPrograms(target_metadata)
     _rich_input_programs(programs)
     _rich_producer_programs(programs)
     _rich_preparation_programs(programs)
     _rich_admission_program(programs)
-    return native_sql_script(programs.output)
+    return tuple(programs.output)
+
+
+def rich_admission_native_sql(*, target_metadata=None) -> str:
+    """Render the current capture from its typed declarations."""
+    return native_sql_script(
+        statement
+        for declaration in rich_admission_native_programs(target_metadata=target_metadata)
+        for statement in (
+            declaration.routine.render(),
+            native_privilege_sql(declaration.identity, "PUBLIC", grant=False),
+        )
+    )

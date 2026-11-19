@@ -25,20 +25,21 @@ from sqlalchemy.dialects.postgresql import BYTEA, JSONB, aggregate_order_by, arr
 
 from corpus_structure.schema.integrity import role_name
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import NativeProgramAccess, native_privilege_sql, native_sql_script
 from .native_program import (
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     ReturnQuery,
     SelectInto,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 from .pdf_record_event_queries import companion_event_relation, native_event_relations
 
 
@@ -494,8 +495,8 @@ def _selected_events(model, revision, section, part_bytes):
                 "context",
                 kind="frame",
                 body=func.to_jsonb(region.table_valued(), type_=JSONB())
-                - "product_id"
-                - "revision_id",
+                .op("-", precedence=7, return_type=JSONB())("product_id")
+                .op("-", precedence=7, return_type=JSONB())("revision_id"),
             ),
             source=region.join(published, placed(region)),
         ).where(region.c.pointer.in_(selected_pointers)),
@@ -569,7 +570,9 @@ def _selected_events(model, revision, section, part_bytes):
     return select(output.c.event).order_by(output.c.phase, output.c.path)
 
 
-def selected_source_reader_sql(*, target_metadata: MetaData | None = None, pdf_domain=None) -> str:
+def selected_source_reader_programs(
+    *, target_metadata: MetaData | None = None, pdf_domain=None
+) -> tuple[ProgramDeclaration, ...]:
     from .metadata import get_metadata
     from .pdf_contracts import trusted_pdf_context
 
@@ -602,7 +605,7 @@ def selected_source_reader_sql(*, target_metadata: MetaData | None = None, pdf_d
     name = "read_pdf_selected_source_events"
     result = pg_type("jsonb")
     result.setof = True
-    definition = function(
+    routine = NativeRoutine(
         "ops",
         name,
         parameters=tuple(Parameter(key, pg_type("text")) for key in names),
@@ -642,14 +645,28 @@ def selected_source_reader_sql(*, target_metadata: MetaData | None = None, pdf_d
             (Local("revision", placement),),
         ),
     )
-    identity = NativeIdentity("function", "ops", name, ("text",) * len(names))
+    return (
+        ProgramDeclaration(
+            routine,
+            "authoring/pdf-selected-source.sql",
+            role_name("publisher"),
+            NativeProgramAccess(purposes=("read", "write", "evaluate")),
+        ),
+    )
+
+
+def selected_source_reader_sql(*, target_metadata: MetaData | None = None, pdf_domain=None) -> str:
     return native_sql_script(
-        (
-            definition,
-            native_privilege_sql(identity, "PUBLIC", grant=False),
+        statement
+        for program in selected_source_reader_programs(
+            target_metadata=target_metadata, pdf_domain=pdf_domain
+        )
+        for statement in (
+            program.routine.render(),
+            native_privilege_sql(program.identity, "PUBLIC", grant=False),
             *(
-                native_privilege_sql(identity, role, "execute")
-                for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
+                native_privilege_sql(program.identity, role, privilege.lower(), grant_option=option)
+                for role, privilege, option in program.access.grants(program.owner)
             ),
         )
     )

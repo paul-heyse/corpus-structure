@@ -263,3 +263,38 @@ def test_generated_product_admission_binds_in_actual_native_model(native_rollbac
                     {"p": json.dumps({"reference": {"kind": kind}})},
                 )
             assert getattr(refusal.value.orig, "sqlstate", None) == "P0001"
+
+
+def test_product_programs_retain_typed_bodies_and_follow_captured_member_schema():
+    from copy import copy
+
+    import yaml
+
+    from corpus_structure.semantic.data_product_admission_native import (
+        product_admission_native_programs,
+    )
+
+    model = get_metadata()
+    programs = product_admission_native_programs(model)
+    assert [(program.name, program.argument_types) for program in programs] == [
+        ("ddo_install_product_context", ("jsonb", "jsonb", "jsonb")),
+        ("ddo_admit_original_source", ("jsonb",)),
+        ("admit_authored_data", ("jsonb",)),
+        ("admit_original_document_asset", ("jsonb",)),
+    ]
+    captured = copy(model)
+    captured.info = dict(model.info)
+    captured.info["physical_sources"] = dict(model.info["physical_sources"])
+    protocol = yaml.safe_load(captured.info["physical_sources"]["data-operation-native.yaml"])
+    protocol["definitions"]["coordinate"]["required"].append("page")
+    captured.info["physical_sources"]["data-operation-native.yaml"] = yaml.safe_dump(
+        protocol
+    ).encode()
+    changed = product_admission_native_programs(captured)[0].render()
+    assert (
+        "ops.ddo_fields(family_value, ARRAY['original_source', 'start', 'end', 'page']" in changed
+    )
+    assert (
+        "ops.ddo_fields(family_value, ARRAY['original_source', 'start', 'end'], ARRAY['page'])"
+        in programs[0].render()
+    )

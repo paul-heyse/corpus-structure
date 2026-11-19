@@ -317,32 +317,12 @@ def test_native_companion_authoring_consumes_captured_recipe_without_installed_m
     assert render_static_columns(captured)
 
 
-def test_private_input_helper_is_sql_standard_and_retains_no_public_grants(monkeypatch):
+def test_private_input_helper_is_sql_standard_and_retains_no_public_grants():
     from pglast import ast as pg_ast
     from pglast import enums
-    from pglast.stream import RawStream
 
     from corpus_structure.semantic import companion_projection_native as owner
-    from corpus_structure.semantic.native_objects import NativeDefinition, NativeIdentity
 
-    def unresolved_definition(connection, sql, *, source, owner, grants):
-        statement = parse_sql(sql)[0].stmt
-        assert isinstance(statement, pg_ast.CreateFunctionStmt)
-        assert statement.parameters is not None
-        arguments = tuple(
-            RawStream()(parameter.argType)
-            for parameter in statement.parameters
-            if parameter.mode != enums.FunctionParameterMode.FUNC_PARAM_TABLE
-        )
-        return NativeDefinition(
-            NativeIdentity("function", "ops", "read_published_input_batch_rows", arguments),
-            sql,
-            source,
-            owner,
-            grants,
-        )
-
-    monkeypatch.setattr(owner, "definition_from_sql", unresolved_definition)
     definition = owner.input_body_definition(None)
     statement = parse_sql(definition.sql)[0].stmt
     assert isinstance(statement, pg_ast.CreateFunctionStmt)

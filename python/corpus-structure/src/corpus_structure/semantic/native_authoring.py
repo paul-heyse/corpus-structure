@@ -27,12 +27,9 @@ from .alembic_indexes import plugin as indexes_plugin
 from .alembic_native import plugin as native_plugin
 from .alembic_privileges import PrivilegePolicy, policy_fact, table_policy
 from .native_objects import (
-    INTERNAL_PROGRAM,
     NativeAuthoringError,
     NativeIdentity,
     NativeObject,
-    NativeProgramAccess,
-    definition_from_sql,
     execute_native_sql,
     native_owner_sql,
     native_role_sql,
@@ -78,188 +75,6 @@ def final_native_catalog(objects, policies):
                 )
         result.append(item)
     return tuple(result)
-
-
-def _shape_definition(connection, sql, *, source):
-    prepared = prepare_sql(sql, source=source)
-    for index, raw in enumerate(prepared.statements):
-        statement = raw.stmt
-        if isinstance(statement, ast.CreateFunctionStmt) and tuple(
-            part.sval for part in statement.funcname or ()
-        ) == ("ops", "pdf_native_record_shape"):
-            return definition_from_sql(
-                connection,
-                prepared.excerpt(index),
-                source=source,
-                owner=role_name("publisher"),
-                program_access=INTERNAL_PROGRAM,
-            )
-    raise NativeAuthoringError(f"{source}: native record shape declaration is absent")
-
-
-def _pdf_payload_definitions(connection, sql, *, source):
-    from corpus_structure.schema.integrity import integrity
-
-    from .native_function_signatures import function_signature
-    from .native_inventory import update_function_inventory
-
-    inventory = {}
-    prepared = update_function_inventory(inventory, sql)
-    purposes_by_role = {role: purpose for purpose, role in integrity().purposes.items() if role}
-    definitions = {}
-    for index, raw in enumerate(prepared.statements):
-        statement = raw.stmt
-        if not isinstance(statement, ast.CreateFunctionStmt):
-            continue
-        name = tuple(part.sval for part in statement.funcname or ())
-        if len(name) != 2 or (
-            name[0] != "ops" and name != ("sem", "admit_pdf_operation_contracts")
-        ):
-            continue
-        # The compiled shape declaration has a dedicated owner.
-        if name[1] == "pdf_native_record_shape":
-            continue
-        descriptor = inventory[function_signature(statement)]
-        roles = descriptor["execute_roles"]
-        owner = descriptor["owner"]
-        try:
-            purposes = tuple(purposes_by_role[role] for role in roles if role != owner)
-        except KeyError as exc:
-            raise NativeAuthoringError(
-                f"{source}: undeclared PDF execute role {exc.args[0]}"
-            ) from exc
-        definition = definition_from_sql(
-            connection,
-            prepared.excerpt(index),
-            source=source,
-            owner=owner,
-            program_access=NativeProgramAccess(
-                purposes=purposes, internal=not purposes, owner_execute=owner in roles
-            ),
-        )
-        # CREATE OR REPLACE can recur in a frozen collection; the last declaration
-        # is the source authority, while the inventory carries its cumulative ACL.
-        definitions[definition.identity] = definition
-    return tuple(definitions.values())
-
-
-def _publication_view_definitions(connection, sql, *, source):
-    """Own the current published views and explicit ACLs."""
-    prepared = prepare_sql(sql, source=source)
-    definitions = {}
-    for index, raw in enumerate(prepared.statements):
-        statement = raw.stmt
-        if (
-            isinstance(statement, ast.ViewStmt)
-            and statement.view is not None
-            and statement.view.schemaname == "ops"
-            and statement.view.relname
-            in {
-                "pdf_selected_product",
-                "pdf_published_item",
-                "pdf_published_region",
-                "pdf_published_coverage",
-            }
-        ):
-            roles = (role_name("writer"), role_name("reader"), role_name("evaluator"))
-            if statement.view.relname == "pdf_selected_product":
-                roles = (*roles, role_name("admitter"))
-            definition = definition_from_sql(
-                connection,
-                prepared.excerpt(index),
-                source=source,
-                owner=role_name("publisher"),
-                grants=tuple((role, "SELECT", False) for role in roles),
-            )
-            definitions[definition.identity] = definition
-    if len(definitions) != 4:
-        raise NativeAuthoringError(f"{source}: current published view declaration is absent")
-    return tuple(definitions.values())
-
-
-def _task_call_definition(
-    connection,
-    sql,
-    *,
-    name,
-    source,
-    program_access,
-    schema="ops",
-):
-    """Require one exact declaration; overloaded owners select their complete family."""
-    selected = _task_call_definitions(
-        connection, sql, name=name, source=source, program_access=program_access, schema=schema
-    )
-    if len(selected) != 1:
-        raise NativeAuthoringError("singular native function selection is ambiguous: " + name)
-    return selected[0]
-
-
-def _task_call_definitions(
-    connection,
-    sql,
-    *,
-    name,
-    source,
-    program_access,
-    schema="ops",
-):
-    """Bind every declared overload with its own normalized ABI and ACL facts."""
-    definitions = []
-    prepared = prepare_sql(sql, source=source)
-    for index, raw in enumerate(prepared.statements):
-        statement = raw.stmt
-        if isinstance(statement, ast.CreateFunctionStmt) and tuple(
-            part.sval for part in statement.funcname or ()
-        ) == (schema, name):
-            definitions.append(
-                definition_from_sql(
-                    connection,
-                    prepared.excerpt(index),
-                    source=source,
-                    owner=role_name("publisher"),
-                    program_access=program_access,
-                )
-            )
-    if definitions:
-        return tuple(definitions)
-    raise NativeAuthoringError(f"native task-call ABI declaration is absent: {name}")
-
-
-def current_admission_definitions(connection, sql, *, source, require_descriptor=True):
-    """Declare current purpose grants without historical migration-owner custody."""
-    prepared = prepare_sql(sql, source=source)
-    definitions = []
-    for index, raw in enumerate(prepared.statements):
-        statement = raw.stmt
-        if not isinstance(statement, ast.CreateFunctionStmt):
-            continue
-        name = tuple(part.sval for part in statement.funcname or ())
-        if name not in {
-            ("data", "execution_contract_descriptor"),
-            ("data", "require_execution_release"),
-        }:
-            continue
-        purposes = (
-            ("admit",)
-            if name[1] == "execution_contract_descriptor"
-            else ("write", "read", "evaluate", "admit")
-        )
-        definition = definition_from_sql(
-            connection,
-            prepared.excerpt(index),
-            source=source + ":" + name[1],
-            owner=role_name("publisher"),
-            program_access=NativeProgramAccess(purposes=purposes),
-        )
-        definitions.append(definition)
-    if len(definitions) != (2 if require_descriptor else 1) or (
-        not require_descriptor and definitions[0].identity.name != "require_execution_release"
-    ):
-        raise NativeAuthoringError(
-            f"{source}: admission requires its descriptor and enforcing guard"
-        )
-    return tuple(definitions)
 
 
 def _declared_physical_catalog(connection, target_metadata):
@@ -867,17 +682,27 @@ def definition_sql(definitions) -> str:
     return native_sql_script(statement for item in definitions for statement in item.install_sql)
 
 
-def authored_admission_sql(authoring):
-    """Retain the exact descriptor/guard normalized inside physical authoring."""
-    names = ("execution_contract_descriptor", "require_execution_release")
+def frozen_admission_sql(objects, *, require_proof=False):
+    """Read the enforcement programs actually carried in frozen catalog evidence."""
+    required = {"execution_contract_descriptor", "require_execution_release"}
+    proof = {"prove_execution_release", "prove_execution_catalog"}
     selected = {
         item.identity.name: item
-        for item in authoring.desired
-        if item.identity.schema == "data" and item.identity.name in names
+        for item in objects
+        if item.identity.kind == "function"
+        and item.identity.schema == "data"
+        and item.identity.name in required | proof
     }
-    if set(selected) != set(names):
+    if not required <= selected.keys() or (require_proof and not proof <= selected.keys()):
         raise NativeAuthoringError("native authoring lacks its exact admission descriptor/guard")
-    return native_sql_script(statement for name in names for statement in selected[name].statements)
+    return native_sql_script(
+        statement for name in sorted(selected) for statement in selected[name].statements
+    )
+
+
+def authored_admission_sql(authoring):
+    """Retain the exact current enforcement programs after physical authoring."""
+    return frozen_admission_sql(authoring.desired, require_proof=True)
 
 
 def verify_frozen_catalog(connection, admission):
@@ -890,7 +715,18 @@ def verify_frozen_catalog(connection, admission):
     from .native_admission import frozen_catalog_verification
     from .native_products import function_bodies
 
-    body = function_bodies(admission)["data.require_execution_release"]
+    bodies = function_bodies(admission)
+    if "data.prove_execution_catalog" in bodies:
+        from .native_catalog import function_body_fingerprints
+
+        fingerprints = connection.scalars(
+            function_body_fingerprints(("data.prove_execution_catalog()",))
+        ).all()
+        if fingerprints != [sha256(bodies["data.prove_execution_catalog"].encode()).hexdigest()]:
+            raise NativeAuthoringError("installed catalog verifier differs from the frozen program")
+        connection.execute(select(func.data.prove_execution_catalog()))
+        return
+    body = bodies.get("data.prove_execution_release", bodies["data.require_execution_release"])
     try:
         verification = frozen_catalog_verification(body)
     except ValueError as error:

@@ -31,6 +31,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     PerformQuery,
@@ -40,7 +41,6 @@ from .native_program import (
     Sql,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
 from .support_trust_native import locked_support_changed
@@ -58,22 +58,19 @@ def _selected(table, condition, target, *, strict=True, lock=False):
 
 
 def _procedure(name, parameters, steps, locals_=(), *, returns="jsonb", volatility=None):
-    return (
-        function(
-            "ops",
-            name,
-            parameters=parameters,
-            returns=pg_type(returns),
-            body=Block(tuple(steps), tuple(locals_)),
-            volatility=volatility,
-            security_definer=True,
-            search_path=("pg_catalog", "pg_temp"),
-        )
-        + ";\n"
+    return NativeRoutine(
+        "ops",
+        name,
+        parameters=parameters,
+        returns=pg_type(returns),
+        body=Block(tuple(steps), tuple(locals_)),
+        volatility=volatility,
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
     )
 
 
-def binding_validation_native_sql(model):
+def _binding_validation_program(model):
     (
         demands,
         boundaries,
@@ -263,7 +260,18 @@ def binding_validation_native_sql(model):
         ),
         Assign(
             "expected",
-            func.ops.ddo_binding_population_meaning(projected_population, episode_required),
+            case(
+                (
+                    or_(
+                        state == "known-absent",
+                        func.ops.ddo_binding_population_refs(
+                            frozen_binding, _object(choices=selected_choices)
+                        ).bool_op("?")(wanted_role),
+                    ),
+                    func.ops.ddo_binding_population_meaning(projected_population, episode_required),
+                ),
+                else_=_json("null"),
+            ),
         ),
         _check(
             witness.is_distinct_from(expected),
@@ -318,9 +326,22 @@ def binding_validation_native_sql(model):
         .correlate(inputs)
         .exists()
     )
+    member_identity = (
+        select(func.data.ddo_identity("body", func.data.ddo_normalize(members.c.body)))
+        .where(
+            members.c.product_id == inputs.c.value["product_id"].astext,
+            members.c.member_id == inputs.c.value["member_id"].astext,
+        )
+        .correlate(inputs)
+        .scalar_subquery()
+    )
+    semantic_product = case(
+        (inputs.c.value["member_id"].astext.is_(None), inputs.c.value["product_id"].astext),
+        else_=member_identity,
+    )
     manifest_match = and_(
         inputs.c.value["role"].astext == wanted_role,
-        inputs.c.value["product_id"].astext == mv["product"].astext,
+        semantic_product == mv["product"].astext,
         inputs.c.value["member_id"].astext.is_not_distinct_from(mv["member"].astext),
         inputs.c.value["multiplicity"].astext == mv["multiplicity"].astext,
         or_(
@@ -336,7 +357,7 @@ def binding_validation_native_sql(model):
         select(inputs.c.value.label("candidate"))
         .where(
             inputs.c.value["role"].astext == wanted_role,
-            inputs.c.value["product_id"].astext == mv["product"].astext,
+            semantic_product == mv["product"].astext,
             inputs.c.value["member_id"].astext.is_not_distinct_from(mv["member"].astext),
         )
         .limit(3)
@@ -763,9 +784,8 @@ def binding_validation_native_sql(model):
                 ),
                 If(
                     and_(
-                        witness.is_not(None),
-                        witness != _json("null"),
-                        witness.bool_op("?")("identity"),
+                        population_reference.is_not(None),
+                        population_reference != _json("null"),
                     ),
                     witness_steps,
                     (
@@ -909,7 +929,7 @@ def binding_validation_native_sql(model):
     )
 
 
-def attachment_native_sql(model, protocol: bytes):
+def _attachment_program(model, protocol: bytes):
     import yaml
 
     wire = yaml.safe_load(protocol)["definitions"]
@@ -1686,7 +1706,18 @@ def attachment_native_sql(model, protocol: bytes):
             select(episodes.c.id)
             .where(
                 episodes.c.request_id == r("id"),
-                episodes.c.generation == r("generation"),
+                or_(
+                    episodes.c.generation == r("generation"),
+                    select(1)
+                    .select_from(model.tables["ops.data_draft_consumption"])
+                    .where(
+                        model.tables["ops.data_draft_consumption"].c.intent_id
+                        == episodes.c.intent_id,
+                        model.tables["ops.data_draft_consumption"].c.request_id == r("id"),
+                        model.tables["ops.data_draft_consumption"].c.generation == r("generation"),
+                    )
+                    .exists(),
+                ),
                 func.ops.ddo_node_valid("episode", episodes.c.id, type_=Boolean()),
             )
             .order_by(episodes.c.id)
@@ -1819,7 +1850,7 @@ def attachment_native_sql(model, protocol: bytes):
     return _procedure("ddo_attach_data_request", parameters, steps, locals_)
 
 
-def attachment_batch_native_sql(model):
+def _attachment_batch_program(model):
     boundaries, demands, obligations, trust = (
         model.tables[name]
         for name in (
@@ -2006,9 +2037,20 @@ def attachment_batch_native_sql(model):
     )
 
 
-def request_attachment_native_sql(model, protocol: bytes):
+def request_attachment_native_programs(model, protocol: bytes) -> tuple[NativeRoutine, ...]:
     return (
-        binding_validation_native_sql(model)
-        + attachment_native_sql(model, protocol)
-        + attachment_batch_native_sql(model)
+        _binding_validation_program(model),
+        _attachment_program(model, protocol),
+        _attachment_batch_program(model),
+    )
+
+
+def request_attachment_native_sql(model, protocol: bytes) -> str:
+    from .native_objects import native_sql_script
+
+    return (
+        native_sql_script(
+            item.render() for item in request_attachment_native_programs(model, protocol)
+        )
+        + "\n"
     )

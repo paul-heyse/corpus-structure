@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pglast import ast, enums, parse_sql
-from pglast.stream import RawStream
+from pglast import ast, enums
 from sqlalchemy import (
     ARRAY,
     BigInteger,
@@ -29,13 +28,17 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, REGCONFIG, TSQUERY, aggregate_order_by, insert
 from sqlalchemy.types import TypeEngine
 
+from corpus_structure.schema.integrity import role_name
+
 from .native_call_contracts import OperationCallBinding
+from .native_objects import INTERNAL_PROGRAM
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -46,10 +49,10 @@ from .native_program import (
     call,
     column_type,
     core_variable,
-    function,
     pg_type,
     variable,
 )
+from .native_program_registry import ProgramDeclaration
 
 
 def _json(value: str):
@@ -113,32 +116,19 @@ def _reader(bindings: dict[str, OperationCallBinding], name: str, *arguments):
 
 
 def _declaration(name, body, *, table_result=None):
-    result = function(
+    returns = pg_type("jsonb") if table_result is None else pg_type("record")
+    returns.setof = table_result is not None
+    return NativeRoutine(
         "ops",
         name,
         parameters=(Parameter("p_payload", pg_type("jsonb")),),
-        returns=pg_type("jsonb") if table_result is None else pg_type("record"),
+        returns=returns,
+        table_columns=() if table_result is None else tuple(table_result),
         body=body,
         volatility="volatile",
         security_definer=True,
         search_path=("pg_catalog", "pg_temp"),
     )
-    if table_result is None:
-        return result + ";\n"
-    statement = parse_sql(result)[0].stmt
-    if not isinstance(statement, ast.CreateFunctionStmt) or statement.returnType is None:
-        raise ValueError("search key declaration requires a typed function")
-    statement.parameters = (
-        *(statement.parameters or ()),
-        *(
-            ast.FunctionParameter(
-                name=name, argType=type_, mode=enums.FunctionParameterMode.FUNC_PARAM_TABLE
-            )
-            for name, type_ in table_result
-        ),
-    )
-    statement.returnType.setof = True
-    return RawStream()(statement) + ";\n"
 
 
 def _ensure(model, readers, max_fill_bytes, configuration):
@@ -904,10 +894,30 @@ def _rank(model, configuration):
     )
 
 
-def search_program_sql(model, bindings, *, max_fill_bytes: int, configuration: str) -> str:
+def search_native_programs(
+    model, bindings, *, max_fill_bytes: int, configuration: str
+) -> tuple[ProgramDeclaration, ...]:
     readers = {binding.id: binding for _owner, binding in bindings}
-    return (
-        _ensure(model, readers, max_fill_bytes, configuration)
-        + _keys(model)
-        + _rank(model, configuration)
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        )
+        for routine in (
+            _ensure(model, readers, max_fill_bytes, configuration),
+            _keys(model),
+            _rank(model, configuration),
+        )
+    )
+
+
+def search_program_sql(model, bindings, *, max_fill_bytes: int, configuration: str) -> str:
+    """Render the captured publication search programs from typed declarations."""
+    return "".join(
+        item.routine.render() + ";\n"
+        for item in search_native_programs(
+            model, bindings, max_fill_bytes=max_fill_bytes, configuration=configuration
+        )
     )

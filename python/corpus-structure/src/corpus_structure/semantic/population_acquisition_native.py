@@ -37,6 +37,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     PerformQuery,
@@ -45,7 +46,6 @@ from .native_program import (
     Sql,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
 
@@ -57,21 +57,18 @@ def _object(**fields):
 
 
 def _procedure(name, parameters, steps, locals_=(), *, returns="jsonb"):
-    return (
-        function(
-            "ops",
-            name,
-            parameters=tuple(Parameter(name, pg_type(kind)) for name, kind in parameters),
-            returns=pg_type(returns),
-            body=Block(tuple(steps), tuple(locals_)),
-            security_definer=True,
-            search_path=("pg_catalog", "pg_temp"),
-        )
-        + ";\n"
+    return NativeRoutine(
+        "ops",
+        name,
+        parameters=tuple(Parameter(name, pg_type(kind)) for name, kind in parameters),
+        returns=pg_type(returns),
+        body=Block(tuple(steps), tuple(locals_)),
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
     )
 
 
-def population_filter_native_sql():
+def _population_filter_program():
     """Project only frozen row-local restrictions; retain aggregate authority."""
     node, choices = (_value(name, JSONB()) for name in ("node", "choices"))
     role, operator, choice = (_value(name) for name in ("role", "operator", "choice"))
@@ -90,177 +87,172 @@ def population_filter_native_sql():
     operands = _elements(func.coalesce(node["operands"], _json("[]")), "filter_operand")
     operators = get_args(get_type_hints(BindingExpression)["operator"])
     empty = _object(operator="all", children=_json("[]"))
-    return (
-        function(
-            "ops",
-            "ddo_population_filter",
-            parameters=(
-                Parameter("node", pg_type("jsonb")),
-                Parameter("role", pg_type("text")),
-                Parameter("choices", pg_type("jsonb")),
-            ),
-            returns=pg_type("jsonb"),
-            volatility="immutable",
-            strict=True,
-            search_path=("pg_catalog", "pg_temp"),
-            body=Block(
-                (
-                    _check(
-                        or_(operator.is_(None), ~operator.in_(operators)),
-                        "unrepresentable selected-population filter operator",
-                    ),
-                    If(
-                        operator == "choice",
-                        (
-                            Assign(
-                                "choice",
-                                func.coalesce(
-                                    node["selected"].astext,
-                                    choices[node["choice_parameter"].astext].astext,
-                                ),
+    return NativeRoutine(
+        "ops",
+        "ddo_population_filter",
+        parameters=(
+            Parameter("node", pg_type("jsonb")),
+            Parameter("role", pg_type("text")),
+            Parameter("choices", pg_type("jsonb")),
+        ),
+        returns=pg_type("jsonb"),
+        volatility="immutable",
+        strict=True,
+        search_path=("pg_catalog", "pg_temp"),
+        body=Block(
+            (
+                _check(
+                    or_(operator.is_(None), ~operator.in_(operators)),
+                    "unrepresentable selected-population filter operator",
+                ),
+                If(
+                    operator == "choice",
+                    (
+                        Assign(
+                            "choice",
+                            func.coalesce(
+                                node["selected"].astext,
+                                choices[node["choice_parameter"].astext].astext,
                             ),
-                            ForQuery(
-                                ("child",),
-                                select(child_rows.c.value),
-                                (
-                                    If(
-                                        choice == any_(func.ops.ddo_binding_roles(child)),
-                                        (
-                                            Assign("selected", child),
-                                            Assign("matches", matches + 1),
-                                        ),
-                                    ),
-                                ),
-                            ),
-                            _check(matches != 1, "population filter branch is not uniquely frozen"),
-                            Return(func.ops.ddo_population_filter(selected, role, choices)),
                         ),
-                    ),
-                    Assign("names", func.ops.ddo_binding_roles(node)),
-                    If(~(role == any_(names)), (Return(empty),)),
-                    _check(
-                        operator == "absent", "absence cannot define a positive selected population"
-                    ),
-                    If(
-                        and_(
-                            operator == "optional",
-                            ~select(nodes.c.n)
-                            .where(
-                                or_(
-                                    nodes.c.n["operator"].astext.is_(None),
-                                    ~nodes.c.n["operator"].astext.in_(
-                                        (
-                                            "optional",
-                                            "all",
-                                            "scan",
-                                            "covers",
-                                            "cardinality",
-                                            "collection",
-                                            "forall",
-                                            "same",
-                                            "distinct",
-                                        )
+                        ForQuery(
+                            ("child",),
+                            select(child_rows.c.value),
+                            (
+                                If(
+                                    choice == any_(func.ops.ddo_binding_roles(child)),
+                                    (
+                                        Assign("selected", child),
+                                        Assign("matches", matches + 1),
                                     ),
+                                ),
+                            ),
+                        ),
+                        _check(matches != 1, "population filter branch is not uniquely frozen"),
+                        Return(func.ops.ddo_population_filter(selected, role, choices)),
+                    ),
+                ),
+                Assign("names", func.ops.ddo_binding_roles(node)),
+                If(~(role == any_(names)), (Return(empty),)),
+                _check(
+                    operator == "absent", "absence cannot define a positive selected population"
+                ),
+                If(
+                    and_(
+                        operator == "optional",
+                        ~select(nodes.c.n)
+                        .where(
+                            or_(
+                                nodes.c.n["operator"].astext.is_(None),
+                                ~nodes.c.n["operator"].astext.in_(
+                                    (
+                                        "optional",
+                                        "all",
+                                        "scan",
+                                        "covers",
+                                        "cardinality",
+                                        "collection",
+                                        "forall",
+                                        "same",
+                                        "distinct",
+                                    )
+                                ),
+                            )
+                        )
+                        .exists(),
+                    ),
+                    (Return(empty),),
+                ),
+                _check(
+                    and_(
+                        operator == "optional",
+                        or_(
+                            func.cardinality(names) != 1,
+                            select(nodes.c.n)
+                            .where(
+                                ~nodes.c.n["operator"].astext.in_(
+                                    (
+                                        "optional",
+                                        "all",
+                                        "scan",
+                                        "join",
+                                        "equal",
+                                        "literal",
+                                        "range",
+                                        "membership",
+                                    )
                                 )
                             )
                             .exists(),
                         ),
-                        (Return(empty),),
                     ),
-                    _check(
-                        and_(
-                            operator == "optional",
-                            or_(
-                                func.cardinality(names) != 1,
-                                select(nodes.c.n)
-                                .where(
-                                    ~nodes.c.n["operator"].astext.in_(
-                                        (
-                                            "optional",
-                                            "all",
-                                            "scan",
-                                            "join",
-                                            "equal",
-                                            "literal",
-                                            "range",
-                                            "membership",
-                                        )
-                                    )
-                                )
-                                .exists(),
-                            ),
-                        ),
-                        "optional population filter is not a closed row-local predicate",
-                    ),
-                    ForQuery(
-                        ("child",),
-                        select(child_rows.c.value),
-                        (
-                            Assign(
-                                "projected", func.ops.ddo_population_filter(child, role, choices)
-                            ),
-                            If(
-                                projected != empty,
-                                (
-                                    Assign(
-                                        "children",
-                                        children.op("||")(func.jsonb_build_array(projected)),
-                                    ),
+                    "optional population filter is not a closed row-local predicate",
+                ),
+                ForQuery(
+                    ("child",),
+                    select(child_rows.c.value),
+                    (
+                        Assign("projected", func.ops.ddo_population_filter(child, role, choices)),
+                        If(
+                            projected != empty,
+                            (
+                                Assign(
+                                    "children",
+                                    children.op("||")(func.jsonb_build_array(projected)),
                                 ),
                             ),
                         ),
                     ),
-                    Assign("names", func.ops.ddo_binding_roles(node.op("-")("children"))),
-                    If(
-                        and_(
-                            operator.in_(("join", "equal", "literal", "range", "membership")),
-                            func.cardinality(names) <= 1,
-                        ),
-                        (
-                            If(
-                                select(operands.c.value)
-                                .where(
-                                    operands.c.value["kind"].astext == "population",
-                                    operands.c.value["population_projection"].astext
-                                    == "qualified-context",
-                                )
-                                .exists(),
-                                (Return(_object(operator="all", children=children)),),
-                            ),
-                            _check(
-                                select(operands.c.value)
-                                .where(operands.c.value["kind"].astext == "population")
-                                .exists(),
-                                "selected population filter requires explicit non-circular membership operands",
-                            ),
-                            Assign(
-                                "children",
-                                children.op("||")(func.jsonb_build_array(node.op("-")("children"))),
-                            ),
-                        ),
+                ),
+                Assign("names", func.ops.ddo_binding_roles(node.op("-")("children"))),
+                If(
+                    and_(
+                        operator.in_(("join", "equal", "literal", "range", "membership")),
+                        func.cardinality(names) <= 1,
                     ),
-                    Return(
-                        _object(
-                            operator=case((operator == "optional", "optional"), else_="all"),
-                            children=children,
-                        )
+                    (
+                        If(
+                            select(operands.c.value)
+                            .where(
+                                operands.c.value["kind"].astext == "population",
+                                operands.c.value["population_projection"].astext
+                                == "qualified-context",
+                            )
+                            .exists(),
+                            (Return(_object(operator="all", children=children)),),
+                        ),
+                        _check(
+                            select(operands.c.value)
+                            .where(operands.c.value["kind"].astext == "population")
+                            .exists(),
+                            "selected population filter requires explicit non-circular membership operands",
+                        ),
+                        Assign(
+                            "children",
+                            children.op("||")(func.jsonb_build_array(node.op("-")("children"))),
+                        ),
                     ),
                 ),
-                (
-                    Local("operator", pg_type("text"), node["operator"].astext),
-                    *(Local(name, pg_type("jsonb")) for name in ("child", "projected", "selected")),
-                    Local("children", pg_type("jsonb"), _json("[]")),
-                    Local("names", pg_type_array()),
-                    Local("choice", pg_type("text")),
-                    Local("matches", pg_type("integer"), literal(0)),
+                Return(
+                    _object(
+                        operator=case((operator == "optional", "optional"), else_="all"),
+                        children=children,
+                    )
                 ),
             ),
-        )
-        + ";\n"
+            (
+                Local("operator", pg_type("text"), node["operator"].astext),
+                *(Local(name, pg_type("jsonb")) for name in ("child", "projected", "selected")),
+                Local("children", pg_type("jsonb"), _json("[]")),
+                Local("names", pg_type_array()),
+                Local("choice", pg_type("text")),
+                Local("matches", pg_type("integer"), literal(0)),
+            ),
+        ),
     )
 
 
-def source_acquisition_native_sql(model):
+def _source_acquisition_programs(model):
     """Reacquire retained cuts once and prove exact output occurrences per use."""
     demands, boundaries, products, members, kinds = (
         model.tables[name]
@@ -641,10 +633,10 @@ def source_acquisition_native_sql(model):
         ),
         returns="void",
     )
-    return selected_output + grouped
+    return selected_output, grouped
 
 
-def selected_population_native_sql(model):
+def _selected_population_program(model):
     """Select an authenticated finite parent under the captured binding and read."""
     (
         obligations,
@@ -1295,9 +1287,18 @@ def selected_population_native_sql(model):
     return _procedure("select_data_population", (("p_payload", "jsonb"),), steps, locals_)
 
 
-def population_acquisition_native_sql(model):
+def population_acquisition_native_programs(model) -> tuple[NativeRoutine, ...]:
     return (
-        population_filter_native_sql()
-        + source_acquisition_native_sql(model)
-        + selected_population_native_sql(model)
+        _population_filter_program(),
+        *_source_acquisition_programs(model),
+        _selected_population_program(model),
+    )
+
+
+def population_acquisition_native_sql(model) -> str:
+    from .native_objects import native_sql_script
+
+    return (
+        native_sql_script(item.render() for item in population_acquisition_native_programs(model))
+        + "\n"
     )

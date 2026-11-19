@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from pglast.stream import RawStream
 from sqlalchemy import (
     BigInteger,
     Column,
@@ -31,11 +30,12 @@ from sqlalchemy.sql.elements import BindParameter
 from corpus_structure.schema.integrity import role_name
 
 from .metadata import table
-from .native_objects import NativeDefinition, NativeIdentity, native_privilege_sql
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, native_privilege_sql
 from .native_program import (
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -43,11 +43,9 @@ from .native_program import (
     SelectInto,
     column_type,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
-from .native_sql_body import sql_standard_definition
+from .native_program_registry import ProgramDeclaration, RenderedProgram
 from .product_reference import ProductReference
 
 
@@ -405,13 +403,7 @@ def _published_read_native(statement, selectors):
     return native
 
 
-def _reader_identity(name, parameters):
-    return NativeIdentity(
-        "function", "ops", name, tuple(RawStream()(item.type_) for item in parameters)
-    )
-
-
-def published_readers_sql(*, target_metadata=None) -> str:
+def published_readers_programs(*, target_metadata=None) -> tuple[ProgramDeclaration, ...]:
     """Guard exact publication first, then call its private Core-derived SQL body."""
     selected_table = table if target_metadata is None else target_metadata.tables.__getitem__
     publication = selected_table("ops.pdf_published_revision")
@@ -450,26 +442,17 @@ def published_readers_sql(*, target_metadata=None) -> str:
         private_name = public_name + "_rows"
         private_parameters = (*placement_parameters, *selector_parameters)
         public_parameters = (*producer_parameters, *selector_parameters)
-        private_identity = _reader_identity(private_name, private_parameters)
-        public_identity = _reader_identity(public_name, public_parameters)
         native = _published_read_native(statement, selectors)
-        private = sql_standard_definition(
-            NativeDefinition(
-                private_identity,
-                sql_function(
-                    "ops",
-                    private_name,
-                    parameters=private_parameters,
-                    returns=returns,
-                    table_columns=columns,
-                    body=native,
-                    volatility="stable",
-                    search_path=("pg_catalog", "pg_temp"),
-                ),
-                "published-document:private-body",
-                owner=role_name("publisher"),
-            ),
-            native,
+        private = NativeRoutine(
+            "ops",
+            private_name,
+            parameters=private_parameters,
+            returns=returns,
+            table_columns=columns,
+            body=native,
+            volatility="stable",
+            search_path=("pg_catalog", "pg_temp"),
+            sql_standard=True,
         )
         revision = func.ops.read_pdf_published_revision(
             *(
@@ -490,7 +473,7 @@ def published_readers_sql(*, target_metadata=None) -> str:
             published["build_id"],
             *(core_variable(key, kind) for key, kind in selectors),
         ).table_valued(*(column(field.name, field.type) for field in statement.selected_columns))
-        public = function(
+        public = NativeRoutine(
             "ops",
             public_name,
             parameters=public_parameters,
@@ -515,44 +498,36 @@ def published_readers_sql(*, target_metadata=None) -> str:
         )
         result.extend(
             (
-                private.sql,
-                native_privilege_sql(private_identity, "PUBLIC", grant=False),
-                public,
-                native_privilege_sql(public_identity, "PUBLIC", grant=False),
-                *(
-                    native_privilege_sql(public_identity, role, "EXECUTE")
-                    for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
+                ProgramDeclaration(
+                    private, "published-document:forward", role_name("publisher"), INTERNAL_PROGRAM
+                ),
+                ProgramDeclaration(
+                    public,
+                    "published-document:forward",
+                    role_name("publisher"),
+                    NativeProgramAccess(purposes=("read", "write", "evaluate")),
                 ),
             )
         )
+    return tuple(result)
+
+
+def published_readers_sql(*, target_metadata=None) -> str:
+    """Render the bound private SELECTs and their guarded public reader declarations."""
+    result = []
+    for item in published_readers_programs(target_metadata=target_metadata):
+        result.extend((item.render(), native_privilege_sql(item.identity, "PUBLIC", grant=False)))
+        if item.access != INTERNAL_PROGRAM:
+            result.extend(
+                native_privilege_sql(item.identity, role, "EXECUTE")
+                for role in (role_name("reader"), role_name("writer"), role_name("evaluator"))
+            )
     return ";\n".join(result) + ";\n"
 
 
 def published_reader_definitions(connection, *, target_metadata=None):
-    """Explicit native definitions for the same public envelopes and private bodies."""
-    from pglast import ast
-
-    from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, definition_from_sql
-    from .prepared_sql import prepare_sql
-
-    prepared = prepare_sql(
-        published_readers_sql(target_metadata=target_metadata), source="published-document:forward"
+    """Bind the same explicit reader declarations without scanning rendered SQL."""
+    return tuple(
+        RenderedProgram(item, item.render(), frozenset(), frozenset()).definition(connection)
+        for item in published_readers_programs(target_metadata=target_metadata)
     )
-    result = []
-    for index, raw in enumerate(prepared.statements):
-        if not isinstance(raw.stmt, ast.CreateFunctionStmt):
-            continue
-        names = tuple(part.sval for part in raw.stmt.funcname or ())
-        private = names[-1].endswith("_rows")
-        result.append(
-            definition_from_sql(
-                connection,
-                prepared.excerpt(index),
-                source="published-document:forward",
-                owner=role_name("publisher"),
-                program_access=INTERNAL_PROGRAM
-                if private
-                else NativeProgramAccess(purposes=("read", "write", "evaluate")),
-            )
-        )
-    return tuple(result)

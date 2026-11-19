@@ -1,12 +1,12 @@
 """Actual source-authored PDF guard checked without changing frozen admission."""
 
-from corpus_structure.semantic.native_authoring import _pdf_payload_definitions
 from corpus_structure.semantic.native_objects import (
     NativeIdentity,
     observe_native,
     prepare_native_authoring,
 )
-from corpus_structure.semantic.pdf_staging_native import stage_native_sql
+from corpus_structure.semantic.native_program_registry import RenderedProgram
+from corpus_structure.semantic.pdf_staging_native import stage_native_programs
 
 
 def test_current_pdf_stage_owner_static_check_preserves_frozen_kernel(commit_db_engine):
@@ -15,14 +15,9 @@ def test_current_pdf_stage_owner_static_check_preserves_frozen_kernel(commit_db_
     )
     with commit_db_engine.begin() as connection:
         before = observe_native(connection, identity, catalog_version=1)
-        selected = next(
-            item
-            for item in _pdf_payload_definitions(
-                connection,
-                stage_native_sql(),
-                source="current PDF owner guard",
-            )
-            if item.identity == identity
+        program = next(item for item in stage_native_programs() if item.identity == identity)
+        selected = RenderedProgram(program, program.render(), frozenset(), frozenset()).definition(
+            connection
         )
         # Check current request custody against the installed row types/dependencies.
         prepared = prepare_native_authoring(

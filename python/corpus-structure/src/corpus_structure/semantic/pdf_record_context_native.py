@@ -22,11 +22,18 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, array
 
 from corpus_structure.schema.integrity import role_name
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from .native_objects import (
+    INTERNAL_PROGRAM,
+    NativeIdentity,
+    NativeProgramAccess,
+    native_privilege_sql,
+    native_sql_script,
+)
 from .native_program import (
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
@@ -34,11 +41,10 @@ from .native_program import (
     SelectInto,
     column_type,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
 from .native_program import literal as pg_literal
+from .native_program_registry import ProgramDeclaration
 
 
 def _materialized(query, name):
@@ -267,7 +273,7 @@ def _privileges(name, parameters, *, readers=False):
     )
 
 
-def pdf_record_context_sql(model):
+def pdf_record_context_programs(model) -> tuple[ProgramDeclaration, ...]:
     """Generate the shared selected companion rows and integrated set result."""
     companion = model.tables["kb.pdf_record_companion"]
     parameters = _parameters(model)
@@ -280,7 +286,7 @@ def pdf_record_context_sql(model):
     )
     returns = pg_type("record")
     returns.setof = True
-    rows = sql_function(
+    rows = NativeRoutine(
         "ops",
         "pdf_record_context_rows",
         parameters=parameters,
@@ -291,14 +297,40 @@ def pdf_record_context_sql(model):
         search_path=("pg_catalog", "pg_temp"),
         body=select(chosen.c.family, chosen.c.local_id, chosen.c.ordinal, body),
     )
-    result = _integrated_context(model)
     return (
-        native_sql_script((rows, *_privileges("pdf_record_context_rows", parameters), result))
+        ProgramDeclaration(
+            rows, "target-current:PDF publication", role_name("publisher"), INTERNAL_PROGRAM
+        ),
+        _integrated_context_program(model),
+    )
+
+
+def _context_program_sql(item):
+    return native_sql_script(
+        (
+            item.render(),
+            *_privileges(
+                item.identity.name, item.routine.parameters, readers=item.access != INTERNAL_PROGRAM
+            ),
+        )
+    )
+
+
+def pdf_record_context_sql(model):
+    rows, integrated = pdf_record_context_programs(model)
+    return (
+        native_sql_script(
+            (
+                rows.render(),
+                *_privileges(rows.identity.name, rows.routine.parameters),
+                _context_program_sql(integrated),
+            )
+        )
         + "\n"
     )
 
 
-def pdf_record_context_page_sql(model):
+def pdf_record_context_page_programs(model) -> tuple[ProgramDeclaration, ...]:
     """Generate the keyset page from the same selected context relation."""
     parameters = (
         *_parameters(model, "p_product"),
@@ -335,7 +367,7 @@ def pdf_record_context_page_sql(model):
     )
     returns = pg_type("jsonb")
     returns.setof = True
-    declaration = function(
+    declaration = NativeRoutine(
         "ops",
         "read_pdf_record_context_rows",
         parameters=parameters,
@@ -385,14 +417,20 @@ def pdf_record_context_page_sql(model):
         ),
     )
     return (
-        native_sql_script(
-            (declaration, *_privileges("read_pdf_record_context_rows", parameters, readers=True))
-        )
-        + "\n"
+        ProgramDeclaration(
+            declaration,
+            "target-current:PDF publication",
+            role_name("publisher"),
+            NativeProgramAccess(purposes=("read", "write", "evaluate")),
+        ),
     )
 
 
-def _integrated_context(model):
+def pdf_record_context_page_sql(model):
+    return _context_program_sql(pdf_record_context_page_programs(model)[0]) + "\n"
+
+
+def _integrated_context_program(model) -> ProgramDeclaration:
     publication = model.tables["ops.pdf_published_revision"]
     companion = model.tables["kb.pdf_record_companion"]
     endpoint = model.tables["kb.pdf_record_endpoint"]
@@ -584,7 +622,7 @@ def _integrated_context(model):
         Parameter("p_membership", pg_type("text")),
         Parameter("p_row_budget", pg_type("int8"), default=pg_literal(None)),
     )
-    declaration = function(
+    declaration = NativeRoutine(
         "ops",
         "record_integrated_source_context",
         parameters=parameters,
@@ -629,6 +667,9 @@ def _integrated_context(model):
             ),
         ),
     )
-    return native_sql_script(
-        (declaration, *_privileges("record_integrated_source_context", parameters, readers=True))
+    return ProgramDeclaration(
+        declaration,
+        "target-current:PDF publication",
+        role_name("publisher"),
+        NativeProgramAccess(purposes=("read", "write", "evaluate")),
     )

@@ -19,7 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSON, JSONB, aggregate_order_by, array
 
-from .data_operation_compiler_native import LOWERING_DIGEST
+from .data_operation_native_identity import native_identity_field
 from .data_operation_projections import binding_branches, binding_columns
 from .native_program import (
     Assign,
@@ -27,6 +27,7 @@ from .native_program import (
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     PerformQuery,
@@ -38,7 +39,6 @@ from .native_program import (
     column_type,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
 )
 from .native_program import (
@@ -83,7 +83,7 @@ def _program(
     strict=False,
     table_columns=(),
 ):
-    return function(
+    return NativeRoutine(
         "ops",
         name,
         parameters=parameters,
@@ -246,7 +246,10 @@ def _inspection_programs(model):
                     _exists(
                         releases,
                         releases.c.release_id == p["release_id"].astext,
-                        or_(validity_only, releases.c.lowering_digest == LOWERING_DIGEST),
+                        or_(
+                            validity_only,
+                            releases.c.lowering_digest == native_identity_field("lowering_digest"),
+                        ),
                         releases.c.native_kernel_digest == projection["native_digest"].astext,
                         releases.c.model_digest == projection["model_digest"].astext,
                     )
@@ -709,16 +712,32 @@ def _binding_programs(model):
     return internal, public
 
 
-def read_native_sql(model):
-    """Compile the current inspection, nested access and selected binding readers."""
-    return (
-        ";\n".join(
-            (
-                *_inspection_programs(model),
-                _cpu_reply_program(),
-                *_body_access_programs(model),
-                *_binding_programs(model),
-            )
+def read_native_programs(model):
+    """Declare the current inspection, nested access and selected binding readers."""
+    from corpus_structure.schema.integrity import role_name
+
+    from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
+    from .native_program_registry import ProgramDeclaration
+
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=NativeProgramAccess(purposes=("read", "write", "evaluate"))
+            if routine.name == "data_binding_rows"
+            else INTERNAL_PROGRAM,
         )
-        + ";\n"
+        for routine in (
+            *_inspection_programs(model),
+            _cpu_reply_program(),
+            *_body_access_programs(model),
+            *_binding_programs(model),
+        )
     )
+
+
+def read_native_sql(model) -> str:
+    from .native_objects import native_sql_script
+
+    return native_sql_script(item.render() for item in read_native_programs(model)) + "\n"

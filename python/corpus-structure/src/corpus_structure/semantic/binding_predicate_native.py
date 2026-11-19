@@ -19,9 +19,11 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, array
 
 from .binding_recursive_native import (
+    _binding_declarations,
     _check,
     _elements,
     _json,
+    _render_binding_programs,
     _routine,
     _texts,
     _value,
@@ -39,9 +41,10 @@ from .native_program import (
     Statement,
     pg_type,
 )
+from .native_program_registry import ProgramDeclaration
 
 
-def binding_predicate_native_sql():
+def _binding_predicate_native_routine():
     (
         node,
         context,
@@ -746,3 +749,12 @@ def binding_predicate_native_sql():
         ),
         result="bool",
     )
+
+
+def binding_predicate_native_programs() -> tuple[ProgramDeclaration, ...]:
+    return _binding_declarations((_binding_predicate_native_routine(),))
+
+
+def binding_predicate_native_sql() -> str:
+    """Render this provider's captured statements from typed declarations."""
+    return _render_binding_programs(binding_predicate_native_programs(), separator="")

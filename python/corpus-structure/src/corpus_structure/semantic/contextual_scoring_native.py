@@ -9,22 +9,25 @@ from sqlalchemy import Integer, Text, and_, cast, column, func, literal, literal
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, REAL, aggregate_order_by, dialect
 from sqlalchemy.types import TypeEngine
 
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql
 from .native_program import (
     Assign,
     Block,
     ForQuery,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
     ReturnQuery,
     SelectInto,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration
 
 
 def _query_node(query) -> ast.SelectStmt:
@@ -99,7 +102,7 @@ def _observed_vector():
     query.targetList[0].val = ast.TypeCast(
         arg=query.targetList[0].val, typeName=pg_type("public", "vector")
     )
-    return sql_function(
+    return NativeRoutine(
         "ops",
         "ddo_contextual_observed_vector",
         parameters=(Parameter("observed", pg_type("jsonb")),),
@@ -131,7 +134,7 @@ def _vector_rows():
     )
     returns = pg_type("record")
     returns.setof = True
-    declaration = function(
+    declaration = NativeRoutine(
         "ops",
         "ddo_contextual_vector_rows",
         parameters=(
@@ -139,6 +142,7 @@ def _vector_rows():
             Parameter("p_vectors", pg_type("jsonb")),
         ),
         returns=returns,
+        table_columns=output,
         volatility="immutable",
         strict=True,
         search_path=("pg_catalog", "pg_temp"),
@@ -216,15 +220,7 @@ def _vector_rows():
             ),
         ),
     )
-    (parsed,) = parse_sql(declaration)
-    assert isinstance(parsed.stmt, ast.CreateFunctionStmt)
-    parsed.stmt.parameters = tuple(parsed.stmt.parameters or ()) + tuple(
-        ast.FunctionParameter(
-            name=name, argType=datatype, mode=enums.FunctionParameterMode.FUNC_PARAM_TABLE
-        )
-        for name, datatype in output
-    )
-    return RawStream()(parsed)
+    return declaration
 
 
 def _native_scores():
@@ -304,7 +300,7 @@ def _native_scores():
         empty,
     )
     targets = _items(inventory["targets"])
-    return function(
+    return NativeRoutine(
         "ops",
         "ddo_contextual_native_scores",
         parameters=tuple(
@@ -462,7 +458,7 @@ def _score_meaning():
             ),
         )
     )
-    return sql_function(
+    return NativeRoutine(
         "ops",
         "ddo_contextual_score_meaning",
         parameters=(Parameter("scores", pg_type("jsonb")),),
@@ -474,21 +470,24 @@ def _score_meaning():
     )
 
 
-def contextual_scoring_native_sql() -> str:
-    from .native_objects import NativeIdentity, native_privilege_sql
+def contextual_scoring_native_programs() -> tuple[ProgramDeclaration, ...]:
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        )
+        for routine in (_observed_vector(), _vector_rows(), _native_scores(), _score_meaning())
+    )
 
-    definitions = (_observed_vector(), _vector_rows(), _native_scores(), _score_meaning())
+
+def contextual_scoring_native_sql() -> str:
+    """Render captured definitions followed by their existing PUBLIC revocations."""
+    declarations = contextual_scoring_native_programs()
+    definitions = tuple(declaration.routine.render() for declaration in declarations)
     revocations = tuple(
-        native_privilege_sql(
-            NativeIdentity("function", "ops", name, ("jsonb",) * count),
-            "PUBLIC",
-            grant=False,
-        )
-        for name, count in (
-            ("ddo_contextual_observed_vector", 1),
-            ("ddo_contextual_vector_rows", 2),
-            ("ddo_contextual_native_scores", 5),
-            ("ddo_contextual_score_meaning", 1),
-        )
+        native_privilege_sql(declaration.identity, "PUBLIC", grant=False)
+        for declaration in declarations
     )
     return ";\n".join((*definitions, *revocations)) + ";"

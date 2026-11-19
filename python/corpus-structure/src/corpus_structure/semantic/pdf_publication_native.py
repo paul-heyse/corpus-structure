@@ -6,7 +6,6 @@ import json
 from collections.abc import Mapping
 
 from pglast import ast, enums
-from pglast.stream import RawStream
 from sqlalchemy import MetaData, Table, Text, case, cast, func, null, select, union_all
 from sqlalchemy.dialects.postgresql import JSONB, Insert, array, dialect, insert
 
@@ -15,12 +14,19 @@ from corpus_structure.schema.integrity import role_name
 from .metadata import get_metadata as default_metadata
 from .native_call_contracts import OperationCallBinding
 from .native_objects import (
-    NativeIdentity,
-    native_owner_sql,
+    INTERNAL_PROGRAM,
+    NativeProgramAccess,
     native_privilege_sql,
     native_sql_script,
 )
-from .native_program import Parameter, column_type, core_variable, pg_type, sql_function
+from .native_program import (
+    NativeRoutine,
+    Parameter,
+    column_type,
+    core_variable,
+    pg_type,
+)
+from .native_program_registry import ProgramDeclaration
 from .pdf_staging import STAGE_FAMILIES
 from .prepared_sql import prepare_sql
 
@@ -159,9 +165,9 @@ def _prepare_pdf_reference_target(source, native: Table, artifacts: Table, build
     )
 
 
-def _prepare_pdf_build_sql(
+def _prepare_pdf_build_program(
     metadata: MetaData, stages: Mapping[str, str], binding: OperationCallBinding
-) -> str:
+) -> ProgramDeclaration:
     from .native_program import (
         Assign,
         Block,
@@ -171,7 +177,7 @@ def _prepare_pdf_build_sql(
         call,
         literal,
         variable,
-        void_call_function,
+        void_call_routine,
     )
 
     names = {}
@@ -187,7 +193,7 @@ def _prepare_pdf_build_sql(
             for name in ("build_id", "task_id", "attempt", "holder", "frozen_digest")
         ),
     )
-    return void_call_function(
+    routine = void_call_routine(
         binding,
         security_definer=True,
         search_path=("pg_catalog", "pg_temp"),
@@ -213,6 +219,8 @@ def _prepare_pdf_build_sql(
             ),
         ),
     )
+
+    return _publication_program(routine)
 
 
 def _schema_json(schema: dict) -> str:
@@ -401,56 +409,48 @@ def _published_pin_parameters(model):
     )
 
 
-def _published_revision_sql(model) -> str:
-    from .native_sql_body import published_revision_statement
-
-    returns = pg_type("ops", "pdf_published_revision")
+def _published_pin_program(model, name, return_name, statement):
+    returns = pg_type("ops", return_name)
     returns.setof = True
-    return (
-        native_sql_script(
-            (
-                sql_function(
-                    "ops",
-                    "read_pdf_published_revision",
-                    parameters=_published_pin_parameters(model),
-                    returns=returns,
-                    body=published_revision_statement(target_metadata=model),
-                    security_definer=True,
-                    search_path=("pg_catalog", "pg_temp"),
-                    volatility="stable",
-                ),
-            )
-        )
-        + "\n"
+    source = "target-current:PDF publication"
+    return ProgramDeclaration(
+        NativeRoutine(
+            "ops",
+            name,
+            parameters=_published_pin_parameters(model),
+            returns=returns,
+            body=statement(target_metadata=model),
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
+            volatility="stable",
+            sql_standard=True,
+        ),
+        source + ":sql-standard",
+        role_name("publisher"),
+        NativeProgramAccess(purposes=("write", "read", "evaluate")),
     )
 
 
-def _published_validation_sql(*, target_metadata=None) -> str:
-    from .native_sql_body import published_validation_statement
+def published_pin_programs(model):
+    from .native_sql_body import published_revision_statement, published_validation_statement
 
-    model = default_metadata() if target_metadata is None else target_metadata
-    returns = pg_type("ops", "pdf_build_validation")
-    returns.setof = True
     return (
-        native_sql_script(
-            (
-                sql_function(
-                    "ops",
-                    "read_pdf_published_validation",
-                    parameters=_published_pin_parameters(model),
-                    returns=returns,
-                    body=published_validation_statement(target_metadata=model),
-                    security_definer=True,
-                    search_path=("pg_catalog", "pg_temp"),
-                    volatility="stable",
-                ),
-            )
-        )
-        + "\n"
+        _published_pin_program(
+            model,
+            "read_pdf_published_revision",
+            "pdf_published_revision",
+            published_revision_statement,
+        ),
+        _published_pin_program(
+            model,
+            "read_pdf_published_validation",
+            "pdf_build_validation",
+            published_validation_statement,
+        ),
     )
 
 
-def _published_views_sql(model, domain) -> str:
+def published_view_programs(model, domain):
     """Expose model-owned record fields and the captured PDF schema dependency."""
     published = model.tables["ops.pdf_published_revision"]
     companion = model.tables["kb.pdf_record_companion"]
@@ -468,10 +468,11 @@ def _published_views_sql(model, domain) -> str:
         target="semantic-read",
         linkml_types=model.info["physical_linkml_types"],
     ).tables["ops.pdf_selected_product"]
-    statements = []
+    from .native_program_registry import RelationProgramDeclaration
+
+    programs = []
 
     def view(name, query, *, admitter=False):
-        # Core owns the query; pglast owns PostgreSQL's replace-view DDL envelope.
         projection = (
             prepare_sql(
                 str(query.compile(dialect=dialect(), compile_kwargs={"literal_binds": True})),
@@ -482,27 +483,23 @@ def _published_views_sql(model, domain) -> str:
         )
         if not isinstance(projection, ast.SelectStmt):
             raise ValueError("published PDF view requires a structured SELECT")
-        identity = NativeIdentity("view", "ops", name)
-        statements.extend(
-            (
-                RawStream()(
-                    ast.ViewStmt(
-                        view=ast.RangeVar(schemaname="ops", relname=name, inh=True),
-                        query=projection,
-                        replace=True,
-                        withCheckOption=enums.ViewCheckOption.NO_CHECK_OPTION,
-                    )
+        roles = (
+            role_name("writer"),
+            role_name("reader"),
+            role_name("evaluator"),
+            *((role_name("admitter"),) if admitter else ()),
+        )
+        programs.append(
+            RelationProgramDeclaration(
+                ast.ViewStmt(
+                    view=ast.RangeVar(schemaname="ops", relname=name, inh=True),
+                    query=projection,
+                    replace=True,
+                    withCheckOption=enums.ViewCheckOption.NO_CHECK_OPTION,
                 ),
-                native_owner_sql(identity, role_name("publisher")),
-                *(
-                    native_privilege_sql(identity, role, "select")
-                    for role in (
-                        role_name("writer"),
-                        role_name("reader"),
-                        role_name("evaluator"),
-                        *((role_name("admitter"),) if admitter else ()),
-                    )
-                ),
+                "target-current:PDF views",
+                role_name("publisher"),
+                tuple((role, "SELECT", False) for role in roles),
             )
         )
 
@@ -603,69 +600,11 @@ def _published_views_sql(model, domain) -> str:
             ),
         ),
     )
-    return native_sql_script(statements) + "\n"
+    return tuple(programs)
 
 
-def _publication_privileges_sql() -> str:
-    signatures = (
-        ("check_pdf_build", ("text", "bigint", "bigint", "text", "text", "text")),
-        ("pdf_validation_contract", ("text",)),
-        ("pdf_projection_contract", ("text", "text")),
-        ("prepare_pdf_companions", ()),
-        ("adopt_pdf_companions", ("text", "bigint", "bigint", "text", "text")),
-        ("prepare_pdf_build", ("text", "bigint", "bigint", "text", "text")),
-        ("read_pdf_published_revision", ("bigint", "text", "text")),
-        ("read_pdf_published_validation", ("bigint", "text", "text")),
-    )
-    statements = []
-    for name, arguments in signatures:
-        identity = NativeIdentity("function", "ops", name, arguments)
-        statements.extend(
-            (
-                native_privilege_sql(identity, "PUBLIC", grant=False),
-                native_privilege_sql(identity, role_name("writer"), "execute"),
-            )
-        )
-        if name in {"read_pdf_published_revision", "read_pdf_published_validation"}:
-            statements.extend(
-                native_privilege_sql(identity, role, "execute")
-                for role in (
-                    role_name("reader"),
-                    role_name("evaluator"),
-                )
-            )
-    return native_sql_script(statements) + "\n"
-
-
-def _companion_adoption_sql(context, metadata) -> str:
-    from .pdf_companion_adoption_native import companion_adoption_sql
-
-    return companion_adoption_sql(context, metadata)
-
-
-def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
-    metadata = default_metadata() if target_metadata is None else target_metadata
-    from .pdf_companion_read_native import (
-        pdf_companion_field_read_sql,
-        pdf_native_record_shape_sql,
-    )
-    from .pdf_contracts import _context_from_domain, trusted_pdf_context
-    from .pdf_domain import pdf_call_bindings
-    from .pdf_publication_read_native import (
-        pdf_publication_projection_sql,
-        pdf_record_scope_health_sql,
-        pdf_reference_bytes_equal_sql,
-    )
-    from .pdf_record_context_native import pdf_record_context_page_sql, pdf_record_context_sql
-    from .pdf_record_pages_native import pdf_record_page_sql
-    from .pdf_record_reader_native import (
-        pdf_companion_export_sql,
-        pdf_native_export_sql,
-        pdf_record_reader_sql,
-    )
-    from .pdf_validation_read_native import pdf_validation_native_programs
-
-    stage = {
+def _publication_stages():
+    return {
         **STAGE_FAMILIES,
         "companion": "ops.pdf_stage_companion",
         "endpoint": "ops.pdf_stage_endpoint",
@@ -673,57 +612,78 @@ def publication_sql(*, target_metadata=None, pdf_domain=None) -> str:
         "access": "ops.pdf_stage_access",
         "region": "ops.pdf_stage_region",
     }
-    schema_bytes = (
-        None
-        if pdf_domain is None
-        else pdf_domain.source("implementation/pdf/docling-validation.schema.json").content
-    )
-    sql = (
-        pdf_native_record_shape_sql(schema_bytes)
-        + pdf_companion_field_read_sql(metadata)
-        + pdf_freeze_native_sql(metadata, stage, pdf_domain=pdf_domain)
-    )
-    context = (
-        trusted_pdf_context() if pdf_domain is None else _context_from_domain(None, pdf_domain)
-    )
-    sql += _companion_adoption_sql(context, metadata) + pdf_reference_bytes_equal_sql(metadata)
-    (prepare_binding,) = (
+
+
+def _prepare_binding(pdf_domain):
+    from .pdf_domain import pdf_call_bindings
+
+    (binding,) = (
         binding
         for action, binding in pdf_call_bindings(pdf_domain)
         if action == "prepare_pdf_build" and binding.id == "prepare_pdf_build"
     )
-    sql += _prepare_pdf_build_sql(metadata, stage, prepare_binding) + ";\n"
-    sql += _published_revision_sql(metadata)
-    reader = (
-        pdf_record_reader_sql(target_metadata=metadata)
-        + pdf_record_context_page_sql(metadata)
-        + pdf_native_export_sql(target_metadata=metadata)
-        + pdf_companion_export_sql(target_metadata=metadata)
-    )
-    sql += pdf_record_page_sql(metadata, frozen=True)
-    validation_programs = pdf_validation_native_programs(metadata, pdf_domain=pdf_domain)
-    sql += (
-        validation_programs["validation_contract"]
-        + validation_programs["projection_contract"]
-        + pdf_inventory_native_sql(metadata)
-        + validation_programs["check_build"]
+    return binding
+
+
+def publication_control_programs(model, domain):
+    """Own the build transition and publication routines and their access."""
+    stages = _publication_stages()
+    return (
+        *pdf_freeze_native_programs(model, stages, pdf_domain=domain),
+        _prepare_pdf_build_program(model, stages, _prepare_binding(domain)),
+        *published_pin_programs(model),
+        pdf_inventory_native_program(model),
+        *pdf_validation_and_seal_native_programs(model, pdf_domain=domain),
+        *pdf_publication_control_programs(model),
     )
 
-    sql += reader + "\n" + pdf_record_context_sql(metadata) + "\n"
-    sql += _published_views_sql(metadata, context.domain)
-    sql += pdf_record_scope_health_sql(metadata)
-    sql += pdf_publication_projection_sql(metadata)
-    from .pdf_certification_native import pdf_certification_native_sql
 
-    sql += pdf_validation_and_seal_native_sql(metadata, pdf_domain=pdf_domain)
-    sql += pdf_publication_controls_sql(metadata)
-    sql += pdf_certification_native_sql(target_metadata=metadata)
-    sql += _published_validation_sql(target_metadata=metadata)
-    sql += _publication_privileges_sql()
-    return sql
+def publication_native_programs(model, domain):
+    """Collect publication routines at their typed producer boundaries."""
+    from .pdf_certification_native import pdf_certification_native_programs
+    from .pdf_companion_read_native import (
+        pdf_companion_field_read_programs,
+        pdf_native_record_shape_program,
+    )
+    from .pdf_publication_read_native import (
+        pdf_publication_projection_program,
+        pdf_record_scope_health_program,
+        pdf_reference_bytes_equal_program,
+    )
+    from .pdf_record_context_native import (
+        pdf_record_context_page_programs,
+        pdf_record_context_programs,
+    )
+    from .pdf_record_pages_native import pdf_record_page_programs
+    from .pdf_record_reader_native import (
+        pdf_companion_export_programs,
+        pdf_native_export_programs,
+        pdf_record_reader_programs,
+    )
+    from .pdf_validation_read_native import pdf_validation_program_declarations
+
+    return (
+        pdf_native_record_shape_program(
+            domain.source("implementation/pdf/docling-validation.schema.json").content
+        ),
+        *pdf_companion_field_read_programs(model),
+        *publication_control_programs(model, domain),
+        pdf_reference_bytes_equal_program(model),
+        *pdf_record_reader_programs(target_metadata=model),
+        *pdf_record_context_page_programs(model),
+        *pdf_native_export_programs(target_metadata=model),
+        *pdf_companion_export_programs(target_metadata=model),
+        *pdf_record_page_programs(model, frozen=True),
+        *pdf_validation_program_declarations(model, pdf_domain=domain).values(),
+        *pdf_record_context_programs(model),
+        *published_view_programs(model, domain),
+        pdf_record_scope_health_program(model),
+        pdf_publication_projection_program(model),
+        *pdf_certification_native_programs(target_metadata=model),
+    )
 
 
-def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
+def pdf_freeze_native_programs(model, stages=None, *, pdf_domain=None):
     """Compile exact frozen inventory custody with hashing outside the owner lock."""
     from sqlalchemy import (
         BigInteger,
@@ -1171,19 +1131,25 @@ def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
             ),
         )
     )
-    return "\n".join(out)
+    return tuple(out)
+
+
+def _publication_program(routine, *, writer=True, source="target-current:PDF publication"):
+    return ProgramDeclaration(
+        routine,
+        source,
+        role_name("publisher"),
+        NativeProgramAccess(purposes=("write",)) if writer else INTERNAL_PROGRAM,
+    )
 
 
 def _publication_control_routine(
     name, parameters, returns, statements, locals_, *, writer=True, security_definer=True
 ):
-    from pglast import ast, enums, parse_sql
-    from pglast.stream import RawStream
+    from .native_program import Block
 
-    from .native_program import Block, function
-
-    declaration = parse_sql(
-        function(
+    return _publication_program(
+        NativeRoutine(
             "ops",
             name,
             parameters=parameters,
@@ -1191,47 +1157,54 @@ def _publication_control_routine(
             body=Block(tuple(statements), tuple(locals_)),
             security_definer=security_definer,
             search_path=("pg_catalog", "pg_temp"),
-        )
-    )[0].stmt
-    if not isinstance(declaration, ast.CreateFunctionStmt):
-        raise ValueError("PDF frozen custody requires a typed function declaration")
-    identity = ast.ObjectWithArgs(
-        objname=(ast.String(sval="ops"), ast.String(sval=name)),
-        objargs=tuple(parameter.type_ for parameter in parameters),
-        args_unspecified=False,
-    )
-    statements_ = [
-        declaration,
-        ast.GrantStmt(
-            is_grant=False,
-            targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-            objtype=enums.ObjectType.OBJECT_FUNCTION,
-            objects=(identity,),
-            grantees=(ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC),),
-            grant_option=False,
-            behavior=enums.DropBehavior.DROP_RESTRICT,
         ),
-    ]
-    if writer:
-        statements_.append(
-            ast.GrantStmt(
-                is_grant=True,
-                targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
-                objtype=enums.ObjectType.OBJECT_FUNCTION,
-                objects=(identity,),
-                privileges=(ast.AccessPriv(priv_name="execute"),),
-                grantees=(
-                    ast.RoleSpec(
-                        roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=role_name("writer")
-                    ),
+        writer=writer,
+    )
+
+
+def _publication_program_sql(program):
+    return (
+        native_sql_script(
+            (
+                program.routine.render(),
+                native_privilege_sql(program.identity, "PUBLIC", grant=False),
+                *(
+                    native_privilege_sql(
+                        program.identity, role, privilege, grant_option=grant_option
+                    )
+                    for role, privilege, grant_option in program.access.grants(program.owner)
                 ),
-                behavior=enums.DropBehavior.DROP_RESTRICT,
             )
         )
-    return ";\n".join(RawStream()(statement) for statement in statements_) + ";\n"
+        + "\n"
+    )
+
+
+def pdf_freeze_native_sql(model, stages=None, *, pdf_domain=None):
+    return "\n".join(
+        _publication_program_sql(item)
+        for item in pdf_freeze_native_programs(model, stages, pdf_domain=pdf_domain)
+    )
 
 
 def pdf_publication_controls_sql(model):
+    return "\n".join(
+        _publication_program_sql(item) for item in pdf_publication_control_programs(model)
+    )
+
+
+def pdf_validation_and_seal_native_sql(model, *, pdf_domain=None):
+    return "\n".join(
+        _publication_program_sql(item)
+        for item in pdf_validation_and_seal_native_programs(model, pdf_domain=pdf_domain)
+    )
+
+
+def pdf_inventory_native_sql(model):
+    return _publication_program_sql(pdf_inventory_native_program(model))
+
+
+def pdf_publication_control_programs(model):
     """Generate bounded projection admission and exact private build lookup controls."""
     from pglast import ast
     from sqlalchemy import BigInteger, Text, cast, column, exists, or_
@@ -1519,7 +1492,7 @@ def pdf_publication_controls_sql(model):
             (),
         )
     )
-    return "\n".join(out)
+    return tuple(out)
 
 
 def _projection_write_levels(model, pdf_domain):
@@ -1531,7 +1504,7 @@ def _projection_write_levels(model, pdf_domain):
     return projection_write_levels(context, model.info["physical_sources"]["pdf-staging.yaml"])
 
 
-def pdf_validation_and_seal_native_sql(model, *, pdf_domain=None):
+def pdf_validation_and_seal_native_programs(model, *, pdf_domain=None):
     """Generate qualified validation and atomic publication of immutable PDF pins."""
     from sqlalchemy import Boolean, Text, any_, cast, column, exists, literal, not_, or_, update
     from sqlalchemy.dialects.postgresql import array
@@ -1921,10 +1894,10 @@ def pdf_validation_and_seal_native_sql(model, *, pdf_domain=None):
             Local("kind_", column_type(frozen.c.kind)),
         ),
     )
-    return validate + "\n" + seal
+    return (validate, seal)
 
 
-def pdf_inventory_native_sql(model):
+def pdf_inventory_native_program(model):
     """Compile native containment, normalized identity and exact companion custody."""
     from sqlalchemy import (
         BigInteger,

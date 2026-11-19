@@ -30,12 +30,13 @@ from corpus_structure.schema.integrity import role_name
 from . import native_catalog as catalog
 from .archive_transport import archive_tables, scratch_name
 from .identifiers import ReleaseId
-from .native_objects import definition_from_sql
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, definition_from_sql
 from .native_program import (
     Assign,
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Perform,
     Raise,
@@ -45,11 +46,9 @@ from .native_program import (
     Statement,
     column_type,
     core_variable,
-    function,
     pg_type,
 )
 from .operation_value_types import native_result_scope
-from .prepared_sql import prepare_sql
 
 _release_id = TypeAdapter(ReleaseId)
 _prepare_archive = select(func.sem.prepare_release_archive(bindparam("release_id", type_=Text())))
@@ -177,7 +176,7 @@ def _scratch_guard():
             .scalar_subquery()
         )
 
-    return function(
+    return NativeRoutine(
         "sem",
         "require_archive_scratch",
         parameters=(
@@ -290,7 +289,9 @@ def archive_scratch_specs(
     return tuple(ArchiveScratchSpec(relation) for relation in archive_tables(target_metadata))
 
 
-def archive_native_sql(*, target_metadata=None) -> str:
+def archive_native_programs(*, target_metadata=None):
+    from .native_program_registry import ProgramDeclaration
+
     specs = archive_scratch_specs(target_metadata)
     tables = tuple(spec.source for spec in specs)
     model = tables[0].metadata
@@ -476,55 +477,56 @@ def archive_native_sql(*, target_metadata=None) -> str:
             Return(release),
         )
     )
+    owner = role_name("publisher")
+    source = "typed release archive:forward"
+    access = NativeProgramAccess(purposes=("admit",))
+    prepare_archive, publish_archive = (
+        NativeRoutine(
+            "sem",
+            "prepare_release_archive",
+            parameters=parameters,
+            returns=pg_type("void"),
+            body=Block(tuple(prepare)),
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
+        ),
+        NativeRoutine(
+            "sem",
+            "publish_release_archive",
+            parameters=parameters,
+            returns=column_type(header.c.release_id),
+            body=Block(
+                tuple(publish),
+                (
+                    Local("replay", pg_type("bool")),
+                    Local("archive_digest", column_type(header.c.content_digest)),
+                ),
+            ),
+            security_definer=True,
+            search_path=("pg_catalog", "pg_temp"),
+        ),
+    )
     return (
-        ";\n".join(
-            (
-                _scratch_guard(),
-                function(
-                    "sem",
-                    "prepare_release_archive",
-                    parameters=parameters,
-                    returns=pg_type("void"),
-                    body=Block(tuple(prepare)),
-                    security_definer=True,
-                    search_path=("pg_catalog", "pg_temp"),
-                ),
-                function(
-                    "sem",
-                    "publish_release_archive",
-                    parameters=parameters,
-                    returns=column_type(header.c.release_id),
-                    body=Block(
-                        tuple(publish),
-                        (
-                            Local("replay", pg_type("bool")),
-                            Local("archive_digest", column_type(header.c.content_digest)),
-                        ),
-                    ),
-                    security_definer=True,
-                    search_path=("pg_catalog", "pg_temp"),
-                ),
-            )
-        )
-        + ";\n"
+        ProgramDeclaration(_scratch_guard(), source, owner, INTERNAL_PROGRAM),
+        ProgramDeclaration(prepare_archive, source, owner, access),
+        ProgramDeclaration(publish_archive, source, owner, access),
+    )
+
+
+def archive_native_sql(*, target_metadata=None) -> str:
+    return "".join(
+        item.render() + ";\n" for item in archive_native_programs(target_metadata=target_metadata)
     )
 
 
 def archive_native_definitions(connection, *, target_metadata=None):
-    from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess
-
-    source = "typed release archive:forward"
-    prepared = prepare_sql(archive_native_sql(target_metadata=target_metadata), source=source)
     return tuple(
         definition_from_sql(
             connection,
-            prepared.excerpt(index),
-            source=source,
-            owner=role_name("publisher"),
-            program_access=INTERNAL_PROGRAM
-            if statement.stmt.funcname[-1].sval == "require_archive_scratch"
-            else NativeProgramAccess(purposes=("admit",)),
+            item.render(),
+            source=item.source,
+            owner=item.owner,
+            program_access=item.access,
         )
-        for index, statement in enumerate(prepared.statements)
-        if isinstance(statement.stmt, ast.CreateFunctionStmt) and statement.stmt.funcname
+        for item in archive_native_programs(target_metadata=target_metadata)
     )

@@ -6,22 +6,24 @@ from dataclasses import asdict
 from sqlalchemy import MetaData, Text, and_, case, cast, column, func, literal, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
 
-from .native_objects import NativeIdentity, native_privilege_sql, native_sql_script
+from corpus_structure.schema.integrity import role_name
+
+from .native_objects import INTERNAL_PROGRAM, native_privilege_sql, native_sql_script
 from .native_program import (
     Assign,
     Block,
     If,
     Local,
+    NativeRoutine,
     Parameter,
     Raise,
     Return,
     SelectInto,
     core_relation_row,
     core_variable,
-    function,
     pg_type,
-    sql_function,
 )
+from .native_program_registry import ProgramDeclaration
 from .pdf_effect_contract import (
     PDF_CAPTURE_EFFECT,
     PDF_CAPTURE_FACTORY,
@@ -36,7 +38,7 @@ from .pdf_effect_contract import (
 )
 
 
-def pdf_completion_native_sql(model: MetaData) -> str:
+def pdf_completion_native_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
     definitions = model.tables["sem.data_operation_definition"]
     requests = model.tables["ops.data_request"]
     approved = [
@@ -59,7 +61,7 @@ def pdf_completion_native_sql(model: MetaData) -> str:
     contract = definition("support_contract")
     capabilities = contract["capabilities"]
     pairs = func.jsonb_array_elements(json_value(approved)).table_valued(column("value", JSONB()))
-    eligible = sql_function(
+    eligible = NativeRoutine(
         "ops",
         "ddo_pdf_command_eligible",
         parameters=(Parameter("definition", pg_type("sem", "data_operation_definition")),),
@@ -109,7 +111,7 @@ def pdf_completion_native_sql(model: MetaData) -> str:
     def reject(condition, message):
         return If(condition, (Raise(message, "23514"),))
 
-    require = function(
+    require = NativeRoutine(
         "ops",
         "ddo_require_pdf_completion",
         parameters=(
@@ -259,31 +261,26 @@ def pdf_completion_native_sql(model: MetaData) -> str:
             ),
         ),
     )
+    return tuple(
+        ProgramDeclaration(
+            routine,
+            source="target-current:PDF publication",
+            owner=role_name("publisher"),
+            access=INTERNAL_PROGRAM,
+        )
+        for routine in (eligible, require)
+    )
+
+
+def pdf_completion_native_sql(model: MetaData) -> str:
+    """Render independent sealed-publication completion guards and their ACLs."""
     return (
         native_sql_script(
-            (
-                eligible,
-                native_privilege_sql(
-                    NativeIdentity(
-                        "function",
-                        "ops",
-                        "ddo_pdf_command_eligible",
-                        ("sem.data_operation_definition",),
-                    ),
-                    "PUBLIC",
-                    grant=False,
-                ),
-                require,
-                native_privilege_sql(
-                    NativeIdentity(
-                        "function",
-                        "ops",
-                        "ddo_require_pdf_completion",
-                        ("jsonb", "bigint", "bigint", "text", "text", "text"),
-                    ),
-                    "PUBLIC",
-                    grant=False,
-                ),
+            statement
+            for item in pdf_completion_native_programs(model)
+            for statement in (
+                item.routine.render(),
+                native_privilege_sql(item.identity, "PUBLIC", grant=False),
             )
         )
         + "\n"
