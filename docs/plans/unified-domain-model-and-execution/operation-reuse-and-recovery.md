@@ -1,6 +1,6 @@
 # Operation reuse and recoverable completion
 
-**Status:** In progress. Native draft and checkpoint recovery are integrated and tested privately.
+**Status:** In progress. Bounded native draft and checkpoint paths passed privately. Fresh PDF attribution, recovery ordering, draft lifecycle and compatible changed-request uptake remain open.
 **Created:** 2026-11-18.
 
 This companion owns **UDM-25**, the recoverable completion and compatible PDF checkpoint
@@ -43,7 +43,7 @@ successor release or request generation. Those benefits depend on proven compati
 available evidence. They establish no timing or capacity claim and promise no reuse across
 arbitrary PDF edits.
 
-## Implemented foundations and the remaining gap
+## Entry baseline before UDM-25
 
 | Existing owner | Source fact and consequence |
 |---|---|
@@ -96,7 +96,7 @@ cross-release case.
 
 <a id="udm-25"></a>
 
-The package has a bounded early decision and two integrated implementation slices. Their shared
+The package has a bounded early decision and two implementation slices. Their shared
 contract is authentic prior production under current native use authority. Each slice has its
 own acceptance below, and neither can be marked complete solely because the other works.
 
@@ -387,6 +387,21 @@ unresolved dependencies. Its checkpoint recovery requires the original attempt, 
 current producing requests carry demand scope. The retained-result comparison found zero
 exact-recipe matches among the 14 preserved episodes. The
 [identity successor record][programs] owns the current stage evidence.
+
+### Remaining recovery implementation
+
+**Interface-checked, 2026-11-19, at `618fff894`.** The production managed demand route
+passes the draft root into the native execution service. `CompletionDraftStore` durably writes
+the bounded body and ACK under one file owner. `execution_origin_native.py` binds the original
+claim and material inputs, requires retirement for transfer, and records the consumed draft's
+intent correspondence. The two private receipts establish those paths for their selected cases.
+The cross-build PDF case reused a later attempt of the same task.
+
+| Obligation | Current implementation boundary | Closure |
+|---|---|---|
+| UDM-25-R1. Select an admissible draft before work specific to fresh computation | `orchestrate/data_operations.py` hydrates inputs in `_claim_many` before single and batched execution check `_recover_answer`. A hydration failure ends either path before draft adoption. | After exact intent reconciliation, resolve draft eligibility using the live claim and native authority. Defer fresh hydration until that decision requires compute. Exercise both routes with an eligible draft and a fresh hydration refusal. |
+| UDM-25-R2. Authenticate retirement and cleanup of private draft material | `semantic/completion_drafts.py` writes, opens and discovers bodies, ACKs and candidate entries. It has no expiry eligibility or authenticated cleanup path. Manual removal in the lost-ACK control establishes native reconciliation after removal. | Add cleanup to the existing custody owner. Establish committed correspondence and continued evidence needs before retirement, protect active and uncertain material, and verify safe retirement and independence from cache pruning. |
+| UDM-25-R3. Support compatible PDF checkpoints across a changed request | `semantic/pdf_spool_native.py` requires the original and current request IDs to match at both candidate discovery and contribution. The material comparison and exact writer retirement are implemented for candidates that pass that restriction. | Use native correspondence over the accepted material basis to discover and admit a compatible changed request. Exercise an eligible retired writer across the changed request and appropriate material-change, custody and revocation refusals. |
 
 ### Fresh PDF contribution on N34
 

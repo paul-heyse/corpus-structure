@@ -1,6 +1,6 @@
 # Model authorities and openness: the compiled model, the declaration grammar, integrity vocabularies and the earlier model's retirement
 
-**Status:** UDM-01 through UDM-04 are integrated. N31 qualified the integrity profile, and the complete registry now owns program grants.
+**Status:** UDM-02 and UDM-04 are integrated. UDM-01 and UDM-03 have one open integrity-consumer obligation. N31 qualified the default integrity profile, and the registry owns program grants.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-01** (one composer and one held compiled model),
@@ -838,9 +838,27 @@ released-model projections.
 | LinkML generation of the declaration schema changes no field name that a SQL reader of the effective-model archive depends on (a risk the review names) | Reading the archive's SQL readers at UDM-02's entry | The pace of UDM-02's declaration schema, not its direction |
 | The released pack route covers what the earlier pack loader allowed | The two extensible sets (`StatementKind`, `ClaimModality`) exercised through a release | UDM-02's pack rule; UDM-04's deletion of `schema/pack.py` |
 
+### Integrity projection across model captures
+
+**Interface-checked, 2026-11-19, at `618fff894`.** DA-074 and DA-085 remain open for
+model-derived principals and schemas. `semantic/alembic_privileges.py:26–27` captures the
+publisher and purpose roles at import. Its table and schema policies reuse that publisher.
+`semantic/native_admission_principals.py:10–12` holds principal and schema projections the same
+way. `semantic/target_installation.py:947–1026` consumes the frozen values in schema and forward
+TEMP grants. In a read-only two-capture probe, a candidate model scoped to `corpus_sem_writer`
+returned that publisher from its integrity projection while table policy still assigned
+`corpus_sem_publisher`.
+
+Use the explicit captured model or its installation projection throughout policy generation,
+native admission, host provisioning and fresh-root authoring. Retire the import-time holders.
+Check a material role, purpose or schema-policy change in one process with independent
+expectations for both captures. Apply the valid changed contract to a private fresh target and
+verify catalog and TEMP correspondence. Earlier default-model receipts retain their scope.
+
 ## State
 
 | Package | State |
 |---|---|
-| UDM-01–03 | See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment) for the integrated source, package-local controls and native revision obligations |
+| UDM-01 and UDM-03 | Compiled model and typed integrity policies integrated. [Integrity projection across captures](#integrity-projection-across-model-captures) remains open. |
+| UDM-02 | Complete for the accepted declaration and openness scope. See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment). |
 | UDM-04 | Compiled preview integrated. Earlier model, generators, and test-only evaluator retired |

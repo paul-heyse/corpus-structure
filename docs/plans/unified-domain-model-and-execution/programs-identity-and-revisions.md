@@ -1081,8 +1081,9 @@ read back after both controls. [Stage evidence](../../design_review/evidence/202
 The source capture now derives Python code identity from declared producing and serving entry
 points. Formal, sentence, characterization and PDF assets retain their explicit material
 parameters. Exact transport custody travels with the execution binding. An unresolved code
-closure leaves fresh execution available. Its producing request is scoped to an individual
-demand, and draft consumption stays within the original attempt. Reads report the unresolved
+closure selects demand-scoped execution and constrains draft consumption to the original attempt.
+The [fresh PDF contribution refusal on N34](operation-reuse-and-recovery.md#fresh-pdf-contribution-on-n34)
+limits that route for PDF publication. Reads report the unresolved
 dependency and withhold the page cache and resumable cursor.
 
 The statistical release prepares 51 operations. Eleven have incomplete producing code
@@ -1149,6 +1150,6 @@ matched the complete post-activation snapshot afterward. [Stage readback and rec
 |---|---|
 | UDM-08 | Acquisition and export use retained identities and the running wire protocol. See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment) for evidence. |
 | UDM-09 | Complete. One typed installation graph, direct grants and family declarations are integrated. The fresh install, frozen ACL correspondence and N29 conversion passed. N32 established stage generation 29. |
-| UDM-10 | N33 bounded identity transition complete. The [code-closure follow-up](#udm-10-code-closure) is scheduled. Real generator and selected-reader reuse needs complete supported workload custody. Unresolved producing code permits fresh execution under demand scope. |
+| UDM-10 | N33 bounded identity transition complete. The [code-closure follow-up](#udm-10-code-closure) is scheduled. Real generator and selected-reader reuse needs complete supported workload custody. Unresolved producing code selects demand-scoped fresh execution. The [N34 PDF contributor refusal](operation-reuse-and-recovery.md#fresh-pdf-contribution-on-n34) prevents fresh PDF publication in the observed case. |
 | UDM-11 | Complete for the bounded stage. The installed kernel guard and exact program comparison passed. Both equal-byte authoring routes settled offline. |
 | UDM-12 | Complete for the bounded stage. N34 carries admitted binding and population facts and runs explicit archive and catalog proof. The cutover advanced generation 30 to 31. [Stage evidence](../../design_review/evidence/2026-11-19_udm12-carried-assurance/README.md). W1 remains deferred on the prerequisite wake-up premise. |

@@ -901,6 +901,6 @@ disk model caching unadopted for this increment.
 
 | Package | State |
 |---|---|
-| UDM-13 | Complete for the bounded N34 increment. Six process tiers, typed scientific policy projections and owner-scoped CLI and MCP diagnostics passed scoped qualification. Incomplete serving code identity still permits a fresh page. |
+| UDM-13 | Six process retention mechanisms are implemented. Typed policy projections and owner-scoped CLI and MCP diagnostics passed bounded qualification. The native-installation holder in `semantic/native_generation.py:128–129` is bypassed under incomplete generator custody. Selected serving likewise permits fresh pages while withholding custody-dependent reuse. |
 | UDM-14 | Shared generator capture and explicit served-key eligibility integrated. The rich row derivation accepts a typed acquired index. Actual entry-point reuse still awaits complete workload custody. |
 | UDM-15 | Two-cut exclusion basis corrected. Direct entity witness integrated. The private authored native entity fixture passed. Real reuse requires complete code custody and the strict cross-process run. Other query variants retain the cut basis. |

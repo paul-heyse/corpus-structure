@@ -4,16 +4,18 @@ _Updated 2026-11-19. PostgreSQL stage runs N34 and its matching source-native st
 
 ## Current owners
 
-- The [UDM coordinator](docs/plans/unified-domain-model-and-execution_2026-11-19.md#queue) owns the current program, validity and execution work. UDM-00 through UDM-12 are complete for the bounded stage. The [N34 evidence](docs/design_review/evidence/2026-11-19_udm12-carried-assurance/README.md) records the cutover and retained-result assessment.
-- UDM-13 is complete for the bounded N34 increment. The [cache companion](docs/plans/unified-domain-model-and-execution/cache-system.md#udm-13--the-owner-module-cachetools-801-and-the-six-in-process-tiers) owns its six process tiers, typed settings and owner-specific observations. The [scientific policy slice](docs/plans/unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#udm-18--release-bound-inputs-the-derived-scientific-policy-and-two-small-causes) passed private N34 admission.
+- The [UDM completion audit](docs/plans/unified-domain-model-and-execution_2026-11-19.md#completion-audit) records the inspected package boundaries at `618fff894`. Candidate integrity capture, spawned analytics settings and recovery integration have open obligations. The [N34 evidence](docs/design_review/evidence/2026-11-19_udm12-carried-assurance/README.md) retains its bounded stage scope.
+- The [cache companion](docs/plans/unified-domain-model-and-execution/cache-system.md#state) records six implemented process mechanisms and the workload custody required by actual generator and serving reuse.
 - UDM-14 now acquires generator inputs before rendering and serves through explicit projection roots. UDM-15 keeps two exclusion cuts and a direct entity content witness. Real reuse still awaits complete determining code custody. [Current acceptance](docs/plans/unified-domain-model-and-execution/qualification.md#code-closure-and-real-reuse-qualification)
-- The [UDM-16–19 analytical companion](docs/plans/unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#execution-evidence) owns the DuckDB and SQLite conversions, archived pack scope, generated SQL preview and retired migration trees. D1 still needs representative rich consolidation inputs.
-- The [UDM recovery companion](docs/plans/unified-domain-model-and-execution/operation-reuse-and-recovery.md#native-transition-evidence) owns prepared answers, original contributor attribution and compatible PDF checkpoint uptake. The [qualification companion](docs/plans/unified-domain-model-and-execution/qualification.md#retained-book-diagnosis) owns the retained book diagnosis and the remaining regional, book and provider observations.
+- The [UDM-16–19 analytical companion](docs/plans/unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#execution-evidence) owns the DuckDB and SQLite conversions, archived pack scope, generated SQL preview and retired migration trees. Spawned-worker settings are open and D1 still needs representative rich consolidation inputs.
+- The [UDM recovery companion](docs/plans/unified-domain-model-and-execution/operation-reuse-and-recovery.md#native-transition-evidence) owns bounded draft and checkpoint recovery and the outstanding ordering, cleanup and changed-request obligations. The [qualification companion](docs/plans/unified-domain-model-and-execution/qualification.md#retained-book-diagnosis) owns the retained book diagnosis and the remaining regional, book and provider observations.
 - The [DDO coordinator](docs/plans/declared-data-operations_2026-11-12.md#scoped-acquisition-and-native-authoring-integration--2026-11-18) records the prior N29 canonical deployment and original custody. The [adoption companion](docs/plans/declared-data-operations/preservation-adoption-and-qualification.md#actual-preservation-basis) records original custody and regeneration. UDM owns the restated qualification union.
 - The [test-domain coordinator](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence) owns test-fixture custody and TDM-18. The [test audit refresh](docs/design_review/test-audit/README.md#tdm-refresh-2026-11-18) holds the inspected baseline.
 - [Library-discovery tooling](tooling/docs/plans/library-discovery-tooling_2026-11-17.md#current-state) is implemented for LDT-00–08. Its 302 selected tests and repository checks passed on 2026-11-17 (`8cd3bc5aa2b24d5a9e5d8d4c4a69270b`, `34811b452107403d90e5035f8a2e0550`). LDT-C1–C3 retain their conditional triggers.
 
 ## Last verified · 2026-11-19
+
+- **Passed.** Completion-audit publication via `uv run ci docs check` (`bbd2092dab0c49f2b226716528410d38`). Product test campaigns were `not_run` for the source and retained-evidence audit.
 
 - **Passed.** `uv run ci docs check` (`aa0b83d5456d4463ad44a866a5e6ca87`). UDM-16–19 `uv run ci check --only types` (`de397caa7c0c4855b1cfac96262c12e3`) and `uv run ci check --only lint` (`91560f6a1f2b4510a5f616dba0f9a1ea`).
 - **Passed.** `uv run ci test` selected 66 preview, generated SQL explanation and deployment-key controls (`86e7a22f1c3e435b9d85da4cc74e05b5`). It verified a decimal bound edit in emitted SQL. The 43 detached witness and execution-evidence checks passed (`521420f70fd8424898fc14e55c705eb7`).
@@ -42,6 +44,8 @@ _Updated 2026-11-19. PostgreSQL stage runs N34 and its matching source-native st
 - **Passed.** `uv run ci check --only types` (`e3be9d3705bd40ac893c82f72a5d65cd`), `uv run ci check --only lint` (`a82d224bd1ae477da47a91447a8b51c0`) and `uv run ci docs check` (`1ea0c1ecb3cf4ca0bca5171ddd183b65`).
 
 ## Next execution
+
+- Correct [candidate integrity capture](docs/plans/unified-domain-model-and-execution/model-authorities-and-openness.md#integrity-projection-across-model-captures), [spawned analytics settings](docs/plans/unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#effective-analytics-settings-in-spawned-workers), and [UDM-25 recovery](docs/plans/unified-domain-model-and-execution/operation-reuse-and-recovery.md#remaining-recovery-implementation) at their owners.
 
 - Gather D1 input counts when a bounded rich consolidation cohort is archived. The analytics owner provides the per-view counts for that observation.
 

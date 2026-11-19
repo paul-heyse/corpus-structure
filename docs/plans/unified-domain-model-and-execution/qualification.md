@@ -988,7 +988,7 @@ only when both accounts are on the same commit.
 
 | Package | State |
 |---|---|
-| UDM-20 | The retained diagnosis established the failure boundary and recovered the bounded native witnesses. N32 discovery and conservative settlement passed on stage. Regional timing and recovery confirmation remain open. [Diagnosis and evidence](#retained-book-diagnosis) |
+| UDM-20 | Original managed outcomes and the sealed journal support the historical retain-intent failure boundary. Bounded N31/N32 stage controls establish discovery and conservative settlement at their own heads. Exact canonical intent standing, actual composition and regional timing, and confirmation on the repaired head remain open. [Diagnosis and evidence](#retained-book-diagnosis) |
 | UDM-21 | Not started |
 | UDM-22 | Not started |
 | UDM-23 | Not started |

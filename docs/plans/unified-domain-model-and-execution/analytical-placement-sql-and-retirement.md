@@ -1,6 +1,6 @@
 # Analytical placement, the remaining SQL text, and retirement
 
-**Status:** UDM-16 through UDM-19 implementation is integrated. D1 placement and the native selected-source qualification remain open.
+**Status:** UDM-18 and UDM-19 are complete for their bounded increments. Spawned-worker analytics settings, D1 placement, candidate TEMP policy inputs and native selected-source qualification remain open.
 **Created:** 2026-11-19.
 
 This companion owns the designs of **UDM-16** (DuckDB conditions of use, declared settings, the
@@ -883,6 +883,20 @@ candidate model, with a decimal-bound control that changes an actual emitted fun
   deployment-key controls passed (`86e7a22f1c3e435b9d85da4cc74e05b5`), including the rendered
   `data.decimal_canonical` change from 16384 to 16385.
 
+### Effective analytics settings in spawned workers
+
+**Interface-checked, 2026-11-19, at `618fff894`.** F03 and DA-020 remain open for
+process-worker settings. CLI and MCP configure `analytics.py` in the parent. The spawn
+initializer in `semantic/cpu_execution.py:266–296,730–739` receives the native thread budget
+without the effective analytics settings. Rich consolidation uses the DuckDB owner in that
+child, where it reopens settings from defaults and environment. Constructor-supplied
+threads, memory and spill settings therefore have no path into this consumer. The local owner
+and detached CLI checks cover their own processes.
+
+Carry the selected analytics settings through the existing CPU resource owner into each
+worker. Verify a genuinely spawned rich consolidation and the affected PDF worker routes
+with constructor-supplied settings and independently observed connection values.
+
 ## Open premises
 
 | Premise | Evidence required | Work it constrains |
@@ -893,7 +907,7 @@ candidate model, with a decimal-bound control that changes an actual emitted fun
 
 | Package | State |
 |---|---|
-| UDM-16 | Owner integration, controls and retirement complete. D1 placement blocked on representative inputs. |
-| UDM-17 | Typed stores, fresh-root lifecycle and native detached demand exports verified. Native selected-source qualification awaits the UDM-25 fresh PDF contribution correction. |
+| UDM-16 | Connection conversion, local controls and retirement verified. Spawned-worker settings integration is open. D1 awaits representative rich inputs. |
+| UDM-17 | Typed stores, default-model fresh root and native detached demand exports verified. Candidate TEMP role inputs depend on the [UDM-01/03 integrity correction](model-authorities-and-openness.md#integrity-projection-across-model-captures). Native selected-source qualification awaits the UDM-25 fresh PDF contribution correction. |
 | UDM-18 | Complete for the bounded increment. Archived-slice T15 and scientific policy admission and proof passed privately on N34. The decimal bound landed with N30. |
 | UDM-19 | Complete for the bounded increment. Both obsolete migration trees and unused paths retired, generated SQL preview tested, and offline N34 parity passed. |
