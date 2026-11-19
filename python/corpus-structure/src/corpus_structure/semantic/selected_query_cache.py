@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from concurrent.futures import Future, TimeoutError
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -69,19 +69,21 @@ class ServedKey:
     basis: bytes
 
     @property
-    def byte_size(self):
-        return len(
-            json_bytes(
-                [
-                    self.query,
-                    self.selection.hex(),
-                    self.implementation,
-                    self.authorization,
-                    self.basis_kind,
-                    self.basis.hex(),
-                ]
-            )
+    def content(self) -> bytes:
+        return json_bytes(
+            [
+                self.query,
+                self.selection.hex(),
+                self.implementation,
+                self.authorization,
+                self.basis_kind,
+                self.basis.hex(),
+            ]
         )
+
+    @property
+    def byte_size(self):
+        return len(self.content)
 
 
 def served_key(
@@ -150,6 +152,47 @@ class _Load:
 
 
 _LOADING: ContextVar[tuple[_Load, ...]] = ContextVar("served_cache_load", default=())
+_DISK_STORE: ContextVar[Any] = ContextVar("served_disk_store", default=None)
+
+
+@contextmanager
+def disk_row_cache(store=None):
+    """Opt a command invocation into inert derived-row storage after native acquisition."""
+    if store is None:
+        from corpus_structure.cache_store import configured_store
+
+        store = configured_store()
+    token = _DISK_STORE.set(store)
+    try:
+        yield
+    finally:
+        _DISK_STORE.reset(token)
+
+
+def _disk_rows(key: ServedKey):
+    from .served_row_codec import VERSION, decode_rows
+
+    store = _DISK_STORE.get()
+    if store is None or key.query == "rich-index":
+        return None
+    try:
+        files = store.get("pages", VERSION, key.content)
+        return None if files is None else decode_rows(files)
+    except OSError, ValueError, TypeError, OverflowError, RecursionError:
+        return None
+
+
+def _retain_disk_rows(key: ServedKey, entry):
+    from .served_row_codec import VERSION, encode_rows
+
+    store = _DISK_STORE.get()
+    if store is None or not isinstance(entry, DerivedRows):
+        return
+    try:
+        files = encode_rows(entry)
+        store.put("pages", VERSION, key.content, files)
+    except OSError, ValueError, TypeError, OverflowError, RecursionError:
+        return
 
 
 class SelectedQueryCache:
@@ -193,6 +236,7 @@ class SelectedQueryCache:
     def put(self, key: ServedKey, entry):
         if not self._eligible(key):
             return False
+        _retain_disk_rows(key, entry)
         for load in reversed(_LOADING.get()):
             if load.key == key:
                 load.result = entry
@@ -207,7 +251,7 @@ class SelectedQueryCache:
             return True
 
     @contextmanager
-    def loading(self, key: ServedKey):
+    def loading(self, key: ServedKey) -> Generator[Any]:
         """Share complete immutable values and failures, keeping streaming remainders local."""
         from corpus_structure.caches import configured
 
@@ -240,7 +284,16 @@ class SelectedQueryCache:
         load = _Load(key)
         token = _LOADING.set((*_LOADING.get(), load))
         try:
-            yield None
+            entry = _disk_rows(key)
+            if entry is not None:
+                # A decoded hit is already authenticated by the caller's fresh
+                # native acquisition. Retain only this inert value in T4.
+                load.result = entry
+                with self._lock:
+                    rows = self._storage()
+                    if key.byte_size + entry.byte_size <= rows.maxsize:
+                        rows[key] = (key.byte_size, entry)
+            yield entry
         except BaseException as error:
             future.set_exception(error)
             raise

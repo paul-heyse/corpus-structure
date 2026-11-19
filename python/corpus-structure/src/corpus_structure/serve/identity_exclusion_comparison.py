@@ -141,9 +141,9 @@ def _compare(connection, request, implementation):
         uncached_rows_from,
     )
 
-    cuts, stamps = [], []
+    cuts = []
     for pin in (request.before, request.after):
-        cut, _, stamp = recheck_selected_frontier(
+        cut, _, _ = recheck_selected_frontier(
             connection,
             pin.demand_id,
             project_id=pin.project_id,
@@ -154,14 +154,14 @@ def _compare(connection, request, implementation):
             max_records=request.max_graph_records,
         )
         cuts.append(cut)
-        stamps.append(stamp)
+    # Comparison reads whole support and reports examined records. The frontier
+    # stamp alone does not identify that closure or its disclosure.
     key = served_key(
         connection,
         "exclusions",
         implementation=implementation,
-        basis=stamps,
-        basis_kind="content",
-        selection=["exclusions", implementation, digest, stamps],
+        basis=[cut.identity for cut in cuts],
+        selection=digest,
     )
     remaining = None
     metadata = None

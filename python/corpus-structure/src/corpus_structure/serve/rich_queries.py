@@ -17,6 +17,7 @@ from corpus_structure.semantic.demand_queries import _cursor
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import (
+    EntityQuery,
     PreparedRichQueryIndex,
     RichQuery,
     RichQueryRefused,
@@ -174,6 +175,7 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
         continuation=continuation,
         cut=cut,
         max_bytes=request.max_graph_bytes,
+        content_witness=isinstance(request.query, EntityQuery),
     )
     if request.expected_cut is not None and selected.cut.identity != request.expected_cut:
         raise InvalidContinuation(
@@ -191,8 +193,9 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
         connection,
         "rich",
         implementation=implementation,
-        basis=selected.cut.identity,
-        selection=["rich", selected.cut.identity, implementation, reference, selection],
+        basis=selected.content_witness or selected.cut.identity,
+        basis_kind="content" if selected.content_witness is not None else "cut",
+        selection=[reference, selection],
     )
     with SELECTED_QUERY_CACHE.loading(key) as entry:
         remaining = None

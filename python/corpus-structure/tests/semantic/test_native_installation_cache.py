@@ -11,6 +11,11 @@ from corpus_structure.semantic.types import SourceArtifact
 def held_generation(monkeypatch):
     from corpus_structure.model import compiled
     from corpus_structure.schema import physical
+    from corpus_structure.semantic import data_operation_storage, native_program_store
+
+    assert callable(data_operation_storage.native_logical_sources)
+
+    monkeypatch.setattr(native_program_store, "store_key", lambda *args, **options: None)
 
     installation._held_target_installation.cache_clear()
     monkeypatch.setattr(installation, "_generator_custody", lambda: ("generator", ()))

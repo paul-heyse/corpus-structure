@@ -58,6 +58,7 @@ def query(
     """
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.selected_query_cache import disk_row_cache
 
     with failure_boundary(json, expected=(ValueError, KeyError)):
         if without_original_source and original_source is not None:
@@ -100,6 +101,7 @@ def query(
                     state(ctx).settings(), "ci-rich-query", purpose="read"
                 ) as engine,
                 engine.begin() as connection,
+                disk_row_cache(),
             ):
                 result = serve_rich_query(connection, rich_request)
             write_report_text(json_bytes(result).decode() + "\n")
@@ -126,6 +128,7 @@ def query(
                 state(ctx).settings(), "ci-selected-result", purpose="read"
             ) as engine,
             engine.begin() as connection,
+            disk_row_cache(),
         ):
             result = serve_demand_query(connection, request)
     write_report_text(json_bytes(result).decode() + "\n")
@@ -383,6 +386,7 @@ def contributions(
     from corpus_structure.semantic.refusals import InvalidContinuation
     from corpus_structure.semantic.rich_queries import RichQueryRefused
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.selected_query_cache import disk_row_cache
     from corpus_structure.serve.contribution_facets import (
         ContributionFacetsRequest,
         serve_contribution_facets,
@@ -430,6 +434,7 @@ def contributions(
                 state(ctx).settings(), "ci-contribution-facets", purpose="read"
             ) as engine,
             selected_read_snapshot(engine) as connection,
+            disk_row_cache(),
         ):
             report = serve_contribution_facets(connection, request)
     write_report_text(json_bytes(report).decode() + "\n")

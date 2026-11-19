@@ -92,6 +92,8 @@ class TargetInstallation:
     pdf_descriptor: tuple[ProgramDeclaration, ...]
     pdf_identity: tuple[ProgramDeclaration, ...]
     programs: tuple[NativeDefinition, ...] = ()
+    prerequisites: tuple[NativeDefinition, ...] = ()
+    rendered_only: bool = False
 
 
 @cache
@@ -147,13 +149,22 @@ def _held_target_installation(
         selected.info["physical_sources"], linkml_types=selected.info["physical_linkml_types"]
     )
     try:
-        return _build_target_installation(
-            owned,
+        from .native_program_store import load_installation, save_installation, store_key
+
+        options = dict(
             logical_sources=logical_sources,
             pdf_actions=pdf_actions,
             pdf_sources=pdf_sources,
             extra_sources=extra_sources,
         )
+        key = store_key(owned, **options)
+        retained = None if key is None else load_installation(key, owned)
+        if retained is not None:
+            return retained
+        result = _build_target_installation(owned, **options)
+        if key is not None:
+            save_installation(key, result)
+        return result
     except (ValueError, TypeError) as error:
         return _GenerationFailure(error)
 
@@ -284,6 +295,7 @@ def _build_target_installation(
         provisional,
         authoring_inputs=bind_program_manifest(inputs, manifest, closures),
         programs=(native_descriptor, *products),
+        prerequisites=tuple(definitions[: len(definitions) - len(products)]),
     )
 
 
@@ -291,6 +303,8 @@ def target_physical_prerequisites(connection, installation: TargetInstallation):
     """The table-free current function used by the PDF body CHECK declaration."""
     from .native_program_registry import render_programs
 
+    if installation.prerequisites:
+        return installation.prerequisites
     return tuple(
         item.definition(connection)
         for item in render_programs(
@@ -391,6 +405,42 @@ def target_trigger_programs(target: MetaData):
     return tuple(programs)
 
 
+def _declaration_installation(installation: TargetInstallation) -> TargetInstallation:
+    """Build typed generator trees only when a caller explicitly asks for declarations."""
+    from .archive_projection_native import (
+        execution_projection_check_program,
+        scientific_layout_program,
+    )
+    from .data_operation_protocol import data_task_guard_program
+    from .pdf_binary_identity_native import (
+        pdf_artifact_identity_programs,
+        pdf_binary_identity_programs,
+    )
+    from .pdf_descriptor_native import pdf_descriptor_programs
+
+    selected = installation.metadata
+    captured = {source.name: source.content for source in installation.authoring_inputs.sources}
+    foundation = foundation_programs(
+        selected, value_codec_source=captured["native/value-codec.yaml"]
+    )
+    guards = (
+        execution_projection_check_program(selected),
+        scientific_layout_program(selected),
+        data_task_guard_program(
+            selected.info["physical_sources"]["data-operation-native.yaml"],
+            target_metadata=selected,
+        ),
+    )
+    return replace(
+        installation,
+        foundation=foundation,
+        authoring_inputs=replace(installation.authoring_inputs, guard_programs=guards),
+        pdf_descriptor=pdf_descriptor_programs(),
+        pdf_identity=(*pdf_binary_identity_programs(), *pdf_artifact_identity_programs(selected)),
+        rendered_only=False,
+    )
+
+
 def target_native_declarations(installation: TargetInstallation):
     """Bring every native owner into one program graph before rendering."""
     from .archive_native import archive_native_programs
@@ -424,6 +474,8 @@ def target_native_declarations(installation: TargetInstallation):
     )
 
     selected = installation.metadata
+    if installation.rendered_only:
+        installation = _declaration_installation(installation)
     domain = PdfDomainContract(
         next(item.content for item in installation.pdf_sources if item.name == CONTRACT),
         tuple(item for item in installation.pdf_sources if item.name != CONTRACT),
