@@ -425,7 +425,7 @@ def test_explicit_pdf_metadata_controls_lossless_equality_and_native_read_types(
 
 
 def test_native_definition_source_cohort_cannot_be_mixed_with_another_physical_capture():
-    from corpus_structure.semantic.data_operation_storage import data_operation_native_programs
+    from corpus_structure.semantic.native_protocol_authoring import data_operation_native_programs
     from corpus_structure.semantic.target_installation import capture_target_installation
 
     capture = capture_target_installation(prepared_target())

@@ -14,7 +14,10 @@ from native_test_support import database_name, rollback_connection
 def cpu_basis_engine(native_server):
 
     from corpus_structure.semantic.data_operation_binding_native import binding_native_sql
-    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+    from corpus_structure.semantic.native_protocol_authoring import (
+        native_protocol_sources,
+        native_sql,
+    )
     from corpus_structure.semantic.target_installation import foundation_programs
 
     foundation = foundation_programs()

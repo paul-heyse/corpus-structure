@@ -3,7 +3,7 @@
 from functools import lru_cache
 
 from corpus_structure.semantic.composed import data_operation_dependencies
-from corpus_structure.semantic.data_operation_storage import (
+from corpus_structure.semantic.native_protocol_authoring import (
     native_operation_declarations,
     native_protocol_sources,
 )

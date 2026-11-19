@@ -27,16 +27,16 @@ from corpus_structure.semantic.composed import (
     data_operation_dependencies,
     read_data_operation_inputs,
 )
-from corpus_structure.semantic.data_operation_storage import (
-    DataOperationStorage,
-    native_operation_declarations,
-    native_protocol_sources,
-)
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.m1_products import (
     freeze_m1_configuration,
     m1_operation_inputs,
     m1_operation_sources,
+)
+from corpus_structure.semantic.native_protocol_authoring import (
+    native_operation_declarations,
+    native_protocol_sources,
 )
 from corpus_structure.semantic.terminology import acquire_terminology
 from corpus_structure.semantic.types import (

@@ -108,7 +108,7 @@ def _analyze_generator_code():
             "corpus_structure.semantic.target_installation._build_target_installation",
             "corpus_structure.semantic.target_installation.foundation_programs",
             "corpus_structure.semantic.native_products._capture_native_authoring_inputs",
-            "corpus_structure.semantic.data_operation_storage._native_protocol_sources",
+            "corpus_structure.semantic.native_protocol_authoring._native_protocol_sources",
         ),
     )
 
@@ -147,7 +147,7 @@ def _copied_source_paths(available: dict[str, bytes]) -> set[str]:
     owners = {
         "semantic/target_installation.py": "_build_target_installation",
         "semantic/native_products.py": "_capture_native_authoring_inputs",
-        "semantic/data_operation_storage.py": "_native_protocol_sources",
+        "semantic/native_protocol_authoring.py": "_native_protocol_sources",
         "semantic/data_operation_projections.py": "capture_projection_sources",
     }
     paths: set[str] = set()

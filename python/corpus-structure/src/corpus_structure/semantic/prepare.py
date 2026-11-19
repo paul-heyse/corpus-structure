@@ -999,7 +999,7 @@ def _prepare_release_uncached(
             item.name == "native/data-operation-protocol.yaml" for item in dependencies.artifacts
         ):
             from .data_operation_artifacts import compile_data_operation_artifacts
-            from .data_operation_storage import (
+            from .native_protocol_authoring import (
                 native_calls_from_dependencies,
                 native_digest_from_dependencies,
                 native_program_closures,
@@ -1344,10 +1344,8 @@ def _prepare_release_uncached(
         artifact.kind == "data_operation_ports.json" for artifact in prepared.artifacts
     ):
         from .composed import read_data_operation_inputs
-        from .data_operation_storage import (
-            data_operation_definition_projection,
-            native_digest_from_dependencies,
-        )
+        from .data_operation_storage import data_operation_definition_projection
+        from .native_protocol_authoring import native_digest_from_dependencies
 
         captured = read_data_operation_inputs(dependencies)
         captured_contracts = (

@@ -74,7 +74,10 @@ class BindingSourceStage:
 
 @cache
 def binding_source_recipe():
-    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+    from corpus_structure.semantic.native_protocol_authoring import (
+        native_protocol_sources,
+        native_sql,
+    )
 
     # The source now contains captured Core projection placeholders. Resolve the
     # production template once before selecting its three independent codec helpers.

@@ -24,11 +24,7 @@ from corpus_structure.semantic.data_operation_demands import (
 )
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_service import execute_data_demand
-from corpus_structure.semantic.data_operation_storage import (
-    DataOperationStorage,
-    native_operation_declarations,
-    native_protocol_sources,
-)
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_support import authored_fact_selection
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.declared_structural_calls import (
@@ -36,6 +32,10 @@ from corpus_structure.semantic.declared_structural_calls import (
     structural_operation_declarations,
 )
 from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
+from corpus_structure.semantic.native_protocol_authoring import (
+    native_operation_declarations,
+    native_protocol_sources,
+)
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.types import (
     PreparationProfile,

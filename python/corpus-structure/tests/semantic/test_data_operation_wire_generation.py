@@ -21,13 +21,7 @@ from corpus_structure.semantic._data_operation_wire import WireClaimDataRequests
 from corpus_structure.semantic.data_operation_artifacts import compile_data_operation_artifacts
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
-from corpus_structure.semantic.data_operation_storage import (
-    DataOperationStorage,
-    native_operation_calls,
-    native_operation_declarations,
-    native_protocol_sources,
-    native_source_digest,
-)
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_wire import (
     generated_wire_source,
     render_wire_types,
@@ -35,6 +29,12 @@ from corpus_structure.semantic.data_operation_wire import (
     wire_contract_digest,
     wire_contracts,
     wire_operations,
+)
+from corpus_structure.semantic.native_protocol_authoring import (
+    native_operation_calls,
+    native_operation_declarations,
+    native_protocol_sources,
+    native_source_digest,
 )
 from corpus_structure.semantic.operation_value_types import NativeResultViolation
 
@@ -133,7 +133,7 @@ def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monk
         for item in native_operation_calls(model, sources=sources)
         if item[0] == "data.record_data_fate"
     )
-    from corpus_structure.semantic.data_operation_storage import native_program_closures
+    from corpus_structure.semantic.native_protocol_authoring import native_program_closures
 
     artifact = compile_data_operation_artifacts(
         model,
@@ -318,7 +318,7 @@ def test_fixed_native_caller_preserves_nominal_ids_unions_and_required_keys(tmp_
 
 
 def test_native_wire_facade_targets_the_exact_typed_implementation():
-    from corpus_structure.semantic.data_operation_storage import data_operation_native_programs
+    from corpus_structure.semantic.native_protocol_authoring import data_operation_native_programs
 
     programs = {item.identity.name: item for item in data_operation_native_programs()}
     wrapper = programs["claim_data_requests"]

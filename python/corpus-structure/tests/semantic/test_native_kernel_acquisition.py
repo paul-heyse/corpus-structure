@@ -6,7 +6,11 @@ from unittest.mock import Mock
 import pytest
 from sqlalchemy import Connection
 
-from corpus_structure.semantic import data_operation_storage, execution_admission
+from corpus_structure.semantic import (
+    data_operation_storage,
+    execution_admission,
+    native_protocol_authoring,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import PreparedArtifact, PreparedRelease
 
@@ -37,7 +41,7 @@ def test_acquisition_checks_recorded_digest_without_generation(monkeypatch):
     admission = Mock(return_value="frozen-physical-identity")
     generate = Mock(side_effect=AssertionError("execution must not generate native sources"))
     monkeypatch.setattr(execution_admission, "require_native_execution", admission)
-    monkeypatch.setattr(data_operation_storage, "native_protocol_sources", generate)
+    monkeypatch.setattr(native_protocol_authoring, "native_protocol_sources", generate)
     connection = Mock(spec=Connection)
     connection.scalar.return_value = {
         "version": "data-operation-native-v1",

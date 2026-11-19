@@ -71,7 +71,10 @@ register_scenario_builder(PolicyProjectionRecipe, build_policy_projection)
 
 @preparation_fixture("record_policy_projection")
 def policy_projection_connection(scenario_seeds):
-    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+    from corpus_structure.semantic.native_protocol_authoring import (
+        native_protocol_sources,
+        native_sql,
+    )
 
     recipe = PolicyProjectionRecipe(
         record_policy_completion_native_sql(get_metadata()).encode(),

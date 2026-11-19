@@ -17,7 +17,7 @@ from scenario_recipes import register_scenario_builder
 
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.data_operation_storage import (
+from corpus_structure.semantic.native_protocol_authoring import (
     native_operation_declarations,
     native_protocol_sources,
 )

@@ -36,16 +36,16 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_model import SubjectContext
-from corpus_structure.semantic.data_operation_storage import (
-    DataOperationStorage,
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_values import semantic_value
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.native_protocol_authoring import (
     native_operation_calls,
     native_operation_declarations,
     native_protocol_sources,
     native_source_digest,
 )
-from corpus_structure.semantic.data_operation_values import semantic_value
-from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.metadata import table
 from semantic.data_operation_binding_support import BINDING_RANGE_CASES, BindingEvidenceCase
 from semantic.data_operation_demand_support import (
     attach,
@@ -69,7 +69,7 @@ def test_kernel_protocol_is_captured_effective_meaning_not_an_ambient_catalog():
     }
     assert all(call.parameters[0].native_parameter == "p_payload" for _, call in calls)
     assert all(call.result_fields[0].native_field == "payload" for _, call in calls)
-    from corpus_structure.semantic.data_operation_storage import native_program_closures
+    from corpus_structure.semantic.native_protocol_authoring import native_program_closures
 
     closures = native_program_closures(captured)
     assert all(

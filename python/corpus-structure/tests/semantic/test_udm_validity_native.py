@@ -21,10 +21,7 @@ from corpus_structure.semantic._data_operation_wire import (
     WireRevokeDataSupportRequest,
 )
 from corpus_structure.semantic.data_operation_admission import inspect_data_operation_release
-from corpus_structure.semantic.data_operation_storage import (
-    DataOperationStorage,
-    native_source_digest,
-)
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.migrations import ALEMBIC_DIR, upgrade
@@ -34,6 +31,7 @@ from corpus_structure.semantic.native_authoring import (
     verify_rendered_candidate,
 )
 from corpus_structure.semantic.native_objects import native_owner
+from corpus_structure.semantic.native_protocol_authoring import native_source_digest
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.target_installation import (
     capture_target_installation,

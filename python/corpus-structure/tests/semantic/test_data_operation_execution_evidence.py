@@ -19,9 +19,9 @@ from corpus_structure.semantic.data_operation_execution_evidence import (
     execution_evidence_schema,
 )
 from corpus_structure.semantic.data_operation_ports import PortCompletion
-from corpus_structure.semantic.data_operation_storage import native_protocol_sources
 from corpus_structure.semantic.data_operation_wire import validate_wire_schema, wire_contracts
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_protocol_authoring import native_protocol_sources
 from corpus_structure.semantic.types import SourceArtifact
 from semantic.data_operation_kernel_support import STORAGE
 

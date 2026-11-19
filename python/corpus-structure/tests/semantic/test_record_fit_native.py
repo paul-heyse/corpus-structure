@@ -32,7 +32,10 @@ def basis_hash(first, second, specification):
 
 @pytest.fixture
 def fit_correspondence_connection(policy_projection_connection):
-    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+    from corpus_structure.semantic.native_protocol_authoring import (
+        native_protocol_sources,
+        native_sql,
+    )
 
     for source, names in (
         (native_sql(native_protocol_sources()), {"ddo_digest"}),

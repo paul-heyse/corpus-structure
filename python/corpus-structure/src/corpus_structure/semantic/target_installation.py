@@ -278,9 +278,9 @@ def target_physical_prerequisites(connection, installation: TargetInstallation):
 
 def target_trigger_programs(target: MetaData):
     from .alembic_privileges import metadata_integrity
-    from .data_operation_storage import data_operation_immutable_relations
     from .native_objects import native_before_trigger
     from .native_program_registry import RelationProgramDeclaration
+    from .native_protocol_authoring import data_operation_immutable_relations
 
     owner = metadata_integrity(target).publisher
 
@@ -409,9 +409,9 @@ def target_native_declarations(installation: TargetInstallation):
     """Bring every native owner into one program graph before rendering."""
     from .archive_native import archive_native_programs
     from .companion_projection_native import companion_projection_programs
-    from .data_operation_storage import data_operation_native_programs
     from .native_admission_release import admission_programs
     from .native_objects import NativeAuthoringError
+    from .native_protocol_authoring import data_operation_native_programs
     from .pdf_companion_adoption_native import companion_adoption_programs
     from .pdf_completion_native import pdf_completion_native_programs
     from .pdf_contracts import _context_from_domain

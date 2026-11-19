@@ -9,10 +9,6 @@ from corpus_structure.evaluate.assessment_graph import assessment_graph_snapshot
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.data_operation_model import MODEL_VERSION, SubjectContext
-from corpus_structure.semantic.data_operation_storage import (
-    native_operation_declarations,
-    native_protocol_sources,
-)
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
 from corpus_structure.semantic.formal_evidence import grammar_identity
@@ -21,6 +17,10 @@ from corpus_structure.semantic.formal_products import (
     formal_operation_sources,
     formal_product_inputs,
     prepare_formal_evidence,
+)
+from corpus_structure.semantic.native_protocol_authoring import (
+    native_operation_declarations,
+    native_protocol_sources,
 )
 from corpus_structure.semantic.types import (
     PreparationProfile,

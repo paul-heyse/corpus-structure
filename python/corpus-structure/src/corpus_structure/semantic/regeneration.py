@@ -318,7 +318,7 @@ def acquire_packs(
 ) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile]:
     """Acquire the current domain/source/DDO capsule after pure pack composition."""
     from .composed import data_operation_dependencies
-    from .data_operation_storage import native_operation_declarations, native_protocol_sources
+    from .native_protocol_authoring import native_operation_declarations, native_protocol_sources
     from .record_policy_authority import record_policy_kind_declarations
     from .rich_invocations import rich_knowledge_operation_sources
     from .rich_knowledge_sources import (

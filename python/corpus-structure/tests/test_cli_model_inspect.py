@@ -963,11 +963,11 @@ def current_query_release_pair():
     from semantic.pdf_domain_support import altered_domain
 
     from corpus_structure.semantic.composed import data_operation_dependencies
-    from corpus_structure.semantic.data_operation_storage import (
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.native_protocol_authoring import (
         native_operation_declarations,
         native_protocol_sources,
     )
-    from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.pdf_domain import (
         CONTRACT,
         HELPER_CONTRACT,

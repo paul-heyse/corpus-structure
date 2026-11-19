@@ -242,7 +242,7 @@ def acquire_data_operation_inputs(
         )
         if declared.primary_profile is None or not declared.primary_profile.downstream:
             declarations = (*declarations, reading_resolution_declarations())
-    from .data_operation_storage import native_operation_declarations, native_protocol_sources
+    from .native_protocol_authoring import native_operation_declarations, native_protocol_sources
 
     if declared.primary_profile is not None:
         from .primary_acquisition import requested_source_modules

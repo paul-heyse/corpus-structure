@@ -58,7 +58,7 @@ class NativeAuthoringInputs:
     @cached_property
     def model(self) -> EffectiveDataOperationModel:
         from .data_operation_compilation import compile_data_operations
-        from .data_operation_storage import native_operation_declarations
+        from .native_protocol_authoring import native_operation_declarations
 
         return compile_data_operations(
             declarations=(native_operation_declarations(self.native_sources),),
@@ -108,11 +108,8 @@ def _capture_native_authoring_inputs(
         scientific_layout_program,
     )
     from .data_operation_protocol import data_task_guard_program
-    from .data_operation_storage import (
-        _native_protocol_sources,
-        native_logical_sources,
-    )
     from .native_objects import native_sql_script
+    from .native_protocol_authoring import _native_protocol_sources, native_logical_sources
     from .pdf_domain import CONTRACT, PREFIX, PdfDomainContract, pdf_domain_sources
     from .runtime_binding_native import runtime_binding_sql
     from .types import SourceArtifact
@@ -251,9 +248,9 @@ def bind_program_manifest(
 ) -> NativeAuthoringInputs:
     from dataclasses import asdict
 
-    from .data_operation_storage import native_operation_calls, native_operation_declarations
     from .identity import canonical_bytes
     from .native_program_registry import PROGRAM_CLOSURES_SOURCE, PROGRAM_MANIFEST_SOURCE
+    from .native_protocol_authoring import native_operation_calls, native_operation_declarations
     from .types import SourceArtifact
 
     artifact = SourceArtifact(PROGRAM_MANIFEST_SOURCE, manifest.content)

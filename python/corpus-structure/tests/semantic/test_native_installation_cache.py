@@ -11,7 +11,7 @@ from corpus_structure.semantic.types import SourceArtifact
 def uncached_generation(monkeypatch):
     from corpus_structure.model import compiled
     from corpus_structure.schema import physical
-    from corpus_structure.semantic import data_operation_storage, native_program_store
+    from corpus_structure.semantic import native_program_store, native_protocol_authoring
     from corpus_structure.semantic.code_identity import CodeIdentity, CodeUnknown
     from corpus_structure.semantic.types import SourceArtifact
 
@@ -28,12 +28,12 @@ def uncached_generation(monkeypatch):
     )
     monkeypatch.setattr(native_program_store, "capture_generator_sources", lambda identity: ())
     monkeypatch.setattr(
-        data_operation_storage,
+        native_protocol_authoring,
         "native_logical_sources",
         lambda **options: {"logical": b"default"},
     )
     monkeypatch.setattr(
-        data_operation_storage,
+        native_protocol_authoring,
         "capture_native_package_resource",
         lambda: SourceArtifact("native/validity-vocabulary.yaml", b"vocabulary"),
     )

@@ -206,7 +206,10 @@ def actual_cpu_fit(fit_basis):
 
 @pytest.fixture
 def authority_connection(cpu_basis_connection, actual_cpu_fit):
-    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+    from corpus_structure.semantic.native_protocol_authoring import (
+        native_protocol_sources,
+        native_sql,
+    )
 
     connection = cpu_basis_connection
     for source, names in (

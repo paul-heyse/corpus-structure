@@ -257,7 +257,10 @@ def test_visibility_and_original_admission_revocation_selectors(read_boundary_co
 
 
 def test_program_boundary_declarations_keep_defaults_security_and_order():
-    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+    from corpus_structure.semantic.native_protocol_authoring import (
+        native_protocol_sources,
+        native_sql,
+    )
 
     sources = native_protocol_sources()
     source_map = {item.name: item.content for item in sources}

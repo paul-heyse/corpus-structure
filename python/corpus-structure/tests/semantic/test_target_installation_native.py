@@ -275,6 +275,7 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
         data_operation_storage,
         migrations,
         native_program_registry,
+        native_protocol_authoring,
     )
     from corpus_structure.semantic.execution_admission import (
         ExecutionAdmissionError,
@@ -412,7 +413,7 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
 
         with monkeypatch.context() as execution:
             execution.setattr(
-                data_operation_storage, "native_protocol_sources", unexpected_generation
+                native_protocol_authoring, "native_protocol_sources", unexpected_generation
             )
             execution.setattr(native_program_registry, "render_programs", unexpected_generation)
             with engine.begin() as connection:
@@ -548,7 +549,7 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
             assert getattr(denied.value.orig, "sqlstate", None) == "42501"
         with monkeypatch.context() as execution, reader.begin() as connection:
             execution.setattr(
-                data_operation_storage, "native_protocol_sources", unexpected_generation
+                native_protocol_authoring, "native_protocol_sources", unexpected_generation
             )
             execution.setattr(native_program_registry, "render_programs", unexpected_generation)
             destination = tmp_path / "demand-export"

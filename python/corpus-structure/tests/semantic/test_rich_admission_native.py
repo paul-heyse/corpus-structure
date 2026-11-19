@@ -26,7 +26,10 @@ from semantic.cpu_basis_support import (
 
 @pytest.fixture
 def rich_guard_connection(cpu_basis_connection):
-    from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+    from corpus_structure.semantic.native_protocol_authoring import (
+        native_protocol_sources,
+        native_sql,
+    )
 
     connection = cpu_basis_connection
     for name in (

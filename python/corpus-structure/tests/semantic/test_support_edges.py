@@ -843,8 +843,8 @@ def test_owned_stage_transition_discovery_and_impact(tmp_path, monkeypatch):
     from uuid import uuid4
 
     from corpus_structure.schema.model_deployment import deployment_settings
-    from corpus_structure.semantic.data_operation_storage import native_source_digest
     from corpus_structure.semantic.migrations import current_revision, head_revision
+    from corpus_structure.semantic.native_protocol_authoring import native_source_digest
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.storage_target import acquired_target
     from corpus_structure.settings import Settings

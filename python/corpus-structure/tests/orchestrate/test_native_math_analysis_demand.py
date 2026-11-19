@@ -18,11 +18,11 @@ from corpus_structure.semantic.data_operation_service import (
     execute_data_demand,
     read_data_demand,
 )
-from corpus_structure.semantic.data_operation_storage import (
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
+from corpus_structure.semantic.native_protocol_authoring import (
     native_operation_declarations,
     native_protocol_sources,
 )
-from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.types import (
     PreparationProfile,

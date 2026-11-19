@@ -537,7 +537,7 @@ def approved_physical_metadata(root: Path, preview: ChangePreview):
 
 
 def native_model_inputs(root: Path, *, preview: ChangePreview | None = None) -> dict[str, bytes]:
-    from corpus_structure.semantic.data_operation_storage import NATIVE_LOGICAL_FILES
+    from corpus_structure.semantic.native_protocol_authoring import NATIVE_LOGICAL_FILES
 
     sources = {}
     for name in NATIVE_LOGICAL_FILES:

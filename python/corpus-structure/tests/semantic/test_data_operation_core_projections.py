@@ -13,8 +13,8 @@ from corpus_structure.semantic.data_operation_projections import (
     read_page,
     read_scope_rows,
 )
-from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
 from corpus_structure.semantic.metadata import get_metadata
+from corpus_structure.semantic.native_protocol_authoring import native_protocol_sources, native_sql
 
 
 def _compile(query):
@@ -283,7 +283,7 @@ def test_intrinsic_trigger_inventory_follows_captured_target_classes_without_amb
     import yaml
 
     from corpus_structure.schema.physical import compile_physical
-    from corpus_structure.semantic import data_operation_storage as storage
+    from corpus_structure.semantic import native_protocol_authoring as storage
     from corpus_structure.semantic.metadata import get_metadata
 
     sources = dict(get_metadata().info["physical_sources"])

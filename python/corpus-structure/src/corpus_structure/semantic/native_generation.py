@@ -81,12 +81,12 @@ def capture_generator_inputs(
     """Acquire every effective model, runtime, resource and provenance input once."""
     from corpus_structure.model.compiled import running_model
 
-    from .data_operation_storage import capture_native_package_resource, native_logical_sources
     from .determinants import analysis_runtime, determinant_version
     from .native_program_store import (
         capture_generator_code,
         capture_generator_sources,
     )
+    from .native_protocol_authoring import capture_native_package_resource, native_logical_sources
 
     if not selected.info.get("physical_sources") or not isinstance(
         selected.info.get("physical_linkml_types"), bytes

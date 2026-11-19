@@ -313,7 +313,7 @@ def test_source_capture_generated_assets_keep_original_function_order():
         "native/data-operation-source-capture.sql",
         "native/source-capture-native.py",
     } <= captured.keys()
-    from corpus_structure.semantic.data_operation_storage import native_protocol_sources
+    from corpus_structure.semantic.native_protocol_authoring import native_protocol_sources
 
     complete_sources = native_protocol_sources()
     assert source_native_sql(complete_sources) == source_native_sql()

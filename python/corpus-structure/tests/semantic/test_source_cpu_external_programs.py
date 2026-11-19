@@ -6,11 +6,11 @@ from sqlalchemy import Column, MetaData, Table, text
 
 from corpus_structure.schema.integrity import role_name
 from corpus_structure.semantic.data_operation_cpu_basis import cpu_input_basis_native_programs
-from corpus_structure.semantic.data_operation_storage import native_logical_sources
 from corpus_structure.semantic.external_execution_native import external_execution_native_programs
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import INTERNAL_PROGRAM, execute_native_sql
 from corpus_structure.semantic.native_program import NativeRoutine
+from corpus_structure.semantic.native_protocol_authoring import native_logical_sources
 from corpus_structure.semantic.source_value_native import source_value_native_programs
 
 
