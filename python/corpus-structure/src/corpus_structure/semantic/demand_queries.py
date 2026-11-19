@@ -11,8 +11,8 @@ from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_
 from corpus_structure.semantic.demand_results import read_demand_result
 
 from .continuation_codec import decode_cursor, encode_cursor
-from .demand_page_report import DemandPageReport
 from .demand_query_projection import DemandQueryProjectionInputs, selected_query_rows
+from .page_envelope import PageEnvelope
 from .selected_pages import byte_bounded_page
 
 DemandView = Literal["members", "operations", "sources", "support", "coverage"]
@@ -52,7 +52,6 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
         profile="demand-query-v2",
         callables=(
             "corpus_structure.semantic.demand_query_projection.selected_query_rows",
-            "corpus_structure.semantic.demand_page_report.DemandPageReport.render",
             "corpus_structure.semantic.selected_pages.byte_bounded_page",
             "corpus_structure.semantic.continuation_codec.encode_cursor",
             "corpus_structure.semantic.continuation_codec.decode_cursor",
@@ -224,7 +223,7 @@ def _serve_demand_query(connection, request, implementation):
     )
     current_cursor = token_for(current_request, 0)
     assert current_cursor is not None
-    report = DemandPageReport(
+    presentation = PageEnvelope(
         header=dict(
             version="demand-query-v2",
             implementation=implementation,
@@ -243,8 +242,10 @@ def _serve_demand_query(connection, request, implementation):
                 )
             ),
         ),
-        current_cursor=decode_cursor(current_cursor),
+        cursor_basis=decode_cursor(current_cursor),
         following_cursor=following_cursor,
+        include_knowledge=True,
+        include_page_complete=True,
     )
 
     try:
@@ -253,7 +254,7 @@ def _serve_demand_query(connection, request, implementation):
             offset=offset,
             limit=request.limit,
             max_bytes=request.max_bytes,
-            report=report.render,
+            presentation=presentation,
         )
     finally:
         if remaining is not None:

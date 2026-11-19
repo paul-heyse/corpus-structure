@@ -100,6 +100,7 @@ def test_package_location_does_not_determine_code_identity(tmp_path):
 
 def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
     from corpus_structure.semantic.code_identity import CodeIdentity, CodeUnknown
+    from corpus_structure.semantic.page_envelope import PageEnvelope
     from corpus_structure.semantic.selected_pages import byte_bounded_page
     from corpus_structure.semantic.selected_query_cache import (
         SelectedQueryCache,
@@ -123,12 +124,12 @@ def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
             offset=0,
             limit=1,
             max_bytes=16384,
-            report=lambda end, values, more: {
-                "items": values,
-                "cursor": "held",
-                "resource_handle": "held",
-                "page_complete": not more,
-            },
+            presentation=PageEnvelope(
+                header={"resource_handle": "held"},
+                cursor_basis={},
+                cursor_field="cursor",
+                include_page_complete=True,
+            ),
         )
     assert result["items"] == [7]
     assert result["cursor"] is None and result["resource_handle"] is None

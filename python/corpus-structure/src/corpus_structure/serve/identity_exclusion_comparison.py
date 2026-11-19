@@ -13,6 +13,7 @@ from corpus_structure.semantic.identity_exclusion_comparison import (
     compare_constraint_snapshots,
     constraint_snapshot,
 )
+from corpus_structure.semantic.page_envelope import PageEnvelope
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.semantic.selected_contribution_input import RICH_NAMESPACE
@@ -212,27 +213,13 @@ def _compare(connection, request, implementation):
             )
         rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
-        def report(end, values, more):
-            token = (
-                None
-                if not more
-                else _cursor(
-                    dict(
-                        version=VERSION,
-                        implementation=implementation,
-                        selection=digest,
-                        ordinal=end,
-                    )
-                )
-            )
-            pinned = request.model_copy(update={"implementation": implementation})
-            return dict(
+        pinned = request.model_copy(update={"implementation": implementation})
+        presentation = PageEnvelope(
+            header=dict(
                 version=VERSION,
                 implementation=implementation,
                 before=before,
                 after=after,
-                changes=values,
-                cursor=token,
                 resource_handle=_cursor(pinned.model_dump(mode="python")),
                 scope=dict(
                     matching="exact-original-declaration-product/member-address",
@@ -241,7 +228,12 @@ def _compare(connection, request, implementation):
                     protected_dependencies="undisclosed-where-bounded-authority-leaves-occur",
                     source_change_authority="not-established",
                 ),
-            )
+            ),
+            cursor_basis=dict(version=VERSION, implementation=implementation, selection=digest),
+            cursor_field="cursor",
+            position_field="ordinal",
+            arrays=(("changes", None, None, None),),
+        )
 
         try:
             return byte_bounded_page(
@@ -249,8 +241,7 @@ def _compare(connection, request, implementation):
                 offset=offset,
                 limit=request.limit,
                 max_bytes=request.max_bytes,
-                report=report,
-                row_fields={"changes": lambda value: (value,)},
+                presentation=presentation,
             )
         except InvalidContinuation:
             raise

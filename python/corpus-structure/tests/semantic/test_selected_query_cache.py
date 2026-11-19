@@ -6,7 +6,9 @@ from threading import Barrier
 
 import pytest
 
+from corpus_structure.semantic.continuation_codec import encode_cursor
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.page_envelope import PageEnvelope
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.selected_query_cache import (
@@ -137,12 +139,23 @@ def test_byte_budget_matches_independent_full_response_sizes_at_digit_boundary()
             version="test",
             cut={"read_id": "actual"},
             items=values,
-            cursor=str(end) if more else None,
+            cursor=encode_cursor(dict(ordinal=end)) if more else None,
             knowledge="observed" if values else "unknown",
         )
 
     maximum = len(json_bytes(report(10, rows[:2], True)))
-    result = byte_bounded_page(iter(rows), offset=8, limit=5, max_bytes=maximum, report=report)
+    result = byte_bounded_page(
+        iter(rows),
+        offset=8,
+        limit=5,
+        max_bytes=maximum,
+        presentation=PageEnvelope(
+            header=dict(version="test", cut={"read_id": "actual"}),
+            cursor_basis={},
+            cursor_field="cursor",
+            include_knowledge=True,
+        ),
+    )
     assert result == report(10, rows[:2], True)
     assert len(json_bytes(result)) <= maximum
     assert len(json_bytes(report(11, rows[:3], True))) > maximum
@@ -160,7 +173,7 @@ def test_multiple_output_arrays_keep_indivisible_member_and_all_citations():
             members=[item for row in values for item in row["members"]],
             citations=[item for row in values for item in row["citations"]],
             facets=[],
-            next_cursor=end if more else None,
+            next_cursor=encode_cursor(dict(offset=end)) if more else None,
         )
 
     maximum = len(json_bytes(report(2, rows[:2], True)))
@@ -169,10 +182,13 @@ def test_multiple_output_arrays_keep_indivisible_member_and_all_citations():
         offset=0,
         limit=4,
         max_bytes=maximum,
-        report=report,
-        row_fields={
-            name: lambda row, name=name: row[name] for name in ("members", "citations", "facets")
-        },
+        presentation=PageEnvelope(
+            header=dict(version="dossier"),
+            cursor_basis={},
+            cursor_field="next_cursor",
+            position_field="offset",
+            arrays=tuple((name, name, None, None) for name in ("members", "citations", "facets")),
+        ),
     )
     assert result == report(2, rows[:2], True)
 

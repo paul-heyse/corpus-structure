@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from corpus_structure.semantic.data_operation_json import DdoJsonValue, json_bytes
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.grouped_record_interpretations import GroupedInterpretationRequest
+from corpus_structure.semantic.page_envelope import PageEnvelope
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.selected_pages import byte_bounded_page
 
@@ -260,22 +261,8 @@ def _group_selected_interpretations(connection, request, implementation):
     else:
         total = len(entry)
 
-    def report(end, values, more):
-        continuation = None
-        if more:
-            continuation = base64.urlsafe_b64encode(
-                json_bytes(
-                    {
-                        "version": "grouped-source-records-2",
-                        "implementation": implementation,
-                        "selection": digest,
-                        "read_id": cut["read_id"],
-                        "cut_id": cut_id,
-                        "offset": end,
-                    }
-                )
-            ).decode()
-        return {
+    presentation = PageEnvelope(
+        header={
             "version": "grouped-source-records-2",
             "implementation": implementation,
             "cut_id": cut_id,
@@ -288,12 +275,8 @@ def _group_selected_interpretations(connection, request, implementation):
             "authored_judgment_reads": [
                 value.model_dump(mode="python") for value in request.authored_reads
             ],
-            "items": values,
-            "continuation": continuation,
-            "page_complete": continuation is None,
             "examined_groups": total,
             "obligations": obligations,
-            "knowledge": "observed" if values else "unknown",
             "capability": "complete_private_source_record_groups",
             "unavailable_capabilities": [
                 *(
@@ -303,7 +286,19 @@ def _group_selected_interpretations(connection, request, implementation):
                 ),
                 "accepted_knowledge",
             ],
-        }
+        },
+        cursor_basis={
+            "version": "grouped-source-records-2",
+            "implementation": implementation,
+            "selection": digest,
+            "read_id": cut["read_id"],
+            "cut_id": cut_id,
+        },
+        cursor_field="continuation",
+        position_field="offset",
+        include_knowledge=True,
+        include_page_complete=True,
+    )
 
     try:
         body = byte_bounded_page(
@@ -321,7 +316,7 @@ def _group_selected_interpretations(connection, request, implementation):
                 )
             )
             + 2,
-            report=report,
+            presentation=presentation,
         )
         return answer("grouped_source_record_interpretations", body, request.max_bytes)
     except InvalidContinuation:

@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from corpus_structure.semantic.page_envelope import PageEnvelope
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.selected_structural_projection import (
@@ -147,7 +148,6 @@ def inspect_selected_dossier(conn, request: SelectedDossierRequest):
 
 def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementation):
     from corpus_structure.semantic.continuation_codec import decode_rich_cursor
-    from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 
     cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
     if cursor is not None:
@@ -266,25 +266,8 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
         raise ValueError("dossier continuation is outside its immutable population")
     rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
-    def report_page(end, values, more):
-        next_cursor = (
-            None
-            if not more
-            else _cursor(
-                dict(
-                    version="selected-dossier-page-v2",
-                    cut=current_cut.record,
-                    binding=binding,
-                    offset=end,
-                    request=selection,
-                )
-            )
-        )
-        facets = sorted(
-            (facet for value in values for facet in value["supported_facets"]),
-            key=lambda item: item["ordinal"],
-        )
-        return dict(
+    presentation = PageEnvelope(
+        header=dict(
             format="selected-dossier-page-v2",
             availability="observed",
             cut_id=current_cut.identity,
@@ -294,11 +277,21 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
             standing="private_proposal",
             public_admission="not-established",
             **metadata,
-            members=[member for value in values for member in value["members"]],
-            citations=[citation for value in values for citation in value["citations"]],
-            supported_facets=[facet["value"] for facet in facets],
-            next_cursor=next_cursor,
-        )
+        ),
+        cursor_basis=dict(
+            version="selected-dossier-page-v2",
+            cut=current_cut.record,
+            binding=binding,
+            request=selection,
+        ),
+        cursor_field="next_cursor",
+        position_field="offset",
+        arrays=(
+            ("members", "members", None, None),
+            ("citations", "citations", None, None),
+            ("supported_facets", "supported_facets", "value", "ordinal"),
+        ),
+    )
 
     try:
         return byte_bounded_page(
@@ -306,14 +299,7 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
             offset=offset,
             limit=request.limit,
             max_bytes=request.max_bytes,
-            report=report_page,
-            row_fields={
-                "members": lambda row: row["members"],
-                "citations": lambda row: row["citations"],
-                "supported_facets": lambda row: [
-                    facet["value"] for facet in row["supported_facets"]
-                ],
-            },
+            presentation=presentation,
         )
     finally:
         if remaining is not None:

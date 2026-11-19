@@ -13,6 +13,7 @@ from corpus_structure.semantic.continuation_codec import encode_cursor as _curso
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
+from corpus_structure.semantic.page_envelope import PageEnvelope, PageObservations
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import (
     EntityQuery,
@@ -203,47 +204,29 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
     metadata = metadata_provider()
     rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
-    observed_unknowns = metadata["unknowns"]
+    observations = PageObservations(metadata["unknowns"])
 
     def public_rows():
-        nonlocal observed_unknowns
         for packet in rows:
-            observed_unknowns = packet["unknowns"]
+            observations.unknowns = packet["unknowns"]
             yield packet["value"]
-        observed_unknowns = metadata_provider()["unknowns"]
+        observations.unknowns = metadata_provider()["unknowns"]
 
-    def report(end, values, more):
-        next_cursor = (
-            None
-            if not more
-            else _cursor(
-                dict(
-                    version=VERSION,
-                    implementation=implementation,
-                    selection=selection,
-                    read=json_loads(selected.read_request),
-                    cut=selected.cut.record,
-                    reference=reference,
-                    ordinal=end,
-                )
-            )
+    pinned = request.model_copy(
+        update=dict(
+            read_id=selected.cut.record["read_id"],
+            expected_cut=selected.cut.identity,
+            implementation=implementation,
         )
-        pinned = request.model_copy(
-            update=dict(
-                read_id=selected.cut.record["read_id"],
-                expected_cut=selected.cut.identity,
-                implementation=implementation,
-            )
-        )
-        return dict(
+    )
+    presentation = PageEnvelope(
+        header=dict(
             format=VERSION,
             implementation=implementation,
             cut_id=selected.cut.identity,
             cut=selected.cut.record,
             root=reference,
             query=request.query.model_dump(mode="python"),
-            rows=values,
-            cursor=next_cursor,
             scope=dict(
                 knowledge_subject=selected.context.subject,
                 subject_definition=selected.context.subject_definition,
@@ -251,9 +234,21 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
                 examined="one-selected-whole-admission",
                 global_completeness="unknown",
             ),
-            unknowns=observed_unknowns,
             resource_handle=_cursor(pinned.model_dump(mode="python")),
-        )
+        ),
+        cursor_basis=dict(
+            version=VERSION,
+            implementation=implementation,
+            selection=selection,
+            read=json_loads(selected.read_request),
+            cut=selected.cut.record,
+            reference=reference,
+        ),
+        cursor_field="cursor",
+        position_field="ordinal",
+        arrays=(("rows", None, None, None),),
+        observations=observations,
+    )
 
     try:
         return byte_bounded_page(
@@ -261,8 +256,7 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
             offset=offset,
             limit=request.limit,
             max_bytes=request.max_bytes,
-            report=report,
-            row_fields={"rows": lambda value: (value,)},
+            presentation=presentation,
         )
     except InvalidContinuation:
         raise

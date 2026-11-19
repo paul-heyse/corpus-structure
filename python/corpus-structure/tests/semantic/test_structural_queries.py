@@ -18,7 +18,7 @@ def test_structural_questions_require_actual_selected_contracts():
         dict(demand_id="d", project_id="p", roots=[root])
     )
     assert request.roots[0].model_dump() == root
-    assert "SelectedStructuralRoot" in request.model_json_schema()["$defs"]
+    assert "SelectedOutputRoot" in request.model_json_schema()["$defs"]
     for old in (dict(run_id=1), dict(task_id=1), dict(cut_id=1)):
         with pytest.raises(ValidationError):
             reader.SelectedStructuralRequest.model_validate(

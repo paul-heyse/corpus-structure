@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from corpus_structure.semantic.continuation_codec import decode_rich_cursor
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_values import semantic_value
+from corpus_structure.semantic.page_envelope import PageEnvelope
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.semantic.selected_contribution_projection import contribution_rows
@@ -200,29 +201,13 @@ def _serve(connection, request, implementation):
             else uncached_rows_from(remaining, derived_offset),
         )
 
-        def report(end, values, more):
-            token = (
-                None
-                if not more
-                else _cursor(
-                    dict(
-                        version=VERSION,
-                        implementation=implementation,
-                        selection=digest,
-                        read_id=cut.record["read_id"],
-                        cut_id=cut.identity,
-                        ordinal=end,
-                    )
-                )
-            )
-            return dict(
+        presentation = PageEnvelope(
+            header=dict(
                 version=VERSION,
                 implementation=implementation,
                 cut=cut.record,
                 cut_id=cut.identity,
                 selection=request.selection(),
-                items=values,
-                cursor=token,
                 resource_handle=_cursor(pinned.model_dump(mode="python", exclude_unset=True)),
                 examination=dict(
                     records=metadata["records"],
@@ -233,11 +218,25 @@ def _serve(connection, request, implementation):
                 interpretation_scope="declared-rich-graph-private-candidate-finite-and-structural-meaning",
                 assessment_scope="captured-native-producer-judgments",
                 source_completeness="unknown",
-            )
+            ),
+            cursor_basis=dict(
+                version=VERSION,
+                implementation=implementation,
+                selection=digest,
+                read_id=cut.record["read_id"],
+                cut_id=cut.identity,
+            ),
+            cursor_field="cursor",
+            position_field="ordinal",
+        )
 
         try:
             return byte_bounded_page(
-                rows, offset=offset, limit=request.limit, max_bytes=request.max_bytes, report=report
+                rows,
+                offset=offset,
+                limit=request.limit,
+                max_bytes=request.max_bytes,
+                presentation=presentation,
             )
         except InvalidContinuation:
             raise
