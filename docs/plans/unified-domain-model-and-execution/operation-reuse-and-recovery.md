@@ -376,6 +376,12 @@ was removed. The owning receipts are `bd79f9aa68bf4915a7df0d1aa9e7b360` and
 owns the original book diagnosis, its evidence limits and the remaining regional and provider
 observations.
 
+**N33 stage observation, 2026-11-19.** The current statistical PDF producing closure has
+unresolved dependencies. Its checkpoint recovery requires the original attempt, and its
+current producing requests carry demand scope. The retained-result comparison found zero
+exact-recipe matches among the 14 preserved episodes. The
+[identity successor record][programs] owns the current stage evidence.
+
 [coordinator]: ../unified-domain-model-and-execution_2026-11-19.md
 [review]: ../../plan_improvement_reviews/unified-domain-model-and-execution_2026-11-18.md#I02
 [programs]: programs-identity-and-revisions.md

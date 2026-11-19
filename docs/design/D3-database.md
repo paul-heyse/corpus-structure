@@ -402,6 +402,16 @@ bounded durable draft remains private under its completion custodian until nativ
 Compatible PDF checkpoints can cross a request or release boundary with verified retired writer,
 material premises and original contributor evidence.
 
+**Implemented and tested on the bounded stage · 2026-11-19.** The release manifest binds the model, material inputs, generated
+artifacts and serialized products. Frozen revision state separately records the generator's
+observed files, distributions and unresolved dependencies. PDF admission compares the
+installed schema, actions and native input inventory. Certification authenticates the exact
+producing contract retained by the release. Runtime custody separately binds transport paths
+and executable resources.
+
+Completion receipts preserve the original producer and its family map. Reconfirmation checks
+missing or changed producer-family identities. A consuming release also checks its current
+applicable families against the original payload. Its proof belongs to that consuming request.
 
 **Tested on the bounded stage · 2026-11-18.** N32 installs functions, views and triggers from
 the typed registry. Program declarations own access, dependencies and family validation roles.

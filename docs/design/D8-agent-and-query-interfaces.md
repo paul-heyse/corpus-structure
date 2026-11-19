@@ -148,6 +148,12 @@ caller migrations and pinned demand read/export adoption retain their existing p
 
 ## Shared policy settings, status and characterization resume
 
+**Implemented and scoped controls tested · 2026-11-19.** Served reads derive their code custody from declared entry modules.
+The source loader executes the authenticated bytes. A read with an unresolved determining
+dependency returns a fresh page and a diagnostic. Cache eligibility and a resumable cursor
+require complete code identity. An opaque producing boundary with incomplete code identity
+uses a demand-scoped request and retains its actual producing attribution.
+
 **Application implementation/scoped controls present · 2026-11-12; native/assembled qualification pending.** SourceRunRequest
 represents explicit workflow and source-selection meaning; ResolvedSourceRun freezes exact selected
 values, and SourceOperationResult reports actual capture/primary/analytical lineage and settled pins.

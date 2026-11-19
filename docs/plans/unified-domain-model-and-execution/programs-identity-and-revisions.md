@@ -902,6 +902,8 @@ protected authority traversal, the undetermined PDF guard and historical raw anc
 
 #### Bounded stage cutover
 
+The N32 record below is the predecessor for the [UDM-10/11 identity successor](#identity-successor).
+
 **Tested, 2026-11-18.** The source and frozen transition are in `a07122316`. The reviewed
 preview `f7b69ed2019d4eda82da7e0b588609db` bound the N31 predecessor and stage database
 OID 130661481. Rollback authoring `80c15df2f6d04adb9472ba2b351b22c1` produced the one N32
@@ -932,12 +934,79 @@ cross-release discovery, retained support inspection and concurrent conservative
 isolated projects. The bounded project's retained identities and generation were independently
 read back after both controls. [Stage evidence](../../design_review/evidence/2026-11-19_udm09-stage-cutover/README.md)
 
+#### Identity successor
+
+The source capture now derives Python code identity from declared producing and serving entry
+points. Formal, sentence, characterization and PDF assets retain their explicit material
+parameters. Exact transport custody travels with the execution binding. An unresolved code
+closure leaves fresh execution available. Its producing request is scoped to an individual
+demand, and draft consumption stays within the original attempt. Reads report the unresolved
+dependency and withhold the page cache and resumable cursor.
+
+The statistical release prepares 51 operations. Eleven have incomplete producing code
+identity, including PDF capture, recognition, and reconciliation. The current capture therefore
+withholds checkpoint reuse across attempts for that PDF workflow. Both provider attestations
+remain in the execution binding, which retains nine transport inputs.
+
+The release manifest binds material inputs, generated artifacts and the serialized release
+products. Exact generator sources and external distributions travel with the authenticated
+native authoring state. The native PDF guard compares schemas, actions and native inputs.
+The lowering identity is authenticated by the producing release and checked at certification.
+Updating observed Python producing code therefore leaves installed PDF program statements
+unchanged when the native requirements are equal.
+
+The inspection capsule and the persisted archive use the same material input inventory.
+Archive replay derives the current port products from the retained model, protocol and SQL
+artifacts. The former generator file checklist and its duplicate acquisition routes were
+removed. The candidate inspection view `--view provenance` reports the authenticated
+authoring state.
+
+The consuming-release check preserves attribution to the original completion. For the same
+request and binding it checks only newly applicable or changed family identities. A different
+consuming binding checks its whole applicable family set. Reconfirmation retains its original
+receipt scope.
+
+The model-change preview compares typed installed program statements, privilege policies and
+descriptor effects with the frozen head. For equal installed bytes a native-only request
+settles before acquiring authoring resources. An application change can continue through the
+same model-change route with its reviewed application effects.
+
+**Tested on 2026-11-19.** The material-archive replay, runtime binding and exact execution-source
+readback passed on a private PostgreSQL clone. The same selection passed the 16 port artifact
+controls (`4d0ff3c22f2d4d5a9495bebe80bde8aa`). The refreshed N33 candidate
+(`8038f3c8831245bbad7e3c6b212f5630`) preserved the prior draft's install statements
+for all 616 objects, catalog and privilege facts, migration operations, and admission SQL. Its
+authoring provenance changed. The bounded project readback matched the starting snapshot
+after rollback-only authoring.
+
+The exact registered statistical candidate passed private native installation, separate
+archive and admission commits, runtime readback, and source byte verification
+(`f61cf755370d4c93a569ba65078dcab7`). The final registered head returned
+`no_native_change` through both `ci schema native-candidate` and a native-only
+`ci model change preview` with unreachable database endpoints
+(`6926c7221a6c49b5871ce49c4a0c8969`, `c3ca99d795d54f2bab196f3cb1351502`).
+
+**Stage cutover, 2026-11-19.** Registration `215f4a0144f24dcea3cd46af3c67550f`
+and deployment `4058aa94d5e84b0882bd4a946c418d1d` installed N33 and statistical
+release `release:3cd1f63feb0dc2374c4e14fe10f9ddc81d8d273b65d773606a02779fe4a48b5e`
+on `corpus_structure_ddo_stage` (OID 130661481). Its kernel identity is
+`kernel:6e2c4df0656b4473a83b77d12599d886802f33636b4a647e55d9cfe159d02311`.
+The release and database checks passed. Compare-and-set activation advanced
+`ddo-current-pdf-bounded` from generation 29 to 30. The 16 request IDs, 14 intent
+IDs and 14 episode IDs matched the preflight snapshot after authoring, installation
+and activation. The new release shares none of the 14 retained episodes' exact recipes,
+so the stage assessment found zero eligible historical episodes for adoption.
+
+Installed cross-release discovery and concurrent conservative settlement both passed in
+isolated stage projects (`8dd74a2505e140a7a3181d6ce9782c4a`). The bounded project
+matched the complete post-activation snapshot afterward. [Stage readback and receipts](../../design_review/evidence/2026-11-19_udm10-11-stage-cutover/README.md)
+
 ## State
 
 | Package | State |
 |---|---|
 | UDM-08 | Acquisition and export use retained identities and the running wire protocol. See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment) for evidence. |
-| UDM-09 | Complete. One typed installation graph, direct grants and family declarations are integrated. The fresh install, frozen ACL correspondence and N29 conversion passed. N32 is deployed and active at stage generation 29. |
-| UDM-10 | Program, kernel, operation, read and family identities are integrated for the transition. The Python producing and serving import closure and the remaining release provenance separation stay with this package. |
-| UDM-11 | The exact no-change comparison passed on the registered private successor. This transition includes the installed kernel guard. |
+| UDM-09 | Complete. One typed installation graph, direct grants and family declarations are integrated. The fresh install, frozen ACL correspondence and N29 conversion passed. N32 established stage generation 29. |
+| UDM-10 | Complete for the bounded stage. N33 separates native, validator, Python and material release identities. Unresolved producing code permits fresh execution under demand scope. |
+| UDM-11 | Complete for the bounded stage. The installed kernel guard and exact program comparison passed. Both equal-byte authoring routes settled offline. |
 | UDM-12 | Receipt-backed acquisition, explicit catalog proof, watermark change and native reconfirmation are integrated for the transition. Wider qualification remains scheduled. |

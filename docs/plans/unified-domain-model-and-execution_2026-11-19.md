@@ -340,8 +340,8 @@ package is not automatically one worker's assignment.
 | UDM-07 | One declared support-edge meaning and one mapping; current-demand discovery closure (native revision B or transition for the discovery predicate) | UDM-02; the ruling on the population edge; early UDM-20 evidence for discovery | R08, DA-071, I03 | Complete. N31/N32 live discovery and private selective-member, historical raw lineage and authority passed. [Support evidence](unified-domain-model-and-execution/lowered-operation-facts-and-validity.md#revision-b-execution) |
 | UDM-08 | The execution path generates nothing | — | R06, F01, DA-083 | Complete. Private PostgreSQL acquisition and export verified |
 | UDM-09 | Typed program registry from generation to installation, declaring each program's purposes and the families it validates | —; it reads the compiled model of UDM-01 where that has landed | R04, DA-081, DA-074 (part) | Complete. One typed installation graph owns the inventory, declared grants and family validators. Fresh installation, N29 conversion and N32 stage cutover passed. [Transition evidence](unified-domain-model-and-execution/programs-identity-and-revisions.md#transition-integration) |
-| UDM-10 | Identity layers in two slices: code identity, with no revision; program, kernel and per-family validator identity, with the identity transition revision | Code-identity slice: none. Program, kernel and validator slice: UDM-09 and UDM-05 | R05, RC06, RC10, RC11, DA-068, DA-069, DA-076, DA-082 | Installed identity slice integrated. Python code closure and release provenance separation remain open |
-| UDM-11 | A revision only when installed bytes differ. Its installed part, the explicit kernel predicate in the generated guard, joins the identity transition revision; the model-change commands change outside any revision | UDM-10 | RC15, DA-068 (part) | Exact comparison and installed kernel guard integrated. Private no-change result passed |
+| UDM-10 | Identity layers in two slices: code identity, with no revision; program, kernel and per-family validator identity, with the identity transition revision | Code-identity slice: none. Program, kernel and validator slice: UDM-09 and UDM-05 | R05, RC06, RC10, RC11, DA-068, DA-069, DA-076, DA-082 | Complete for the bounded stage. Derived code custody, selective validation and material release identity are active in N33. Incomplete producing identities retain fresh execution with demand scope. [Identity evidence](unified-domain-model-and-execution/programs-identity-and-revisions.md#identity-successor) |
+| UDM-11 | A revision only when installed bytes differ. Its installed part, the explicit kernel predicate in the generated guard, joins the identity transition revision; the model-change commands change outside any revision | UDM-10 | RC15, DA-068 (part) | Complete for the bounded stage. Both authoring routes settled equal installed bytes without connecting. [Identity evidence](unified-domain-model-and-execution/programs-identity-and-revisions.md#identity-successor) |
 | UDM-12 | Carried assurance; the watermark without its kernel component (identity transition revision); role granularity only if its premise is settled before the freeze | UDM-08, UDM-10 | R11, R10, RC07, RC08, DA-033, DA-078 | Carried acquisition, catalog proof, watermark and completion reconfirmation integrated for the transition |
 | UDM-13 | Cache owner module, cachetools 8.0.1, six in-process tiers, with the three size defaults fixed from bounded observations | Owner and basic tiers can start independently; UDM-01 for the model tier; UDM-09 for the program tier; UDM-10 code identity for the served continuation change; UDM-18 for the scientific recipe holders | R09, RC09, F02, DA-083 (part), I04 | Not started |
 | UDM-14 | Two on-disk tiers: generated program sets and continuation pages, with the two store budgets set from a bounded observation | UDM-13. The program-set tier also needs UDM-10's code-identity slice and the program-identity computation over UDM-09's rendered statements, which needs no revision. The continuation-page tier needs UDM-13 only | R09, RC13, DA-075 (part) | Not started |
@@ -553,12 +553,21 @@ producer conversion. On 2026-11-18, `uv run ci test collect` selected 8,767 test
 
 ### N32 identity transition
 
-UDM-00 through UDM-09 are complete for the bounded transition. N32 and its matching source-native statistical application are deployed on the owned stage
-database. `ddo-current-pdf-bounded` activated the release at generation 29 with its retained
+UDM-00 through UDM-09 were completed for the bounded transition. N32 and its matching source-native statistical application were deployed on the owned stage
+database. `ddo-current-pdf-bounded` activated that release at generation 29 with its retained
 requests, intents and episodes. The [native transition record](unified-domain-model-and-execution/programs-identity-and-revisions.md#bounded-stage-cutover)
 owns the checked inventory, registration, deployment, activation and no-change evidence.
 The [qualification companion](unified-domain-model-and-execution/qualification.md)
 owns canonical adoption, the original book cases and final qualification.
+
+### N33 identity successor
+
+UDM-10 and UDM-11 installed on the owned stage. The source-native statistical release is
+active for `ddo-current-pdf-bounded` at generation 30. Readback preserved all 16 requests,
+14 completion intents and 14 episodes. The current release uses fresh execution for 11 of its
+51 operations because their producing code identity is incomplete. The
+[identity successor record](unified-domain-model-and-execution/programs-identity-and-revisions.md#identity-successor)
+owns qualification and the retained-result assessment.
 
 ### UDM-24 — closing
 
@@ -579,21 +588,21 @@ review. "Closure evidence" is what must be observed, not a claim that it has bee
 
 | Finding | Package | Closure evidence | State |
 |---|---|---|---|
-| [DA-068](../design_review/audit/execution-fit.md#da-068) one digest keys everything | UDM-10, UDM-11 | A generator edit that changes no installed byte produces no revision and leaves seals valid | Scheduled |
-| [DA-069](../design_review/audit/execution-fit.md#da-069) whole-file implementation identity | UDM-10 | An edit outside an operation's import closure leaves its implementation identity unchanged | Scheduled |
+| [DA-068](../design_review/audit/execution-fit.md#da-068) one digest keys everything | UDM-10, UDM-11 | A generator edit that changes no installed byte produces no revision and leaves seals valid | N33 separates native, family, release and authoring custody. Equal installed statements and independent family controls passed |
+| [DA-069](../design_review/audit/execution-fit.md#da-069) whole-file implementation identity | UDM-10 | An edit outside an operation's import closure leaves its implementation identity unchanged | Derived import custody and bounded definition slicing implemented. Unresolved closures use fresh execution |
 | [DA-070](../design_review/audit/semantic-model-and-authority.md#da-070) validity families from id lists, fail open | UDM-05, UDM-06 | An operation named in no former list is governed by its own declaration; an existing operation keeps its behaviour under its declared claim; an undetermined one is conservatively valid and reported | N32 conservative settlement passed on stage, and exact protected authority and the independent undetermined PDF guard passed on the registered head |
 | [DA-071](../design_review/audit/semantic-model-and-authority.md#da-071) support graph encoded several times | UDM-07 | One edge declaration; every walker agrees on a hand-authored graph | Shared traversal profiles, selective changed-member reuse and N31/N32 cross-release discovery passed. The validity companion owns evidence |
 | [DA-072](../design_review/audit/semantic-model-and-authority.md#da-072) two models | UDM-04 | No importer of the earlier model remains | Earlier loaders, generated types, and declarations removed. Real pack preparation covers released openness |
 | [DA-073](../design_review/audit/semantic-model-and-authority.md#da-073) release composition by flags | UDM-05 | Composition follows the closure of requested operations | Explicit requests and workflows select source collections and provider acquisition by closure. The unselected manifest deliberately acquires its configured full profile |
 | [DA-074](../design_review/audit/native-integrity.md#da-074) roles and guards as code lists | UDM-03, UDM-09 | An undeclared role refuses at generation; grants follow program declarations and equal the frozen privileges | Source, private catalog and N31 baseline verified. The full registry preserves common frozen ACLs |
 | [DA-075](../design_review/audit/execution-fit.md#da-075) query cache keys | UDM-14, UDM-15 | A repeated command-line read reuses a continuation page; cross-request reuse only after its premise is settled | Scheduled; UDM-15 gated |
-| [DA-076](../design_review/audit/served-claims.md#da-076) served-read identity allowlist | UDM-10 | A module added to an entry point's closure moves the identity with no list edit | Scheduled |
+| [DA-076](../design_review/audit/served-claims.md#da-076) served-read identity allowlist | UDM-10 | A module added to an entry point's closure moves the identity with no list edit | Derived serving custody and incomplete-result handling passed the targeted tests |
 | [DA-077](../design_review/audit/served-claims.md#da-077) scientific policy describes the kernel | UDM-18 | Changing a declared parameter changes both the policy and the kernel's behaviour | Scheduled |
 | [DA-078](../design_review/audit/execution-fit.md#da-078) coarse readiness watermark | UDM-12 | The watermark does not advance on a kernel-only change | Scheduled in part; role granularity follows its soundness argument |
 | [DA-079](../design_review/audit/boundaries-and-composition.md#da-079) unclassified concurrent-run refusal | — | — | Retained by the review with its reason |
 | [DA-080](../design_review/audit/boundaries-and-composition.md#da-080) superseded machinery | UDM-19 (migration trees, dead modules and functions, the stale preview explanation, authored-SQL machinery); UDM-04 (the earlier model); UDM-16 (uncalled kernels) | Each listed item is gone with its tests | Superseded preview, revision log, pack and key machinery, earlier model, and test-only evaluator removed. UDM-16 and the remaining UDM-19 work stay open |
 | [DA-081](../design_review/audit/semantic-model-and-authority.md#da-081) hand-kept program lists and text handoff | UDM-09 | One registry; generated objects and privileges equal the current frozen ones | All producers enter the typed graph. Fresh install, frozen ACL comparison and N32 stage activation passed |
-| [DA-082](../design_review/audit/execution-fit.md#da-082) hand-kept lowering list | UDM-10 | The lowering identity is derived; an unlisted dependency cannot exist | Scheduled |
+| [DA-082](../design_review/audit/execution-fit.md#da-082) hand-kept lowering list | UDM-10 | The lowering identity is derived; an unlisted dependency cannot exist | Derived lowering and exact certification installed. The statistical PDF closure remains incomplete and checkpoint reuse across attempts is withheld |
 | [DA-083](../design_review/audit/execution-fit.md#da-083) capture rebuilt per acquisition | UDM-08, UDM-13 | Acquisition performs no generation | UDM-08 verified on private PostgreSQL. UDM-13 cache adoption open |
 | [DA-084](../design_review/audit/boundaries-and-composition.md#da-084) remaining hand-written PostgreSQL | UDM-17 | No hand-written PostgreSQL outside the stated exceptions | Scheduled |
 | [DA-085](../design_review/audit/semantic-model-and-authority.md#da-085) per-consumer model composition | UDM-01 | One composer; no consumer builds its own closure | Current routes integrated. UDM-04 owns earlier-model retirement |

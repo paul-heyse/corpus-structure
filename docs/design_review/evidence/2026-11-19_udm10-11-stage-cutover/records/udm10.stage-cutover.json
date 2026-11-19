@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "id": "udm10.stage-cutover",
+  "title": "N33 identity successor on stage",
+  "group": null,
+  "package": "UDM-10",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Did N33 and the exact statistical application release install and activate on the bounded stage while preserving the project and separating native and authoring identity?",
+  "answers": [
+    "UDM-10",
+    "UDM-11"
+  ],
+  "method": "Compare exact native program statements, qualify the staged application on a private native clone, install and verify the acquired stage, apply compare-and-set activation, and independently compare retained IDs before and after the installed controls.",
+  "commands": [
+    "ci model change candidate d362fc2aed0b43589b03a42ec665a6e3",
+    "ci model change register 8038f3c8831245bbad7e3c6b212f5630",
+    "ci model change deploy 8038f3c8831245bbad7e3c6b212f5630",
+    "ci db check --target deployment --release release:3cd1f63feb0dc2374c4e14fe10f9ddc81d8d273b65d773606a02779fe4a48b5e",
+    "ci release check --target deployment --release release:3cd1f63feb0dc2374c4e14fe10f9ddc81d8d273b65d773606a02779fe4a48b5e",
+    "ci release activate release:3cd1f63feb0dc2374c4e14fe10f9ddc81d8d273b65d773606a02779fe4a48b5e --project ddo-current-pdf-bounded --target deployment --expected-generation 29",
+    "ci release check --target deployment --project ddo-current-pdf-bounded",
+    "ci schema native-candidate --expected-predecessor semantic_ddo_pe_n33",
+    "ci test --workers 2 -- python/corpus-structure/tests/semantic/test_support_edges.py::test_owned_stage_transition_discovery_and_impact python/corpus-structure/tests/semantic/test_udm_validity_native.py::test_deployed_transition_conservative_settlement"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "README.md",
+      "role": "bounded-stage-account",
+      "sha256": "58a69fb55b3f250c25adea92dc83fa3ad42dbe22ef8f551976e4a0df94bbd843"
+    },
+    {
+      "path": "raw/readback.json",
+      "role": "stage-readback",
+      "sha256": "47988ce5632a41fa1aa59791ed5c253fbd2359f287d682e75b551736bd5b857f"
+    },
+    {
+      "path": "private_candidate_probe.py",
+      "role": "private-admission-probe",
+      "sha256": "ec90070ca64f8793443741df8e635cb1153e9a8b68005f8dd25ba20c51e7f6f5"
+    }
+  ],
+  "depends_on": [
+    "2026-11-19_udm09-stage-cutover/udm09.stage-cutover"
+  ],
+  "results": [
+    {
+      "name": "stage_generation",
+      "value": 30,
+      "of": null,
+      "unit": null,
+      "note": "Advanced once from 29."
+    },
+    {
+      "name": "native_objects",
+      "value": 616,
+      "of": null,
+      "unit": null,
+      "note": "Registered N33 inventory."
+    },
+    {
+      "name": "eligible_retained_episodes",
+      "value": 0,
+      "of": 14,
+      "unit": null,
+      "note": "No admitted recipe matches the retained episodes."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "N33 and the exact statistical release are active at stage generation 30. All retained project IDs match the preflight, the offline no-change checks passed, and both installed controls passed.",
+  "consumed_by": [
+    "UDM-10",
+    "UDM-11",
+    "UDM-25"
+  ]
+}
