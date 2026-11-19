@@ -105,6 +105,7 @@ def group_selected_interpretations(
             type(request),
             entry="corpus_structure.serve.interpretations",
             profile="grouped-source-records-2",
+            callables=("corpus_structure.serve.interpretations._group_selected_interpretations",),
         ) as implementation:
             return _group_selected_interpretations(connection, request, implementation)
     except SourceCustodyError as error:

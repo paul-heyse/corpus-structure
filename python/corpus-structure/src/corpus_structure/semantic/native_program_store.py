@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import ast
+from contextlib import contextmanager
 from functools import cache
+from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -93,56 +96,206 @@ class ProgramSetArtifact(BaseModel):
 
 
 @cache
-def generator_identity():
+def _analyze_generator_code():
     from .code_identity import capture_code_identity
 
+    root = Path(__file__).resolve().parents[1]
     return capture_code_identity(
-        Path(__file__).resolve().parents[1],
+        root,
         ("corpus_structure.semantic.target_installation",),
+        callables=(
+            "corpus_structure.semantic.target_installation.capture_target_installation",
+            "corpus_structure.semantic.target_installation._build_target_installation",
+            "corpus_structure.semantic.target_installation.foundation_programs",
+            "corpus_structure.semantic.native_products._capture_native_authoring_inputs",
+            "corpus_structure.semantic.data_operation_storage._native_protocol_sources",
+        ),
     )
 
 
-def store_key(metadata: MetaData, **options) -> bytes | None:
-    from hashlib import sha256
+def capture_generator_code():
+    from corpus_structure._query_custody import capture_workload_sources
 
-    from corpus_structure._query_custody import capture_sources
-    from corpus_structure.model.compiled import running_model
+    root = Path(__file__).resolve().parents[1]
+    identity = _analyze_generator_code()
+    capture_workload_sources(root, identity)
+    return identity
 
+
+def capture_generator_sources(identity) -> tuple[tuple[str, bytes], ...]:
+    """Capture the renderer-declared source files copied into its exact artifact."""
     from .file_custody import observed_file
 
-    basis = generator_identity()
-    if not basis.complete:
-        return None
     root = Path(__file__).resolve().parents[1]
-    paths = tuple(root / item.filename for item in basis.modules)
-    capture_sources(paths)
-    exact = tuple(
-        (item.filename, observed_file(root / item.filename).digest) for item in basis.modules
+    available = {item.filename: item.content for item in identity.modules}
+    captured = []
+    for filename in sorted(_copied_source_paths(available)):
+        path = root / filename
+        record = observed_file(path)
+        content = available.get(filename)
+        if content is None:
+            content = path.read_bytes()
+        record.check()
+        if sha256(content).hexdigest() != record.digest:
+            raise ValueError(f"copied native provenance changed during capture: {filename}")
+        captured.append((filename, content))
+    return tuple(captured)
+
+
+def _copied_source_paths(available: dict[str, bytes]) -> set[str]:
+    """Read copied-file references from the same renderer definitions that use them."""
+    owners = {
+        "semantic/target_installation.py": "_build_target_installation",
+        "semantic/native_products.py": "_capture_native_authoring_inputs",
+        "semantic/data_operation_storage.py": "_native_protocol_sources",
+        "semantic/data_operation_projections.py": "capture_projection_sources",
+    }
+    paths: set[str] = set()
+
+    def constants(node):
+        return {
+            item.value
+            for item in ast.walk(node)
+            if isinstance(item, ast.Constant) and isinstance(item.value, str)
+        }
+
+    for module_path, function_name in owners.items():
+        content = available.get(module_path)
+        if content is None:
+            raise ValueError(f"generator identity omitted source owner: {module_path}")
+        tree = ast.parse(content)
+        function = next(
+            (
+                node
+                for node in tree.body
+                if isinstance(node, ast.FunctionDef) and node.name == function_name
+            ),
+            None,
+        )
+        if function is None:
+            raise ValueError(f"generator source owner is missing: {module_path}:{function_name}")
+        assigned = {}
+        for node in ast.walk(function):
+            if (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+            ):
+                assigned[node.targets[0].id] = node.value
+        for node in ast.walk(function):
+            if (
+                isinstance(node, ast.Subscript)
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "captured_module_sources"
+                and isinstance(node.slice, ast.Constant)
+                and isinstance(node.slice.value, str)
+            ):
+                paths.add(node.slice.value)
+            if (
+                not isinstance(node, ast.Call)
+                or not isinstance(node.func, ast.Name)
+                or node.func.id
+                not in {
+                    "captured_source",
+                    "_captured_source",
+                    "_captured_module",
+                    "_captured_native_module",
+                }
+                or len(node.args) < 2
+            ):
+                continue
+            argument = node.args[1]
+            names = constants(argument)
+            if not names and isinstance(argument, ast.Name):
+                # Comprehension variables are sourced by the native artifact
+                # declarations in this same renderer function.
+                for comp in ast.walk(function):
+                    if not isinstance(comp, ast.comprehension):
+                        continue
+                    if isinstance(comp.target, ast.Name) and comp.target.id == argument.id:
+                        names.update(constants(comp.iter))
+                if not names and argument.id == "module":
+                    programs = assigned.get("programs")
+                    if isinstance(programs, ast.Tuple):
+                        names.update(
+                            item.value
+                            for record in programs.elts
+                            if isinstance(record, ast.Tuple) and len(record.elts) > 1
+                            for item in (record.elts[1],)
+                            if isinstance(item, ast.Constant) and isinstance(item.value, str)
+                        )
+            if node.func.id in {"captured_source", "_captured_source"}:
+                paths.update(names)
+            else:
+                paths.update("semantic/" + name for name in names)
+    # Model resources and the vocabularies YAML are captured by their typed
+    # source owners, not as Python provenance files.
+    paths.discard("semantic/operation-vocabularies.yaml")
+    return paths
+
+
+@contextmanager
+def capture_generator_custody(identity):
+    from corpus_structure._query_custody import capture_workload_sources, query_sources
+
+    root = Path(__file__).resolve().parents[1]
+    expected = capture_workload_sources(root, identity)
+    with query_sources(expected, closed=True):
+        yield
+
+
+def captured_source(inputs, filename: str) -> bytes:
+    """Return a copied module/resource from the pre-key input snapshot."""
+    modules = dict(inputs.module_sources)
+    resources = {item.name: item.content for item in inputs.resource_sources}
+    if filename.startswith("resource:"):
+        return resources[filename.removeprefix("resource:")]
+    try:
+        return modules[filename]
+    except KeyError as error:
+        raise ValueError(f"copied authoring source was not captured: {filename}") from error
+
+
+def generator_sources(inputs) -> dict[str, bytes]:
+    return dict(inputs.module_sources)
+
+
+def input_key(inputs, *, include_format: bool) -> bytes | None:
+    if not inputs.complete:
+        return None
+
+    code = inputs.code_identity
+    copied = tuple(
+        sorted((name, sha256(content).hexdigest()) for name, content in inputs.module_sources)
     )
+    resources = tuple(sorted((item.name, item.digest) for item in inputs.resource_sources))
 
     def source(value):
         return None if value is None else (value.name, value.digest)
 
     return canonical_bytes(
         dict(
-            format=FORMAT,
-            model=running_model().identity,
-            generator=basis.digest,
-            source_bytes=exact,
-            physical=sorted(
-                (name, sha256(content).hexdigest())
-                for name, content in metadata.info["physical_sources"].items()
+            format=FORMAT if include_format else None,
+            model_sources=tuple(
+                (name, sha256(content).hexdigest()) for name, content in inputs.model_sources
             ),
-            linkml_types=sha256(metadata.info["physical_linkml_types"]).hexdigest(),
+            generator=code.digest,
+            copied_source_bytes=copied,
+            physical=tuple(
+                (name, sha256(content).hexdigest()) for name, content in inputs.physical_sources
+            ),
+            linkml_types=sha256(inputs.linkml_types).hexdigest(),
             logical=sorted(
-                (name, sha256(content).hexdigest())
-                for name, content in (options["logical_sources"] or {}).items()
+                (name, sha256(content).hexdigest()) for name, content in inputs.logical_sources
             ),
-            pdf_actions=source(options["pdf_actions"]),
+            pdf_actions=source(inputs.pdf_actions),
             pdf_sources=None
-            if options["pdf_sources"] is None
-            else tuple(map(source, options["pdf_sources"])),
-            extra=tuple(map(source, options["extra_sources"])),
+            if inputs.pdf_sources is None
+            else tuple(map(source, inputs.pdf_sources)),
+            extra=tuple(map(source, inputs.extra_sources)),
+            resources=resources,
+            analysis_runtime=inputs.analysis_runtime,
+            native_library_runtime=inputs.native_library_runtime,
         )
     )
 

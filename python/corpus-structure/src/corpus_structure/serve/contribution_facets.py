@@ -192,7 +192,10 @@ def serve_contribution_facets(connection, request: ContributionFacetsRequest):
 
     try:
         with installed_read_implementation(
-            type(request), entry="corpus_structure.serve.contribution_facets", profile=VERSION
+            type(request),
+            entry="corpus_structure.serve.contribution_facets",
+            profile=VERSION,
+            callables=("corpus_structure.serve.contribution_facets._serve",),
         ) as implementation:
             return _serve(connection, request, implementation)
     except SourceCustodyError as error:

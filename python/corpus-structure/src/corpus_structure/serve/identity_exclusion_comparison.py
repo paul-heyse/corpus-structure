@@ -108,6 +108,7 @@ def compare_selected_exclusions(connection, request: ExclusionComparisonRequest)
             type(request),
             entry="corpus_structure.serve.identity_exclusion_comparison",
             profile=VERSION,
+            callables=("corpus_structure.serve.identity_exclusion_comparison._compare",),
         ) as implementation:
             return _compare(connection, request, implementation)
     except SourceCustodyError as error:

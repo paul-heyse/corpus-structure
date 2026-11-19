@@ -42,6 +42,7 @@ def test_structural_read_implementation_owns_actual_bootstrapped_helper_objects(
         reader.SelectedStructuralRequest,
         entry=reader.__name__,
         profile="selected-structural-read-v1",
+        callables=("corpus_structure.serve.selected_structural.structural_scope",),
     ) as implementation:
         assert len(implementation) == 64
 

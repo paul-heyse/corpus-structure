@@ -603,6 +603,13 @@ list of tiers, which is internal structure.
 
 ### UDM-14 — The two on-disk tiers
 
+**Custody implementation · 2026-11-19.** T2 and D2 now consume the same immutable generator
+capture, including model bytes, runtime and exact copied artifact sources. The old package-wide
+T2 source fallback and independent D2 key sweep are removed. Installed readers pass explicit
+callable roots. Served-row retention requires an active complete implementation matching the
+key. Actual D2/D4 reuse remains withheld while the determining initializer and import contracts
+are incomplete. [Workload and offline comparison evidence](../../design_review/evidence/2026-11-19_udm-workload-custody/README.md)
+
 **Implemented against N34 · 2026-11-19.** The shared store publishes verified immutable entries,
 tracks active writers with a scoped lease, and prunes its own namespace under lock. `ci cache
 stats` includes disk occupancy and `ci cache prune` reports disk removals. D2 rehydrates a typed
@@ -885,5 +892,5 @@ disk model caching unadopted for this increment.
 | Package | State |
 |---|---|
 | UDM-13 | Complete for the bounded N34 increment. Six process tiers, typed scientific policy projections and owner-scoped CLI and MCP diagnostics passed scoped qualification. Incomplete serving code identity still permits a fresh page. |
-| UDM-14 | Shared disk store and D2/D4 consumers integrated. Shared generator capture, narrower authenticated read derivation and actual entry-point qualification are scheduled by the code-closure amendment. |
+| UDM-14 | Shared generator capture and explicit served-key eligibility integrated. The rich row derivation accepts a typed acquired index. Actual entry-point reuse still awaits complete workload custody. |
 | UDM-15 | Two-cut exclusion basis corrected. Direct entity witness integrated. Real reuse requires the shared code-closure contract and a viable authored native entity fixture. Other query variants retain the cut basis. |

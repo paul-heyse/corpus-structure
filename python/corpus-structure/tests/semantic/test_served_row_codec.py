@@ -71,6 +71,18 @@ def test_row_offsets_and_complete_metadata_roundtrip():
         decode_rows(dict(files, **{"offsets.bin": pack("!QQ", 0, 999999)}))
 
 
+@pytest.fixture(autouse=True)
+def authenticated_codec_context():
+    """Codec controls supply their deliberately complete serving owner."""
+    from corpus_structure.semantic.code_identity import CodeIdentity
+    from corpus_structure.semantic.serving_code import ServingImplementation, serving_code
+
+    with serving_code(
+        ServingImplementation("implementation", CodeIdentity(("codec",), (), (), (), b"{}"))
+    ):
+        yield
+
+
 class MemoryStore:
     def __init__(self):
         self.files = {}
@@ -142,9 +154,11 @@ from decimal import Decimal
 from pathlib import Path
 from corpus_structure.cache_store import CacheStore
 from corpus_structure.semantic.selected_query_cache import SelectedQueryCache, ServedKey, disk_row_cache
+from corpus_structure.semantic.code_identity import CodeIdentity
+from corpus_structure.semantic.serving_code import ServingImplementation, serving_code
 store = CacheStore(Path(sys.argv[1]), program_store_bytes=0, page_store_bytes=1048576)
 key = ServedKey("native", b"selection", "implementation", ("reader",), "cut", b"cut")
-with disk_row_cache(store), SelectedQueryCache().loading(key) as entry:
+with serving_code(ServingImplementation("implementation", CodeIdentity(("codec",), (), (), (), b"{}"))), disk_row_cache(store), SelectedQueryCache().loading(key) as entry:
     assert entry is not None
     values = list(entry.rows())
     assert values[0].as_tuple() == Decimal("7.00").as_tuple()

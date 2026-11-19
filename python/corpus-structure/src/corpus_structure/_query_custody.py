@@ -12,25 +12,13 @@ from contextvars import ContextVar
 from hashlib import sha256
 from importlib.machinery import PathFinder, SourceFileLoader
 from pathlib import Path
-from types import ModuleType
+from types import CodeType, ModuleType
 
-# Entry modules declare serving responsibilities. The module walk supplies their
-# complete imported source set before any of their lazy imports run.
-READ_ENTRY_MODULES = (
-    "corpus_structure.serve.rich_queries",
-    "corpus_structure.semantic.demand_queries",
-    "corpus_structure.serve.selected_structural",
-    "corpus_structure.serve.structural_products",
-    "corpus_structure.serve.interpretations",
-    "corpus_structure.serve.contribution_facets",
-    "corpus_structure.serve.identity_exclusion_comparison",
-    "corpus_structure.serve.selected_structural_review",
-)
 _BASE = Path(__file__).resolve().parent
 _NAMES: dict[str, str] = {}
-_KNOWN_PATHS: frozenset[str] = frozenset()
 _EXECUTED: dict[ModuleType, tuple[str, str]] = {}
 _EXPECTED: ContextVar[dict[str, str] | None] = ContextVar("query_source_custody", default=None)
+_CLOSED: ContextVar[bool] = ContextVar("closed_query_source_custody", default=False)
 
 
 class SourceCustodyError(RuntimeError):
@@ -50,6 +38,8 @@ class _CapturedLoader(SourceFileLoader):
         path = str(Path(self.path).resolve())
         expected = _EXPECTED.get()
         required = expected.get(path) if expected is not None else None
+        if required is None and _CLOSED.get() and Path(path).is_relative_to(_BASE):
+            raise SourceCustodyError("query helper is outside the authenticated workload")
         if required is not None and required != digest:
             raise SourceCustodyError(
                 "query-helper bytes changed before import; restart the process"
@@ -85,15 +75,23 @@ class _CustodyFinder:
             return None
         spec = PathFinder.find_spec(fullname, path, target)
         if spec is None or not isinstance(spec.loader, SourceFileLoader) or spec.origin is None:
+            if _CLOSED.get() and fullname.startswith("corpus_structure."):
+                raise SourceCustodyError("query helper has no admitted source loader")
             return None
         origin = str(Path(spec.origin).resolve())
-        if Path(origin).is_relative_to(_BASE) or origin in _KNOWN_PATHS or origin in expected:
+        if (
+            Path(origin).is_relative_to(_BASE)
+            or origin == _NAMES.get(fullname)
+            or origin in expected
+        ):
             spec.loader = _CapturedLoader(fullname, spec.origin)
             return spec
+        if _CLOSED.get() and fullname.startswith("corpus_structure."):
+            raise SourceCustodyError("query helper origin is outside the authenticated workload")
         return None
 
 
-def install(bootstrap_source: bytes) -> None:
+def install(bootstrap_source: bytes, package_code: CodeType) -> None:
     """Called once by package entry, before owned answer helpers can import."""
     _EXECUTED[sys.modules[__name__]] = (
         str(Path(__file__).resolve()),
@@ -101,37 +99,18 @@ def install(bootstrap_source: bytes) -> None:
     )
     if not any(isinstance(finder, _CustodyFinder) for finder in sys.meta_path):
         sys.meta_path.insert(0, _CustodyFinder())
-    # Discover source without importing target modules. Discovery itself runs
-    # through this already installed loader under its known fixed root.
-    from corpus_structure.semantic.code_identity import capture_code_identity
-
-    global _KNOWN_PATHS
-    # The fixed package bootstrap compiles the captured custody source. Verify
-    # its active function against the current code before promising package bytes.
-    import types
-
+    # Verify the module body executing the handoff, including eager setup.
     package = sys.modules["corpus_structure"]
     package_path = _BASE / "__init__.py"
     package_source = package_path.read_bytes()
     compiled = compile(package_source, str(package_path), "exec", dont_inherit=True)
-    expected = next(
-        item
-        for item in compiled.co_consts
-        if isinstance(item, types.CodeType) and item.co_name == "_install_query_custody"
-    )
-    active = vars(package)["_install_query_custody"].__code__
-    if (active.co_code, active.co_names, active.co_consts) != (
-        expected.co_code,
-        expected.co_names,
-        expected.co_consts,
-    ):
+    origin = getattr(package.__spec__, "origin", None)
+    if origin is None or Path(origin).resolve() != package_path or package_code != compiled:
         raise SourceCustodyError("package bootstrap differs; restart the process")
     _EXECUTED[package] = (str(package_path), sha256(package_source).hexdigest())
-    closure = capture_code_identity(_BASE, READ_ENTRY_MODULES)
-    _NAMES.update((item.module, str(_BASE / item.filename)) for item in closure.modules)
-    _KNOWN_PATHS = frozenset(_NAMES.values())
     from corpus_structure.semantic.file_custody import verified_file
 
+    verified_file(package_path, sha256(package_source).hexdigest())
     verified_file(Path(__file__).resolve(), sha256(bootstrap_source).hexdigest())
 
 
@@ -147,11 +126,18 @@ def _check_loaded(expected: dict[str, str]) -> None:
             or str(Path(vars(module).get("__file__", "")).resolve()) != path
         ):
             raise SourceCustodyError("query-helper module changed; restart the process")
-    known_paths = set(_KNOWN_PATHS)
-    for name, path in _NAMES.items():
+    known_paths = set(_NAMES.values())
+    names = _NAMES.copy()
+    for path in expected:
+        absolute = Path(path)
+        if absolute.is_relative_to(_BASE) and absolute.suffix == ".py":
+            parts = absolute.relative_to(_BASE).with_suffix("").parts
+            segments = parts[:-1] if parts[-1] == "__init__" else parts
+            names[".".join(("corpus_structure", *segments))] = path
+            known_paths.add(path)
+    for name, path in names.items():
         if path not in expected:
             continue
-        known_paths.add(path)
         module = sys.modules.get(name)
         if module is not None and _EXECUTED.get(module) != (path, expected[path]):
             raise SourceCustodyError(
@@ -206,15 +192,49 @@ def capture_sources(paths) -> dict[str, str]:
     return captured
 
 
+def bootstrap_sources(root: Path) -> dict[str, str]:
+    """Return the authenticated fixed package-to-loader handoff for this checkout."""
+    if root != _BASE:
+        return {}
+    expected = {}
+    for name in ("corpus_structure", __name__):
+        module = sys.modules.get(name)
+        if module not in _EXECUTED:
+            return {}
+        path, digest = _EXECUTED[module]
+        expected[path] = digest
+    _check_loaded(expected)
+    _check_files(expected)
+    return expected
+
+
+def capture_workload_sources(root: Path, identity) -> dict[str, str]:
+    """Bind the exact parsed source bytes to the actual loaded or promised modules."""
+    selected = (identity.determining_modules if identity.complete else ()) or identity.modules
+    expected = {
+        str((root / item.filename).resolve()): sha256(item.content).hexdigest() for item in selected
+    }
+    if capture_sources(expected) != expected:
+        raise SourceCustodyError("analyzed source differs from running code; restart the process")
+    return expected
+
+
 @contextmanager
-def query_sources(expected: dict[str, str]):
+def query_sources(expected: dict[str, str], *, closed: bool = False):
     """Check already-loaded helpers and constrain later imports to captured bytes."""
     _check_loaded(expected)
     _check_files(expected)
+    if _CLOSED.get():
+        outer = _EXPECTED.get() or {}
+        if any(outer.get(path) != digest for path, digest in expected.items()):
+            raise SourceCustodyError("nested custody extends the authenticated workload")
+        expected = outer
     token = _EXPECTED.set(expected)
+    closed_token = _CLOSED.set(closed or _CLOSED.get())
     try:
         yield
         _check_loaded(expected)
         _check_files(expected)
     finally:
+        _CLOSED.reset(closed_token)
         _EXPECTED.reset(token)

@@ -21,10 +21,11 @@ import astroid.transforms
 import griffe
 import libcst as cst
 import libcst.matchers as matchers
-from libcst.helpers import filter_node_fields
+from libcst.helpers import ModuleNameAndPackage, filter_node_fields
 from libcst.metadata import (
     ExpressionContext,
     ExpressionContextProvider,
+    FullyQualifiedNameProvider,
     MetadataWrapper,
     ParentNodeProvider,
     PositionProvider,
@@ -129,6 +130,21 @@ class _Module:
     parent_nodes: Mapping[cst.CSTNode, Any]
     model: griffe.Module
     bindings: astroid.nodes.Module
+    absolute_names: Mapping[cst.CSTNode, Any]
+
+    def qualified_names(self, node: cst.CSTNode):
+        candidates = self.names.get(node, ())
+        candidates = candidates() if callable(candidates) else candidates
+        if self.absolute_names and any(
+            item.source == QualifiedNameSource.IMPORT and item.name.startswith(".")
+            for item in candidates
+        ):
+            return {item for item in candidates if item.source != QualifiedNameSource.IMPORT} | {
+                item
+                for item in self.absolute_names.get(node, ())
+                if item.source == QualifiedNameSource.IMPORT
+            }
+        return candidates
 
 
 class _ClosedAstroidManager(astroid.manager.AstroidManager):
@@ -239,7 +255,7 @@ def _specialize_roles(metadata: dict, overrides: Any, owner: str) -> list[dict]:
 class ClosedPythonSources:
     """One preparation lifetime; no module, inference-manager or target-runtime cache."""
 
-    def __init__(self, inputs: PythonSourceCollection):
+    def __init__(self, inputs: PythonSourceCollection, *, resolve_relative_imports=False):
         if inputs.stub_policy != "source-authoritative":
             _fail("python/stub_policy", "unsupported source/stub policy")
         selected = inputs.generated_interfaces
@@ -304,7 +320,19 @@ class ClosedPythonSources:
                     if name not in model.members:
                         model.set_member(name, child)
             self.collection.set_member(source.module, model)
-            wrapper = MetadataWrapper(cst.parse_module(source.content))
+            package_name = (
+                source.module
+                if Path(source.filename).name == "__init__.py"
+                else source.module.rpartition(".")[0]
+            )
+            wrapper = MetadataWrapper(
+                cst.parse_module(source.content),
+                cache={
+                    FullyQualifiedNameProvider: ModuleNameAndPackage(source.module, package_name)
+                }
+                if resolve_relative_imports
+                else {},
+            )
             providers = wrapper.resolve_many(
                 (
                     QualifiedNameProvider,
@@ -326,6 +354,7 @@ class ClosedPythonSources:
                 self.binding_builder.string_build(
                     source.content.decode("utf-8"), source.module, source.filename
                 ),
+                wrapper.resolve(FullyQualifiedNameProvider) if resolve_relative_imports else {},
             )
             self.modules[source.module] = module
             self._index(module, wrapper.module.body, source.module)
@@ -448,8 +477,7 @@ class ClosedPythonSources:
                     continue
                 return False
         module = self.modules[module_name]
-        names = module.names.get(node.bases[0].value, set())
-        names = names() if callable(names) else names
+        names = module.qualified_names(node.bases[0].value)
         return {name.name for name in names} == {"typing.TypedDict"}
 
     def _runtime_dataclass(self, path: str) -> bool:
@@ -488,8 +516,7 @@ class ClosedPythonSources:
             return False
         decorator = node.decorators[0].decorator
         function = decorator.func if isinstance(decorator, cst.Call) else decorator
-        names = module.names.get(function, set())
-        names = names() if callable(names) else names
+        names = module.qualified_names(function)
         if {name.name for name in names} != {"dataclasses.dataclass"}:
             return False
         if isinstance(decorator, cst.Call):
@@ -507,8 +534,7 @@ class ClosedPythonSources:
             return False
         module_name, _ = self.definitions[path]
         module = self.modules[module_name]
-        names = module.names.get(value.func, set())
-        names = names() if callable(names) else names
+        names = module.qualified_names(value.func)
         return {name.name for name in names} == {"dataclasses.field"} and all(
             arg.keyword is not None
             and arg.keyword.value in {"default", "default_factory", "kw_only"}
@@ -1258,8 +1284,7 @@ class ClosedPythonSources:
                     def visit_Name(self, node: cst.Name) -> None:
                         position = module.positions[node].start
                         location = f"{module.source.filename}:{position.line}:{position.column}"
-                        candidates = module.names.get(node, set())
-                        candidates = candidates() if callable(candidates) else candidates
+                        candidates = module.qualified_names(node)
                         for candidate in candidates:
                             if candidate.source == QualifiedNameSource.BUILTIN:
                                 continue
@@ -1325,8 +1350,7 @@ class ClosedPythonSources:
                 except ValueError, SyntaxError:
                     # An explicitly modeled external definition is a closed boundary;
                     # arbitrary constructor results and aliases are not frozen values.
-                    candidates = module.names.get(node.value, set())
-                    candidates = candidates() if callable(candidates) else candidates
+                    candidates = module.qualified_names(node.value)
                     admitted_constant = bool(candidates) and all(
                         boundary_for(candidate.name) is not None for candidate in candidates
                     )
@@ -1442,8 +1466,7 @@ class ClosedPythonSources:
                     lookup = (
                         annotation.value if isinstance(annotation, cst.Subscript) else annotation
                     )
-                    candidates = module.names.get(lookup, set())
-                    candidates = candidates() if callable(candidates) else candidates
+                    candidates = module.qualified_names(lookup)
                     names = [
                         candidate.name
                         if candidate.source != QualifiedNameSource.LOCAL
@@ -1521,8 +1544,7 @@ class ClosedPythonSources:
                     return "unknown", ()
                 active = active | {id(expression)}
                 if isinstance(expression, cst.Name):
-                    candidates = module.names.get(expression, set())
-                    candidates = candidates() if callable(candidates) else candidates
+                    candidates = module.qualified_names(expression)
                     targets = []
                     kinds = set()
                     for candidate in candidates:
@@ -1706,8 +1728,7 @@ class ClosedPythonSources:
                 def visit_Name(self, node: cst.Name) -> None:
                     position = module.positions[node].start
                     location = f"{module.source.filename}:{position.line}:{position.column}"
-                    candidates = module.names.get(node, set())
-                    candidates = candidates() if callable(candidates) else candidates
+                    candidates = module.qualified_names(node)
                     parent = module.parent_nodes.get(node)
                     # A keyword's label is syntax, not a lexical variable read.
                     # Its actual argument value is visited independently below.
@@ -1750,8 +1771,7 @@ class ClosedPythonSources:
                                 allowed = True
                                 break
                             if isinstance(ancestor_for_use, cst.Subscript):
-                                type_names = module.names.get(ancestor_for_use.value, set())
-                                type_names = type_names() if callable(type_names) else type_names
+                                type_names = module.qualified_names(ancestor_for_use.value)
                                 if any(
                                     item.name
                                     in {
@@ -1882,8 +1902,7 @@ class ClosedPythonSources:
                         for arg in node.args:
                             assert arg.keyword is not None
                             if arg.keyword.value == "default_factory":
-                                names = module.names.get(arg.value, set())
-                                names = names() if callable(names) else names
+                                names = module.qualified_names(arg.value)
                                 if len(names) != 1:
                                     unknowns.add(
                                         SourceUnknown(
@@ -2025,8 +2044,7 @@ class ClosedPythonSources:
                     for argument in node.args:
                         argument.value.visit(ArgumentUses())
                     if isinstance(expression, cst.Name):
-                        candidates = module.names.get(expression, set())
-                        candidates = candidates() if callable(candidates) else candidates
+                        candidates = module.qualified_names(expression)
                         if not candidates:
                             unknowns.add(
                                 SourceUnknown(
@@ -2109,8 +2127,7 @@ class ClosedPythonSources:
                         if member_kind == "callable":
                             for target in member_targets:
                                 reference(path, target, "possible_call", location)
-                        candidates = module.names.get(expression, set())
-                        candidates = candidates() if callable(candidates) else candidates
+                        candidates = module.qualified_names(expression)
                         imported = [c for c in candidates if c.source == QualifiedNameSource.IMPORT]
                         if imported:
                             for candidate in imported:

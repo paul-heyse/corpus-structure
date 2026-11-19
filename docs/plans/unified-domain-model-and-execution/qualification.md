@@ -328,6 +328,13 @@ execution prerequisite. The earlier upstream PDF fixture failure stays with its 
 does not establish the entity witness. Keep T14 open for the adopted direct entity variant
 until this journey passes. A later variant whose premise is declined is recorded as not adopted.
 
+**2026-11-19 implementation evidence.** The authored fixture reached native release admission
+in one attempt and refused unchecked required semantics. The existing publication recipe route
+then stopped on conflicting captured Python modules. The private smoke and strict T14 journey
+remain opt-in with `CORPUS_RUN_UDM_T14=1` while those prerequisites are open. Restore the actual
+T14 identity to the ordinary required final-source selection once it is viable. The opt-in
+setting carries no qualification credit. [Receipts](../../design_review/evidence/2026-11-19_udm-workload-custody/README.md)
+
 **Shared negative controls.** Include eager initialization, relative aliases and re-exports,
 rebound import names, runtime guards versus type-only imports, indirect loads, receiver dispatch,
 annotation evaluation, copied provenance and authenticated dynamic operations. Expectations

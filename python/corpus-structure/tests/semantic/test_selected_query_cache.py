@@ -17,6 +17,15 @@ from corpus_structure.semantic.selected_query_cache import (
 )
 
 
+@pytest.fixture(autouse=True)
+def cache_contract_context(monkeypatch):
+    """These controls exercise retention after the serving owner establishes custody."""
+    monkeypatch.setattr(
+        "corpus_structure.semantic.serving_code.reusable_serving_code",
+        lambda implementation=None: True,
+    )
+
+
 def cut_key(cut: bytes) -> ServedKey:
     return ServedKey("test", b"selection", "implementation", ("reader",), "cut", cut)
 

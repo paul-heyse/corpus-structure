@@ -73,6 +73,7 @@ def _replay(root, selection, native_digest):
             type(request),
             entry="corpus_structure.serve.selected_structural",
             profile="selected-structural-read-v1",
+            callables=("corpus_structure.serve.selected_structural.structural_scope",),
         ) as implementation:
             scope = StructuralScope(
                 cut,

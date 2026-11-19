@@ -733,6 +733,17 @@ authority.
 
 #### UDM-10 code-closure follow-up
 
+**Partial implementation · 2026-11-19.** The bootstrap checks the executing package body and
+the exact sibling loader bytes. Package startup no longer scans the reader module population.
+Workload identity requires explicit callables, records eager initialization separately, and
+uses captured LibCST package context for relative bindings. The admitted source check compares
+the exact analyzed bytes with the executing or promised files. Module discovery supplies a
+separate diagnostic inventory. The bounded controls cover the indirect import counterexample,
+uninvoked local imports, and a determining initializer. The actual generator and selected-read
+roots still lack required initialization and external-operation contracts. Their reuse remains
+withheld. The supported initializer forms and captured library operations still need to be
+extended against the real workload boundaries below.
+
 **Scheduled target · Proposed · 2026-11-19.** Incorporate
 [I01](../../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I01)
 of the code dependency review, published at `1982a20c3` against production baseline `aa128c808`.

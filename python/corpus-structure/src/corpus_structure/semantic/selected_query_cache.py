@@ -220,7 +220,7 @@ class SelectedQueryCache:
     def _eligible(key: ServedKey) -> bool:
         from .serving_code import reusable_serving_code
 
-        return reusable_serving_code() and key.authorization is not None
+        return reusable_serving_code(key.implementation) and key.authorization is not None
 
     def get(self, key: ServedKey):
         if not self._eligible(key):

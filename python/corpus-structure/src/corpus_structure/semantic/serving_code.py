@@ -35,9 +35,13 @@ def serving_code(implementation: ServingImplementation):
         _ACTIVE.reset(token)
 
 
-def reusable_serving_code() -> bool:
+def reusable_serving_code(implementation: str | None = None) -> bool:
     selected = _ACTIVE.get()
-    return selected is None or selected.complete
+    return (
+        selected is not None
+        and selected.complete
+        and (implementation is None or implementation == selected)
+    )
 
 
 def serving_report(record):

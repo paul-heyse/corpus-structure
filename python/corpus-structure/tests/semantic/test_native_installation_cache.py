@@ -8,24 +8,42 @@ from corpus_structure.semantic.types import SourceArtifact
 
 
 @pytest.fixture
-def held_generation(monkeypatch):
+def uncached_generation(monkeypatch):
     from corpus_structure.model import compiled
     from corpus_structure.schema import physical
     from corpus_structure.semantic import data_operation_storage, native_program_store
+    from corpus_structure.semantic.code_identity import CodeIdentity, CodeUnknown
+    from corpus_structure.semantic.types import SourceArtifact
 
-    assert callable(data_operation_storage.native_logical_sources)
-
-    monkeypatch.setattr(native_program_store, "store_key", lambda *args, **options: None)
-
-    installation._held_target_installation.cache_clear()
-    monkeypatch.setattr(installation, "_generator_custody", lambda: ("generator", ()))
+    monkeypatch.setattr(
+        native_program_store,
+        "capture_generator_code",
+        lambda: CodeIdentity(
+            entries=("corpus_structure.semantic.target_installation",),
+            modules=(),
+            distributions=(),
+            unknowns=(CodeUnknown("generator", 1, "unresolved input"),),
+            meaning=b"incomplete generator identity",
+        ),
+    )
+    monkeypatch.setattr(native_program_store, "capture_generator_sources", lambda identity: ())
+    monkeypatch.setattr(
+        data_operation_storage,
+        "native_logical_sources",
+        lambda **options: {"logical": b"default"},
+    )
+    monkeypatch.setattr(
+        data_operation_storage,
+        "capture_native_package_resource",
+        lambda: SourceArtifact("native/validity-vocabulary.yaml", b"vocabulary"),
+    )
     model = compiled.compiled_model({"cache-control.yaml": b"id: urn:cache\nname: cache\n"})
     monkeypatch.setattr(compiled, "running_model", lambda: model)
     monkeypatch.setattr(physical, "compile_physical", lambda sources, **options: sources)
     calls = []
 
-    def build(selected, **options):
-        calls.append((selected, options))
+    def build(selected, inputs):
+        calls.append((selected, inputs))
         return object()
 
     monkeypatch.setattr(installation, "_build_target_installation", build)
@@ -38,33 +56,19 @@ def metadata(source=b"original"):
     return value
 
 
-def test_generation_shares_equal_captures_and_distinguishes_candidate_inputs(held_generation):
+def test_incomplete_identity_disables_both_holders_and_renders_fresh(uncached_generation):
     logical = {"logical": b"initial"}
-    first = installation.capture_target_installation(metadata(), logical_sources=logical)
-    assert (
-        installation.capture_target_installation(metadata(), logical_sources=dict(logical)) is first
-    )
-    changed = installation.capture_target_installation(
-        metadata(b"candidate"), logical_sources=logical
-    )
-    assert changed is not first
-    assert len(held_generation) == 2
-    changed_logical = installation.capture_target_installation(
-        metadata(), logical_sources={"logical": b"changed"}
-    )
-    assert changed_logical is not first
-    assert len(held_generation) == 3
+    installation.capture_target_installation(metadata(), logical_sources=logical)
+    installation.capture_target_installation(metadata(), logical_sources=dict(logical))
+    installation.capture_target_installation(metadata(b"candidate"), logical_sources=logical)
+    installation.capture_target_installation(metadata(), logical_sources={"logical": b"changed"})
     pdf = SourceArtifact("pdf/action", b"candidate")
-    assert (
-        installation.capture_target_installation(
-            metadata(), logical_sources=logical, pdf_actions=pdf
-        )
-        is not first
-    )
-    assert len(held_generation) == 4
+    installation.capture_target_installation(metadata(), logical_sources=logical, pdf_actions=pdf)
+    assert len(uncached_generation) == 5
+    assert uncached_generation[0][1].physical_sources != uncached_generation[2][1].physical_sources
 
 
-def test_deterministic_generation_failure_is_held_as_a_value(held_generation, monkeypatch):
+def test_incomplete_identity_does_not_retain_generation_failure(uncached_generation, monkeypatch):
     calls = []
 
     def fail(*args, **kwargs):
@@ -75,4 +79,4 @@ def test_deterministic_generation_failure_is_held_as_a_value(held_generation, mo
     for _ in range(2):
         with pytest.raises(ValueError, match="invalid candidate declaration"):
             installation.capture_target_installation(metadata(), logical_sources={})
-    assert len(calls) == 1
+    assert len(calls) == 2

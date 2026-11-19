@@ -35,8 +35,10 @@ def complete_serving_code(monkeypatch):
     from corpus_structure.semantic.code_identity import CodeIdentity
     from corpus_structure.serve import rich_queries
 
-    def controlled_basis(contract, entry, profile, model_identity):
-        meaning = json_bytes([entry, profile, model_identity, contract.model_json_schema()])
+    def controlled_basis(contract, entry, profile, model_identity, *, callables):
+        meaning = json_bytes(
+            [entry, profile, model_identity, callables, contract.model_json_schema()]
+        )
         code = CodeIdentity((entry,), (), (), (), meaning)
         return sha256(meaning).hexdigest(), code
 

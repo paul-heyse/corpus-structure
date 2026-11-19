@@ -47,10 +47,51 @@ NATIVE_LOGICAL_FILES = (
 )
 
 
-def native_logical_sources() -> dict[str, bytes]:
+def native_logical_sources(*, model_sources=None) -> dict[str, bytes]:
     from corpus_structure.model.compiled import model_source
 
-    return {name: model_source(name) for name in NATIVE_LOGICAL_FILES}
+    supplied = {} if model_sources is None else model_sources
+    return {
+        name: supplied[name] if name in supplied else model_source(name)
+        for name in NATIVE_LOGICAL_FILES
+    }
+
+
+def capture_native_package_resource() -> SourceArtifact:
+    """Capture the package vocabulary bytes used by native declaration preparation."""
+    from hashlib import sha256
+
+    from .file_custody import observed_file
+
+    path = _ROOT / "operation-vocabularies.yaml"
+    record = observed_file(path)
+    content = path.read_bytes()
+    record.check()
+    if sha256(content).hexdigest() != record.digest:
+        raise ValueError("native operation vocabulary changed during capture")
+    return SourceArtifact("native/validity-vocabulary.yaml", content)
+
+
+def _captured_module(captured: dict[str, bytes] | None, filename: str) -> bytes:
+    if captured is None:
+        return Path(__file__).with_name(filename).read_bytes()
+    try:
+        return captured["semantic/" + filename]
+    except KeyError as error:
+        raise ValueError(
+            f"native authoring provenance source was not captured: {filename}"
+        ) from error
+
+
+def _captured_source(captured: dict[str, bytes] | None, filename: str) -> bytes:
+    if captured is None:
+        return Path(__file__).resolve().parents[1].joinpath(filename).read_bytes()
+    try:
+        return captured[filename]
+    except KeyError as error:
+        raise ValueError(
+            f"native authoring provenance source was not captured: {filename}"
+        ) from error
 
 
 def _native_protocol_sources(
@@ -60,9 +101,11 @@ def _native_protocol_sources(
     target_metadata=None,
     pdf_domain=None,
     logical_sources=None,
+    model_sources=None,
+    captured_module_sources=None,
+    resource_sources=(),
+    native_library_runtime=(),
 ) -> tuple[SourceArtifact, ...]:
-    from importlib.metadata import version
-
     from corpus_structure.schema.physical import (
         compile_physical,
         linkml_types_source,
@@ -110,7 +153,6 @@ def _native_protocol_sources(
         execution_evidence_leaf_schema,
     )
     from .external_execution_native import external_execution_native_sql
-    from .graph_runtime import nx
     from .native_objects import native_sql_script
     from .operation_event_native import operation_event_native_sources
     from .pdf_completion_native import pdf_completion_native_sql
@@ -147,7 +189,15 @@ def _native_protocol_sources(
         target_metadata = compile_physical(physical_sources, linkml_types=linkml_types)
     from .data_operation_projections import capture_projection_sources
 
-    logical = native_logical_sources() if logical_sources is None else logical_sources
+    logical = (
+        native_logical_sources(model_sources=model_sources)
+        if logical_sources is None
+        else logical_sources
+    )
+    runtime = dict(native_library_runtime)
+    resources = {item.name: item for item in resource_sources}
+    if model_sources is None:
+        raise ValueError("native authoring requires captured model sources")
     programs = (
         ("demand-values", "data_operation_value_native.py", data_operation_value_sql()),
         ("demand-validity", "data_validity_native.py", data_validity_sql(target_metadata)),
@@ -189,37 +239,41 @@ def _native_protocol_sources(
             for name, module, program in programs
             for artifact in (
                 SourceArtifact(f"native/{name}.sql", program.encode()),
-                SourceArtifact(f"native/{name}.py", Path(__file__).with_name(module).read_bytes()),
+                SourceArtifact(
+                    f"native/{name}.py", _captured_module(captured_module_sources, module)
+                ),
             )
         ),
         SourceArtifact(
             "native/data-operation-value-identity.py",
-            Path(__file__).with_name("data_operation_identity.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_identity.py"),
         ),
         SourceArtifact(
             "native/data-operation-definition-projection.py",
-            Path(__file__).with_name("native_definition_projection.py").read_bytes(),
+            _captured_module(captured_module_sources, "native_definition_projection.py"),
         ),
         *capture_projection_sources(
             physical_sources=physical_sources,
             linkml_types=linkml_types,
             target_metadata=target_metadata,
+            captured_module_sources=captured_module_sources,
         ),
         SourceArtifact(
-            "native/native-program.py", Path(__file__).with_name("native_program.py").read_bytes()
+            "native/native-program.py",
+            _captured_module(captured_module_sources, "native_program.py"),
         ),
         SourceArtifact(
             "native/native-program-libraries.json",
             canonical_bytes(
                 {
-                    library: version(library)
+                    library: runtime[library]
                     for library in ("pglast", "sqlalchemy", "linkml-runtime")
                 }
             ),
         ),
         SourceArtifact(
             "native/data-operation-provider-profiles.py",
-            Path(__file__).with_name("data_operation_provider_profiles.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_provider_profiles.py"),
         ),
         SourceArtifact(SOURCE, execution_evidence_schema()),
         SourceArtifact(
@@ -228,15 +282,15 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-product-validation.py",
-            Path(__file__).with_name("established_validity.py").read_bytes(),
+            _captured_module(captured_module_sources, "established_validity.py"),
         ),
         SourceArtifact(
             "native/pdf-observations.py",
-            Path(__file__).with_name("pdf_observations.py").read_bytes(),
+            _captured_module(captured_module_sources, "pdf_observations.py"),
         ),
         SourceArtifact(
             "native/data-operation-external-receipts.py",
-            Path(__file__).with_name("external_receipts.py").read_bytes(),
+            _captured_module(captured_module_sources, "external_receipts.py"),
         ),
         SourceArtifact(
             "native/data-operation-pdf-completion.sql",
@@ -244,7 +298,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-pdf-effect-contract.py",
-            Path(__file__).with_name("pdf_effect_contract.py").read_bytes(),
+            _captured_module(captured_module_sources, "pdf_effect_contract.py"),
         ),
         SourceArtifact(
             "native/data-operation-record-grade-native.sql",
@@ -256,7 +310,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-cpu-basis.py",
-            Path(__file__).with_name("data_operation_cpu_basis.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_cpu_basis.py"),
         ),
         SourceArtifact(
             "native/data-operation-definition-admission.sql",
@@ -264,7 +318,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-definition-admission.py",
-            Path(__file__).with_name("definition_admission_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "definition_admission_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-artifact-admission.sql",
@@ -272,7 +326,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-artifact-admission.py",
-            Path(__file__).with_name("artifact_admission_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "artifact_admission_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-contextual-definition.sql",
@@ -280,7 +334,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-contextual-definition.py",
-            Path(__file__).with_name("contextual_definition_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "contextual_definition_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-contextual-admission.sql",
@@ -288,7 +342,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-contextual-admission.py",
-            Path(__file__).with_name("contextual_admission_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "contextual_admission_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-contextual-linguistics.sql",
@@ -296,22 +350,22 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-contextual-linguistics.py",
-            Path(__file__).with_name("contextual_linguistics.py").read_bytes(),
+            _captured_module(captured_module_sources, "contextual_linguistics.py"),
         ),
         SourceArtifact(
             "native/data-operation-contextual-linguistics-native.py",
-            Path(__file__).with_name("contextual_linguistics_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "contextual_linguistics_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-contextual-scoring.sql", contextual_scoring_native_sql().encode()
         ),
         SourceArtifact(
             "native/data-operation-contextual-scoring.py",
-            Path(__file__).with_name("contextual_scoring_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "contextual_scoring_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-contextual-score-query.py",
-            Path(__file__).with_name("contextual_retrieval.py").read_bytes(),
+            _captured_module(captured_module_sources, "contextual_retrieval.py"),
         ),
         SourceArtifact(
             "native/data-operation-contextual-witness.sql",
@@ -319,7 +373,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-contextual-witness.py",
-            Path(__file__).with_name("contextual_witness_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "contextual_witness_native.py"),
         ),
         *source_value_native_sources(logical["observations.yaml"]),
         SourceArtifact("native/value-codec.yaml", logical["value-codec.yaml"]),
@@ -333,11 +387,11 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-execution-evidence-leaf.py",
-            Path(__file__).with_name("execution_evidence_leaf.py").read_bytes(),
+            _captured_module(captured_module_sources, "execution_evidence_leaf.py"),
         ),
         SourceArtifact(
             "native/data-operation-cpu-receipts.py",
-            Path(__file__).with_name("cpu_receipts.py").read_bytes(),
+            _captured_module(captured_module_sources, "cpu_receipts.py"),
         ),
         SourceArtifact(
             "native/data-operation-rich-admission.sql",
@@ -345,11 +399,11 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-rich-admission.py",
-            Path(__file__).with_name("rich_admission_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "rich_admission_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-record-grade-native.py",
-            Path(__file__).with_name("record_grade_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "record_grade_native.py"),
         ),
         *operation_event_native_sources(target_metadata=target_metadata),
         SourceArtifact(
@@ -362,24 +416,21 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-structural-admission-native.py",
-            Path(__file__).with_name("structural_admission_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "structural_admission_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-structural-admission.py",
-            Path(__file__).with_name("declared_structural_admission.py").read_bytes(),
+            _captured_module(captured_module_sources, "declared_structural_admission.py"),
         ),
         SourceArtifact(GRADE_SCHEMA_SOURCE, record_policy_grade_schema()),
         SourceArtifact(EVENT_FRAME_SCHEMA_SOURCE, operation_event_frame_schema()),
         SourceArtifact(
             "native/data-operation-operation-events.py",
-            Path(__file__)
-            .parents[1]
-            .joinpath("evaluate/selected_operation_events.py")
-            .read_bytes(),
+            _captured_source(captured_module_sources, "evaluate/selected_operation_events.py"),
         ),
         SourceArtifact(
             "native/data-operation-record-grade.py",
-            Path(__file__).parents[1].joinpath("evaluate/declared_record_policy.py").read_bytes(),
+            _captured_source(captured_module_sources, "evaluate/declared_record_policy.py"),
         ),
         SourceArtifact(
             "native/data-operation-record-policy-completion.sql",
@@ -387,15 +438,15 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-record-policy-completion.py",
-            Path(__file__).with_name("record_policy_completion_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "record_policy_completion_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-record-policy.py",
-            Path(__file__).with_name("record_policy_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "record_policy_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-record-policy-authority.py",
-            Path(__file__).with_name("record_policy_authority.py").read_bytes(),
+            _captured_module(captured_module_sources, "record_policy_authority.py"),
         ),
         SourceArtifact(
             "native/data-operation-authority-leaf.json",
@@ -403,22 +454,22 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-authority-leaf.py",
-            Path(__file__).with_name("authority_leaf.py").read_bytes(),
+            _captured_module(captured_module_sources, "authority_leaf.py"),
         ),
         SourceArtifact(ORIGINAL_SUPPORT_REFERENCE_SCHEMA, original_support_reference_schema()),
         SourceArtifact(
             "native/data-operation-support.py",
-            Path(__file__).with_name("data_operation_support.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_support.py"),
         ),
         SourceArtifact(
             "native/data-operation-execution-evidence.py",
-            Path(__file__).with_name("data_operation_execution_evidence.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_execution_evidence.py"),
         ),
         SourceArtifact("native/data-operation-protocol.yaml", protocol),
         SourceArtifact("native/data-operation-read.sql", read_native_sql(target_metadata).encode()),
         SourceArtifact(
             "native/data-operation-read.py",
-            Path(__file__).with_name("data_operation_read_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_read_native.py"),
         ),
         SourceArtifact(
             "native/data-product-admission.sql",
@@ -426,7 +477,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-product-admission-native.py",
-            Path(__file__).with_name("data_product_admission_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_product_admission_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-compiler.sql",
@@ -434,10 +485,10 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-compiler.py",
-            Path(__file__).with_name("data_operation_compiler_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_compiler_native.py"),
         ),
         SourceArtifact(
-            "native/effect-policy.py", Path(__file__).with_name("effect_policy.py").read_bytes()
+            "native/effect-policy.py", _captured_module(captured_module_sources, "effect_policy.py")
         ),
         SourceArtifact(
             "native/data-completion-settlement.sql",
@@ -451,28 +502,29 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/completion-validation-native.py",
-            Path(__file__).with_name("completion_validation_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "completion_validation_native.py"),
         ),
         SourceArtifact(
             "native/execution-origin-native.py",
-            Path(__file__).with_name("execution_origin_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "execution_origin_native.py"),
         ),
         SourceArtifact(
             "native/data-completion-settlement-native.py",
-            Path(__file__).with_name("data_completion_settlement_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_completion_settlement_native.py"),
         ),
         SourceArtifact(
             "native/data-claim-batch.sql", claim_batch_native_sql(target_metadata).encode()
         ),
         SourceArtifact(
             "native/data-claim-batch.py",
-            Path(__file__).with_name("data_claim_batch_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_claim_batch_native.py"),
         ),
         SourceArtifact(
             "native/data-claim.sql", claim_native_sql(target_metadata, protocol).encode()
         ),
         SourceArtifact(
-            "native/data-claim.py", Path(__file__).with_name("data_claim_native.py").read_bytes()
+            "native/data-claim.py",
+            _captured_module(captured_module_sources, "data_claim_native.py"),
         ),
         SourceArtifact(
             "native/data-attempt-release.sql",
@@ -482,7 +534,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-attempt-release.py",
-            Path(__file__).with_name("data_attempt_release_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_attempt_release_native.py"),
         ),
         SourceArtifact(
             "native/data-read-boundary.sql", read_boundary_native_sql(target_metadata).encode()
@@ -497,15 +549,15 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/request-attachment.py",
-            Path(__file__).with_name("request_attachment_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "request_attachment_native.py"),
         ),
         SourceArtifact(
             "native/population-acquisition.py",
-            Path(__file__).with_name("population_acquisition_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "population_acquisition_native.py"),
         ),
         SourceArtifact(
             "native/data-read-boundary.py",
-            Path(__file__).with_name("data_read_boundary_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_read_boundary_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-renewal.sql",
@@ -513,7 +565,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-renewal.py",
-            Path(__file__).with_name("data_operation_renewal.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_renewal.py"),
         ),
         SourceArtifact(
             "native/data-operation-support-scopes.sql",
@@ -525,7 +577,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/contextual-neighborhood.py",
-            Path(__file__).with_name("contextual_neighborhood.py").read_bytes(),
+            _captured_module(captured_module_sources, "contextual_neighborhood.py"),
         ),
         SourceArtifact(
             "native/data-operation-external.sql",
@@ -533,71 +585,70 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/external-execution-native.py",
-            Path(__file__).with_name("external_execution_native.py").read_bytes(),
+            _captured_module(captured_module_sources, "external_execution_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-protocol.py",
-            Path(__file__).with_name("data_operation_protocol.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_protocol.py"),
         ),
-        SourceArtifact("native/data-operation-storage.py", Path(__file__).read_bytes()),
+        SourceArtifact(
+            "native/data-operation-storage.py",
+            _captured_module(captured_module_sources, "data_operation_storage.py"),
+        ),
         SourceArtifact(
             "native/support-edges.py",
-            Path(__file__).with_name("support_edges.py").read_bytes(),
+            _captured_module(captured_module_sources, "support_edges.py"),
         ),
         SourceArtifact(
             "native/validity-programs.py",
-            Path(__file__).with_name("validity_programs.py").read_bytes(),
+            _captured_module(captured_module_sources, "validity_programs.py"),
         ),
         SourceArtifact(
             "native/encoder-member-policy.py",
-            Path(__file__).with_name("contextual_encoder_batch.py").read_bytes(),
+            _captured_module(captured_module_sources, "contextual_encoder_batch.py"),
         ),
         SourceArtifact(
             "native/validity-vocabulary.yaml",
-            _ROOT.joinpath("operation-vocabularies.yaml").read_bytes(),
+            resources["native/validity-vocabulary.yaml"].content,
         ),
         SourceArtifact(
             "native/model-compiler.py",
-            Path(__file__).resolve().parents[1].joinpath("model/compiled.py").read_bytes(),
+            _captured_source(captured_module_sources, "model/compiled.py"),
         ),
         SourceArtifact(
             "native/native-field-kinds.yaml",
-            Path(__file__)
-            .resolve()
-            .parents[1]
-            .joinpath("model/semantic/native-field-kinds.yaml")
-            .read_bytes(),
+            model_sources["native-field-kinds.yaml"],
         ),
         SourceArtifact(
             "native/identifiers.py",
-            Path(__file__).with_name("identifiers.py").read_bytes(),
+            _captured_module(captured_module_sources, "identifiers.py"),
         ),
         SourceArtifact(
             "native/native-call-contracts.py",
-            Path(__file__).with_name("native_call_contracts.py").read_bytes(),
+            _captured_module(captured_module_sources, "native_call_contracts.py"),
         ),
         SourceArtifact(
             "native/data-operation-member-contracts.py",
-            Path(__file__).with_name("data_operation_member_contracts.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_member_contracts.py"),
         ),
         SourceArtifact(
             "native/data-operation-kind-refinements.py",
-            Path(__file__).with_name("data_operation_kind_refinements.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_kind_refinements.py"),
         ),
         SourceArtifact(
             "native/data-operation-graph-topology.py",
-            Path(__file__).with_name("graph_topology.py").read_bytes(),
+            _captured_module(captured_module_sources, "graph_topology.py"),
         ),
         SourceArtifact(
             "native/data-operation-graph-runtime.py",
-            Path(__file__).with_name("graph_runtime.py").read_bytes(),
+            _captured_module(captured_module_sources, "graph_runtime.py"),
         ),
         SourceArtifact(
             "native/data-operation-graph-execution.json",
             canonical_bytes(
                 {
                     "version": "data-operation-graph-execution-v1",
-                    "networkx": nx.__version__,
+                    "networkx": runtime["networkx"],
                     "backend": "networkx",
                 }
             ),
@@ -607,7 +658,7 @@ def _native_protocol_sources(
         ),
         SourceArtifact(
             "native/data-operation-subjects.py",
-            Path(__file__).with_name("data_operation_subjects.py").read_bytes(),
+            _captured_module(captured_module_sources, "data_operation_subjects.py"),
         ),
         SourceArtifact(
             "native/data-operation-physical.yaml",

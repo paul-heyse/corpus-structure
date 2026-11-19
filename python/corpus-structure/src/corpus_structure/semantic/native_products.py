@@ -67,6 +67,26 @@ class NativeAuthoringInputs:
         )
 
 
+def _captured_native_module(captured: dict[str, bytes] | None, name: str) -> bytes:
+    if captured is None:
+        return Path(__file__).with_name(name).read_bytes()
+    try:
+        return captured["semantic/" + name]
+    except KeyError as error:
+        raise ValueError(f"native authoring provenance source was not captured: {name}") from error
+
+
+def _captured_model_source(model_sources, name: str) -> bytes:
+    if model_sources is None:
+        from corpus_structure.model.compiled import model_source
+
+        return model_source(name)
+    try:
+        return model_sources[name]
+    except KeyError as error:
+        raise ValueError(f"native authoring model source was not captured: {name}") from error
+
+
 def _capture_native_authoring_inputs(
     *,
     target_metadata: MetaData | None = None,
@@ -74,16 +94,16 @@ def _capture_native_authoring_inputs(
     pdf_sources=None,
     extra_sources=(),
     logical_sources=None,
+    model_sources=None,
+    captured_module_sources=None,
+    resource_sources=(),
+    native_library_runtime=(),
 ) -> NativeAuthoringInputs:
     """Acquire the native protocol, exact physical closure and real helper assets once.
 
     Application operations, providers and historical execution catalogs are not inputs
     to authoring the shared kernel. Frozen predecessors are separately supplied SQL.
     """
-    from pathlib import Path
-
-    from corpus_structure.model.compiled import model_source
-
     from .archive_projection_native import (
         execution_projection_check_program,
         scientific_layout_program,
@@ -109,7 +129,11 @@ def _capture_native_authoring_inputs(
         raise ValueError("native authoring requires captured physical sources and LinkML types")
     if pdf_actions is not None and pdf_sources is not None:
         raise ValueError("select PDF action input or an already captured PDF source cohort")
-    logical = native_logical_sources() if logical_sources is None else logical_sources
+    logical = (
+        native_logical_sources(model_sources=model_sources)
+        if logical_sources is None
+        else logical_sources
+    )
     if pdf_sources is None and pdf_actions is None:
         pdf_actions = SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"])
     pdf = (
@@ -132,6 +156,10 @@ def _capture_native_authoring_inputs(
         target_metadata=selected,
         pdf_domain=domain,
         logical_sources=logical,
+        model_sources=model_sources,
+        captured_module_sources=captured_module_sources,
+        resource_sources=resource_sources,
+        native_library_runtime=native_library_runtime,
     )
     archive_programs = (
         execution_projection_check_program(selected),
@@ -149,7 +177,9 @@ def _capture_native_authoring_inputs(
         ),
         SourceArtifact("physical/linkml-types.yaml", types),
         *(
-            SourceArtifact("authoring/" + name, Path(__file__).with_name(name).read_bytes())
+            SourceArtifact(
+                "authoring/" + name, _captured_native_module(captured_module_sources, name)
+            )
             for name in (
                 "native_products.py",
                 "companion_projection.py",
@@ -183,15 +213,15 @@ def _capture_native_authoring_inputs(
         ),
         SourceArtifact(
             "authoring/scientific.yaml",
-            model_source("scientific.yaml"),
+            _captured_model_source(model_sources, "scientific.yaml"),
         ),
         SourceArtifact(
             "authoring/math-context.py",
-            Path(__file__).with_name("math_context.py").read_bytes(),
+            _captured_native_module(captured_module_sources, "math_context.py"),
         ),
         SourceArtifact(
             "authoring/scientific-evidence.py",
-            Path(__file__).with_name("scientific_evidence.py").read_bytes(),
+            _captured_native_module(captured_module_sources, "scientific_evidence.py"),
         ),
         SourceArtifact(
             "authoring/runtime-bindings.sql",

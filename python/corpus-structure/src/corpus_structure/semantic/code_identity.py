@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass
 from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
+from textwrap import dedent
 from threading import RLock
 
 
@@ -56,6 +57,8 @@ class CodeIdentity:
     unknowns: tuple[CodeUnknown, ...]
     meaning: bytes
     narrowing_unknowns: tuple[str, ...] = ()
+    determining_modules: tuple[ModuleSource, ...] = ()
+    discovery_unknowns: tuple[CodeUnknown, ...] = ()
 
     @property
     def complete(self) -> bool:
@@ -90,6 +93,8 @@ class CodeIdentity:
             "python": sys.version,
             "unknowns": [asdict(item) for item in self.unknowns],
             "narrowing_unknowns": self.narrowing_unknowns,
+            "determining_modules": [item.module for item in self.determining_modules],
+            "discovery_unknowns": [asdict(item) for item in self.discovery_unknowns],
             "complete": self.complete,
             "code_identity": self.digest,
         }
@@ -102,9 +107,16 @@ class _RuntimeSyntax(ast.NodeVisitor):
         self.imports: set[str] = set()
         self.required_modules: set[str] = set()
         self.unknowns: list[CodeUnknown] = []
+        self.import_lines: dict[str, set[int]] = {}
 
-    def visit_If(self, node):
-        checking = (
+    def record_import(self, name: str, line: int, *, required: bool = True) -> None:
+        self.imports.add(name)
+        self.import_lines.setdefault(name, set()).add(line)
+        if required:
+            self.required_modules.add(name)
+
+    def type_checking_guard(self, node: ast.If) -> bool:
+        return (
             isinstance(node.test, ast.Name)
             and self.package_names.get(node.test.id) == "typing.TYPE_CHECKING"
             and node.test.id not in self.assigned
@@ -115,15 +127,17 @@ class _RuntimeSyntax(ast.NodeVisitor):
             and self.package_names.get(node.test.value.id) == "typing"
             and node.test.value.id not in self.assigned
         )
-        if checking:
+
+    def visit_If(self, node):
+        if self.type_checking_guard(node):
             for item in node.orelse:
                 self.visit(item)
         else:
             self.generic_visit(node)
 
     def visit_Import(self, node):
-        self.imports.update(item.name for item in node.names)
-        self.required_modules.update(item.name for item in node.names)
+        for item in node.names:
+            self.record_import(item.name, node.lineno)
 
     def visit_ImportFrom(self, node):
         if node.level:
@@ -142,9 +156,10 @@ class _RuntimeSyntax(ast.NodeVisitor):
         else:
             base = node.module or ""
         if base:
-            self.required_modules.add(base)
-            self.imports.add(base)
-            self.imports.update(base + "." + item.name for item in node.names if item.name != "*")
+            self.record_import(base, node.lineno)
+            for item in node.names:
+                if item.name != "*":
+                    self.record_import(base + "." + item.name, node.lineno, required=False)
 
     def visit_Call(self, node):
         def name(value):
@@ -185,8 +200,7 @@ class _RuntimeSyntax(ast.NodeVisitor):
                     else:
                         imported = ""
                 if imported:
-                    self.imports.add(imported)
-                    self.required_modules.add(imported)
+                    self.record_import(imported, node.lineno)
                 else:
                     self.unknowns.append(
                         CodeUnknown(
@@ -378,24 +392,35 @@ def capture_code_identity(
         "distributions": distributions,
         "python": sys.version,
     }
+    determining: tuple[ModuleSource, ...] = ()
     narrowing_unknowns: tuple[str, ...] = ()
-    narrowed_complete = False
+    discovery_unknowns = tuple(sorted(unknowns))
     if callables:
-        narrowed, narrowing_unknowns = _narrow(
-            selected, callables, tuple(imported_distributions), boundaries
+        narrowed, determining, required = _narrow(
+            selected, callables, tuple(imported_distributions), boundaries, package_root
         )
-        if narrowed is not None:
-            basis["slice"] = narrowed
-            basis.pop("modules")
-            basis["profile"] = "python-code-slice-v1"
-            narrowed_complete = True
+        if required:
+            narrowing_unknowns = tuple(sorted({item.reason for item in required}))
+            unknowns = set(required)
+        else:
+            basis = {
+                "profile": "python-workload-identity-v2",
+                "entries": sorted(entries),
+                "python": sys.version,
+                "closure": narrowed,
+            }
+            unknowns.clear()
+    elif not unknowns:
+        unknowns.add(CodeUnknown(entries[0], 0, "no determining callable workload was supplied"))
     return CodeIdentity(
         tuple(sorted(entries)),
         selected,
         tuple(sorted(imported_distributions)),
-        () if narrowed_complete else tuple(sorted(unknowns)),
+        tuple(sorted(unknowns)),
         _bytes(basis),
         narrowing_unknowns,
+        determining,
+        discovery_unknowns,
     )
 
 
@@ -425,49 +450,113 @@ def _closed_sources(modules: tuple[ModuleSource, ...], interpreter: str):
                 )
             ),
             interpreter=interpreter,
-        )
+        ),
+        resolve_relative_imports=True,
     )
 
 
-def _narrow(modules, callables, distributions, supplied_boundaries):
+def _narrow(modules, callables, distributions, supplied_boundaries, package_root):
     from .data_operation_model import CallableSurface, OpaqueBoundary
     from .types import PreparationError
 
-    # Reached function nodes are normalized by the existing slicer. Module import
-    # initialization remains a determinant, including unreachable definition headers.
-    reached = {item.module: ast.parse(item.content) for item in modules}
+    module_sources = {item.module: item for item in modules}
+    source_names = {item.filename: item.module for item in modules}
+
+    def owner(name):
+        while name and name not in module_sources:
+            name = name.rpartition(".")[0]
+        return name
+
+    required = set()
+    pending = {name for entry in callables if (name := owner(entry))}
+    initialized = {}
+    external = {}
+    versions = {name: (distribution, version) for name, distribution, version in distributions}
+    package = callables[0].partition(".")[0]
+    bootstrap = {}
+    if package == "corpus_structure":
+        from corpus_structure._query_custody import bootstrap_sources
+
+        bootstrap = bootstrap_sources(package_root)
+
+    def admit_import(name, source, line, optional):
+        top = name.partition(".")[0]
+        if top == package:
+            if name in module_sources:
+                pending.add(name)
+            elif not optional:
+                required.add(CodeUnknown(source, line, "initialized module is absent: " + name))
+        elif not optional and top not in {"typing", "__future__", "importlib"}:
+            boundary = next(
+                (
+                    boundary
+                    for boundary in supplied_boundaries
+                    if boundary.reference == top and boundary.role == "initialization"
+                ),
+                None,
+            )
+            if boundary is None:
+                required.add(
+                    CodeUnknown(source, line, "import lacks initialization contract: " + top)
+                )
+            else:
+                external[top] = (boundary.contract, boundary.digest, versions.get(top))
 
     class Headers(ast.NodeTransformer):
         def visit_FunctionDef(self, node):
-            # Defaults and decorators execute while the module is imported.
             node.body = [ast.Pass()]
             return node
 
         visit_AsyncFunctionDef = visit_FunctionDef
 
-    headers = [(name, Headers().visit(tree)) for name, tree in sorted(reached.items())]
-    if any(isinstance(node, ast.Call) for _, tree in headers for node in ast.walk(tree)):
-        return None, ("module initialization requires whole-module interpretation",)
+    def record_import_effects(module, tree):
+        scanner = _initialization_imports(module, tree)
+        required.update(scanner.unknowns)
+        for imported, lines in scanner.import_lines.items():
+            for line in lines:
+                admit_import(
+                    imported, module.module, line, imported not in scanner.required_modules
+                )
+        return scanner
 
-    boundary_versions = {
-        name: sys.version for name in sys.stdlib_module_names | {"builtins", "__future__"}
-    }
-    boundary_versions.update({module: version for module, _, version in distributions})
-    boundaries = (
-        *(
-            OpaqueBoundary(
-                name, "python-library:" + name, "execution", sha256(_bytes(version)).hexdigest()
+    def initialize_modules():
+        while pending:
+            name = pending.pop()
+            if name in initialized:
+                continue
+            module = module_sources[name]
+            bootstrap_digest = bootstrap.get(str((package_root / module.filename).resolve()))
+            if (
+                bootstrap_digest is not None
+                and bootstrap_digest == sha256(module.content).hexdigest()
+            ):
+                initialized[name] = "authenticated-bootstrap:" + bootstrap_digest
+                if name == package and (loader := package + "._query_custody") in module_sources:
+                    pending.add(loader)
+                continue
+            parts = name.split(".")
+            pending.update(
+                parent
+                for index in range(1, len(parts))
+                if (parent := ".".join(parts[:index])) in module_sources
             )
-            for name, version in sorted(boundary_versions.items())
-        ),
-        *(
-            OpaqueBoundary(item.reference, item.contract, item.role, item.digest)
-            for item in supplied_boundaries
-        ),
+            tree = Headers().visit(ast.parse(module.content))
+            initialized[name] = ast.dump(tree, include_attributes=False)
+            scanner = record_import_effects(module, tree)
+            required.update(_unsupported_initializers(name, tree, scanner))
+
+    # A violated eager premise already withholds reuse. Avoid building the
+    # entire CST/binding collection when that cannot change eligibility.
+    initialize_modules()
+    if required:
+        return {}, (), tuple(required)
+
+    boundaries = tuple(
+        OpaqueBoundary(item.reference, item.contract, item.role, item.digest)
+        for item in supplied_boundaries
     )
     try:
-        # The shared parser owns mutable library resolution caches. Serialize
-        # access rather than exposing one Griffe/Astroid collection concurrently.
+        # The shared parser owns mutable library resolution caches.
         with _SLICER_LOCK:
             closed = _closed_sources(tuple(modules), sys.version)
             slices = tuple(
@@ -476,16 +565,125 @@ def _narrow(modules, callables, distributions, supplied_boundaries):
                 )
                 for entry in callables
             )
-    except (PreparationError, ValueError, KeyError) as error:
-        return None, (type(error).__name__ + ": " + str(error),)
-    unknowns = tuple(
-        sorted({item.reason for source in slices for item in source.unknowns if item.required})
+    except (PreparationError, ValueError, KeyError, ImportError) as error:
+        unknown = CodeUnknown(callables[0], 0, f"{type(error).__name__}: {error}")
+        return {}, (), (unknown,)
+
+    for result in slices:
+        for item in result.unknowns:
+            if item.required:
+                filename, _, location = item.location.partition(":")
+                line = location.partition(":")[0]
+                filename = filename.removeprefix(package_root.name + "/")
+                required.add(
+                    CodeUnknown(
+                        source_names.get(filename, owner(item.source) or item.source),
+                        int(line) if line.isdecimal() else 0,
+                        item.reason,
+                    )
+                )
+        for node in result.nodes:
+            if not node.id.startswith("python:"):
+                continue
+            path = node.id.removeprefix("python:")
+            if name := owner(path.partition("/")[0]):
+                pending.add(name)
+            if path in closed.definitions:
+                # A local import also initializes its target when the function
+                # executes and never reads the imported binding.
+                source, definition = closed.definitions[path]
+                definition_module = closed.modules[source]
+                code = definition_module.wrapper.module.code_for_node(definition)
+                line = definition_module.positions[definition].start.line
+                tree = ast.increment_lineno(ast.parse(dedent(code)), line - 1)
+                record_import_effects(module_sources[source], tree)
+
+    initialize_modules()
+    return (
+        {
+            "entries": callables,
+            "slices": [source.semantic_records() for source in slices],
+            "module_initialization": sorted(initialized.items()),
+            "external_initialization": sorted(external.items()),
+        },
+        tuple(module_sources[name] for name in sorted(initialized)),
+        tuple(required),
     )
-    if unknowns:
-        return None, unknowns
-    initialization = [(name, ast.dump(tree, include_attributes=False)) for name, tree in headers]
-    return {
-        "entries": callables,
-        "slices": [source.semantic_records() for source in slices],
-        "module_initialization": initialization,
-    }, ()
+
+
+def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSyntax):
+    def literal(expression):
+        return (
+            expression is None
+            or isinstance(expression, (ast.Constant, ast.Name))
+            or (
+                isinstance(expression, ast.Tuple) and all(literal(item) for item in expression.elts)
+            )
+        )
+
+    def supported(statement):
+        if isinstance(statement, ast.If) and scanner.type_checking_guard(statement):
+            return all(supported(item) for item in statement.orelse)
+        if isinstance(statement, (ast.Import, ast.ImportFrom, ast.Pass)):
+            return True
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return not statement.decorator_list and all(
+                literal(item) for item in (*statement.args.defaults, *statement.args.kw_defaults)
+            )
+        if isinstance(statement, ast.ClassDef):
+            return not (statement.bases or statement.keywords or statement.decorator_list) and all(
+                supported(item) for item in statement.body
+            )
+        if isinstance(statement, ast.Assign):
+            return all(isinstance(target, ast.Name) for target in statement.targets) and literal(
+                statement.value
+            )
+        if isinstance(statement, ast.AnnAssign):
+            return isinstance(statement.target, ast.Name) and literal(statement.value)
+        if isinstance(statement, ast.Expr):
+            return isinstance(statement.value, ast.Constant)
+        return False
+
+    for statement in tree.body:
+        if not supported(statement):
+            yield CodeUnknown(
+                name, statement.lineno, "initializer effect lacks an execution contract"
+            )
+        if (
+            isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and statement.name == "__getattr__"
+        ):
+            yield CodeUnknown(name, statement.lineno, "module supplies dynamic attribute bindings")
+
+
+def _initialization_imports(module: ModuleSource, tree: ast.AST) -> _RuntimeSyntax:
+    current_package = (
+        module.module
+        if Path(module.filename).name == "__init__.py"
+        else module.module.rpartition(".")[0]
+    )
+    names = {}
+    assigned = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for item in node.names:
+                if item.name == "typing":
+                    names[item.asname or "typing"] = "typing"
+                else:
+                    assigned.add(item.asname or item.name.partition(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            for item in node.names:
+                local = item.asname or item.name
+                if node.level == 0 and node.module == "typing" and item.name == "TYPE_CHECKING":
+                    names[local] = "typing.TYPE_CHECKING"
+                else:
+                    assigned.add(local)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            assigned.add(node.id)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            assigned.add(node.name)
+        elif isinstance(node, ast.arg):
+            assigned.add(node.arg)
+    scanner = _RuntimeSyntax(module.module, current_package, names, assigned)
+    scanner.visit(tree)
+    return scanner

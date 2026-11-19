@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
-from functools import cache
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sqlalchemy import MetaData
@@ -20,6 +18,7 @@ from corpus_structure.schema.integrity import role_name
 from .types import SourceArtifact
 
 if TYPE_CHECKING:
+    from .code_identity import CodeIdentity
     from .native_objects import NativeDefinition
     from .native_products import NativeAuthoringInputs
     from .native_program_registry import ProgramDeclaration, RenderedProgram
@@ -96,40 +95,37 @@ class TargetInstallation:
     rendered_only: bool = False
 
 
-@cache
-def _generator_custody():
-    from .code_identity import capture_code_identity
-    from .file_custody import observed_file
+@dataclass(frozen=True)
+class NativeGeneratorInputs:
+    """One immutable input snapshot shared by the process and disk program caches."""
 
-    root = Path(__file__).resolve().parents[1]
-    basis = capture_code_identity(root, ("corpus_structure.semantic.target_installation",))
-    # A partial static closure can still soundly index authoring preparation by
-    # retaining the complete first-party code population in this process.
-    paths = tuple(root / item.filename for item in basis.modules)
-    if not basis.complete:
-        paths = tuple(sorted(root.rglob("*.py")))
-    records = tuple(observed_file(path) for path in paths)
-    return (basis.meaning, tuple((str(r.path), r.digest) for r in records)), records
+    physical_sources: tuple[tuple[str, bytes], ...]
+    linkml_types: bytes
+    logical_sources: tuple[tuple[str, bytes], ...]
+    model_sources: tuple[tuple[str, bytes], ...]
+    pdf_actions: SourceArtifact | None
+    pdf_sources: tuple[SourceArtifact, ...] | None
+    extra_sources: tuple[SourceArtifact, ...]
+    resource_sources: tuple[SourceArtifact, ...]
+    module_sources: tuple[tuple[str, bytes], ...]
+    analysis_runtime: tuple[tuple[str, str], ...]
+    native_library_runtime: tuple[tuple[str, str], ...]
+    code_identity: CodeIdentity
+
+    @property
+    def complete(self) -> bool:
+        return self.code_identity.complete
 
 
-def _installation_key(
-    selected, *, logical_sources=None, pdf_actions=None, pdf_sources=None, extra_sources=()
-):
-    from corpus_structure.model.compiled import running_model
+def _installation_key(inputs: NativeGeneratorInputs) -> bytes:
+    from .native_program_store import input_key
 
-    identity, records = _generator_custody()
-    for record in records:
-        record.check()
-    return (
-        running_model().identity,
-        tuple(sorted(selected.info["physical_sources"].items())),
-        selected.info["physical_linkml_types"],
-        tuple(sorted((logical_sources or {}).items())),
-        pdf_actions,
-        pdf_sources,
-        tuple(extra_sources),
-        identity,
-    )
+    if not inputs.complete:
+        raise ValueError("native generator identity is incomplete")
+    key = input_key(inputs, include_format=False)
+    if key is None:
+        raise ValueError("native generator identity did not produce an input key")
+    return key
 
 
 @dataclass(frozen=True)
@@ -138,30 +134,18 @@ class _GenerationFailure:
 
 
 @declare("native-installation", "program_sets", key=_installation_key)
-def _held_target_installation(
-    selected, *, logical_sources=None, pdf_actions=None, pdf_sources=None, extra_sources=()
-):
+def _held_target_installation(inputs: NativeGeneratorInputs):
     from corpus_structure.schema.physical import compile_physical
 
-    # Cache-owned metadata is derived from captured bytes. Callers' mutable
-    # SQLAlchemy state cannot change an already held installation product.
-    owned = compile_physical(
-        selected.info["physical_sources"], linkml_types=selected.info["physical_linkml_types"]
-    )
+    owned = compile_physical(dict(inputs.physical_sources), linkml_types=inputs.linkml_types)
     try:
-        from .native_program_store import load_installation, save_installation, store_key
+        from .native_program_store import input_key, load_installation, save_installation
 
-        options = dict(
-            logical_sources=logical_sources,
-            pdf_actions=pdf_actions,
-            pdf_sources=pdf_sources,
-            extra_sources=extra_sources,
-        )
-        key = store_key(owned, **options)
+        key = input_key(inputs, include_format=True)
         retained = None if key is None else load_installation(key, owned)
         if retained is not None:
             return retained
-        result = _build_target_installation(owned, **options)
+        result = _build_target_installation(owned, inputs)
         if key is not None:
             save_installation(key, result)
         return result
@@ -177,7 +161,15 @@ def capture_target_installation(
     pdf_sources: tuple[SourceArtifact, ...] | None = None,
     extra_sources: tuple[SourceArtifact, ...] = (),
 ) -> TargetInstallation:
-    from .data_operation_storage import native_logical_sources
+    from corpus_structure.model.compiled import running_model
+
+    from .data_operation_storage import capture_native_package_resource, native_logical_sources
+    from .determinants import analysis_runtime, determinant_version
+    from .native_program_store import (
+        capture_generator_code,
+        capture_generator_custody,
+        capture_generator_sources,
+    )
 
     if not selected.info.get("physical_sources") or not isinstance(
         selected.info.get("physical_linkml_types"), bytes
@@ -185,32 +177,60 @@ def capture_target_installation(
         raise ValueError("native installation requires captured physical inputs and LinkML types")
     if pdf_sources is not None and pdf_actions is not None:
         raise ValueError("select PDF action input or an already captured PDF source cohort")
-    result = _held_target_installation(
-        selected,
-        logical_sources=native_logical_sources() if logical_sources is None else logical_sources,
+    model = running_model()
+    model_inputs = tuple(sorted(model.sources.items()))
+    logical = (
+        native_logical_sources(model_sources=dict(model_inputs))
+        if logical_sources is None
+        else logical_sources
+    )
+    code_identity = capture_generator_code()
+    resource_sources = (capture_native_package_resource(),)
+    inputs = NativeGeneratorInputs(
+        physical_sources=tuple(sorted(selected.info["physical_sources"].items())),
+        linkml_types=selected.info["physical_linkml_types"],
+        logical_sources=tuple(sorted(logical.items())),
+        model_sources=model_inputs,
         pdf_actions=pdf_actions,
         pdf_sources=pdf_sources,
-        extra_sources=extra_sources,
+        extra_sources=tuple(extra_sources),
+        resource_sources=resource_sources,
+        module_sources=capture_generator_sources(code_identity),
+        analysis_runtime=analysis_runtime(),
+        native_library_runtime=tuple(
+            (name, determinant_version(name))
+            for name in ("pglast", "sqlalchemy", "linkml-runtime", "networkx")
+        ),
+        code_identity=code_identity,
     )
+    if not inputs.complete:
+        return _render_uncached(inputs)
+    with capture_generator_custody(inputs.code_identity):
+        result = _held_target_installation(inputs)
     if isinstance(result, _GenerationFailure):
         raise result.error
     return result
 
 
+def _render_uncached(inputs: NativeGeneratorInputs) -> TargetInstallation:
+    from corpus_structure.schema.physical import compile_physical
+
+    owned = compile_physical(dict(inputs.physical_sources), linkml_types=inputs.linkml_types)
+    try:
+        return _build_target_installation(owned, inputs)
+    except (ValueError, TypeError) as error:
+        raise error
+
+
 def _build_target_installation(
-    selected: MetaData,
-    *,
-    logical_sources: dict[str, bytes] | None = None,
-    pdf_actions: SourceArtifact | None = None,
-    pdf_sources: tuple[SourceArtifact, ...] | None = None,
-    extra_sources: tuple[SourceArtifact, ...] = (),
+    selected: MetaData, inputs: NativeGeneratorInputs
 ) -> TargetInstallation:
     from .data_operation_compiler_native import data_operation_native_descriptor_program
-    from .data_operation_storage import native_logical_sources
     from .data_operation_wire import wire_operations
     from .native_objects import native_sql_script
     from .native_products import _capture_native_authoring_inputs, bind_program_manifest
     from .native_program_registry import ProgramManifest, program_closures, render_programs
+    from .native_program_store import captured_source
     from .pdf_binary_identity_native import (
         pdf_artifact_identity_programs,
         pdf_binary_identity_programs,
@@ -219,38 +239,48 @@ def _build_target_installation(
     from .pdf_domain import PREFIX, pdf_domain_sources
     from .source_record_recognition_native import source_record_recognition_sql
 
-    logical = native_logical_sources() if logical_sources is None else logical_sources
-    if pdf_sources is not None and pdf_actions is not None:
+    logical = dict(inputs.logical_sources)
+    pdf_sources = inputs.pdf_sources
+    if pdf_sources is not None and inputs.pdf_actions is not None:
         raise ValueError("select PDF action input or an already captured PDF source cohort")
     if pdf_sources is None:
         pdf_sources = pdf_domain_sources(
             physical_sources=selected.info["physical_sources"],
             linkml_types=selected.info["physical_linkml_types"],
-            actions_source=pdf_actions
+            actions_source=inputs.pdf_actions
             or SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"]),
             include_producer=False,
+            model_sources=dict(inputs.model_sources),
+            analysis_versions=inputs.analysis_runtime,
         )
     foundation = foundation_programs(selected, value_codec_source=logical["value-codec.yaml"])
     descriptor = pdf_descriptor_programs()
     binary = pdf_binary_identity_programs()
     artifact = pdf_artifact_identity_programs(selected)
-    inputs = _capture_native_authoring_inputs(
+    authoring_inputs = _capture_native_authoring_inputs(
         target_metadata=selected,
         pdf_sources=pdf_sources,
         logical_sources=logical,
+        model_sources=dict(inputs.model_sources),
+        captured_module_sources=dict(inputs.module_sources),
+        resource_sources=inputs.resource_sources,
+        native_library_runtime=inputs.native_library_runtime,
         extra_sources=(
-            *extra_sources,
+            *inputs.extra_sources,
             SourceArtifact(
                 "authoring/native-program-registry.py",
-                Path(__file__).with_name("native_program_registry.py").read_bytes(),
+                captured_source(inputs, "semantic/native_program_registry.py"),
             ),
-            SourceArtifact("authoring/target_installation.py", Path(__file__).read_bytes()),
+            SourceArtifact(
+                "authoring/target_installation.py",
+                captured_source(inputs, "semantic/target_installation.py"),
+            ),
             SourceArtifact("authoring/identity.sql", foundation.identity.encode()),
             SourceArtifact("authoring/closure.sql", foundation.closure.encode()),
             SourceArtifact("authoring/closure-native.sql", foundation.native_closure.encode()),
             SourceArtifact(
                 "authoring/closure-native.py",
-                Path(__file__).with_name("closure_native.py").read_bytes(),
+                captured_source(inputs, "semantic/closure_native.py"),
             ),
             SourceArtifact(
                 "authoring/pdf-descriptor.sql",
@@ -258,7 +288,7 @@ def _build_target_installation(
             ),
             SourceArtifact(
                 "authoring/pdf-descriptor.py",
-                Path(__file__).with_name("pdf_descriptor_native.py").read_bytes(),
+                captured_source(inputs, "semantic/pdf_descriptor_native.py"),
             ),
             SourceArtifact(
                 "authoring/pdf-record-identity.sql",
@@ -274,18 +304,19 @@ def _build_target_installation(
             ),
             SourceArtifact(
                 "authoring/pdf-captured-recognition.py",
-                Path(__file__).with_name("source_record_recognition_native.py").read_bytes(),
+                captured_source(inputs, "semantic/source_record_recognition_native.py"),
             ),
         ),
     )
     provisional = TargetInstallation(
-        selected, pdf_sources, inputs, foundation, descriptor, (*binary, *artifact)
+        selected, pdf_sources, authoring_inputs, foundation, descriptor, (*binary, *artifact)
     )
     products = target_program_definitions(None, provisional)
     definitions = (*target_physical_prerequisites(None, provisional), *products)
     manifest = ProgramManifest.from_definitions(definitions)
     closures = program_closures(
-        definitions, (item["name"] for item in wire_operations(inputs.native_sources))
+        definitions,
+        (item["name"] for item in wire_operations(authoring_inputs.native_sources)),
     )
     native_descriptor = render_programs(
         (data_operation_native_descriptor_program(manifest.kernel_digest, closures),),
@@ -293,7 +324,7 @@ def _build_target_installation(
     )[0].declared_definition
     return replace(
         provisional,
-        authoring_inputs=bind_program_manifest(inputs, manifest, closures),
+        authoring_inputs=bind_program_manifest(authoring_inputs, manifest, closures),
         programs=(native_descriptor, *products),
         prerequisites=tuple(definitions[: len(definitions) - len(products)]),
     )

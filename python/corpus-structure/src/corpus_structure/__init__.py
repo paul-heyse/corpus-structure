@@ -16,7 +16,7 @@ def _install_query_custody():
     sys.modules[name] = module
     try:
         exec(compile(source, str(path), "exec", dont_inherit=True), module.__dict__)
-        module.install(source)
+        module.install(source, sys._getframe(1).f_code)
     except BaseException:
         sys.modules.pop(name, None)
         raise

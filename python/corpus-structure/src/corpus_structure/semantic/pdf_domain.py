@@ -28,7 +28,9 @@ HELPER_CONTRACT = "pdf-native/helper-bindings"
 ANALYSIS_RUNTIME = PREFIX + "analysis/libraries.json"
 
 
-def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=None):
+def _action_sources(
+    *, physical_sources=None, linkml_types=None, actions_source=None, model_sources=None
+):
     """Read explicit current PDF helper declarations and their actual field owners."""
     import yaml
     from cattrs import Converter
@@ -45,7 +47,9 @@ def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=
     action_source = (
         actions_source
         if actions_source is not None
-        else SourceArtifact(PREFIX + "native/actions.yaml", model_source("pdf-actions.yaml"))
+        else SourceArtifact(
+            PREFIX + "native/actions.yaml", _model_source(model_sources, "pdf-actions.yaml")
+        )
     )
     if action_source.name != PREFIX + "native/actions.yaml":
         raise ValueError("PDF actions require their explicit named source")
@@ -77,14 +81,14 @@ def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=
                 value.setdefault("nullable", False)
             calls.append((action["id"], converter.structure(call, OperationCallBinding)))
     physical = (
-        physical_source_closure(PHYSICAL_ROOT, model_source)
+        physical_source_closure(PHYSICAL_ROOT, lambda name: _model_source(model_sources, name))
         if physical_sources is None
         else dict(physical_sources)
     )
     if physical_sources is not None and not isinstance(linkml_types, bytes):
         raise ValueError("explicit PDF physical capture requires LinkML types")
     logical = {
-        name: physical[filename] if filename in physical else model_source(filename)
+        name: physical[filename] if filename in physical else _model_source(model_sources, filename)
         for name, filename in (
             ("pdf_products", "pdf-products.yaml"),
             ("pdf-observation-vocabulary", "pdf-observation-vocabulary.yaml"),
@@ -115,7 +119,7 @@ def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=
         action_source,
         SourceArtifact(
             PREFIX + "native/field-kinds.yaml",
-            model_source("native-field-kinds.yaml"),
+            _model_source(model_sources, "native-field-kinds.yaml"),
         ),
         *(
             SourceArtifact(PREFIX + "logical/" + name, content)
@@ -129,17 +133,35 @@ def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=
     return actions, sources, document["diagnostics"]
 
 
+def _model_source(model_sources, name: str) -> bytes:
+    if model_sources is None:
+        return model_source(name)
+    try:
+        return model_sources[name]
+    except KeyError as error:
+        raise ValueError(f"PDF model source was not captured: {name}") from error
+
+
 def pdf_domain_sources(
-    *, physical_sources=None, linkml_types=None, actions_source=None, include_producer=True
+    *,
+    physical_sources=None,
+    linkml_types=None,
+    actions_source=None,
+    include_producer=True,
+    model_sources=None,
+    analysis_versions=None,
 ) -> tuple[SourceArtifact, ...]:
     """Acquire current PDF helper assets without an execution catalog/compiler."""
     actions, action_sources, diagnostics = _action_sources(
-        physical_sources=physical_sources, linkml_types=linkml_types, actions_source=actions_source
+        physical_sources=physical_sources,
+        linkml_types=linkml_types,
+        actions_source=actions_source,
+        model_sources=model_sources,
     )
     supplied = dict(physical_sources or {})
 
     def content(name):
-        return supplied[name] if name in supplied else model_source(name)
+        return supplied[name] if name in supplied else _model_source(model_sources, name)
 
     from .determinants import analysis_runtime
     from .pdf_lowering import lowering_sources
@@ -147,17 +169,24 @@ def pdf_domain_sources(
     sources = (
         *action_sources,
         *lowering_sources(action_sources, include_producer=include_producer),
-        SourceArtifact(ANALYSIS_RUNTIME, canonical_bytes(dict(analysis_runtime()))),
-        SourceArtifact(PREFIX + "schema/pdf_products", model_source("pdf-products.yaml")),
+        SourceArtifact(
+            ANALYSIS_RUNTIME,
+            canonical_bytes(
+                dict(analysis_runtime() if analysis_versions is None else analysis_versions)
+            ),
+        ),
+        SourceArtifact(
+            PREFIX + "schema/pdf_products", _model_source(model_sources, "pdf-products.yaml")
+        ),
         SourceArtifact(
             PREFIX + "schema/pdf-observation-vocabulary",
-            model_source("pdf-observation-vocabulary.yaml"),
+            _model_source(model_sources, "pdf-observation-vocabulary.yaml"),
         ),
         SourceArtifact(
             PREFIX + "schema/pdf_observation_meaning",
-            model_source("pdf-observation-meaning.json"),
+            _model_source(model_sources, "pdf-observation-meaning.json"),
         ),
-        SourceArtifact(PREFIX + "schema/core", model_source("core.yaml")),
+        SourceArtifact(PREFIX + "schema/core", _model_source(model_sources, "core.yaml")),
         SourceArtifact(
             PREFIX + "schema/pdf_domain_schema",
             canonical_bytes(
@@ -173,7 +202,7 @@ def pdf_domain_sources(
         ),
         SourceArtifact(
             PREFIX + "implementation/pdf/docling-validation.schema.json",
-            model_source("docling-validation.schema.json"),
+            _model_source(model_sources, "docling-validation.schema.json"),
         ),
         SourceArtifact(
             PREFIX + "native/data-operation-protocol.yaml", content("data-operation-native.yaml")

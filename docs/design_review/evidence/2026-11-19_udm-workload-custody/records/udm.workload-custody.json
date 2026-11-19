@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "udm.workload-custody",
+  "title": "Installed generator and reader workload identities",
+  "group": null,
+  "package": "UDM-10",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do the installed generator and selected-read workloads establish complete determining code identity?",
+  "answers": [
+    "UDM-10",
+    "UDM-14",
+    "UDM-15",
+    "DA-075"
+  ],
+  "method": "Inspect actual entry callables and distinguish coarse discovery diagnostics from required eager initialization and binding unknowns.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-19_udm-workload-custody/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "reproduction",
+      "sha256": "f00c11c09870ea70d5b0c7517d2b40edd49f3b9e88581bd5eff06a30ac7c27ef"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/workloads.json",
+      "role": "required-workload-unknowns",
+      "sha256": "4907131e8140ad0912b2d1f63ea0253a985556ba782485990e08e4e29247da36"
+    }
+  ],
+  "depends_on": [
+    "2026-11-19_udm-code-dependency-closure/udm.python-code-closure"
+  ],
+  "results": [
+    {
+      "name": "production_workloads_inspected",
+      "value": 4,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "production_workloads_eligible",
+      "value": 0,
+      "of": 4,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The shared implementation establishes bounded callable proofs and verifies executing source custody. The four installed workloads still contain required initializers or imports without a closed execution contract, so no production reuse was eligible in this observation.",
+  "consumed_by": [
+    "UDM-10",
+    "UDM-14",
+    "UDM-15"
+  ]
+}

@@ -2644,7 +2644,13 @@ def read_page(metadata):
     )
 
 
-def capture_projection_sources(*, physical_sources=None, linkml_types=None, target_metadata=None):
+def capture_projection_sources(
+    *,
+    physical_sources=None,
+    linkml_types=None,
+    target_metadata=None,
+    captured_module_sources=None,
+):
     """Capture the physical and logical inputs consumed by the native read builders."""
     from pathlib import Path
 
@@ -2674,7 +2680,12 @@ def capture_projection_sources(*, physical_sources=None, linkml_types=None, targ
     ) or types != target_metadata.info.get("physical_linkml_types"):
         raise ValueError("Core projection metadata differs from captured physical inputs")
     return (
-        SourceArtifact("native/data-operation-projections.py", Path(__file__).read_bytes()),
+        SourceArtifact(
+            "native/data-operation-projections.py",
+            Path(__file__).read_bytes()
+            if captured_module_sources is None
+            else captured_module_sources["semantic/data_operation_projections.py"],
+        ),
         SourceArtifact("native/projection-linkml-types.yaml", types),
         *(
             SourceArtifact("native/projection-physical/" + name, content)

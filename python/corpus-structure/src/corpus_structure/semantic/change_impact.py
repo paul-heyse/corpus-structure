@@ -632,6 +632,7 @@ def inspect_change_impact(
         "corpus_structure.semantic.change_impact",
         "change-impact-1",
         running_model().identity,
+        callables=("corpus_structure.semantic.change_impact.classify_change_impact",),
     )
     fingerprint = dict(
         implementation=implementation,
@@ -683,21 +684,20 @@ def inspect_change_impact(
     from contextlib import nullcontext
     from pathlib import Path
 
-    from corpus_structure._query_custody import capture_sources, query_sources
+    from corpus_structure._query_custody import capture_workload_sources, query_sources
 
     custody = (
-        query_sources(
-            capture_sources(
-                tuple(
-                    Path(__file__).resolve().parents[1] / item.filename
-                    for item in code_basis.modules
-                )
-            )
-        )
+        query_sources(capture_workload_sources(Path(__file__).resolve().parents[1], code_basis))
         if code_basis.complete
         else nullcontext()
     )
-    with custody, SELECTED_QUERY_CACHE.loading(key) as entry:
+    from .serving_code import ServingImplementation, serving_code
+
+    with (
+        custody,
+        serving_code(ServingImplementation(implementation, code_basis)),
+        SELECTED_QUERY_CACHE.loading(key) as entry,
+    ):
         if entry is None:
             rows = classify_change_impact(
                 before_model,

@@ -47,6 +47,16 @@ def test_lazy_source_is_captured_without_import_and_authenticated_when_loaded(pr
     assert custody._EXECUTED[module] == (str(path), captured[str(path)])
 
 
+def test_closed_workload_refuses_an_unadmitted_lazy_source(promised, monkeypatch):
+    name, path, _ = promised
+    monkeypatch.setattr(custody, "_BASE", path.parent)
+    with (
+        custody.query_sources({}, closed=True),
+        pytest.raises(custody.SourceCustodyError, match="outside the authenticated workload"),
+    ):
+        importlib.import_module(name)
+
+
 def test_unchanged_imported_source_uses_metadata_without_reading(promised, monkeypatch):
     load(promised)
     _, path, captured = promised
@@ -147,7 +157,10 @@ def test_serving_basis_prepares_contract_once_and_checks_exact_imported_bytes(mo
     monkeypatch.setattr("corpus_structure.semantic.code_identity.capture_code_identity", capture)
     for _ in range(2):
         with service.installed_read_implementation(
-            Contract, entry="custody_test", profile="custody-test"
+            Contract,
+            entry="custody_test",
+            profile="custody-test",
+            callables=("custody_test.read",),
         ) as implementation:
             assert implementation.complete
     assert schemas == [True]

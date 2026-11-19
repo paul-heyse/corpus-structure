@@ -12,6 +12,7 @@ from evaluate.declared_record_native_support import (
     request,
 )
 from evaluate.declared_rich_native_support import NAMESPACE, rich_policy_recipe
+from scenario_recipes import register_scenario_builder
 
 from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
@@ -66,6 +67,110 @@ classes:
             captured.profile,
         ),
     )
+
+
+@dataclass(frozen=True)
+class AuthoredPublicationCapture:
+    """A committed typed rich model seed with no source-recognition execution."""
+
+
+@dataclass(frozen=True)
+class AuthoredPublicationStage:
+    kernel_stage: Any
+
+    @property
+    def seed_files(self):
+        return self.kernel_stage.seed_files
+
+    def validate_clone(self, admin):
+        self.kernel_stage.validate_clone(admin)
+
+    def acquired(self, clone):
+        from semantic.data_operation_kernel_support import Kernel
+
+        stage = self.kernel_stage
+        kernel = Kernel(clone.admin, stage.preparation, stage.identities, stage.recipe, clone)
+        return AuthoredPublicationJourney(kernel)
+
+
+@dataclass(frozen=True)
+class AuthoredPublicationJourney:
+    """Native publication access needed by the authored entity cache fixture."""
+
+    kernel: Any
+
+    def selected_products(
+        self, engine, demand, *, kind, scope=None, page_rows=100, max_bytes=8 * 1024**2
+    ):
+        from evaluate.declared_record_native_support import PROJECT, selected_product_entries
+
+        from corpus_structure.evaluate.declared_record_policy import _selected_body
+        from corpus_structure.semantic.demand_results import selected_record_index
+        from corpus_structure.semantic.selected_support import SelectedReadReference
+
+        names = (kind,) if isinstance(kind, str) else kind
+        contracts = {
+            identity.key
+            for identity in self.kernel.model.identities
+            if identity.domain == "kind" and identity.owner in names
+        }
+        with (
+            engine.begin() as connection,
+            selected_record_index(
+                connection,
+                demand,
+                project_id=PROJECT,
+                scope={} if scope is None else scope,
+                page_rows=page_rows,
+                max_bytes=max_bytes,
+                capture_frontier=True,
+            ) as (cut, index),
+        ):
+            read = SelectedReadReference.from_cut(cut)
+            products = []
+            for row in index.rows("kb.data_product"):
+                if row["kind_contract"] in contracts:
+                    _, body = _selected_body(index, row["id"])
+                    products.append(
+                        (
+                            dict(
+                                row,
+                                _selected_entries=selected_product_entries(index, read, row["id"]),
+                            ),
+                            body,
+                        )
+                    )
+            return (
+                cut,
+                tuple(products),
+                tuple(index.frontier_rows("uses")),
+                tuple(index.rows("ops.data_derivation")),
+                tuple(index.rows("ops.data_derivation_output")),
+            )
+
+
+def _build_authored_publication(scenario, admin, writer, directory, *, purpose_engine):
+    from semantic.data_operation_kernel_support import build_kernel
+
+    return AuthoredPublicationStage(
+        build_kernel(
+            replace(publication_recipe(directory), project_id=PROJECT),
+            admin,
+            writer,
+            directory,
+            purpose_engine=purpose_engine,
+        )
+    )
+
+
+register_scenario_builder(AuthoredPublicationCapture, _build_authored_publication)
+
+
+@pytest.fixture
+def authored_publication(scenario_seeds):
+    """Keep one committed native target alive for publication and subprocess reads."""
+    with scenario_seeds.commit_clone(AuthoredPublicationCapture()) as clone:
+        yield clone.stage.acquired(clone)
 
 
 @pytest.fixture

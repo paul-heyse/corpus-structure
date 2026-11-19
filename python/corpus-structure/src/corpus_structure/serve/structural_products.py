@@ -199,6 +199,7 @@ def inspect_selected_dossier(conn, request: SelectedDossierRequest):
         type(request),
         entry="corpus_structure.serve.structural_products",
         profile="selected-structural-read-v1",
+        callables=("corpus_structure.serve.structural_products._inspect_selected_dossier",),
     ) as implementation:
         if request.implementation is not None and request.implementation != implementation:
             raise ValueError("dossier resource differs from its installed implementation")

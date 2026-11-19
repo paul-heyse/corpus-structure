@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import unicodedata
 from contextlib import contextmanager
-from functools import lru_cache
+from functools import lru_cache, partial
 from hashlib import sha256
 from pathlib import Path
 
@@ -20,6 +20,7 @@ from corpus_structure.semantic.rich_queries import (
     EntityQuery,
     PreparedRichQueryIndex,
     RichQuery,
+    RichQueryIndex,
     RichQueryRefused,
     query_rows,
 )
@@ -39,17 +40,20 @@ VERSION = "selected-rich-query-2"
 @contextmanager
 def rich_query_implementation(query):
     with installed_read_implementation(
-        type(query), entry="corpus_structure.serve.rich_queries", profile=VERSION
+        type(query),
+        entry="corpus_structure.serve.rich_queries",
+        profile=VERSION,
+        callables=("corpus_structure.serve.rich_queries._serve_rich_query",),
     ) as identity:
         yield identity
 
 
 @lru_cache(maxsize=64)
-def _installed_read_basis(contract, entry, profile, model_identity):
+def _installed_read_basis(contract, entry, profile, model_identity, *, callables):
     from corpus_structure.semantic.code_identity import capture_code_identity
 
     root = Path(__file__).resolve().parents[1]
-    basis = capture_code_identity(root, (entry,))
+    basis = capture_code_identity(root, (entry,), callables=callables)
     # cachetools owns expendable row retention. Its release changes entry
     # compatibility, while selected query semantics and cursor ordering stay here.
     meaning = json_loads(basis.meaning)
@@ -69,17 +73,20 @@ def _installed_read_basis(contract, entry, profile, model_identity):
 
 
 @contextmanager
-def installed_read_implementation(contract, *, entry, profile):
+def installed_read_implementation(contract, *, entry, profile, callables):
     """Authenticate determining source and carry explicit reusable-code standing."""
-    from corpus_structure._query_custody import capture_sources, query_sources
+    from corpus_structure._query_custody import capture_workload_sources, query_sources
     from corpus_structure.model.compiled import running_model
     from corpus_structure.semantic.serving_code import ServingImplementation, serving_code
 
-    identity, basis = _installed_read_basis(contract, entry, profile, running_model().identity)
+    identity, basis = _installed_read_basis(
+        contract, entry, profile, running_model().identity, callables=callables
+    )
     root = Path(__file__).resolve().parents[1]
-    captured = capture_sources(tuple(root / item.filename for item in basis.modules))
+    captured = capture_workload_sources(root, basis)
     implementation = ServingImplementation(identity, basis)
-    with query_sources(captured), serving_code(implementation):
+    closed = basis.complete and bool(basis.determining_modules)
+    with query_sources(captured, closed=closed), serving_code(implementation):
         yield implementation
 
 
@@ -131,6 +138,17 @@ def serve_rich_query(connection, request: RichQueryRequest) -> dict:
             return _serve_rich_query(connection, request, implementation=implementation)
     except SourceCustodyError as error:
         raise RichQueryRefused(str(error)) from error
+
+
+def rich_query_metadata(index: RichQueryIndex) -> dict:
+    """Derive diagnostics from the same admitted index that produced the rows."""
+    return dict(unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
+
+
+def derive_rich_query_rows(index: RichQueryIndex, query: RichQuery):
+    """Project rows from an already acquired immutable admission and typed selection."""
+    for row in query_rows(index, query):
+        yield dict(value=row.value, **rich_query_metadata(index))
 
 
 def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: str) -> dict:
@@ -231,18 +249,10 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
                     SELECTED_QUERY_CACHE.put(graph_key, prepared_index)
             index = prepared_index.query_index()
 
-            def source():
-                for row in query_rows(index, request.query):
-                    yield dict(
-                        value=row.value,
-                        unknowns=[index.unknowns[key] for key in sorted(index.unknowns)],
-                    )
-
-            def current_metadata():
-                return dict(unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
-
-            metadata_provider = current_metadata
-            entry, remaining = bounded_rows(source(), metadata_provider)
+            metadata_provider = partial(rich_query_metadata, index)
+            entry, remaining = bounded_rows(
+                derive_rich_query_rows(index, request.query), metadata_provider
+            )
             if entry is not None:
                 SELECTED_QUERY_CACHE.put(key, entry)
     assert metadata_provider is not None

@@ -1,5 +1,6 @@
 """Actual rich publication and selected readers; no legacy run/row projection custody."""
 
+import os
 from decimal import Decimal
 
 import pytest
@@ -19,6 +20,9 @@ from semantic.record_publication_native_support import (
     publication_recipe,
     publish_authored,
     query_publication,
+)
+from semantic.record_publication_native_support import (
+    authored_publication as authored_publication,
 )
 from semantic.record_publication_native_support import (
     rich_publication as rich_publication,
@@ -115,6 +119,138 @@ def test_native_authored_publication_keeps_entity_qualification_and_origin(rich_
         database_capacity=6,
     )
     assert replay.receipt_count == 0
+
+
+@pytest.mark.skipif(
+    os.environ.get("CORPUS_RUN_UDM_T14") != "1",
+    reason="private entity qualification requires resolving the captured publication model",
+)
+def test_minimal_native_authored_entity_publication_and_read(authored_publication):
+    """Exercise native rich publication without unrelated PDF extraction setup."""
+    selected = publish_authored(
+        authored_publication,
+        (number("12"), number("13")),
+        entities=("authored:one", "authored:two"),
+        inference="minimal-authored-entity-publication",
+    )
+
+    report = query_publication(selected, EntityQuery(name="entity"))
+    rows = {row["entity"]["entity_id"]: row for row in report["rows"]}
+
+    assert set(rows) == {"authored:one", "authored:two"}
+    assert all(row["standing"] == "resolved-identity" for row in rows.values())
+    assert all(
+        row["classes"] == ["urn:record-publication:PublicationSubject"] for row in rows.values()
+    )
+    assert all(len(row["selected_fact_ids"]) == 1 for row in rows.values())
+    assert report["root"]["product_id"] == selected.product["id"]
+    assert report["cut"]["read_id"]
+
+
+@pytest.mark.skipif(
+    os.environ.get("CORPUS_RUN_UDM_T14") != "1",
+    reason="T14 cross-process acceptance is opt-in until authenticated serving identity closes",
+)
+def test_minimal_native_entity_query_reuses_across_fresh_cli_processes(
+    authored_publication, native_settings, tmp_path
+):
+    """Run the installed selected-result CLI twice against one retained native admission."""
+    import subprocess
+    import sys
+
+    from conftest import settings_for_native_clone
+
+    from corpus_structure.semantic.data_operation_json import json_loads
+    from semantic.record_publication_native_support import AuthoredPublicationJourney
+
+    assert isinstance(authored_publication, AuthoredPublicationJourney)
+    selected = publish_authored(
+        authored_publication,
+        (number("12"), number("13")),
+        entities=("authored:one", "authored:two"),
+        inference="fresh-process-authored-entity-publication",
+    )
+    database_name = authored_publication.kernel.engine.url.database
+    assert database_name is not None
+    settings = settings_for_native_clone(native_settings, database_name)
+    database = settings.database
+    cache_root = tmp_path / "served-pages"
+    environment = os.environ | {
+        "CORPUS_DATABASE__URL": database.url,
+        "CORPUS_DATABASE__MAINTENANCE_URL": database.maintenance_url,
+        "CORPUS_DATABASE__READER_URL": database.reader_url or "",
+        "CORPUS_DATABASE__EVALUATOR_URL": database.evaluator_url or "",
+        "CORPUS_DATABASE__ADMISSION_URL": database.admission_url or "",
+        "CORPUS_CACHE__ROOT": str(cache_root),
+        "CORPUS_CACHE__PROGRAM_STORE_BYTES": "0",
+        "CORPUS_CACHE__PAGE_STORE_BYTES": str(8 * 1024**2),
+        "CORPUS_RUNTIME__DEFAULT_PROJECT": PROJECT,
+    }
+    script = """
+import os
+import sys
+from pathlib import Path
+
+derived = 0
+def observe(frame, event, arg):
+    global derived
+    if (
+        event == "call"
+        and frame.f_globals.get("__name__") == "corpus_structure.serve.rich_knowledge"
+        and frame.f_code.co_name == "read_selected_rich_knowledge"
+    ):
+        derived += 1
+    return observe
+
+sys.setprofile(observe)
+try:
+    from corpus_structure.cli.app import main
+    main()
+finally:
+    sys.setprofile(None)
+    Path(os.environ["NATIVE_ENTITY_DERIVATIONS"]).write_text(str(derived))
+"""
+    command = [
+        sys.executable,
+        "-c",
+        script,
+        "query",
+        "entity",
+        "--demand",
+        selected.demand_id,
+        "--project",
+        PROJECT,
+        "--product",
+        selected.product["id"],
+        "--json",
+    ]
+
+    def invoke(ordinal):
+        count_path = tmp_path / f"derived-{ordinal}.txt"
+        reply = subprocess.run(
+            command,
+            cwd=ROOT,
+            env=environment | {"NATIVE_ENTITY_DERIVATIONS": str(count_path)},
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=180,
+        )
+        assert reply.returncode == 0, reply.stdout + reply.stderr
+        return json_loads(reply.stdout), int(count_path.read_text())
+
+    first, first_derivations = invoke(1)
+    second, second_derivations = invoke(2)
+
+    assert first_derivations == 1
+    assert second_derivations == 0
+    assert first["rows"] == second["rows"]
+    assert {row["entity"]["entity_id"] for row in first["rows"]} == {
+        "authored:one",
+        "authored:two",
+    }
+    assert first["cut"]["read_id"] != second["cut"]["read_id"]
+    assert first["cut_id"] != second["cut_id"]
 
 
 def test_native_empty_admission_is_explicit_and_does_not_assert_global_absence(rich_publication):

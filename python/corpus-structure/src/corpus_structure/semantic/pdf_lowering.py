@@ -185,7 +185,12 @@ def lowering_code_provenance() -> dict:
 
 
 def lowering_code_complete() -> bool:
-    return _lowering_code().complete
+    code = _lowering_code()
+    if code.complete:
+        from corpus_structure._query_custody import capture_workload_sources
+
+        capture_workload_sources(Path(__file__).resolve().parents[1], code)
+    return code.complete
 
 
 @lru_cache(maxsize=2)
@@ -202,6 +207,10 @@ def _implementation_sources(include_producer):
     if not include_producer:
         return (schema_source,), (schema_custody,)
     code = _lowering_code()
+    if code.complete:
+        from corpus_structure._query_custody import capture_workload_sources
+
+        capture_workload_sources(root, code)
     sources = (
         SourceArtifact("pdf-domain/" + LOWERING_PREFIX + "code/meaning.json", code.meaning),
         schema_source,
@@ -231,7 +240,7 @@ def require_lowering_identity(context) -> str:
     retained = context.domain.source(LOWERING_CONTRACT)
     from .metadata import get_metadata
 
-    current_boundary, _records = _current_boundary()
+    current_boundary = _current_boundary()
     actual_physical = {
         source.name.removeprefix("pdf-domain/physical/"): source.content
         for source in current_boundary

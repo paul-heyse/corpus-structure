@@ -88,7 +88,7 @@ def test_current_program_artifact_uses_captured_products_without_rendering(monke
     assert opened.authoring_inputs.sources == current.authoring_inputs.sources
 
 
-def test_t2_miss_reopens_a_program_entry_without_building(tmp_path, monkeypatch):
+def test_program_store_reopens_a_program_entry_without_building(tmp_path, monkeypatch):
     from corpus_structure import cache_store
     from corpus_structure.semantic import native_program_store, target_installation
     from corpus_structure.semantic.metadata import get_metadata
@@ -97,17 +97,15 @@ def test_t2_miss_reopens_a_program_entry_without_building(tmp_path, monkeypatch)
         tmp_path / "cache", program_store_bytes=64 * 1024**2, page_store_bytes=0
     )
     monkeypatch.setattr(cache_store, "configured_store", lambda: store)
-    # This tests the artifact consumer independently of code-closure discovery.
-    monkeypatch.setattr(native_program_store, "store_key", lambda *args, **kwargs: b"program-set")
-    target_installation._held_target_installation.cache_clear()
     current = target_installation.capture_target_installation(get_metadata())
-    target_installation._held_target_installation.cache_clear()
+    native_program_store.save_installation(b"program-set", current)
 
     def unexpected(*args, **kwargs):
         pytest.fail("the warm disk artifact must bypass the program builder")
 
     monkeypatch.setattr(target_installation, "_build_target_installation", unexpected)
-    opened = target_installation.capture_target_installation(get_metadata())
+    opened = native_program_store.load_installation(b"program-set", get_metadata())
+    assert opened is not None
     assert opened is not current
     assert opened.metadata.info["physical_model_id"] == current.metadata.info["physical_model_id"]
     assert opened.programs == current.programs

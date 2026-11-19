@@ -26,6 +26,10 @@ def code_asset(
     parameters: Mapping[str, object] | None = None,
 ) -> SourceArtifact:
     code = _producing_code(entries)
+    if code.complete:
+        from corpus_structure._query_custody import capture_workload_sources
+
+        capture_workload_sources(Path(__file__).resolve().parents[1], code)
     return SourceArtifact(
         name,
         canonical_bytes(

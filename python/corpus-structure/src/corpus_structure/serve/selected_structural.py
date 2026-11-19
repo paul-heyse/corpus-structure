@@ -61,6 +61,7 @@ def structural_scope(connection, request, *, roots, source_products=()):
         type(request),
         entry="corpus_structure.serve.selected_structural",
         profile="selected-structural-read-v1",
+        callables=("corpus_structure.serve.selected_structural.structural_scope",),
     ) as implementation:
         if request.implementation is not None and request.implementation != implementation:
             raise ValueError("structural resource differs from its installed read implementation")

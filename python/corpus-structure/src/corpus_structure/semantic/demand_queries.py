@@ -115,7 +115,10 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
     from corpus_structure.serve.rich_queries import installed_read_implementation
 
     with installed_read_implementation(
-        type(request), entry="corpus_structure.semantic.demand_queries", profile="demand-query-v2"
+        type(request),
+        entry="corpus_structure.semantic.demand_queries",
+        profile="demand-query-v2",
+        callables=("corpus_structure.semantic.demand_queries._serve_demand_query",),
     ) as implementation:
         return _serve_demand_query(connection, request, implementation)
 
