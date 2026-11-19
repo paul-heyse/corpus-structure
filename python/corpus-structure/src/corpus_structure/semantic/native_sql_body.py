@@ -12,6 +12,8 @@ from dataclasses import replace
 from pglast import ast
 from pglast.stream import RawStream
 
+from .native_program import core_reference
+
 SQL_STANDARD_PROFILE = "postgresql-18-sql-standard-v1"
 SQL_STANDARD_MAJOR = 18
 
@@ -55,7 +57,7 @@ def sql_standard_definition(definition, statement):
 
 def published_revision_statement(*, target_metadata=None):
     """The exact published product pin, with private build state independently checked."""
-    from sqlalchemy import literal_column, select
+    from sqlalchemy import select
 
     from .metadata import table as default_table
 
@@ -66,10 +68,10 @@ def published_revision_statement(*, target_metadata=None):
         select(published)
         .select_from(published.join(build, published.c.build_id == build.c.build_id))
         .where(
-            published.c.task_id == literal_column("p_task", type_=published.c.task_id.type),
-            published.c.product_key == literal_column("p_key", type_=published.c.product_key.type),
+            published.c.task_id == core_reference("p_task", type_=published.c.task_id.type),
+            published.c.product_key == core_reference("p_key", type_=published.c.product_key.type),
             published.c.logical_digest
-            == literal_column("p_digest", type_=published.c.logical_digest.type),
+            == core_reference("p_digest", type_=published.c.logical_digest.type),
             build.c.state == "published",
         )
     )
@@ -77,7 +79,7 @@ def published_revision_statement(*, target_metadata=None):
 
 def published_validation_statement(*, target_metadata=None):
     """The original immutable receipt for an exact published pin, without revalidation."""
-    from sqlalchemy import and_, literal_column, or_, select
+    from sqlalchemy import and_, or_, select
 
     from .metadata import table as default_table
 
@@ -163,10 +165,10 @@ def published_validation_statement(*, target_metadata=None):
             )
         )
         .where(
-            published.c.task_id == literal_column("p_task", type_=published.c.task_id.type),
-            published.c.product_key == literal_column("p_key", type_=published.c.product_key.type),
+            published.c.task_id == core_reference("p_task", type_=published.c.task_id.type),
+            published.c.product_key == core_reference("p_key", type_=published.c.product_key.type),
             published.c.logical_digest
-            == literal_column("p_digest", type_=published.c.logical_digest.type),
+            == core_reference("p_digest", type_=published.c.logical_digest.type),
             build.c.state == "published",
             validation.c.native_callbacks.is_(True),
             oracle.c.state == "passed",

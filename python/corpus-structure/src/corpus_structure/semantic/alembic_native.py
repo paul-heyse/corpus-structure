@@ -19,6 +19,60 @@ from .native_objects import (
 )
 
 
+@Operations.register_operation("database_temporary_privilege")
+class DatabaseTemporaryPrivilegeOp(MigrateOperation):
+    """Grant session scratch to the captured publisher on the applying target."""
+
+    def __init__(self, publisher: str, purposes: tuple[str, ...]):
+        self.publisher = publisher
+        self.purposes = purposes
+
+    @classmethod
+    def database_temporary_privilege(cls, operations, publisher, purposes):
+        return operations.invoke(cls(publisher, tuple(purposes)))
+
+
+@Operations.implementation_for(DatabaseTemporaryPrivilegeOp)
+def apply_database_temporary_privilege(operations, operation):
+    from pglast import ast, enums
+    from pglast.stream import RawStream
+    from sqlalchemy import func, select
+    from sqlalchemy.exc import SQLAlchemyError
+
+    connection = operations.get_bind()
+    database = connection.execute(select(func.current_database())).scalar_one()
+
+    def role(name):
+        if name == "PUBLIC":
+            return ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_PUBLIC)
+        return ast.RoleSpec(roletype=enums.RoleSpecType.ROLESPEC_CSTRING, rolename=name)
+
+    for grant, names in ((False, ("PUBLIC", *operation.purposes)), (True, (operation.publisher,))):
+        statement = RawStream()(
+            ast.GrantStmt(
+                is_grant=grant,
+                targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
+                objtype=enums.ObjectType.OBJECT_DATABASE,
+                objects=(ast.String(sval=database),),
+                privileges=(ast.AccessPriv(priv_name="temporary"),),
+                grantees=tuple(role(name) for name in names),
+                behavior=enums.DropBehavior.DROP_RESTRICT,
+            )
+        )
+        try:
+            execute_native_sql(connection, statement)
+        except SQLAlchemyError as error:
+            raise NativeAuthoringError(
+                f"database {database!r} temporary privilege refused: {statement}"
+            ) from error
+
+
+@renderers.dispatch_for(DatabaseTemporaryPrivilegeOp)
+def render_database_temporary_privilege(autogen_context, operation):
+    autogen_context.imports.add("from corpus_structure.semantic import alembic_native")
+    return f"op.database_temporary_privilege({operation.publisher!r}, {operation.purposes!r})"
+
+
 @Operations.register_operation("native_transition")
 class NativeTransitionOp(MigrateOperation):
     def __init__(self, before: NativeObject | None, after: NativeObject | None, *, recreate=False):

@@ -569,11 +569,12 @@ def verify_detached_result(
         from .metadata import table
         from .native_definition_projection import NativeOperationProjection
 
-        # Detached rows publish the facts shared by the stored and archived
-        # contracts. Compiler-derived placement facts belong to native custody.
+        # Public rows retain archived operation and parameter declarations.
+        # Derived placement facts stay in native custody.
         stored_fields = set(table("sem.data_operation_definition").c.keys())
         exported_fields = stored_fields & {
             "release_id",
+            "parameter_definitions",
             *NativeOperationProjection.__required_keys__,
         }
         for key, value in actual_definitions.items():

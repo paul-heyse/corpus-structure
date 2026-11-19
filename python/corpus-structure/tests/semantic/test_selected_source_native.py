@@ -50,7 +50,9 @@ def test_native_selection_context_and_offline_preparation(
             prepared = reader.prepare_formula_inputs(context)
             assert [item.source.item_pointer for item in prepared.formulas] == ["#/texts/0"]
             assert [item.source.original_text for item in prepared.formulas] == ["original A"]
-            assert list(reader._index.execute("SELECT pointer FROM records ORDER BY ordinal")) == [
+            assert list(
+                reader._index.exec_driver_sql("SELECT pointer FROM records ORDER BY ordinal")
+            ) == [
                 ("#/groups/0",),
                 ("#/texts/0",),
             ]

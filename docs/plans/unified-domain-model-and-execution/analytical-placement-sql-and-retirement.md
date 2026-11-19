@@ -1,6 +1,6 @@
 # Analytical placement, the remaining SQL text, and retirement
 
-**Status:** In progress. The release-side authored SQL and publication-port retirements are integrated.
+**Status:** UDM-16 through UDM-19 implementation is integrated. D1 placement and the native selected-source qualification remain open.
 **Created:** 2026-11-19.
 
 This companion owns the designs of **UDM-16** (DuckDB conditions of use, declared settings, the
@@ -807,23 +807,93 @@ revision freezes; UDM-11 reduces how often one is authored. How frozen revisions
 belongs to the owner of the deployed tree's lifecycle, and the coordinator records the
 [handover](../unified-domain-model-and-execution_2026-11-19.md#handovers).
 
+## Execution evidence
+
+**Native parity · Tested, 2026-11-19.** `uv run ci schema native-candidate --expected-predecessor
+semantic_ddo_pe_n34 --json`, with PostgreSQL endpoints unavailable, compared 617 objects and
+returned `no_native_change` (`0bd92385040e4199b97570fb3e8f7dce`). No successor was generated.
+
+**UDM-16 · Tested, 2026-11-19.** All seven connections route through the DuckDB owner. It sets UTC,
+the declared memory and thread limits, and a private spill directory that closes with its
+connection. CLI and MCP use the declared settings. Companion export checks identical schemas for
+bag and set operations, reports exact difference counts and keeps at most 100 stable sample rows
+on either side. Rich entity fields come from the compiled model. The uncalled disagreement and
+fusion kernels and the obsolete detached relation wrapper were removed.
+
+- `uv run ci test` passed 25 owner, companion-export and rich relation controls
+  (`c00854cf525d4bc58792c51ea6b854cd`) and 27 PDF geometry and replay controls
+  (`22b5a25a58a9498290d1fd3449d0ea43`). Source inspection found one production
+  `duckdb.connect` call, in the owner.
+- I8 stays on SQLite. Validation still uses the same store for indexed membership, descriptors
+  and reconstructed stream bytes. A DuckDB fold would retain that store and add an Arrow copy.
+  The typed ordering explicitly uses SQLite BINARY collation.
+- D1 is blocked on representative operation inputs. A read-only comparison at the acquired
+  stage database OID 130661481 found generation 31, zero admitted `rich.*` operation definitions
+  in the active release and 24 PDF obligations in `ddo-current-pdf-bounded`. Keep the
+  configured DuckDB path. Capture per-view row counts when a bounded project with actual
+  `rich.consolidate` inputs is available. The small authored fixture verifies behavior.
+
+**UDM-17 · Implemented, 2026-11-19.** All five SQLite owners use private SQLAlchemy Core tables and
+statements. The selected-result index retains expression-index plans for declared field groups and
+binds unindexed paths. Source verification checks ancestry once across the submitted population.
+The forward Alembic root renders a typed TEMP policy on the applying connection's database name.
+The PostgreSQL renderer uses typed nodes for field references, wildcard projection and cast
+literals while preserving the frozen spelling.
+
+- `uv run ci test` passed 109 scratch and offline consumer controls
+  (`2810e854384e46f9a69720f0871006a9`) and both real PostgreSQL TEMP tests, including a quoted
+  database name (`b1a484914ab847ca9dded75facae7186`). Fresh-root preview, candidate, register,
+  deployment and refusal also passed in the native selection `e2c799ed49104015aa05a49fa4cd3178`.
+- Native export exposed a mismatch between N34's public parameter definitions and the offline
+  verifier's expectations. Verification now derives the expected parameters from the authenticated
+  archived model. `uv run ci test` passed 43 detached witness and evidence controls
+  (`521420f70fd8424898fc14e55c705eb7`), including refusal of changed definitions.
+- Native JSONL and Parquet export passed four cases in `6c22c15dd71141a390ce8733dcee242c`.
+  Its selected-source case failed before reaching the scratch reader. N34 rejected the fresh
+  producer's first spool contribution under incomplete PDF lowering identity.
+  [Recovery owner and prerequisite](operation-reuse-and-recovery.md#fresh-pdf-contribution-on-n34)
+
+**UDM-18 · Tested, 2026-11-19.** Persisted pack bindings and archived slice bytes determine
+source requests independently of the working tree. Older single-pack releases with a missing
+directory binding can use the archive's default selection with the domain argument omitted.
+Pack methods and guidelines are read at capture, and the PM2 policy is read from archived inputs.
+The scientific comparator partitions with declared context qualifiers and evaluates differences
+in compared qualifiers. A changed conditioning expression leaves the pair unresolved. The
+release policy and decimal limit were already exercised under private N34 and N30 respectively.
+
+- `uv run ci test` passed 55 archive, comparison and source-intent controls
+  (`9787b3ed97434f40a2bf09b7d138af2d`). The 22 focused archive and scientific controls
+  (`da4a7b51106f408da2545e5191e40897`) include withholding numerical sampling when the
+  compared condition differs.
+- Private T15 passed (`c56552f73b1e451cac37ef9867137d46`). The native writer registered the
+  original, the release was admitted, and the real source request frontdoor selected its archived
+  section after removal of the working pack. Private scientific admission and explicit proof passed
+  in `92253899f52648819c9f1688e175e2bf`. Its first T15 fixture failed separately at project setup.
+
+**UDM-19 · Implemented, 2026-11-19.** Removed the two retired migration trees, the unused
+evaluation and golden paths under the operator's retirement decision, and the uncalled fitting,
+LLM, PDF and Unicode wrappers. The deployed chain and deployment key use `target_alembic/`.
+Historical evidence that references former paths remains recoverable with its original Git tree.
+The preview compares generated native SQL by object identity using the captured baseline and
+candidate model, with a decimal-bound control that changes an actual emitted function.
+
+- `uv run ci test` passed 87 retirement, recognition, fitting, deployment-key and SQL explanation
+  controls (`5da13fd94e4c46f0ab094f8600f8e154`). A package walk imported all 778 production
+  modules outside the executable `__main__` entry. The final 66 preview, explanation and
+  deployment-key controls passed (`86e7a22f1c3e435b9d85da4cc74e05b5`), including the rendered
+  `data.decimal_canonical` change from 16384 to 16385.
+
 ## Open premises
 
-| Premise | Evidence that settles it | Work it constrains |
+| Premise | Evidence required | Work it constrains |
 |---|---|---|
-| The staging store can be removed from the certification path once the folds read Arrow directly | Reading the store's other readers in payload validation at entry | The I8 row of UDM-16; if not, the folds stay on SQLite and convert under UDM-17 |
-| DuckDB's default string order equals `COLLATE BINARY` for certification keys | The hand-ordered key list and the reproduced digest in UDM-16's acceptance evidence | The I8 row |
-| Rich-rule inputs are large enough for DuckDB to pay for itself | UDM-16's bounded observation on the stage: input row counts per view invocation for the stage's bounded project | The D1 row: the placement, fixed inside UDM-16 |
-| The qualifier partition should govern scientific grouping (the review's lean) and not retire | The pack owner's decision; the default is to connect it | The partition part of UDM-18; the other three parts are unaffected |
-| No evaluation module in UDM-19's list has a consumer outside the repository's code, golden generation in particular | The operator's confirmation | Deletion of `evaluate/sampling.py`, `split.py`, `split_decisions.py` and the others |
-| The Unicode parity check is not wanted by the release check | The owner's decision; the default is deletion | One function in UDM-19 |
-| Removing the release-side authored-SQL machinery changes no installed program byte | Generating the programs after the removal and comparing them with the head frozen revision | Whether that removal joins native revision B |
+| Rich-rule input sizes warrant DuckDB | Actual per-view row counts from a bounded project release with admitted `rich.consolidate` and a populated input cohort | D1 placement in UDM-16 |
 
 ## State
 
 | Package | State |
 |---|---|
-| UDM-16 | Not started |
-| UDM-17 | Not started |
-| UDM-18 | Scientific policy slice complete against private N34. The decimal bound landed with N30. Archived pack inputs and qualifier partition remain open. |
-| UDM-19 | Not started |
+| UDM-16 | Owner integration, controls and retirement complete. D1 placement blocked on representative inputs. |
+| UDM-17 | Typed stores, fresh-root lifecycle and native detached demand exports verified. Native selected-source qualification awaits the UDM-25 fresh PDF contribution correction. |
+| UDM-18 | Complete for the bounded increment. Archived-slice T15 and scientific policy admission and proof passed privately on N34. The decimal bound landed with N30. |
+| UDM-19 | Complete for the bounded increment. Both obsolete migration trees and unused paths retired, generated SQL preview tested, and offline N34 parity passed. |

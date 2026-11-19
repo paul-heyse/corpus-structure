@@ -243,7 +243,7 @@ def test_actual_bounded_authority_leaf_is_not_reconstructed_as_hidden_edges(tmp_
 
 
 def test_acquired_support_can_be_sealed_while_retaining_exact_indexed_rows(tmp_path):
-    import sqlite3
+    from sqlalchemy.exc import OperationalError
 
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
@@ -259,7 +259,7 @@ def test_acquired_support_can_be_sealed_while_retaining_exact_indexed_rows(tmp_p
         index.freeze()
         assert list(index.rows("ops.data_derivation")) == [{"id": "first"}]
         assert index.mapping("ops.data_derivation", ("id",))["first"] == {"id": "first"}
-        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+        with pytest.raises(OperationalError, match="readonly"):
             index.append(json_bytes({**first, "key": "episode:second", "record": {"id": "second"}}))
     finally:
         index.close()

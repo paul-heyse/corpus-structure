@@ -10,6 +10,47 @@ from model_change_support import model_checkout as model_checkout
 from sqlalchemy import text
 
 
+@pytest.mark.parametrize("quoted", [False, True])
+def test_fresh_database_temp_policy_binds_to_the_applying_target(native_server, quoted):
+    from uuid import uuid4
+
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    from corpus_structure.semantic.alembic_native import DatabaseTemporaryPrivilegeOp
+
+    publisher = "corpus_sem_publisher"
+    purposes = (
+        "corpus_sem_writer",
+        "corpus_sem_reader",
+        "corpus_sem_admitter",
+        "corpus_sem_evaluator",
+        "corpus_sem_fitter",
+    )
+    name = ('UDM " TEMP ' if quoted else "udm_temp_") + uuid4().hex
+    with native_server.lease(name), native_server.connect() as admin:
+        identifier = admin.dialect.identifier_preparer.quote_identifier(name)
+        admin.exec_driver_sql("CREATE DATABASE " + identifier + " TEMPLATE template0")
+        try:
+            with native_server.connect(name, transactional=True) as connection:
+                operations = Operations(MigrationContext.configure(connection))
+                operations.invoke(DatabaseTemporaryPrivilegeOp(publisher, purposes))
+                actual = connection.execute(
+                    text("""SELECT rolname, has_database_privilege(rolname, current_database(), 'TEMP')
+                            FROM pg_roles WHERE rolname = ANY(:roles)"""),
+                    {"roles": [publisher, *purposes]},
+                ).all()
+                assert dict(actual) == {publisher: True, **dict.fromkeys(purposes, False)}
+                assert not connection.scalar(
+                    text("""SELECT EXISTS (
+                    SELECT 1 FROM pg_database, LATERAL aclexplode(datacl)
+                    WHERE datname = current_database() AND grantee = 0 AND privilege_type = 'TEMPORARY'
+                )""")
+                )
+        finally:
+            admin.exec_driver_sql("DROP DATABASE " + identifier)
+
+
 def test_native_only_current_root_preview_register_deploy_and_refusals(
     cli,
     semantic_bare_engine,

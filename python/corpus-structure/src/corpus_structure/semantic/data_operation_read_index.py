@@ -4,10 +4,60 @@ The native reader owns selection and trust. This temporary index deduplicates it
 admitted rows and supports bounded lookups; it grants no persistent authority.
 """
 
-import sqlite3
+import json
 from collections.abc import Mapping
 
+from sqlalchemy import Column, Index, LargeBinary, MetaData, Table, Text, func, literal, select
+
 from .data_operation_json import json_bytes, wire_json_loads
+from .sqlite_scratch import open_scratch, seal_reads
+
+_METADATA = MetaData()
+_RECORDS = Table(
+    "records",
+    _METADATA,
+    Column("key", Text, primary_key=True),
+    Column("relation", Text, nullable=False),
+    Column("payload", LargeBinary, nullable=False),
+)
+_FRONTIER = Table(
+    "frontier",
+    _METADATA,
+    Column("kind", Text, primary_key=True),
+    Column("identity", Text, primary_key=True),
+    Column("payload", LargeBinary),
+)
+_INDEXED = (
+    ("id",),
+    ("kind_contract",),
+    ("product_id", "member_id"),
+    ("derivation_id", "role", "position"),
+    ("derivation_id", "occurrence"),
+)
+
+
+def _member(field: str, *, indexed: bool):
+    path = "$.record." + (field if field.isidentifier() else json.dumps(field, ensure_ascii=False))
+    return func.json_extract(_RECORDS.c.payload, literal(path, literal_execute=indexed))
+
+
+for _fields in _INDEXED:
+    Index(
+        "record_" + "_".join(_fields),
+        _RECORDS.c.relation,
+        *(_member(field, indexed=True) for field in _fields),
+    )
+
+
+def _selected(relation, fields, values):
+    indexed = any(group[: len(fields)] == fields for group in _INDEXED)
+    return select(_RECORDS.c.payload).where(
+        _RECORDS.c.relation == relation,
+        *(
+            _member(field, indexed=indexed) == literal(value)
+            for field, value in zip(fields, values, strict=True)
+        ),
+    )
 
 
 class _RecordMapping(Mapping):
@@ -18,12 +68,8 @@ class _RecordMapping(Mapping):
 
     def __getitem__(self, key):
         values = (key,) if len(self.fields) == 1 else key
-        predicates = " AND ".join(
-            "json_extract(payload, '$.record." + field + "')=?" for field in self.fields
-        )
         rows = self.index.connection.execute(
-            "SELECT payload FROM records WHERE relation=? AND " + predicates + " LIMIT 2",
-            (self.relation, *values),
+            _selected(self.relation, self.fields, values).limit(2)
         ).fetchall()
         if not rows:
             raise KeyError(key)
@@ -41,7 +87,7 @@ class _RecordMapping(Mapping):
 
     def __len__(self):
         return self.index.connection.execute(
-            "SELECT count(*) FROM records WHERE relation=?", (self.relation,)
+            select(func.count()).select_from(_RECORDS).where(_RECORDS.c.relation == self.relation)
         ).fetchone()[0]
 
     def values(self):
@@ -50,50 +96,32 @@ class _RecordMapping(Mapping):
 
 class SelectedRecordIndex:
     def __init__(self, path):
-        self.connection = sqlite3.connect(path)
+        self.connection = open_scratch(path)
         self.retained_bytes = 0
         self.retained_records = 0
         self.cut = None
         self.has_frontier = False
-        self.connection.execute(
-            "CREATE TABLE frontier(kind TEXT, identity TEXT, payload BLOB, PRIMARY KEY(kind,identity))"
-        )
-        self.connection.execute(
-            "CREATE TABLE records(key TEXT PRIMARY KEY, relation TEXT NOT NULL, payload BLOB NOT NULL)"
-        )
-        for fields in (
-            ("id",),
-            ("kind_contract",),
-            ("product_id", "member_id"),
-            ("derivation_id", "role", "position"),
-            ("derivation_id", "occurrence"),
-        ):
-            expression = ",".join(
-                "json_extract(payload, '$.record." + field + "')" for field in fields
-            )
-            self.connection.execute(
-                "CREATE INDEX record_"
-                + "_".join(fields)
-                + " ON records(relation,"
-                + expression
-                + ")"
-            )
+        try:
+            _METADATA.create_all(self.connection)
+        except BaseException:
+            self.connection.close()
+            raise
 
     def freeze(self):
         """Seal the acquired support against writes through this private connection."""
-        self.connection.execute("PRAGMA query_only=ON")
+        seal_reads(self.connection)
 
     def append(self, payload, *, allow_equal=False):
         row = wire_json_loads(payload)
         previous = self.connection.execute(
-            "SELECT payload FROM records WHERE key=?", (row["key"],)
+            select(_RECORDS.c.payload).where(_RECORDS.c.key == row["key"])
         ).fetchone()
         if previous is not None:
             if allow_equal and previous[0] == payload:
                 return
             raise ValueError("detached closure repeats a selected record key")
         self.connection.execute(
-            "INSERT INTO records VALUES(?,?,?)", (row["key"], row["relation"], payload)
+            _RECORDS.insert().values(key=row["key"], relation=row["relation"], payload=payload)
         )
         self.retained_bytes += len(payload)
         self.retained_records += 1
@@ -118,7 +146,9 @@ class SelectedRecordIndex:
                 value = {key: value for key, value in row.items() if key != "products"}
                 identity, payload = row[identity_field], json_bytes(value)
                 previous = self.connection.execute(
-                    "SELECT payload FROM frontier WHERE kind=? AND identity=?", (kind, identity)
+                    select(_FRONTIER.c.payload).where(
+                        _FRONTIER.c.kind == kind, _FRONTIER.c.identity == identity
+                    )
                 ).fetchone()
                 if previous is not None:
                     if previous[0] != payload:
@@ -127,39 +157,41 @@ class SelectedRecordIndex:
                         )
                     continue
                 self.connection.execute(
-                    "INSERT INTO frontier VALUES(?,?,?)", (kind, identity, payload)
+                    _FRONTIER.insert().values(kind=kind, identity=identity, payload=payload)
                 )
                 self.retained_bytes += len(payload)
                 self.retained_records += 1
 
     def frontier_rows(self, kind):
         for (payload,) in self.connection.execute(
-            "SELECT payload FROM frontier WHERE kind=? ORDER BY identity", (kind,)
+            select(_FRONTIER.c.payload)
+            .where(_FRONTIER.c.kind == kind)
+            .order_by(_FRONTIER.c.identity)
         ):
             yield wire_json_loads(payload)
 
     def records(self):
-        for (payload,) in self.connection.execute("SELECT payload FROM records ORDER BY key"):
+        for (payload,) in self.connection.execute(
+            select(_RECORDS.c.payload).order_by(_RECORDS.c.key)
+        ):
             yield wire_json_loads(payload)
 
     def rows(self, relation):
         for (payload,) in self.connection.execute(
-            "SELECT payload FROM records WHERE relation=? ORDER BY key", (relation,)
+            select(_RECORDS.c.payload)
+            .where(_RECORDS.c.relation == relation)
+            .order_by(_RECORDS.c.key)
         ):
             yield wire_json_loads(payload)["record"]
 
     def rows_for(self, relation, **fields):
-        predicates = " AND ".join(
-            "json_extract(payload, '$.record." + field + "')=?" for field in fields
-        )
         for (payload,) in self.connection.execute(
-            "SELECT payload FROM records WHERE relation=? AND " + predicates + " ORDER BY key",
-            (relation, *fields.values()),
+            _selected(relation, tuple(fields), fields.values()).order_by(_RECORDS.c.key)
         ):
             yield wire_json_loads(payload)["record"]
 
     def mapping(self, relation, fields):
-        return _RecordMapping(self, relation, fields)
+        return _RecordMapping(self, relation, tuple(fields))
 
     def close(self):
         self.connection.close()

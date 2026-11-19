@@ -616,8 +616,7 @@ def _native_validation_child(capture: str, projection: str, result: Any) -> None
                 yield from store.parts(stream_id)
 
         profiles = {}
-        for (raw,) in store.db.execute("SELECT body FROM entry WHERE family='artifact_stream'"):
-            descriptor = json.loads(raw)
+        for descriptor in store.stream_descriptors():
             profiles[descriptor["stream_id"]] = descriptor["encoding_profile"]
         document = reconstruct_native_document(
             Reader(), rows["header"][0]["root_id"], scalar_profiles=profiles, json_fields="decoded"

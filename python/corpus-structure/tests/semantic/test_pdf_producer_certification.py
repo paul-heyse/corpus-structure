@@ -137,8 +137,12 @@ def test_lowering_identity_is_the_retained_contract_over_sources_schemas_and_cod
     artifact = context.domain.source(LOWERING_CONTRACT)
     manifest = json.loads(artifact.content)
     names = {item["name"] for item in manifest["inputs"]}
-    assert any(name.endswith("semantic/pdf_records.py") for name in names)
-    assert any(name.endswith("semantic/pdf_certification.py") for name in names)
+    meaning_name = next(name for name in names if name.endswith("code/meaning.json"))
+    meaning = json.loads(context.domain.source(meaning_name.removeprefix("pdf-domain/")).content)
+    assert {
+        "corpus_structure.semantic.pdf_records",
+        "corpus_structure.semantic.pdf_certification",
+    } <= {module for module, _ in meaning["modules"]}
     assert any(name.endswith("codec/inline-candidates.arrow") for name in names)
     assert {"docling-core", "pydantic", "jsonschema", "pyarrow", "python"} <= manifest[
         "libraries"
@@ -149,7 +153,7 @@ def test_lowering_identity_is_the_retained_contract_over_sources_schemas_and_cod
     ("artifact_name", "message"),
     [
         (LOWERING_CONTRACT, "PDF lowering contract differs from the captured execution basis"),
-        ("semantic/pdf_records.py", "captured PDF lowering source differs from its contract"),
+        ("code/meaning.json", "captured PDF lowering source differs from its contract"),
     ],
 )
 def test_lowering_identity_requires_matching_captured_artifacts(artifact_name, message):
@@ -185,7 +189,7 @@ def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
 
     payloads, document, basis = prepared(tmp_path)
     try:
-        for key, raw in payloads.db.execute(
+        for key, raw in payloads.db.exec_driver_sql(
             "SELECT key,body FROM native_entry WHERE family='native'"
         ):
             row = json.loads(raw)
@@ -193,7 +197,7 @@ def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
             if scalars.get("name") == "producer source":
                 scalars["name"] = "lossy source"
                 row["scalars_json"] = json.dumps(scalars)
-                payloads.db.execute(
+                payloads.db.exec_driver_sql(
                     "UPDATE native_entry SET body=? WHERE family='native' AND key=?",
                     (json.dumps(row), key),
                 )
@@ -204,7 +208,7 @@ def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
 
         def rows(family, filters):
             if family in {"header", "native", "membership"}:
-                for (raw,) in payloads.db.execute(
+                for (raw,) in payloads.db.exec_driver_sql(
                     "SELECT body FROM native_entry WHERE family=?", (family,)
                 ):
                     yield json.loads(raw)
@@ -212,7 +216,7 @@ def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
                 for row in payloads.companions(filters["family"]):
                     row["_fields"] = [
                         json.loads(raw)
-                        for (raw,) in payloads.db.execute(
+                        for (raw,) in payloads.db.exec_driver_sql(
                             "SELECT body FROM entry WHERE family='companion_field'"
                         )
                         if (json.loads(raw)["family"], json.loads(raw)["local_id"])
@@ -220,7 +224,7 @@ def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
                     ]
                     yield row
             elif family == "artifact_stream":
-                for (raw,) in payloads.db.execute(
+                for (raw,) in payloads.db.exec_driver_sql(
                     "SELECT body FROM entry WHERE family='artifact_stream'"
                 ):
                     row = json.loads(raw)
@@ -228,7 +232,7 @@ def test_independent_oracle_refuses_lossy_but_callback_valid_lowering(tmp_path):
                         yield row
             elif family == "artifact_part":
                 for stream in filters["stream_ids"]:
-                    for ordinal, body in payloads.db.execute(
+                    for ordinal, body in payloads.db.exec_driver_sql(
                         "SELECT ordinal,body FROM part WHERE stream=? ORDER BY ordinal", (stream,)
                     ):
                         yield {"stream_id": stream, "ordinal": ordinal, "body": body}

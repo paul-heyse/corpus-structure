@@ -210,7 +210,9 @@ def test_exact_offline_membership_table_original_addresses_and_formula_preparati
         assert [f.source.original_text for f in prepared.formulas] == ["original A", "original B"]
         assert prepared.formulas[0].source.identity != prepared.formulas[1].source.identity
         assert reader.descriptors()[1]["body"]["geometry"] == "coarse"
-        paths = list(reader._index.execute("SELECT pointer,path FROM records ORDER BY ordinal"))
+        paths = list(
+            reader._index.exec_driver_sql("SELECT pointer,path FROM records ORDER BY ordinal")
+        )
         assert [row[0] for row in paths] == ["#/groups/8", "#/texts/42", "#/tables/2", "#/texts/43"]
         table = json.loads(Path(paths[2][1]).read_bytes())
         assert table["data"]["table_cells"][0]["text"] == "cell"

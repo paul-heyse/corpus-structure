@@ -522,8 +522,12 @@ relations, call contracts and typed Python programs. Candidate authoring validat
 rendered effects on PostgreSQL before registration. The installed catalog remains the authority
 for role, dependency and execution correspondence. Lowered release facts drive per-operation
 dispatch. Integrity vocabularies, schema defaults and program purposes govern grants and guards.
-SQLite and DuckDB authoring use typed statements and relational expressions within their owned
-boundaries. Full source conversion remains open.
+**Implemented, 2026-11-19.** The five invocation-owned SQLite stores declare private
+SQLAlchemy Core tables and statements. DuckDB runs through one configured owner with typed
+relational expressions and per-invocation spill. Forward PostgreSQL root authoring emits the
+database TEMP policy from typed privilege nodes bound to the applying connection. The installed
+program comparison and remaining analytical placement observation are owned by the
+[UDM analytical companion](../plans/unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#execution-evidence).
 
 > Decision: ADR-0135
 

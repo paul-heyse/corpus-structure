@@ -818,7 +818,11 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
     from corpus_structure.semantic.native_definition_projection import NativeOperationProjection
 
     fields = table("sem.data_operation_definition").c.keys()
-    exported_fields = set(fields) & {"release_id", *NativeOperationProjection.__required_keys__}
+    exported_fields = set(fields) & {
+        "release_id",
+        "parameter_definitions",
+        *NativeOperationProjection.__required_keys__,
+    }
     definitions = {}
     for row in records:
         if row["relation"] == "sem.data_operation_definition":
@@ -840,6 +844,15 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
         verify_detached_result(native, records=records, **options).cut.identity
         == CutSelection.from_native(native).identity
     )
+    changed_parameters = deepcopy(records)
+    changed_definition = next(
+        row["record"]
+        for row in changed_parameters
+        if row["relation"] == "sem.data_operation_definition"
+    )
+    changed_definition["parameter_definitions"] = {"added": {}}
+    with pytest.raises(ValueError, match="detached operation differs from its captured release"):
+        verify_detached_result(native, records=changed_parameters, **options)
     # An explicitly selected public issuer uses its native leaf as the custody
     # authority. Its hidden episode/use cannot be reconstructed from the archive.
     public = deepcopy(native)

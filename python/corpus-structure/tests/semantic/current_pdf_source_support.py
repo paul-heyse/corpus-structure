@@ -387,7 +387,7 @@ def _capture_source(kernel, directory, sections):
     result = execute_data_demand(
         kernel.purpose("write"),
         demand,
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=kernel.purpose("admit"),
         project_id=PROJECT,
         database_capacity=6,

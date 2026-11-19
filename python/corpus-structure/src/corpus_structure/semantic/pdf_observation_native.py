@@ -21,7 +21,6 @@ from sqlalchemy import (
     column,
     func,
     literal,
-    literal_column,
     not_,
     or_,
     select,
@@ -47,6 +46,7 @@ from .native_program import (
     Sql,
     column_type,
     core_relation_row,
+    core_star,
     core_variable,
     pg_type,
 )
@@ -522,7 +522,7 @@ def observation_projection_routine(context, model):
         ),
         _select_row(task, "job", task.c.id == p_task, strict=True),
         SelectInto(
-            select(literal_column("*")).select_from(func.ops.pdf_task_context(p_task)),
+            select(core_star()).select_from(func.ops.pdf_task_context(p_task)),
             ("context",),
             True,
         ),
@@ -828,7 +828,7 @@ def observation_publisher_routine(context, model):
     transform, binding = image["transform"], observation["binding"]
 
     def context_query(name):
-        return select(literal_column("*")).select_from(
+        return select(core_star()).select_from(
             getattr(func.ops, name)(p_task, p_attempt, p_holder)
             if name == "require_pdf_stage_owner"
             else getattr(func.ops, name)(p_task)

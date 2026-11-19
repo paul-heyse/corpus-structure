@@ -317,7 +317,11 @@ def test_two_role_execution_projections_keep_complete_detached_output_custody():
 
     fields = set(table("sem.data_operation_definition").c.keys())
     complete_definition = {name: definition.get(name) for name in fields}
-    exported_fields = fields & {"release_id", *NativeOperationProjection.__required_keys__}
+    exported_fields = fields & {
+        "release_id",
+        "parameter_definitions",
+        *NativeOperationProjection.__required_keys__,
+    }
     definition.clear()
     definition.update({name: complete_definition[name] for name in exported_fields})
     options = dict(

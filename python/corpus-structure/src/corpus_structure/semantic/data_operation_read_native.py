@@ -11,7 +11,6 @@ from sqlalchemy import (
     column,
     func,
     literal,
-    literal_column,
     not_,
     or_,
     select,
@@ -38,6 +37,7 @@ from .native_program import (
     SelectInto,
     column_type,
     core_relation_row,
+    core_star,
     core_variable,
     pg_type,
 )
@@ -536,7 +536,7 @@ def _body_access_programs(model):
                         "body member value differs from its captured nominal kind",
                     ),
                     ReturnQuery(
-                        select(literal_column("*")).select_from(
+                        select(core_star()).select_from(
                             func.ops.ddo_body_kind_contracts(child, child_body)
                         )
                     ),

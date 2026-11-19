@@ -9,7 +9,7 @@ from semantic.pdf_payload_validation_support import captured
 
 
 def replace_health(store, health):
-    store.db.execute(
+    store.db.exec_driver_sql(
         "UPDATE entry SET body=? WHERE family='companion' AND key=?",
         (
             json.dumps(dict(family="health", local_id="health", body=health)),

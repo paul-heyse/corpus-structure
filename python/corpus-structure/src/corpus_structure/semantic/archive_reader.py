@@ -180,14 +180,15 @@ def _archive_header(conn: Any, release_id: str):
     Physical tuple markers only invalidate reuse conservatively (including administrative
     rewrites). They are neither semantic identity nor a replacement for native immutability.
     """
-    from sqlalchemy import String, literal_column, select
+    from sqlalchemy import String, select
 
+    from .native_program import core_reference
     from .releases import _table
 
     release = _table("sem.release").alias("archive_release")
     finalized = _table("sem.release_finalization").alias("archive_finalized")
     markers = tuple(
-        literal_column(f"{alias}.{name}", type_=String()).cast(String()).label(f"{alias}_{name}")
+        core_reference(alias, name, type_=String()).cast(String()).label(f"{alias}_{name}")
         for alias in ("archive_release", "archive_finalized")
         for name in ("tableoid", "xmin", "ctid")
     )

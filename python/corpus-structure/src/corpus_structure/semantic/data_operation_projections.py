@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from pglast import ast
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -20,7 +21,6 @@ from sqlalchemy import (
     false,
     func,
     literal,
-    literal_column,
     null,
     or_,
     select,
@@ -30,8 +30,16 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by
 from sqlalchemy.sql.elements import ColumnClause
 from sqlalchemy.sql.type_api import TypeEngine
+from sqlalchemy.types import NullType
 
 from .data_operation_jsonb import ContextJSONB
+from .native_program import core_cast_literal, core_reference, pg_type
+
+
+def _pg_text_array():
+    definition = pg_type("text")
+    definition.arrayBounds = (ast.Integer(ival=-1),)
+    return definition
 
 
 def _json(value):
@@ -41,7 +49,7 @@ def _json(value):
 
 
 def _var[T](name: str, kind: type[TypeEngine[T]]) -> ColumnClause[T]:
-    return literal_column(name, type_=kind())
+    return core_reference(*name.split("."), type_=kind())
 
 
 def _items(value, name):
@@ -119,7 +127,7 @@ def _disclosed_body_access(metadata, kind, body):
 
 def _visible(table):
     return func.ops.ddo_read_visible(
-        table.c.created_at, table.c.created_xid, literal_column("boundary")
+        table.c.created_at, table.c.created_xid, core_reference("boundary", type_=NullType())
     )
 
 
@@ -138,7 +146,7 @@ def _validity_rows(
         func.ops.ddo_valid_closure(
             seed_uses,
             empty if seed_episodes is None else seed_episodes,
-            literal_column("boundary") if boundary is None else boundary,
+            core_reference("boundary", type_=NullType()) if boundary is None else boundary,
             empty if seed_populations is None else seed_populations,
         )
         .table_valued(column("kind", Text), column("id", Text), column("valid", Boolean))
@@ -164,7 +172,7 @@ def _support_walk(metadata, seed, *, public=False, name="support_closure"):
         closure.c.id,
         "public" if public else "scope",
         authority=_public_authority_leaf if public else None,
-        boundary=literal_column("boundary"),
+        boundary=core_reference("boundary", type_=NullType()),
         product_ids=_requested_read_scope()["product_ids"],
     )
     edges = union_all(*(query.correlate(closure) for query in queries)).lateral("support_edge")
@@ -513,7 +521,7 @@ def binding_branches(metadata):
     def decoded(value):
         return case((_var("p_decode_body", Boolean), func.data.ddo_json(value)), else_=null())
 
-    boundary = literal_column("boundary")
+    boundary = core_reference("boundary", type_=NullType())
     definitions = metadata.tables["sem.data_operation_definition"]
     roles = _items(definitions.c.input_roles, "input_role")
     entries = _items(
@@ -829,7 +837,7 @@ def binding_branches(metadata):
         trust_snapshot=_var("snapshot", JSONB),
         read_id=_var("boundary.id", Text),
         read_snapshot=_var("boundary.read_snapshot", Text),
-        frontier_at=literal_column("boundary.frontier_at"),
+        frontier_at=core_reference("boundary", "frontier_at", type_=NullType()),
     )
     computed_values = (
         candidates.c.product_id,
@@ -957,7 +965,7 @@ def binding_branches(metadata):
         trust_snapshot=_var("snapshot", JSONB),
         read_id=_var("boundary.id", Text),
         read_snapshot=_var("boundary.read_snapshot", Text),
-        frontier_at=literal_column("boundary.frontier_at"),
+        frontier_at=core_reference("boundary", "frontier_at", type_=NullType()),
     )
     original_values = (
         fact.c.product_id,
@@ -1034,8 +1042,8 @@ def _read_original_predicates(admissions, in_page):
                     _items(_requested_read_scope()["product_ids"], "scope_original_product")
                 )
                 .where(
-                    literal_column("scope_original_product.value", type_=JSONB).op("#>>")(
-                        literal_column("'{}'::text[]")
+                    core_reference("scope_original_product", "value", type_=JSONB()).op("#>>")(
+                        core_cast_literal("{}", _pg_text_array())
                     )
                     == admissions.c.product_id
                 )
@@ -1376,7 +1384,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             report_ref = cast(
                 func.ops.ddo_structural_report_support(
                     issuer_use.c.id,
-                    literal_column("boundary"),
+                    core_reference("boundary", type_=NullType()),
                     _requested_read_scope()["product_ids"],
                 ),
                 JSONB,
@@ -1408,7 +1416,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     from .support_edges import support_explanation_rows
 
     fields["validity_explanations"] = support_explanation_rows(
-        metadata, seeds, literal_column("boundary"), reached
+        metadata, seeds, core_reference("boundary", type_=NullType()), reached
     )
     rows = union(*fields.values()).cte("support_export_rows")
     bounded_rows = (
@@ -1491,7 +1499,7 @@ def _cut_fields():
         trust_snapshot=_var("boundary.trust_snapshot", JSONB),
         read_id=_var("boundary.id", Text),
         read_snapshot=_var("boundary.read_snapshot", Text),
-        frontier_at=literal_column("boundary.frontier_at"),
+        frontier_at=core_reference("boundary", "frontier_at", type_=NullType()),
         scope=_var("boundary.scope", JSONB),
     )
 
@@ -2123,7 +2131,7 @@ def read_page(metadata):
     from sqlalchemy import case
 
     demand = _var("d.id", Text)
-    boundary = literal_column("boundary")
+    boundary = core_reference("boundary", type_=NullType())
     obligations = metadata.tables["ops.data_obligation"]
     episodes = metadata.tables["ops.data_derivation"]
     intents = metadata.tables["ops.data_completion_intent"]

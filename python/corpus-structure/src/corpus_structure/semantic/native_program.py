@@ -64,6 +64,22 @@ def core_variable(name: str, type_: TypeEngine[Any], field: str | None = None) -
     return literal_column(RawStream()(variable(name, field)), type_=type_)
 
 
+def core_reference(*names: str, type_: TypeEngine[Any]) -> ColumnClause[Any]:
+    """Refer to a named PostgreSQL field outside the SQLAlchemy table model."""
+    return literal_column(RawStream()(ast.ColumnRef(fields=_names(*names))), type_=type_)
+
+
+def core_star() -> ColumnClause[Any]:
+    return literal_column(RawStream()(ast.A_Star()))
+
+
+def core_cast_literal(value: str, datatype: ast.TypeName, type_=None) -> ColumnClause[Any]:
+    """Lower a typed literal with the installed PostgreSQL cast spelling."""
+    arg = RawStream()(literal(value))
+    target = RawStream()(datatype)
+    return literal_column(f"{arg}::{target}", type_=type_)
+
+
 def core_relation_row(relation: Table) -> ColumnClause[Any]:
     """Select a composite in the server's row-type order."""
     names = (relation.name,) if relation.schema is None else (relation.schema, relation.name)

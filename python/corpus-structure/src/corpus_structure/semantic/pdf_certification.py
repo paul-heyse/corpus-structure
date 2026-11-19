@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import pyarrow as pa
+from sqlalchemy import Column, LargeBinary, MetaData, Table, Text, select
 
 from .identity import canonical_bytes
 from .pdf_payload_validation import FrozenPayloadStore
@@ -104,16 +105,34 @@ def jsonb_canonical_text(value: Any) -> str:
     return encode(value)
 
 
+_PRODUCER = MetaData()
+_NATIVE_ENTRY = Table(
+    "native_entry",
+    _PRODUCER,
+    Column("family", Text, primary_key=True),
+    Column("key", Text, primary_key=True),
+    Column("body", Text),
+)
+_IDENTITY_FRAME = Table(
+    "identity_frame",
+    _PRODUCER,
+    Column("family", Text, primary_key=True),
+    Column("key", Text, primary_key=True),
+    Column("frame", LargeBinary),
+)
+
+
 class PdfProducerPayloads(FrozenPayloadStore):
     """Exact prepared producer rows, with disk ordering for the existing frame fold."""
 
     def __init__(self, path: Path, validation_contract: Mapping[str, Any]):
         super().__init__(path)
-        self.db.executescript("""
-        CREATE TABLE native_entry(family TEXT, key TEXT, body TEXT, PRIMARY KEY(family,key));
-        CREATE TABLE identity_frame(family TEXT, key TEXT, frame BLOB, PRIMARY KEY(family,key));
-        """)
-        self.add("validation_contract", dict(validation_contract))
+        try:
+            _PRODUCER.create_all(self.db)
+            self.add("validation_contract", dict(validation_contract))
+        except BaseException:
+            self.close()
+            raise
 
     def add_batch(self, family: str, batch: pa.RecordBatch) -> None:
         for row in batch.to_pylist():
@@ -126,7 +145,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
                     else json.dumps([row["parent_id"], row["field_name"], row["ordinal"]])
                 )
                 self.db.execute(
-                    "INSERT INTO native_entry VALUES(?,?,?)", (family, key, json.dumps(row))
+                    _NATIVE_ENTRY.insert().values(family=family, key=key, body=json.dumps(row))
                 )
             elif family in {"artifact_stream", "artifact_part", "companion", "companion_field"}:
                 if family == "artifact_part":
@@ -173,12 +192,10 @@ class PdfProducerPayloads(FrozenPayloadStore):
                         self.add_batch(families[target], reader.get_batch(index))
 
     def _descriptor(self, stream: str) -> ScalarDescriptor:
-        raw = self.db.execute(
-            "SELECT body FROM entry WHERE family='artifact_stream' AND key=?", (stream,)
-        ).fetchone()
+        raw = self._entry_body("artifact_stream", stream)
         if raw is None:
             raise ValueError("producer scalar has no exact stream descriptor")
-        descriptor = json.loads(raw[0])
+        descriptor = json.loads(raw)
         profile = descriptor["encoding_profile"]
         kind = (
             b"y"
@@ -190,17 +207,16 @@ class PdfProducerPayloads(FrozenPayloadStore):
         )
 
     def _field_scalar(self, row, name):
-        raw = self.db.execute(
-            "SELECT body FROM entry WHERE family='companion_field' AND key=?",
-            (json.dumps([row["family"], row["local_id"], name]),),
-        ).fetchone()
+        raw = self._entry_body(
+            "companion_field", json.dumps([row["family"], row["local_id"], name])
+        )
         if raw is not None:
             if (
                 row["family"] == "native_metadata"
                 and row["body"]["kind"] == "inline_candidate_pages"
             ):
                 return structured_payload_scalar(row["body"]["payload_logical_digest"])
-            return self._descriptor(json.loads(raw[0])["stream_id"])
+            return self._descriptor(json.loads(raw)["stream_id"])
         return row["body"].get(name, ABSENT)
 
     def target_pins(self) -> tuple[tuple[int, str, str], ...]:
@@ -229,18 +245,15 @@ class PdfProducerPayloads(FrozenPayloadStore):
     ) -> str:
         from .pdf_records import NativeRow, native_record_identity_fields
 
-        self.db.execute("DELETE FROM identity_frame")
+        self.db.execute(_IDENTITY_FRAME.delete())
 
         def add(family, key, fields):
             encoded = record_frame(schema_digest, family, key, fields)
-            self.db.execute("INSERT INTO identity_frame VALUES(?,?,?)", (family, key, encoded))
+            self.db.execute(_IDENTITY_FRAME.insert().values(family=family, key=key, frame=encoded))
 
         # Validate every actual stream, including shared and unreferenced streams.
         streams = IdentityFold("pdf-producer-streams-v1")
-        for (raw,) in self.db.execute(
-            "SELECT body FROM entry WHERE family='artifact_stream' ORDER BY key COLLATE BINARY"
-        ):
-            descriptor = json.loads(raw)
+        for descriptor in self.stream_descriptors():
             digest = sha256()
 
             def chunks(descriptor=descriptor, digest=digest):
@@ -268,7 +281,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
                 )
             )
         self.stream_inventory_digest = streams.digest().hex()
-        for family, raw in self.db.execute("SELECT family,body FROM native_entry"):
+        for family, raw in self.db.execute(select(_NATIVE_ENTRY.c.family, _NATIVE_ENTRY.c.body)):
             row = {key: value for key, value in json.loads(raw).items() if value is not None}
             for name in ("scalars_json", "structure_json", "scalar_json"):
                 if name in row and not isinstance(row[name], str):
@@ -280,8 +293,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
             if result is not None:
                 add(*result)
         inputs = {row["local_id"]: row["body"] for row in self.companions("input")}
-        for (raw,) in self.db.execute("SELECT body FROM entry WHERE family='companion'"):
-            row = json.loads(raw)
+        for row in self._entries("companion"):
             family, body = row["family"], dict(row["body"])
             if family == "native_metadata":
                 for key in (
@@ -327,7 +339,11 @@ class PdfProducerPayloads(FrozenPayloadStore):
         add("publication", "root", (("kind", kind), ("recipe_digest", recipe_digest)))
         logical = LogicalIdentity(schema_digest, release_id, source_digest)
         for family, key, encoded in self.db.execute(
-            "SELECT family,key,frame FROM identity_frame ORDER BY family COLLATE BINARY,key COLLATE BINARY"
+            select(
+                _IDENTITY_FRAME.c.family, _IDENTITY_FRAME.c.key, _IDENTITY_FRAME.c.frame
+            ).order_by(
+                _IDENTITY_FRAME.c.family.collate("BINARY"), _IDENTITY_FRAME.c.key.collate("BINARY")
+            )
         ):
             logical.add_encoded_record(family, key, encoded)
         return logical.pin().logical_digest

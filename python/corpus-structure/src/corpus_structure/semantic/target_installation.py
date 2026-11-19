@@ -714,24 +714,6 @@ def prepare_target_authoring(
     )
 
 
-def target_database_privileges_sql() -> str:
-    """Current root policy: only the protected publisher needs session scratch."""
-    from sqlalchemy.dialects.postgresql import dialect
-
-    from .alembic_privileges import PUBLISHER, PURPOSE_ROLES
-
-    quote = dialect().identifier_preparer.quote
-    revoke = "REVOKE TEMP ON DATABASE %I FROM PUBLIC," + ",".join(map(quote, PURPOSE_ROLES))
-    grant = "GRANT TEMP ON DATABASE %I TO " + quote(PUBLISHER)
-    return (
-        "DO $target_database$ BEGIN EXECUTE format('"
-        + revoke.replace("'", "''")
-        + "',current_database()); EXECUTE format('"
-        + grant.replace("'", "''")
-        + "',current_database()); END $target_database$"
-    )
-
-
 def target_predecessor_descriptor(predecessor):
     """Read the complete registered target declaration, never installed desired meaning."""
     from .native_admission import _admission_descriptor
@@ -961,8 +943,8 @@ def prepare_target_candidate(
     from alembic.operations.ops import ExecuteSQLOp
     from sqlalchemy.schema import CreateSchema
 
-    from .alembic_native import NativeTransitionOp
-    from .alembic_privileges import PUBLISHER, table_policy
+    from .alembic_native import DatabaseTemporaryPrivilegeOp, NativeTransitionOp
+    from .alembic_privileges import PUBLISHER, PURPOSE_ROLES, table_policy
     from .native_authoring import _physical_check_contract, compare_declared_candidate
     from .native_objects import (
         NativeAuthoringError,
@@ -1041,7 +1023,7 @@ def prepare_target_candidate(
             "fresh target migration lost its physical function prerequisites"
         )
     candidate.upgrade_ops.ops[:] = [
-        ExecuteSQLOp(target_database_privileges_sql()),
+        DatabaseTemporaryPrivilegeOp(PUBLISHER, PURPOSE_ROLES),
         *(ExecuteSQLOp(statement) for statement in schema_sql),
         *early,
         *(item for item in candidate.upgrade_ops.ops if item not in early),

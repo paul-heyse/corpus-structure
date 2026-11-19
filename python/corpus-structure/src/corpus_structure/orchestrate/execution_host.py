@@ -185,7 +185,7 @@ class ProcessExecutionHost:
 
     def acquire_basis(self, engine, connection, release_id, runtime_id, *, source_root, token):
         """Reuse verified meaning only after fresh protected header/runtime reads."""
-        from sqlalchemy import String, func, literal_column, select
+        from sqlalchemy import String, func, select
 
         from corpus_structure.semantic.archive_reader import _archive_header
         from corpus_structure.semantic.cpu_execution import CapacityExceeded, release_capsule
@@ -204,6 +204,8 @@ class ProcessExecutionHost:
         header = _archive_header(connection, release_id)
         if header is None or header.finalized_digest != header.content_digest:
             raise SemanticRefusal("execution basis requires its protected finalized archive")
+        from corpus_structure.semantic.native_program import core_reference
+
         stored = table("sem.runtime_binding")
         runtime = connection.execute(
             select(
@@ -213,7 +215,7 @@ class ProcessExecutionHost:
                 func.octet_length(stored.c.manifest_bytes),
                 func.octet_length(stored.c.archive_bytes),
                 *(
-                    literal_column(f"sem.runtime_binding.{name}", type_=String()).cast(String())
+                    core_reference("sem", "runtime_binding", name, type_=String()).cast(String())
                     for name in ("tableoid", "xmin", "ctid")
                 ),
             ).where(stored.c.release_id == release_id, stored.c.runtime_id == runtime_id)

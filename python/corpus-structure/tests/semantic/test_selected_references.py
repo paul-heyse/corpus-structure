@@ -548,7 +548,8 @@ def test_current_evaluator_tool_and_resource_keep_both_selection_pins(
     selected = owner.selected_record_index
     frozen = {
         id(index): tuple(
-            row[0] for row in index.connection.execute("SELECT payload FROM records ORDER BY key")
+            row[0]
+            for row in index.connection.exec_driver_sql("SELECT payload FROM records ORDER BY key")
         )
         for index in (references, predictions, sources)
     }

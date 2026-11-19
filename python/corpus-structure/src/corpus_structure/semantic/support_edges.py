@@ -25,6 +25,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.model.compiled import compiled_model, running_model
 
+from .native_program import core_reference
+
 
 @dataclass(frozen=True)
 class SupportEdge:
@@ -329,7 +331,7 @@ def support_edge_queries(
 
 def support_explanation_rows(model, seeds, boundary, disclosed):
     """Attribute native closure judgments to their exact selected root use."""
-    from sqlalchemy import BigInteger, Boolean, exists, literal_column
+    from sqlalchemy import BigInteger, Boolean, exists
     from sqlalchemy.dialects.postgresql import array
 
     uses = model.tables["ops.demand_use"].alias("explained_root_use")
@@ -430,7 +432,8 @@ def support_explanation_rows(model, seeds, boundary, disclosed):
         ),
     )
     epoch = cast(
-        literal_column("boundary.trust_snapshot", JSONB()).op("->>")(revoked.c.scope), BigInteger()
+        core_reference("boundary", "trust_snapshot", type_=JSONB()).op("->>")(revoked.c.scope),
+        BigInteger(),
     )
     relation = (
         seeds.join(uses, uses.c.id == seeds.c.id)

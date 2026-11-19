@@ -388,6 +388,22 @@ current producing requests carry demand scope. The retained-result comparison fo
 exact-recipe matches among the 14 preserved episodes. The
 [identity successor record][programs] owns the current stage evidence.
 
+### Fresh PDF contribution on N34
+
+**Failed, 2026-11-19.** The selected-source native control reached the first fresh PDF contributor
+registration and PostgreSQL refused it with SQLSTATE 23514, “PDF spool contributor has no matching
+original producer” (`6c22c15dd71141a390ce8733dcee242c`). The same selection passed all four
+JSONL and Parquet demand exports. The selected-source test failed upstream of package export.
+
+The current lowering capture reports `code_identity.complete=false`. The installed contributor
+guard requires material-domain compatibility for both the original attempt's own contribution and
+cross-attempt adoption. Its material-domain projection requires complete code identity, so that
+predicate cannot establish compatibility for this fresh attempt. UDM-25 owns the distinction
+between same-attempt attribution with exact current custody and recovery across attempts. Preserve
+the complete-identity and original-retirement requirements for cross-attempt adoption. Address
+the fresh path through the native revision lifecycle and rerun the selected-source journey.
+[UDM-10 code identity boundary][programs]
+
 [coordinator]: ../unified-domain-model-and-execution_2026-11-19.md
 [review]: ../../plan_improvement_reviews/unified-domain-model-and-execution_2026-11-18.md#I02
 [programs]: programs-identity-and-revisions.md

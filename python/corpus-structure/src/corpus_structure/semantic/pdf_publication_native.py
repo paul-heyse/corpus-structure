@@ -23,6 +23,8 @@ from .native_program import (
     NativeRoutine,
     Parameter,
     column_type,
+    core_cast_literal,
+    core_reference,
     core_variable,
     pg_type,
 )
@@ -245,7 +247,6 @@ def _coverage_support_violation_statement(*, target_metadata=None):
         false,
         func,
         literal,
-        literal_column,
         or_,
         select,
         true,
@@ -260,7 +261,7 @@ def _coverage_support_violation_statement(*, target_metadata=None):
     retained = metadata.tables["kb.pdf_product_coverage"].alias("retained_coverage")
     input_ = companion.alias("support_input")
     recorded = companion.alias("recorded_coverage")
-    build = literal_column("p_build", type_=companion.c.product_id.type)
+    build = core_reference("p_build", type_=companion.c.product_id.type)
     claims = (
         select(
             companion.c.local_id.label("claim_id"),
@@ -280,9 +281,9 @@ def _coverage_support_violation_statement(*, target_metadata=None):
         func.jsonb_array_elements(
             func.coalesce(
                 func.nullif(
-                    claims.c.body["supports"], literal_column("'null'::jsonb", type_=JSONB)
+                    claims.c.body["supports"], core_cast_literal("null", pg_type("jsonb"), JSONB())
                 ),
-                literal_column("'[]'::jsonb", type_=JSONB),
+                core_cast_literal("[]", pg_type("jsonb"), JSONB()),
             )
         )
         .table_valued(column("value", JSONB))

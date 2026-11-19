@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
-import sqlite3
 from contextlib import contextmanager
 from hashlib import file_digest, sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from sqlalchemy import Column, LargeBinary, MetaData, Table, Text, select
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.demand_results import stream_demand_result, stream_selected_support
+from corpus_structure.semantic.sqlite_scratch import open_scratch
+
+_SPOOL = MetaData()
+_RECORDS = Table(
+    "records",
+    _SPOOL,
+    Column("key", Text, primary_key=True),
+    Column("relation", Text, nullable=False),
+    Column("payload", LargeBinary, nullable=False),
+)
 
 _EXECUTION_JSON_FIELDS = {"producer", "selected_completion", "cpu_receipt"}
 _EXECUTION_INTEGER_FIELDS = {"output_position", "member_ordinal", "cohort_size"}
@@ -151,13 +163,13 @@ def export_demand_result(
     if destination.exists():
         raise FileExistsError(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with TemporaryDirectory(prefix=".demand-export-", dir=destination.parent) as scratch:
+    with (
+        TemporaryDirectory(prefix=".demand-export-", dir=destination.parent) as scratch,
+        open_scratch(Path(scratch) / "closure.sqlite") as spool,
+    ):
         root = Path(scratch) / "export"
         root.mkdir()
-        spool = sqlite3.connect(Path(scratch) / "closure.sqlite")
-        spool.execute(
-            "CREATE TABLE records (key TEXT PRIMARY KEY, relation TEXT NOT NULL, payload BLOB NOT NULL)"
-        )
+        _SPOOL.create_all(spool)
         files, pages, releases, runtimes = {}, [], set(), set()
         source_digests = set()
         cut = None
@@ -195,13 +207,14 @@ def export_demand_result(
                 continue
             payload = json_bytes(record)
             previous = spool.execute(
-                "SELECT payload FROM records WHERE key=?", (record["key"],)
+                select(_RECORDS.c.payload).where(_RECORDS.c.key == record["key"])
             ).fetchone()
             if previous is not None and previous[0] != payload:
                 raise ValueError("same selected witness key acquired different exact bytes")
             spool.execute(
-                "INSERT OR IGNORE INTO records VALUES (?,?,?)",
-                (record["key"], record["relation"], payload),
+                sqlite_insert(_RECORDS)
+                .values(key=record["key"], relation=record["relation"], payload=payload)
+                .on_conflict_do_nothing(index_elements=[_RECORDS.c.key])
             )
             if record["relation"] == "ops.original_source_admission":
                 reference = record["record"]["reference"]
@@ -221,7 +234,7 @@ def export_demand_result(
                 releases.add(producing["release_id"])
                 runtimes.add((producing["release_id"], producing["runtime_id"]))
         source_files = {}
-        from sqlalchemy import func, select
+        from sqlalchemy import func
 
         from corpus_structure.semantic.metadata import table
 
@@ -293,7 +306,7 @@ def export_demand_result(
         write("execution-evidence-contract.json", json_bytes(execution_evidence_leaf_schema()))
         closure_path = root / "closure.jsonl"
         with closure_path.open("wb") as output:
-            for (payload,) in spool.execute("SELECT payload FROM records ORDER BY key"):
+            for (payload,) in spool.execute(select(_RECORDS.c.payload).order_by(_RECORDS.c.key)):
                 output.write(payload + b"\n")
         files[closure_path.name] = dict(
             sha256=_checksum(closure_path), bytes=closure_path.stat().st_size
@@ -309,20 +322,25 @@ def export_demand_result(
             from sqlalchemy.dialects.postgresql import JSONB
 
             for (relation,) in spool.execute(
-                "SELECT DISTINCT relation FROM records ORDER BY relation"
+                select(_RECORDS.c.relation).distinct().order_by(_RECORDS.c.relation)
             ):
                 authority = relation == "ops.data_authority_leaf"
                 execution = relation == "ops.data_execution_evidence_leaf"
                 first = spool.execute(
-                    "SELECT payload FROM records WHERE relation=? ORDER BY key LIMIT 1", (relation,)
-                ).fetchone()
-                names = set(wire_json_loads(first[0])["record"])
+                    select(_RECORDS.c.payload)
+                    .where(_RECORDS.c.relation == relation)
+                    .order_by(_RECORDS.c.key)
+                    .limit(1)
+                ).scalar_one()
+                names = set(wire_json_loads(first)["record"])
                 schema, columns = _relation_schema(relation, names, cut.identity)
                 name = relation.replace(".", "_") + ".parquet"
                 count = 0
                 with pq.ParquetWriter(root / name, schema) as writer:
                     rows = spool.execute(
-                        "SELECT payload FROM records WHERE relation=? ORDER BY key", (relation,)
+                        select(_RECORDS.c.payload)
+                        .where(_RECORDS.c.relation == relation)
+                        .order_by(_RECORDS.c.key)
                     )
                     for batch in batched(rows, 64, strict=False):
                         values = []
@@ -369,18 +387,25 @@ def export_demand_result(
         support_disclosure = (
             "bounded"
             if spool.execute(
-                "SELECT EXISTS(SELECT 1 FROM records WHERE relation='ops.data_authority_leaf')"
-            ).fetchone()[0]
+                select(
+                    select(_RECORDS.c.key)
+                    .where(_RECORDS.c.relation == "ops.data_authority_leaf")
+                    .exists()
+                )
+            ).scalar_one()
             else "complete"
         )
         execution_disclosure = (
             "bounded"
             if spool.execute(
-                "SELECT EXISTS(SELECT 1 FROM records WHERE relation='ops.data_execution_evidence_leaf')"
-            ).fetchone()[0]
+                select(
+                    select(_RECORDS.c.key)
+                    .where(_RECORDS.c.relation == "ops.data_execution_evidence_leaf")
+                    .exists()
+                )
+            ).scalar_one()
             else "complete"
         )
-        spool.close()
         manifest = dict(
             format="demand-result-export-v3",
             encoding=format,
@@ -450,9 +475,15 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
 
         models[release_id] = bound_data_operation_model(acquired)
         projection = read_native_definition_projection(acquired, model=models[release_id])
+        parameters = {
+            operation.semantic_id: operation.parameters
+            for operation in models[release_id].operations
+        }
         for operation in projection["operations"]:
             definitions[release_id, operation["operation_id"]] = dict(
-                operation, release_id=release_id
+                operation,
+                release_id=release_id,
+                parameter_definitions=wire_json_loads(parameters[operation["operation_id"]]),
             )
         for kind in projection["kinds"]:
             if kind["kind_contract"] in kinds and kinds[kind["kind_contract"]] != kind:

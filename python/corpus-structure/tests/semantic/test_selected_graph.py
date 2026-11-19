@@ -12,6 +12,57 @@ from corpus_structure.semantic.selected_graph import snapshot_from_index
 from semantic.data_operation_declaration_support import model, operation
 
 
+def test_selected_index_binds_unindexed_fields_and_uses_declared_expression_indexes(tmp_path):
+    from corpus_structure.semantic.data_operation_read_index import _selected
+
+    index = SelectedRecordIndex(tmp_path / "expressions.sqlite")
+    value = "literal '%[0]"
+    record = dict.fromkeys(
+        (
+            "id",
+            "kind_contract",
+            "product_id",
+            "member_id",
+            "derivation_id",
+            "role",
+            "position",
+            "occurrence",
+            "alternate",
+        ),
+        value,
+    )
+    groups = (
+        ("id",),
+        ("kind_contract",),
+        ("product_id", "member_id"),
+        ("derivation_id", "role", "position"),
+        ("derivation_id", "occurrence"),
+    )
+    try:
+        index.append(json_bytes(dict(relation="sample", key="unique", record=record)))
+        for fields in (*groups, ("alternate",)):
+            values = (value,) * len(fields)
+            statement = _selected("sample", fields, values)
+            compiled = statement.compile(
+                index.connection, compile_kwargs={"render_postcompile": True}
+            )
+            plan = index.connection.exec_driver_sql(
+                "EXPLAIN QUERY PLAN " + str(compiled),
+                tuple(compiled.params[name] for name in (compiled.positiontup or ())),
+            ).all()
+            if fields in groups:
+                assert any("record_" + "_".join(fields) + " (" in detail for *_, detail in plan)
+                assert any("<expr>=?" in detail for *_, detail in plan)
+            else:
+                assert "alternate" not in str(compiled)
+                assert "$.record.alternate" in compiled.params.values()
+                assert all("<expr>=?" not in detail for *_, detail in plan)
+            key = values[0] if len(fields) == 1 else values
+            assert index.mapping("sample", fields)[key] == record
+    finally:
+        index.close()
+
+
 def selected_index(tmp_path):
     index = SelectedRecordIndex(tmp_path / "index.sqlite")
     pins = dict(
@@ -143,7 +194,7 @@ def test_required_selected_reference_cannot_disappear_silently(tmp_path, monkeyp
         lambda prepared: model(operation("operation")),
     )
     index, cut = selected_index(tmp_path)
-    index.connection.execute(
+    index.connection.exec_driver_sql(
         "DELETE FROM records WHERE relation='ops.demand_use' AND json_extract(payload,'$.record.id')='su'"
     )
     try:
@@ -306,13 +357,13 @@ def test_native_authority_is_an_explicit_unknown_boundary(tmp_path, monkeypatch,
     )
     index, cut = selected_index(tmp_path)
     # This is a controlled transferred graph, not native admission evidence.
-    index.connection.execute(
+    index.connection.exec_driver_sql(
         "DELETE FROM records WHERE relation='ops.demand_use' AND json_extract(payload,'$.record.id')='su'"
     )
-    index.connection.execute(
+    index.connection.exec_driver_sql(
         "DELETE FROM records WHERE relation='ops.data_derivation' AND json_extract(payload,'$.record.id') IN ('new','old')"
     )
-    index.connection.execute(
+    index.connection.exec_driver_sql(
         "DELETE FROM records WHERE relation='ops.data_request' AND json_extract(payload,'$.record.id')='producer'"
     )
     leaf = dict(

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import json
-import sqlite3
 from collections import Counter
 from dataclasses import asdict, dataclass
 from hashlib import sha256
@@ -15,6 +14,8 @@ from typing import TYPE_CHECKING, Any, Literal
 import ijson
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from sqlalchemy import Column, Integer, MetaData, Table, Text, func, select
+from sqlalchemy.exc import IntegrityError
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
 from corpus_structure.model.compiled import model_projection, model_source
@@ -23,6 +24,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import get_physical_model_id
 from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
 from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.sqlite_scratch import open_scratch
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from corpus_structure.serve.companion_export import _publish_directory
 from corpus_structure.serve.selected_pdf import (
@@ -465,6 +467,35 @@ class PreparedSelectedFormulaInputs:
     context_policy: str
 
 
+_SOURCE_INDEX = MetaData()
+_RECORDS = Table(
+    "records",
+    _SOURCE_INDEX,
+    Column("pointer", Text, primary_key=True),
+    Column("record_id", Text, unique=True),
+    Column("ordinal", Integer, unique=True),
+    Column("parent", Text),
+    Column("label", Text),
+    Column("path", Text),
+)
+_COMPANIONS = Table(
+    "companions",
+    _SOURCE_INDEX,
+    Column("family", Text, primary_key=True),
+    Column("local_id", Text, primary_key=True),
+    Column("ordinal", Integer),
+    Column("path", Text),
+)
+_DESCRIPTORS = Table("descriptors", _SOURCE_INDEX, Column("kind", Text), Column("body", Text))
+_ENDPOINTS = Table(
+    "endpoints",
+    _SOURCE_INDEX,
+    Column("relation_id", Text, primary_key=True),
+    Column("ordinal", Integer, primary_key=True),
+    Column("path", Text),
+)
+
+
 class SelectedSourceReader:
     """Verify once into an owned disk index before exposing any accepted prepared input."""
 
@@ -472,7 +503,7 @@ class SelectedSourceReader:
         self.package = Path(package)
         self._temporary = TemporaryDirectory(prefix="selected-source-reader-")
         self._root = Path(self._temporary.name)
-        self._index = sqlite3.connect(self._root / "index.sqlite3")
+        self._index = open_scratch(self._root / "index.sqlite3")
         self._closed = False
         self._verified = False
         self.header: dict[str, Any] = {}
@@ -487,7 +518,7 @@ class SelectedSourceReader:
                     "selected source root/membership differs from requested selection"
                 )
             self._verify()
-        except (ijson.JSONError, UnicodeError, KeyError, sqlite3.IntegrityError) as error:
+        except (ijson.JSONError, UnicodeError, KeyError, IntegrityError) as error:
             self.close()
             raise SelectedSourceUnavailable(
                 "selected source JSON/identity/state is invalid"
@@ -510,19 +541,7 @@ class SelectedSourceReader:
 
     def _verify(self):
         spec, boundary, schema = _protocol()
-        self._index.execute(
-            "CREATE TABLE records(pointer TEXT PRIMARY KEY, record_id TEXT UNIQUE, "
-            "ordinal INTEGER UNIQUE, parent TEXT, label TEXT, path TEXT)"
-        )
-        self._index.execute(
-            "CREATE TABLE companions(family TEXT, local_id TEXT, ordinal INTEGER, "
-            "path TEXT, PRIMARY KEY(family,local_id))"
-        )
-        self._index.execute("CREATE TABLE descriptors(kind TEXT, body TEXT)")
-        self._index.execute(
-            "CREATE TABLE endpoints(relation_id TEXT, ordinal INTEGER, "
-            "path TEXT, PRIMARY KEY(relation_id,ordinal))"
-        )
+        _SOURCE_INDEX.create_all(self._index)
         digest, membership = sha256(), sha256()
         length = selected_count = 0
         counts = Counter()
@@ -674,25 +693,23 @@ class SelectedSourceReader:
                                     "selected source pointer changed inside record"
                                 )
                             self._index.execute(
-                                "INSERT INTO records VALUES(?,?,?,?,?,?)",
-                                (
-                                    descriptor["pointer"],
-                                    descriptor["record_id"],
-                                    descriptor["ordinal"],
-                                    descriptor["parent_pointer"],
-                                    descriptor["label"],
-                                    str(path),
-                                ),
+                                _RECORDS.insert().values(
+                                    pointer=descriptor["pointer"],
+                                    record_id=descriptor["record_id"],
+                                    ordinal=descriptor["ordinal"],
+                                    parent=descriptor["parent_pointer"],
+                                    label=descriptor["label"],
+                                    path=str(path),
+                                )
                             )
                         else:
                             self._index.execute(
-                                "INSERT INTO companions VALUES(?,?,?,?)",
-                                (
-                                    descriptor["family"],
-                                    descriptor["local_id"],
-                                    descriptor["ordinal"],
-                                    str(path),
-                                ),
+                                _COMPANIONS.insert().values(
+                                    family=descriptor["family"],
+                                    local_id=descriptor["local_id"],
+                                    ordinal=descriptor["ordinal"],
+                                    path=str(path),
+                                )
                             )
                             if descriptor["family"] == "endpoint":
                                 endpoint = json.loads(path.read_bytes())
@@ -712,12 +729,11 @@ class SelectedSourceReader:
                                         "relation endpoint is not qualified"
                                     )
                                 self._index.execute(
-                                    "INSERT INTO endpoints VALUES(?,?,?)",
-                                    (
-                                        endpoint["relation_id"],
-                                        endpoint["endpoint_ordinal"],
-                                        str(path),
-                                    ),
+                                    _ENDPOINTS.insert().values(
+                                        relation_id=endpoint["relation_id"],
+                                        ordinal=endpoint["endpoint_ordinal"],
+                                        path=str(path),
+                                    )
                                 )
                         active = None
                     elif kind in {"context", "outside_reference"}:
@@ -737,7 +753,7 @@ class SelectedSourceReader:
                                     "outside reference is not product qualified"
                                 )
                         self._index.execute(
-                            "INSERT INTO descriptors VALUES(?,?)", (kind, json.dumps(data))
+                            _DESCRIPTORS.insert().values(kind=kind, body=json.dumps(data))
                         )
                     elif kind == "trailer":
                         if (
@@ -775,35 +791,36 @@ class SelectedSourceReader:
                     "selected source receipt/membership/serialization differs"
                 )
             root = self.receipt.selection.root
-            rows = self._index.execute("SELECT pointer,parent FROM records ORDER BY ordinal")
-            if not self._index.execute("SELECT 1 FROM records WHERE pointer=?", (root,)).fetchone():
+            root_record = select(_RECORDS.c.pointer).where(_RECORDS.c.pointer == root)
+            if not self._index.execute(select(root_record.exists())).scalar_one():
                 raise SelectedSourceUnavailable("selected source root is absent")
-            for pointer, parent in rows:
-                if (
-                    pointer != root
-                    and not self._index.execute(
-                        "SELECT 1 FROM records WHERE pointer=?", (parent,)
-                    ).fetchone()
-                ):
-                    raise SelectedSourceUnavailable("selected source ancestry leaves its root")
-            reachable = self._index.execute(
-                "WITH RECURSIVE reached(pointer) AS (SELECT pointer FROM records WHERE pointer=? "
-                "UNION SELECT r.pointer FROM records r JOIN reached p ON r.parent=p.pointer) "
-                "SELECT count(*) FROM reached",
-                (root,),
-            ).fetchone()[0]
+            parent = _RECORDS.alias("parent")
+            missing_parent = select(_RECORDS.c.pointer).where(
+                _RECORDS.c.pointer != root,
+                ~select(parent.c.pointer).where(parent.c.pointer == _RECORDS.c.parent).exists(),
+            )
+            if self._index.execute(select(missing_parent.exists())).scalar_one():
+                raise SelectedSourceUnavailable("selected source ancestry leaves its root")
+            reached = root_record.cte("reached", recursive=True)
+            reached = reached.union(
+                select(_RECORDS.c.pointer).join(reached, _RECORDS.c.parent == reached.c.pointer)
+            )
+            reachable = self._index.execute(select(func.count()).select_from(reached)).scalar_one()
             if reachable != selected_count:
                 raise SelectedSourceUnavailable(
                     "selected source contains disconnected/cyclic ancestry"
                 )
             for relation_id, path in self._index.execute(
-                "SELECT local_id,path FROM companions WHERE family='relation'"
+                select(_COMPANIONS.c.local_id, _COMPANIONS.c.path).where(
+                    _COMPANIONS.c.family == "relation"
+                )
             ):
                 relation = json.loads(Path(path).read_bytes())
                 endpoint_rows = list(
                     self._index.execute(
-                        "SELECT ordinal,path FROM endpoints WHERE relation_id=? ORDER BY ordinal",
-                        (relation_id,),
+                        select(_ENDPOINTS.c.ordinal, _ENDPOINTS.c.path)
+                        .where(_ENDPOINTS.c.relation_id == relation_id)
+                        .order_by(_ENDPOINTS.c.ordinal)
                     )
                 )
                 declared = relation.get("endpoints", [])
@@ -829,7 +846,9 @@ class SelectedSourceReader:
             raise SelectedSourceUnavailable("selected source reader is closed/unverified")
         return tuple(
             json.loads(row[0])
-            for row in self._index.execute("SELECT body FROM descriptors WHERE kind=?", (kind,))
+            for row in self._index.execute(
+                select(_DESCRIPTORS.c.body).where(_DESCRIPTORS.c.kind == kind)
+            )
         )
 
     def prepare_formula_inputs(
@@ -868,12 +887,12 @@ class SelectedSourceReader:
             if item["body"]["target"].get("pointer") in required
             or item["body"]["target"].get("occurrence_id") in required
         ]
-        missing = required - {row[0] for row in self._index.execute("SELECT pointer FROM records")}
+        missing = required - {row[0] for row in self._index.execute(select(_RECORDS.c.pointer))}
         if needed or missing:
             raise AdditionalContextRequired(needed, required_outside_values=sorted(missing))
         outcomes = {}
         for (path,) in self._index.execute(
-            "SELECT path FROM companions WHERE family='native_metadata'"
+            select(_COMPANIONS.c.path).where(_COMPANIONS.c.family == "native_metadata")
         ):
             body = json.loads(Path(path).read_bytes())
             if body.get("kind") == "formula_outcomes":
@@ -884,7 +903,9 @@ class SelectedSourceReader:
                 outcomes[pointer] = value.get("outcome", body.get("outcome", "unknown"))
         prepared = []
         for pointer, path in self._index.execute(
-            "SELECT pointer,path FROM records WHERE label='formula' ORDER BY ordinal"
+            select(_RECORDS.c.pointer, _RECORDS.c.path)
+            .where(_RECORDS.c.label == "formula")
+            .order_by(_RECORDS.c.ordinal)
         ):
             body = json.loads(Path(path).read_bytes())
             if body.get("self_ref") != pointer:

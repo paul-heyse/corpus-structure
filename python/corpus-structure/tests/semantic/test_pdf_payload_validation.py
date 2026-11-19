@@ -233,7 +233,7 @@ def test_frozen_occurrence_text_uses_lossless_checked_byte_field(tmp_path):
         )
         store.add("artifact_part", dict(stream_id="text", ordinal=0, body=payload.hex()))
         assert store.companion_value(row)["text"] == spelling
-        store.db.execute("UPDATE part SET body=? WHERE stream='text'", (b"changed",))
+        store.db.exec_driver_sql("UPDATE part SET body=? WHERE stream='text'", (b"changed",))
         with pytest.raises(ValueError):
             store.companion_value(row)
     finally:
@@ -341,7 +341,7 @@ def test_false_complete_coverage_fails_over_captured_page_inventory(tmp_path):
         inline_membership="direct",
         candidate_policy="native-font-token-vector-ocr-word-v3",
     )
-    store.db.execute(
+    store.db.exec_driver_sql(
         "UPDATE entry SET body=? WHERE family='companion' AND key=?",
         (
             json.dumps(dict(family="health", local_id="health", body=health)),
@@ -386,7 +386,7 @@ def test_family_kind_page_and_exists_selectors_do_not_decode_unrelated_rows(tmp_
         ):
             store.add("companion", dict(family=family, local_id=local, body=body))
             # A selector for the real page must not even parse these payloads.
-            store.db.execute(
+            store.db.exec_driver_sql(
                 "UPDATE entry SET body='not JSON' WHERE family='companion' AND key=?",
                 (json.dumps([family, local]),),
             )
@@ -396,9 +396,17 @@ def test_family_kind_page_and_exists_selectors_do_not_decode_unrelated_rows(tmp_
         assert list(store.companions("native_metadata", page_nos=[])) == []
         assert store.has_companions("native_metadata", kind="runtime_report")
         assert not store.has_companions("coverage")
-        where, parameters = store._selection("native_metadata", "inline_candidate_pages", [1])
-        plan = store.db.execute(
-            "EXPLAIN QUERY PLAN SELECT body FROM entry WHERE " + where, parameters
+        from sqlalchemy import select
+
+        from corpus_structure.semantic.pdf_payload_validation import _ENTRY
+
+        statement = select(_ENTRY.c.body).where(
+            *store._selection("native_metadata", "inline_candidate_pages", [1])
+        )
+        compiled = statement.compile(store.db, compile_kwargs={"render_postcompile": True})
+        plan = store.db.exec_driver_sql(
+            "EXPLAIN QUERY PLAN " + str(compiled),
+            tuple(compiled.params[name] for name in (compiled.positiontup or ())),
         ).fetchall()
         assert any("SEARCH entry USING INDEX" in detail for *_, detail in plan)
     finally:
@@ -527,14 +535,14 @@ def test_a_previous_success_never_authorizes_changed_frozen_payload(tmp_path, de
     try:
         store.validate(document, projection)
         if defect == "bytes":
-            store.db.execute("UPDATE part SET body=? WHERE stream='page'", (b"changed",))
+            store.db.exec_driver_sql("UPDATE part SET body=? WHERE stream='page'", (b"changed",))
         elif defect == "encoding":
-            (raw,) = store.db.execute(
+            raw = store.db.exec_driver_sql(
                 "SELECT body FROM entry WHERE family='artifact_stream' AND key='page'"
-            ).fetchone()
+            ).scalar_one()
             descriptor = json.loads(raw)
             descriptor["encoding_profile"] = "pdf-companion-json-field-v1"
-            store.db.execute(
+            store.db.exec_driver_sql(
                 "UPDATE entry SET body=? WHERE family='artifact_stream' AND key='page'",
                 (json.dumps(descriptor),),
             )
@@ -545,7 +553,7 @@ def test_a_previous_success_never_authorizes_changed_frozen_payload(tmp_path, de
                 "locator": "page_no",
             }[defect]
             row["body"][field] = 2 if defect == "locator" else "0" * 64
-            store.db.execute(
+            store.db.exec_driver_sql(
                 "UPDATE entry SET body=? WHERE family='companion' AND key=?",
                 (json.dumps(row), json.dumps(["native_metadata", "page:0"])),
             )

@@ -521,8 +521,9 @@ def native_statement(
     *,
     internal_bindings: Mapping[str, str] | None = None,
 ) -> Select:
-    from sqlalchemy import literal_column
     from sqlalchemy.sql.elements import BindParameter
+
+    from .native_program import core_reference
 
     variables = {p.name: (p.native_name, p.sql_type) for p in recipe.parameters}
     variables.update({"_" + name: value for name, value in _INTERNAL_BINDINGS.items()})
@@ -537,7 +538,7 @@ def native_statement(
     def replace(element: ClauseElement, **kw: Any) -> ClauseElement | None:
         if isinstance(element, BindParameter) and element.key in variables:
             name, typ = variables[element.key]
-            return literal_column(name, type_=typ)
+            return core_reference(*name.split("."), type_=typ)
         return None
 
     result = visitors.replacement_traverse(statement, {}, replace)

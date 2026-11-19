@@ -3,12 +3,56 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from collections.abc import Collection, Iterator, Mapping
 from functools import lru_cache
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
+
+from sqlalchemy import Column, Index, Integer, LargeBinary, MetaData, Table, Text, func, select
+from sqlalchemy.exc import IntegrityError
+
+from .sqlite_scratch import open_scratch
+
+_METADATA = MetaData()
+_ENTRY = Table(
+    "entry",
+    _METADATA,
+    Column("family", Text, primary_key=True),
+    Column("key", Text, primary_key=True),
+    Column("body", Text),
+    Column("companion_family", Text),
+    Column("metadata_kind", Text),
+    Column("page_no", Integer),
+)
+Index(
+    "companion_kind",
+    _ENTRY.c.family,
+    _ENTRY.c.companion_family,
+    _ENTRY.c.metadata_kind,
+    _ENTRY.c.key,
+)
+Index(
+    "companion_page",
+    _ENTRY.c.family,
+    _ENTRY.c.companion_family,
+    _ENTRY.c.metadata_kind,
+    _ENTRY.c.page_no,
+    _ENTRY.c.key,
+)
+_PART = Table(
+    "part",
+    _METADATA,
+    Column("stream", Text, primary_key=True),
+    Column("ordinal", Integer, primary_key=True),
+    Column("body", LargeBinary),
+)
+_PAGE = Table(
+    "page",
+    _METADATA,
+    Column("number", Integer, primary_key=True),
+    Column("local", Text, unique=True),
+)
 
 
 def metadata_classes() -> dict[str, str]:
@@ -25,10 +69,9 @@ class _FrozenCompanions:
 
     def __init__(self, store: FrozenPayloadStore, family: str):
         self.store, self.family = store, family
-        where, parameters = store._selection(family, None, None)
         self.count = store.db.execute(
-            "SELECT count(*) FROM entry WHERE " + where, parameters
-        ).fetchone()[0]
+            select(func.count()).select_from(_ENTRY).where(*store._selection(family, None, None))
+        ).scalar_one()
         self._indexed = lru_cache(maxsize=256)(self._one)
 
     def __len__(self):
@@ -40,12 +83,10 @@ class _FrozenCompanions:
 
     def _one(self, index: int):
         key = json.dumps([self.family, str(index)])
-        row = self.store.db.execute(
-            "SELECT body FROM entry WHERE family='companion' AND key=?", (key,)
-        ).fetchone()
+        row = self.store._entry_body("companion", key)
         if row is None:
             raise ValueError("frozen companion input index is absent")
-        return self.store.companion_value(json.loads(row[0]))
+        return self.store.companion_value(json.loads(row))
 
     def __getitem__(self, index: int):
         return self._indexed(index)
@@ -55,15 +96,12 @@ class FrozenPayloadStore:
     """Own immutable captured bytes on disk; hydrate only a requested metadata value."""
 
     def __init__(self, path: Path):
-        self.db = sqlite3.connect(path)
-        self.db.executescript("""
-        CREATE TABLE entry(family TEXT, key TEXT, body TEXT, companion_family TEXT,
-                           metadata_kind TEXT, page_no INTEGER, PRIMARY KEY(family,key));
-        CREATE INDEX companion_kind ON entry(family,companion_family,metadata_kind,key);
-        CREATE INDEX companion_page ON entry(family,companion_family,metadata_kind,page_no,key);
-        CREATE TABLE part(stream TEXT, ordinal INTEGER, body BLOB, PRIMARY KEY(stream,ordinal));
-        CREATE TABLE page(number INTEGER PRIMARY KEY, local TEXT UNIQUE);
-        """)
+        self.db = open_scratch(path)
+        try:
+            _METADATA.create_all(self.db)
+        except BaseException:
+            self.db.close()
+            raise
         self.schemas: dict[str, Any] = {}
         self.publication_kind = "native"
         self.integrated_metadata_policy: dict[str, Any] | None = None
@@ -82,8 +120,11 @@ class FrozenPayloadStore:
             self.integrated_metadata_policy = row.get("integrated_metadata_policy")
         elif family == "artifact_part":
             self.db.execute(
-                "INSERT INTO part VALUES(?,?,?)",
-                (row["stream_id"], row["ordinal"], bytes.fromhex(row["body"].removeprefix("\\x"))),
+                _PART.insert().values(
+                    stream=row["stream_id"],
+                    ordinal=row["ordinal"],
+                    body=bytes.fromhex(row["body"].removeprefix("\\x")),
+                )
             )
         elif family in {"artifact_stream", "companion", "companion_field", "endpoint"}:
             if family == "artifact_stream":
@@ -100,32 +141,45 @@ class FrozenPayloadStore:
                 )
             body = row.get("body", {}) if family == "companion" else {}
             self.db.execute(
-                "INSERT INTO entry VALUES(?,?,?,?,?,?)",
-                (
-                    family,
-                    key,
-                    json.dumps(row),
-                    row["family"] if family == "companion" else None,
-                    body.get("kind"),
-                    body.get("page_no"),
-                ),
+                _ENTRY.insert().values(
+                    family=family,
+                    key=key,
+                    body=json.dumps(row),
+                    companion_family=row["family"] if family == "companion" else None,
+                    metadata_kind=body.get("kind"),
+                    page_no=body.get("page_no"),
+                )
             )
+
+    def _entry_body(self, family: str, key: str) -> str | None:
+        return self.db.execute(
+            select(_ENTRY.c.body).where(_ENTRY.c.family == family, _ENTRY.c.key == key)
+        ).scalar_one_or_none()
+
+    def _entries(self, family: str) -> Iterator[dict[str, Any]]:
+        for (body,) in self.db.execute(
+            select(_ENTRY.c.body)
+            .where(_ENTRY.c.family == family)
+            .order_by(_ENTRY.c.key.collate("BINARY"))
+        ):
+            yield json.loads(body)
+
+    def stream_descriptors(self) -> Iterator[dict[str, Any]]:
+        return self._entries("artifact_stream")
 
     def parts(self, stream: str) -> Iterator[bytes]:
         for (body,) in self.db.execute(
-            "SELECT body FROM part WHERE stream=? ORDER BY ordinal", (stream,)
+            select(_PART.c.body).where(_PART.c.stream == stream).order_by(_PART.c.ordinal)
         ):
             yield body
 
     def stream(self, stream: str) -> tuple[dict[str, Any], bytes]:
         from .pdf_record_identity import byte_root
 
-        raw = self.db.execute(
-            "SELECT body FROM entry WHERE family='artifact_stream' AND key=?", (stream,)
-        ).fetchone()
+        raw = self._entry_body("artifact_stream", stream)
         if raw is None:
             raise ValueError("frozen metadata stream is missing")
-        descriptor = json.loads(raw[0])
+        descriptor = json.loads(raw)
         chunks = []
 
         def consume():
@@ -139,35 +193,26 @@ class FrozenPayloadStore:
         return descriptor, b"".join(chunks)
 
     def _selection(self, family: str, kind: str | None, page_nos: Collection[int] | None):
-        where = "family='companion' AND companion_family=?"
-        parameters: list[Any] = [family]
+        predicates = [_ENTRY.c.family == "companion", _ENTRY.c.companion_family == family]
         if kind is not None:
-            where += " AND metadata_kind=?"
-            parameters.append(kind)
+            predicates.append(_ENTRY.c.metadata_kind == kind)
         if page_nos is not None:
-            if not page_nos:
-                where += " AND 0"
-            else:
-                where += " AND page_no IN (" + ",".join("?" for _ in page_nos) + ")"
-                parameters.extend(page_nos)
-        return where, parameters
+            predicates.append(_ENTRY.c.page_no.in_(tuple(page_nos)))
+        return predicates
 
     def companions(
         self, family: str, *, kind: str | None = None, page_nos: Collection[int] | None = None
     ) -> Iterator[dict[str, Any]]:
-        where, parameters = self._selection(family, kind, page_nos)
         for (raw,) in self.db.execute(
-            "SELECT body FROM entry WHERE " + where + " ORDER BY key", parameters
+            select(_ENTRY.c.body)
+            .where(*self._selection(family, kind, page_nos))
+            .order_by(_ENTRY.c.key)
         ):
             yield json.loads(raw)
 
     def has_companions(self, family: str, *, kind: str | None = None) -> bool:
-        where, parameters = self._selection(family, kind, None)
-        return bool(
-            self.db.execute(
-                "SELECT EXISTS(SELECT 1 FROM entry WHERE " + where + ")", parameters
-            ).fetchone()[0]
-        )
+        matching = select(_ENTRY.c.key).where(*self._selection(family, kind, None))
+        return self.db.execute(select(matching.exists())).scalar_one()
 
     def companion_value(self, row: Mapping[str, Any]) -> dict[str, Any]:
         """Decode declared overflow fields from their frozen bytes."""
@@ -185,14 +230,12 @@ class FrozenPayloadStore:
             return body
         for name, kind, profile in expected:
             key = json.dumps([row["family"], row["local_id"], name])
-            raw = self.db.execute(
-                "SELECT body FROM entry WHERE family='companion_field' AND key=?", (key,)
-            ).fetchone()
+            raw = self._entry_body("companion_field", key)
             if raw is None:
                 continue
             if name in body:
                 raise ValueError(f"{row['family']} {name} has both inline and byte-owned values")
-            field = json.loads(raw[0])
+            field = json.loads(raw)
             descriptor, payload = self.stream(field["stream_id"])
             if field["scalar_kind"] != kind or descriptor["encoding_profile"] != profile:
                 raise ValueError(f"frozen {row['family']} {name} encoding differs")
@@ -216,12 +259,10 @@ class FrozenPayloadStore:
 
         body = row["body"]
         key = json.dumps([row["family"], row["local_id"], "value"])
-        raw = self.db.execute(
-            "SELECT body FROM entry WHERE family='companion_field' AND key=?", (key,)
-        ).fetchone()
+        raw = self._entry_body("companion_field", key)
         if raw is None:
             raise ValueError("frozen metadata field is missing")
-        field = json.loads(raw[0])
+        field = json.loads(raw)
         descriptor, payload = self.stream(field["stream_id"])
         kind = body["kind"]
         codec, validator = prepared
@@ -292,16 +333,15 @@ class FrozenPayloadStore:
             "runtime_report",
         }
         metadata = {kind: [] for kind in needed}
-        self.db.execute("DELETE FROM page")
+        self.db.execute(_PAGE.delete())
         for row in self.companions("native_metadata"):
             kind = row["body"]["kind"]
             if kind == FAMILY:
                 try:
                     self.db.execute(
-                        "INSERT INTO page VALUES(?,?)",
-                        (row["body"]["page_no"], json.dumps(row)),
+                        _PAGE.insert().values(number=row["body"]["page_no"], local=json.dumps(row))
                     )
-                except sqlite3.IntegrityError as error:
+                except IntegrityError as error:
                     raise ValueError(
                         "inline candidate page is duplicate or outside native scope"
                     ) from error
@@ -311,7 +351,7 @@ class FrozenPayloadStore:
                     metadata[kind].append(value)
 
         def pages():
-            for (raw,) in self.db.execute("SELECT local FROM page ORDER BY number"):
+            for (raw,) in self.db.execute(select(_PAGE.c.local).order_by(_PAGE.c.number)):
                 yield decode(json.loads(raw))
 
         items, regions = [], []
@@ -328,8 +368,9 @@ class FrozenPayloadStore:
             metadata_kinds=frozenset(
                 row[0]
                 for row in self.db.execute(
-                    "SELECT DISTINCT metadata_kind FROM entry "
-                    "WHERE family='companion' AND companion_family='native_metadata'"
+                    select(_ENTRY.c.metadata_kind)
+                    .where(*self._selection("native_metadata", None, None))
+                    .distinct()
                 )
             ),
             document=document,
