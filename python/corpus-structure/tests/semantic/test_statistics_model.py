@@ -40,7 +40,7 @@ def test_statistics_domain_retains_predicates_identity_and_structured_qualifiers
         if r.kind == "operation_property" and r.name == "RandomVariable/has_distribution"
     )
     assert role["cs:role"] == "predicate"
-    assert role["cs:functional"].lower() == "true"
+    assert role["cs:functional"] is True
     predicate_properties = {
         (metadata["class"], metadata["property"])
         for row in prepared.registry_rows
