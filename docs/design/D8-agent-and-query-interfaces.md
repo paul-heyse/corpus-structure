@@ -133,6 +133,14 @@ owner, process ID, observation lifetime, per-tier limits and available counters.
 reacquires native authority before consulting retained rows, scopes reuse to the effective
 principal and acquired database, and serves a fresh page while code identity is incomplete.
 
+**Implemented disk retention; entry-point qualification remains open · 2026-11-19.** CLI selected
+query and contribution pages can retain bounded typed rows in the private disk store. An authorized
+continuation seeks by ordinal in verified immutable JSON lines. Program authoring has a separate
+disk tier for typed rendered artifacts. `ci cache stats` includes disk occupancy and `ci cache
+prune` acts within that store. Actual entry-point reuse requires a closed executing-code identity.
+The cache companion owns the qualification boundary and each declared content-basis decision.
+[Cache package evidence](../design_review/evidence/2026-11-19_udm14-15-disk-cache/README.md)
+
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
 > Decision: [ADR-0126](../adr/0126-terminal-outcomes-and-attempt-failures.md)

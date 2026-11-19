@@ -1,6 +1,6 @@
 # The cache system: one owner module, six in-process tiers and two on-disk tiers
 
-**Status:** UDM-13 complete for the bounded N34 increment. UDM-14 and UDM-15 remain scheduled.
+**Status:** UDM-13 complete for the bounded N34 increment. UDM-14 and UDM-15 have scoped implementation. Actual entry-point reuse awaits complete code custody.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-13** (the cache owner module, cachetools 8.0.1 and the
@@ -274,13 +274,13 @@ value kind a row can hold.
 The disk tier uses a **typed canonical JSON lines** codec, owned by the serving module beside the
 entry type. One line holds one row, written with the project's canonical JSON conventions (sorted
 keys, exact decimal digits). The codec admits a closed set of value kinds: null, boolean, integer,
-string, decimal, float, list, and mapping with string keys. A decimal is written as a JSON number
-and read back in decimal number mode, which preserves its digits and scale. A float is written as
-a tagged one-key object holding its exact hexadecimal form, so that it does not come back as a
-decimal and so that negative zero and precision survive. A separate file holds the row offsets,
+string, decimal, float, list, tuple, and mapping with string keys. The controlled entity read
+exposed tuples in the actual typed response, so the store gives tuples their own reversible tag.
+Decimal text preserves scale and signed zero. Float hexadecimal text preserves its exact value
+and kind. Tags also distinguish user mappings and collections. A separate file holds the row offsets,
 and the manifest names the codec version.
 
-A result that contains any other value kind (a tuple, bytes, a date, a set) is **not written to
+A result that contains any other value kind (bytes, a date, a set) is **not written to
 disk**. It is still derived, served and held in process. This follows the rule the identity
 companion applies to incomplete code identity: where reuse cannot be made exact, reuse is withheld
 and service is not refused. Reading a disk entry yields the same row values as reading the
@@ -309,7 +309,7 @@ unknown fields, like every other section.
 | `served_bytes`, `served_entries` | 32 MiB, 128 (today's constants) | T4 |
 | `runtime_bytes` | 16 MiB based on the bounded CPU preparation | T5 |
 | `parser_entries`, `parse_memo_entries` | 8 and 8,192 | T6 |
-| `program_store_bytes`, `page_store_bytes` | set in UDM-14 from the size of one stored entry of each kind | D2, D4 |
+| `program_store_bytes`, `page_store_bytes` | 67 MiB and 1 MiB from the observed program artifact and controlled entity page. Zero disables the named tier | D2, D4 |
 | `wait_seconds` | 1 second | The longest a T4 waiter waits for an in-flight derivation |
 
 The per-entry limits of a served result (8 MiB, 4,096 rows) stay constants of the serving module.
@@ -583,6 +583,25 @@ list of tiers, which is internal structure.
 
 ### UDM-14 — The two on-disk tiers
 
+**Implemented against N34 · 2026-11-19.** The shared store publishes verified immutable entries,
+tracks active writers with a scoped lease, and prunes its own namespace under lock. `ci cache
+stats` includes disk occupancy and `ci cache prune` reports disk removals. D2 rehydrates a typed
+program artifact on a T2 miss, while the authoring owner retains the captured model and predecessor
+checks. D4 reads and writes bounded served rows in the two CLI routes after native authorization.
+The exact Decimal payload uses canonical text inside a typed tag to preserve signed integral zero.
+The graph preparation remains process-local.
+
+**Qualification boundary.** The actual entry scans still have 33 unresolved code references.
+Callable narrowing reaches module initialization and deeper unsupported dispatch, so the shipped
+eligibility checks require the existing complete identity. Controlled complete-identity tests
+exercise the disk hit path. The bounded stage remains on generation 31. The private entity
+journey was blocked at PDF fixture execution and did not reach the cache. [Execution evidence](../../design_review/evidence/2026-11-19_udm14-15-disk-cache/README.md)
+
+**Scoped Tested · 2026-11-19.** The final focused selection passed all 80 cases
+(`256e2b81c133422997936660628e365e`). Separate-process store hits, codec and ordinal behavior,
+controlled complete-identity authoring and serving, and cache-owner fault controls passed.
+Actual entry-point qualification remains pending.
+
 **Implementation vision.** A small module, `corpus_structure/cache_store.py`, owns a
 content-addressed store under the cache root. An entry is a directory
 `<root>/<tier>/<format version>/<key digest>/` that holds a JSON manifest listing each content
@@ -660,7 +679,7 @@ outside it is still served.
 - *The codec.* For a table of values written by hand in the test, including decimals that differ
   only in scale, an integer, a float and a decimal of equal value, negative zero, and nested
   mappings, decoding the encoding gives a value equal in kind and in content. A row holding a
-  tuple or bytes is reported as not storable and nothing is written.
+  bytes value is reported as not storable and nothing is written. Rich tuples round-trip in kind.
 - *A continuation across processes.* Two separate command invocations serve page one and page
   two of one query. The second performs no support read (a counting spy on the whole-result
   reader), and its rows are byte-identical to those of the same page served with the store
@@ -680,6 +699,24 @@ outside it is still served.
   winner is reported. Pruning leaves managed receipts and recoverable work intact.
 
 ### UDM-15 — Served-result reuse across fresh requests
+
+**N34 disposition · 2026-11-19.** Exclusion comparison uses two exact cuts. Its derived report
+consumes whole-support rows and an examined-record count, while the existing frontier stamp only
+names the frontier. The direct entity query over one immutable rich admission can use a scoped
+content witness from the newly authorized frontier. The witness retains the whole native
+projection, including trust, runtime, release, and disclosure-bearing fields. It replaces only
+the three receipt strings with their encoded lengths, including their copies in the continuation,
+to preserve the native body-envelope bound. The body is fixed by product identity and rechecked
+for disclosure before either cache lookup. Each response carries its own native pins. Other
+variants retain the cut basis while their dependencies remain open.
+
+Native demand row pages derive under a particular acquired native frontier and continuation.
+Contribution, interpretation, and structural pages consume whole-support projections. The
+exclusion comparison consumes two of those closures. A frontier stamp establishes neither the
+whole support bytes nor their disclosed population. Keep those paths keyed on their exact cuts.
+The additional rich query variants retain their current basis pending a query-specific analysis of
+the derived diagnostics and population semantics. T14 awaits real code identity and native entity
+acquisition.
 
 #### The premise that gates UDM-15
 
@@ -756,5 +793,5 @@ disk model caching unadopted for this increment.
 | Package | State |
 |---|---|
 | UDM-13 | Complete for the bounded N34 increment. Six process tiers, typed scientific policy projections and owner-scoped CLI and MCP diagnostics passed scoped qualification. Incomplete serving code identity still permits a fresh page. |
-| UDM-14 | Not started |
-| UDM-15 | Not started |
+| UDM-14 | Shared disk store and D2/D4 consumers integrated. Actual cross-process entry-point reuse remains open pending authenticated code closure. |
+| UDM-15 | Two-cut exclusion basis corrected. Direct entity content reuse is bounded to its authorized immutable root and complete code identity. Other query variants retain the cut basis. |

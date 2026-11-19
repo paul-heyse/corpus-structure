@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "id": "udm14-15.disk-cache",
+  "title": "N34 disk retention and code-custody qualification boundary",
+  "group": null,
+  "package": "UDM-14",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the N34 program and selected-row disk tiers retain exact outputs, and what presently limits their use?",
+  "answers": [
+    "UDM-14",
+    "UDM-15"
+  ],
+  "method": "Compare the current generated programs offline, validate disk lifecycle and row fidelity with controlled complete code identities, and inspect actual generator and selected query code identity.",
+  "commands": [
+    "uv run ci schema native-candidate --expected-predecessor semantic_ddo_pe_n34 --json",
+    "uv run ci test -- python/corpus-structure/tests/test_cache_store.py python/corpus-structure/tests/semantic/test_native_program_store.py python/corpus-structure/tests/semantic/test_served_row_codec.py",
+    "uv run ci cache stats --json",
+    "uv run ci cache prune --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "README.md",
+      "role": "bounded-account",
+      "sha256": "46f1f0043e5430620579a2cc4437257bdf83c40f3b47e031ac331b8d756becbb"
+    },
+    {
+      "path": "raw/stage.json",
+      "role": "acquired-stage-selection",
+      "sha256": "f7a254fa789ae457b912b037aa0243eb776c82f273914015a82828569690a103"
+    },
+    {
+      "path": "raw/program-weight.json",
+      "role": "program-footprint",
+      "sha256": "8911ceb34a5e5673e624c02ed1eebd7ef5109d5ba661016e92dc0a31460dc5d8"
+    },
+    {
+      "path": "raw/native-no-change.json",
+      "role": "offline-native-comparison",
+      "sha256": "5ac231c9c99f56167ed3980d67a7faaaf34c0b71571573f39378636c0f5979fe"
+    },
+    {
+      "path": "raw/code-closure.json",
+      "role": "code-identity-observations",
+      "sha256": "c1427b32fe00a8e92bc89ea9f12b17ef932be27d6ba7f8427a306995f766652a"
+    },
+    {
+      "path": "raw/page-weight.json",
+      "role": "controlled-page-footprint",
+      "sha256": "23043b690071fb6013ddde42ec99e9d975f3fcca6be475bf73c267d173582dc8"
+    }
+  ],
+  "depends_on": [
+    "2026-11-19_udm12-carried-assurance/udm12.stage-cutover",
+    "2026-11-19_udm13-cache-bounds/udm13.cache-bounds"
+  ],
+  "results": [
+    {
+      "name": "program_sample_bytes",
+      "value": 34715759,
+      "of": null,
+      "unit": "bytes",
+      "note": "Actual N34 rendered artifact and captured source inputs."
+    },
+    {
+      "name": "installed_objects_compared",
+      "value": 617,
+      "of": null,
+      "unit": null,
+      "note": "No native change with unreachable database endpoints."
+    },
+    {
+      "name": "unknowns_per_entry",
+      "value": 33,
+      "of": null,
+      "unit": null,
+      "note": "Four real entry paths and their whole-module closure."
+    },
+    {
+      "name": "stage_generation",
+      "value": 31,
+      "of": null,
+      "unit": null,
+      "note": "Read-only observation of the bounded project."
+    },
+    {
+      "name": "controlled_page_sample_bytes",
+      "value": 8454,
+      "of": null,
+      "unit": "bytes",
+      "note": "Rich entity rows and manifest from a controlled native boundary and real typed graph/codec."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Disk store and typed cold and warm paths are implemented. Actual code-custody completeness remains open for both tiers. The stage selection was preserved.",
+  "consumed_by": [
+    "UDM-14",
+    "UDM-15",
+    "UDM-22"
+  ]
+}
