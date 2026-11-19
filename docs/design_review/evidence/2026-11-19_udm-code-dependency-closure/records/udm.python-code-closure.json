@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "udm.python-code-closure",
+  "title": "UDM closure scan and bounded Python fixtures",
+  "group": null,
+  "package": "UDM-14",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What do the 33 saved findings establish about the current generator and reader code closures?",
+  "answers": [
+    "UDM-10",
+    "UDM-14",
+    "UDM-15",
+    "DA-075"
+  ],
+  "method": "Reproduce all four exact site lists and compare synthetic Python workloads with independent expected results from fresh interpreters.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-19_udm-code-dependency-closure/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "reproduction-and-fixtures",
+      "sha256": "ddc40709916c4c2d35458eaec649a63cd0f1f4ba4d408549eea7f927a74b8b60"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/observations.json",
+      "role": "root-observations-and-fixture-results",
+      "sha256": "dc99ad70eca7a1288cf326750d05db6c142571c9e14f0f3cfb746f8a5cf5e42e"
+    }
+  ],
+  "depends_on": [
+    "2026-11-19_udm14-15-disk-cache/udm14-15.disk-cache"
+  ],
+  "results": [
+    {
+      "name": "matched_root_scans",
+      "value": 4,
+      "of": 4,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "shared_diagnostic_locations",
+      "value": 33,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The diagnostic site lists match exactly. Bounded fixtures show one uninvoked dynamic site reported, a determining initializer correctly preventing narrowing, and an indirect import that changes the result without changing its reported complete identity. No production reuse qualified.",
+  "consumed_by": [
+    "UDM-10",
+    "UDM-14",
+    "UDM-15"
+  ]
+}

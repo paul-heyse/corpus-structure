@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Unified domain model code dependency closure](unified-domain-model-code-dependency-closure_2026-11-19.md).
+  Disposes the 33 shared diagnostic sites and proposes scoped generator and reader custody,
+  targeted Python analysis and a reuse explanation for the owning CLI operations.
+
 - [Unified domain model and execution](unified-domain-model-and-execution_2026-11-18.md).
   Assesses durable recovery and targeted invalidation across the superseding plan, including
   PostgreSQL settlement, PDF checkpoints, cross-release discovery and the CLI for exact recovery,
