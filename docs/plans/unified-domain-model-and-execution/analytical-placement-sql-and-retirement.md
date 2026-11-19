@@ -1,6 +1,6 @@
 # Analytical placement, the remaining SQL text, and retirement
 
-**Status:** UDM-18 and UDM-19 are complete for their bounded increments. Spawned-worker analytics settings, D1 placement, candidate TEMP policy inputs and native selected-source qualification remain open.
+**Status:** UDM-18 and UDM-19 are complete for their bounded increments. Spawned-worker analytics settings and candidate TEMP policy inputs are verified. D1 now uses typed Python and passed the admitted cohort again. Fresh selected-source and companion export qualification passed privately on registered N35.
 **Created:** 2026-11-19.
 
 This companion owns the designs of **UDM-16** (DuckDB conditions of use, declared settings, the
@@ -279,7 +279,7 @@ table lists the rows on which some package of this series acts.
 | G2, G3, R1 | Support walk, watermark prerequisites, tree and dependency walks | PostgreSQL | Bound; generated from the declared edge table | UDM-07 |
 | G5 | Change impact | Plain Python classification | The re-encoding of support semantics is removed and revocations are indexed by node | UDM-07 |
 | G4 | Semantic graph | Plain Python | Small; built once per **compiled model** and held with it in the compiled-model **cache tier** (T1) | UDM-13 |
-| D1 | Rich-rule occurrence views | DuckDB, conditional | Settings from the owner; entity attributes from the model; placement settled by a bounded observation on the stage (below) | UDM-16 |
+| D1 | Rich-rule occurrence views | Typed Python | The bounded admitted cohort met the plan's small-input criterion. Entity projections still read the declared model. | UDM-16 |
 | D1b | `disagreements` and `fuse` kernels | Retire | No production caller | UDM-16 |
 | D2 | Companion export inventory and multiset comparison | DuckDB | Named bag operations; UTC and spill from the owner; the materialized difference is bounded and reports its count; the `cp:` grouping and provenance columns are read from the compiled model and not from literal lists | UDM-16; the column reading is UDM-01's |
 | D3 | PDF candidate geometry joins | DuckDB | Local box schema; settings from the owner | UDM-16 |
@@ -893,21 +893,40 @@ child, where it reopens settings from defaults and environment. Constructor-supp
 threads, memory and spill settings therefore have no path into this consumer. The local owner
 and detached CLI checks cover their own processes.
 
-Carry the selected analytics settings through the existing CPU resource owner into each
-worker. Verify a genuinely spawned rich consolidation and the affected PDF worker routes
-with constructor-supplied settings and independently observed connection values.
+**Tested, 2026-11-19.** A typed settings snapshot flows from CLI, MCP and direct execution
+into the process host and every CPU generation. The settings determine physical host reuse and
+recreation. The spawn initializer installs the exact selected threads, memory limit and scratch
+path before analytical work begins. The settings are execution options outside semantic result
+identity.
 
-## Open premises
+The scoped tests exercised CLI and MCP routes, host reuse and eviction, and genuine spawned
+geometry, replay and rich analytical work. Independently queried settings and scratch cleanup
+passed in the exact-node retry (`9856fd82560c44f3b78899a47885391b`). The first selection
+(`817036665b5b4579a4a6fb283976f2cd`) passed 28 controls. Its spawned test needed the observer to
+finish the DuckDB result before checking spill cleanup. The two receipts cover 29 selected
+nodes. [Audit closure evidence](../../design_review/evidence/2026-11-19_udm-audit-closure/README.md)
 
-| Premise | Evidence required | Work it constrains |
-|---|---|---|
-| Rich-rule input sizes warrant DuckDB | Actual per-view row counts from a bounded project release with admitted `rich.consolidate` and a populated input cohort | D1 placement in UDM-16 |
+### D1 bounded rich placement
+
+**Observed, 2026-11-19.** The three preserved Weibull reference units supplied an actual authored
+native cohort. One spawned `rich.consolidate` invocation saw 12 claims, 14 entity rows, 14
+identity rows, zero alternatives, one specification and one applicability row. PostgreSQL
+retained 26 selected facts. The managed receipt is `36e9c262ed5e42f487a26cd5cd8eccd9`.
+[Inputs, output and limits](../../design_review/evidence/2026-11-19_udm-audit-closure/rich-placement.md)
+
+The measured working set meets the plan's Python placement criterion. Typed occurrence rows now
+feed indexed equality joins, grouping and sorted set projections directly. The rich path's
+Arrow conversion, DuckDB connection and analytical asset dependency are removed. The two shared
+prepared-call owners are captured separately from computation assets. The final native run used those ordinary source captures. It reproduced all six input counts and
+retained 26 selected facts on typed Python (`b69239be4386487dba0a2c15276677b6`). The final settings,
+host, CLI, MCP and rich-view selection passed 74 controls (`7f8af5586be945cfbd825450ebcc212f`).
+Whole-book project scope remains a separate workload observation.
 
 ## State
 
 | Package | State |
 |---|---|
-| UDM-16 | Connection conversion, local controls and retirement verified. Spawned-worker settings integration is open. D1 awaits representative rich inputs. |
-| UDM-17 | Typed stores, default-model fresh root and native detached demand exports verified. Candidate TEMP role inputs depend on the [UDM-01/03 integrity correction](model-authorities-and-openness.md#integrity-projection-across-model-captures). Native selected-source qualification awaits the UDM-25 fresh PDF contribution correction. |
+| UDM-16 | Connection conversion, local controls, retirement and spawned-worker settings verified. [D1](#d1-bounded-rich-placement) selected typed Python and passed the final native cohort. |
+| UDM-17 | Typed stores, default and changed-policy fresh roots, and native detached demand exports verified. Fresh [selected-source and companion exports](operation-reuse-and-recovery.md#fresh-pdf-qualification-on-n35) passed on registered N35. |
 | UDM-18 | Complete for the bounded increment. Archived-slice T15 and scientific policy admission and proof passed privately on N34. The decimal bound landed with N30. |
 | UDM-19 | Complete for the bounded increment. Both obsolete migration trees and unused paths retired, generated SQL preview tested, and offline N34 parity passed. |

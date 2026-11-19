@@ -465,6 +465,12 @@ and record `udm20.retained-diagnosis` distinguish recorded facts from unavailabl
 standing. The rest of this package's reproduction and instrumentation protocol remains work to
 perform, not an account of measurements already taken.
 
+The [N35 audit closure](../../design_review/evidence/2026-11-19_udm-audit-closure/README.md)
+establishes fresh selected-source export, native completion recovery and compatible PDF checkpoint
+uptake in the bounded private controls. N35 activated on the bounded stage at generation 32
+with exact retained identity and selected demand readback. Regional confirmation still owns
+actual resume, unchanged repeat, and timing on the selected workload.
+
 The three originals still exist, are held with no expiry, and their retained artifacts match
 the managed bytes: book run `1dd5d45ded4b4ea38399fb121a44d28c` is `failed` with cleanup
 `established`; discovery fixture `3fed447a2a5649538c80ac05c1ed7c47` is `failed`; retry

@@ -1,6 +1,6 @@
 # Operation reuse and recoverable completion
 
-**Status:** In progress. Bounded native draft and checkpoint paths passed privately. Fresh PDF attribution, recovery ordering, draft lifecycle and compatible changed-request uptake remain open.
+**Status:** The bounded implementation and qualification are complete. Recovery ordering, draft retirement, changed-request uptake and fresh PDF attribution passed. N35 is active on the bounded stage. UDM-20 owns regional confirmation.
 **Created:** 2026-11-18.
 
 This companion owns **UDM-25**, the recoverable completion and compatible PDF checkpoint
@@ -388,7 +388,9 @@ current producing requests carry demand scope. The retained-result comparison fo
 exact-recipe matches among the 14 preserved episodes. The
 [identity successor record][programs] owns the current stage evidence.
 
-### Remaining recovery implementation
+<a id="remaining-recovery-implementation"></a>
+
+### Recovery audit corrections
 
 **Interface-checked, 2026-11-19, at `618fff894`.** The production managed demand route
 passes the draft root into the native execution service. `CompletionDraftStore` durably writes
@@ -399,9 +401,21 @@ The cross-build PDF case reused a later attempt of the same task.
 
 | Obligation | Current implementation boundary | Closure |
 |---|---|---|
-| UDM-25-R1. Select an admissible draft before work specific to fresh computation | `orchestrate/data_operations.py` hydrates inputs in `_claim_many` before single and batched execution check `_recover_answer`. A hydration failure ends either path before draft adoption. | After exact intent reconciliation, resolve draft eligibility using the live claim and native authority. Defer fresh hydration until that decision requires compute. Exercise both routes with an eligible draft and a fresh hydration refusal. |
-| UDM-25-R2. Authenticate retirement and cleanup of private draft material | `semantic/completion_drafts.py` writes, opens and discovers bodies, ACKs and candidate entries. It has no expiry eligibility or authenticated cleanup path. Manual removal in the lost-ACK control establishes native reconciliation after removal. | Add cleanup to the existing custody owner. Establish committed correspondence and continued evidence needs before retirement, protect active and uncertain material, and verify safe retirement and independence from cache pruning. |
-| UDM-25-R3. Support compatible PDF checkpoints across a changed request | `semantic/pdf_spool_native.py` requires the original and current request IDs to match at both candidate discovery and contribution. The material comparison and exact writer retirement are implemented for candidates that pass that restriction. | Use native correspondence over the accepted material basis to discover and admit a compatible changed request. Exercise an eligible retired writer across the changed request and appropriate material-change, custody and revocation refusals. |
+| UDM-25-R1. Select an admissible draft before work specific to fresh computation | Claim acquisition commits before renewal, intent reconciliation and draft inspection. Scalar and batch execution acquire preparation and hydrate fresh inputs after recovery resolves. A deferred member retains its exact renewed claim and only compact metadata. | Controlled recovery, refusal, mixed and deferred batches passed in `87c9503076d44152b19f3545af1b4ae4`. The submitted-held-claim cancellation control passed in `e6bd6d6ea94c40328462a6fcb07f1091`. |
+| UDM-25-R2. Authenticate retirement and cleanup of private draft material | The protected native inspection binds the original producer, completion, intent and publication. The private namespace owner only unlinks an exact acknowledged body after positive physical retirement. A synced marker makes an interrupted deletion retryable. | Final private PostgreSQL controls verified retention before publication, refusal under a different project, retirement after publication and recovery of the original answer after a lost local acknowledgement (`a073a72d45ff46dbac05763954436d8a`). File and cache custody controls passed in `87c9503076d44152b19f3545af1b4ae4`. |
+| UDM-25-R3. Support compatible PDF checkpoints across a changed request | Native recovery keys select candidates for full comparison. Both discovery and contribution compare authenticated original-source facts across the two demand-scoped admissions, exact other supports, current scope, complete material premises and original retirement. File uptake verifies the exact native writer and manifest. | The final private selection passed changed-request uptake, attribution, missing and forged source refusals, exact other support and request slots, both original and current revocation controls, five archived material variants, and current complete and incomplete attribution (`a073a72d45ff46dbac05763954436d8a`). |
+
+To request explicit cleanup, run `ci demands retire-draft DRAFT_ID --project PROJECT --target
+development` against the acquired project and configured target. The same command selects
+`deployment` for a configured deployment profile. Automatic cleanup can record retirement
+while the original live process can establish it. If that proof is unavailable and native
+custody has no exact failed attempt, the acknowledged private file stays retained. Files without
+a complete acknowledgment stay inert. Cache pruning never enters the completion-draft namespace.
+
+Discovery computes the current key once in a typed local before querying retired producers.
+The indexed column compares to that local. The query then verifies the candidate's complete
+material and authorization. This avoids placing a volatile SQL call inside the indexed equality.
+Regional qualification owns planner behavior on a populated workload. [PostgreSQL function volatility](https://www.postgresql.org/docs/18/xfunc-volatility.html)
 
 ### Fresh PDF contribution on N34
 
@@ -417,6 +431,26 @@ predicate cannot establish compatibility for this fresh attempt. UDM-25 owns the
 between same-attempt attribution with exact current custody and recovery across attempts. Preserve
 the complete-identity and original-retirement requirements for cross-attempt adoption. Address
 the fresh path through the native revision lifecycle and rerun the selected-source journey.
+The first private N35 qualification reached fresh certification and exposed its remaining v1
+lowering rule (`a826fdddf8f64bbbb207e6f8a04cfe5b`). Current certification authenticates the exact
+v2 release archive, input digests and current producer. Reuse of another producer's oracle still
+requires complete lowering custody. A second candidate detected the v2 incomplete-code digest
+shape (`4fac60f3f0d743448375f409bda91fc6`). Current verification accepts the generator's exact null
+digest when the code identity is incomplete and requires a valid digest for a complete identity.
+
+### Fresh PDF qualification on N35
+
+**Tested, 2026-11-19.** The registered N35 private runs passed fresh producer certification,
+exact writer-fence and prior-oracle controls, fresh selected-source export and offline formula
+preparation, and native companion Parquet export and cancellation. The retry acquires a fresh
+cut for the exact capture and original source. Broader continuation under complete determining
+read identity remains with UDM-10. [Qualification receipts](../../design_review/evidence/2026-11-19_udm-audit-closure/README.md)
+
+**Tested, 2026-11-19.** N35 is active at generation 32 on `ddo-current-pdf-bounded`. Native
+catalog and archive checks passed. The retained project identities and selected demand payload
+matched preflight. The stage check preserves the bounded record set. UDM-20 owns the regional
+workload exercise. [Cutover evidence](../../design_review/evidence/2026-11-19_udm-audit-closure/README.md#bounded-stage-activation)
+
 [UDM-10 code identity boundary][programs]
 
 [coordinator]: ../unified-domain-model-and-execution_2026-11-19.md

@@ -1,6 +1,6 @@
 # Model authorities and openness: the compiled model, the declaration grammar, integrity vocabularies and the earlier model's retirement
 
-**Status:** UDM-02 and UDM-04 are integrated. UDM-01 and UDM-03 have one open integrity-consumer obligation. N31 qualified the default integrity profile, and the registry owns program grants.
+**Status:** UDM-01–04 are integrated within their defined scope. The registry owns program grants, and private PostgreSQL qualification confirmed captured candidate integrity policies.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-01** (one composer and one held compiled model),
@@ -849,16 +849,22 @@ TEMP grants. In a read-only two-capture probe, a candidate model scoped to `corp
 returned that publisher from its integrity projection while table policy still assigned
 `corpus_sem_publisher`.
 
-Use the explicit captured model or its installation projection throughout policy generation,
-native admission, host provisioning and fresh-root authoring. Retire the import-time holders.
-Check a material role, purpose or schema-policy change in one process with independent
-expectations for both captures. Apply the valid changed contract to a private fresh target and
-verify catalog and TEMP correspondence. Earlier default-model receipts retain their scope.
+**Tested, 2026-11-19.** Compiled metadata carries the selected integrity policy. Schema and
+table grants, guarded actors, descriptor ownership, scratch privileges, host provisioning and
+TEMP realization read that captured policy. Newly frozen privilege changes serialize their
+effective purpose principals. Previously frozen v1 migrations retain their recorded ABI.
+
+The default capture reproduces all three N34 admission function bodies and owners. Successive
+default, changed and default captures passed the scoped model control
+(`839fa78a2441437aa040f7db65e2c61a`). A private fresh PostgreSQL installation with an independently
+selected publisher passed catalog proof and native grants. The new publisher received database
+TEMP and every selected purpose role was denied it (`b15ece5221ec4868ab3f771d729f10be`).
+[`ci test` receipts and scope](../../design_review/evidence/2026-11-19_udm-audit-closure/README.md)
 
 ## State
 
 | Package | State |
 |---|---|
-| UDM-01 and UDM-03 | Compiled model and typed integrity policies integrated. [Integrity projection across captures](#integrity-projection-across-model-captures) remains open. |
+| UDM-01 and UDM-03 | Compiled model and typed integrity policies integrated. [Candidate isolation and fresh privilege verification](#integrity-projection-across-model-captures) passed. |
 | UDM-02 | Complete for the accepted declaration and openness scope. See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment). |
 | UDM-04 | Compiled preview integrated. Earlier model, generators, and test-only evaluator retired |

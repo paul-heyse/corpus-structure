@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "id": "udm25.audit-closure",
+  "title": "Recovery audit closure and the bounded N35 stage cutover",
+  "group": null,
+  "package": "UDM-25",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the repaired recovery and PDF certification path work on the registered successor, and does activation preserve the bounded stage?",
+  "answers": [
+    "UDM-25-R1",
+    "UDM-25-R2",
+    "UDM-25-R3",
+    "UDM-17"
+  ],
+  "method": "Author and verify N35 on the bounded stage without installing it. Upgrade a populated clone, exercise private native controls, then deploy and activate the same registered release. Compare stage identities before and after.",
+  "commands": [
+    "ci model change candidate 8a1206efa36947ecb3dce4d5a5ee2624",
+    "ci model change register a2abb55bd8d240bebbdd0341bd597573",
+    "ci test coverage 9eac1fc200414540953654a1671c5fb5 6723ccd93ed3411d86463c50d6887877 74cd2cf771164dddaf5c7b79eff480d9",
+    "ci test review a073a72d45ff46dbac05763954436d8a",
+    "ci model change deploy a2abb55bd8d240bebbdd0341bd597573",
+    "ci db check --target deployment --release release:afba1bb75ecbf7a2f7e8be7ea62fdc423ca88e0859f31a9b599d94347ccd959a",
+    "ci release check --native-proof --target deployment --release release:afba1bb75ecbf7a2f7e8be7ea62fdc423ca88e0859f31a9b599d94347ccd959a",
+    "ci release activate release:afba1bb75ecbf7a2f7e8be7ea62fdc423ca88e0859f31a9b599d94347ccd959a --project ddo-current-pdf-bounded --target deployment --expected-generation 31"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "README.md",
+      "role": "bounded-acceptance-account",
+      "sha256": "5c18d53f40603bbd18c1814f503f21ecf657371b1991335b1dd367ed8b2db94a"
+    },
+    {
+      "path": "raw/readback.json",
+      "role": "stage-and-private-readback",
+      "sha256": "a572e33464c28c44ce0945adc61697e1208e095803b55fd43d329ea4b5d035c2"
+    }
+  ],
+  "depends_on": [
+    "2026-11-19_udm12-carried-assurance/udm12.stage-cutover"
+  ],
+  "results": [
+    {
+      "name": "stage_generation",
+      "value": 32,
+      "of": null,
+      "unit": null,
+      "note": "Generation advanced once from 31."
+    },
+    {
+      "name": "preserved_pdf_batch_receipts",
+      "value": 143,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "preserved_episodes",
+      "value": 14,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The scoped native recovery, fresh PDF completion and selected-source controls passed. N35 installed and activated at generation 32 with exact retained project identities.",
+  "consumed_by": [
+    "UDM-17",
+    "UDM-20",
+    "UDM-25"
+  ]
+}
