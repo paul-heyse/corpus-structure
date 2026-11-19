@@ -36,6 +36,35 @@ def test_members_retain_actual_context_episode_direction_and_multiplicity():
         DemandResult(json_bytes(demand_result_page(member_id="foreign"))).members()
 
 
+def test_native_projection_consumes_its_snapshot_and_explicit_decimal_limit(monkeypatch):
+    from dataclasses import replace
+
+    from corpus_structure.semantic import value_codec
+    from corpus_structure.semantic.demand_query_projection import (
+        DemandQueryProjectionInputs,
+        selected_query_rows,
+    )
+
+    native = json_bytes(demand_result_page())
+    selection = json_bytes(
+        DemandQueryRequest(demand_id="demand:A", project_id="project:A").selection()
+    )
+    inputs = DemandQueryProjectionInputs(native, selection, 4)
+
+    def unexpected_model_acquisition(*args, **kwargs):
+        raise AssertionError("native projection acquired the running model")
+
+    monkeypatch.setattr(value_codec, "decimal_digit_limit", unexpected_model_acquisition)
+    rows = list(selected_query_rows(inputs))
+    body = rows[1]["body"]
+    assert isinstance(body, dict)
+    assert body["amount"] == Decimal("12.34")
+    with pytest.raises(ValueError, match="canonical fixed-point digit limit"):
+        list(selected_query_rows(replace(inputs, decimal_fixed_point_digits=3)))
+    with pytest.raises(ValueError, match="positive model-derived decimal limit"):
+        list(selected_query_rows(replace(inputs, decimal_fixed_point_digits=True)))
+
+
 def test_cut_distinguishes_native_boundary_context_and_current_trust():
     original = CutSelection.from_native(demand_result_page())
     assert original.identity == CutSelection.from_native(demand_result_page()).identity

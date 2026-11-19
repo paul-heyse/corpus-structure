@@ -68,3 +68,29 @@ def test_decimal_width_checks_canonical_form_before_expansion():
 def test_decimal_outside_canonical_width_refuses(value):
     with pytest.raises(ValueError, match="canonical fixed-point digit limit"):
         value_meaning(Decimal(value))
+
+
+def test_pure_tagged_decimal_codec_uses_only_its_explicit_model_limit(monkeypatch):
+    from corpus_structure.semantic import value_codec
+    from corpus_structure.semantic.data_operation_value_codec import (
+        decode_semantic_value,
+        semantic_value,
+    )
+
+    def unexpected_model_acquisition(*args, **kwargs):
+        raise AssertionError("pure codec acquired the running model")
+
+    monkeypatch.setattr(value_codec, "decimal_digit_limit", unexpected_model_acquisition)
+    value = {"amount": Decimal("1e7"), "signed_zero": -0.0}
+    expected = [
+        "mapping",
+        [["amount", ["decimal", "10000000"]], ["signed_zero", ["float", "-0x0.0p+0"]]],
+    ]
+    assert semantic_value(value, decimal_fixed_point_digits=8) == expected
+    restored = decode_semantic_value(expected, decimal_fixed_point_digits=8)
+    assert restored["amount"] == Decimal("10000000")
+    assert restored["signed_zero"].hex() == "-0x0.0p+0"
+    with pytest.raises(ValueError, match="canonical fixed-point digit limit"):
+        semantic_value(value, decimal_fixed_point_digits=7)
+    with pytest.raises(ValueError, match="canonical fixed-point digit limit"):
+        decode_semantic_value(expected, decimal_fixed_point_digits=7)

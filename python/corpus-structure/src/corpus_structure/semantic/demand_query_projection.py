@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from .data_operation_json import json_loads, wire_json_loads
-from .data_operation_values import decode_semantic_value, semantic_value
+from .data_operation_value_codec import decode_semantic_value, semantic_value
 
 
 @dataclass(frozen=True)
@@ -15,9 +15,10 @@ class DemandQueryProjectionInputs:
 
     native: bytes
     selection: bytes
+    decimal_fixed_point_digits: int
 
 
-def selected_members(page: dict) -> tuple[dict, ...]:
+def selected_members(page: dict, *, decimal_fixed_point_digits: int) -> tuple[dict, ...]:
     """Project actual selected packets without acquiring another product body."""
     if page["view"] != "products":
         raise ValueError("member reads require a body-bearing selected result")
@@ -26,7 +27,9 @@ def selected_members(page: dict) -> tuple[dict, ...]:
         if use["fate"] != "fulfilled":
             continue
         for output in use["products"]:
-            body = decode_semantic_value(output["body"])
+            body = decode_semantic_value(
+                output["body"], decimal_fixed_point_digits=decimal_fixed_point_digits
+            )
             header = dict(
                 use_id=use["use_id"],
                 derivation_id=use["derivation_id"],
@@ -65,7 +68,9 @@ def selected_members(page: dict) -> tuple[dict, ...]:
                     kind_contract=packet["kind_contract"],
                     **packet["context"],
                     body=packet["body"],
-                    meaning_body=semantic_value(packet["body"]),
+                    meaning_body=semantic_value(
+                        packet["body"], decimal_fixed_point_digits=decimal_fixed_point_digits
+                    ),
                 )
                 for packet in projected
             )
@@ -73,6 +78,16 @@ def selected_members(page: dict) -> tuple[dict, ...]:
 
 
 def selected_query_rows(inputs: DemandQueryProjectionInputs):
+    if type(inputs) is not DemandQueryProjectionInputs:
+        raise TypeError("native projection requires its owned immutable input snapshot")
+    if type(inputs.native) is not bytes or type(inputs.selection) is not bytes:
+        raise TypeError("native projection requires immutable wire bytes")
+    decimal_fixed_point_digits = inputs.decimal_fixed_point_digits
+    if (
+        type(decimal_fixed_point_digits) is not int
+        or not 1 <= decimal_fixed_point_digits <= 2_147_483_647
+    ):
+        raise ValueError("native projection requires a positive model-derived decimal limit")
     native: dict = wire_json_loads(inputs.native)
     selection: dict = json_loads(inputs.selection)
     if selection["view"] == "operations":
@@ -102,14 +117,16 @@ def selected_query_rows(inputs: DemandQueryProjectionInputs):
                 source=row["body"]["source"],
                 coverage=coverage,
             )
-            for row in selected_members(native)
+            for row in selected_members(
+                native, decimal_fixed_point_digits=decimal_fixed_point_digits
+            )
             if row["member_id"] is None
             and isinstance(row["body"], dict)
             and "source" in row["body"]
             for coverage in row["body"].get("coverage", ())
         )
     else:
-        rows = selected_members(native)
+        rows = selected_members(native, decimal_fixed_point_digits=decimal_fixed_point_digits)
     filters = dict(kind_contract=selection["kind_contract"], member_id=selection["member_id"])
     if selection["view"] in {"members", "coverage"}:
         filters["product_id"] = selection["product_id"]

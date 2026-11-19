@@ -718,6 +718,12 @@ def _narrow(modules, callables, distributions, supplied_boundaries, package_root
 
 
 def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSyntax):
+    postponed_annotations = any(
+        isinstance(statement, ast.ImportFrom)
+        and statement.module == "__future__"
+        and any(item.name == "annotations" for item in statement.names)
+        for statement in tree.body
+    )
     annotation_types = {
         "bool",
         "bytes",
@@ -732,6 +738,12 @@ def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSynt
     }
 
     def annotation(expression):
+        # Under the selected future-annotations mode the standard dataclass
+        # consumes source strings. It does not evaluate arbitrary annotation
+        # expressions. Runtime correspondence separately checks these exact
+        # strings and the generated fields/constructor against captured source.
+        if postponed_annotations:
+            return True
         if isinstance(expression, ast.Name):
             return expression.id not in scanner.assigned and (
                 (expression.id in annotation_types and expression.id not in scanner.package_names)

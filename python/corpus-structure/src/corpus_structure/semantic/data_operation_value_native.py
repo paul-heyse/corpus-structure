@@ -40,7 +40,7 @@ from .native_program import (
     core_variable,
     pg_type,
 )
-from .value_codec import DECIMAL_LIMIT_MESSAGE
+from .value_codec_core import DECIMAL_LIMIT_MESSAGE
 
 _NON_VALUES = (
     "null",

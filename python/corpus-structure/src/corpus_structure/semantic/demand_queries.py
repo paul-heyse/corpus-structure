@@ -67,9 +67,11 @@ def _serve_demand_query(connection, request, implementation):
         served_key,
         uncached_rows_from,
     )
+    from .value_codec import decimal_digit_limit
 
     selection = request.selection()
     selection_content = json_bytes(selection)
+    decimal_fixed_point_digits = decimal_digit_limit()
     digest = sha256(selection_content).hexdigest()
     cursor = None if request.cursor is None else decode_cursor(request.cursor)
     if cursor is not None and (
@@ -166,7 +168,9 @@ def _serve_demand_query(connection, request, implementation):
                 )
                 entry, remaining = bounded_rows(
                     selected_query_rows(
-                        DemandQueryProjectionInputs(whole.content, selection_content)
+                        DemandQueryProjectionInputs(
+                            whole.content, selection_content, decimal_fixed_point_digits
+                        )
                     ),
                     {},
                 )
@@ -175,7 +179,11 @@ def _serve_demand_query(connection, request, implementation):
         rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
     else:
         rows = uncached_rows_from(
-            selected_query_rows(DemandQueryProjectionInputs(page.content, selection_content)),
+            selected_query_rows(
+                DemandQueryProjectionInputs(
+                    page.content, selection_content, decimal_fixed_point_digits
+                )
+            ),
             offset,
         )
     uses = [

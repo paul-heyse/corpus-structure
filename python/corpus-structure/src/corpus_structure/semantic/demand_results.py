@@ -130,8 +130,9 @@ class DemandResult:
     def members(self) -> tuple[dict[str, Any], ...]:
         """Project actual selected packets without opening any other product body."""
         from .demand_query_projection import selected_members
+        from .value_codec import decimal_digit_limit
 
-        return selected_members(self.record)
+        return selected_members(self.record, decimal_fixed_point_digits=decimal_digit_limit())
 
     def report(self) -> dict[str, Any]:
         page = self.record

@@ -247,6 +247,19 @@ def test_dataclass_annotation_call_is_eager_even_when_class_is_unused(tmp_path):
     assert any(item.line == 5 and "initializer" in item.reason for item in basis.unknowns)
 
 
+def test_postponed_dataclass_annotation_is_a_source_string_not_an_eager_call(tmp_path):
+    root = package(tmp_path)
+    (root / "entry.py").write_text(
+        "from __future__ import annotations\n"
+        "from dataclasses import dataclass\n"
+        "def setup():\n raise AssertionError('annotation evaluated')\n"
+        "@dataclass\nclass Unused:\n key: setup()\n"
+        "def result():\n return 1\n"
+    )
+    basis = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert basis.complete
+
+
 def test_finite_builtin_dataclass_annotations_have_closed_initialization(tmp_path):
     root = package(tmp_path)
     (root / "entry.py").write_text(
