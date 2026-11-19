@@ -120,9 +120,6 @@ def acquire_pack(pack: Path) -> PackInputs:
         )
         if (pack / filename).is_file()
     )
-    split_policy = pack / "eval/split.yaml"
-    if split_policy.is_file():
-        artifacts += (SourceArtifact("operation/evaluation-split.yaml", split_policy.read_bytes()),)
     deps = ResolvedDependencies(
         (*deps.artifacts, *artifacts, *terminology_artifacts),
         deps.vocabularies,
@@ -270,6 +267,24 @@ def compose_pack_inputs(acquired: tuple[PackInputs, ...]):
             tuple(supplied_vocabularies.values()),
             tuple(sorted(ontology_names)),
         )
+    from .identity import canonical_bytes
+    from .source_pack_inputs import PACK_BINDINGS
+
+    if len({inputs.name for inputs in acquired}) != len(acquired):
+        raise PackInputError("source pack directory names must be distinct")
+    bindings = [
+        dict(
+            name=inputs.name,
+            module=inputs.bundle.root,
+            prefix="" if len(acquired) == 1 else f"pack/{inputs.name}/",
+        )
+        for inputs in acquired
+    ]
+    deps = ResolvedDependencies(
+        (*deps.artifacts, SourceArtifact(PACK_BINDINGS, canonical_bytes(bindings))),
+        deps.vocabularies,
+        deps.ontology_sources,
+    )
     # Resolve module and prefix agreement against captured schema bytes only. Rich
     # source/proposal constructors are acquisition, and run after this pure merge.
     from .prepare import _view

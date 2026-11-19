@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Connection, select
+from sqlalchemy import select
 
 from corpus_structure.semantic.data_operation_service import (
     DemandDiscoverySelection,
@@ -27,45 +27,6 @@ from .source_request import (
 
 if TYPE_CHECKING:
     from corpus_structure.semantic.data_operation_model import EffectiveDataOperationModel
-
-
-def resolve_source_domain(
-    conn: Connection,
-    project_id: str,
-    release_id: str,
-    domain: str | None,
-    *,
-    domains: Path | None = None,
-) -> str:
-    """Resolve a source pack from the release's archived module identities."""
-    import json
-
-    import yaml
-
-    from corpus_structure.semantic.regeneration import DOMAINS
-    from corpus_structure.semantic.releases import open_release
-
-    try:
-        archive = json.loads(open_release(conn, release_id).manifest)
-    except KeyError as error:
-        raise SourceRequestError("selected release has no archived executable pack") from error
-    modules = {name for name, _ in archive["sources"]}
-    candidates = []
-    for path in sorted((domains or DOMAINS).glob("*/semantic.yaml")):
-        if domain is not None and path.parent.name != domain:
-            continue
-        declaration = yaml.safe_load(path.read_bytes())
-        if isinstance(declaration, dict) and declaration.get("name") in modules:
-            candidates.append(path.parent.name)
-    if len(candidates) == 1:
-        return candidates[0]
-    if candidates:
-        raise SourceRequestError(
-            f"project {project_id!r} has multiple bound packs; select --domain"
-        )
-    raise SourceRequestError(
-        f"project {project_id!r} has no matching executable pack for this release"
-    )
 
 
 def _default_profile_selections(model, targets, supplied):
@@ -121,33 +82,30 @@ def _default_profile_source_sets(model: EffectiveDataOperationModel, closure: se
     )
 
 
-def prepare_source_demand(
-    connection, request: SourceRunRequest, *, domains: Path | None = None, prepared=None
-):
+def prepare_source_demand(connection, request: SourceRunRequest, *, prepared=None):
     """Acquire exact immutable originals; frozen declarations own executable closure.
 
     Pack files provide only source-selection conveniences. Provider configuration,
     prepared factories and semantic operation declarations come from the retained
     admitted release/runtime, never from a registry rebuilt from current code.
     """
-    import yaml
-
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.original_documents import acquire_original_document_selection
     from corpus_structure.semantic.primary_operations import primary_operation_targets
-    from corpus_structure.semantic.regeneration import DOMAINS
-    from corpus_structure.semantic.releases import load_release
+    from corpus_structure.semantic.releases import load_release_inputs, open_release_inputs
+    from corpus_structure.semantic.source_pack_inputs import source_slices
 
     from .slices import records
 
-    prepared = load_release(connection, request.release_id) if prepared is None else prepared
+    if prepared is None:
+        _, dependencies, _, prepared = load_release_inputs(connection, request.release_id)
+    else:
+        _, dependencies, _, _ = open_release_inputs(connection, request.release_id)
     if prepared.release_id != request.release_id:
         raise SourceRequestError("prepared source request belongs to another release")
     model = bound_data_operation_model(prepared)
-    domain = resolve_source_domain(
-        connection, request.project_id, request.release_id, request.domain, domains=domains
-    )
+    scopes = source_slices(dependencies, request.domain)
     document = table("kb.document")
     query = select(document).where(document.c.project_id == request.project_id)
     if request.documents:
@@ -157,12 +115,6 @@ def prepare_source_demand(
     documents = list(connection.execute(query.order_by(document.c.key)).mappings())
     if request.documents and {value["key"] for value in documents} != set(request.documents):
         raise SourceRequestError("a selected document is outside the project")
-    pack = (domains or DOMAINS) / domain
-    scopes = (
-        yaml.safe_load((pack / "slices.yaml").read_text())
-        if (pack / "slices.yaml").exists()
-        else {}
-    )
     scope = (
         request.selection.name
         if isinstance(request.selection, NamedScope)
@@ -315,16 +267,13 @@ def run_source_operation(
     *,
     source_root: Path,
     admission_engine=None,
-    domains: Path | None = None,
     on_registered=None,
 ):
     from corpus_structure.semantic.releases import load_release
 
     with engine.begin() as connection:
         prepared = load_release(connection, request.release_id)
-        native_request = prepare_source_demand(
-            connection, request, domains=domains, prepared=prepared
-        )
+        native_request = prepare_source_demand(connection, request, prepared=prepared)
         registered = create_native_demand(connection, native_request, prepared=prepared)
     from corpus_structure.semantic.data_operation_service import read_data_demand
 

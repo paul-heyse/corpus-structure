@@ -35,6 +35,7 @@ from .rich_knowledge_contracts import (
     DdoRichConsolidation,
     DdoRichFact,
     DdoRichOccurrence,
+    DdoRichQualificationMeaning,
     DdoRichSelectedMember,
     RichGraphAssembly,
     rich_reference_key,
@@ -158,6 +159,40 @@ def checked_rich_source_contexts(
     return contexts
 
 
+def _compare_partitioned_values(
+    comparator, operands, compared, conditions, *, common_condition=True
+):
+    """A supported difference decides the pair; equivalence requires every component."""
+    if not common_condition:
+        return None, "scientific comparison requires a common condition"
+    pending = [("value", operands[0], operands[1])]
+    unresolved = []
+    for name in sorted(compared[0].keys() | compared[1].keys()):
+        if name not in compared[0] or name not in compared[1]:
+            unresolved.append("compared qualification is absent on one side: " + name)
+        elif semantic_value(compared[0][name]) != semantic_value(compared[1][name]):
+            pending.append(("qualification " + name, compared[0][name], compared[1][name]))
+    results = []
+    for name, left, right in pending:
+        try:
+            result = comparator.compare(left, right, conditions, ref_eq=lambda a, b: a == b)
+        except ScientificInterpretationUnavailable as error:
+            unresolved.append(name + ": " + str(error))
+            continue
+        if result.tier is EvidenceTier.UNDECIDED:
+            unresolved.append(name + ": " + result.detail)
+        elif not result.equal:
+            return result, name + ": " + result.detail
+        else:
+            results.append(result)
+    if unresolved:
+        return None, "; ".join(unresolved)
+    # All component comparisons succeeded. Retain the weakest supporting tier.
+    rank = {EvidenceTier.CANONICAL: 0, EvidenceTier.SYMBOLIC: 1, EvidenceTier.NUMERIC: 2}
+    result = max(results, key=lambda item: rank[item.tier])
+    return result, result.detail
+
+
 def assess_rich_scientific(
     prepared: PreparedRelease,
     model: EffectiveDataOperationModel,
@@ -200,6 +235,7 @@ def assess_rich_scientific(
         prepared, state, source_contexts=source_contexts, whole_inputs=whole_inputs
     )
     groups = defaultdict(list)
+    partitions = {}
     for occurrence in state.members.values():
         if not isinstance(occurrence, DdoRichOccurrence):
             continue
@@ -215,11 +251,26 @@ def assess_rich_scientific(
             )
         ):
             continue
-        # Provenance is excluded by the checked qualification-meaning owner. Scope,
-        # modality, conditions and time remain exact boundaries of the comparison.
-        groups[(fact.subject_entity, fact.property_contract, fact.qualification_meaning)].append(
-            occurrence
+        observed = state.value(occurrence.observed_qualification_value)
+        _, comparison_context, compared = policy.comparison_projection.partition(
+            definition.name, prop.iri, type(observed).__name__, _plain(observed)
         )
+        meaning = state.member(fact.qualification_meaning, DdoRichQualificationMeaning)
+        qualification_definition = state.definition(meaning.qualification_contract)
+        context_fields = [
+            field.model_dump(mode="python")
+            for field in meaning.fields
+            if state.property(field.property_contract, qualification_definition.iri)[1].name
+            in comparison_context
+        ]
+        partitions[occurrence.occurrence_id] = compared
+        groups[
+            (
+                fact.subject_entity,
+                fact.property_contract,
+                canonical_bytes([meaning.qualification_contract, context_fields]),
+            )
+        ].append(occurrence)
     results = []
     policy_digest = next(
         item.digest for item in prepared.artifacts if item.kind == SCIENTIFIC_POLICY_INPUT
@@ -267,13 +318,19 @@ def assess_rich_scientific(
                             operative, prepared=prepared, context_profile=context_profile
                         )
                     condition = qualifiers[0].get("condition")
-                    comparison = comparators[key].compare(
-                        operands[0],
-                        operands[1],
-                        (condition,) if condition is not None else (),
-                        ref_eq=lambda a, b: a == b,
+                    common_condition = semantic_value(condition) == semantic_value(
+                        qualifiers[1].get("condition")
                     )
-                    detail = comparison.detail
+                    comparison, detail = _compare_partitioned_values(
+                        comparators[key],
+                        operands,
+                        [
+                            partitions[item.occurrence_id]
+                            for item in (left_occurrence, right_occurrence)
+                        ],
+                        (condition,) if condition is not None else (),
+                        common_condition=common_condition,
+                    )
             except ScientificInterpretationUnavailable as error:
                 detail = str(error)
             outcome = (

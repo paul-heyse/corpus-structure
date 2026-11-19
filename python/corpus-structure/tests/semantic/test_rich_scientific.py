@@ -301,6 +301,100 @@ def test_scientific_scope_and_functionality_are_real_boundaries_and_one_fact_nee
     assert assess(scientific, graph_inputs(scientific, (values[0], values[0]))) == ()
 
 
+@pytest.mark.parametrize("mode,expected", [("compared", "different"), ("context", None)])
+def test_declared_qualifier_partition_governs_actual_scientific_groups(scientific, mode, expected):
+    from corpus_structure.semantic.comparison_projection import (
+        PredicateProjection,
+        QualifierReference,
+        comparison_projection,
+    )
+
+    prepared, model, profile, _ = scientific
+    projection = comparison_projection(prepared)
+    qualification = next(
+        q for q in projection.qualifications if q.class_name == "StatisticsQualification"
+    )
+    polarity = next(p for p in qualification.properties if p.name == "polarity")
+    prop = next(
+        p
+        for d in prepared.definitions
+        if d.name == "ScientificSubject"
+        for p in d.properties
+        if p.name == "value"
+    )
+    selected = PredicateProjection(
+        "ScientificSubject",
+        "urn:rich-scientific:ScientificSubject",
+        prop.iri,
+        "StatisticsQualification",
+        (QualifierReference(polarity.name, polarity.iri, "compared"),)
+        if mode == "compared"
+        else (),
+    )
+    policy = RichRulePolicy(prepared)
+    policy.comparison_projection = replace(
+        projection, predicates=(*projection.predicates, selected)
+    )
+    actual = (prepared, model, profile, policy)
+    inputs = graph_inputs(
+        actual,
+        ({"kind": "number", "number": Decimal("1")},) * 2,
+        qualifications=(
+            {"modality": "asserted", "polarity": True},
+            {"modality": "asserted", "polarity": False},
+        ),
+    )
+    results = assess(actual, inputs)
+    assert [r.outcome for r in results] == ([] if expected is None else [expected])
+
+
+def test_missing_compared_qualifier_cannot_establish_equivalence(scientific):
+    from corpus_structure.semantic.rich_scientific import _compare_partitioned_values
+    from corpus_structure.semantic.scientific_evidence import SemanticComparator
+
+    prepared, _, profile, _ = scientific
+    comparator = SemanticComparator({}, prepared=prepared, context_profile=profile)
+    result, detail = _compare_partitioned_values(
+        comparator,
+        [{"kind": "number", "number": Decimal("1")}] * 2,
+        [{"polarity": True}, {}],
+        (),
+    )
+    assert result is None and "absent on one side" in detail
+
+
+def test_supported_compared_difference_decides_even_when_another_field_is_absent(scientific):
+    from corpus_structure.semantic.rich_scientific import _compare_partitioned_values
+    from corpus_structure.semantic.scientific_evidence import SemanticComparator
+
+    prepared, _, profile, _ = scientific
+    comparator = SemanticComparator({}, prepared=prepared, context_profile=profile)
+    result, _ = _compare_partitioned_values(
+        comparator,
+        [{"kind": "number", "number": Decimal("1")}] * 2,
+        [{"polarity": True, "missing": "one"}, {"polarity": False}],
+        (),
+    )
+    assert result is not None and result.equal is False
+
+
+def test_differing_compared_conditions_do_not_sample_the_first_objects_domain():
+    from corpus_structure.semantic.rich_scientific import _compare_partitioned_values
+
+    class NoObjectSampling:
+        def compare(self, *args, **kwargs):
+            raise AssertionError("objects with different conditions cannot share numeric evidence")
+
+    result, detail = _compare_partitioned_values(
+        NoObjectSampling(),
+        [{"kind": "number", "number": 1}] * 2,
+        [{}, {}],
+        (),
+        common_condition=False,
+    )
+    assert result is None and "common condition" in detail
+
+
 def test_scientific_source_macros_require_actual_packet_correspondence_and_preserve_conflict_unknown(
     scientific,
 ):
