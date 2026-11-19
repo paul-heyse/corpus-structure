@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from itertools import chain
 from typing import Any
 
-import duckdb
 import pyarrow as pa
 from duckdb import coalesce, col, count_all, fn, lit, star, when
+
+from corpus_structure.analytics import connection as analytical_connection
 
 from .pdf_candidate_source import CandidatePageSource, candidate_from_payload
 from .pdf_candidates import InlineCandidate
@@ -84,7 +85,8 @@ class CandidateGeometry:
     ) -> None:
         self.document = document
         self.payload_family = source.payload_family
-        self.connection = duckdb.connect(config={"threads": 1})
+        self._scope = analytical_connection()
+        self.connection = self._scope.__enter__()
         self.reader: pa.RecordBatchReader | None = None
         self.available = False
         try:
@@ -170,9 +172,9 @@ class CandidateGeometry:
         self.close()
 
     def close(self) -> None:
-        self.connection.close()
         if self.reader is not None:
             self.reader.close()
+        self._scope.__exit__(None, None, None)
 
     def _box(self, page_no: int, box: Any, **identity: Any) -> dict[str, Any]:
         normalized = box.to_top_left_origin(self.document.pages[page_no].size.height)

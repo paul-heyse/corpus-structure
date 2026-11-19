@@ -3,35 +3,20 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from contextlib import closing
-from tempfile import TemporaryDirectory
 
-import duckdb
 import pyarrow as pa
+
+from corpus_structure.analytics import connection as analytical_connection
 
 from .analytical_kernels import (
     VIEW_ALTERNATIVES,
     VIEW_CLAIMS,
     VIEW_ENTITIES,
+    VIEW_FACTS,
     VIEW_IDENTITY,
     ViewSpec,
-    disagreements,
-    fuse,
     operation_view_tables,
     operation_views,
-)
-
-RICH_MEANINGS = pa.schema(
-    [pa.field("key", pa.string(), nullable=False), pa.field("meaning", pa.string())]
-)
-RICH_FUSION_INPUT = pa.schema(
-    [
-        pa.field("fact_id", pa.string(), nullable=False),
-        pa.field("occurrence_id", pa.string()),
-        pa.field(
-            "evidence", pa.list_(pa.field("item", pa.string(), nullable=False)), nullable=False
-        ),
-    ]
 )
 
 
@@ -46,14 +31,12 @@ class RichRelationKernel:
         self,
         *,
         property_ids: frozenset[str],
-        threads: int,
-        memory_limit: str,
         check_active: Callable[[], None],
+        observe_inputs: Callable[[dict[str, int]], None] | None = None,
     ):
-        if threads < 1 or not memory_limit:
-            raise ValueError("rich analytical resources require an actual bounded profile")
         self.property_ids = property_ids
-        self.threads, self.memory_limit, self.check_active = threads, memory_limit, check_active
+        self.check_active = check_active
+        self.observe_inputs = observe_inputs
         self._stack = None
         self._connection = None
 
@@ -65,18 +48,7 @@ class RichRelationKernel:
         self.check_active()
         stack = ExitStack()
         try:
-            spill = stack.enter_context(TemporaryDirectory(prefix="corpus-rich-"))
-            connection = stack.enter_context(
-                closing(
-                    duckdb.connect(
-                        config={
-                            "threads": self.threads,
-                            "memory_limit": self.memory_limit,
-                            "temp_directory": spill,
-                        }
-                    )
-                )
-            )
+            connection = stack.enter_context(analytical_connection())
             self._stack, self._connection = stack, connection
             return self
         except BaseException:
@@ -105,15 +77,9 @@ class RichRelationKernel:
         if connection is None:
             raise RuntimeError("rich analytical invocation is closed")
         relations = [connection.from_arrow(table) for table in inputs]
-        result = build(*relations).to_arrow_table()
+        result = build(*relations).to_arrow_table().cast(VIEW_FACTS, safe=True)
         self.check_active()
         return result
-
-    def disagreements(self, meanings: pa.Table) -> pa.Table:
-        return self._query((self._checked(meanings, RICH_MEANINGS),), disagreements)
-
-    def fuse(self, candidates: pa.Table) -> pa.Table:
-        return self._query((self._checked(candidates, RICH_FUSION_INPUT),), fuse)
 
     def views(
         self,
@@ -133,4 +99,14 @@ class RichRelationKernel:
             spec_rows,
             applies,
         )
+        if self.observe_inputs is not None:
+            self.observe_inputs(
+                dict(
+                    zip(
+                        ("claims", "entities", "identity", "alternatives", "specs", "applies"),
+                        (table.num_rows for table in inputs),
+                        strict=True,
+                    )
+                )
+            )
         return self._query(inputs, operation_views)

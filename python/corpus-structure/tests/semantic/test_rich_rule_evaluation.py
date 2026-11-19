@@ -152,8 +152,6 @@ def evaluate(rules, inputs, *, scientific=(), policy=None):
         property_ids=frozenset(
             prop.iri for definition in prepared.definitions for prop in definition.properties
         ),
-        threads=1,
-        memory_limit="128MB",
         check_active=lambda: None,
     ) as relations:
         return evaluate_rich_rules(

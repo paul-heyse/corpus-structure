@@ -150,7 +150,7 @@ class AnalyticsSettings(_Section):
     batch_size: int = Field(default=65536, ge=1)
     resident_limit_bytes: int = Field(default=512 * 1024**2, ge=1)
     batch_size_hint_bytes: int = Field(default=8 * 1024**2, ge=1)
-    threads: int = Field(default=4, ge=1)
+    threads: int = Field(default=1, ge=1)
     memory_limit: str = "2GB"
     scratch_path: Path = Path("build/tmp/analytics")
     adbc_driver_path: Path | None = None

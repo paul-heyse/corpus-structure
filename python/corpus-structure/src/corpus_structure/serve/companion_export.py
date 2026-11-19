@@ -9,17 +9,17 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Literal
 
-import duckdb
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-from duckdb import col, count_all, when
+from duckdb import col, count_all, fn, when
 from pglast import ast, enums
 from pglast.stream import RawStream
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import Text, func, select
 from sqlalchemy.dialects import postgresql
 
+from corpus_structure.analytics import connection as analytical_connection
 from corpus_structure.core.db.adbc_lifetime import (
     open_adbc_connection,
     owned_adbc_child,
@@ -197,7 +197,7 @@ def export_companion_parquet(
                         owned_adbc_child(pq.ParquetWriter(path, schema)) as writer,
                     ):
                         _admit_schema(family, schema, reader.schema)
-                        for batch in reader:
+                        for batch in _capture_batches(reader, settings.analytics):
                             cancellation.check_active()
                             # Exact scalar projections refuse lossy conversion.
                             _admit_schema(family, schema, batch.schema)
@@ -237,6 +237,22 @@ def export_companion_parquet(
         with cancellation.publication():
             _publish_directory(root, destination)
         return manifest
+
+
+def _capture_batches(reader, settings):
+    """Retain bounded resident capture or stream the acquired Arrow batches."""
+    if settings.capture_mode == "resident":
+        batches, size = [], 0
+        for batch in reader:
+            size += batch.nbytes
+            if size > settings.resident_limit_bytes:
+                raise SemanticRefusal("analytical resident capture exceeds its byte limit")
+            batches.append(batch)
+        for batch in batches:
+            yield from pa.Table.from_batches([batch]).to_batches(max_chunksize=settings.batch_size)
+    else:
+        for batch in reader:
+            yield from pa.Table.from_batches([batch]).to_batches(max_chunksize=settings.batch_size)
 
 
 def _export_schema(
@@ -422,7 +438,7 @@ def _inventory_verified_export(manifest, files) -> dict:
 
     declared_columns = running_model().companion_columns()
     inventory = {}
-    with duckdb.connect() as db:
+    with analytical_connection() as db:
         for name, file in files.items():
             if not supported:
                 inventory[name] = {
@@ -538,7 +554,9 @@ def _inventory_groups(family, columns: tuple[str, ...]) -> dict:
     }
 
 
-def compare_companion_exports(left: Path, right: Path) -> dict:
+def compare_companion_exports(left: Path, right: Path, *, difference_limit: int = 100) -> dict:
+    if type(difference_limit) is not int or difference_limit < 1:
+        raise ValueError("companion difference limit must be positive")
     lm, lf = _verified(left)
     rm, rf = _verified(right)
     from corpus_structure.semantic.companion_projection import installed_projection_id
@@ -560,7 +578,7 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
     if not comparable:
         result["reason"] = "projection, profile, release, project or selected families differ"
         return result
-    with duckdb.connect() as db:
+    with analytical_connection() as db:
         if lm.pin != rm.pin:
             if "input" not in lf:
                 result.update(comparable=False, reason="source comparability requires input family")
@@ -571,8 +589,8 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
             projection = [col(name) for name in source_columns]
             left_input = db.from_parquet(str(lf["input"])).select(*projection)
             right_input = db.from_parquet(str(rf["input"])).select(*projection)
-            different = left_input.except_(right_input).limit(1).fetchall()
-            reverse = right_input.except_(left_input).limit(1).fetchall()
+            different = left_input.except_all(right_input).limit(1).fetchall()
+            reverse = right_input.except_all(left_input).limit(1).fetchall()
             if different or reverse:
                 result.update(comparable=False, reason="source input bindings differ")
                 return result
@@ -587,8 +605,10 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
             projection = [col(name) for name in columns]
             left_values = left_family.select(*projection)
             right_values = right_family.select(*projection)
-            removed = left_values.except_(right_values) if lm.pin == rm.pin else left_values
-            added = right_values.except_(left_values) if lm.pin == rm.pin else right_values
+            removed = left_values.except_all(right_values) if lm.pin == rm.pin else left_values
+            added = right_values.except_all(left_values) if lm.pin == rm.pin else right_values
+            removed_rows, removed_count = _difference_rows(removed, columns, difference_limit)
+            added_rows, added_count = _difference_rows(added, columns, difference_limit)
             result["differences"][name] = {
                 "columns": columns,
                 "left_pin": lm.pin.model_dump(),
@@ -596,7 +616,22 @@ def compare_companion_exports(left: Path, right: Path) -> dict:
                 "correspondence": "same_product" if lm.pin == rm.pin else "none",
                 # Local occurrence IDs/ordinals establish no cross-product match.
                 # Without a declared correspondence, every record keeps its side's pin.
-                "removed": removed.fetchall(),
-                "added": added.fetchall(),
+                "removed_count": removed_count,
+                "added_count": added_count,
+                "difference_limit": difference_limit,
+                "removed": removed_rows,
+                "added": added_rows,
             }
     return result
+
+
+def _difference_rows(relation, columns, limit):
+    rows = (
+        relation.select(
+            *(col(name) for name in columns), fn("count_star").over().alias("__difference_count")
+        )
+        .sort(*(col(name).asc().nulls_first() for name in columns))
+        .limit(limit)
+        .fetchall()
+    )
+    return [row[:-1] for row in rows], rows[0][-1] if rows else 0

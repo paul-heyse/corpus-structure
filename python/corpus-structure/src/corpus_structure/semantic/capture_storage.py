@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
 from decimal import Decimal
-from hashlib import file_digest, sha256
-from pathlib import Path
+from hashlib import sha256
 
 import pyarrow as pa
-import pyarrow.parquet as pq
 
 from .identity import canonical_bytes
 
@@ -72,26 +69,3 @@ class LogicalRows:
     @property
     def digest(self) -> str:
         return self._hash.hexdigest()
-
-
-@dataclass(frozen=True)
-class FileRelation:
-    path: Path
-    schema: pa.Schema
-    num_rows: int
-    sha256: str
-    logical_digest: str
-
-    def iter_batches(self, batch_size=65536):
-        yield from pq.ParquetFile(self.path).iter_batches(batch_size=batch_size)
-
-    def verify(self) -> None:
-        with self.path.open("rb") as source:
-            digest = file_digest(source, "sha256").hexdigest()
-        if digest != self.sha256:
-            raise ValueError("captured file integrity differs")
-        metadata = pq.ParquetFile(self.path)
-        if metadata.metadata.num_rows != self.num_rows or not metadata.schema_arrow.equals(
-            self.schema, check_metadata=True
-        ):
-            raise ValueError("captured file integrity/schema differs")

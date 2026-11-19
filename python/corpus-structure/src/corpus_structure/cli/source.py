@@ -553,22 +553,24 @@ def companion_export(
 
 
 @app.command("companion-inventory")
-def companion_inventory(manifest: Path, json: JsonOpt = False):
+def companion_inventory(ctx: typer.Context, manifest: Path, json: JsonOpt = False):
     """Inventory only verified manifest-listed files, without a database session."""
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.serve.companion_export import inventory_companion_export
 
     with failure_boundary(json, expected=(ValueError, OSError)):
+        state(ctx).settings()
         emit(RootModel(inventory_companion_export(manifest)), json=json)
 
 
 @app.command("companion-compare")
-def companion_compare(left: Path, right: Path, json: JsonOpt = False):
+def companion_compare(ctx: typer.Context, left: Path, right: Path, json: JsonOpt = False):
     """Compare compatible detached projections while preserving duplicates."""
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.serve.companion_export import compare_companion_exports
 
     with failure_boundary(json, expected=(ValueError, OSError)):
+        state(ctx).settings()
         emit(RootModel(compare_companion_exports(left, right)), json=json)
 
 

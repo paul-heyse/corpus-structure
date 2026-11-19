@@ -3,10 +3,8 @@
 from decimal import Decimal
 
 import pyarrow as pa
-import pytest
 
 from corpus_structure.semantic.capture_storage import (
-    FileRelation,
     LogicalRows,
 )
 
@@ -32,23 +30,3 @@ def test_logical_digest_preserves_float_sign_decimal_and_nanosecond_without_batc
     for batch in changed.to_batches():
         other.write(batch)
     assert whole.digest != other.digest
-
-
-def test_detached_empty_file_keeps_exact_schema_and_refuses_corrupt_bytes(tmp_path):
-    from hashlib import file_digest
-
-    import pyarrow.parquet as pq
-
-    schema = pa.schema([pa.field("id", pa.string())], metadata={b"identity": b"bound"})
-    path = tmp_path / "empty.parquet"
-    pq.write_table(pa.Table.from_batches([], schema=schema), path, store_schema=True)
-    with path.open("rb") as stream:
-        digest = file_digest(stream, "sha256").hexdigest()
-    logical = LogicalRows(schema)
-    relation = FileRelation(path, schema, 0, digest, logical.digest)
-    relation.verify()
-    assert relation.num_rows == 0 and relation.schema.equals(schema, check_metadata=True)
-    assert list(relation.iter_batches()) == []
-    path.write_bytes(b"corrupt")
-    with pytest.raises(ValueError, match="integrity"):
-        relation.verify()

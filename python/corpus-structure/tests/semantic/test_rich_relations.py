@@ -1,7 +1,10 @@
 """Actual set/view kernels over current typed relations, with independent expected rows."""
 
+from types import SimpleNamespace
+
 import pyarrow as pa
 import pytest
+from duckdb import BinderException
 
 from corpus_structure.semantic.analytical_kernels import (
     VIEW_ALTERNATIVES,
@@ -11,8 +14,6 @@ from corpus_structure.semantic.analytical_kernels import (
     ViewSpec,
 )
 from corpus_structure.semantic.rich_relations import (
-    RICH_FUSION_INPUT,
-    RICH_MEANINGS,
     RichRelationKernel,
 )
 
@@ -20,48 +21,8 @@ from corpus_structure.semantic.rich_relations import (
 def kernel(check_active=lambda: None):
     return RichRelationKernel(
         property_ids=frozenset({"p:value", "p:label"}),
-        threads=1,
-        memory_limit="128MB",
         check_active=check_active,
     )
-
-
-def test_actual_set_kernels_keep_unknown_distinct_and_union_exact_supports_without_spine():
-    with kernel() as scope:
-        meanings = pa.Table.from_pylist(
-            [
-                {"key": "slot:a", "meaning": None},
-                {"key": "slot:a", "meaning": "known"},
-                {"key": "slot:b", "meaning": "same"},
-                {"key": "slot:b", "meaning": "same"},
-            ],
-            schema=RICH_MEANINGS,
-        )
-        assert scope.disagreements(meanings).to_pylist() == [
-            {"key": "slot:a", "meaning": None},
-            {"key": "slot:a", "meaning": "known"},
-        ]
-        candidates = pa.Table.from_pylist(
-            [
-                {"fact_id": "fact:a", "occurrence_id": "source:b", "evidence": ["pin:2", "pin:1"]},
-                {"fact_id": "fact:a", "occurrence_id": "source:a", "evidence": ["pin:2"]},
-                {"fact_id": "fact:a", "occurrence_id": None, "evidence": []},
-            ],
-            schema=RICH_FUSION_INPUT,
-        )
-        output = scope.fuse(candidates)
-        assert output.to_pylist() == [
-            {
-                "fact_id": "fact:a",
-                "supports": ["source:a", "source:b"],
-                "candidates": 3,
-                "evidence": ["pin:1", "pin:2"],
-            }
-        ]
-    # Actual Arrow result remains usable after connection and input relations are released.
-    assert output.num_rows == 1
-    with pytest.raises(RuntimeError, match="closed"):
-        scope.fuse(candidates)
 
 
 def test_actual_views_preserve_null_statement_same_slot_and_explicit_alternatives():
@@ -160,7 +121,13 @@ def test_actual_views_preserve_null_statement_same_slot_and_explicit_alternative
                 ),
             )
         with pytest.raises(ValueError, match="typed schema"):
-            scope.disagreements(claims)
+            scope.views(
+                claims=entities,
+                entities=entities,
+                identity=identity,
+                alternatives=alternatives,
+                specs=(),
+            )
 
 
 def test_cancellation_releases_input_relations_and_scope_reopens_cleanly():
@@ -172,30 +139,38 @@ def test_cancellation_releases_input_relations_and_scope_reopens_cleanly():
             raise InterruptedError("cancelled")
 
     scope = kernel(check)
-    values = pa.Table.from_pylist([], schema=RICH_MEANINGS)
     with scope:
-        with pytest.raises(InterruptedError):
-            scope.disagreements(values)
-        assert scope.disagreements(values).num_rows == 0
-    assert scope._connection is None
 
-
-def test_empty_inputs_and_empty_supports_keep_typed_results():
-    with kernel() as scope:
-        assert scope.fuse(pa.Table.from_pylist([], schema=RICH_FUSION_INPUT)).to_pylist() == []
-        assert scope.fuse(
-            pa.Table.from_pylist(
-                [{"fact_id": "f", "occurrence_id": None, "evidence": []}],
-                schema=RICH_FUSION_INPUT,
-            )
-        ).to_pylist() == [{"fact_id": "f", "supports": [], "candidates": 1, "evidence": []}]
-        assert (
-            scope.views(
+        def views():
+            return scope.views(
                 claims=pa.Table.from_pylist([], schema=VIEW_CLAIMS),
                 entities=pa.Table.from_pylist([], schema=VIEW_ENTITIES),
                 identity=pa.Table.from_pylist([], schema=VIEW_IDENTITY),
                 alternatives=pa.Table.from_pylist([], schema=VIEW_ALTERNATIVES),
                 specs=(),
-            ).to_pylist()
-            == []
+            )
+
+        with pytest.raises(InterruptedError):
+            views()
+        assert views().num_rows == 0
+    assert scope._connection is None
+
+
+def test_model_entity_slot_rename_requires_a_matching_working_shape(monkeypatch):
+    view = SimpleNamespace(
+        get_class=lambda name: SimpleNamespace(
+            attributes={name: None for name in ("id", "key", "types", "caption", "symbol")}
+        )
+    )
+    monkeypatch.setattr(
+        "corpus_structure.model.compiled.running_model",
+        lambda: SimpleNamespace(view=lambda name: view),
+    )
+    with kernel() as scope, pytest.raises(BinderException, match="e_caption"):
+        scope.views(
+            claims=pa.Table.from_pylist([], schema=VIEW_CLAIMS),
+            entities=pa.Table.from_pylist([], schema=VIEW_ENTITIES),
+            identity=pa.Table.from_pylist([], schema=VIEW_IDENTITY),
+            alternatives=pa.Table.from_pylist([], schema=VIEW_ALTERNATIVES),
+            specs=(),
         )

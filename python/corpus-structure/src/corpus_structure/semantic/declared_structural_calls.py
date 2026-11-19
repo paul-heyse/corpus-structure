@@ -29,6 +29,7 @@ from .types import PreparedRelease, SourceArtifact
 NAMESPACE = "urn:corpus:structural:"
 _ASSET = "structural/call-assets"
 _PATHS = (
+    "analytics.py",
     "semantic/established_validity.py",
     "methods/structural_declared.py",
     "methods/structural_products.py",

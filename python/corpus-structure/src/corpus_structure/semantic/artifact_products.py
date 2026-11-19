@@ -18,6 +18,7 @@ from .types import PreparedRelease, SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
 _PATHS = (
+    "analytics.py",
     "methods/artifact_identity_declared.py",
     "semantic/artifact_products.py",
     "methods/artifact_identity.py",

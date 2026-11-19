@@ -407,8 +407,6 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
         property_ids=frozenset(
             prop.iri for definition in prepared.definitions for prop in definition.properties
         ),
-        threads=1,
-        memory_limit="2GB",
         check_active=check_active,
     ) as relations:
         result = evaluate_rich_rules(

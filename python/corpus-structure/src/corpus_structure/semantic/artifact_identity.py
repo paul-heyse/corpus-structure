@@ -449,9 +449,10 @@ def alias_tokens(artifact: ArtifactOccurrenceValue) -> tuple[str, ...]:
 @contextmanager
 def artifact_linker(records: tuple[ArtifactRecordValue, ...], policy: ArtifactScoringPolicy):
     """One bounded provider instance for the released fixed model."""
-    import duckdb
     from splink import DuckDBAPI, Linker, SettingsCreator
     from splink.comparison_library import ExactMatch
+
+    from corpus_structure.analytics import connection as analytical_connection
 
     payload = [
         dict(
@@ -478,8 +479,8 @@ def artifact_linker(records: tuple[ArtifactRecordValue, ...], policy: ArtifactSc
         retain_matching_columns=True,
         retain_intermediate_calculation_columns=True,
     )
-    with duckdb.connect() as connection:
-        api = DuckDBAPI(connection=connection)
+    with analytical_connection() as connection:
+        api = DuckDBAPI(connection=connection.native)
         yield Linker(api.register(payload, dataset_display_name="artifacts"), settings)
 
 
@@ -554,8 +555,9 @@ def native_alias_candidates(
     records: tuple[ArtifactRecordValue, ...], *, count_rules: bool = False
 ) -> tuple[tuple[tuple[str, str], ...], tuple[dict[str, JsonValue], ...]]:
     """Actual Splink array blocking; title-derived aliases must not be fabricated."""
-    import duckdb
     from splink import DuckDBAPI, Linker, SettingsCreator, block_on
+
+    from corpus_structure.analytics import connection as analytical_connection
 
     eligible = {r.contribution_id: r for r in records if r.artifact.aliases}
     if len(eligible) < 2:
@@ -576,8 +578,8 @@ def native_alias_candidates(
             block_on("source_work", "artifact_kind", "aliases", arrays_to_explode=["aliases"])
         ],
     )
-    with duckdb.connect() as connection:
-        api = DuckDBAPI(connection=connection)
+    with analytical_connection() as connection:
+        api = DuckDBAPI(connection=connection.native)
         linker = Linker(api.register(payload, dataset_display_name="artifacts"), settings)
         blocked = linker.inference.compute_blocked_pairs_for_predict().as_record_list()
         counts: tuple[dict[str, JsonValue], ...] = ()

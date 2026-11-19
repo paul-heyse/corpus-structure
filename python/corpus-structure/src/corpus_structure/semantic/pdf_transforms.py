@@ -122,10 +122,12 @@ def _implementation_files(mode):
             "ingest/pdf_selected_enrichment.py",
             "ingest/pdf_enrichment.py",
             "ingest/pdf_candidate_geometry.py",
+            "analytics.py",
         )
         if mode == "enriched"
         else (
             "ingest/pdf_stream_reconciliation.py",
+            "analytics.py",
             "ingest/pdf_reconciliation.py",
         )
     )

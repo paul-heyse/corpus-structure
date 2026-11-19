@@ -417,3 +417,16 @@ def test_export_acquires_configured_driver_and_settles_snapshot_borrower(
     assert events[-3:] == ["cursor_close", "rollback", "connection_close"]
     cancellation.request_cancel()
     assert events[-1] == "connection_close"  # The retired borrower is never cancelled again.
+
+
+def test_difference_sample_keeps_full_bag_count_with_deterministic_limit(tmp_path):
+    from corpus_structure.analytics import connection
+    from corpus_structure.serve.companion_export import _difference_rows
+    from corpus_structure.settings import AnalyticsSettings
+
+    with connection(AnalyticsSettings(scratch_path=tmp_path)) as db:
+        rows = db.from_arrow(pa.table({"key": ["b", "a", "a", None]}))
+        sample, count = _difference_rows(rows, ["key"], 2)
+        assert sample == [(None,), ("a",)] and count == 4
+        empty, count = _difference_rows(rows.limit(0), ["key"], 2)
+        assert empty == [] and count == 0

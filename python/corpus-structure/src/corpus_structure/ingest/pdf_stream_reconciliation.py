@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING, Any
 import duckdb
 import pyarrow as pa
 
+from corpus_structure.analytics import connection as analytical_connection
+
 from .pdf_reconciliation import _PrivateSelection, _select_pdf_integration
 
 if TYPE_CHECKING:
@@ -298,13 +300,8 @@ def iter_recognition_replay(
         reader = pa.RecordBatchReader.from_batches(
             file.schema, (file.get_batch(i) for i in range(file.num_record_batches))
         )
-        connection = duckdb.connect(
-            config={
-                "memory_limit": "2GB",
-                "temp_directory": str(path.parent / "sort-scratch"),
-                "threads": 1,
-            }
-        )
+        scope = analytical_connection()
+        connection = scope.__enter__()
         try:
             result = (
                 connection.from_arrow(reader)
@@ -334,7 +331,7 @@ def iter_recognition_replay(
                 result.close()
         finally:
             reader.close()
-            connection.close()
+            scope.__exit__(None, None, None)
 
 
 def reconcile_pdf_stream(

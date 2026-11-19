@@ -11,7 +11,9 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 import pyarrow as pa
-from duckdb import DuckDBPyRelation, coalesce, col, fn, list_type, lit, sqltype, when
+from duckdb import coalesce, col, fn, list_type, lit, sqltype, when
+
+from corpus_structure.analytics import Relation
 
 
 def _schema(name: str, *fields: pa.Field) -> pa.Schema:
@@ -59,7 +61,17 @@ VIEW_SPECS = pa.schema(
 )
 VIEW_APPLIES = pa.schema([("view", pa.string()), ("predicate", pa.string())])
 SAME_SLOT, ALTERNATIVE_OF = "same_slot", "alternative_of"
-PROJECTED = ("id", "key", "types", "label", "symbol")
+
+
+def projected_attributes():
+    from corpus_structure.model.compiled import running_model
+
+    owner = running_model().view("rule-view.yaml").get_class("Entity")
+    if owner is None or owner.attributes is None:
+        raise ValueError("rule-view model lacks Entity")
+    return tuple(name for name in owner.attributes if name not in {"identity", "index_symbols"})
+
+
 type Side = Literal["subject", "object"]
 
 
@@ -84,7 +96,7 @@ class ViewSpec:
         ):
             raise ValueError("view sides must be subject or object")
         if not (
-            (self.attr in PROJECTED and self.slot is None)
+            (self.attr in projected_attributes() and self.slot is None)
             or (self.attr == "identity" and self.slot)
         ):
             raise ValueError("unsupported view projection")
@@ -96,7 +108,7 @@ class ViewSpec:
         head, _, rest = str(declaration["project"]).partition(".")
         attr, _, slot = rest.partition(".")
         if head not in ("subject", "object") or not (
-            (attr in PROJECTED and not slot) or (attr == "identity" and slot)
+            (attr in projected_attributes() and not slot) or (attr == "identity" and slot)
         ):
             raise ValueError(f"view {name}: cannot project {declaration['project']!r}")
         selected_head: Side = "subject" if head == "subject" else "object"
@@ -147,68 +159,25 @@ def operation_view_tables(
     )
 
 
-def disagreements(meanings: DuckDBPyRelation) -> DuckDBPyRelation:
-    distinct = meanings.distinct()
-    conflicting = (
-        distinct.aggregate([col("key"), fn("count", lit(1)).alias("n")])
-        .filter(col("n") > 1)
-        .select(col("key").alias("conflicting_key"))
-        .set_alias("conflicting")
-    )
-    return (
-        distinct.join(conflicting, col("key") == col("conflicting_key"))
-        .select(col("key"), col("meaning"))
-        .sort(col("key"), col("meaning").asc().nulls_first())
-    )
-
-
 def _facts(value):
     empty = lit([]).cast(list_type(sqltype("VARCHAR")))
     return coalesce(fn("list_sort", fn("list_distinct", fn("list", value))), empty)
 
 
-def fuse(candidates: DuckDBPyRelation) -> DuckDBPyRelation:
-    evidence = (
-        candidates.select(
-            col("fact_id").alias("evidence_fact"), fn("unnest", col("evidence")).alias("item")
-        )
-        .aggregate([col("evidence_fact"), _facts(col("item")).alias("evidence")])
-        .set_alias("evidence_sets")
-    )
-    supports = candidates.aggregate(
-        [
-            col("fact_id"),
-            _facts(col("occurrence_id")).alias("supports"),
-            fn("count", lit(1)).alias("candidates"),
-        ]
-    )
-    empty = lit([]).cast(list_type(sqltype("VARCHAR")))
-    return (
-        supports.join(evidence, col("fact_id") == col("evidence_fact"), how="left")
-        .select(
-            col("fact_id"),
-            col("supports"),
-            col("candidates"),
-            coalesce(col("evidence"), empty).alias("evidence"),
-        )
-        .sort(col("fact_id"))
-    )
-
-
-def _prefixed(relation: DuckDBPyRelation, prefix: str) -> DuckDBPyRelation:
+def _prefixed(relation: Relation, prefix: str) -> Relation:
     return relation.select(
         *(col(name).alias(prefix + name) for name in relation.columns)
     ).set_alias(prefix)
 
 
 def operation_views(
-    claims: DuckDBPyRelation,
-    entities: DuckDBPyRelation,
-    identity: DuckDBPyRelation,
-    alternatives: DuckDBPyRelation,
-    specs: DuckDBPyRelation,
-    applies: DuckDBPyRelation,
-) -> DuckDBPyRelation:
+    claims: Relation,
+    entities: Relation,
+    identity: Relation,
+    alternatives: Relation,
+    specs: Relation,
+    applies: Relation,
+) -> Relation:
     c, d = _prefixed(claims, "c_"), _prefixed(claims, "d_")
     a, b = _prefixed(alternatives, "a_"), _prefixed(alternatives, "b_")
     s, e, i = _prefixed(specs, "s_"), _prefixed(entities, "e_"), _prefixed(identity, "i_")
@@ -277,15 +246,11 @@ def operation_views(
             how="left",
         )
     )
-    value = when(col("s_attr") == "id").then(col("e_entity"))
-    for attr, field in (
-        ("key", "key"),
-        ("types", "class_id"),
-        ("label", "label"),
-        ("symbol", "symbol"),
-    ):
+    value = when(col("s_attr") == "identity").then(col("i_value"))
+    for attr in projected_attributes():
+        field = {"id": "entity", "types": "class_id"}.get(attr, attr)
         value = value.when(col("s_attr") == attr).then(col("e_" + field))
-    value = value.when(col("s_attr") == "identity").then(col("i_value")).otherwise(lit(None))
+    value = value.otherwise(lit(None))
     projected = projected.select(
         col("s_view").alias("projected_view"),
         when(col("s_match_source") == "subject")
@@ -306,4 +271,4 @@ def operation_views(
             _facts(col("value")).alias("facts"),
         ]
     )
-    return same_slot.union(alternative_view).union(declared).sort(col("claim"), col("view"))
+    return same_slot.union_all(alternative_view).union_all(declared).sort(col("claim"), col("view"))

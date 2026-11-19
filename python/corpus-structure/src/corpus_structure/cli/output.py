@@ -42,6 +42,9 @@ class CliState:
 
             self._settings = self.settings_factory()
             configure(self._settings.cache)
+            from corpus_structure.analytics import configure as configure_analytics
+
+            configure_analytics(self._settings.analytics)
         return self._settings
 
 

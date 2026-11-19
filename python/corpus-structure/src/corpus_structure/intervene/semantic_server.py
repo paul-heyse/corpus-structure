@@ -48,10 +48,12 @@ def build_retained_reader_server(
 
     @lifespan
     async def open_session(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
+        from corpus_structure.analytics import configure as configure_analytics
         from corpus_structure.caches import configure
         from corpus_structure.cli.observation_logging import child_capture
 
         configure(effective_settings.cache)
+        configure_analytics(effective_settings.analytics)
         with child_capture() as observations, engines.lifespan():
             yield {"settings": effective_settings, "observation_writer": observations}
 
