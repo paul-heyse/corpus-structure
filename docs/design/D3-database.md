@@ -402,6 +402,13 @@ bounded durable draft remains private under its completion custodian until nativ
 Compatible PDF checkpoints can cross a request or release boundary with verified retired writer,
 material premises and original contributor evidence.
 
+The acquisition guard reads the recorded kernel from the admitted release header. Binding and
+population acquisition read protected operation definitions and release binding types. Admission
+authenticates the archived sources and lowers those facts before the execution guard runs, in one
+savepoint. `ci release check --native-proof --release RELEASE_ID --target TARGET` verifies the
+archive, admitted facts and installed catalog under admission authority. Activation runs the same
+proof. The ordinary archive check serves retained releases across kernel changes.
+
 **Implemented and tested on the bounded stage · 2026-11-19.** The release manifest binds the model, material inputs, generated
 artifacts and serialized products. Frozen revision state separately records the generator's
 observed files, distributions and unresolved dependencies. PDF admission compares the
@@ -2512,10 +2519,10 @@ requirements; existing nullable task storage represents logical skips without pe
 
 Ordinary opening first selects release/finalization identity, digests, profile and physical tuple
 markers in one Core join. A finalized matching header and actual boundary-runtime determinants
-can reuse the existing eight-entry engine cache without payload transfer. Tuple markers only
-invalidate reuse conservatively; they confer no semantic identity, authorization or admission.
-Cold opening verifies complete inputs/artifacts/products and refuses a changed header before
-caching. Unfinalized archives remain fully checked and uncached. Explicit verification,
+can reuse authenticated archive products in the shared byte-bounded release tier. The cache key
+uses the acquired cluster and database identity, including the database OID. Tuple markers
+invalidate reuse conservatively. Cold opening verifies complete inputs, artifacts, and products,
+then checks that the observed header still matches before retaining the value. Explicit verification,
 persistence/replay, activation, run start/resumption and resource principal checks remain distinct.
 Archived bytes retain their original meaning; opening a current archive does not reinterpret an obsolete execution product. The current plan owns the supported execution scope.
 

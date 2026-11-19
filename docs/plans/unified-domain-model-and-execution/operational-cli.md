@@ -153,6 +153,10 @@ reports name their tier and prospective/actual eligible bytes; held receipts, re
 and acknowledged checkpoints never become cache-pruning candidates. Capacity, eviction and codec
 maintenance do not themselves change native authority or material identity.
 
+`ci cache stats --json` reports the current invocation's process identity, observation lifetime,
+configured bounds, retained weights, and available counters. `inspect_cache` reports the
+long-lived retained-reader MCP process using the same typed shape.
+
 ## Library realization and output contract
 
 The installed pins at the source baseline are **Typer 0.28.0** and **Rich 15.0.0**. The repository's

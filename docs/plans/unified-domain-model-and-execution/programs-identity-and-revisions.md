@@ -765,15 +765,29 @@ itself, with the Python comparison of UDM-08 bypassed in the test.
 **Implementation vision.** The package implements
 [Carried assurance and the watermark](#carried-assurance-and-the-watermark): the generated guard
 is split into the per-acquisition predicate set and the full re-proof routine, with the lapse rule
-stated once, and an explicit `ci` verification command runs the full proof. The Python side of
+stated once. `ci release check --native-proof --release RELEASE_ID --target TARGET` reads the
+archive and its projections without cache reuse, authenticates the current installed proof, and
+establishes a missing receipt under admission authority. The ordinary release check still verifies
+archived releases independently of the current kernel. The Python side of
 acquisition (`semantic/execution_admission.py:120–178`) keeps authenticating the installed
 descriptor and guard bodies against the frozen expectations.
+
+N33 carried receipts but still decoded the release kernel in the fast guard and decoded and hashed
+the archived operation model in binding and population acquisition. One successor moves the kernel
+comparison to the admitted release header and stores the binding-type and parameter facts in the
+protected release and operation rows. The generated data step derives only the new fields from each
+retained release's digest-authenticated archive. Historical lowering, identities, and references
+keep their original meaning. Full proof compares the new fields and the admitted binding against the
+archive, and activation runs the same full proof.
 
 Role-granular watermarking joins the identity transition revision only if its soundness
 premise is settled before that revision is frozen; otherwise it is deferred, with the settling
 of that premise as its trigger, and the series plans no further revision for it.
 The premise is W1. While it is unsettled, the operation-granular prerequisite component stays
 beside the role-matched one that already exists (`semantic/data_operation_projections.py:1781–1809, 1919–2059`).
+In the current design a dependent operation without a source-set pin can wake when a new eligible
+same-demand prerequisite output appears. The current role components exclude that case. Keep the
+operation component until the role projection accounts for this wake-up and the rest of W1.
 
 **Complete consumer scope.** The guard generator, binding admission, population acquisition, the
 watermark projection and its one consumer, at the sites the baseline gives under
@@ -785,7 +799,8 @@ activation path, which calls the full proof.
 
 **Prerequisites.** UDM-08 supplies the fact that a release runs only under its recorded kernel,
 which makes dropping the component sound. UDM-10 supplies the kernel identity that the receipt
-and the lapse rule name. **Native revision.** The identity transition revision. A cause found by
+and the lapse rule name. **Native revision.** The transition establishes the receipt foundation.
+Its successor completes the binding and population conversion before UDM-13 begins. A cause found by
 UDM-20 that lies in carried assurance or the watermark is repaired here.
 
 **What this keeps open.** Nothing about knowledge content or the declared behaviour space is
@@ -1009,4 +1024,4 @@ matched the complete post-activation snapshot afterward. [Stage readback and rec
 | UDM-09 | Complete. One typed installation graph, direct grants and family declarations are integrated. The fresh install, frozen ACL correspondence and N29 conversion passed. N32 established stage generation 29. |
 | UDM-10 | Complete for the bounded stage. N33 separates native, validator, Python and material release identities. Unresolved producing code permits fresh execution under demand scope. |
 | UDM-11 | Complete for the bounded stage. The installed kernel guard and exact program comparison passed. Both equal-byte authoring routes settled offline. |
-| UDM-12 | Receipt-backed acquisition, explicit catalog proof, watermark change and native reconfirmation are integrated for the transition. Wider qualification remains scheduled. |
+| UDM-12 | Complete for the bounded stage. N34 carries admitted binding and population facts and runs explicit archive and catalog proof. The cutover advanced generation 30 to 31. [Stage evidence](../../design_review/evidence/2026-11-19_udm12-carried-assurance/README.md). W1 remains deferred on the prerequisite wake-up premise. |

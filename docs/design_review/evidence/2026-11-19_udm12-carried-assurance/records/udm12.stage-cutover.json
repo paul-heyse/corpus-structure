@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "id": "udm12.stage-cutover",
+  "title": "N34 carried assurance on the bounded stage",
+  "group": null,
+  "package": "UDM-12",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does N34 install the admitted binding and proof changes and preserve the bounded stage during activation?",
+  "answers": [
+    "UDM-12"
+  ],
+  "method": "Qualify fresh installation and exact archive custody, compare populated retained rows after upgrade, exercise installed controls and compare the bounded project before and after activation.",
+  "commands": [
+    "ci model change candidate fbed90db169d41be877b2e87c83a185e",
+    "ci model change register e1fdb85ec7bc40f98b44abb431f1cbd4",
+    "ci model change deploy e1fdb85ec7bc40f98b44abb431f1cbd4",
+    "ci db check --target deployment --release release:32dd2ff487f76057e4d7778c03890283dd1c24f45cf42c411e5d0ebc47484924",
+    "ci release check --native-proof --target deployment --release release:32dd2ff487f76057e4d7778c03890283dd1c24f45cf42c411e5d0ebc47484924",
+    "ci release activate release:32dd2ff487f76057e4d7778c03890283dd1c24f45cf42c411e5d0ebc47484924 --project ddo-current-pdf-bounded --target deployment --expected-generation 30"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "README.md",
+      "role": "bounded-stage-account",
+      "sha256": "1eda1cf89f258fe00175c9d680fb3db400d5b8128b267092f30420e42f44e45a"
+    },
+    {
+      "path": "raw/readback.json",
+      "role": "stage-readback",
+      "sha256": "9c36354ea6ad59af86bb7bcd81ad76f1b8a5e55ee44704b432417c360006163c"
+    },
+    {
+      "path": "private_candidate_probe.py",
+      "role": "private-admission-probe",
+      "sha256": "16065fde456277a809a97cd75a8837088bee173276d6274e96006a477a90c028"
+    }
+  ],
+  "depends_on": [
+    "2026-11-19_udm10-11-stage-cutover/udm10.stage-cutover"
+  ],
+  "results": [
+    {
+      "name": "stage_generation",
+      "value": 31,
+      "of": null,
+      "unit": null,
+      "note": "Generation advanced once from 30."
+    },
+    {
+      "name": "historical_release_headers_backfilled",
+      "value": 46,
+      "of": null,
+      "unit": null,
+      "note": "Private populated upgrade."
+    },
+    {
+      "name": "historical_operation_definitions_backfilled",
+      "value": 3746,
+      "of": null,
+      "unit": null,
+      "note": "Private populated upgrade."
+    },
+    {
+      "name": "preserved_pdf_batch_receipts",
+      "value": 143,
+      "of": null,
+      "unit": null,
+      "note": "Exact bounded stage match."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "N34 installed and activated generation 31. The installed proof and discovery/settlement controls passed. Retained project identities and acknowledgements matched preflight.",
+  "consumed_by": [
+    "UDM-12",
+    "UDM-13"
+  ]
+}

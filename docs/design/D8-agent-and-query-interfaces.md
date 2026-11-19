@@ -127,6 +127,12 @@ be narrowed under the same read identity. MCP resource replay retains those comp
 than reconstructing scope from loose IDs. This bounded provider journey does not establish
 linguistic accuracy or enclosing DDO qualification.
 
+**Implemented cache inspection · 2026-11-19.** `ci cache stats` describes the invoking process.
+The retained MCP reader's `inspect_cache` describes its own long-lived process. Both include the
+owner, process ID, observation lifetime, per-tier limits and available counters. Selected serving
+reacquires native authority before consulting retained rows, scopes reuse to the effective
+principal and acquired database, and serves a fresh page while code identity is incomplete.
+
 > Decision: [ADR-0109](../adr/0109-ddo-current-domain-contracts.md)
 
 > Decision: [ADR-0126](../adr/0126-terminal-outcomes-and-attempt-failures.md)

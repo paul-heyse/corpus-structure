@@ -588,6 +588,16 @@ reach statement text, which is an integrity rule about how statements are built 
 
 ## UDM-18 — Release-bound inputs, the derived scientific policy, and two small causes
 
+**Scientific policy slice Tested · 2026-11-19.** The LinkML `ScientificPolicy` declaration
+owns sampling bounds and comparison decisions. Compilation projects the typed policy, records its
+material settings in the prepared release and supplies the archived policy to the numerical
+kernel. An independent check observed the changed sample range after a bounds edit and stable
+recipe comparison after a descriptive edit. A private PostgreSQL candidate with the typed policy
+passed native admission, explicit proof and archived readback on N34
+(`be2952456037438093905160b12094d6`, `test_typed_scientific_candidate_admits_on_the_registered_kernel`).
+The stage continues to select the UDM-12 cutover release. Native generation reported
+`no_native_change` with the database endpoints unreachable (`3d5afd411ee4496f8a0b1be1c4ed08f2`).
+
 **Scientific determinants (I01/I05).** Keep the release-bound bytes and actual producer evidence
 for every result. Feed the policy, model assets, grammar and runtime or precision parameters that
 can change the observation into UDM-10's producing identity. Demonstrate one setting that changes
@@ -815,5 +825,5 @@ belongs to the owner of the deployed tree's lifecycle, and the coordinator recor
 |---|---|
 | UDM-16 | Not started |
 | UDM-17 | Not started |
-| UDM-18 | Not started |
+| UDM-18 | Scientific policy slice complete against private N34. The decimal bound landed with N30. Archived pack inputs and qualifier partition remain open. |
 | UDM-19 | Not started |

@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "id": "udm13.cache-bounds",
+  "title": "Bounded archive, runtime, and parser weights",
+  "group": null,
+  "package": "UDM-13",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What bounded process cache settings fit the observed N34 archive and CPU working set?",
+  "answers": [
+    "UDM-13"
+  ],
+  "method": "Observe opens and immediate repeats on the acquired stage, load representative CPU artifacts and grammar preparations, and sample actual CLI, worker and MCP owners.",
+  "commands": [
+    "ci cache stats --json",
+    "uv run python docs/design_review/evidence/2026-11-19_udm13-cache-bounds/stage_archive_probe.py",
+    "uv run python docs/design_review/evidence/2026-11-19_udm13-cache-bounds/process_observations.py"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "README.md",
+      "role": "observation",
+      "sha256": "79cf1f4de320a8941740e6a61e35611cd893a5340423d66b840a0c232ad54110"
+    },
+    {
+      "path": "raw/stage-archive.json",
+      "role": "stage-archives",
+      "sha256": "c0037270820af84a9b80ade73c3abe6e00692f3c0f4819baec9df1292721ba74"
+    },
+    {
+      "path": "raw/runtime-memos.json",
+      "role": "runtime-memos",
+      "sha256": "1ce8b82f59b805183c7bd6a83c694187b09e59be2d34cf9a29942bb5778d3828"
+    },
+    {
+      "path": "raw/process-owners.json",
+      "role": "process-owners",
+      "sha256": "77e6a8713ef305dd706b3b64ffc9b9785fda7bfcca0cee913b8acc350c19ce38"
+    },
+    {
+      "path": "raw/cli.json",
+      "role": "cli-process",
+      "sha256": "0afce947738a79e3316ae0461731f40f5f8a41b3d47947be159ca8bb235642ab"
+    },
+    {
+      "path": "stage_archive_probe.py",
+      "role": "reproduction-probe",
+      "sha256": "531b8c1cfe2725e22dcaff36c94d83fbe9acb6f8af047ff7f28d5777a52a91b6"
+    },
+    {
+      "path": "process_observations.py",
+      "role": "reproduction-probe",
+      "sha256": "8581bc411f8406aa1f8a54508f4e5104bd1091a986a47545cae9652e2572b1ef"
+    }
+  ],
+  "depends_on": [
+    "2026-11-19_udm12-carried-assurance/udm12.stage-cutover"
+  ],
+  "results": [
+    {
+      "name": "archive_resident_bytes",
+      "value": 187696277,
+      "of": null,
+      "unit": "bytes",
+      "note": "Eight actual finalized releases."
+    },
+    {
+      "name": "cpu_retained_bytes",
+      "value": 1295718,
+      "of": null,
+      "unit": "bytes",
+      "note": "Declared retained file and compiled footprint."
+    },
+    {
+      "name": "macro_classifications",
+      "value": 2,
+      "of": 3,
+      "unit": null,
+      "note": "Three distinct macro tables."
+    },
+    {
+      "name": "warm_archive_hits",
+      "value": 8,
+      "of": 8,
+      "unit": null,
+      "note": "Immediate repeats in the same process."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The release budget is 256 MiB, runtime budget is 16 MiB and parser budget is eight entries. Warming and disk model caching remain unadopted.",
+  "consumed_by": [
+    "UDM-13",
+    "UDM-14"
+  ]
+}

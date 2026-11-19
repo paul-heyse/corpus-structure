@@ -1,6 +1,6 @@
 # The cache system: one owner module, six in-process tiers and two on-disk tiers
 
-**Status:** Not started. Draft for the coordinator's assembly.
+**Status:** UDM-13 complete for the bounded N34 increment. UDM-14 and UDM-15 remain scheduled.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-13** (the cache owner module, cachetools 8.0.1 and the
@@ -305,12 +305,12 @@ unknown fields, like every other section.
 | `root` | `build/cache`, resolved from the working directory like the other path settings | The on-disk store |
 | `model_entries` | 4 | T1 |
 | `program_sets` | 2 | T2 |
-| `release_bytes` | set by the bounded observation of UDM-13 | T3 |
+| `release_bytes` | 256 MiB based on the bounded stage observation | T3 |
 | `served_bytes`, `served_entries` | 32 MiB, 128 (today's constants) | T4 |
-| `runtime_bytes` | set by the bounded observation of UDM-13 | T5 |
-| `parser_entries`, `parse_memo_entries` | set by the bounded observation of UDM-13; 8,192 (today's constant) | T6 |
+| `runtime_bytes` | 16 MiB based on the bounded CPU preparation | T5 |
+| `parser_entries`, `parse_memo_entries` | 8 and 8,192 | T6 |
 | `program_store_bytes`, `page_store_bytes` | set in UDM-14 from the size of one stored entry of each kind | D2, D4 |
-| `wait_seconds` | set at implementation, no longer than a served request's existing deadline | The longest a T4 waiter waits for an in-flight derivation |
+| `wait_seconds` | 1 second | The longest a T4 waiter waits for an in-flight derivation |
 
 The per-entry limits of a served result (8 MiB, 4,096 rows) stay constants of the serving module.
 They are part of a query's examined-input bound, not a tuning value: a cache populated under a
@@ -417,6 +417,26 @@ coordinator records that as a design choice. ADR-0125 is unchanged. The DDO plan
 ## Packages
 
 ### UDM-13 — The owner module, cachetools 8.0.1 and the six in-process tiers
+
+**Implemented against N34 · 2026-11-19.** A budget owns its holders and clearing it releases
+completed entries. Archived releases use the acquired database identity, protected header and
+boundary runtime. A private PostgreSQL activation control reused an immutable archive while
+observing the new release and generation on the next reader snapshot
+(`5026c6e769704cf5a7b74244179423b5`). Serving uses only typed keys after acquiring native
+authority. The real serving closure still reports 33 unresolved dependencies, matching the N33
+baseline. Reads under that standing return a fresh page with no reuse handles. The complete-code
+control exercises authorized retained rows, continuation ordering and concurrent requests.
+
+The stage archive working set and CPU preparation determined the three retention defaults. The
+separate CLI, spawned worker and MCP observations supported retaining lazy compilation. The disk
+model tier and warming remain unadopted. [Bounded observations](../../design_review/evidence/2026-11-19_udm13-cache-bounds/README.md)
+
+**Tested · 2026-11-19.** The final `ci test` selection passed all 209 model, archive, CLI,
+PDF, runtime and serving checks (`be2952456037438093905160b12094d6`). The witnessed source-link
+regression passed all six selected cases (`bce82089ce024e3e9f62881dcbfccb73`). Offline
+`ci schema native-candidate` compared 617 installed objects and reported `no_native_change`
+(`3d5afd411ee4496f8a0b1be1c4ed08f2`). The stage project readback still matched generation 31 after
+cache qualification. UDM-22 and UDM-23 own the integrated provider and book qualification.
 
 **Implementation vision.** A plain module, `corpus_structure/caches.py`, owns the process-wide
 caches. It offers `configure` (take the settings section once), `declare` (build, on first use, a
@@ -555,9 +575,9 @@ list of tiers, which is internal structure.
 - *Bounds.* An entry larger than a byte bound is returned and not held. Filling T4 past its entry
   cap evicts by count while under its byte bound. After the migration, no module-level mutable
   dictionary remains in `methods/math/grammar.py`, by inspection (F02).
-- *The pin move.* The served-read implementation identity differs before and after the move and
-  is otherwise stable; a cursor issued before is refused with the existing invalid-continuation
-  refusal, not with an error.
+- *The pin move.* A cache storage version change preserves the semantic implementation identity
+  and ordered continuation rows. An incomplete producing identity continues to permit a fresh
+  page and withholds continuation and cached results where that standing applies.
 - *Defaults.* Each of the three observed defaults is traceable to a figure in the evidence record
   of the bounded observation, and the record states the decision taken on the on-disk model tier.
 
@@ -725,8 +745,16 @@ argument, not computed from the key function.
 
 ## State
 
+The bounded stage observation opened eight releases under N34 generation 31 and retained
+187,696,277 declared bytes. Immediate repeats produced eight hits in the same process. CPU
+preparation retained 1,295,718 declared bytes, including tokenizer files, matchers, the prose
+grammar, and a compiled pack fixture. Three macro tables exercised two parser classifications.
+The configured bounds leave room for additional process work. The observed model compilation
+and spawned-process start support retaining the process-local design and leaving warming and
+disk model caching unadopted for this increment.
+
 | Package | State |
 |---|---|
-| UDM-13 | Not started |
+| UDM-13 | Complete for the bounded N34 increment. Six process tiers, typed scientific policy projections and owner-scoped CLI and MCP diagnostics passed scoped qualification. Incomplete serving code identity still permits a fresh page. |
 | UDM-14 | Not started |
 | UDM-15 | Not started |
