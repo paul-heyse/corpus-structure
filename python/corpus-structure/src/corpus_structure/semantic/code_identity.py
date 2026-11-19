@@ -7,9 +7,12 @@ modules. Exact source custody is separate from normalized execution meaning.
 from __future__ import annotations
 
 import ast
+import dataclasses
+import importlib
 import importlib.metadata
 import json
 import sys
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 from hashlib import sha256
@@ -37,6 +40,10 @@ class CodeBoundary:
     digest: str
 
 
+_GENERATED_INTERFACES = ("dataclasses-runtime",)
+_STANDARD_REFERENCES = {"dataclasses.dataclass": dataclasses.dataclass}
+
+
 @dataclass(frozen=True)
 class ModuleSource:
     module: str
@@ -59,6 +66,7 @@ class CodeIdentity:
     narrowing_unknowns: tuple[str, ...] = ()
     determining_modules: tuple[ModuleSource, ...] = ()
     discovery_unknowns: tuple[CodeUnknown, ...] = ()
+    determining_definitions: tuple[str, ...] = ()
 
     @property
     def complete(self) -> bool:
@@ -94,6 +102,7 @@ class CodeIdentity:
             "unknowns": [asdict(item) for item in self.unknowns],
             "narrowing_unknowns": self.narrowing_unknowns,
             "determining_modules": [item.module for item in self.determining_modules],
+            "determining_definitions": self.determining_definitions,
             "discovery_unknowns": [asdict(item) for item in self.discovery_unknowns],
             "complete": self.complete,
             "code_identity": self.digest,
@@ -393,10 +402,11 @@ def capture_code_identity(
         "python": sys.version,
     }
     determining: tuple[ModuleSource, ...] = ()
+    definitions: tuple[str, ...] = ()
     narrowing_unknowns: tuple[str, ...] = ()
     discovery_unknowns = tuple(sorted(unknowns))
     if callables:
-        narrowed, determining, required = _narrow(
+        narrowed, determining, definitions, required = _narrow(
             selected, callables, tuple(imported_distributions), boundaries, package_root
         )
         if required:
@@ -404,7 +414,7 @@ def capture_code_identity(
             unknowns = set(required)
         else:
             basis = {
-                "profile": "python-workload-identity-v2",
+                "profile": "python-workload-identity-v3",
                 "entries": sorted(entries),
                 "python": sys.version,
                 "closure": narrowed,
@@ -421,7 +431,83 @@ def capture_code_identity(
         narrowing_unknowns,
         determining,
         discovery_unknowns,
+        definitions,
     )
+
+
+@contextmanager
+def authenticate_workload(root: Path, identity: CodeIdentity, *, closed: bool = False):
+    """Check live bindings as well as the loader's executing source correspondence."""
+    from corpus_structure._query_custody import (
+        SourceCustodyError,
+        capture_workload_sources,
+        query_sources,
+    )
+
+    captured = capture_workload_sources(root, identity)
+    proof = None
+    if identity.complete and identity.determining_definitions:
+        proof = _runtime_workload_slice(
+            root.resolve(), identity.determining_modules, identity.determining_definitions
+        )
+
+    def verify():
+        if proof is not None:
+            try:
+                proof.check()
+            except ValueError as error:
+                raise SourceCustodyError(str(error)) from error
+
+    with query_sources(captured, closed=closed and identity.complete):
+        verify()
+        yield verify
+        verify()
+
+
+@lru_cache(maxsize=32)
+def _runtime_workload_slice(root, determining, definitions):
+    from corpus_structure._query_custody import (
+        SourceCustodyError,
+        bootstrap_sources,
+        capture_sources,
+        query_sources,
+    )
+
+    from .data_operation_ports import (
+        _authenticated_closed_slice,
+        _verify_closed_runtime_sources,
+    )
+    from .python_operation_sources import PythonSource, PythonSourceCollection
+
+    paths = {item.module: (root / item.filename).resolve() for item in determining}
+    expected = {str(paths[item.module]): sha256(item.content).hexdigest() for item in determining}
+    fixed_bootstrap = bootstrap_sources(root)
+    sources = PythonSourceCollection(
+        tuple(
+            PythonSource(item.module, item.content, str(paths[item.module]))
+            for item in determining
+            if str(paths[item.module]) not in fixed_bootstrap
+        ),
+        generated_interfaces=_GENERATED_INTERFACES,
+    )
+    try:
+        with query_sources(expected, closed=True):
+            modules = {
+                source.module: importlib.import_module(source.module) for source in sources.sources
+            }
+        # The verifier also validates consumed aliases and definition-time defaults.
+        # Keep its own imports outside the checked workload.
+        if capture_sources(expected) != expected:
+            raise SourceCustodyError("workload source differs from executing source")
+        nodes = set(definitions)
+        _verify_closed_runtime_sources(
+            sources, modules, paths, nodes, standard_references=_STANDARD_REFERENCES
+        )
+        return _authenticated_closed_slice(
+            sources, modules, paths, nodes, standard_references=_STANDARD_REFERENCES
+        )
+    except (ImportError, AttributeError, ValueError) as error:
+        raise SourceCustodyError(f"workload runtime binding differs: {error}") from error
 
 
 _SLICER_LOCK = RLock()
@@ -450,6 +536,7 @@ def _closed_sources(modules: tuple[ModuleSource, ...], interpreter: str):
                 )
             ),
             interpreter=interpreter,
+            generated_interfaces=_GENERATED_INTERFACES,
         ),
         resolve_relative_imports=True,
     )
@@ -486,7 +573,7 @@ def _narrow(modules, callables, distributions, supplied_boundaries, package_root
                 pending.add(name)
             elif not optional:
                 required.add(CodeUnknown(source, line, "initialized module is absent: " + name))
-        elif not optional and top not in {"typing", "__future__", "importlib"}:
+        elif not optional and top not in {"typing", "__future__", "importlib", "dataclasses"}:
             boundary = next(
                 (
                     boundary
@@ -549,7 +636,7 @@ def _narrow(modules, callables, distributions, supplied_boundaries, package_root
     # entire CST/binding collection when that cannot change eligibility.
     initialize_modules()
     if required:
-        return {}, (), tuple(required)
+        return {}, (), (), tuple(required)
 
     boundaries = tuple(
         OpaqueBoundary(item.reference, item.contract, item.role, item.digest)
@@ -567,8 +654,9 @@ def _narrow(modules, callables, distributions, supplied_boundaries, package_root
             )
     except (PreparationError, ValueError, KeyError, ImportError) as error:
         unknown = CodeUnknown(callables[0], 0, f"{type(error).__name__}: {error}")
-        return {}, (), (unknown,)
+        return {}, (), (), (unknown,)
 
+    definitions = set()
     for result in slices:
         for item in result.unknowns:
             if item.required:
@@ -589,6 +677,7 @@ def _narrow(modules, callables, distributions, supplied_boundaries, package_root
             if name := owner(path.partition("/")[0]):
                 pending.add(name)
             if path in closed.definitions:
+                definitions.add(path)
                 # A local import also initializes its target when the function
                 # executes and never reads the imported binding.
                 source, definition = closed.definitions[path]
@@ -607,18 +696,66 @@ def _narrow(modules, callables, distributions, supplied_boundaries, package_root
             "external_initialization": sorted(external.items()),
         },
         tuple(module_sources[name] for name in sorted(initialized)),
+        tuple(sorted(definitions)),
         tuple(required),
     )
 
 
 def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSyntax):
     def literal(expression):
-        return (
-            expression is None
-            or isinstance(expression, (ast.Constant, ast.Name))
-            or (
-                isinstance(expression, ast.Tuple) and all(literal(item) for item in expression.elts)
+        if expression is None or isinstance(expression, ast.Name):
+            return True
+        # An actual literal may compose lists and mappings. Star expansion,
+        # comprehensions, attribute reads and constructor calls need proofs of
+        # their own. Unordered set values also need an iteration contract.
+        if any(isinstance(item, (ast.Call, ast.Set)) for item in ast.walk(expression)):
+            return False
+        try:
+            ast.literal_eval(expression)
+        except ValueError, TypeError:
+            return False
+        return True
+
+    def dataclass_decorator(statement):
+        if len(statement.decorator_list) != 1:
+            return False
+        decorator = statement.decorator_list[0]
+        reference = decorator.func if isinstance(decorator, ast.Call) else decorator
+        if not isinstance(reference, ast.Name) or (
+            scanner.package_names.get(reference.id) != "dataclasses.dataclass"
+            or reference.id in scanner.assigned
+        ):
+            return False
+        if isinstance(decorator, ast.Call) and (
+            decorator.args
+            or any(
+                item.arg not in {"frozen", "kw_only"}
+                or not isinstance(item.value, ast.Constant)
+                or type(item.value.value) is not bool
+                for item in decorator.keywords
             )
+        ):
+            return False
+        return all(
+            (
+                isinstance(item, ast.AnnAssign)
+                and isinstance(item.target, ast.Name)
+                and not item.target.id.startswith("__")
+                and isinstance(item.annotation, ast.Name)
+                and item.annotation.id in {"bool", "bytes", "float", "int", "str"}
+                and item.annotation.id not in scanner.assigned
+                and item.annotation.id not in scanner.package_names
+                and not isinstance(item.value, ast.Name)
+                and literal(item.value)
+            )
+            or (
+                isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and not item.name.startswith("__")
+                and supported(item)
+            )
+            or isinstance(item, ast.Pass)
+            or (isinstance(item, ast.Expr) and isinstance(item.value, ast.Constant))
+            for item in statement.body
         )
 
     def supported(statement):
@@ -626,13 +763,19 @@ def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSynt
             return all(supported(item) for item in statement.orelse)
         if isinstance(statement, (ast.Import, ast.ImportFrom, ast.Pass)):
             return True
+        if isinstance(statement, ast.TypeAlias):
+            # Python 3.14 creates the alias here and evaluates its value on
+            # access. The reached access must still establish the binding.
+            return True
         if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
             return not statement.decorator_list and all(
                 literal(item) for item in (*statement.args.defaults, *statement.args.kw_defaults)
             )
         if isinstance(statement, ast.ClassDef):
-            return not (statement.bases or statement.keywords or statement.decorator_list) and all(
-                supported(item) for item in statement.body
+            return not (statement.bases or statement.keywords) and (
+                dataclass_decorator(statement)
+                if statement.decorator_list
+                else all(supported(item) for item in statement.body)
             )
         if isinstance(statement, ast.Assign):
             return all(isinstance(target, ast.Name) for target in statement.targets) and literal(
@@ -674,8 +817,11 @@ def _initialization_imports(module: ModuleSource, tree: ast.AST) -> _RuntimeSynt
         elif isinstance(node, ast.ImportFrom):
             for item in node.names:
                 local = item.asname or item.name
-                if node.level == 0 and node.module == "typing" and item.name == "TYPE_CHECKING":
-                    names[local] = "typing.TYPE_CHECKING"
+                reference = f"{node.module}.{item.name}"
+                if node.level == 0 and reference in {"typing.TYPE_CHECKING", *_STANDARD_REFERENCES}:
+                    previous = names.setdefault(local, reference)
+                    if previous != reference:
+                        assigned.add(local)
                 else:
                     assigned.add(local)
         elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):

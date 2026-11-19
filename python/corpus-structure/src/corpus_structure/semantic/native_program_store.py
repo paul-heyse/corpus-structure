@@ -104,7 +104,7 @@ def _analyze_generator_code():
         root,
         ("corpus_structure.semantic.target_installation",),
         callables=(
-            "corpus_structure.semantic.target_installation.capture_target_installation",
+            "corpus_structure.semantic.target_installation.render_target_installation",
             "corpus_structure.semantic.target_installation._build_target_installation",
             "corpus_structure.semantic.target_installation.foundation_programs",
             "corpus_structure.semantic.native_products._capture_native_authoring_inputs",
@@ -235,29 +235,12 @@ def _copied_source_paths(available: dict[str, bytes]) -> set[str]:
 
 
 @contextmanager
-def capture_generator_custody(identity):
-    from corpus_structure._query_custody import capture_workload_sources, query_sources
+def capture_generator_custody(identity, *, closed=False):
+    from .code_identity import authenticate_workload
 
     root = Path(__file__).resolve().parents[1]
-    expected = capture_workload_sources(root, identity)
-    with query_sources(expected, closed=True):
+    with authenticate_workload(root, identity, closed=closed):
         yield
-
-
-def captured_source(inputs, filename: str) -> bytes:
-    """Return a copied module/resource from the pre-key input snapshot."""
-    modules = dict(inputs.module_sources)
-    resources = {item.name: item.content for item in inputs.resource_sources}
-    if filename.startswith("resource:"):
-        return resources[filename.removeprefix("resource:")]
-    try:
-        return modules[filename]
-    except KeyError as error:
-        raise ValueError(f"copied authoring source was not captured: {filename}") from error
-
-
-def generator_sources(inputs) -> dict[str, bytes]:
-    return dict(inputs.module_sources)
 
 
 def input_key(inputs, *, include_format: bool) -> bytes | None:

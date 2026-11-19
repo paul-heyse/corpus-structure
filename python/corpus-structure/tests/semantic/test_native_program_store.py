@@ -1,5 +1,6 @@
 """Independent exact program artifact round trips and refusal of changed identities."""
 
+import os
 from dataclasses import replace
 
 import pytest
@@ -112,3 +113,101 @@ def test_program_store_reopens_a_program_entry_without_building(tmp_path, monkey
     assert opened.prerequisites == current.prerequisites
     assert opened.authoring_inputs.sources == current.authoring_inputs.sources
     assert opened.rendered_only
+
+
+@pytest.mark.skipif(
+    os.environ.get("CORPUS_RUN_UDM_D2") != "1",
+    reason="actual D2 qualification requires complete authenticated generator identity",
+)
+def test_installed_native_candidate_reuses_programs_in_a_fresh_offline_process(tmp_path):
+    import json
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[4]
+    cache = tmp_path / "program-cache"
+    unavailable = "postgresql+psycopg://paul@127.0.0.1:1/corpus_d2_offline?connect_timeout=1"
+    environment = os.environ | {
+        "CORPUS_CACHE__ROOT": str(cache),
+        "CORPUS_CACHE__PROGRAM_STORE_BYTES": str(128 * 1024**2),
+        "CORPUS_CACHE__PAGE_STORE_BYTES": "0",
+        **{
+            "CORPUS_DATABASE__" + purpose: unavailable
+            for purpose in (
+                "URL",
+                "MAINTENANCE_URL",
+                "READER_URL",
+                "EVALUATOR_URL",
+                "ADMISSION_URL",
+            )
+        },
+    }
+    script = """
+import json
+import os
+import sys
+from pathlib import Path
+
+counts = {"render": 0, "hydrate": 0}
+def observe(frame, event, arg):
+    if event != "call":
+        return
+    module = frame.f_globals.get("__name__")
+    if module == "corpus_structure.semantic.target_installation" and frame.f_code.co_name == "render_target_installation":
+        counts["render"] += 1
+    if module == "corpus_structure.semantic.native_program_store" and frame.f_code.co_name == "hydrate":
+        counts["hydrate"] += 1
+
+sys.setprofile(observe)
+try:
+    from corpus_structure.cli.app import main
+    main()
+finally:
+    sys.setprofile(None)
+    Path(os.environ["NATIVE_GENERATOR_COUNTS"]).write_text(json.dumps(counts))
+"""
+    command = [
+        sys.executable,
+        "-c",
+        script,
+        "schema",
+        "native-candidate",
+        "--expected-predecessor",
+        "semantic_ddo_pe_n34",
+        "--json",
+    ]
+
+    def invoke(ordinal):
+        count_path = tmp_path / f"counts-{ordinal}.json"
+        reply = subprocess.run(
+            command,
+            cwd=root,
+            env=environment | {"NATIVE_GENERATOR_COUNTS": str(count_path)},
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=300,
+        )
+        assert reply.returncode == 0, reply.stdout + reply.stderr
+        return json.loads(reply.stdout), json.loads(count_path.read_text())
+
+    first, first_counts = invoke(1)
+    entries = {path.relative_to(cache): path.read_bytes() for path in cache.rglob("programs.json")}
+    second, second_counts = invoke(2)
+
+    assert first["outcome"] == second["outcome"] == "no_native_change"
+    assert first["head_revision"] == second["head_revision"] == "semantic_ddo_pe_n34"
+    assert first["object_count"] == second["object_count"] == 617
+    assert first["kernel_identity"] == second["kernel_identity"]
+    observations = {
+        "first": first_counts,
+        "second": second_counts,
+        "native_results": (first, second),
+    }
+    assert first_counts == {"render": 1, "hydrate": 0}, observations
+    assert second_counts == {"render": 0, "hydrate": 1}, observations
+    assert len(entries) == 1
+    assert entries == {
+        path.relative_to(cache): path.read_bytes() for path in cache.rglob("programs.json")
+    }

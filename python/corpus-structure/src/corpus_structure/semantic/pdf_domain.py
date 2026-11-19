@@ -168,7 +168,9 @@ def pdf_domain_sources(
 
     sources = (
         *action_sources,
-        *lowering_sources(action_sources, include_producer=include_producer),
+        *lowering_sources(
+            action_sources, include_producer=include_producer, model_sources=model_sources
+        ),
         SourceArtifact(
             ANALYSIS_RUNTIME,
             canonical_bytes(

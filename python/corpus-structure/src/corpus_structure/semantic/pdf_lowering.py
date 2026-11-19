@@ -48,11 +48,21 @@ def _current_boundary():
     return sources
 
 
-def lowering_sources(boundary_sources=None, *, include_producer=True) -> tuple[SourceArtifact, ...]:
+def lowering_sources(
+    boundary_sources=None, *, include_producer=True, model_sources=None
+) -> tuple[SourceArtifact, ...]:
     """Prepare once for exact captured inputs; mutable file premises still recheck."""
     if boundary_sources is None:
         boundary_sources = _current_boundary()
-    sources, records = _prepared_lowering_sources(tuple(boundary_sources), include_producer)
+    if model_sources is None:
+        from corpus_structure.model.compiled import model_source
+
+        native_schema = model_source("docling-validation.schema.json")
+    else:
+        native_schema = model_sources["docling-validation.schema.json"]
+    sources, records = _prepared_lowering_sources(
+        tuple(boundary_sources), include_producer, native_schema
+    )
     for record in records:
         record.check()
     return sources
@@ -63,8 +73,8 @@ def lowering_sources(boundary_sources=None, *, include_producer=True) -> tuple[S
     "release_bytes",
     weight=lambda result: max(1, sum(len(source.content) for source in result[0])),
 )
-def _prepared_lowering_sources(boundary_sources, include_producer):
-    sources, custody = _implementation_sources(include_producer)
+def _prepared_lowering_sources(boundary_sources, include_producer, native_schema):
+    sources, custody = _implementation_sources(include_producer, native_schema)
     for record in custody:
         record.check()
     import yaml
@@ -194,18 +204,16 @@ def lowering_code_complete() -> bool:
 
 
 @lru_cache(maxsize=2)
-def _implementation_sources(include_producer):
+def _implementation_sources(include_producer, native_schema: bytes):
     """Capture normalized code meaning while retaining exact loaded-file custody."""
     from .file_custody import verified_file
 
     root = Path(__file__).resolve().parents[1]
-    native_schema = root / "model/semantic/docling-validation.schema.json"
     schema_source = SourceArtifact(
-        "pdf-domain/" + LOWERING_PREFIX + "schema/docling-native.json", native_schema.read_bytes()
+        "pdf-domain/" + LOWERING_PREFIX + "schema/docling-native.json", native_schema
     )
-    schema_custody = verified_file(native_schema, schema_source.digest)
     if not include_producer:
-        return (schema_source,), (schema_custody,)
+        return (schema_source,), ()
     code = _lowering_code()
     if code.complete:
         from corpus_structure._query_custody import capture_workload_sources
@@ -220,7 +228,6 @@ def _implementation_sources(include_producer):
             verified_file(root / source.filename, sha256(source.content).hexdigest())
             for source in code.modules
         ),
-        schema_custody,
     )
     return sources, custody
 

@@ -205,3 +205,20 @@ def test_projection_does_not_retain_transient_failure():
         model.projection("loader", build)
     assert model.projection("loader", build) == "recovered"
     assert len(calls) == 2
+
+
+def test_explicit_model_scope_preserves_nested_captures_without_file_acquisition(monkeypatch):
+    from corpus_structure.model import source_observation
+    from corpus_structure.model.compiled import model_request_scope
+
+    def unexpected(*args):
+        pytest.fail("an explicit model scope must use its acquired declaration bytes")
+
+    monkeypatch.setattr(source_observation, "observe_model_sources", unexpected)
+    outer = compiled_model({"root": schema("outer")})
+    inner = compiled_model({"root": schema("inner")})
+    with model_request_scope(outer):
+        assert running_model() is outer
+        with model_request_scope(inner):
+            assert running_model() is inner
+        assert running_model() is outer

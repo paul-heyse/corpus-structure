@@ -349,9 +349,9 @@ _MODEL_ROOT = Path(__file__).parent / "semantic"
 
 
 @contextmanager
-def model_request_scope():
-    """Pin one lazy declaration capture for one command or server request."""
-    token = _request_scope.set(_ModelScope())
+def model_request_scope(model: CompiledModel | None = None):
+    """Pin an explicit declaration capture, or acquire one lazily for this request."""
+    token = _request_scope.set(_ModelScope(model=model))
     try:
         yield
     finally:
