@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from copy import copy
 from dataclasses import dataclass
 from datetime import date as Date
+from types import MappingProxyType
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_serializer
@@ -338,7 +340,7 @@ class RichGraphIndex:
         pool = self.facts if premises or options.population == "retained" else self.selected_facts
         result = []
         for identifier in sorted(pool):
-            occurrences = self.by_fact[identifier]
+            occurrences = self.by_fact.get(identifier, ())
             if not premises and options.population == "selected":
                 occurrences = [
                     item for item in occurrences if item.occurrence_id in self.selected_occurrences
@@ -377,7 +379,7 @@ class RichGraphIndex:
             entity=entity.model_dump(mode="python"),
             classes=[self.state.definition(contract).iri for contract in entity.class_contracts],
             standing="resolved-identity",
-            selected_fact_ids=self.selected_by_subject[entity_id],
+            selected_fact_ids=list(self.selected_by_subject.get(entity_id, ())),
             values=self.values(
                 field.value_id for basis in entity.identities for field in basis.fields
             ),
@@ -385,7 +387,7 @@ class RichGraphIndex:
 
     def claim_record(self, fact_id: str) -> dict:
         fact = self.facts[fact_id]
-        occurrences = self.by_fact[fact_id]
+        occurrences = self.by_fact.get(fact_id, ())
         if len(occurrences) > self.max_nested_members:
             raise RichQueryRefused("rich claim exceeds the nested occurrence capacity")
         roots = [
@@ -428,7 +430,7 @@ class RichGraphIndex:
     def visible_occurrences(self, fact_id: str, options: QueryOptions):
         return tuple(
             item
-            for item in self.by_fact[fact_id]
+            for item in self.by_fact.get(fact_id, ())
             if options.population == "retained" or item.occurrence_id in self.selected_occurrences
         )
 
@@ -455,6 +457,53 @@ class RichQueryIndex(RichGraphIndex):
         if not isinstance(state.graph, DdoRichAdmission):
             raise RichQueryRefused("rich queries require the actual selected accepted whole")
         super().__init__(state, **limits)
+
+
+@dataclass(frozen=True)
+class PreparedRichQueryIndex:
+    """Private shared lookup preparation with an isolated query facade on every use."""
+
+    index: RichQueryIndex
+    byte_size: int
+
+    @classmethod
+    def build(cls, state, *, max_members):
+        index = RichQueryIndex(state, max_members=max_members)
+        for name in (
+            "entities",
+            "facts",
+            "occurrences",
+            "readings",
+            "scientific_representatives",
+            "class_metadata",
+        ):
+            setattr(index, name, MappingProxyType(dict(getattr(index, name))))
+        for name in ("by_fact", "selected_by_subject", "definiens"):
+            setattr(
+                index,
+                name,
+                MappingProxyType(
+                    {key: tuple(value) for key, value in getattr(index, name).items()}
+                ),
+            )
+        weight = len(json_bytes(state.graph.model_dump(mode="python"))) * 3
+        weight += len(state.model.content) + len(state.prepared.manifest)
+        weight += sum(len(item.content) for item in state.prepared.artifacts)
+        return cls(index, max(1, weight))
+
+    def query_index(self):
+        index = copy(self.index)
+        state = copy(index.state)
+        for name, value in vars(state).items():
+            if isinstance(value, (dict, set, list)):
+                setattr(state, name, copy(value))
+        state.qualification_projector = copy(state.qualification_projector)
+        for name, value in vars(state.qualification_projector).items():
+            if isinstance(value, (dict, set, list)):
+                setattr(state.qualification_projector, name, copy(value))
+        index.state = state
+        index._objects, index._qualifications, index.unknowns = {}, {}, {}
+        return index
 
 
 def query_rows(index: RichQueryIndex, query: RichQuery):

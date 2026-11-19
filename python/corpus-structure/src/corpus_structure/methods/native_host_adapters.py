@@ -75,7 +75,6 @@ def load(declaration, torch):
 
 def _gliner(profile, assets):
     import time
-    from functools import lru_cache
 
     from corpus_structure.methods.gliner import (
         BOUNDARY_DIAGNOSTIC,
@@ -98,6 +97,7 @@ def _gliner(profile, assets):
         observation_digest,
         request_digest,
     )
+    from corpus_structure.methods.native_pack_cache import compiled_gliner_pack
 
     values = dict(profile["parameters"]["gliner_profile"])
     values["snapshot"] = assets
@@ -107,12 +107,7 @@ def _gliner(profile, assets):
         raise ValueError("GLiNER host requires matching explicit CUDA artifacts/profile")
     model, effective = load_model(selected, configure_process=False)
     reused = False
-
-    @lru_cache(maxsize=64)
-    def compiled_pack(pack):
-        schema = pack.compile()
-        schema.build()
-        return schema
+    runtime_basis = json.dumps(profile, sort_keys=True, separators=(",", ":"))
 
     def infer(request):
         nonlocal reused
@@ -130,7 +125,7 @@ def _gliner(profile, assets):
             overlap_policy=overlap,
             evaluation=evaluation,
         )
-        schema = compiled_pack(pack)
+        schema = compiled_gliner_pack(pack, runtime_basis).schema
         preparations, admissions, admitted_inputs = [], [], []
         for ordinal, item in enumerate(inputs):
             try:

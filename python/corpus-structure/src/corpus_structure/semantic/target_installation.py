@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
+from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sqlalchemy import MetaData
 
+from corpus_structure.caches import declare
 from corpus_structure.schema.integrity import role_name
 
 from .types import SourceArtifact
@@ -92,7 +94,99 @@ class TargetInstallation:
     programs: tuple[NativeDefinition, ...] = ()
 
 
+@cache
+def _generator_custody():
+    from .code_identity import capture_code_identity
+    from .file_custody import observed_file
+
+    root = Path(__file__).resolve().parents[1]
+    basis = capture_code_identity(root, ("corpus_structure.semantic.target_installation",))
+    # A partial static closure can still soundly index authoring preparation by
+    # retaining the complete first-party code population in this process.
+    paths = tuple(root / item.filename for item in basis.modules)
+    if not basis.complete:
+        paths = tuple(sorted(root.rglob("*.py")))
+    records = tuple(observed_file(path) for path in paths)
+    return (basis.meaning, tuple((str(r.path), r.digest) for r in records)), records
+
+
+def _installation_key(
+    selected, *, logical_sources=None, pdf_actions=None, pdf_sources=None, extra_sources=()
+):
+    from corpus_structure.model.compiled import running_model
+
+    identity, records = _generator_custody()
+    for record in records:
+        record.check()
+    return (
+        running_model().identity,
+        tuple(sorted(selected.info["physical_sources"].items())),
+        selected.info["physical_linkml_types"],
+        tuple(sorted((logical_sources or {}).items())),
+        pdf_actions,
+        pdf_sources,
+        tuple(extra_sources),
+        identity,
+    )
+
+
+@dataclass(frozen=True)
+class _GenerationFailure:
+    error: Exception
+
+
+@declare("native-installation", "program_sets", key=_installation_key)
+def _held_target_installation(
+    selected, *, logical_sources=None, pdf_actions=None, pdf_sources=None, extra_sources=()
+):
+    from corpus_structure.schema.physical import compile_physical
+
+    # Cache-owned metadata is derived from captured bytes. Callers' mutable
+    # SQLAlchemy state cannot change an already held installation product.
+    owned = compile_physical(
+        selected.info["physical_sources"], linkml_types=selected.info["physical_linkml_types"]
+    )
+    try:
+        return _build_target_installation(
+            owned,
+            logical_sources=logical_sources,
+            pdf_actions=pdf_actions,
+            pdf_sources=pdf_sources,
+            extra_sources=extra_sources,
+        )
+    except (ValueError, TypeError) as error:
+        return _GenerationFailure(error)
+
+
 def capture_target_installation(
+    selected: MetaData,
+    *,
+    logical_sources: dict[str, bytes] | None = None,
+    pdf_actions: SourceArtifact | None = None,
+    pdf_sources: tuple[SourceArtifact, ...] | None = None,
+    extra_sources: tuple[SourceArtifact, ...] = (),
+) -> TargetInstallation:
+    from .data_operation_storage import native_logical_sources
+
+    if not selected.info.get("physical_sources") or not isinstance(
+        selected.info.get("physical_linkml_types"), bytes
+    ):
+        raise ValueError("native installation requires captured physical inputs and LinkML types")
+    if pdf_sources is not None and pdf_actions is not None:
+        raise ValueError("select PDF action input or an already captured PDF source cohort")
+    result = _held_target_installation(
+        selected,
+        logical_sources=native_logical_sources() if logical_sources is None else logical_sources,
+        pdf_actions=pdf_actions,
+        pdf_sources=pdf_sources,
+        extra_sources=extra_sources,
+    )
+    if isinstance(result, _GenerationFailure):
+        raise result.error
+    return result
+
+
+def _build_target_installation(
     selected: MetaData,
     *,
     logical_sources: dict[str, bytes] | None = None,

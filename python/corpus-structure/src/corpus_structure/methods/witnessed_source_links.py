@@ -43,8 +43,6 @@ from corpus_structure.semantic.constructions.navigation import (
 )
 from corpus_structure.semantic.constructions.navigation import (
     NativeNavigationIndex,
-    _children,
-    _parent,
 )
 from corpus_structure.semantic.constructions.navigation import (
     OrderedRecappedDeclaration as OrderedRecappedDeclaration,
@@ -428,13 +426,13 @@ def ordered_recapped_declarations(
     for use_pointer, (a, b) in physical.items():
         if not query.start <= a < b <= query.end:
             continue
-        section = _parent(items[use_pointer])
+        section = items[use_pointer].get("parent")
         if not isinstance(section, str):
             continue
         container = items.get(section, {})
         if container.get("label") != "section" or container.get("content_layer") != "body":
             continue
-        siblings = _children(container)
+        siblings = tuple(container.get("children", ()))
         sibling_counts = Counter(siblings)
         if sibling_counts[use_pointer] != 1:
             continue
@@ -454,11 +452,11 @@ def ordered_recapped_declarations(
             if not isinstance(paragraph, str):
                 continue
             owner = items.get(paragraph, {})
-            groups = _children(owner)
+            groups = tuple(owner.get("children", ()))
             if (
                 owner.get("label") != "text"
                 or owner.get("content_layer") != "body"
-                or _parent(owner) != section
+                or owner.get("parent") != section
                 or owner.get("text") != ""
                 or len(groups) != 1
                 or sibling_counts[paragraph] != 1
@@ -468,15 +466,17 @@ def ordered_recapped_declarations(
             if not isinstance(inline, str):
                 continue
             group = items.get(inline, {})
-            children = _children(group)
+            children = tuple(group.get("children", ()))
             if (
                 group.get("label") != "inline"
                 or group.get("content_layer") != "body"
-                or _parent(group) != paragraph
+                or group.get("parent") != paragraph
                 or not 2 <= len(children) <= 32
                 or len(set(children)) != len(children)
                 or not all(
-                    isinstance(child, str) and child in physical and _parent(items[child]) == inline
+                    isinstance(child, str)
+                    and child in physical
+                    and items[child].get("parent") == inline
                     for child in children
                 )
             ):

@@ -11,22 +11,45 @@ from confection import Config
 from spacy.tokens import Doc
 
 
+def cpu_pipeline_assets(model: str):
+    """Authenticate the tokenizer, vocabulary and configuration loaded by this facade."""
+    from corpus_structure.semantic.file_custody import observed_file
+
+    try:
+        package = spacy.util.get_package_path(model)
+    except ModuleNotFoundError as error:
+        if error.name != model:
+            raise
+        raise OSError(f"spaCy model package {model!r} is not installed") from error
+    configurations = tuple(package.glob("*/config.cfg"))
+    if len(configurations) != 1:
+        raise ValueError("selected spaCy package has no unique pipeline configuration")
+    root = configurations[0].parent
+    paths = (
+        package / "meta.json",
+        root / "config.cfg",
+        root / "meta.json",
+        root / "tokenizer",
+        *sorted((root / "vocab").rglob("*")),
+    )
+    records = []
+    for path in paths:
+        if path.is_file():
+            custody = observed_file(path)
+            custody.check()
+            records.append(
+                (path.relative_to(package).as_posix(), custody.digest, path.stat().st_size)
+            )
+    return root, tuple(records)
+
+
 class HostedPipeline:
     def __init__(self, configuration):
         self.configuration = configuration
         self._selection = None
-        try:
-            package = spacy.util.get_package_path(configuration.model)
-        except ModuleNotFoundError as error:
-            if error.name != configuration.model:
-                raise
-            raise OSError(
-                f"spaCy model package {configuration.model!r} is not installed"
-            ) from error
-        paths = tuple(package.glob("*/config.cfg"))
-        if len(paths) != 1:
-            raise ValueError("selected spaCy package has no unique pipeline configuration")
-        original = spacy.util.load_config(paths[0])
+        root, self.asset_records = cpu_pipeline_assets(configuration.model)
+        self.retained_bytes = max(1, sum(size for _, _, size in self.asset_records))
+        original = spacy.util.load_config(root / "config.cfg")
         self._config = original.copy()
         self.pipe_names = [
             name for name in original["nlp"]["pipeline"] if name not in configuration.exclude

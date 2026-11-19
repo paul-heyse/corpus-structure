@@ -17,9 +17,11 @@ from typing import TYPE_CHECKING, Any, Literal
 from jsonschema.validators import validator_for
 from sqlalchemy import Connection, select
 
+from corpus_structure.model.compiled import model_projection
+
 from .identity import canonical_bytes
 from .prepare import prepare_release
-from .types import PreparedRelease, SourceArtifact, SourceBundle
+from .types import PreparedRelease, SourceArtifact
 
 PDF_CONTRACT_DIGEST = sha256(
     files("corpus_structure").joinpath("model", "semantic", "pdf-products.yaml").read_bytes()
@@ -52,16 +54,11 @@ class PreparedPdfContext:
         return self.domain.source("implementation/pdf/docling-validation.schema.json").digest
 
 
-@lru_cache(maxsize=16)
-def _boundary(bundle: SourceBundle) -> PreparedRelease:
-    return prepare_release(bundle)
-
-
 def _context_from_domain(release_id: str | None, domain: PdfDomainContract) -> PreparedPdfContext:
     """Lower one already captured domain; native authoring has no application release."""
     return PreparedPdfContext(
         release_id,
-        _boundary(domain.schema),
+        prepare_release(domain.schema),
         domain,
         domain.source("schema/pdf_products").digest,
         SourceArtifact(
@@ -78,7 +75,7 @@ def prepare_pdf_context(prepared: PreparedRelease, domain: PdfDomainContract) ->
     return _context_from_domain(prepared.release_id, domain)
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def trusted_pdf_context() -> PreparedPdfContext:
     from .pdf_domain import PdfDomainContract, pdf_domain_sources
 

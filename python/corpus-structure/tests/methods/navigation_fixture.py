@@ -65,6 +65,8 @@ def source_primary_products(
     profile = profile or AnnotationProfile()
     if annotations is None:
         native_profile = pipeline(profile.configuration).selection().native
+        if native_profile is None:
+            raise ValueError("source annotation production requires its native execution profile")
         profile = replace(profile, execution_profile=native_profile.fingerprint)
         annotations = tuple(
             annotate(

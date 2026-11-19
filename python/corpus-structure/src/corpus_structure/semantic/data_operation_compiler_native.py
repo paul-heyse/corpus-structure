@@ -631,6 +631,7 @@ def _lowering_program(model, subject_scopes):
     )
     derived_names = (
         "binding_expression",
+        "parameter_definitions",
         "definition_identity",
         "eligibility_identity",
         "quantified",
@@ -877,6 +878,8 @@ def _lowering_program(model, subject_scopes):
                         p["release_id"].astext,
                         "binding_expression",
                         o["binding"],
+                        "parameter_definitions",
+                        func.coalesce(operation["parameters"]["json"], _json({})),
                         "definition_identity",
                         o["definition"].astext,
                         "eligibility_identity",
@@ -1048,6 +1051,7 @@ def _lowering_program(model, subject_scopes):
                     "native_definitions_digest",
                     "native_kernel_digest",
                     "lowering_digest",
+                    "binding_types",
                 ),
                 select(
                     p["release_id"].astext,
@@ -1055,6 +1059,7 @@ def _lowering_program(model, subject_scopes):
                     artifacts.c.content_digest,
                     p["native_digest"].astext,
                     lowering_digest,
+                    archived["kinds"],
                 ).where(native_projection),
             )
             .on_conflict_do_nothing()
@@ -1064,12 +1069,15 @@ def _lowering_program(model, subject_scopes):
             (
                 Sql(
                     releases.update()
-                    .values(lowering_digest=lowering_digest)
+                    .values(lowering_digest=lowering_digest, binding_types=archived["kinds"])
                     .where(
                         releases.c.release_id == p["release_id"].astext,
                         releases.c.model_digest == p["model_digest"].astext,
                         releases.c.native_kernel_digest == p["native_digest"].astext,
-                        releases.c.lowering_digest.is_distinct_from(lowering_digest),
+                        or_(
+                            releases.c.lowering_digest.is_distinct_from(lowering_digest),
+                            releases.c.binding_types.is_distinct_from(archived["kinds"]),
+                        ),
                     )
                 ),
             ),
@@ -1086,6 +1094,7 @@ def _lowering_program(model, subject_scopes):
                 header["model_digest"].is_distinct_from(p["model_digest"].astext),
                 header["native_kernel_digest"].is_distinct_from(p["native_digest"].astext),
                 header["lowering_digest"].is_distinct_from(lowering_digest),
+                header["binding_types"].is_distinct_from(archived["kinds"]),
                 header["native_definitions_digest"].is_distinct_from(
                     select(artifacts.c.content_digest).where(native_projection).scalar_subquery()
                 ),
@@ -1220,6 +1229,180 @@ def data_operation_native_descriptor_program(
     )
 
 
+def _binding_facts_proof(model):
+    """Authenticate admitted execution facts only at the explicit full-proof boundary."""
+    release = core_variable("r", Text())
+    archived = core_variable("archived", JSONB())
+    projection = core_variable("projection", JSONB())
+    artifacts = model.tables["sem.artifact"]
+    headers = model.tables["sem.data_operation_release"]
+    definitions = model.tables["sem.data_operation_definition"]
+    operations = _rows(archived["operations"], "authored_operation")
+    projected = _rows(projection["operations"], "projected_operation")
+    bindings = _rows(archived["bindings"], "authored_binding")
+    operation = operations.c.value
+    compiled = projected.c.value
+    binding = bindings.c.value
+    authored_roles = _rows(operation["roles"], "authored_role")
+    admitted_roles = _rows(definitions.c.input_roles, "admitted_role")
+    identities = _rows(archived["identities"], "archived_identity")
+    role = admitted_roles.c.value
+    authored_role = authored_roles.c.value
+    identity = identities.c.value
+    role_correspondence = (
+        select(1)
+        .select_from(authored_roles)
+        .where(
+            authored_role["direction"].astext == "input",
+            role.op("-")("kind_contract")
+            .op("-")("identity_requirements")
+            .op("-")("accepted_kind_contracts")
+            == authored_role,
+            role["identity_requirements"]
+            == func.coalesce(authored_role["support"]["identity_requirements"], _json([])),
+            _exists(
+                identities,
+                identity["owner"].astext == authored_role["kind"].astext,
+                identity["domain"].astext == "kind",
+                identity["key"].astext == role["kind_contract"].astext,
+            ),
+        )
+        .correlate(admitted_roles, operations)
+        .exists()
+    )
+    expected = (
+        select(1)
+        .select_from(
+            operations.join(
+                projected, compiled["operation_id"].astext == operation["semantic_id"].astext
+            )
+            .join(bindings, binding["semantic_id"].astext == operation["binding"].astext)
+            .join(
+                definitions,
+                and_(
+                    definitions.c.release_id == release,
+                    definitions.c.operation_id == operation["semantic_id"].astext,
+                ),
+            )
+        )
+        .where(
+            or_(
+                func.jsonb_array_length(definitions.c.input_roles)
+                != (
+                    select(func.count())
+                    .select_from(authored_roles)
+                    .where(authored_role["direction"].astext == "input")
+                    .correlate(operations)
+                    .scalar_subquery()
+                ),
+                select(1)
+                .select_from(admitted_roles)
+                .where(~role_correspondence)
+                .correlate(definitions, operations)
+                .exists(),
+                *(
+                    ~_exists(
+                        identities,
+                        identity["owner"].astext == definitions.c.operation_id,
+                        identity["domain"].astext == domain,
+                        identity["key"].astext == definitions.c[field],
+                    )
+                    for domain, field in (
+                        ("definition", "definition_identity"),
+                        ("eligibility", "eligibility_identity"),
+                    )
+                ),
+                definitions.c.parameter_definitions.is_distinct_from(
+                    func.coalesce(operation["parameters"]["json"], _json({}))
+                ),
+                definitions.c.binding_expression.is_distinct_from(binding["expression"]),
+                definitions.c.binding_expression.is_distinct_from(compiled["binding"]),
+                definitions.c.input_roles.is_distinct_from(compiled["input_roles"]),
+                definitions.c.output_roles.is_distinct_from(compiled["output_roles"]),
+                definitions.c.definition_identity.is_distinct_from(compiled["definition"].astext),
+                definitions.c.eligibility_identity.is_distinct_from(compiled["eligibility"].astext),
+            )
+        )
+        .exists()
+    )
+    return _program(
+        "sem",
+        "require_execution_binding_facts",
+        (Parameter("r", pg_type("text")),),
+        (
+            SelectInto(
+                select(_decode(artifacts.c.content)).where(
+                    artifacts.c.release_id == release,
+                    artifacts.c.artifact_name == "data_operations.json",
+                    _hash(artifacts.c.content) == artifacts.c.content_digest,
+                ),
+                ("archived",),
+                True,
+            ),
+            SelectInto(
+                select(_decode(artifacts.c.content)).where(
+                    artifacts.c.release_id == release,
+                    artifacts.c.artifact_name == "data_operation_native_definitions.json",
+                    _hash(artifacts.c.content) == artifacts.c.content_digest,
+                ),
+                ("projection",),
+                True,
+            ),
+            _refuse(
+                ~_exists(
+                    headers,
+                    headers.c.release_id == release,
+                    headers.c.binding_types == archived["kinds"],
+                ),
+                "admitted binding types differ from authenticated archive",
+                "23514",
+            ),
+            _refuse(
+                or_(
+                    func.jsonb_array_length(archived["operations"])
+                    != (
+                        select(func.count())
+                        .select_from(definitions)
+                        .where(definitions.c.release_id == release)
+                        .scalar_subquery()
+                    ),
+                    select(operation)
+                    .where(
+                        ~_exists(
+                            definitions,
+                            definitions.c.release_id == release,
+                            definitions.c.operation_id == operation["semantic_id"].astext,
+                        )
+                    )
+                    .exists(),
+                    select(operation)
+                    .where(
+                        ~_exists(
+                            projected,
+                            compiled["operation_id"].astext == operation["semantic_id"].astext,
+                        )
+                    )
+                    .exists(),
+                    select(operation)
+                    .where(
+                        ~_exists(
+                            bindings,
+                            binding["semantic_id"].astext == operation["binding"].astext,
+                        )
+                    )
+                    .exists(),
+                    expected,
+                ),
+                "admitted operation binding facts differ from authenticated archive",
+                "23514",
+            ),
+        ),
+        (Local("archived", pg_type("jsonb")), Local("projection", pg_type("jsonb"))),
+        returns="void",
+        stable=True,
+    )
+
+
 def compiler_native_programs(
     model,
     *,
@@ -1253,6 +1436,7 @@ def compiler_native_programs(
         _lowering_program(model, tuple(subject_scopes)),
         admit,
         _relower_program(model),
+        _binding_facts_proof(model),
     )
 
 

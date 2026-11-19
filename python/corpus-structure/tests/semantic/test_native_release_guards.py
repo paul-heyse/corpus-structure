@@ -46,6 +46,13 @@ def release_guard_context(infrastructure_commit_engine):
         schema="sem",
     )
     Table(
+        "data_operation_release",
+        metadata,
+        Column("release_id", Text, primary_key=True),
+        Column("native_kernel_digest", Text, nullable=False),
+        schema="sem",
+    )
+    Table(
         "artifact",
         metadata,
         Column("release_id", Text, primary_key=True),
@@ -125,6 +132,15 @@ def test_release_preconditions_preserve_finalization_and_unknown_release_refusal
         )
         with pytest.raises(DBAPIError, match="different native kernel"), connection.begin_nested():
             execute_native_sql(connection, program)
+        admitted = metadata.tables["sem.data_operation_release"]
+        connection.execute(
+            admitted.insert().values(release_id="release-control", native_kernel_digest="other")
+        )
+        with pytest.raises(DBAPIError, match="different native kernel"), connection.begin_nested():
+            execute_native_sql(connection, program)
+        connection.execute(admitted.update().values(native_kernel_digest="installed-kernel"))
+        connection.execute(artifacts.update().values(content=b"not JSON"))
+        execute_native_sql(connection, program)
 
 
 def test_native_receipt_requires_exact_identity(release_guard_context):

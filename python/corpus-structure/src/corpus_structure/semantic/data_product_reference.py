@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
-from pathlib import Path
 
 from .identity import canonical_bytes
 
@@ -19,9 +18,9 @@ def reference_inputs(bundle):
     if "observations" not in {source.name for source in bundle.sources}:
         bundle = observation_inputs(bundle)
 
-    content = (
-        Path(__file__).parents[1] / "model/semantic/data-operation-references.yaml"
-    ).read_bytes()
+    from corpus_structure.model.compiled import model_source
+
+    content = model_source("data-operation-references.yaml")
     name, root = "data_operation_references", "data_operation_references_root"
     existing = {source.name: source.content for source in bundle.sources}
     if name in existing:

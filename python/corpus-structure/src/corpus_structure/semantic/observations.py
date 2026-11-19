@@ -43,7 +43,9 @@ def observation_inputs(
     module = next((source for source in bundle.sources if source.name == "observations"), None)
     if module is not None and model_content is not None and module.content != model_content:
         raise ValueError("reserved observation module name already supplied with another meaning")
-    canonical = _MODEL.read_bytes()
+    from corpus_structure.model.compiled import model_source
+
+    canonical = model_source("observations.yaml")
     content = (
         (module.content if module is not None else canonical)
         if model_content is None

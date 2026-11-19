@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from pathlib import Path
 from typing import Any
+
+from corpus_structure.model.compiled import model_source
 
 from .identity import canonical_bytes
 from .types import ResolvedDependencies, SourceArtifact, SourceBundle
@@ -41,13 +42,10 @@ def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=
     from .native_call_contracts import OperationCallBinding
     from .native_call_sources import resolve_call_bindings
 
-    root = Path(__file__).resolve().parents[1] / "model/semantic"
     action_source = (
         actions_source
         if actions_source is not None
-        else SourceArtifact(
-            PREFIX + "native/actions.yaml", root.joinpath("pdf-actions.yaml").read_bytes()
-        )
+        else SourceArtifact(PREFIX + "native/actions.yaml", model_source("pdf-actions.yaml"))
     )
     if action_source.name != PREFIX + "native/actions.yaml":
         raise ValueError("PDF actions require their explicit named source")
@@ -79,14 +77,14 @@ def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=
                 value.setdefault("nullable", False)
             calls.append((action["id"], converter.structure(call, OperationCallBinding)))
     physical = (
-        physical_source_closure(PHYSICAL_ROOT, lambda name: root.joinpath(name).read_bytes())
+        physical_source_closure(PHYSICAL_ROOT, model_source)
         if physical_sources is None
         else dict(physical_sources)
     )
     if physical_sources is not None and not isinstance(linkml_types, bytes):
         raise ValueError("explicit PDF physical capture requires LinkML types")
     logical = {
-        name: physical[filename] if filename in physical else root.joinpath(filename).read_bytes()
+        name: physical[filename] if filename in physical else model_source(filename)
         for name, filename in (
             ("pdf_products", "pdf-products.yaml"),
             ("pdf-observation-vocabulary", "pdf-observation-vocabulary.yaml"),
@@ -117,7 +115,7 @@ def _action_sources(*, physical_sources=None, linkml_types=None, actions_source=
         action_source,
         SourceArtifact(
             PREFIX + "native/field-kinds.yaml",
-            root.joinpath("native-field-kinds.yaml").read_bytes(),
+            model_source("native-field-kinds.yaml"),
         ),
         *(
             SourceArtifact(PREFIX + "logical/" + name, content)
@@ -138,11 +136,10 @@ def pdf_domain_sources(
     actions, action_sources, diagnostics = _action_sources(
         physical_sources=physical_sources, linkml_types=linkml_types, actions_source=actions_source
     )
-    root = Path(__file__).resolve().parents[1] / "model/semantic"
     supplied = dict(physical_sources or {})
 
     def content(name):
-        return supplied[name] if name in supplied else root.joinpath(name).read_bytes()
+        return supplied[name] if name in supplied else model_source(name)
 
     from .determinants import analysis_runtime
     from .pdf_lowering import lowering_sources
@@ -151,18 +148,16 @@ def pdf_domain_sources(
         *action_sources,
         *lowering_sources(action_sources, include_producer=include_producer),
         SourceArtifact(ANALYSIS_RUNTIME, canonical_bytes(dict(analysis_runtime()))),
-        SourceArtifact(
-            PREFIX + "schema/pdf_products", root.joinpath("pdf-products.yaml").read_bytes()
-        ),
+        SourceArtifact(PREFIX + "schema/pdf_products", model_source("pdf-products.yaml")),
         SourceArtifact(
             PREFIX + "schema/pdf-observation-vocabulary",
-            root.joinpath("pdf-observation-vocabulary.yaml").read_bytes(),
+            model_source("pdf-observation-vocabulary.yaml"),
         ),
         SourceArtifact(
             PREFIX + "schema/pdf_observation_meaning",
-            root.joinpath("pdf-observation-meaning.json").read_bytes(),
+            model_source("pdf-observation-meaning.json"),
         ),
-        SourceArtifact(PREFIX + "schema/core", root.joinpath("core.yaml").read_bytes()),
+        SourceArtifact(PREFIX + "schema/core", model_source("core.yaml")),
         SourceArtifact(
             PREFIX + "schema/pdf_domain_schema",
             canonical_bytes(
@@ -178,7 +173,7 @@ def pdf_domain_sources(
         ),
         SourceArtifact(
             PREFIX + "implementation/pdf/docling-validation.schema.json",
-            root.joinpath("docling-validation.schema.json").read_bytes(),
+            model_source("docling-validation.schema.json"),
         ),
         SourceArtifact(
             PREFIX + "native/data-operation-protocol.yaml", content("data-operation-native.yaml")

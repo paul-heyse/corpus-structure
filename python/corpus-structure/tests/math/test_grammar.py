@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import threading
 import time
-from collections import OrderedDict
 from collections.abc import Mapping
 
 import pytest
@@ -330,8 +329,8 @@ def test_a_list_before_in_is_a_membership_of_each_element() -> None:
 def test_ordered_sets_make_a_reading_stable() -> None:
     """An unresolved ambiguity keeps its readings in one order across parser builds."""
     first = P("\\Phi(-x)", "formula")
-    G._PARSERS.clear()
-    G._MEMO.clear()
+    G.parser_for.cache_clear()
+    G._memoized_read.cache_clear()
     again = P("\\Phi(-x)", "formula")
     assert first.tree == again.tree
 
@@ -451,8 +450,7 @@ def test_the_deadline_bounds_the_whole_read_including_the_resolver(monkeypatch) 
         source_id="deadline-leaf-control",
     ).grammar_context
     assert G.syntax(latex, "any_value", PAGE).tree is not None
-    memo: OrderedDict[tuple[str, str, str, str], G.MathResult] = OrderedDict()
-    monkeypatch.setattr(G, "_MEMO", memo)
+    G._memoized_read.cache_clear()
     calls = []
 
     def slow_equivalence(self, candidates):
@@ -473,7 +471,7 @@ def test_the_deadline_bounds_the_whole_read_including_the_resolver(monkeypatch) 
         results.append(result)
     assert len(calls) == 2
     assert results[0] is not results[1]  # timeouts are never memoized
-    assert not memo
+    assert G._memoized_read.cache_info().currsize == 0
 
 
 def test_the_memo_shares_a_parse() -> None:

@@ -30,6 +30,7 @@ from corpus_structure.serve import contribution_facets as facets
 from corpus_structure.serve import identity_exclusion_comparison as comparison
 from corpus_structure.serve.selected_contributions import SelectedContributionScope
 from semantic.record_contracts_support import release_inputs
+from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
 from semantic.selected_query_cache_support import (
     control_frontier,
     index_frontier,
@@ -37,6 +38,8 @@ from semantic.selected_query_cache_support import (
 from semantic.test_rich_identity_exclusions import constraint
 from semantic.test_rich_queries import PREFIX, Graph
 from semantic.test_selected_contribution_inputs import append
+
+pytestmark = pytest.mark.usefixtures("complete_serving_code")
 
 app = build_full_app()
 

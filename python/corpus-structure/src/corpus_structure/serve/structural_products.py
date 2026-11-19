@@ -244,12 +244,12 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
         )
     from collections import defaultdict
 
-    from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.demand_results import recheck_selected_frontier
     from corpus_structure.semantic.selected_query_cache import (
         SELECTED_QUERY_CACHE,
         bounded_rows,
         byte_bounded_page,
+        served_key,
         uncached_rows_from,
     )
 
@@ -280,51 +280,61 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
             implementation=implementation,
         )
     )
-    key = json_bytes(["dossier", current_cut.identity, implementation, selection, stamp])
-    entry, remaining = (None if detached else SELECTED_QUERY_CACHE.get(key)), None
-    metadata = None
-    if entry is None:
-        with structural_scope(conn, pinned, roots=(request.root,)) as scope:
-            selected = selected_root(scope, request.root)
-            if selected is None:
-                return bounded_result(
-                    request,
+    key = served_key(
+        None if detached else conn,
+        "dossier",
+        implementation=implementation,
+        basis=current_cut.identity,
+        selection=["dossier", current_cut.identity, implementation, selection, stamp],
+    )
+    with SELECTED_QUERY_CACHE.loading(key) as entry:
+        remaining = None
+        metadata = None
+        if entry is None:
+            with structural_scope(conn, pinned, roots=(request.root,)) as scope:
+                selected = selected_root(scope, request.root)
+                if selected is None:
+                    return bounded_result(
+                        request,
+                        dict(
+                            format="selected-dossier-page-v2",
+                            availability="outside_selection",
+                            cut_id=current_cut.identity,
+                            cut=current_cut.record,
+                            implementation=implementation,
+                        ),
+                    )
+                report = structural_report(scope, selected)
+                if report.dossier is None:
+                    raise ValueError("selected output is not a dossier")
+                complete = dossier_member_page(
+                    report,
+                    population=request.population,
+                    offset=0,
+                    limit=len(report.dossier.members),
+                )
+                citations, facets = defaultdict(list), defaultdict(list)
+                for citation in complete["citations"]:
+                    citations[citation["member_id"]].append(citation)
+                for ordinal, facet in enumerate(complete["supported_facets"]):
+                    facets[facet["member_id"]].append(dict(ordinal=ordinal, value=facet))
+                items = [
                     dict(
-                        format="selected-dossier-page-v2",
-                        availability="outside_selection",
-                        cut_id=current_cut.identity,
-                        cut=current_cut.record,
-                        implementation=implementation,
-                    ),
-                )
-            report = structural_report(scope, selected)
-            if report.dossier is None:
-                raise ValueError("selected output is not a dossier")
-            complete = dossier_member_page(
-                report, population=request.population, offset=0, limit=len(report.dossier.members)
-            )
-            citations, facets = defaultdict(list), defaultdict(list)
-            for citation in complete["citations"]:
-                citations[citation["member_id"]].append(citation)
-            for ordinal, facet in enumerate(complete["supported_facets"]):
-                facets[facet["member_id"]].append(dict(ordinal=ordinal, value=facet))
-            items = [
-                dict(
-                    members=[member],
-                    citations=citations[member["member_id"]],
-                    supported_facets=facets[member["member_id"]],
-                )
-                for member in complete["members"]
-            ]
-            metadata = {
-                name: value
-                for name, value in complete.items()
-                if name not in {"members", "citations", "supported_facets", "next_offset"}
-            }
-            metadata["producer"] = producer(selected)
-        entry, remaining = bounded_rows(items, metadata)
-        if entry is not None and not detached:
-            SELECTED_QUERY_CACHE.put(key, entry)
+                        members=[member],
+                        citations=citations[member["member_id"]],
+                        supported_facets=facets[member["member_id"]],
+                    )
+                    for member in complete["members"]
+                ]
+                metadata = {
+                    name: value
+                    for name, value in complete.items()
+                    if name not in {"members", "citations", "supported_facets", "next_offset"}
+                }
+                metadata["producer"] = producer(selected)
+            entry, remaining = bounded_rows(items, metadata)
+            if entry is not None and not detached:
+                SELECTED_QUERY_CACHE.put(key, entry)
     metadata = entry.record() if entry is not None else metadata
     assert metadata is not None
     binding = dict(

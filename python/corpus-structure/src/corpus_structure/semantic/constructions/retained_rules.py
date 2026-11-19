@@ -7,29 +7,42 @@ consumers project retained primary nodes; they do not rerun these recognizers.
 from __future__ import annotations
 
 import json
+import pickle
 from bisect import bisect_right
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
-from functools import lru_cache
 from importlib.resources import files
-from typing import Any, Literal
+from pathlib import Path
+from typing import Any, Literal, cast
 
+import spacy
 from spacy.lang.en import English
 from spacy.matcher import DependencyMatcher, Matcher, PhraseMatcher
 from spacy.tokens import Doc, Token
 from spacy.vocab import Vocab
 
+from corpus_structure.caches import declare
 from corpus_structure.ingest.annotation_views import AnnotationView, annotation_view
 from corpus_structure.ingest.annotations import AnnotationProduct, AnnotationUnavailable
 from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
+from corpus_structure.semantic.file_custody import observed_file
 
 PREDICATE_FRAME_VERSION = "2"
 type RoleSpan = tuple[int, int]
 type FrameLayout = Literal["prose", "example", "policy", "instruction", "unknown"]
 
 
-@lru_cache(maxsize=1)
+def _recipe_identity():
+    return observed_file(Path(str(files(__package__).joinpath("retained_rules.json")))).digest
+
+
+@declare(
+    "runtime.frame-recipe",
+    "runtime_bytes",
+    key=lambda: _recipe_identity(),
+    weight=lambda recipe: len(json.dumps(recipe).encode()),
+)
 def interpretation_recipe():
     return json.loads(files(__package__).joinpath("retained_rules.json").read_text())
 
@@ -188,8 +201,7 @@ class PredicateFrameResult:
     unresolved_cues: tuple[FrameCue, ...] = ()
 
 
-@lru_cache(maxsize=4)
-def _prepared(vocab: Vocab) -> tuple[DependencyMatcher, Matcher, PhraseMatcher]:
+def _build_frame_patterns(vocab: Vocab) -> tuple[DependencyMatcher, Matcher, PhraseMatcher]:
     """Compile the bounded named dependency and lexical variants together."""
     direct = DependencyMatcher(vocab, validate=True)
     for variant, dependencies in {
@@ -254,8 +266,8 @@ def _prepared(vocab: Vocab) -> tuple[DependencyMatcher, Matcher, PhraseMatcher]:
     return direct, token, phrase
 
 
-@lru_cache(maxsize=1)
 def _frame_vocabulary() -> Vocab:
+    """Give a caller its mutable source vocabulary before bounded matcher preparation."""
     return English().vocab
 
 
@@ -345,13 +357,14 @@ def recognize_frame_result(
 
 class _FrameBlock:
     def __init__(self, view: AnnotationView, layout: FrameLayout):
+        runtime, view = _runtime_view(view)
         self.doc = view.doc
         self.product = view.product
         self.layout = layout
         self.direct: dict[str, dict[int, list[int]]] = defaultdict(lambda: defaultdict(list))
         self.lexical: dict[str, list[tuple[int, ...]]] = defaultdict(list)
         view.check_layout()
-        direct, token, phrase = _prepared(self.doc.vocab)
+        direct, token, phrase = runtime.patterns
         strings = self.doc.vocab.strings
         for label, (predicate, member) in direct(self.doc):
             if self.same_sentence(predicate, member):
@@ -1213,8 +1226,7 @@ class _FrameBlock:
 _SYMBOL = object()
 
 
-@lru_cache(maxsize=4)
-def _qualifier_patterns(vocab: Vocab) -> Matcher:
+def _build_qualifier_patterns(vocab: Vocab) -> Matcher:
     matcher = Matcher(vocab, validate=True)
     for name, words in (
         (
@@ -1275,6 +1287,98 @@ def _qualifier_patterns(vocab: Vocab) -> Matcher:
             ],
         )
     return matcher
+
+
+@dataclass(frozen=True)
+class _FrameRuntime:
+    vocab: Vocab
+    patterns: tuple[DependencyMatcher, Matcher, PhraseMatcher]
+    qualifiers: Matcher
+    retained_bytes: int
+
+
+@declare("runtime.frame-matchers", "runtime_bytes", weight=lambda runtime: runtime.retained_bytes)
+def _frame_runtime(
+    lexemes: tuple,
+    strings: tuple[str, ...],
+    morphologies: tuple[str, ...],
+    recipe_identity: str,
+    spacy_version: str,
+) -> _FrameRuntime:
+    """Keep matcher and string-store ownership together under immutable lexical inputs."""
+    vocab = Vocab(
+        lex_attr_getters={},
+        get_noun_chunks=English.Defaults.syntax_iterators["noun_chunks"],
+    )
+    for value in strings:
+        vocab.strings.add(value)
+    for value in morphologies:
+        vocab.morphology.add(value)
+    for text, lower, alpha, space, punct, quote, number in lexemes:
+        vocab.strings.add(lower)
+        vocab[text].set_attrs(
+            **{
+                "LOWER": lower,
+                "IS_ALPHA": alpha,
+                "IS_SPACE": space,
+                "IS_PUNCT": punct,
+                "IS_QUOTE": quote,
+                "LIKE_NUM": number,
+            }
+        )
+    cast(Any, vocab).lex_attr_getters = cast(Any, English().vocab).lex_attr_getters
+    patterns = _build_frame_patterns(vocab)
+    qualifiers = _build_qualifier_patterns(vocab)
+    # The bound uses retained lexical inputs and compiled pattern bytes as its declared
+    # footprint. Native spaCy allocator overhead is outside this file-derived estimate.
+    retained_bytes = (
+        len(vocab.to_bytes())
+        + len(json.dumps(lexemes).encode())
+        + len(json.dumps(morphologies).encode())
+        + len(json.dumps(interpretation_recipe()).encode())
+        + len(pickle.dumps((patterns, qualifiers), protocol=pickle.HIGHEST_PROTOCOL))
+    )
+    return _FrameRuntime(vocab, patterns, qualifiers, max(1, retained_bytes))
+
+
+def _runtime_view(view: AnnotationView) -> tuple[_FrameRuntime, AnnotationView]:
+    lexemes = tuple(
+        sorted(
+            {
+                (
+                    token.text,
+                    token.lower_,
+                    token.is_alpha,
+                    token.is_space,
+                    token.is_punct,
+                    token.is_quote,
+                    token.like_num,
+                )
+                for token in view.doc
+            }
+        )
+    )
+    strings = tuple(
+        sorted(
+            {
+                value
+                for token in view.doc
+                for value in (
+                    token.text,
+                    token.lower_,
+                    token.lemma_,
+                    token.pos_,
+                    token.tag_,
+                    token.dep_,
+                )
+            }
+        )
+    )
+    morphologies = tuple(sorted({str(token.morph) for token in view.doc}))
+    runtime = _frame_runtime(lexemes, strings, morphologies, _recipe_identity(), spacy.__version__)
+    if view.doc.vocab is not runtime.vocab:
+        view = annotation_view(view.product, view.doc.text, runtime.vocab, required=_REQUIRED)
+    return runtime, view
 
 
 def _arc(child: Token, parent: Token, dependency: str) -> bool:
@@ -1560,11 +1664,12 @@ def recognize_local_qualifiers(
     """Extend a base frame result while leaving its replay recipe unchanged."""
     if not result.frames:
         return result
+    runtime, view = _runtime_view(view)
     view.check_layout()
     doc = view.doc
     frames = {frame.predicate.tokens[0] for frame in result.frames}
     found: dict[str, dict[int, int]] = {}
-    for match, start, end in _qualifier_patterns(doc.vocab)(doc):
+    for match, start, end in runtime.qualifiers(doc):
         found.setdefault(doc.vocab.strings[match], {})[start] = end
     correlations = _correlation_hosts(view, found.get("correlation", {}))
     candidates = [

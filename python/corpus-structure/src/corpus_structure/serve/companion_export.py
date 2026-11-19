@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 from datetime import UTC, datetime
-from hashlib import file_digest
+from hashlib import file_digest, sha256
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Literal
@@ -317,13 +317,17 @@ def _publish_directory(source: Path, destination: Path) -> None:
 
 
 def _verified(path: Path):
+    from corpus_structure.model.compiled import running_model
     from corpus_structure.semantic.companion_projection import projection
+    from corpus_structure.semantic.file_custody import FileCustodyError, verify_file_derivation
 
+    raw_manifest = path.read_bytes()
     try:
-        manifest = CompanionExportManifest.model_validate_json(path.read_bytes())
+        manifest = CompanionExportManifest.model_validate_json(raw_manifest)
     except ValueError as error:
         raise SemanticRefusal("companion manifest/schema/pin binding differs") from error
     resolved = {}
+    premise = (sha256(raw_manifest).hexdigest(), running_model().identity)
     for name, entry in manifest.families.items():
         if (
             name not in FAMILIES
@@ -334,59 +338,67 @@ def _verified(path: Path):
         file = path.parent / entry.path
         if file.is_symlink() or file.resolve().parent != path.parent.resolve():
             raise SemanticRefusal("companion file escapes manifest directory")
-        with file.open("rb") as source:
-            digest = file_digest(source, "sha256").hexdigest()
-        if digest != entry.sha256 or file.stat().st_size != entry.byte_length:
+        if file.stat().st_size != entry.byte_length:
             raise SemanticRefusal("companion file binding differs")
-        expected = pa.ipc.read_schema(pa.BufferReader(base64.b64decode(entry.schema_base64)))
-        spec = projection(name)
-        bindings = {
-            b"cs.pin": manifest.pin.model_dump_json().encode(),
-            b"cs.projection": manifest.projection_id.encode(),
-            b"cs.profile": manifest.profile_id.encode(),
-            b"cs.family": name.encode(),
-            b"cs.selection_release": manifest.cut["release_id"].encode(),
-            b"cs.cut": CutSelection.from_native(manifest.cut).content,
-            b"cs.producer_release": manifest.producer_release_id.encode(),
-            b"cs.product": manifest.publication.logical_digest.encode(),
-        }
-        if any((expected.metadata or {}).get(key) != value for key, value in bindings.items()):
-            raise SemanticRefusal("companion projection/schema/pin binding differs")
-        if (
-            manifest.projection_id == spec.projection_id
-            and manifest.profile_id == PROFILE_ID
-            and not expected.equals(
-                _export_schema(
-                    spec,
-                    manifest.pin,
-                    producer_release_id=manifest.producer_release_id,
-                    cut=manifest.cut,
-                    publication=manifest.publication,
-                ),
-                check_metadata=True,
-            )
-        ):
-            raise SemanticRefusal("companion current projection schema differs")
-        parquet = pq.ParquetFile(file)
-        if (
-            not parquet.schema_arrow.equals(expected, check_metadata=True)
-            or parquet.metadata.num_rows != entry.rows
-        ):
-            raise SemanticRefusal("companion schema/row binding differs")
-        logical = LogicalRows(expected)
-        for batch in parquet.iter_batches():
-            if manifest.projection_id == spec.projection_id and manifest.profile_id == PROFILE_ID:
-                _admit_batch(
-                    spec,
-                    batch,
-                    manifest.pin,
-                    manifest.producer_release_id,
-                    cut=manifest.cut,
-                    publication=manifest.publication,
+
+        def verify(file=file, entry=entry, name=name):
+            expected = pa.ipc.read_schema(pa.BufferReader(base64.b64decode(entry.schema_base64)))
+            spec = projection(name)
+            bindings = {
+                b"cs.pin": manifest.pin.model_dump_json().encode(),
+                b"cs.projection": manifest.projection_id.encode(),
+                b"cs.profile": manifest.profile_id.encode(),
+                b"cs.family": name.encode(),
+                b"cs.selection_release": manifest.cut["release_id"].encode(),
+                b"cs.cut": CutSelection.from_native(manifest.cut).content,
+                b"cs.producer_release": manifest.producer_release_id.encode(),
+                b"cs.product": manifest.publication.logical_digest.encode(),
+            }
+            if any((expected.metadata or {}).get(key) != value for key, value in bindings.items()):
+                raise SemanticRefusal("companion projection/schema/pin binding differs")
+            if (
+                manifest.projection_id == spec.projection_id
+                and manifest.profile_id == PROFILE_ID
+                and not expected.equals(
+                    _export_schema(
+                        spec,
+                        manifest.pin,
+                        producer_release_id=manifest.producer_release_id,
+                        cut=manifest.cut,
+                        publication=manifest.publication,
+                    ),
+                    check_metadata=True,
                 )
-            logical.write(batch)
-        if logical.digest != entry.logical_digest:
-            raise SemanticRefusal("companion logical rows differ")
+            ):
+                raise SemanticRefusal("companion current projection schema differs")
+            parquet = pq.ParquetFile(file)
+            if (
+                not parquet.schema_arrow.equals(expected, check_metadata=True)
+                or parquet.metadata.num_rows != entry.rows
+            ):
+                raise SemanticRefusal("companion schema/row binding differs")
+            logical = LogicalRows(expected)
+            for batch in parquet.iter_batches():
+                if (
+                    manifest.projection_id == spec.projection_id
+                    and manifest.profile_id == PROFILE_ID
+                ):
+                    _admit_batch(
+                        spec,
+                        batch,
+                        manifest.pin,
+                        manifest.producer_release_id,
+                        cut=manifest.cut,
+                        publication=manifest.publication,
+                    )
+                logical.write(batch)
+            if logical.digest != entry.logical_digest:
+                raise SemanticRefusal("companion logical rows differ")
+
+        try:
+            verify_file_derivation(file, entry.sha256, (*premise, name), verify)
+        except FileCustodyError as error:
+            raise SemanticRefusal("companion file binding differs") from error
         resolved[name] = file
     if set(manifest.families) & set(manifest.not_requested) or set(manifest.families) | set(
         manifest.not_requested

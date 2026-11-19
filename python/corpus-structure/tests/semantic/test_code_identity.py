@@ -60,6 +60,7 @@ def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
     from corpus_structure.semantic.code_identity import CodeIdentity, CodeUnknown
     from corpus_structure.semantic.selected_query_cache import (
         SelectedQueryCache,
+        ServedKey,
         bounded_rows,
         byte_bounded_page,
     )
@@ -70,10 +71,11 @@ def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
     )
     implementation = ServingImplementation("a" * 64, basis)
     cache = SelectedQueryCache()
+    key = ServedKey("test", b"selection", "implementation", ("reader",), "cut", b"current")
     entry, _ = bounded_rows((7,), {})
     assert entry is not None
     with serving_code(implementation):
-        assert cache.put(b"key", entry) is False
+        assert cache.put(key, entry) is False
         result = byte_bounded_page(
             iter([7, 8]),
             offset=0,
@@ -90,4 +92,4 @@ def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
     assert result["cursor"] is None and result["resource_handle"] is None
     assert result["page_complete"] is False
     assert result["reuse"]["eligible"] is False
-    assert cache.get(b"key") is None
+    assert cache.get(key) is None

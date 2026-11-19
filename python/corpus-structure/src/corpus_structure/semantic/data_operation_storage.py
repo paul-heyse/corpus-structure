@@ -48,7 +48,9 @@ NATIVE_LOGICAL_FILES = (
 
 
 def native_logical_sources() -> dict[str, bytes]:
-    return {name: (_ROOT / name).read_bytes() for name in NATIVE_LOGICAL_FILES}
+    from corpus_structure.model.compiled import model_source
+
+    return {name: model_source(name) for name in NATIVE_LOGICAL_FILES}
 
 
 def _native_protocol_sources(
@@ -1105,10 +1107,11 @@ def require_data_operation_native(connection: Connection, prepared: PreparedRele
     """Verify the installed native descriptor and required relations before admission."""
     from .execution_admission import require_native_execution
 
-    # Authenticate the frozen catalog, then invoke its existing security-definer
-    # release guard under the admission purpose. The maintenance-only catalog DO
-    # requires access to protected schema names that this principal must not gain.
     require_native_execution(connection, prepared)
+    return _require_native_kernel(connection, prepared)
+
+
+def _require_native_kernel(connection: Connection, prepared: PreparedRelease) -> str:
     expected = prepared.native_kernel_digest
     actual = connection.scalar(text("SELECT sem.data_operation_native_descriptor()"))
     if (
@@ -1515,16 +1518,21 @@ def admit_data_operation_definitions(
     connection: Connection, prepared: PreparedRelease, model: EffectiveDataOperationModel
 ) -> str:
     """Install the authenticated exact fixed projection, never caller-shaped contracts."""
-    native_digest = require_data_operation_native(connection, prepared)
+    from .execution_admission import require_native_execution, verify_deployment_functions
     from .native_definition_projection import read_native_definition_projection
 
-    payload = read_native_definition_projection(prepared, model=model)
-    value = connection.scalar(
-        select(func.sem.admit_data_operation_definitions(bindparam("payload", type_=JSONB))),
-        {"payload": {**payload, "release_id": prepared.release_id}},
-    )
-    if not isinstance(value, dict) or value.get("release_id") != prepared.release_id:
-        raise ValueError("native definition admission did not return exact release identity")
+    with connection.begin_nested():
+        # Initial lowering establishes the protected facts required by the runtime guard.
+        verify_deployment_functions(connection)
+        native_digest = _require_native_kernel(connection, prepared)
+        payload = read_native_definition_projection(prepared, model=model)
+        value = connection.scalar(
+            select(func.sem.admit_data_operation_definitions(bindparam("payload", type_=JSONB))),
+            {"payload": {**payload, "release_id": prepared.release_id}},
+        )
+        if not isinstance(value, dict) or value.get("release_id") != prepared.release_id:
+            raise ValueError("native definition admission did not return exact release identity")
+        require_native_execution(connection, prepared)
     return native_digest
 
 

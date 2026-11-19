@@ -43,17 +43,23 @@ PHYSICAL_CATALOG_END = " -- native physical catalog checks complete"
 def release_preconditions(metadata):
     finalized = metadata.tables["sem.release_finalization"]
     release = metadata.tables["sem.release"]
+    admitted = metadata.tables["sem.data_operation_release"]
     artifacts = metadata.tables["sem.artifact"]
     selected = core_variable("r", Text())
-    release_artifacts = select(1).select_from(artifacts).where(artifacts.c.release_id == selected)
-    operation_model = release_artifacts.where(artifacts.c.artifact_name == "data_operations.json")
-    native_artifact = release_artifacts.where(
-        artifacts.c.artifact_name == "data_operation_native_definitions.json"
+    operation_artifacts = (
+        select(1)
+        .select_from(artifacts)
+        .where(
+            artifacts.c.release_id == selected,
+            artifacts.c.artifact_name.in_(
+                ("data_operations.json", "data_operation_native_definitions.json")
+            ),
+        )
     )
+    operation_release = select(1).select_from(admitted).where(admitted.c.release_id == selected)
     installed = cast(func.sem.data_operation_native_descriptor(), JSONB())
-    matching_kernel = native_artifact.where(
-        _decoded_json(artifacts.c.content)["native_digest"].astext
-        == installed["source_digest"].astext
+    matching_kernel = operation_release.where(
+        admitted.c.native_kernel_digest == installed["source_digest"].astext
     )
     return (
         If(
@@ -65,7 +71,8 @@ def release_preconditions(metadata):
             (Raise("unknown execution release", "23514"),),
         ),
         If(
-            or_(operation_model.exists(), native_artifact.exists()) & ~matching_kernel.exists(),
+            or_(operation_release.exists(), operation_artifacts.exists())
+            & ~matching_kernel.exists(),
             (Raise("release was prepared for a different native kernel; re-prepare it", "23514"),),
         ),
         Assign("expected", func.data.execution_contract_descriptor()),
@@ -351,6 +358,11 @@ def admission_programs(metadata):
     selected = core_variable("r", Text())
     recorded, record = deployment_receipt(metadata)
     expected = Local("expected", pg_type("jsonb"))
+    principal = func.session_user()
+    can_attempt_proof = or_(
+        func.pg_has_role(principal, role_name("admitter"), "USAGE", type_=Boolean()),
+        func.pg_has_role(principal, namespace_owner().scalar_subquery(), "MEMBER", type_=Boolean()),
+    )
 
     def program(name, body, purposes, *, parameters=None):
         return ProgramDeclaration(
@@ -402,7 +414,9 @@ def admission_programs(metadata):
             (
                 Perform(func.data.prove_execution_catalog()),
                 *release_preconditions(metadata),
+                Perform(func.sem.require_archive_bytes(selected)),
                 Perform(func.sem.require_execution_projection(selected)),
+                Perform(func.sem.require_execution_binding_facts(selected)),
                 *release_semantic_checks(metadata),
                 If(~recorded, (record,)),
             ),
@@ -416,6 +430,20 @@ def admission_programs(metadata):
             (
                 *release_preconditions(metadata),
                 If(recorded, (Return(),)),
+                If(
+                    ~can_attempt_proof,
+                    (
+                        Raise(
+                            func.concat(
+                                "release lacks a current deployment receipt. "
+                                "Run ci release check --native-proof --release ",
+                                selected,
+                                " on the acquired target",
+                            ),
+                            "23514",
+                        ),
+                    ),
+                ),
                 Perform(func.data.prove_execution_release(selected)),
             ),
             (expected,),

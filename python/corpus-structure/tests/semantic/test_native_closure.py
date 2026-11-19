@@ -70,6 +70,67 @@ def test_restricted_complete_archive_replay_and_immutable_closure(
             )
 
 
+def test_native_acquisition_carries_receipt_and_explicit_proof_rereads_archive(
+    commit_db_engine, commit_admitter_engine, commit_reader_engine, commit_writer_engine
+):
+    from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
+    from corpus_structure.semantic.execution_admission import (
+        ExecutionAdmissionError,
+        verify_native_execution_release,
+    )
+    from corpus_structure.semantic.releases import open_release, verify_release
+    from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
+
+    captured = prepare_kernel(STORAGE)
+    prepared = captured.prepared
+    release = {"release": prepared.release_id}
+    require = text("SELECT data.require_execution_release(:release)")
+    with commit_admitter_engine.begin() as conn:
+        persist_release(conn, captured.bundle, captured.dependencies, captured.profile, prepared)
+        admit_data_operation_release(conn, prepared)
+
+    with commit_db_engine.begin() as conn:
+        conn.exec_driver_sql("ALTER TABLE sem.deployment_admission DISABLE TRIGGER USER")
+        conn.execute(
+            text("DELETE FROM sem.deployment_admission WHERE release_id=:release"), release
+        )
+        conn.exec_driver_sql("ALTER TABLE sem.deployment_admission ENABLE TRIGGER USER")
+
+    for engine in (commit_reader_engine, commit_writer_engine):
+        with (
+            engine.begin() as conn,
+            pytest.raises(DBAPIError, match="ci release check --native-proof --release"),
+        ):
+            conn.execute(require, release)
+
+    with commit_admitter_engine.begin() as conn:
+        verify_native_execution_release(conn, prepared.release_id)
+    with commit_reader_engine.begin() as conn:
+        conn.execute(require, release)
+        assert open_release(conn, prepared.release_id).release_id == prepared.release_id
+
+    with commit_db_engine.begin() as conn:
+        conn.exec_driver_sql("ALTER TABLE sem.artifact DISABLE TRIGGER USER")
+        conn.execute(
+            text(
+                "UPDATE sem.artifact SET content='tampered'::bytea "
+                "WHERE release_id=:release AND artifact_name='data_operations.json'"
+            ),
+            release,
+        )
+        conn.exec_driver_sql("ALTER TABLE sem.artifact ENABLE TRIGGER USER")
+
+    with commit_reader_engine.begin() as conn:
+        conn.execute(require, release)
+    with commit_reader_engine.begin() as conn, pytest.raises(ReleaseConflict):
+        verify_release(conn, prepared.release_id)
+    with (
+        commit_admitter_engine.begin() as conn,
+        pytest.raises(ExecutionAdmissionError, match="archive product or input closure differs"),
+    ):
+        verify_native_execution_release(conn, prepared.release_id)
+
+
 def test_restricted_activation_cas_and_deployment_record(
     commit_db_engine, commit_admitter_engine, commit_application_settings
 ):

@@ -15,10 +15,11 @@ from corpus_structure.methods.math import grammar
 from corpus_structure.methods.math.prepared import PreparedMathInput
 from corpus_structure.methods.math.transform import NotRepresentable
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.scientific_evidence import SIMPLIFY_SECONDS, scientific_model
+from corpus_structure.semantic.scientific_evidence import scientific_model
 from corpus_structure.semantic.source_types import ParseOutcome
 
 POLICY = "pm2-exact-affine-1"
+MAX_AFFINE_SECONDS = 5.0
 
 
 class _Undecided(ValueError):
@@ -130,7 +131,7 @@ def assess_exact_affine(
     try:
         if not context.source_id or not context.scope or context.conflicts or context.unresolved:
             raise _Undecided("source scope or expression bindings are unresolved")
-        if not 0 < operand.seconds <= SIMPLIFY_SECONDS:
+        if not 0 < operand.seconds <= MAX_AFFINE_SECONDS:
             raise _Undecided("operand deadline exceeds the supported affine budget")
         if len(nonzero) > 8 or any(
             p.operand.context is not context or not p.evidence.strip() for p in nonzero

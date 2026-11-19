@@ -159,3 +159,49 @@ def test_companion_columns_follow_declared_roles_and_inventory_dimensions():
     )
     assert compiled_model(sources).companion_columns()["input"].group == "input_ordinal"
     assert columns["input"].group == "input_role"
+
+
+def test_model_request_scope_pins_capture_and_refreshes_membership(tmp_path, monkeypatch):
+    from corpus_structure.model import compiled
+
+    monkeypatch.setattr(compiled, "_MODEL_ROOT", tmp_path)
+    path = tmp_path / "root.yaml"
+    path.write_bytes(schema("old"))
+    with compiled.model_request_scope():
+        old = compiled.running_model()
+        path.write_bytes(schema("new"))
+        assert compiled.running_model() is old
+        assert set(members(old.view("root.yaml"))) == {"old"}
+    with compiled.model_request_scope():
+        new = compiled.running_model()
+        assert new.identity != old.identity
+        assert set(members(new.view("root.yaml"))) == {"new"}
+    path.write_bytes(schema("new"))
+    with compiled.model_request_scope():
+        assert compiled.running_model() is new
+    extra = tmp_path / "values.json"
+    extra.write_text('{"answer": 42}')
+    with compiled.model_request_scope():
+        added = compiled.running_model()
+        assert added.identity != new.identity
+        assert compiled.model_source("values.json") == b'{"answer": 42}'
+    extra.unlink()
+    with compiled.model_request_scope():
+        assert compiled.running_model() is new
+    assert set(members(old.view("root.yaml"))) == {"old"}
+
+
+def test_projection_does_not_retain_transient_failure():
+    model = compiled_model({"transient": b"id: urn:x\nname: transient\n"})
+    calls = []
+
+    def build():
+        calls.append(1)
+        if len(calls) == 1:
+            raise OSError("temporary provider unavailable")
+        return "recovered"
+
+    with pytest.raises(OSError, match="temporary provider"):
+        model.projection("loader", build)
+    assert model.projection("loader", build) == "recovered"
+    assert len(calls) == 2

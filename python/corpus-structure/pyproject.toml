@@ -62,7 +62,7 @@ dependencies = [
     "libcst==1.9.0",
     "python-rapidjson==1.25",
     "ast-grep-py==0.51.2",
-    "cachetools==7.2.7",
+    "cachetools==8.0.1",
 ]
 
 [project.scripts]

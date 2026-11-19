@@ -470,9 +470,37 @@ _PROCESS_HOST = None
 _PROCESS_REFERENCES = 0
 
 
+def _cache_observation():
+    from corpus_structure.caches import CacheMetrics
+
+    host = _PROCESS_HOST
+    budget = host.budget if host is not None else None
+    return CacheMetrics(
+        budget="execution-host-bytes",
+        entries=len(host._bases) if host is not None else 0,
+        size=budget.used_bytes if budget is not None else None,
+        maxsize=budget.limit if budget is not None else None,
+    )
+
+
+def _gpu_observation():
+    from corpus_structure.caches import CacheMetrics
+
+    host = _PROCESS_HOST
+    resources = host.resources if host is not None else None
+    return CacheMetrics(
+        budget="native-host-residency",
+        entries=len(resources.native_hosts.declared_selections) if resources is not None else 0,
+    )
+
+
 @contextmanager
 def execution_host_scope():
     """CLI/MCP and standalone calls share exactly one installed process owner."""
+    from corpus_structure.caches import register
+
+    register("execution-host", _cache_observation)
+    register("gpu-residency", _gpu_observation)
     global _PROCESS_HOST, _PROCESS_REFERENCES
     with _PROCESS_LOCK:
         if _PROCESS_HOST is None:

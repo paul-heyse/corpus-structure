@@ -7,6 +7,9 @@ from functools import lru_cache
 from hashlib import sha256
 from pathlib import Path
 
+from corpus_structure.caches import declare
+from corpus_structure.model.compiled import model_projection
+
 from .determinants import determinant_version
 from .identity import canonical_bytes
 from .types import SourceArtifact, SourceBundle
@@ -37,69 +40,29 @@ PRODUCER_IDENTITY_INPUTS = frozenset(
 )
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def _current_boundary():
-    from importlib.resources import files
-
-    from .file_custody import verified_file
     from .pdf_domain import _action_sources
 
-    _actions, sources, _diagnostics = _action_sources()
-    root = Path(__file__).resolve().parents[1] / "model/semantic"
-    records = []
-    logical_files = {
-        "pdf_products": "pdf-products.yaml",
-        "pdf-observation-vocabulary": "pdf-observation-vocabulary.yaml",
-        "core": "core.yaml",
-        "pdf_records": "pdf-records.yaml",
-        "pdf_staging": "pdf-staging.yaml",
-        "read_projections": "read-projections.yaml",
-        "companion_projections": "companion-projections.yaml",
-        "selected_source": "selected-source.yaml",
-    }
-    for source in sources:
-        if source.name == "pdf-domain/native/actions.yaml":
-            records.append(verified_file(root / "pdf-actions.yaml", source.digest))
-        elif source.name.startswith("pdf-domain/physical/"):
-            records.append(
-                verified_file(
-                    root / source.name.removeprefix("pdf-domain/physical/"), source.digest
-                )
-            )
-        elif source.name == "pdf-domain/logical/linkml:types":
-            records.append(
-                verified_file(
-                    Path(
-                        str(
-                            files("linkml_runtime").joinpath("linkml_model/model/schema/types.yaml")
-                        )
-                    ),
-                    source.digest,
-                )
-            )
-        elif source.name.startswith("pdf-domain/logical/"):
-            records.append(
-                verified_file(
-                    root / logical_files[source.name.removeprefix("pdf-domain/logical/")],
-                    source.digest,
-                )
-            )
-    return sources, tuple(records)
+    _, sources, _ = _action_sources()
+    return sources
 
 
 def lowering_sources(boundary_sources=None, *, include_producer=True) -> tuple[SourceArtifact, ...]:
     """Prepare once for exact captured inputs; mutable file premises still recheck."""
     if boundary_sources is None:
-        boundary_sources, records = _current_boundary()
-        for record in records:
-            record.check()
+        boundary_sources = _current_boundary()
     sources, records = _prepared_lowering_sources(tuple(boundary_sources), include_producer)
     for record in records:
         record.check()
     return sources
 
 
-@lru_cache(maxsize=4)
+@declare(
+    "pdf-lowering",
+    "release_bytes",
+    weight=lambda result: max(1, sum(len(source.content) for source in result[0])),
+)
 def _prepared_lowering_sources(boundary_sources, include_producer):
     sources, custody = _implementation_sources(include_producer)
     for record in custody:

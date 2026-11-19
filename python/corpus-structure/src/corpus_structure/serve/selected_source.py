@@ -7,9 +7,7 @@ import json
 import sqlite3
 from collections import Counter
 from dataclasses import asdict, dataclass
-from functools import lru_cache
 from hashlib import sha256
-from importlib.resources import files
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING, Any, Literal
@@ -19,6 +17,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
+from corpus_structure.model.compiled import model_projection, model_source
 from corpus_structure.semantic.demand_results import CutSelection, selected_read_snapshot
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import get_physical_model_id
@@ -36,9 +35,9 @@ if TYPE_CHECKING:
     from corpus_structure.semantic.math_context import PreparedInterpretationContext
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def _protocol():
-    source = files("corpus_structure").joinpath("model/semantic/selected-source.yaml").read_bytes()
+    source = model_source("selected-source.yaml")
     declaration = yaml.safe_load(source)
     spec = json.loads(declaration.pop("annotations")["selected-source"])
     boundary_source = yaml.safe_dump(declaration, sort_keys=False).encode()

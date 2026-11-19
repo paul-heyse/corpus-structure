@@ -138,7 +138,7 @@ class PreparedArtifact:
     kind: str
     content: bytes
 
-    @property
+    @cached_property
     def digest(self) -> str:
         return sha256(self.content).hexdigest()
 

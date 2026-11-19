@@ -645,7 +645,8 @@ def _selected_population_program(model):
         requests,
         episodes,
         boundaries,
-        artifacts,
+        releases,
+        definitions,
         products,
         kinds,
         member_table,
@@ -658,7 +659,8 @@ def _selected_population_program(model):
             "ops.data_request",
             "ops.data_derivation",
             "ops.data_demand_read",
-            "sem.artifact",
+            "sem.data_operation_release",
+            "sem.data_operation_definition",
             "kb.data_product",
             "sem.data_kind_contract",
             "kb.data_product_member",
@@ -690,9 +692,7 @@ def _selected_population_program(model):
         name: _value(name, JSONB())
         for name in (
             "p",
-            "archived",
-            "projection",
-            "operation",
+            "binding_model",
             "compiled",
             "selection",
             "expression",
@@ -712,9 +712,7 @@ def _selected_population_program(model):
     }
     (
         p,
-        archived,
-        projection,
-        operation,
+        binding_model,
         compiled,
         selection,
         expression,
@@ -726,9 +724,7 @@ def _selected_population_program(model):
         j[name]
         for name in (
             "p",
-            "archived",
-            "projection",
-            "operation",
+            "binding_model",
             "compiled",
             "selection",
             "expression",
@@ -738,8 +734,8 @@ def _selected_population_program(model):
             "expected",
         )
     )
-    role, archive_digest, value_key, key, projection_mode = (
-        _value(name) for name in ("role", "archive_digest", "value_key", "key", "projection_mode")
+    role, value_key, key, projection_mode = (
+        _value(name) for name in ("role", "value_key", "key", "projection_mode")
     )
 
     def selected_row(table, condition, target):
@@ -747,13 +743,7 @@ def _selected_population_program(model):
             select(core_relation_row(table)).select_from(table).where(condition), (target,), True
         )
 
-    def artifact(name):
-        return artifacts.c.release_id == demand("release_id"), artifacts.c.artifact_name == name
-
     selection_rows = _elements(demand("selection")["operations"], "selected_operation")
-    authored_ops = _elements(archived["operations"], "authored_operation")
-    compiled_ops = _elements(projection["operations"], "compiled_operation")
-    bindings = _elements(archived["bindings"], "authored_binding")
     references = (
         func.jsonb_each_text(j["refs"])
         .table_valued(column("key", Text()), column("value", Text()))
@@ -896,61 +886,40 @@ def _selected_population_program(model):
             True,
         ),
         SelectInto(
-            select(
-                cast(func.convert_from(artifacts.c.content, "UTF8"), JSONB()),
-                func.encode(func.sha256(artifacts.c.content), "hex"),
-            ).where(*artifact("data_operations.json")),
-            ("archived", "archive_digest"),
-            True,
-        ),
-        SelectInto(
-            select(cast(func.convert_from(artifacts.c.content, "UTF8"), JSONB())).where(
-                *artifact("data_operation_native_definitions.json")
-            ),
-            ("projection",),
-            True,
-        ),
-        _check(
-            projection["model_digest"].astext.is_distinct_from(archive_digest),
-            "population source model differs",
-        ),
-        SelectInto(
-            select(authored_ops.c.value).where(
-                authored_ops.c.value["semantic_id"].astext == p["operation_id"].astext
-            ),
-            ("operation",),
-            True,
-        ),
-        SelectInto(
-            select(compiled_ops.c.value).where(
-                compiled_ops.c.value["operation_id"].astext == p["operation_id"].astext
+            select(func.to_jsonb(definitions.table_valued())).where(
+                definitions.c.release_id == demand("release_id"),
+                definitions.c.operation_id == p["operation_id"].astext,
             ),
             ("compiled",),
             True,
         ),
         SelectInto(
-            select(bindings.c.value["expression"]).where(
-                bindings.c.value["semantic_id"].astext == operation["binding"].astext
+            select(func.jsonb_build_object("kinds", releases.c.binding_types)).where(
+                releases.c.release_id == demand("release_id"),
             ),
-            ("expression",),
+            ("binding_model",),
             True,
         ),
+        Assign("expression", compiled["binding_expression"]),
         _check(
             or_(
-                compiled["binding"].is_distinct_from(expression),
-                compiled["definition"].astext.is_distinct_from(selection["definition"].astext),
-                compiled["eligibility"].astext.is_distinct_from(selection["eligibility"].astext),
+                compiled["definition_identity"].astext.is_distinct_from(
+                    selection["definition"].astext
+                ),
+                compiled["eligibility_identity"].astext.is_distinct_from(
+                    selection["eligibility"].astext
+                ),
             ),
             "population filter differs from frozen definition",
         ),
         Assign(
             "context",
             _object(
-                model=archived,
+                model=binding_model,
                 roledefs=compiled["input_roles"],
                 parameters=selection["parameters"],
                 parameter_meaning=selection["parameter_meaning"],
-                parameterdefs=operation["parameters"]["json"],
+                parameterdefs=compiled["parameter_definitions"],
                 choices=selection["choices"],
                 subject=p["subject"].astext,
                 original_source=p["original_source"].astext,
@@ -1278,10 +1247,7 @@ def _selected_population_program(model):
             )
             for name in j
         ),
-        *(
-            Local(name, pg_type("text"))
-            for name in ("role", "archive_digest", "value_key", "key", "projection_mode")
-        ),
+        *(Local(name, pg_type("text")) for name in ("role", "value_key", "key", "projection_mode")),
         Local("count_roles", pg_type("integer")),
     )
     return _procedure("select_data_population", (("p_payload", "jsonb"),), steps, locals_)

@@ -125,6 +125,7 @@ def _serve_demand_query(connection, request, implementation):
         SELECTED_QUERY_CACHE,
         bounded_rows,
         byte_bounded_page,
+        served_key,
         uncached_rows_from,
     )
 
@@ -188,8 +189,12 @@ def _serve_demand_query(connection, request, implementation):
     if body_rows:
         # max_bytes is also this API's examined native-body bound, not just its
         # output bound. A cache populated under a larger input budget cannot bypass it.
-        key = json_bytes(
-            [
+        key = served_key(
+            connection,
+            "demand",
+            implementation=implementation,
+            basis=page.cut.identity,
+            selection=[
                 "demand",
                 page.cut.identity,
                 implementation,
@@ -200,28 +205,28 @@ def _serve_demand_query(connection, request, implementation):
                     name: (acquisition or {}).get(name)
                     for name in ("after", "support_after", "obligation_id")
                 },
-            ]
+            ],
         )
-        entry = SELECTED_QUERY_CACHE.get(key)
-        if entry is None:
-            whole_request = dict(
-                wire_json_loads(page.request), view="products", read_id=native["read_id"]
-            )
-            whole_request.pop("recheck_bodies", None)
-            whole = read_demand_result(
-                connection,
-                request.demand_id,
-                project_id=request.project_id,
-                continuation=whole_request,
-                cut=page.cut,
-                limit=1,
-                max_bytes=request.max_bytes,
-                scope=scope,
-                view="products",
-            )
-            entry, remaining = bounded_rows(_selected_query_rows(whole, request), {})
-            if entry is not None:
-                SELECTED_QUERY_CACHE.put(key, entry)
+        with SELECTED_QUERY_CACHE.loading(key) as entry:
+            if entry is None:
+                whole_request = dict(
+                    wire_json_loads(page.request), view="products", read_id=native["read_id"]
+                )
+                whole_request.pop("recheck_bodies", None)
+                whole = read_demand_result(
+                    connection,
+                    request.demand_id,
+                    project_id=request.project_id,
+                    continuation=whole_request,
+                    cut=page.cut,
+                    limit=1,
+                    max_bytes=request.max_bytes,
+                    scope=scope,
+                    view="products",
+                )
+                entry, remaining = bounded_rows(_selected_query_rows(whole, request), {})
+                if entry is not None:
+                    SELECTED_QUERY_CACHE.put(key, entry)
         rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
     else:
         rows = uncached_rows_from(_selected_query_rows(page, request), offset)

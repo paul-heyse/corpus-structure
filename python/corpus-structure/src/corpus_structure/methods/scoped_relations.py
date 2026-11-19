@@ -1302,10 +1302,14 @@ def discover_relations(
             if passages is None or len(passages) != 1:
                 raise ValueError("ordered formula witness requires one original selected passage")
             (query,) = passages
+            witness_source = frame.value
             inspected, links = ordered_recapped_declarations(
                 frame.text,
                 source_pieces,
-                {**{item["self_ref"]: item for item in native["ancestors"]}, **items},
+                {
+                    item["self_ref"]: item
+                    for item in (*witness_source["ancestors"], *witness_source["items"])
+                },
                 ordered_formula_witness,
                 query,
                 navigation=navigation,

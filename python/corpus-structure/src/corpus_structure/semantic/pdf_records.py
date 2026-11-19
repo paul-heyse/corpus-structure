@@ -17,12 +17,13 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from hashlib import sha256
-from importlib.resources import files
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 from jsonschema.validators import validator_for
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
+
+from corpus_structure.model.compiled import model_projection, model_source
 
 from .pdf_record_identity import ScalarDescriptor, canonical_scalar, scalar_payload
 
@@ -30,12 +31,11 @@ if TYPE_CHECKING:
     from docling_core.types.doc import DoclingDocument
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def _record_model() -> Mapping[str, Any]:
     import yaml
 
-    source = files("corpus_structure").joinpath("model", "semantic", "pdf-records.yaml")
-    return yaml.safe_load(source.read_bytes())
+    return yaml.safe_load(model_source("pdf-records.yaml"))
 
 
 _HEADER_FIELDS = _record_model()["classes"]["PdfRecordDocument"]["attributes"]
@@ -156,19 +156,15 @@ class NativeSchemaMapping:
         _finite_json(value, "#")
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def native_validation_contract() -> Mapping[str, Any]:
     """Read the semantic owner's placement and opaque-extension interpretation contract."""
     return json.loads(_record_model()["annotations"]["pdr:native_validation_contract"])
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def native_schema_bytes() -> bytes:
-    return (
-        files("corpus_structure")
-        .joinpath("model", "semantic", "docling-validation.schema.json")
-        .read_bytes()
-    )
+    return model_source("docling-validation.schema.json")
 
 
 def _difference(expected: Any, actual: Any, path: str = "#") -> str | None:

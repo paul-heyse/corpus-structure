@@ -39,6 +39,30 @@ def test_actual_toy_native_recipe_retains_its_own_qualification_and_rules(tmp_pa
     assert all(item.complete for item in prepared.model.implementation_slices)
 
 
+def test_typed_scientific_candidate_admits_on_the_registered_kernel(
+    tmp_path, commit_admitter_engine
+):
+    from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
+    from corpus_structure.semantic.execution_admission import verify_native_execution_release
+    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
+    from corpus_structure.semantic.releases import persist_release, verify_release
+    from corpus_structure.semantic.scientific_evidence import require_scientific_policy
+    from semantic.data_operation_kernel_support import prepare_kernel
+
+    candidate = prepare_kernel(toy_recipe(tmp_path))
+    prepared = candidate.prepared
+    with commit_admitter_engine.begin() as connection:
+        persist_release(
+            connection, candidate.bundle, candidate.dependencies, candidate.profile, prepared
+        )
+        admit_data_operation_release(connection, prepared)
+        assert verify_native_execution_release(connection, prepared.release_id)
+        observed = verify_release(connection, prepared.release_id)
+    policy = require_scientific_policy(observed, context_profile=acquire_analysis_context_profile())
+    assert policy.bounds == (0.25, 3.0)
+    assert len(policy.decisions) == 24
+
+
 @pytest.mark.parametrize("case", ("T1", "T2", "T4"))
 def test_native_selected_statistics_profiles_preserve_exact_domain_cases(rich_publication, case):
     journey = rich_publication

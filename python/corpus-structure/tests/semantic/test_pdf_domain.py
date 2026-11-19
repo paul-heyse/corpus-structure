@@ -11,13 +11,14 @@ from pydantic import ValidationError
 from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.operation_value_types import require_call_context
-from corpus_structure.semantic.pdf_contracts import PreparedPdfContext, _boundary
+from corpus_structure.semantic.pdf_contracts import PreparedPdfContext
 from corpus_structure.semantic.pdf_domain import (
     PdfDomainContract,
     pdf_domain_artifacts,
     pdf_domain_sources,
 )
 from corpus_structure.semantic.pdf_domain_native import pdf_domain_native_sql
+from corpus_structure.semantic.pdf_lowering import PRODUCER_IDENTITY_INPUTS
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.types import SourceArtifact
@@ -59,7 +60,7 @@ def test_pdf_domain_projects_real_actions_and_native_schema_without_legacy_execu
     assert all(not source.name.startswith("execution/") for source in domain.sources)
     context = PreparedPdfContext(
         "release:pdf",
-        _boundary(domain.schema),
+        prepare_release(domain.schema),
         domain,
         domain.source("schema/pdf_products").digest,
         SourceArtifact(
@@ -121,13 +122,19 @@ def test_pdf_domain_native_checks_exact_frozen_facet_and_declared_action(domain)
         ("sem", "admit_pdf_operation_contracts"),
         ("ops", "require_pdf_operation"),
     }
-    assert sha256(domain.content).hexdigest() in sql
+    inputs = json.loads(domain.content)["inputs"]
+    frozen = [item for item in inputs if item["name"] not in PRODUCER_IDENTITY_INPUTS]
+    producer = [item for item in inputs if item["name"] in PRODUCER_IDENTITY_INPUTS]
+    assert frozen and producer
+    assert all(item["sha256"] in sql for item in frozen)
+    assert all(item["sha256"] not in sql for item in producer)
+    assert "sem.pdf_operation_contract.contract_digest = facet_digest" in sql
     assert "PDF action contract identity differs" in sql
     assert "pdf_operation_contract.operation_id = p_operation" in sql
     assert "sem.require_execution_operation" not in sql
     assert "current PDF domain contract is required" in sql
     assert "native-pdf-helper-bindings" in sql
-    assert "pdf-domain/schema/pdf_products" not in sql  # One input prefix projection.
+    assert "'pdf-domain/' || p_name" in sql
 
 
 def test_pdf_domain_owns_observation_boundary_and_exact_published_read_calls(domain, model):
@@ -136,7 +143,7 @@ def test_pdf_domain_owns_observation_boundary_and_exact_published_read_calls(dom
         READ_PUBLISHED_SECTIONS_CONTRACT_DIGEST,
     )
 
-    boundary = _boundary(domain.schema)
+    boundary = prepare_release(domain.schema)
     assert (
         boundary.index.definitions["PdfObservationProduct"].iri
         == "https://corpus-structure.dev/execution/PdfObservationProduct"
@@ -287,5 +294,5 @@ def test_unsupported_pdf_consumer_read_profile_refuses_before_capture(domain, tm
 
     changed = altered_domain(domain, read_version="not-qualified")
     with pytest.raises(ValueError, match="read ABI is unsupported"):
-        prepare_pdf_context(_boundary(domain.schema), changed)
+        prepare_pdf_context(prepare_release(domain.schema), changed)
     assert not (tmp_path / "capture").exists()

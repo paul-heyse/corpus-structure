@@ -31,6 +31,32 @@ class StorageTarget(BaseModel):
     purpose: Purpose
 
 
+class DatabaseIdentity(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    database: str
+    database_oid: int
+    system_identifier: str
+
+
+def acquired_database_identity(conn: Connection) -> DatabaseIdentity:
+    """Identify the physical connection independently of its engine or caller purpose."""
+    key = "corpus_structure.database_identity"
+    found = conn.info.get(key)
+    if isinstance(found, DatabaseIdentity):
+        return found
+    row = conn.exec_driver_sql(
+        "SELECT d.datname, d.oid, c.system_identifier "
+        "FROM pg_catalog.pg_database d CROSS JOIN pg_catalog.pg_control_system() c "
+        "WHERE d.datname = pg_catalog.current_database()"
+    ).one()
+    identity = DatabaseIdentity(
+        database=row.datname, database_oid=row.oid, system_identifier=str(row.system_identifier)
+    )
+    conn.info[key] = identity
+    return identity
+
+
 def assert_explicit_route(settings: Settings) -> dict[str, str]:
     """Require one fully named libpq endpoint for a separately selected target."""
     from psycopg import ProgrammingError
@@ -89,20 +115,16 @@ def acquired_target(conn: Connection, *, purpose: Purpose) -> StorageTarget:
         raise StorageTargetError("storage identity requires an acquired psycopg connection")
     try:
         require_runtime_principal(conn, purpose=purpose)
-        row = conn.exec_driver_sql(
-            "SELECT d.datname, d.oid, c.system_identifier "
-            "FROM pg_catalog.pg_database d CROSS JOIN pg_catalog.pg_control_system() c "
-            "WHERE d.datname = pg_catalog.current_database()"
-        ).one()
+        identity = acquired_database_identity(conn)
     except DBAPIError as error:
         raise StorageTargetError(
             f"cannot establish the acquired PostgreSQL target for {purpose}"
         ) from error
     info = driver.info
     return StorageTarget(
-        database=row.datname,
-        database_oid=row.oid,
-        system_identifier=str(row.system_identifier),
+        database=identity.database,
+        database_oid=identity.database_oid,
+        system_identifier=identity.system_identifier,
         host=info.hostaddr or info.host,
         port=info.port,
         purpose=purpose,

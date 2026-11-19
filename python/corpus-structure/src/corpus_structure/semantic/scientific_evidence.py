@@ -16,7 +16,6 @@ from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
 from functools import lru_cache
-from importlib.resources import files
 from typing import Any, Literal
 
 import numpy as np
@@ -25,6 +24,7 @@ import sympy
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.core.tex import token_form
 from corpus_structure.methods.math import grammar
+from corpus_structure.model.compiled import model_projection, model_source
 from corpus_structure.semantic.source_types import ParseOutcome
 
 from .identity import canonical_bytes
@@ -34,48 +34,43 @@ from .scientific_evidence_schema import (
     parse_scientific_assessment_reason as parse_scientific_assessment_reason,
 )
 
-SIMPLIFY_SECONDS = 5.0
-NUMERIC_POINTS = 12
-NUMERIC_MAX_DRAWS = 4000
-NUMERIC_MIN_POINTS = 6
-REL_TOL = 1e-9
-ABS_TOL = 1e-12
 CONSOLIDATION_PROFILE = "consolidation-evidence-2"
 REFERENCE_PROFILE = "reference-evidence-2"
 
 SCIENTIFIC_POLICY_INPUT = "operation/scientific-policy.json"
 
 
+@model_projection
+def _running_scientific_model():
+    return scientific_model(model_source("scientific.yaml"))
+
+
 def scientific_model(content: bytes | None = None):
-    raw = (
-        files("corpus_structure").joinpath("model/semantic/scientific.yaml").read_bytes()
-        if content is None
-        else content
-    )
-    return _scientific_model(raw)
-
-
-@lru_cache(maxsize=4)
-def _scientific_model(raw: bytes):
+    if content is None:
+        return _running_scientific_model()
     from .prepare import prepare_release
     from .types import SourceArtifact, SourceBundle
 
-    return prepare_release(SourceBundle("scientific", (SourceArtifact("scientific", raw),)))
+    return prepare_release(SourceBundle("scientific", (SourceArtifact("scientific", content),)))
 
 
-@lru_cache(maxsize=1)
-def decision_rules():
+@model_projection
+def scientific_policy():
     import yaml
 
-    raw = files("corpus_structure").joinpath("model/semantic/scientific-policies.yaml").read_bytes()
-    rows = tuple(
-        scientific_model().validate_json("DecisionRule", json.dumps(row)).model_dump(mode="json")
-        for row in yaml.safe_load(raw)
+    value = yaml.safe_load(model_source("scientific-policies.yaml"))
+    result = (
+        scientific_model()
+        .validate_json("ScientificPolicy", json.dumps(value))
+        .model_dump(mode="json")
     )
-    keys = [(row["policy_id"], row["evidence_tier"], row["agreement"]) for row in rows]
-    if len(set(keys)) != len(keys):
-        raise ValueError("duplicate scientific decision rule")
-    return rows
+    _reference_bounds((result["reference_lower"], result["reference_upper"]))
+    _rule_index(result["decision_rules"])
+    return result
+
+
+def decision_rules():
+    return tuple(scientific_policy()["decision_rules"])
 
 
 def scientific_report_layout(content: bytes | None = None):
@@ -130,7 +125,7 @@ def scientific_report_schema():
     return schema
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def _scientific_report_validator():
     from jsonschema import Draft202012Validator
 
@@ -197,6 +192,7 @@ def scientific_policy_recipe(*, context_profile) -> dict[str, Any]:
     }
     consolidation = profiles[CONSOLIDATION_PROFILE]
     reference = profiles[REFERENCE_PROFILE]
+    policy = scientific_policy()
     recipe = {
         "computation_profiles": [
             asdict(profiles[policy]) for policy in (CONSOLIDATION_PROFILE, REFERENCE_PROFILE)
@@ -226,7 +222,7 @@ def scientific_policy_recipe(*, context_profile) -> dict[str, Any]:
             "profile": REFERENCE_PROFILE,
             "simplify_seconds": float(reference.simplify_seconds),
             "points": reference.points,
-            "bounds": [0.25, 3],
+            "bounds": [policy["reference_lower"], policy["reference_upper"]],
             "relative_tolerance": float(reference.relative_tolerance),
             "seed": "sha256(canonical sorted raw semantic operands)[:16]",
             "numeric_method": "evalf(subs=point)",
@@ -235,28 +231,67 @@ def scientific_policy_recipe(*, context_profile) -> dict[str, Any]:
             "counterexample": "different",
             "inconclusive": "undecided",
         },
-        "symbolic_method": "domain-targeted-then-simplify-2",
-        "numeric_candidate_policy": "each orientation independently meets minimum valid points",
-        "sympy_equals": "not used; numerical fallback is not a symbolic proof",
+        "symbolic_method": policy["symbolic_method"],
+        "numeric_candidate_policy": policy["numeric_candidate_policy"],
+        "sympy_equals": policy["sympy_equals"],
         "assessment_evidence_schema": ScientificAssessmentEvidence.model_json_schema(),
     }
     return bind_scientific_computation(recipe, tuple(profiles.values()))
 
 
-def require_scientific_policy(prepared, *, context_profile) -> None:
+@dataclass(frozen=True)
+class ReleasedScientificPolicy:
+    computation: bytes
+    bounds: tuple[float, float]
+    decisions: Mapping[tuple[str, str, str], dict[str, Any]]
+
+
+def _reference_bounds(value) -> tuple[float, float]:
+    lower, upper = (float(item) for item in value)
+    if not (math.isfinite(lower) and math.isfinite(upper) and lower < upper):
+        raise ValueError("scientific reference bounds require an increasing finite interval")
+    return lower, upper
+
+
+def _rule_index(rows):
+    from types import MappingProxyType
+
+    index = {(row["policy_id"], row["evidence_tier"], row["agreement"]): row for row in rows}
+    if len(index) != len(rows):
+        raise ValueError("duplicate scientific decision rule")
+    return MappingProxyType(index)
+
+
+@lru_cache(maxsize=8)
+def _released_policy(content: bytes) -> ReleasedScientificPolicy:
+    value = json.loads(content)
+    if value.get("abi") != "scientific-evidence-3":
+        raise ValueError("scientific evidence/policy recipe is unsupported")
+    return ReleasedScientificPolicy(
+        canonical_bytes(value["computation_profiles"]),
+        _reference_bounds(value["reference"]["bounds"]),
+        _rule_index(value["decision_rules"]),
+    )
+
+
+def require_scientific_policy(prepared, *, context_profile) -> ReleasedScientificPolicy:
+    from dataclasses import asdict
+
     from .determinants import scientific_compatible
 
-    artifact = next((a for a in prepared.artifacts if a.kind == SCIENTIFIC_POLICY_INPUT), None)
-    if artifact is None or artifact.content != canonical_bytes(
-        scientific_policy_recipe(context_profile=context_profile)
-    ):
-        raise ValueError(
-            "scientific evidence/policy recipe is unsupported; "
-            "derive a release with the supported profiles"
-        )
-
+    artifacts = [a for a in prepared.artifacts if a.kind == SCIENTIFIC_POLICY_INPUT]
+    if len(artifacts) != 1:
+        raise ValueError("scientific evidence/policy recipe is unsupported or missing")
+    policy = _released_policy(artifacts[0].content)
+    profiles = {p.policy_id: p for p in context_profile.profile.scientific_profiles}
+    computation = canonical_bytes(
+        [asdict(profiles[key]) for key in (CONSOLIDATION_PROFILE, REFERENCE_PROFILE)]
+    )
+    if policy.computation != computation:
+        raise ValueError("scientific computation profiles differ from the archived policy")
     if not scientific_compatible(json.loads(prepared.manifest)["libraries"]):
         raise ValueError("scientific runtime differs from archived operation determinants")
+    return policy
 
 
 class EvidenceTier(StrEnum):
@@ -330,24 +365,19 @@ def scientific_assessment_reason(
     return canonical_bytes(envelope.model_dump(mode="json")).decode()
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def _decision_index():
-    from types import MappingProxyType
-
-    return MappingProxyType(
-        {
-            (row["policy_id"], row["evidence_tier"], row["agreement"]): row
-            for row in decision_rules()
-        }
-    )
+    return _rule_index(decision_rules())
 
 
-def _decide(evidence: ScientificEvidence, policy: str) -> ScientificDecision:
+def _decide(evidence: ScientificEvidence, policy: str, decisions=None) -> ScientificDecision:
     agreement = (
         "unknown" if evidence.agreement is None else "agrees" if evidence.agreement else "disagrees"
     )
     try:
-        rule = _decision_index()[policy, evidence.tier.value, agreement]
+        rule = (_decision_index() if decisions is None else decisions)[
+            policy, evidence.tier.value, agreement
+        ]
     except KeyError as exc:
         raise ValueError("scientific evidence has no supported decision binding") from exc
     detail = evidence.detail
@@ -367,8 +397,8 @@ def decide_consolidation(evidence: ScientificEvidence) -> ScientificDecision:
     return _decide(evidence, CONSOLIDATION_PROFILE)
 
 
-def decide_reference(evidence: ScientificEvidence) -> ScientificDecision:
-    return _decide(evidence, REFERENCE_PROFILE)
+def decide_reference(evidence: ScientificEvidence, *, policy=None) -> ScientificDecision:
+    return _decide(evidence, REFERENCE_PROFILE, policy.decisions if policy else None)
 
 
 def comparison_assessment(decision: ScientificDecision, *, context: Any) -> dict[str, Any]:
@@ -786,7 +816,7 @@ def sample_points(
     members: list[Any],
     relations: list[Any],
     rng: np.random.Generator,
-    profile=None,
+    profile,
 ) -> list[dict[Any, Any]]:
     """Distinct points satisfying the constraints, by rejection sampling."""
     by_symbol: dict[Any, list[Any]] = {}
@@ -799,8 +829,8 @@ def sample_points(
         spec[s] = (integer, *_bounds(s, members, relations))
     points: list[dict[Any, Any]] = []
     seen: set[tuple[str, ...]] = set()
-    for _ in range(profile.max_draws if profile is not None else NUMERIC_MAX_DRAWS):
-        if len(points) >= (profile.points if profile is not None else NUMERIC_POINTS):
+    for _ in range(profile.max_draws):
+        if len(points) >= profile.points:
             break
         point: dict[Any, Any] = {}
         for s in ordered:
@@ -815,7 +845,12 @@ def sample_points(
         ok = all(s not in point or st.contains(point[s]) is sympy.true for s, st in members)
         for rel, lhs, rhs in relations if ok else ():
             x, y = _num(lhs, point), _num(rhs, point)
-            if x is None or y is None or abs(x.imag) > ABS_TOL or abs(y.imag) > ABS_TOL:
+            if (
+                x is None
+                or y is None
+                or abs(x.imag) > float(profile.absolute_tolerance)
+                or abs(y.imag) > float(profile.absolute_tolerance)
+            ):
                 ok = False
                 break
             if not _REL[rel](x.real, y.real):
@@ -938,10 +973,17 @@ class SemanticComparator(MathematicalEvidence):
     """Consolidation adapter over semantic operands; evidence kernel owns the mathematics."""
 
     def __init__(self, macros, constants=(), *, prepared=None, context_profile):
-        if prepared is not None:
+        self.policy = (
             require_scientific_policy(prepared, context_profile=context_profile)
+            if prepared
+            else None
+        )
         super().__init__(macros, constants, prepared=prepared, context_profile=context_profile)
-        self.prepared = prepared
+
+    def _decision(self, evidence):
+        return _decide(
+            evidence, CONSOLIDATION_PROFILE, self.policy.decisions if self.policy else None
+        )
 
     def _constraints(self, conditions, variables):
         key = (canonical_bytes(conditions), tuple(variables))
@@ -1037,7 +1079,7 @@ class SemanticComparator(MathematicalEvidence):
                 and ref_eq is not None
                 and ref_eq(ca["target"], cb["target"])
             )
-            return decide_consolidation(
+            return self._decision(
                 ScientificEvidence(agreement, EvidenceTier.CANONICAL, "ref", fa, fb)
             )
         kind_a, kind_b = canonical_a["t"], canonical_b["t"]
@@ -1051,15 +1093,15 @@ class SemanticComparator(MathematicalEvidence):
                 b["kind"] in {"unresolved", "param_of", "param_expr_of"}
                 for b in (*bindings(ca), *bindings(cb))
             ):
-                return decide_consolidation(
+                return self._decision(
                     self._undecided(kind_a, fa, fb, "unresolved expression binding")
                 )
             if canonical_bytes(bindings(ca)) != canonical_bytes(bindings(cb)):
-                return decide_consolidation(
+                return self._decision(
                     self._undecided(kind_a, fa, fb, "distinct explicit expression bindings")
                 )
         if kind_a != kind_b or fa == fb:
-            return decide_consolidation(
+            return self._decision(
                 ScientificEvidence(fa == fb, EvidenceTier.CANONICAL, kind_a, fa, fb)
             )
         if kind_a in {"formula", "set"}:
@@ -1079,7 +1121,7 @@ class SemanticComparator(MathematicalEvidence):
                 variables,
                 operand_contexts=contexts,
             )
-            return decide_consolidation(evidence)
+            return self._decision(evidence)
         if kind_a == "interval":
             equal = (
                 ca["lower_closed"] == cb["lower_closed"]
@@ -1089,12 +1131,8 @@ class SemanticComparator(MathematicalEvidence):
                 equal = equal and ((name in ca) == (name in cb))
                 if name in ca and name in cb:
                     equal = equal and self.compare(ca[name], cb[name], conditions, ref_eq).equal
-            return decide_consolidation(
-                ScientificEvidence(equal, EvidenceTier.CANONICAL, kind_a, fa, fb)
-            )
-        return decide_consolidation(
-            ScientificEvidence(False, EvidenceTier.CANONICAL, kind_a, fa, fb)
-        )
+            return self._decision(ScientificEvidence(equal, EvidenceTier.CANONICAL, kind_a, fa, fb))
+        return self._decision(ScientificEvidence(False, EvidenceTier.CANONICAL, kind_a, fa, fb))
 
 
 def json_operand(value: Any) -> Mapping[str, Any]:
@@ -1118,6 +1156,7 @@ class ReferenceComparisonScope:
         self.prepared = prepared
         self.context_profile = context_profile
         self._computation = None
+        self._policy = None
         self._operands = {}
         self._definedness = {}
 
@@ -1129,7 +1168,9 @@ class ReferenceComparisonScope:
                     "reference mathematics requires its explicit captured analysis context profile"
                 )
             if self.prepared is not None:
-                require_scientific_policy(self.prepared, context_profile=self.context_profile)
+                self._policy = require_scientific_policy(
+                    self.prepared, context_profile=self.context_profile
+                )
             profiles = tuple(
                 profile
                 for profile in self.context_profile.profile.scientific_profiles
@@ -1139,6 +1180,22 @@ class ReferenceComparisonScope:
                 raise ValueError("captured reference scientific computation profile is unavailable")
             self._computation = profiles[0]
         return self._computation
+
+    @property
+    def sampling_bounds(self) -> tuple[float, float]:
+        _ = self.computation
+        if self._policy is not None:
+            return self._policy.bounds
+        policy = scientific_policy()
+        return _reference_bounds((policy["reference_lower"], policy["reference_upper"]))
+
+    @property
+    def decision_policy(self):
+        if self.prepared is not None and self.context_profile is not None and self._policy is None:
+            self._policy = require_scientific_policy(
+                self.prepared, context_profile=self.context_profile
+            )
+        return self._policy
 
     def read(self, value):
         _ = self.computation  # Bind only when a mathematical operand is actually requested.
@@ -1294,11 +1351,12 @@ def reference_evidence(
                     16,
                 )
             )
+            lower, upper = scope.sampling_bounds
             for _ in range(scope.computation.points):
                 values = dict(
                     zip(
                         symbols,
-                        (float(v) for v in rng.uniform(0.25, 3, len(symbols))),
+                        (float(v) for v in rng.uniform(lower, upper, len(symbols))),
                         strict=True,
                     )
                 )

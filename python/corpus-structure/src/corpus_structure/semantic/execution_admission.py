@@ -182,6 +182,27 @@ def verify_deployment_functions(
     return _deployment_expectation(connection, revision=revision, versions=versions).physical_id
 
 
+def verify_native_execution_release(connection: Connection, release_id: str) -> str:
+    """Authenticate the enforcing implementation and run full proof under admission authority."""
+    from sqlalchemy import func, select
+    from sqlalchemy.exc import DBAPIError
+
+    expected = _deployment_expectation(connection)
+    if not expected.named_catalog_proof:
+        raise ExecutionAdmissionError(
+            "native release proof requires a current named proof contract"
+        )
+    try:
+        connection.execute(select(func.data.prove_execution_release(release_id)))
+    except DBAPIError as error:
+        if getattr(error.orig, "sqlstate", None) not in {"23514", "42501", "P0001"}:
+            raise
+        raise ExecutionAdmissionError(
+            "native release proof refused: " + str(error.orig).splitlines()[0]
+        ) from error
+    return expected.physical_id
+
+
 def require_native_execution(connection: Connection, prepared: PreparedRelease) -> str:
     from sqlalchemy import text
     from sqlalchemy.exc import DBAPIError

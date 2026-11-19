@@ -137,6 +137,7 @@ def _compare(connection, request, implementation):
         SELECTED_QUERY_CACHE,
         bounded_rows,
         byte_bounded_page,
+        served_key,
         uncached_rows_from,
     )
 
@@ -154,10 +155,17 @@ def _compare(connection, request, implementation):
         )
         cuts.append(cut)
         stamps.append(stamp)
-    key = json_bytes(["exclusions", implementation, digest, stamps])
-    entry, remaining = SELECTED_QUERY_CACHE.get(key), None
+    key = served_key(
+        connection,
+        "exclusions",
+        implementation=implementation,
+        basis=stamps,
+        basis_kind="content",
+        selection=["exclusions", implementation, digest, stamps],
+    )
+    remaining = None
     metadata = None
-    with ExitStack() as stack:
+    with SELECTED_QUERY_CACHE.loading(key) as entry, ExitStack() as stack:
         if entry is None:
             before, left = _selected_snapshot(connection, request.before, request, stack)
             after, right = _selected_snapshot(connection, request.after, request, stack)

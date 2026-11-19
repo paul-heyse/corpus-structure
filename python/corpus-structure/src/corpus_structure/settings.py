@@ -103,6 +103,21 @@ class PathSettings(_Section):
     model_cache: Path = Path("build/models")
 
 
+class CacheSettings(_Section):
+    """Process-local retention budgets for derived work."""
+
+    root: Path = Path("build/cache")
+    model_entries: int = Field(default=4, gt=0)
+    program_sets: int = Field(default=2, gt=0)
+    release_bytes: int = Field(default=256 * 1024**2, gt=0)
+    served_bytes: int = Field(default=32 * 1024**2, gt=0)
+    served_entries: int = Field(default=128, gt=0)
+    runtime_bytes: int = Field(default=16 * 1024**2, gt=0)
+    parser_entries: int = Field(default=8, gt=0)
+    parse_memo_entries: int = Field(default=8192, gt=0)
+    wait_seconds: float = Field(default=1.0, gt=0, allow_inf_nan=False)
+
+
 class LlmSettings(_Section):
     """The vLLM endpoint (D2 §12: an endpoint is a setting, not a configuration)."""
 
@@ -231,6 +246,7 @@ class Settings(BaseSettings):
     nemotron: NemotronSettings = NemotronSettings()
     gpu: GpuSettings = GpuSettings()
     analytics: AnalyticsSettings = AnalyticsSettings()
+    cache: CacheSettings = CacheSettings()
     characterization_execution: CharacterizationExecutionPolicy = Field(
         default_factory=CharacterizationExecutionPolicy
     )

@@ -84,14 +84,6 @@ def ordered_witness_selection(query: StructuralPassage, passage: StructuralPassa
     return tuple((p.passage_id, p.start, p.end, p.effective_version) for p in (query, passage))
 
 
-def _children(node):
-    return tuple(item.get("$ref") for item in node.get("children", ()))
-
-
-def _parent(node):
-    return (node.get("parent") or {}).get("$ref")
-
-
 NAMED_QUESTION = "source_named_links"
 NAMED_VERSION = "2"
 NAMED_COVERAGE_VERSION = "3"
@@ -962,7 +954,7 @@ def _populate_navigation(
     for pointer, item in items.items():
         if item.get("label") != "inline":
             continue
-        children = [by_pointer.get(child) for child in _children(item)]
+        children = [by_pointer.get(child) for child in item.get("children", ())]
         if not children or any(child is None for child in children):
             continue
         children = [child for child in children if child is not None]

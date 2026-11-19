@@ -136,12 +136,32 @@ def _inspection_programs(model):
         .where(memberships.c.release_id == p["release_id"].astext)
         .cte("actual_kinds")
     )
-    expected_operations = select(
-        projected_operations.c.value["operation_id"].astext.label("key"),
-        projected_operations.c.value.op("-", return_type=JSONB())(
-            array(["binding", "definition", "eligibility"], type_=Text())
-        ).label("body"),
-    ).cte("expected_operations")
+    authored_operations = _rows(archived["operations"], "authored_operations")
+    projected_operation = projected_operations.c.value
+    authored_operation = authored_operations.c.value
+    expected_operations = (
+        select(
+            projected_operation["operation_id"].astext.label("key"),
+            projected_operation.op("-", return_type=JSONB())(
+                array(["binding", "definition", "eligibility"], type_=Text())
+            )
+            .concat(
+                _object(
+                    "parameter_definitions",
+                    func.coalesce(authored_operation["parameters"]["json"], _object()),
+                )
+            )
+            .label("body"),
+        )
+        .select_from(
+            projected_operations.join(
+                authored_operations,
+                authored_operation["semantic_id"].astext
+                == projected_operation["operation_id"].astext,
+            )
+        )
+        .cte("expected_operations")
+    )
     actual_operations = (
         select(
             definitions.c.operation_id.label("key"),
@@ -250,6 +270,7 @@ def _inspection_programs(model):
                             validity_only,
                             releases.c.lowering_digest == native_identity_field("lowering_digest"),
                         ),
+                        or_(validity_only, releases.c.binding_types == archived["kinds"]),
                         releases.c.native_kernel_digest == projection["native_digest"].astext,
                         releases.c.model_digest == projection["model_digest"].astext,
                     )

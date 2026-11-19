@@ -240,6 +240,7 @@ def _serve(connection, request, implementation):
         SELECTED_QUERY_CACHE,
         bounded_rows,
         byte_bounded_page,
+        served_key,
         uncached_rows_from,
     )
 
@@ -260,10 +261,16 @@ def _serve(connection, request, implementation):
             read_id=cut.record["read_id"], expected_cut=cut.identity, implementation=implementation
         )
     )
-    key = json_bytes(["facets", cut.identity, implementation, digest, stamp])
-    entry, remaining = SELECTED_QUERY_CACHE.get(key), None
+    key = served_key(
+        connection,
+        "facets",
+        implementation=implementation,
+        basis=cut.identity,
+        selection=["facets", cut.identity, implementation, digest, stamp],
+    )
+    remaining = None
     metadata = None
-    with ExitStack() as stack:
+    with SELECTED_QUERY_CACHE.loading(key) as entry, ExitStack() as stack:
         if entry is None:
             scope = stack.enter_context(selected_contribution_scope(connection, pinned))
             metadata = dict(records=scope.index.retained_records)

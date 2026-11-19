@@ -27,6 +27,7 @@ REGISTRY = (
         "operations",
     ),
     CommandRegistration(("results",), "managed"),
+    CommandRegistration(("cache",), "cache"),
     CommandRegistration(("test",), "testing"),
     CommandRegistration(("db",), "db"),
     CommandRegistration(("demands",), "demands"),

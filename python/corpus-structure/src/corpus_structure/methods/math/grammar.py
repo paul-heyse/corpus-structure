@@ -13,7 +13,7 @@ list (D1 §6.2). Lark's `edit_terminals` makes every control-word literal whole-
 anonymous terminals of the shipped string `%ignore` lines, so `x \\leftarrow y` fails as an unknown
 command instead of reading `\\left` and `arrow`.
 
-**Parsers.** One Earley parser per macro classification, built lazily in a per-process dictionary
+**Parsers.** One Earley parser per macro classification, built lazily in a bounded process cache
 (Earley parsers cannot be saved or pickled; one builds in about 0.05 s). A macro reads, from its
 body: `\\mathbb{R|N|Z|Q|C}` as a set, another `\\mathbb{X}` or `\\text`/`\\operatorname`/`\\textrm`/
 `\\mathrm` of two or more letters as an operator, a bare typeface wrapper as a style; anything else
@@ -62,7 +62,6 @@ import re
 import signal
 import threading
 import time
-from collections import OrderedDict
 from collections.abc import Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
@@ -83,6 +82,7 @@ from lark.exceptions import (
 )
 from lark.lexer import PatternRE, PatternStr, TerminalDef
 
+from corpus_structure.caches import declare
 from corpus_structure.core import tex
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.methods.math import _tree
@@ -100,7 +100,6 @@ EXTENSION = Path(__file__).with_name("extension.lark")
 type Kind = Literal["formula", "relation", "member", "set_expr", "any_value"]
 STARTS: tuple[Kind, ...] = ("formula", "relation", "member", "set_expr", "any_value")
 PARSE_SECONDS = 2.0  # the default deadline; M11's `Config` sets it
-MEMO_SIZE = 8192
 
 _SET_ROOTS = frozenset(
     {
@@ -306,24 +305,16 @@ class Parser:
     terminals: tuple[re.Pattern[str], ...]  # the command terminals' patterns ("unknown-command")
 
 
-_PARSERS: dict[str, Parser] = {}
-_FOREST_PARSERS: dict[str, Parser] = {}
-
-
+@declare("math.parsers", "parser_entries", key=lambda classes: classes.key)
 def parser_for(classes: MacroClass) -> Parser:
-    """The Earley parser of a macro classification, built once per process."""
-    parser = _PARSERS.get(classes.key)
-    if parser is None:
-        parser = _PARSERS[classes.key] = _prepare_parser(classes, ambiguity="explicit")
-    return parser
+    """The Earley parser of a macro classification, retained within its count bound."""
+    return _prepare_parser(classes, ambiguity="explicit")
 
 
+@declare("math.forest-parsers", "parser_entries", key=lambda classes: classes.key)
 def forest_parser_for(classes: MacroClass) -> Parser:
     """The same assembled mathematical grammar, retaining its transient native SPPF."""
-    parser = _FOREST_PARSERS.get(classes.key)
-    if parser is None:
-        parser = _FOREST_PARSERS[classes.key] = _prepare_parser(classes, ambiguity="forest")
-    return parser
+    return _prepare_parser(classes, ambiguity="forest")
 
 
 def _prepare_parser(classes: MacroClass, *, ambiguity: str) -> Parser:
@@ -963,34 +954,50 @@ def occurrences(
 
 # ============================================================================ parse
 
-_MEMO: OrderedDict[tuple[str, str, str, str], MathResult] = OrderedDict()
 
-
-def _prepare_standalone_context(table: Mapping[str, MacroDef], kind: Kind) -> MathContext:
+@declare(
+    "math.standalone-contexts",
+    "parse_memo_entries",
+    key=lambda table, kind, profile: (_table_key(table), kind, profile.model_id),
+)
+def _prepare_standalone_context(table: Mapping[str, MacroDef], kind: Kind, profile) -> MathContext:
     from corpus_structure.semantic.math_context import (
-        acquire_analysis_context_profile,
         prepare_interpretation_context,
     )
 
     return prepare_interpretation_context(
-        context_profile=acquire_analysis_context_profile(), macros=table, kind=kind
+        context_profile=profile, macros=table, kind=kind
     ).grammar_context
 
 
-_STANDALONE_CONTEXTS: OrderedDict[tuple[str, str], MathContext] = OrderedDict()
-
-
 def _standalone_context(table: Mapping[str, MacroDef], kind: Kind) -> MathContext:
-    key = (_table_key(table), kind)
-    hit = _STANDALONE_CONTEXTS.get(key)
-    if hit is not None:
-        _STANDALONE_CONTEXTS.move_to_end(key)
-        return hit
-    context = _prepare_standalone_context(table, kind)
-    _STANDALONE_CONTEXTS[key] = context
-    if len(_STANDALONE_CONTEXTS) > MEMO_SIZE:
-        _STANDALONE_CONTEXTS.popitem(last=False)
-    return context
+    from corpus_structure.semantic.math_context import acquire_analysis_context_profile
+
+    return _prepare_standalone_context(table, kind, acquire_analysis_context_profile())
+
+
+class _TimedOutRead(Exception):
+    def __init__(self, result: MathResult):
+        self.result = result
+
+
+@declare(
+    "math.readings",
+    "parse_memo_entries",
+    key=lambda latex, kind, table, context, seconds: (
+        latex,
+        kind,
+        _table_key(table),
+        context.key(),
+    ),
+)
+def _memoized_read(
+    latex: str, kind: Kind, table: Mapping[str, MacroDef], context: MathContext, seconds: float
+) -> MathResult:
+    result = _read(latex, kind, table, context, seconds)
+    if result.failure is not None and result.failure.category == "timeout":
+        raise _TimedOutRead(result)
+    return result
 
 
 def parse(
@@ -1009,18 +1016,10 @@ def parse(
     if context is None:
         # Standalone adapters select the trusted base profile once per macro/kind table.
         context = _standalone_context(table, kind)
-    ctx = context
-    key = (latex, kind, _table_key(table), ctx.key())
-    hit = _MEMO.get(key)
-    if hit is not None:
-        _MEMO.move_to_end(key)
-        return hit
-    result = _read(latex, kind, table, ctx, seconds)
-    if result.failure is None or result.failure.category != "timeout":
-        _MEMO[key] = result
-        if len(_MEMO) > MEMO_SIZE:
-            _MEMO.popitem(last=False)
-    return result
+    try:
+        return _memoized_read(latex, kind, table, context, seconds)
+    except _TimedOutRead as error:
+        return error.result
 
 
 def _read(

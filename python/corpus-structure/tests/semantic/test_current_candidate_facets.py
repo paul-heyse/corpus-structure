@@ -30,9 +30,12 @@ from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMe
 from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from corpus_structure.serve import contribution_facets as serving
+from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
 from semantic.selected_query_cache_support import (
     control_frontier,
 )
+
+pytestmark = pytest.mark.usefixtures("complete_serving_code")
 
 
 @pytest.fixture(scope="module")

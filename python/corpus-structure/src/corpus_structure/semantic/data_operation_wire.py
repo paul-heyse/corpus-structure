@@ -25,6 +25,8 @@ from jsonschema.exceptions import SchemaError, ValidationError
 from pydantic import TypeAdapter
 from referencing import Registry
 
+from corpus_structure.model.compiled import model_projection, model_source
+
 from .data_operation_json import json_bytes, wire_json_loads
 from .identity import canonical_bytes
 from .types import SourceArtifact
@@ -44,17 +46,41 @@ def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
     return _prepare_protocol_content(sources)
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def _ambient_protocol_content() -> bytes:
     """Bind ambient protocol preparation to the code imported by this process."""
     return _prepare_protocol_content(None)
 
 
-@lru_cache(maxsize=16)
 def _prepare_protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
     if sources is None:
-        path = Path(__file__).resolve().parents[1] / "model/semantic/data-operation-native.yaml"
-        content = path.read_bytes()
+        return _build_protocol_content(None)
+    from .data_operation_execution_evidence import SOURCE as EVIDENCE
+    from .data_operation_support import ORIGINAL_SUPPORT_REFERENCE_SCHEMA
+    from .data_operation_visual_read import SOURCE as VISUAL
+    from .pdf_source_search import CONTRACT
+    from .record_policy_native import EVENT_FRAME_SCHEMA_SOURCE, GRADE_SCHEMA_SOURCE
+
+    names = {
+        PROTOCOL_SOURCE,
+        EVIDENCE,
+        VISUAL,
+        CONTRACT,
+        EVENT_FRAME_SCHEMA_SOURCE,
+        GRADE_SCHEMA_SOURCE,
+        ORIGINAL_SUPPORT_REFERENCE_SCHEMA,
+    }
+    return _captured_protocol_content(tuple(source for source in sources if source.name in names))
+
+
+@lru_cache(maxsize=16)
+def _captured_protocol_content(sources: tuple[SourceArtifact, ...]) -> bytes:
+    return _build_protocol_content(sources)
+
+
+def _build_protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
+    if sources is None:
+        content = model_source("data-operation-native.yaml")
     else:
         selected = [s.content for s in sources if s.name == PROTOCOL_SOURCE]
         if len(selected) != 1:
@@ -526,7 +552,7 @@ def _prepared_protocol(content: bytes) -> _PreparedProtocol:
     )
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def _ambient_protocol() -> _PreparedProtocol:
     # Retain this separately from captured-protocol LRUs: archived inspection
     # cannot evict the running process's authoritative protocol preparation.

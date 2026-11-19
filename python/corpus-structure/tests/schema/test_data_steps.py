@@ -96,6 +96,32 @@ def test_n1_rederives_admitted_facts_without_manufacturing_old_evidence():
     assert dict(step.libraries).keys() == {"sqlalchemy", "alembic", "pglast"}
 
 
+def test_binding_facts_backfill_authenticates_archive_and_preserves_historical_identity():
+    from pglast import parse_sql
+
+    (step,) = prepare_data_steps((data_steps.DataStepRequest(name="ddo_binding_facts"),))
+    assert step.deferred_columns == (
+        ("sem.data_operation_release", "binding_types"),
+        ("sem.data_operation_definition", "parameter_definitions"),
+    )
+    assert step.guarded_relations == ("sem.data_operation_release", "sem.data_operation_definition")
+    for statement in step.statements:
+        assert parse_sql(statement)
+    header, duplicates, definition = step.statements[:3]
+    assert "sha256(sem.artifact.content)" in header
+    assert "sem.artifact.content_digest = sem.data_operation_release.model_digest" in header
+    assert "SET binding_types=" in header
+    assert "SET parameter_definitions=" in definition
+    assert "authenticated_binding_parameters AS MATERIALIZED" in definition
+    assert "FROM authenticated_binding_parameters" in definition
+    assert "duplicate archived operation identities" in duplicates
+    assert "HAVING count(*) != 1" in duplicates
+    assert "semantic_id" in definition and "operation_id" in definition
+    assert "lowering_digest" not in header + definition
+    assert "relower_admitted" not in header + definition
+    assert "native_kernel_digest" not in header + definition
+
+
 def test_nullable_ddl_precedes_native_data_and_final_guards():
     (step,) = n1()
     authoring = guarded_authoring(step)

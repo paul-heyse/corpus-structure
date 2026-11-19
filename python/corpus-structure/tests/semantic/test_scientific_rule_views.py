@@ -310,7 +310,9 @@ def test_same_scientific_recipe_refuses_changed_sampling_runtime(monkeypatch):
         require_scientific_policy,
         scientific_policy_recipe,
     )
-    from corpus_structure.semantic.types import PreparationProfile
+    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+
+    recipe = canonical_bytes(scientific_policy_recipe(context_profile=analysis_context()))
 
     prepared = prepare_release(
         SourceBundle(
@@ -331,11 +333,10 @@ classes:
                 ),
             ),
         ),
+        dependencies=ResolvedDependencies(
+            artifacts=(SourceArtifact(SCIENTIFIC_POLICY_INPUT, recipe),)
+        ),
         profile=PreparationProfile(version="semantic-2"),
-    )
-    recipe = canonical_bytes(scientific_policy_recipe(context_profile=analysis_context()))
-    prepared = replace(
-        prepared, artifacts=(*prepared.artifacts, PreparedArtifact(SCIENTIFIC_POLICY_INPUT, recipe))
     )
     require_scientific_policy(prepared, context_profile=analysis_context())
     assert "numpy" in json.loads(prepared.manifest)["libraries"]
@@ -548,3 +549,45 @@ def analysis_context():
     from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 
     return acquire_analysis_context_profile()
+
+
+def test_scientific_policy_edit_moves_sampling_and_preserves_description_identity(monkeypatch):
+    import numpy as np
+    import yaml
+
+    from corpus_structure.model import compiled
+    from corpus_structure.semantic import scientific_evidence as owner
+    from corpus_structure.semantic.identity import canonical_bytes
+
+    base = compiled.running_model()
+    rule_file = "scientific-policies.yaml"
+    policy = yaml.safe_load(base.sources[rule_file])
+    context = analysis_context()
+    old = canonical_bytes(owner.scientific_policy_recipe(context_profile=context))
+
+    def select(**edits):
+        sources = {**base.sources, rule_file: yaml.safe_dump({**policy, **edits}).encode()}
+        model = compiled.compiled_model(sources)
+        monkeypatch.setattr(compiled, "running_model", lambda: model)
+
+    select(description="Changed editorial wording")
+    assert canonical_bytes(owner.scientific_policy_recipe(context_profile=context)) == old
+    select(reference_lower=4.0, reference_upper=5.0)
+    changed = owner.scientific_policy_recipe(context_profile=context)
+    assert changed["reference"]["bounds"] == [4.0, 5.0]
+    assert canonical_bytes(changed) != old
+    sample = []
+    make_rng = np.random.default_rng
+
+    class CapturedRng:
+        def __init__(self, seed):
+            self.rng = make_rng(seed)
+
+        def uniform(self, lower, upper, count):
+            draw = self.rng.uniform(lower, upper, count)
+            sample.extend(draw)
+            return draw
+
+    monkeypatch.setattr(np.random, "default_rng", CapturedRng)
+    owner.reference_evidence(expression("x"), expression("x+1"), context_profile=context)
+    assert sample and all(4.0 <= point < 5.0 for point in sample)

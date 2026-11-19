@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from copy import copy
 from dataclasses import dataclass
-from functools import cache, lru_cache
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any
@@ -14,6 +13,7 @@ from lark import Lark, UnexpectedInput
 from lark.parser_frontends import ParsingFrontend
 from lark.parsers.xearley import Parser as DynamicEarleyParser
 
+from corpus_structure.caches import declare
 from corpus_structure.semantic.file_custody import observed_file
 
 from .declarations import DECLARATIONS, MODAL_FORCES, REVISION
@@ -33,7 +33,6 @@ def terminal_guard(start: int, end: int, atoms: tuple[ProtectedAtom, ...], *, at
         raise ValueError("prose terminal splits or crosses a protected occurrence")
 
 
-@cache
 def _grammar_resource(path: Path):
     return observed_file(path)
 
@@ -80,7 +79,16 @@ class _RegionMatcher:
         return self.native_match(term, text, index)
 
 
-@lru_cache(maxsize=64)
+def _parser_weight(parser: Lark) -> int:
+    """Declare the retained grammar and compiled rule footprint, excluding region state."""
+    return max(
+        1,
+        sum(len(str(rule).encode()) for rule in parser.rules)
+        + sum(len(str(terminal).encode()) for terminal in parser.terminals),
+    )
+
+
+@declare("runtime.prose-grammar", "runtime_bytes", weight=_parser_weight)
 def _grammar_prototype(grammar: str | None, resource_digest: str) -> Lark:
     """Prepare grammar analysis once; no source text or region matcher is cached."""
     if grammar is None:

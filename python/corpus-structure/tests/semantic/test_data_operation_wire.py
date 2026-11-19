@@ -27,6 +27,8 @@ from semantic.data_operation_port_support import captured
 
 
 def test_ambient_protocol_is_prepared_once_while_results_remain_detached(monkeypatch):
+    from corpus_structure.caches import clear
+    from corpus_structure.model.compiled import model_request_scope
     from corpus_structure.semantic import data_operation_wire as wire
 
     prepare = wire._prepare_protocol_content
@@ -36,10 +38,9 @@ def test_ambient_protocol_is_prepared_once_while_results_remain_detached(monkeyp
         preparations.append(sources)
         return prepare(sources)
 
-    wire._ambient_protocol.cache_clear()
-    wire._ambient_protocol_content.cache_clear()
-    monkeypatch.setattr(wire, "_prepare_protocol_content", observed)
-    try:
+    clear("model_entries")
+    with model_request_scope():
+        monkeypatch.setattr(wire, "_prepare_protocol_content", observed)
         first = wire.wire_contracts()
         first["claim_data_requests"]["input"].clear()
         assert wire.wire_role_kind("claim_data_requests", "input").endswith(
@@ -53,9 +54,6 @@ def test_ambient_protocol_is_prepared_once_while_results_remain_detached(monkeyp
         assert wire.validate_native_wire("claim_data_requests", "input", payload) == payload
         assert wire.wire_contracts()["claim_data_requests"]["input"]
         assert preparations == [None]
-    finally:
-        wire._ambient_protocol.cache_clear()
-        wire._ambient_protocol_content.cache_clear()
 
 
 def test_ambient_validation_and_role_lookup_survive_captured_cache_eviction(monkeypatch):

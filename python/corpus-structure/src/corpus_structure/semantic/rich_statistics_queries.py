@@ -162,7 +162,7 @@ def transformations(index: RichQueryIndex, query: FamilyProfileQuery):
             if item.statement is not None
         }
         definitions = set().union(
-            *(index.definiens[(scope, conclusion.subject_entity)] for scope in statements)
+            *(index.definiens.get((scope, conclusion.subject_entity), ()) for scope in statements)
         )
         if not definitions:
             continue

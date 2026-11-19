@@ -491,13 +491,23 @@ def release_check(
     project: str | None = None,
     release: str | None = None,
     target: DeploymentProfile = "development",
+    native_proof: Annotated[
+        bool,
+        typer.Option(
+            "--native-proof", help="Run full native proof and establish its admission receipt."
+        ),
+    ] = False,
     json: JsonOpt = False,
 ) -> None:
-    """Verify the selected release against its immutable archive."""
+    """Verify exact archived bytes, optionally establishing current native admission."""
     from sqlalchemy import select
 
     from corpus_structure.cli.managed import ResultError
     from corpus_structure.cli.target import select_target
+    from corpus_structure.semantic.execution_admission import (
+        ExecutionAdmissionError,
+        verify_native_execution_release,
+    )
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.releases import ReleaseConflict, verify_release
     from corpus_structure.semantic.runtime import open_runtime_engine
@@ -514,18 +524,23 @@ def release_check(
         target: DeploymentProfile
         acquired: StorageTarget
         selection: ConfiguredSelection
+        native_proof: bool
+        physical_id: str | None
 
     with result_boundary(json):
-        selected, settings = select_target(ctx, target)
+        if native_proof and release is None:
+            raise ResultError("--native-proof requires an explicit --release")
+        selected, settings = select_target(ctx, target, effect=native_proof)
         project = project or settings.runtime.default_project
         projects = table("data.project")
+        purpose: Literal["admit", "read"] = "admit" if native_proof else "read"
         with (
-            open_runtime_engine(settings, "ci-release-check", purpose="read", timeout=5) as engine,
-            engine.connect() as conn,
+            open_runtime_engine(settings, "ci-release-check", purpose=purpose, timeout=5) as engine,
+            engine.begin() as conn,
         ):
             if selected == "deployment":
                 verify_declared_route(conn, settings)
-            acquired = acquired_target(conn, purpose="read")
+            acquired = acquired_target(conn, purpose=purpose)
             generation = None
             if release is None:
                 row = conn.execute(
@@ -538,23 +553,28 @@ def release_check(
                 release, generation = row.active_release_id, row.generation
             try:
                 verify_release(conn, release)
+                physical_id = (
+                    verify_native_execution_release(conn, release) if native_proof else None
+                )
             except KeyError as error:
                 if error.args != (release,):
                     raise
                 raise ResultError("release is unavailable in the configured archive") from error
-            except ReleaseConflict as error:
+            except (ReleaseConflict, ExecutionAdmissionError) as error:
                 raise ResultError(str(error)) from error
-            emit(
-                ReleaseCheck(
-                    project=project,
-                    release_id=release,
-                    generation=generation,
-                    target=selected,
-                    acquired=acquired,
-                    selection=configured_selection(ctx, state(ctx).settings(), selected),
-                ),
-                json=json,
-            )
+        emit(
+            ReleaseCheck(
+                project=project,
+                release_id=release,
+                generation=generation,
+                target=selected,
+                acquired=acquired,
+                selection=configured_selection(ctx, state(ctx).settings(), selected),
+                native_proof=native_proof,
+                physical_id=physical_id,
+            ),
+            json=json,
+        )
 
 
 class SelectionReport(BaseModel):

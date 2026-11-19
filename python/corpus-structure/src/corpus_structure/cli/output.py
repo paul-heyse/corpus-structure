@@ -38,7 +38,10 @@ class CliState:
 
     def settings(self) -> Settings:
         if self._settings is None:
+            from corpus_structure.caches import configure
+
             self._settings = self.settings_factory()
+            configure(self._settings.cache)
         return self._settings
 
 

@@ -24,6 +24,7 @@ class ObservationMiddleware(Middleware):
             event,
             logger,
         )
+        from corpus_structure.model.compiled import model_request_scope
 
         request = context.fastmcp_context
         request_id = str(request.request_id) if request is not None else secrets.token_hex(12)
@@ -36,6 +37,7 @@ class ObservationMiddleware(Middleware):
             request.lifespan_context.get("observation_writer") if request is not None else None
         )
         with (
+            model_request_scope(),
             capture(
                 endpoint,
                 stream=None,

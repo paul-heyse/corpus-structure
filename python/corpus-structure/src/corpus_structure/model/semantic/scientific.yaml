@@ -5,6 +5,7 @@ prefixes:
 types:
   string: {base: str, uri: "http://www.w3.org/2001/XMLSchema#string"}
   integer: {base: int, uri: "http://www.w3.org/2001/XMLSchema#integer"}
+  double: {base: float, uri: "http://www.w3.org/2001/XMLSchema#double"}
 default_range: string
 enums:
   Tier:
@@ -16,6 +17,15 @@ enums:
   Numeric:
     permissible_values: {not_run: {}, inconclusive: {}, agreement: {}, counterexample: {}}
 classes:
+  ScientificPolicy:
+    attributes:
+      description: {}
+      reference_lower: {range: double, required: true}
+      reference_upper: {range: double, required: true}
+      symbolic_method: {required: true}
+      numeric_candidate_policy: {required: true}
+      sympy_equals: {required: true}
+      decision_rules: {range: DecisionRule, required: true, multivalued: true, inlined_as_list: true, inlined: true}
   DecisionRule:
     attributes:
       policy_id: {required: true}

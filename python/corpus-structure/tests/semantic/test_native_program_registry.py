@@ -152,7 +152,7 @@ def test_foundation_archive_and_float_programs_have_direct_typed_custody():
         NativeIdentity("function", "sem", "activate_release", ("text", "text", "text", "bigint")),
     }
     archive = programs[NativeIdentity("function", "sem", "require_archive_bytes", ("text",))]
-    assert archive.callees == frozenset()
+    assert archive.callees == {NativeIdentity("function", "data", "canonical_json", ("jsonb",))}
     assert ("sem", "input", "content") in archive.model_inputs
     assert ("sem", "artifact", "content") in archive.model_inputs
     assert ("sem", "release", None) in archive.model_inputs

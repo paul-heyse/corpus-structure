@@ -7,7 +7,7 @@ from pydantic import TypeAdapter
 from .identity import canonical_bytes
 from .math_context import AnalysisContextProfile
 from .rich_knowledge_sources import RULE_INPUT
-from .scientific_evidence import SCIENTIFIC_POLICY_INPUT, scientific_policy_recipe
+from .scientific_evidence import SCIENTIFIC_POLICY_INPUT, require_scientific_policy
 
 RICH_CONTEXT_INPUT = "operation/rich-analysis-context.json"
 
@@ -23,10 +23,7 @@ def rich_context_profile(prepared) -> AnalysisContextProfile:
     profile = TypeAdapter(AnalysisContextProfile).validate_json(
         _artifact(prepared, RICH_CONTEXT_INPUT)
     )
-    if canonical_bytes(scientific_policy_recipe(context_profile=profile)) != _artifact(
-        prepared, SCIENTIFIC_POLICY_INPUT
-    ):
-        raise ValueError("rich analysis context differs from its actual captured scientific policy")
+    require_scientific_policy(prepared, context_profile=profile)
     return profile
 
 

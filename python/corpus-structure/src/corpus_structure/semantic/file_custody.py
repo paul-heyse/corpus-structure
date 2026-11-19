@@ -6,6 +6,7 @@ never an alternative source of the expected digest. Records are not persistent.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass
 from hashlib import file_digest
 from pathlib import Path
@@ -94,6 +95,29 @@ def verified_file(path: Path, expected: str) -> FileCustody:
 
 
 _observed: dict[Path, FileCustody] = {}
+_verified_derivations: dict[Path, tuple[str, tuple[int, int, int, int, int], Hashable]] = {}
+_derivation_lock = RLock()
+
+
+def verify_file_derivation(
+    path: Path, expected: str, premise: Hashable, verify: Callable[[], None]
+) -> None:
+    """Carry a completed derivation check for an authenticated immutable file."""
+    with _derivation_lock:
+        record = verified_file(path, expected)
+        key = record.digest, record.identity, premise
+        if _verified_derivations.get(path) == key:
+            return
+        verify()
+        record.check()
+        if record.identity != key[1]:
+            raise FileCustodyError(f"file changed during verification: {path}")
+        _verified_derivations[path] = key
+
+
+def custody_counts() -> tuple[int, int]:
+    with _lock:
+        return len(_records), len(_verified_derivations)
 
 
 def observed_file(path: Path) -> FileCustody:

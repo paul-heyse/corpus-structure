@@ -10,14 +10,14 @@ import json
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import asdict
-from functools import lru_cache
 from hashlib import sha256
 from importlib.metadata import version
-from importlib.resources import files
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, JsonValue
+
+from corpus_structure.model.compiled import model_projection, model_source
 
 from .identity import canonical_bytes
 from .refusals import DATABASE_ERRORS, SemanticRefusal, trusted_operation_model_id
@@ -60,13 +60,13 @@ def _report_schema_source_id() -> str:
     ).hexdigest()
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def _report_schemas() -> _ReportSchemaProduct:
     from pydantic import ValidationError
 
     try:
         product = _ReportSchemaProduct.model_validate_json(
-            files("corpus_structure").joinpath(_SCHEMA_PATH).read_bytes()
+            model_source("operation-report-schemas.json")
         )
     except (OSError, ValidationError) as exc:
         raise SemanticRefusal(
@@ -90,24 +90,23 @@ if TYPE_CHECKING:
     from .types import SourceBundle
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def _report_sources() -> SourceBundle:
     """Registration and invocation share one immutable process-owned source closure."""
     from .data_product_reference import reference_inputs
     from .types import SourceArtifact, SourceBundle
 
-    root = files("corpus_structure").joinpath("model", "semantic")
     modules = ("operation-reports", "pdf-products", "observations", "characterization", "core")
     bundle = SourceBundle(
         "report_root",
         (
             *(
-                SourceArtifact(name.replace("-", "_"), root.joinpath(name + ".yaml").read_bytes())
+                SourceArtifact(name.replace("-", "_"), model_source(name + ".yaml"))
                 for name in modules
             ),
             SourceArtifact(
                 "pdf-observation-vocabulary",
-                root.joinpath("pdf-observation-vocabulary.yaml").read_bytes(),
+                model_source("pdf-observation-vocabulary.yaml"),
             ),
             SourceArtifact(
                 "report_root",
@@ -119,7 +118,7 @@ def _report_sources() -> SourceBundle:
     return reference_inputs(bundle)
 
 
-@lru_cache(maxsize=1)
+@model_projection
 def _report_model() -> tuple[PreparedRelease, str]:
     from .prepare import prepare_release
 

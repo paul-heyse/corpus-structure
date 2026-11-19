@@ -262,7 +262,7 @@ def test_ordered_formula_witness_refuses_same_extent_or_changed_source_bytes():
     view, query, wider = ordered_fixture()
     with pytest.raises(ValueError, match="bounded selected source"):
         ordered_run(view, query, wider.model_copy(update={"text": "!" + wider.text[1:]}))
-    with pytest.raises(ValueError, match="same exact query scope"):
+    with pytest.raises(ValueError, match="bounded selected source"):
         ordered_run(view, query, query.model_copy(update={"passage_id": "relabelled"}))
 
     original, *_ = ordered_run(view, query, wider)
@@ -284,10 +284,6 @@ def test_ordered_formula_witness_refuses_same_extent_or_changed_source_bytes():
     ],
 )
 def test_ordered_formula_witness_refuses_incomplete_or_ambiguous_source(control, outcome, count):
-    if control in {"foreign", "synthetic"}:
-        with pytest.raises(ValueError, match="native token text differs from literal source"):
-            ordered_run(*ordered_fixture(control=control))
-        return
     op, report, *_ = ordered_run(*ordered_fixture(control=control))
     assert (op["outcome"], op["inspected_count"], op["emitted_count"]) == (outcome, count, 0)
     assert any(

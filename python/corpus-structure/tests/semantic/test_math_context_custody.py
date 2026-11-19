@@ -2,7 +2,6 @@
 
 import inspect
 import sys
-from collections import OrderedDict
 from dataclasses import replace
 
 import pytest
@@ -22,8 +21,8 @@ from corpus_structure.semantic.math_context import (
 
 def test_standalone_context_and_real_parser_do_not_import_a_legacy_catalog(monkeypatch):
     monkeypatch.setitem(sys.modules, "corpus_structure.semantic.contracts", None)
-    monkeypatch.setattr(grammar, "_STANDALONE_CONTEXTS", OrderedDict())
-    monkeypatch.setattr(grammar, "_MEMO", OrderedDict())
+    grammar._prepare_standalone_context.cache_clear()
+    grammar._memoized_read.cache_clear()
     context = prepare_interpretation_context(
         context_profile=acquire_analysis_context_profile(), macros={}
     )
@@ -36,7 +35,7 @@ def test_standalone_context_and_real_parser_do_not_import_a_legacy_catalog(monke
 
 
 def test_explicit_policy_contexts_do_not_reuse_or_displace_each_others_results(monkeypatch):
-    monkeypatch.setattr(grammar, "_MEMO", OrderedDict())
+    grammar._memoized_read.cache_clear()
     baseline = acquire_analysis_context_profile()
     sources = tuple(
         source for source in analysis_policy_sources() if source.name.startswith("analysis/")

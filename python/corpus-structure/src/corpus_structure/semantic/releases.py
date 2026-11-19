@@ -405,8 +405,8 @@ def open_release_inputs(
 
 
 def verify_release(conn: Connection, release_id: str) -> PreparedRelease:
-    """Fully rederive at explicit verification/admission boundaries."""
-    return load_release(conn, release_id)
+    """Authenticate stored bytes and projections without reusing a prior archive opening."""
+    return load_release_inputs(conn, release_id, use_cache=False)[3]
 
 
 def load_release(conn: Connection, release_id: str) -> PreparedRelease:
@@ -414,12 +414,14 @@ def load_release(conn: Connection, release_id: str) -> PreparedRelease:
 
 
 def load_release_inputs(
-    conn: Connection, release_id: str
+    conn: Connection, release_id: str, *, use_cache: bool = True
 ) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]:
     """Authenticate material inputs/products and compare the protected projections."""
     from .archive_reader import open_archived_release_inputs
 
-    bundle, dependencies, profile, prepared = open_archived_release_inputs(conn, release_id)
+    bundle, dependencies, profile, prepared = open_archived_release_inputs(
+        conn, release_id, use_cache=use_cache
+    )
     for name, expected in _projection_rows(prepared).items():
         _compare_rows(conn, name, release_id, expected)
     return bundle, dependencies, profile, prepared
@@ -473,7 +475,7 @@ def activate_release(
     from .migrations import migration_fence
 
     migration_fence(conn)
-    prepared = load_release(conn, release_id)
+    prepared = verify_release(conn, release_id)
     with conn.begin_nested():
         admit_data_operation_release(conn, prepared)
         from sqlalchemy.exc import DBAPIError

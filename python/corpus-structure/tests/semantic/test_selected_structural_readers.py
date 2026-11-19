@@ -15,10 +15,13 @@ from corpus_structure.serve.source_decision_journey import (
     selected_source_state,
 )
 from corpus_structure.serve.structural_gaps import SelectedGapRequest, selected_gap_rows
+from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
 from semantic.selected_query_cache_support import (
     control_frontier,
 )
 from semantic.test_dossier_products import _predecessor
+
+pytestmark = pytest.mark.usefixtures("complete_serving_code")
 
 ROOT = SelectedStructuralRoot.model_validate(
     dict(

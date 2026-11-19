@@ -82,6 +82,8 @@ def _capture_native_authoring_inputs(
     """
     from pathlib import Path
 
+    from corpus_structure.model.compiled import model_source
+
     from .archive_projection_native import (
         execution_projection_check_program,
         scientific_layout_program,
@@ -181,11 +183,7 @@ def _capture_native_authoring_inputs(
         ),
         SourceArtifact(
             "authoring/scientific.yaml",
-            Path(__file__)
-            .resolve()
-            .parents[1]
-            .joinpath("model/semantic/scientific.yaml")
-            .read_bytes(),
+            model_source("scientific.yaml"),
         ),
         SourceArtifact(
             "authoring/math-context.py",

@@ -452,6 +452,16 @@ def test_source_reading_query_keeps_complete_typed_fields_without_domain_truth(q
 
     graph = Graph(query_source, {})
     record, coordinates = inspected_reading("definition")
+    from corpus_structure.semantic.record_contracts import (
+        interpretation_identity,
+        record_family_contract,
+        record_identity,
+    )
+
+    record["record_id"] = record_identity(
+        record_family_contract(graph.model, record["contract"]), record
+    )
+    record["interpretation_id"] = interpretation_identity(record)
     value = rich_reading_value(graph.prepared, graph.model, record, coordinate_texts=coordinates)
     value_id = graph.lower.lower_record(
         value.class_name, {"id": record["record_id"], **value.fields}
@@ -495,3 +505,18 @@ def test_entity_query_preserves_all_actual_class_memberships_without_a_scalar_ty
         for name in ("DistributionFamily", "FamilyConstruction")
     }
     assert family[0]["selected_fact_ids"] == []
+
+
+def test_shared_index_keeps_query_unknowns_and_decode_state_local(query_source):
+    from corpus_structure.semantic.rich_queries import PreparedRichQueryIndex
+
+    graph = Graph(query_source, {"A": "DistributionFamily", "B": "DistributionFamily"})
+    graph.add("structural", "A", "special_case_of", "B", structural=True)
+    prepared = PreparedRichQueryIndex.build(graph.index().state, max_members=100)
+    first, second = prepared.query_index(), prepared.query_index()
+    first.unknowns["private"] = {"reason": "query-specific"}
+    first.state.reached_values.add("only-first")
+    assert second.unknowns == {} and prepared.index.unknowns == {}
+    assert "only-first" not in second.state.reached_values
+    assert first.entities is second.entities
+    assert rows(first, ClaimsQuery(name="claims")) == rows(second, ClaimsQuery(name="claims"))

@@ -6,16 +6,15 @@ Opening is not compilation or admission. Archived recipes retain their exact mea
 from __future__ import annotations
 
 import json
-from collections import OrderedDict
 from datetime import date
 from decimal import Decimal
-from threading import RLock
 from typing import Any
-from weakref import WeakKeyDictionary
 
 import yaml
 from cattrs.errors import BaseValidationError
 from pydantic import AwareDatetime
+
+from corpus_structure.caches import declare
 
 from .types import (
     BOUNDARY_ABI_VERSION,
@@ -29,15 +28,18 @@ from .types import (
     SourceBundle,
 )
 
-# Engine lifetime bounds database authority; keys bind observed immutable archive headers
-# and the actual validation runtime. Mutable selection, authorization and facts never enter it.
-_OPEN_CACHE: WeakKeyDictionary[
-    Any,
-    OrderedDict[
-        tuple, tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]
-    ],
-] = WeakKeyDictionary()
-_CACHE_LOCK = RLock()
+
+def retained_archive_bytes(parts) -> int:
+    bundle, dependencies, _, prepared = parts
+    return max(
+        1,
+        len(prepared.manifest)
+        + sum(
+            len(artifact.content)
+            for artifact in (*bundle.sources, *dependencies.artifacts, *prepared.artifacts)
+        ),
+    )
+
 
 _PRIMITIVES: dict[str, Any] = {
     "string": str,
@@ -214,7 +216,6 @@ def _open_release_parts_inputs(release_id: str, row: Any, input_rows: Any, artif
 
     from .determinants import boundary_compatible
     from .releases import ReleaseConflict, _archive_bytes, _digest
-    from .types import ResolvedDependencies
 
     try:
         archive_bytes, manifest_bytes = bytes(row["prepared_bytes"]), bytes(row["manifest_bytes"])
@@ -357,15 +358,10 @@ def open_archived_release(conn: Any, release_id: str) -> PreparedRelease:
     return open_archived_release_inputs(conn, release_id)[3]
 
 
-def open_archived_release_inputs(conn: Any, release_id: str):
+def open_archived_release_inputs(conn: Any, release_id: str, *, use_cache: bool = True):
     """Open authenticated archived source/dependency bytes without recompilation."""
 
-    from sqlalchemy import select
-
-    from .releases import (
-        ReleaseConflict,
-        _table,
-    )
+    from .releases import ReleaseConflict
 
     header = _archive_header(conn, release_id)
     if header is None:
@@ -373,17 +369,39 @@ def open_archived_release_inputs(conn: Any, release_id: str):
     finalized_digest = header.finalized_digest
     if finalized_digest != header.content_digest:
         raise ReleaseConflict("archive lacks matching protected finalization")
+    if not use_cache:
+        return _read_archived_release_inputs(conn, release_id, header)
+
     from .determinants import BOUNDARY_LIBRARIES, determinant_version
+    from .storage_target import acquired_database_identity
 
     runtime = tuple(
         (name, determinant_version(name)) for name in (*BOUNDARY_LIBRARIES, "linkml-runtime")
     )
-    cache_key = (tuple(header), runtime)
-    with _CACHE_LOCK:
-        cache = _OPEN_CACHE.get(conn.engine)
-        if cache is not None and cache_key in cache:
-            cache.move_to_end(cache_key)
-            return cache[cache_key]
+    return _opened_archive(
+        (acquired_database_identity(conn), release_id, tuple(header), runtime),
+        conn,
+        release_id,
+        header,
+    )
+
+
+@declare(
+    "opened-archive",
+    "release_bytes",
+    key=lambda key, conn, release_id, header: key,
+    weight=retained_archive_bytes,
+)
+def _opened_archive(key, conn, release_id, header):
+    return _read_archived_release_inputs(conn, release_id, header)
+
+
+def _read_archived_release_inputs(conn, release_id, header):
+    """Authenticate the stored parts in the caller snapshot, independently of retained entries."""
+    from sqlalchemy import select
+
+    from .releases import ReleaseConflict, _table
+
     relation = _table("sem.release")
     row = (
         conn.execute(select(relation).where(relation.c.release_id == release_id))
@@ -407,16 +425,6 @@ def open_archived_release_inputs(conn: Any, release_id: str):
         observed = _archive_header(conn, release_id)
         if observed is None or tuple(observed) != tuple(header):
             raise ReleaseConflict("archive header changed during opening")
-        with _CACHE_LOCK:
-            cache = _OPEN_CACHE.setdefault(conn.engine, OrderedDict())
-            if cache_key in cache:
-                # A concurrent cold opener may already have published this owner.
-                cache.move_to_end(cache_key)
-                return cache[cache_key]
-            cache[cache_key] = prepared
-            cache.move_to_end(cache_key)
-            while len(cache) > 8:
-                cache.popitem(last=False)
         return prepared
     except ReleaseConflict:
         raise

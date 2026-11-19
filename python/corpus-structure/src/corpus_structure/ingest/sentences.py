@@ -17,7 +17,6 @@ installed spaCy or model that differs from it. The segments it produces are cont
 
 from __future__ import annotations
 
-import functools
 import hashlib
 import itertools
 from collections.abc import Iterable, Mapping, Sequence
@@ -29,10 +28,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from spacy.language import Language
 from spacy.tokens import Doc
 
+from corpus_structure.caches import declare
 from corpus_structure.core.text_structure import source_atoms
 from corpus_structure.semantic.source_types import SegmentKind
 
-from .hosted_spacy import HostedPipeline
+from .hosted_spacy import HostedPipeline, cpu_pipeline_assets
 
 MATH_TAG = "NNP"
 
@@ -55,7 +55,16 @@ class SentenceConfigError(RuntimeError):
     pass
 
 
-@functools.cache
+@declare(
+    "runtime.sentence-tokenizer",
+    "runtime_bytes",
+    key=lambda config: (
+        config.model_dump_json(),
+        spacy.__version__,
+        cpu_pipeline_assets(config.model)[1],
+    ),
+    weight=lambda runtime: runtime.retained_bytes,
+)
 def pipeline(config: SentenceConfig) -> HostedPipeline:
     """The configured pipeline, loaded once per process; refuses a version that differs."""
     if spacy.__version__ != config.spacy_version:

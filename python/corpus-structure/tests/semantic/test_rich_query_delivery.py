@@ -19,8 +19,11 @@ from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.serve import rich_queries as service
 from corpus_structure.serve.rich_knowledge import SelectedRichKnowledge, SelectedRichReference
+from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
 from semantic.test_rich_queries import query_source as query_source
 from semantic.test_rich_queries import statistics as statistics
+
+pytestmark = pytest.mark.usefixtures("complete_serving_code")
 
 app = build_full_app()
 

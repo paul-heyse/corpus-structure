@@ -3,21 +3,25 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from concurrent.futures import Future, TimeoutError
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from itertools import chain
 from pickle import dumps, loads
 from struct import pack, unpack_from
 from threading import RLock
+from typing import Any, Literal
 
 from cachetools import LRUCache
+
+from corpus_structure.caches import register
 
 from .data_operation_json import json_bytes
 from .refusals import InvalidContinuation
 
-CACHE_BYTES = 32 * 1024 * 1024
 ENTRY_BYTES = 8 * 1024 * 1024
 ENTRY_ROWS = 4096
-CACHE_ENTRIES = 128
 _SEPARATOR = len(json_bytes([0, 0])) - 2 * len(json_bytes(0)) - 2
 
 
@@ -55,43 +59,227 @@ class DerivedRows:
             yield loads(self.content[begin:end])
 
 
-class SelectedQueryCache:
-    def __init__(self, max_bytes=CACHE_BYTES, *, max_entries=CACHE_ENTRIES):
-        self._lock = RLock()
-        self._rows = LRUCache(
-            maxsize=max_bytes, getsizeof=lambda value: len(value[0]) + value[1].byte_size
-        )
-        self.max_entries = max_entries
+@dataclass(frozen=True, slots=True)
+class ServedKey:
+    query: str
+    selection: bytes
+    implementation: str
+    authorization: tuple[str, ...] | None
+    basis_kind: Literal["cut", "content"]
+    basis: bytes
 
-    def get(self, key: bytes):
+    @property
+    def byte_size(self):
+        return len(
+            json_bytes(
+                [
+                    self.query,
+                    self.selection.hex(),
+                    self.implementation,
+                    self.authorization,
+                    self.basis_kind,
+                    self.basis.hex(),
+                ]
+            )
+        )
+
+
+def served_key(
+    connection,
+    query,
+    *,
+    implementation,
+    selection,
+    basis,
+    basis_kind: Literal["cut", "content"] = "cut",
+):
+    """Scope derivation to the principal and database of the already authorized connection."""
+    authorization = _authorization_scope(connection)
+    return ServedKey(
+        query,
+        json_bytes(selection),
+        str(implementation),
+        authorization,
+        basis_kind,
+        json_bytes(basis),
+    )
+
+
+def _authorization_scope(connection):
+    from sqlalchemy import Connection, func, select
+
+    from .storage_target import acquired_database_identity
+
+    authorization = None
+    if isinstance(connection, Connection):
+        target = acquired_database_identity(connection)
+        principal = connection.execute(select(func.session_user(), func.current_user())).one()
+        authorization = (
+            target.system_identifier,
+            target.database,
+            str(target.database_oid),
+            principal[0],
+            principal[1],
+        )
+    return authorization
+
+
+class SizedLRU(LRUCache):
+    """Charge immutable retained bytes and constrain the number of entries together."""
+
+    def __init__(self, maxsize, max_entries):
+        super().__init__(maxsize=maxsize, getsizeof=lambda item: item[0] + item[1].byte_size)
+        self.max_entries = max_entries
+        self.evictions = 0
+
+    def popitem(self):
+        item = super().popitem()
+        self.evictions += 1
+        return item
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        while len(self) > self.max_entries:
+            self.popitem()
+
+
+@dataclass
+class _Load:
+    key: ServedKey
+    result: Any = None
+
+
+_LOADING: ContextVar[tuple[_Load, ...]] = ContextVar("served_cache_load", default=())
+
+
+class SelectedQueryCache:
+    def __init__(self, max_bytes=None, *, max_entries=None):
+        self._lock = RLock()
+        self._rows = None
+        self._limits = (max_bytes, max_entries)
+        self._pending: dict[ServedKey, Future] = {}
+        self.hits = self.misses = self.coalesced = self.admission_skips = 0
+
+    def _storage(self):
+        from corpus_structure.caches import configured
+
+        settings = configured()
+        byte_limit = self._limits[0] if self._limits[0] is not None else settings.served_bytes
+        entry_limit = self._limits[1] if self._limits[1] is not None else settings.served_entries
+        if self._rows is None or (self._rows.maxsize, self._rows.max_entries) != (
+            byte_limit,
+            entry_limit,
+        ):
+            self._rows = SizedLRU(byte_limit, entry_limit)
+        return self._rows
+
+    @staticmethod
+    def _eligible(key: ServedKey) -> bool:
         from .serving_code import reusable_serving_code
 
-        if not reusable_serving_code():
+        return reusable_serving_code() and key.authorization is not None
+
+    def get(self, key: ServedKey):
+        if not self._eligible(key):
             return None
         with self._lock:
-            value = self._rows.get(key)
+            value = self._storage().get(key)
+            if value is None:
+                self.misses += 1
+            else:
+                self.hits += 1
             return None if value is None else value[1]
 
-    def put(self, key: bytes, entry):
-        from .serving_code import reusable_serving_code
-
-        if not reusable_serving_code():
+    def put(self, key: ServedKey, entry):
+        if not self._eligible(key):
             return False
+        for load in reversed(_LOADING.get()):
+            if load.key == key:
+                load.result = entry
+                break
         with self._lock:
-            if len(key) + entry.byte_size > self._rows.maxsize:
+            weight = key.byte_size
+            rows = self._storage()
+            if weight + entry.byte_size > rows.maxsize:
+                self.admission_skips += 1
                 return False
-            if key not in self._rows:
-                while len(self._rows) >= self.max_entries:
-                    self._rows.popitem()
-            self._rows[key] = (key, entry)
+            rows[key] = (weight, entry)
             return True
+
+    @contextmanager
+    def loading(self, key: ServedKey):
+        """Share complete immutable values and failures, keeping streaming remainders local."""
+        from corpus_structure.caches import configured
+
+        if not self._eligible(key):
+            yield None
+            return
+        with self._lock:
+            entry = self.get(key)
+            if entry is not None:
+                future, owner = None, False
+            elif key in self._pending:
+                future, owner = self._pending[key], False
+                self.coalesced += 1
+            else:
+                future, owner = Future(), True
+                self._pending[key] = future
+        if entry is not None:
+            yield entry
+            return
+        assert future is not None
+        if not owner:
+            if any(load.key == key for load in _LOADING.get()):
+                raise RuntimeError("a served derivation cannot wait on its own key")
+            try:
+                entry = future.result(timeout=configured().wait_seconds)
+            except TimeoutError:
+                entry = future.result() if future.done() else None
+            yield entry
+            return
+        load = _Load(key)
+        token = _LOADING.set((*_LOADING.get(), load))
+        try:
+            yield None
+        except BaseException as error:
+            future.set_exception(error)
+            raise
+        else:
+            future.set_result(load.result)
+        finally:
+            _LOADING.reset(token)
+            with self._lock:
+                self._pending.pop(key, None)
 
     def clear(self):
         with self._lock:
-            self._rows.clear()
+            if self._rows is not None:
+                self._rows.clear()
+            self.hits = self.misses = self.coalesced = self.admission_skips = 0
+            if self._rows is not None:
+                self._rows.evictions = 0
+
+    def snapshot(self):
+        from corpus_structure.caches import CacheMetrics
+
+        with self._lock:
+            rows = self._storage()
+            return CacheMetrics(
+                budget="bytes",
+                entries=len(rows),
+                size=rows.currsize,
+                maxsize=rows.maxsize,
+                hits=self.hits,
+                misses=self.misses,
+                coalesced=self.coalesced,
+                admission_skips=self.admission_skips,
+                evictions=rows.evictions,
+            )
 
 
 SELECTED_QUERY_CACHE = SelectedQueryCache()
+
+register("served-results", SELECTED_QUERY_CACHE.snapshot, SELECTED_QUERY_CACHE.clear)
 
 
 class _OwnedRows:

@@ -48,8 +48,10 @@ def build_retained_reader_server(
 
     @lifespan
     async def open_session(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
+        from corpus_structure.caches import configure
         from corpus_structure.cli.observation_logging import child_capture
 
+        configure(effective_settings.cache)
         with child_capture() as observations, engines.lifespan():
             yield {"settings": effective_settings, "observation_writer": observations}
 
@@ -60,6 +62,15 @@ def build_retained_reader_server(
         instructions="Inspect explicit archived releases and pinned published sources/cuts. No agent queue or submission is available.",
     )
     server.add_middleware(ObservationMiddleware(None))
+
+    @server.tool(annotations={"readOnlyHint": True})
+    def inspect_cache(
+        max_bytes: Annotated[int, Field(ge=1024, le=1048576)] = 262144,
+    ) -> ToolResult:
+        """Inspect retention and counters of this running server process."""
+        from corpus_structure.caches import snapshot
+
+        return _bounded_mcp_result(snapshot(owner="mcp-retained-reader"), max_bytes)
 
     @contextmanager
     def reader_snapshot(ctx: Context) -> Generator[Connection]:

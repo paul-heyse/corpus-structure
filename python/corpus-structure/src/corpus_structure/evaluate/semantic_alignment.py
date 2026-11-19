@@ -288,7 +288,8 @@ def equivalent(
                         canonical_bytes(a).decode(),
                         canonical_bytes(b).decode(),
                         profile=REFERENCE_PROFILE,
-                    )
+                    ),
+                    policy=science_scope.decision_policy if science_scope is not None else None,
                 )
                 return ValueDecision(
                     True,
@@ -306,7 +307,10 @@ def equivalent(
             )
 
             decision = decide_reference(
-                reference_evidence(a, b, conditions=conditions, prepared=model, scope=science_scope)
+                reference_evidence(
+                    a, b, conditions=conditions, prepared=model, scope=science_scope
+                ),
+                policy=science_scope.decision_policy if science_scope is not None else None,
             )
             return ValueDecision(
                 decision.equal,

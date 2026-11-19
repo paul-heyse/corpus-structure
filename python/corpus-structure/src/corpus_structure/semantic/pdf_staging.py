@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, fields
-from functools import cache
 
 import pyarrow as pa
 from sqlalchemy import Connection
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
+from corpus_structure.model.compiled import model_projection, model_source
 
 from . import _pdf_native_calls as calls
 from .arrow_transfer import ArrowWriteProfile, copy_arrow_stream
@@ -31,12 +31,11 @@ UPLOAD_STAGE_FAMILIES = {**STAGE_FAMILIES, "artifact_part": "ops.pdf_stage_artif
 
 def stage_upload_profile(*, physical_sources: Mapping[str, bytes] | None = None) -> dict[str, int]:
     import json
-    from importlib.resources import files
 
     import yaml
 
     source = (
-        files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml").read_bytes()
+        model_source("pdf-staging.yaml")
         if physical_sources is None
         else physical_sources["pdf-staging.yaml"]
     )
@@ -115,31 +114,19 @@ def stage_schemas() -> dict[str, pa.Schema]:
     return {name: stage_schema(name) for name in UPLOAD_STAGE_FAMILIES}
 
 
-@cache
+@model_projection
 def _profile_definitions():
     import json
-    from hashlib import sha256
-    from importlib.resources import files
-    from pathlib import Path
 
     import yaml
 
-    from .file_custody import FileCustody
-
-    path = Path(str(files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml")))
-    source = path.read_bytes()
-    custody = FileCustody.acquire(path, sha256(source).hexdigest())
-    annotations = yaml.safe_load(source)["annotations"]
-    return (
-        custody,
-        json.loads(annotations["pds:artifact_profiles"]),
-    )
+    annotations = yaml.safe_load(model_source("pdf-staging.yaml"))["annotations"]
+    return json.loads(annotations["pds:artifact_profiles"])
 
 
 def artifact_profile(kind: str) -> str:
     """Resolve fixed producer artifact encodings under process source custody."""
-    custody, profiles = _profile_definitions()
-    custody.check()
+    profiles = _profile_definitions()
     if kind not in profiles:
         raise ValueError(f"unknown private PDF producer artifact: {kind}")
     return profiles[kind]

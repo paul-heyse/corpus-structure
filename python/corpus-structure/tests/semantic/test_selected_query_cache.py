@@ -10,10 +10,15 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.selected_query_cache import (
     SelectedQueryCache,
+    ServedKey,
     bounded_rows,
     byte_bounded_page,
     uncached_rows_from,
 )
+
+
+def cut_key(cut: bytes) -> ServedKey:
+    return ServedKey("test", b"selection", "implementation", ("reader",), "cut", cut)
 
 
 def entry(value):
@@ -26,29 +31,34 @@ def entry(value):
 def test_cache_isolation_can_warm_global_cache_within_a_case():
     from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE
 
-    assert SELECTED_QUERY_CACHE.put(b"isolation-control", entry({"payload": "owned"}))
-    assert SELECTED_QUERY_CACHE.get(b"isolation-control") is not None
+    assert SELECTED_QUERY_CACHE.put(cut_key(b"isolation-control"), entry({"payload": "owned"}))
+    assert SELECTED_QUERY_CACHE.get(cut_key(b"isolation-control")) is not None
 
 
 @pytest.mark.xdist_group("selected-cache-isolation-control")
 def test_cache_isolation_clears_previous_cases_without_support_import():
     from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE
 
-    assert SELECTED_QUERY_CACHE.get(b"isolation-control") is None
+    assert SELECTED_QUERY_CACHE.get(cut_key(b"isolation-control")) is None
 
 
 def test_lru_charges_actual_encoded_buffers_and_defends_cached_values():
     first, second, third = (entry({"value": i}) for i in range(3))
-    capacity = sum(
-        len(buffer)
-        for item in (first, second)
-        for buffer in (item.metadata, item.content, item.offsets)
-    ) + len(b"firstsecond")
+    capacity = (
+        sum(
+            len(buffer)
+            for item in (first, second)
+            for buffer in (item.metadata, item.content, item.offsets)
+        )
+        + cut_key(b"first").byte_size
+        + cut_key(b"second").byte_size
+        + 2
+    )
     cache = SelectedQueryCache(capacity)
-    assert cache.put(b"first", first) and cache.put(b"second", second)
-    assert cache.get(b"first") is first
-    assert cache.put(b"third", third) and cache.get(b"second") is None
-    retained = cache.get(b"first")
+    assert cache.put(cut_key(b"first"), first) and cache.put(cut_key(b"second"), second)
+    assert cache.get(cut_key(b"first")) is first
+    assert cache.put(cut_key(b"third"), third) and cache.get(cut_key(b"second")) is None
+    retained = cache.get(cut_key(b"first"))
     assert retained is not None
     value = next(retained.rows())
     value["value"] = "mutated"
@@ -57,8 +67,9 @@ def test_lru_charges_actual_encoded_buffers_and_defends_cached_values():
     metadata.clear()
     assert retained.record() == {"value": {"value": 0}}
     oversized = entry({"body": "x" * (capacity + 1)})
-    assert not cache.put(b"oversized", oversized)
-    assert cache._rows.currsize <= capacity
+    assert not cache.put(cut_key(b"oversized"), oversized)
+    observed = cache.snapshot()
+    assert observed.size is not None and observed.size <= capacity
 
 
 def test_cache_rechecks_and_mutations_are_thread_safe():
@@ -68,14 +79,16 @@ def test_cache_rechecks_and_mutations_are_thread_safe():
         barrier.wait()
         for n in range(8):
             expected = {"identity": identity, "n": n}
-            assert cache.put(str(identity).encode(), entry(expected))
-            actual = cache.get(str(identity).encode())
+            assert cache.put(cut_key(str(identity).encode()), entry(expected))
+            actual = cache.get(cut_key(str(identity).encode()))
             assert actual is not None and next(actual.rows()) == expected
         return identity
 
     with ThreadPoolExecutor(max_workers=3) as workers:
         assert set(workers.map(use, range(3))) == {0, 1, 2}
-    assert len(cache._rows) == 3 and cache._rows.currsize <= 1024
+    observed = cache.snapshot()
+    assert observed.entries == 3
+    assert observed.size is not None and observed.size <= 1024
 
 
 def test_bounded_builder_never_exhausts_large_query_and_closes_unused_remainder():
@@ -170,3 +183,145 @@ def test_cache_preserves_exact_decimal_scale_float_kind_and_nested_copies():
     decoded["nested"][0]["scaled"] = "mutated"
     assert next(cached.rows())["nested"][0]["scaled"] == Decimal("0.00")
     assert json_bytes(cached.record()["value"]) == json_bytes(value)
+
+
+@pytest.mark.parametrize("failure_type", [ValueError, TimeoutError])
+def test_single_flight_shares_owner_failure_and_retries_next_request(failure_type):
+    from threading import Event
+    from time import monotonic, sleep
+
+    cache, entered, release = SelectedQueryCache(1024), Event(), Event()
+    failure = failure_type("controlled derivation failure")
+    calls = []
+
+    def use():
+        with cache.loading(cut_key(b"cold")) as retained:
+            assert retained is None
+            calls.append(True)
+            entered.set()
+            assert release.wait(5)
+            raise failure
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        owner = pool.submit(use)
+        assert entered.wait(5)
+        waiters = [pool.submit(use) for _ in range(3)]
+        deadline = monotonic() + 5
+        while cache.coalesced < 3 and monotonic() < deadline:
+            sleep(0.005)
+        assert cache.coalesced == 3
+        release.set()
+        for future in (owner, *waiters):
+            with pytest.raises(failure_type) as observed:
+                future.result()
+            assert observed.value is failure
+    assert calls == [True]
+    with cache.loading(cut_key(b"cold")) as retained:
+        assert retained is None
+        cache.put(cut_key(b"cold"), entry("recovered"))
+    recovered = cache.get(cut_key(b"cold"))
+    assert recovered is not None and list(recovered.rows()) == ["recovered"]
+
+
+def test_served_keys_keep_authorization_and_cut_scopes_distinct():
+    cache = SelectedQueryCache(4096)
+    value = entry("authorized")
+    reader = ServedKey(
+        "query", b"selection", "implementation", ("database", "reader"), "cut", b"one"
+    )
+    evaluator = ServedKey(
+        "query", b"selection", "implementation", ("database", "evaluator"), "cut", b"one"
+    )
+    other_cut = ServedKey(
+        "query", b"selection", "implementation", ("database", "reader"), "cut", b"two"
+    )
+    unavailable = ServedKey("query", b"selection", "implementation", None, "cut", b"one")
+    assert cache.put(reader, value)
+    assert cache.get(reader) is value
+    assert cache.get(evaluator) is None
+    assert cache.get(other_cut) is None
+    assert not cache.put(unavailable, value)
+
+
+def test_oversize_completed_result_is_shared_without_retention():
+    from threading import Event
+    from time import monotonic, sleep
+
+    cache, entered, release = SelectedQueryCache(1), Event(), Event()
+    value = entry("larger than one byte")
+    calls = []
+
+    def use():
+        with cache.loading(cut_key(b"large")) as retained:
+            if retained is None:
+                calls.append(True)
+                entered.set()
+                assert release.wait(5)
+                retained = value
+                assert not cache.put(cut_key(b"large"), retained)
+            return retained
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        owner = pool.submit(use)
+        assert entered.wait(5)
+        waiter = pool.submit(use)
+        deadline = monotonic() + 5
+        while cache.coalesced < 1 and monotonic() < deadline:
+            sleep(0.005)
+        assert cache.coalesced == 1
+        release.set()
+        assert owner.result() is value and waiter.result() is value
+    assert calls == [True] and cache.get(cut_key(b"large")) is None
+
+
+def test_waiter_timeout_derives_privately_and_leaves_owner_running(monkeypatch):
+    from threading import Event
+
+    from corpus_structure import caches
+
+    settings = caches.configured().model_copy(update={"wait_seconds": 0.01})
+    monkeypatch.setattr(caches, "configured", lambda: settings)
+    cache, entered, release = SelectedQueryCache(1024), Event(), Event()
+    value = entry("same answer")
+
+    def owner():
+        with cache.loading(cut_key(b"slow")) as retained:
+            assert retained is None
+            entered.set()
+            assert release.wait(5)
+            cache.put(cut_key(b"slow"), value)
+        return value
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        running = pool.submit(owner)
+        assert entered.wait(5)
+        with cache.loading(cut_key(b"slow")) as retained:
+            assert retained is None and not running.done()
+            cache.put(cut_key(b"slow"), value)
+        assert not running.done()
+        release.set()
+        assert running.result() is value
+    assert cache.get(cut_key(b"slow")) is value
+
+
+def test_success_completed_at_wait_timeout_is_delivered(monkeypatch):
+    from concurrent.futures import Future
+
+    cache = SelectedQueryCache(1024)
+    value = entry("completed at the deadline")
+    future = Future()
+    result = future.result
+    calls = []
+
+    def elapsed_then_complete(timeout=None):
+        calls.append(timeout)
+        if len(calls) == 1:
+            future.set_result(value)
+            raise TimeoutError("wait elapsed immediately before completion")
+        return result(timeout)
+
+    monkeypatch.setattr(future, "result", elapsed_then_complete)
+    cache._pending[cut_key(b"race")] = future
+    with cache.loading(cut_key(b"race")) as observed:
+        assert observed is value
+    assert len(calls) == 2

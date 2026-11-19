@@ -6,10 +6,9 @@ import json
 import re
 import sys
 from contextlib import suppress
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import date
 from decimal import Decimal
-from functools import lru_cache
 from hashlib import sha256
 from typing import Any, Never, cast
 
@@ -21,6 +20,9 @@ from linkml_runtime.utils.schemaview import SchemaView
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 from pydantic import AwareDatetime
 
+from corpus_structure.caches import declare
+
+from .archive_reader import retained_archive_bytes
 from .conditional_rules import (
     CONDITIONAL_RULE_OPTIONS,
     compile_conditional_rules,
@@ -588,17 +590,22 @@ def prepare_release(
     except TypeError:
         # Malformed mutable inputs still reach the existing preparation diagnostics.
         return _prepare_release_uncached(bundle, dependencies, profile, stack)
-    return _prepare_release_cached(bundle, dependencies, profile, stack)
+    return _prepare_release_cached(bundle, dependencies, profile, stack)[3]
 
 
-@lru_cache(maxsize=8)
+@declare("prepared-release", "release_bytes", weight=retained_archive_bytes)
 def _prepare_release_cached(
     bundle: SourceBundle,
     dependencies: ResolvedDependencies,
     profile: PreparationProfile,
     stack: tuple[tuple[str, str], ...],
-) -> PreparedRelease:
-    return _prepare_release_uncached(bundle, dependencies, profile, stack)
+) -> tuple[SourceBundle, ResolvedDependencies, PreparationProfile, PreparedRelease]:
+    return (
+        bundle,
+        dependencies,
+        profile,
+        _prepare_release_uncached(bundle, dependencies, profile, stack),
+    )
 
 
 def effective_class_definitions(
@@ -1336,8 +1343,6 @@ def _prepare_release_uncached(
     if data_operations is not None and any(
         artifact.kind == "data_operation_ports.json" for artifact in prepared.artifacts
     ):
-        from dataclasses import replace
-
         from .composed import read_data_operation_inputs
         from .data_operation_storage import (
             data_operation_definition_projection,
@@ -1364,6 +1369,13 @@ def _prepare_release_uncached(
             ),
         )
 
+    from .release_identity import release_manifest
+
+    manifest = release_manifest(bundle, dependencies, profile, prepared, dict(stack))
+    prepared = replace(
+        prepared, manifest=manifest, release_id="release:" + sha256(manifest).hexdigest()
+    )
+
     # Admission must not archive an operation artifact whose required rules cannot execute.
     # The policy constructor compiles only immutable release products and performs no I/O.
     if any(artifact.kind == "operation/domain-rules.yaml" for artifact in prepared.artifacts):
@@ -1383,11 +1395,4 @@ def _prepare_release_uncached(
             rich_context_profile(prepared)
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             _fail("rich_context_policy", RICH_CONTEXT_INPUT, str(exc), "unsupported")
-    from dataclasses import replace
-
-    from .release_identity import release_manifest
-
-    manifest = release_manifest(bundle, dependencies, profile, prepared, dict(stack))
-    return replace(
-        prepared, manifest=manifest, release_id="release:" + sha256(manifest).hexdigest()
-    )
+    return prepared

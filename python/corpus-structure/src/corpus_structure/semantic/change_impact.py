@@ -624,7 +624,17 @@ def inspect_change_impact(
         )
         if target_cut.record["release_id"] != request.target_release_id:
             raise ValueError("target selection belongs to another release")
+    from corpus_structure.model.compiled import running_model
+    from corpus_structure.serve.rich_queries import _installed_read_basis
+
+    implementation, code_basis = _installed_read_basis(
+        ChangeImpactRequest,
+        "corpus_structure.semantic.change_impact",
+        "change-impact-1",
+        running_model().identity,
+    )
     fingerprint = dict(
+        implementation=implementation,
         request=request.model_dump(
             mode="python",
             exclude={
@@ -661,16 +671,51 @@ def inspect_change_impact(
             unknowns.append(
                 side + " supplied population differs from authenticated native requested universe"
             )
-    rows = classify_change_impact(
-        before_model,
-        target_model,
-        before=before,
-        target=target,
-        before_population=before_population,
-        target_population=target_population,
-        population_complete=population_complete,
-        target_observed=target_cut is not None,
+    from .selected_query_cache import SELECTED_QUERY_CACHE, bounded_rows, served_key
+
+    key = served_key(
+        connection if code_basis.complete else None,
+        "change-impact",
+        implementation=implementation,
+        selection=fingerprint,
+        basis=[before_cut.identity, None if target_cut is None else target_cut.identity],
     )
+    from contextlib import nullcontext
+    from pathlib import Path
+
+    from corpus_structure._query_custody import capture_sources, query_sources
+
+    custody = (
+        query_sources(
+            capture_sources(
+                tuple(
+                    Path(__file__).resolve().parents[1] / item.filename
+                    for item in code_basis.modules
+                )
+            )
+        )
+        if code_basis.complete
+        else nullcontext()
+    )
+    with custody, SELECTED_QUERY_CACHE.loading(key) as entry:
+        if entry is None:
+            rows = classify_change_impact(
+                before_model,
+                target_model,
+                before=before,
+                target=target,
+                before_population=before_population,
+                target_population=target_population,
+                population_complete=population_complete,
+                target_observed=target_cut is not None,
+            )
+            entry, remaining = bounded_rows((row.model_dump(mode="python") for row in rows), {})
+            if entry is not None:
+                SELECTED_QUERY_CACHE.put(key, entry)
+            elif remaining is not None:
+                remaining.close()
+        else:
+            rows = tuple(ChangeImpactItem.model_validate(row) for row in entry.rows())
     offset = 0 if token is None else token["offset"]
     if type(offset) is not int or offset < 0 or offset > len(rows):
         raise ValueError("invalid impact continuation position")

@@ -14,8 +14,22 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import Text, case, column, delete, exists, false, func, or_, select, update
-from sqlalchemy.dialects.postgresql import array, dialect
+from sqlalchemy import (
+    Text,
+    case,
+    cast,
+    column,
+    delete,
+    exists,
+    false,
+    func,
+    literal,
+    or_,
+    select,
+    true,
+    update,
+)
+from sqlalchemy.dialects.postgresql import JSONB, array, dialect
 
 from corpus_structure.schema.integrity import role_name
 
@@ -34,7 +48,11 @@ class N1Parameters(BaseModel):
 
 
 type DataStepName = Literal[
-    "ddo_n1_relower", "pdf_s36_retire_validation", "pdf_s40_shared_streams", "ddo_declared_validity"
+    "ddo_n1_relower",
+    "pdf_s36_retire_validation",
+    "pdf_s40_shared_streams",
+    "ddo_declared_validity",
+    "ddo_binding_facts",
 ]
 
 
@@ -291,6 +309,90 @@ def _declared_validity(target: MetaData, predecessor: str | None) -> FrozenDataS
     )
 
 
+_BINDING_COLUMNS = (
+    ("sem.data_operation_release", "binding_types"),
+    ("sem.data_operation_definition", "parameter_definitions"),
+)
+
+
+def _binding_facts(target: MetaData, predecessor: str | None) -> FrozenDataStep:
+    """Add admitted facts without reinterpreting historical lowering or identity."""
+    headers = target.tables["sem.data_operation_release"]
+    definitions = target.tables["sem.data_operation_definition"]
+    artifacts = target.tables["sem.artifact"]
+    document = cast(func.convert_from(artifacts.c.content, "UTF8"), JSONB())
+    valid_archive = (
+        select(artifacts.c.release_id, document.label("document"))
+        .join(headers, headers.c.release_id == artifacts.c.release_id)
+        .where(
+            artifacts.c.artifact_name == "data_operations.json",
+            func.encode(func.sha256(artifacts.c.content), "hex") == artifacts.c.content_digest,
+            artifacts.c.content_digest == headers.c.model_digest,
+            func.jsonb_typeof(document["kinds"]) == "array",
+            func.jsonb_typeof(document["operations"]) == "array",
+        )
+        .cte("authenticated_binding_archive")
+        .prefix_with("MATERIALIZED")
+    )
+    operations = (
+        func.jsonb_array_elements(valid_archive.c.document["operations"])
+        .table_valued(column("value", JSONB()))
+        .render_derived(name="archived_operation")
+    )
+    parameters = (
+        select(
+            valid_archive.c.release_id,
+            operations.c.value["semantic_id"].astext.label("operation_id"),
+            func.coalesce(
+                operations.c.value["parameters"]["json"], cast(literal("{}", Text()), JSONB())
+            ).label("parameter_definitions"),
+        )
+        .select_from(valid_archive.join(operations, true()))
+        .cte("authenticated_binding_parameters")
+        .prefix_with("MATERIALIZED")
+    )
+    return FrozenDataStep(
+        name="ddo_binding_facts",
+        implementation_sha256=_implementation_id(),
+        libraries=_libraries(),
+        statements=(
+            _sql(
+                update(headers)
+                .where(headers.c.release_id == valid_archive.c.release_id)
+                .values(binding_types=valid_archive.c.document["kinds"])
+            ),
+            _refuse_rows(
+                select(parameters.c.release_id, parameters.c.operation_id)
+                .group_by(parameters.c.release_id, parameters.c.operation_id)
+                .having(func.count() != 1),
+                "binding facts contain duplicate archived operation identities",
+            ),
+            _sql(
+                update(definitions)
+                .where(
+                    definitions.c.release_id == parameters.c.release_id,
+                    definitions.c.operation_id == parameters.c.operation_id,
+                )
+                .values(parameter_definitions=parameters.c.parameter_definitions)
+            ),
+            _refuse_rows(
+                select(1).select_from(headers).where(headers.c.binding_types.is_(None)),
+                "binding facts require an authenticated admitted operation archive",
+            ),
+            _refuse_rows(
+                select(1)
+                .select_from(definitions)
+                .where(definitions.c.parameter_definitions.is_(None)),
+                "binding facts require one authenticated archived operation per admitted definition",
+            ),
+        ),
+        deferred_columns=_BINDING_COLUMNS,
+        guarded_relations=(headers.fullname, definitions.fullname),
+        prerequisite_relations=(headers.fullname, definitions.fullname, artifacts.fullname),
+        retired_relations=(),
+    )
+
+
 def prepare_data_steps(
     requests: tuple[DataStepRequest, ...], *, target: MetaData, predecessor: str | None
 ) -> tuple[FrozenDataStep, ...]:
@@ -302,6 +404,7 @@ def prepare_data_steps(
         "pdf_s36_retire_validation": _pdf_s36,
         "pdf_s40_shared_streams": _pdf_s40,
         "ddo_declared_validity": _declared_validity,
+        "ddo_binding_facts": _binding_facts,
     }
     return tuple(builders[request.name](target, predecessor) for request in requests)
 

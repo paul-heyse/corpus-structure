@@ -7,9 +7,11 @@ or the network. Mutable library schemas remain private to a projection.
 from __future__ import annotations
 
 from collections.abc import Callable, Hashable, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from copy import deepcopy
-from dataclasses import dataclass
-from functools import lru_cache
+from dataclasses import dataclass, field
+from functools import wraps
 from hashlib import sha256
 from pathlib import Path
 from struct import pack
@@ -22,6 +24,8 @@ from linkml_runtime.linkml_model.meta import SchemaDefinition
 from linkml_runtime.loaders import yaml_loader
 from linkml_runtime.utils.schemaview import SchemaView
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
+
+from corpus_structure.caches import declare
 
 if TYPE_CHECKING:
     from sqlalchemy import MetaData
@@ -202,7 +206,7 @@ class CompiledModel:
             if key not in self._projections:
                 try:
                     self._projections[key] = build()
-                except Exception as error:
+                except (ValueError, TypeError, yaml.YAMLError) as error:
                     self._projections[key] = _Failure(error)
             result = self._projections[key]
             if isinstance(result, _Failure):
@@ -320,12 +324,9 @@ class CompiledModel:
         return self.projection(("companion-columns",), build)
 
 
-@lru_cache(maxsize=4)
+@declare("compiled-model", "model_entries")
 def _compiled_model(sources: tuple[tuple[str, bytes], ...]) -> CompiledModel:
     return CompiledModel(sources)
-
-
-_capture_lock = RLock()
 
 
 def compiled_model(sources: Mapping[str, bytes]) -> CompiledModel:
@@ -333,19 +334,61 @@ def compiled_model(sources: Mapping[str, bytes]) -> CompiledModel:
         not isinstance(name, str) or not isinstance(body, bytes) for name, body in sources.items()
     ):
         raise TypeError("model capture requires named bytes")
-    with _capture_lock:
-        return _compiled_model(tuple(sorted(sources.items())))
+    return _compiled_model(tuple(sorted(sources.items())))
 
 
-@lru_cache(maxsize=1)
+@dataclass
+class _ModelScope:
+    model: CompiledModel | None = None
+    lock: Any = field(default_factory=RLock)
+
+
+_request_scope: ContextVar[_ModelScope | None] = ContextVar("model_request_scope", default=None)
+_standalone_scope = _ModelScope()
+_MODEL_ROOT = Path(__file__).parent / "semantic"
+
+
+@contextmanager
+def model_request_scope():
+    """Pin one lazy declaration capture for one command or server request."""
+    token = _request_scope.set(_ModelScope())
+    try:
+        yield
+    finally:
+        _request_scope.reset(token)
+
+
 def running_model() -> CompiledModel:
-    """Acquire the running package once; UDM-13 owns next-request observation."""
     from corpus_structure.schema.physical import linkml_types_source
 
-    root = Path(__file__).parent / "semantic"
-    sources = {path.name: path.read_bytes() for path in sorted(root.glob("*.yaml"))}
-    sources["linkml:types"] = linkml_types_source()
-    return compiled_model(sources)
+    from .source_observation import observe_model_sources
+
+    scope = _request_scope.get() or _standalone_scope
+    with scope.lock:
+        if scope.model is None:
+            sources = observe_model_sources(_MODEL_ROOT)
+            sources["linkml:types"] = linkml_types_source()
+            scope.model = compiled_model(sources)
+        return scope.model
+
+
+def model_source(name: str) -> bytes:
+    """Read declaration bytes from the request's immutable model capture."""
+    return running_model().sources[name]
+
+
+def model_projection(function):
+    """Hold a declaration-derived projection with its captured model."""
+    identity = ("python-projection", function.__module__, function.__qualname__)
+
+    @wraps(function)
+    def access(*args, **kwargs):
+        model = running_model()
+        return model.projection(
+            (*identity, args, tuple(sorted(kwargs.items()))), lambda: function(*args, **kwargs)
+        )
+
+    return access
 
 
 def field_kinds() -> Mapping[str, FieldKind]:

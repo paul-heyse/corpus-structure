@@ -917,7 +917,29 @@ class EffectiveDataOperationModel:
             raise ValueError("unknown graph projection " + name)
         return definition
 
+    @cached_property
+    def _semantic_reference_graph(self):
+        return self._build_projection_graph("semantic-reference")
+
+    @cached_property
+    def _potential_producers_graph(self):
+        return self._build_projection_graph("potential-producers")
+
+    @cached_property
+    def _selected_dependencies_graph(self):
+        return self._build_projection_graph("selected-dependencies")
+
     def projection_graph(self, name: str, *, selected_dependencies=()):
+        held = {
+            "semantic-reference": "_semantic_reference_graph",
+            "potential-producers": "_potential_producers_graph",
+            "selected-dependencies": "_selected_dependencies_graph",
+        }
+        if not selected_dependencies and name in held:
+            return getattr(self, held[name])
+        return self._build_projection_graph(name, selected_dependencies=selected_dependencies)
+
+    def _build_projection_graph(self, name: str, *, selected_dependencies=()):
         """Construct an authenticated declared view, retaining isolates and typed occurrences."""
         from .data_operation_identity import SemanticGraph
 

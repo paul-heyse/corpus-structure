@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import replace
-from pathlib import Path
 from typing import Any
 
 import yaml
@@ -44,8 +43,10 @@ def rich_policy_inputs(
     """Archive existing rules as one operation dependency, never read latest files in a run."""
     from dataclasses import asdict
 
+    from corpus_structure.model.compiled import model_source
+
     from .alias_policy import SOURCE_PROFILE
-    from .scientific_evidence import scientific_policy_recipe
+    from .scientific_evidence import scientific_policy, scientific_policy_recipe
 
     source = parse_policy_yaml(domain) or {}
     base = parse_policy_yaml(core) or {}
@@ -81,19 +82,19 @@ def rich_policy_inputs(
                 "operation/scientific-policy.json",
                 canonical_bytes(scientific_policy_recipe(context_profile=context_profile)),
             ),
-            *(
-                SourceArtifact(
-                    "operation/" + name,
-                    (Path(__file__).resolve().parents[1] / "model/semantic" / name).read_bytes(),
-                )
-                for name in ("scientific.yaml", "scientific-policies.yaml")
-            ),
+            SourceArtifact("operation/scientific.yaml", model_source("scientific.yaml")),
             SourceArtifact(
-                "operation/rule-view.yaml",
-                (
-                    Path(__file__).resolve().parents[1] / "model/semantic/rule-view.yaml"
-                ).read_bytes(),
+                "operation/scientific-policies.yaml",
+                yaml.safe_dump(
+                    {
+                        key: value
+                        for key, value in scientific_policy().items()
+                        if key != "description"
+                    },
+                    sort_keys=True,
+                ).encode(),
             ),
+            SourceArtifact("operation/rule-view.yaml", model_source("rule-view.yaml")),
         ),
     )
 

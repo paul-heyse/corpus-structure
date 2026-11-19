@@ -21,6 +21,7 @@ classes:
       native_definitions_digest: {range: string, required: true}
       native_kernel_digest: {range: string, required: true}
       lowering_digest: {range: string, required: true}
+      binding_types: {range: json_payload, required: true}
     unique_keys:
       primary_key: {unique_key_slots: [release_id]}
     annotations:
@@ -82,6 +83,7 @@ classes:
       output_roles: {range: json_payload, required: true}
       support_contract: {range: json_payload, required: true}
       binding_expression: {range: json_payload, required: true}
+      parameter_definitions: {range: json_payload, required: true}
       definition_identity: {range: string, required: true}
       eligibility_identity: {range: string, required: true}
       quantified: {range: boolean, required: true}

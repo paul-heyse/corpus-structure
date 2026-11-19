@@ -17,8 +17,8 @@ from corpus_structure.semantic.demand_queries import _cursor
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import (
+    PreparedRichQueryIndex,
     RichQuery,
-    RichQueryIndex,
     RichQueryRefused,
     query_rows,
 )
@@ -26,6 +26,7 @@ from corpus_structure.semantic.selected_query_cache import (
     SELECTED_QUERY_CACHE,
     bounded_rows,
     byte_bounded_page,
+    served_key,
     uncached_rows_from,
 )
 
@@ -43,7 +44,7 @@ def rich_query_implementation(query):
 
 
 @lru_cache(maxsize=64)
-def _installed_read_basis(contract, entry, profile):
+def _installed_read_basis(contract, entry, profile, model_identity):
     from corpus_structure.semantic.code_identity import capture_code_identity
 
     root = Path(__file__).resolve().parents[1]
@@ -52,14 +53,12 @@ def _installed_read_basis(contract, entry, profile):
     # compatibility, while selected query semantics and cursor ordering stay here.
     meaning = json_loads(basis.meaning)
     meaning.get("distributions", {}).pop("cachetools", None)
-    from corpus_structure.model.compiled import running_model
-
     identity = sha256(
         json_bytes(
             dict(
                 version=profile,
                 code=meaning,
-                model=running_model().identity,
+                model=model_identity,
                 query_contract=contract.model_json_schema(),
                 unicode=unicodedata.unidata_version,
             )
@@ -72,9 +71,10 @@ def _installed_read_basis(contract, entry, profile):
 def installed_read_implementation(contract, *, entry, profile):
     """Authenticate determining source and carry explicit reusable-code standing."""
     from corpus_structure._query_custody import capture_sources, query_sources
+    from corpus_structure.model.compiled import running_model
     from corpus_structure.semantic.serving_code import ServingImplementation, serving_code
 
-    identity, basis = _installed_read_basis(contract, entry, profile)
+    identity, basis = _installed_read_basis(contract, entry, profile, running_model().identity)
     root = Path(__file__).resolve().parents[1]
     captured = capture_sources(tuple(root / item.filename for item in basis.modules))
     implementation = ServingImplementation(identity, basis)
@@ -187,41 +187,61 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
     offset = 0 if cursor is None else cursor["ordinal"]
     if type(offset) is not int or offset < 0:
         raise InvalidContinuation("invalid rich row ordinal", reason="invalid_continuation")
-    key = json_bytes(["rich", selected.cut.identity, implementation, reference, selection])
-    entry = SELECTED_QUERY_CACHE.get(key)
-    remaining = None
-    metadata_provider = entry.record if entry is not None else None
-    if entry is None:
-        native_request = dict(json_loads(selected.read_request), view="products")
-        whole = read_selected_rich_knowledge(
-            connection,
-            request.demand_id,
-            project_id=request.project_id,
-            product_id=request.product_id,
-            continuation=native_request,
-            cut=selected.cut,
-            max_bytes=request.max_graph_bytes,
-        )
-        if whole.reference != selected.reference or whole.context != selected.context:
-            raise InvalidContinuation(
-                "rich body differs from its freshly acquired root", reason="invalid_continuation"
+    key = served_key(
+        connection,
+        "rich",
+        implementation=implementation,
+        basis=selected.cut.identity,
+        selection=["rich", selected.cut.identity, implementation, reference, selection],
+    )
+    with SELECTED_QUERY_CACHE.loading(key) as entry:
+        remaining = None
+        metadata_provider = entry.record if entry is not None else None
+        if entry is None:
+            graph_key = served_key(
+                connection,
+                "rich-index",
+                implementation=implementation,
+                basis=selected.cut.identity,
+                selection=[reference, request.max_graph_bytes, request.max_graph_members],
             )
-        index = RichQueryIndex(whole.state, max_members=request.max_graph_members)
+            with SELECTED_QUERY_CACHE.loading(graph_key) as prepared_index:
+                if prepared_index is None:
+                    native_request = dict(json_loads(selected.read_request), view="products")
+                    whole = read_selected_rich_knowledge(
+                        connection,
+                        request.demand_id,
+                        project_id=request.project_id,
+                        product_id=request.product_id,
+                        continuation=native_request,
+                        cut=selected.cut,
+                        max_bytes=request.max_graph_bytes,
+                    )
+                    if whole.reference != selected.reference or whole.context != selected.context:
+                        raise InvalidContinuation(
+                            "rich body differs from its freshly acquired root",
+                            reason="invalid_continuation",
+                        )
+                    prepared_index = PreparedRichQueryIndex.build(
+                        whole.state, max_members=request.max_graph_members
+                    )
+                    SELECTED_QUERY_CACHE.put(graph_key, prepared_index)
+            index = prepared_index.query_index()
 
-        def source():
-            for row in query_rows(index, request.query):
-                yield dict(
-                    value=row.value,
-                    unknowns=[index.unknowns[key] for key in sorted(index.unknowns)],
-                )
+            def source():
+                for row in query_rows(index, request.query):
+                    yield dict(
+                        value=row.value,
+                        unknowns=[index.unknowns[key] for key in sorted(index.unknowns)],
+                    )
 
-        def current_metadata():
-            return dict(unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
+            def current_metadata():
+                return dict(unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
 
-        metadata_provider = current_metadata
-        entry, remaining = bounded_rows(source(), metadata_provider)
-        if entry is not None:
-            SELECTED_QUERY_CACHE.put(key, entry)
+            metadata_provider = current_metadata
+            entry, remaining = bounded_rows(source(), metadata_provider)
+            if entry is not None:
+                SELECTED_QUERY_CACHE.put(key, entry)
     assert metadata_provider is not None
     metadata = metadata_provider()
     rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)

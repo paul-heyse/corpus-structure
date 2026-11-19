@@ -282,6 +282,12 @@ def _initialize(capsule: bytes | None, stop, cancellation=None, native_threads: 
         os.environ[variable] = str(native_threads)
     _apply_native_thread_limits()
     _WORKER_RELEASES.clear()
+    from corpus_structure.caches import CacheMetrics, register
+
+    register(
+        "hydrated-worker-releases",
+        lambda: CacheMetrics(budget="worker-capsule-lifetime", entries=len(_WORKER_RELEASES)),
+    )
     if capsule is not None:
         prepared = hydrate_capsule(capsule)
         _WORKER_RELEASES[prepared.release_id] = prepared

@@ -53,13 +53,13 @@ from .native_program_registry import ProgramDeclaration
 
 
 def _binding_admission_native_routine(model):
-    demands, requests, definitions, artifacts, boundaries, populations, derivations = (
+    demands, requests, definitions, releases, boundaries, populations, derivations = (
         model.tables[name]
         for name in (
             "ops.data_demand",
             "ops.data_request",
             "sem.data_operation_definition",
-            "sem.artifact",
+            "sem.data_operation_release",
             "ops.data_demand_read",
             "ops.data_population",
             "ops.data_derivation",
@@ -86,8 +86,7 @@ def _binding_admission_native_routine(model):
     )
     p_read_checked = _value("p_read_checked", Boolean())
     local_names = (
-        "archived",
-        "projection",
+        "binding_model",
         "operation",
         "compiled",
         "selection",
@@ -100,7 +99,6 @@ def _binding_admission_native_routine(model):
         "semantic_witnesses",
         "states",
         "context",
-        "authored_role",
         "item",
         "roledef",
         "row_value",
@@ -114,29 +112,20 @@ def _binding_admission_native_routine(model):
         "discovery_refs",
     )
     local = {name: _value(name, JSONB()) for name in local_names}
-    archived, projection, operation, compiled, selection, expression = (
+    binding_model, operation, compiled, selection, expression = (
         local[name]
-        for name in ("archived", "projection", "operation", "compiled", "selection", "expression")
+        for name in ("binding_model", "operation", "compiled", "selection", "expression")
     )
-    roledef, authored_role, item, chosen, values, row_value = (
-        local[name]
-        for name in ("roledef", "authored_role", "item", "chosen", "values", "row_value")
+    roledef, item, chosen, values, row_value = (
+        local[name] for name in ("roledef", "item", "chosen", "values", "row_value")
     )
-    role, state, archive_digest, projection_mode = (
-        _value(name) for name in ("role", "state", "archive_digest", "projection_mode")
-    )
+    role, state, projection_mode = (_value(name) for name in ("role", "state", "projection_mode"))
     count_selected, multiplicity, ordinal = (
         _value(name, BigInteger()) for name in ("count_selected", "multiplicity", "ordinal")
     )
     inactive = _value("inactive", ARRAY(Text()))
-    operations = _elements(archived["operations"], "model_operation")
-    bindings = _elements(archived["bindings"], "model_binding")
-    projected_operations = _elements(projection["operations"], "projected_operation")
     selected_operations = _elements(demand("selection")["operations"], "selected_operation")
-    identities = _elements(archived["identities"], "model_identity")
     roles = _elements(compiled["input_roles"], "compiled_role")
-    authored_roles = _elements(operation["roles"], "authored_role")
-    known_roles = _elements(definitions.c.input_roles, "known_role").lateral("known_role")
     input_items = _elements(p_binding["inputs"], "selected_input")
     native_values = _elements(local["universe"], "native_value")
     value = native_values.c.value
@@ -205,17 +194,6 @@ def _binding_admission_native_routine(model):
             True,
         )
 
-    def identity_exists(owner, domain, key):
-        return (
-            select(identities.c.value)
-            .where(
-                identities.c.value["owner"].astext == owner,
-                identities.c.value["domain"].astext == domain,
-                identities.c.value["key"].astext == key,
-            )
-            .exists()
-        )
-
     steps: list[Statement] = [
         selected_row(demands, demands.c.id == p_demand, "demand"),
         selected_row(
@@ -239,48 +217,26 @@ def _binding_admission_native_routine(model):
             "native binding request custody differs",
         ),
         SelectInto(
-            select(
-                cast(func.convert_from(artifacts.c.content, "UTF8"), JSONB()),
-                func.encode(func.sha256(artifacts.c.content), "hex"),
-            ).where(
-                artifacts.c.release_id == demand("release_id"),
-                artifacts.c.artifact_name == "data_operations.json",
-            ),
-            ("archived", "archive_digest"),
-            True,
-        ),
-        SelectInto(
-            select(cast(func.convert_from(artifacts.c.content, "UTF8"), JSONB())).where(
-                artifacts.c.release_id == demand("release_id"),
-                artifacts.c.artifact_name == "data_operation_native_definitions.json",
-            ),
-            ("projection",),
-            True,
-        ),
-        check(
-            projection["model_digest"].astext.is_distinct_from(archive_digest),
-            "native binding artifact model correspondence differs",
-        ),
-        SelectInto(
-            select(operations.c.value).where(
-                operations.c.value["semantic_id"].astext == p_operation
-            ),
-            ("operation",),
-            True,
-        ),
-        SelectInto(
-            select(bindings.c.value["expression"]).where(
-                bindings.c.value["semantic_id"].astext == operation["binding"].astext
-            ),
-            ("expression",),
-            True,
-        ),
-        SelectInto(
-            select(projected_operations.c.value).where(
-                projected_operations.c.value["operation_id"].astext == p_operation
+            select(func.to_jsonb(definitions.table_valued())).where(
+                definitions.c.release_id == demand("release_id"),
+                definitions.c.operation_id == p_operation,
             ),
             ("compiled",),
             True,
+        ),
+        SelectInto(
+            select(func.jsonb_build_object("kinds", releases.c.binding_types)).where(
+                releases.c.release_id == demand("release_id"),
+            ),
+            ("binding_model",),
+            True,
+        ),
+        Assign("expression", compiled["binding_expression"]),
+        Assign(
+            "operation",
+            func.jsonb_build_object(
+                "parameters", func.jsonb_build_object("json", compiled["parameter_definitions"])
+            ),
         ),
         check(
             select(nodes.c.n)
@@ -302,67 +258,22 @@ def _binding_admission_native_routine(model):
             ("selection",),
             True,
         ),
-        Perform(func.ops.ddo_validate_parameters(operation, selection, archived)),
+        Perform(func.ops.ddo_validate_parameters(operation, selection, binding_model)),
         check(
             or_(
-                compiled["binding"].is_distinct_from(expression),
-                compiled["definition"].astext.is_distinct_from(selection["definition"].astext),
-                compiled["eligibility"].astext.is_distinct_from(selection["eligibility"].astext),
-                ~identity_exists(p_operation, "definition", compiled["definition"].astext),
-                ~identity_exists(p_operation, "eligibility", compiled["eligibility"].astext),
+                compiled["definition_identity"].astext.is_distinct_from(
+                    selection["definition"].astext
+                ),
+                compiled["eligibility_identity"].astext.is_distinct_from(
+                    selection["eligibility"].astext
+                ),
             ),
             "binding differs from authenticated frozen definition",
         ),
         check(
-            or_(
-                func.jsonb_array_length(compiled["input_roles"])
-                != select(func.count(roles.c.value["name"].astext.distinct())).scalar_subquery(),
-                func.jsonb_array_length(compiled["input_roles"])
-                != select(func.count())
-                .select_from(authored_roles)
-                .where(authored_roles.c.value["direction"].astext == "input")
-                .scalar_subquery(),
-            ),
-            "native artifact input role inventory differs from effective model",
-        ),
-        ForQuery(
-            ("roledef",),
-            select(roles.c.value),
-            (
-                SelectInto(
-                    select(authored_roles.c.value).where(
-                        authored_roles.c.value["direction"].astext == "input",
-                        authored_roles.c.value["name"].astext == roledef["name"].astext,
-                    ),
-                    ("authored_role",),
-                    True,
-                ),
-                check(
-                    or_(
-                        roledef.op("-")("kind_contract")
-                        .op("-")("identity_requirements")
-                        .op("-")("accepted_kind_contracts")
-                        .is_distinct_from(authored_role),
-                        ~select(definitions.c.operation_id)
-                        .select_from(definitions.join(known_roles, literal(True)))
-                        .where(
-                            definitions.c.release_id == demand("release_id"),
-                            definitions.c.operation_id == p_operation,
-                            known_roles.c.value == roledef,
-                        )
-                        .exists(),
-                        roledef["identity_requirements"].is_distinct_from(
-                            func.coalesce(
-                                authored_role["support"]["identity_requirements"], _json("[]")
-                            )
-                        ),
-                        ~identity_exists(
-                            authored_role["kind"].astext, "kind", roledef["kind_contract"].astext
-                        ),
-                    ),
-                    "native artifact role differs from effective model",
-                ),
-            ),
+            func.jsonb_array_length(compiled["input_roles"])
+            != select(func.count(roles.c.value["name"].astext.distinct())).scalar_subquery(),
+            "admitted input role inventory repeats a role",
         ),
         check(
             func.nullif(p_binding["read_id"].astext, "").is_(None),
@@ -651,7 +562,7 @@ def _binding_admission_native_routine(model):
     )
     context_fields = {
         "project_id": demand("project_id"),
-        "model": archived,
+        "model": binding_model,
         "roledefs": compiled["input_roles"],
         "roles": local["roles"],
         "states": local["states"],
@@ -850,10 +761,7 @@ def _binding_admission_native_routine(model):
                     )
                     for name in local_names
                 ),
-                *(
-                    Local(name, pg_type("text"))
-                    for name in ("archive_digest", "role", "state", "projection_mode")
-                ),
+                *(Local(name, pg_type("text")) for name in ("role", "state", "projection_mode")),
                 Local("inactive", pg_type_array()),
                 *(
                     Local(name, pg_type("bigint"))
