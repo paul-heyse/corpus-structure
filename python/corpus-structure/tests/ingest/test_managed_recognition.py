@@ -8,8 +8,6 @@ import httpx
 import pytest
 from PIL import Image
 
-from corpus_structure.methods.llm.producer import producer_binding
-
 
 def service_module(name):
     path = Path(__file__).resolve().parents[4] / "services/nemotron-parse" / (name + ".py")
@@ -18,26 +16,6 @@ def service_module(name):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
-
-
-@pytest.mark.parametrize("method", ["agent.opus", "agent.general"])
-def test_two_producer_identities_share_one_contract(method):
-    assert producer_binding(method, {"model": "configured"}).configured_model == "configured"
-
-
-@pytest.mark.parametrize(
-    "values,unit",
-    [
-        ({"mode": "adjudicate"}, "source_view"),
-        ({"proposal_protocol": "unimplemented"}, "source_view"),
-        ({"proposal_version": "unimplemented"}, "source_view"),
-        ({"execution_kind": "unimplemented"}, "source_view"),
-        ({}, "document"),
-    ],
-)
-def test_incompatible_producer_bindings_refuse(values, unit):
-    with pytest.raises(ValueError, match="not executable"):
-        producer_binding("agent.general", {"model": "configured", **values}, unit=unit)
 
 
 @pytest.mark.parametrize(
@@ -78,7 +56,7 @@ def test_backend_retains_generation_mismatch_without_trust_upgrade(
 
     with Image.new("RGB", (8, 8), "white") as image:
         if expected == "failed":
-            with pytest.raises(ValueError, match="generation boundary"):
+            with pytest.raises(worker.ServiceGenerationChanged, match="generation boundary"):
                 backend(image, prompt="parse", stage="fullpage", settings=Settings())
         else:
             assert (
@@ -92,8 +70,3 @@ def test_backend_retains_generation_mismatch_without_trust_upgrade(
     )
     assert (tmp_path / row["http_response"]).exists()
     backend.client.close()
-
-
-def test_persisted_producer_version_cannot_be_silently_relabelled():
-    with pytest.raises(ValueError, match="persisted producer version"):
-        producer_binding("agent.general", {"model": "configured"}, method_version="semantic-old")

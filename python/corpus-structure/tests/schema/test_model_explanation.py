@@ -139,68 +139,20 @@ def test_native_function_explanation_preserves_statement_boundaries_body_and_acl
     assert json.dumps(payload).encode() == raw
 
 
-@pytest.mark.parametrize("committed", [False, True])
-def test_baseline_retirement_is_captured_after_index_or_commit_deletion(tmp_path, committed):
-    import subprocess
-
+def test_generated_sql_comparison_reports_changed_added_and_removed_programs():
     from corpus_structure.schema.model_explanation import capture_sql_changes
 
-    def git(*args):
-        return (
-            subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True)
-            .stdout.decode()
-            .strip()
-        )
-
-    git("init")
-    git("config", "user.email", "fixture@example.invalid")
-    git("config", "user.name", "Fixture")
-    source = tmp_path / "domains/statistics/retired.sql"
-    source.parent.mkdir(parents=True)
-    source.write_text("SELECT 1")
-    git("add", ".")
-    git("commit", "-m", "original")
-    baseline = git("rev-parse", "HEAD")
-    git("rm", "domains/statistics/retired.sql")
-    if committed:
-        git("commit", "-m", "retire")
-    captured = capture_sql_changes(tmp_path, baseline, ("statistics",))
-    assert len(captured.changes) == 1
-    assert captured.changes[0].before is not None
-    assert captured.changes[0].before.text == "SELECT 1"
-    assert captured.changes[0].after is None
-
-
-def test_captured_sql_keeps_crlf_source_bytes_and_unchanged_identity(tmp_path):
-    import subprocess
-    from hashlib import sha256
-
-    from corpus_structure.schema.model_explanation import capture_sql_changes
-
-    def git(*args):
-        return (
-            subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True)
-            .stdout.decode()
-            .strip()
-        )
-
-    git("init")
-    git("config", "user.email", "fixture@example.invalid")
-    git("config", "user.name", "Fixture")
-    git("config", "core.autocrlf", "false")
-    path = tmp_path / "domains/statistics/line-ending.sql"
-    path.parent.mkdir(parents=True)
-    original, changed = b"SELECT 1;\r\n", b"SELECT 2;\r\n"
-    path.write_bytes(original)
-    git("add", ".")
-    git("commit", "-m", "CRLF source")
-    baseline = git("rev-parse", "HEAD")
-    assert not capture_sql_changes(tmp_path, baseline, ("statistics",)).changes
-    path.write_bytes(changed)
-    fact = capture_sql_changes(tmp_path, baseline, ("statistics",)).changes[0]
-    assert fact.before is not None and fact.after is not None
-    assert fact.before.text.encode() == original and fact.after.text.encode() == changed
-    assert fact.after.sha256 == sha256(changed).hexdigest()
+    before = {"data.changed()": "SELECT 1", "data.removed()": "SELECT 3"}
+    after = {"data.changed()": "SELECT 2", "data.added()": "SELECT 4"}
+    changes = {fact.identity: fact for fact in capture_sql_changes(before, after).changes}
+    assert set(changes) == {"data.changed()", "data.removed()", "data.added()"}
+    changed = changes["data.changed()"]
+    assert changed.before is not None and changed.after is not None
+    assert changed.before.text == "SELECT 1"
+    assert changed.after.text == "SELECT 2"
+    assert changes["data.removed()"].after is None
+    assert changes["data.added()"].before is None
+    assert not capture_sql_changes(before, dict(before)).changes
 
 
 def test_structural_edit_serialization_survives_process_identity_and_hash_seed():

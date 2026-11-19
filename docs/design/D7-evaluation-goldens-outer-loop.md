@@ -377,6 +377,9 @@ meaningful beyond the annotators' own agreement on that predicate.
 
 ## 3. Golden authoring protocol
 
+**Historical proposal.** UDM-19 retired the unused sampling, split and golden-set code and
+configuration under the operator’s decision. [Retirement evidence](../plans/unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#execution-evidence)
+
 ### 3.1 Units and sets
 
 A golden unit is one annotation unit (a `unit` segment, or a paragraph outside units) of a page,

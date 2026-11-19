@@ -1528,10 +1528,10 @@ def preview(
 
                 emit_unchanged_native(result, native_delta, json_=json_)
                 return
-            from corpus_structure.schema.model_explanation import capture_sql_changes
+            from corpus_structure.schema.model_explanation import ModelChangeExplanation
 
             with _retained_sql_explanation(
-                result, capture_sql_changes(root, bound.baseline, bound.packs)
+                result, ModelChangeExplanation(source_basis="model SQL generation pending")
             ) as sql_holder:
                 target = None
                 profile: DeploymentProfile = "development"
@@ -1707,6 +1707,13 @@ def preview(
                     else None,
                     release_artifacts_sha256=local.artifacts_sha256 if local is not None else None,
                 )
+                if staged.sql_explanation is not None:
+                    sql_holder[0] = sql_holder[0].model_copy(
+                        update={
+                            "source_basis": staged.sql_explanation.source_basis,
+                            "changes": (*sql_holder[0].changes, *staged.sql_explanation.changes),
+                        }
+                    )
                 if staged.effects.admission and bound.data_operations:
                     from corpus_structure.semantic.data_operation_runtime import (
                         prepare_data_operation_runtime,

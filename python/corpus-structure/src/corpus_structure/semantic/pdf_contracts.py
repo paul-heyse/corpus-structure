@@ -570,16 +570,3 @@ def store_pdf_original(
         recipe_bytes=recipe_bytes,
         projection_context=open_release(conn, context.release_id),
     )
-
-
-def pdf_shape_guard_sql() -> str:
-    """Native envelope/projection guards share the effective LinkML shape generator."""
-    from .native_shapes import record_shape_guards
-
-    return (
-        "IF product ? 'document_json' THEN RAISE EXCEPTION 'internal PDF field "
-        "supplied' USING ERRCODE='23514'; END IF;\nparsing_item := (product - "
-        "'document') || jsonb_build_object('document_json', "
-        "(product->'document')::text);\n"
-        + record_shape_guards(trusted_pdf_context().boundary, "PdfNativeEnvelope", "parsing_item")
-    )

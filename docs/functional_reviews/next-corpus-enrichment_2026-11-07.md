@@ -597,7 +597,7 @@ general analytics graph.
   SQL/equijoins and native alias blocks instead of checking every Python pair, while preserving
   exact population parity and source-supported recall. Extend the current `prediction_errors_from_labels_table` pilot usage into the
   protected pair review journey. Apply explicit unknown/unassessed and exposure handling, and
-  inspect equality at thresholds. [Artifact pilot](../../python/corpus-structure/src/corpus_structure/evaluate/artifact_pilot.py) · [Blocking analysis](https://moj-analytical-services.github.io/splink/api_docs/blocking_analysis.html) · [Evaluation](https://moj-analytical-services.github.io/splink/api_docs/evaluation.html)
+  inspect equality at thresholds. [Historical artifact pilot](../README.md#historical-recovery) · [Blocking analysis](https://moj-analytical-services.github.io/splink/api_docs/blocking_analysis.html) · [Evaluation](https://moj-analytical-services.github.io/splink/api_docs/evaluation.html)
 - **Navigate additional types of stranded evidence.** Extend the O08 projection for unlinked
   procedure inputs, unattached exceptions, eligible use with no selected definition, and a
   dependency path blocked at a specific endpoint. Scope each question to eligible source

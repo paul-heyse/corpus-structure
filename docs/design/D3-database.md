@@ -442,7 +442,10 @@ qualification, instance authority and consolidation ownership.
 
 > Decision: ADR-0138
 
-**Implemented target route (2026-10-29; scoped verification in the plan).**
+**Historical implemented route (2026-10-29; superseded migration history).** The current migration
+chain is `target_alembic/`. UDM-19 retired the former `semantic_alembic/` tree.
+[Current migration evidence](../plans/unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#execution-evidence)
+
 `model/semantic/physical.yaml` owns fixed `sem` and `data` relations. The explicit semantic target
 of `schema/relational.py` produces the shared `semantic.metadata.metadata`; candidate releases
 populate registry rows instead of constructing tables. `semantic_alembic` is an independent,

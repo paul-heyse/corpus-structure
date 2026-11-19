@@ -410,60 +410,35 @@ def sql_change(identity: str, before: str | None, after: str | None) -> SQLChang
     )
 
 
-def capture_sql_changes(root, baseline: str, packs=()) -> ModelChangeExplanation:
-    """Capture changed source text at preparation, never at later inspection."""
-    import re
-    import subprocess
-    from pathlib import Path
+def generated_sql_snapshot(model) -> dict[str, str]:
+    """Render native declarations under exactly one captured model."""
+    from corpus_structure.model.compiled import model_request_scope
+    from corpus_structure.semantic.target_installation import capture_target_installation
 
-    from corpus_structure.schema import preparation
+    def render():
+        with model_request_scope(model):
+            installation = capture_target_installation(model.physical())
+        result = {}
+        for program in (*installation.prerequisites, *installation.programs):
+            identity = program.identity
+            key = json.dumps(identity.payload(), sort_keys=True, separators=(",", ":"))
+            if key in result:
+                raise ValueError("generated SQL snapshot repeats a native identity")
+            result[key] = program.sql
+        return result
 
-    if any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]*", name) for name in packs):
-        raise ValueError("SQL explanation packs must be direct named domains")
-    prefix = preparation.PACKAGE_PATH / "semantic" / "sql"
-    roots = [str(prefix), *(str(Path("domains") / name) for name in packs)]
-    command = ["git", "-C", str(root)]
-    resolved = subprocess.run(
-        [*command, "rev-parse", "--verify", "--end-of-options", f"{baseline}^{{commit}}"],
-        capture_output=True,
-        check=False,
-    )
-    if resolved.returncode:
-        raise ValueError("SQL explanation baseline is unavailable")
-    baseline = resolved.stdout.decode().strip()
-    names = (
-        subprocess.run([*command, "ls-files", "-z", "--", *roots], capture_output=True, check=True)
-        .stdout.decode()
-        .split("\0")
-    )
-    names.extend(
-        subprocess.run(
-            [*command, "ls-tree", "-r", "--name-only", "-z", baseline, "--", *roots],
-            capture_output=True,
-            check=True,
-        )
-        .stdout.decode()
-        .split("\0")
-    )
-    names.extend(
-        str(path.relative_to(root))
-        for selected in roots
-        for path in (root / selected).rglob("*.sql")
-        if path.is_file() and path.resolve().is_relative_to(root)
-    )
-    changes = []
-    for name in sorted({n for n in names if n.endswith(".sql")}):
-        old = subprocess.run(
-            [*command, "show", f"{baseline}:{name}"], capture_output=True, check=False
-        )
-        before = old.stdout.decode() if old.returncode == 0 else None
-        path = root / name
-        after = path.read_bytes().decode("utf-8") if path.is_file() else None
-        if before != after:
-            changes.append(sql_change(name, before, after))
+    return render()
+
+
+def capture_sql_changes(before: dict[str, str], after: dict[str, str]) -> ModelChangeExplanation:
+    """Compare already captured generated SQL by its native object identity."""
     return ModelChangeExplanation(
-        source_basis=f"captured baseline {baseline}/worktree SQL at preparation",
-        changes=tuple(changes),
+        source_basis="generated native SQL from captured baseline and candidate models",
+        changes=tuple(
+            sql_change(identity, before.get(identity), after.get(identity))
+            for identity in sorted(before.keys() | after.keys())
+            if before.get(identity) != after.get(identity)
+        ),
     )
 
 

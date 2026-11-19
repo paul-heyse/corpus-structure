@@ -8,7 +8,6 @@ import pytest
 from corpus_structure.core.evidence import RenditionContent
 from corpus_structure.core.locators import LocatorIndex
 from corpus_structure.core.locators import parse as parse_locator
-from corpus_structure.evaluate.sampling import GoldenSetError, PoolUnit, sample
 from corpus_structure.semantic.analysis_policies import prepare_placement_policy
 from corpus_structure.semantic.proposals import ProposalFrame, ProposalSentence, locate_proposal
 from corpus_structure.semantic.regeneration import prepare_pack
@@ -93,17 +92,6 @@ def test_trace_reference_is_well_typed_and_independently_source_located(trace_so
             prepared, batch, frame, placement_policy=prepare_placement_policy()
         )
         assert located.clean, located.issues
-
-
-def test_explicit_forced_trace_sample_cannot_enlarge_its_selected_source_pool(trace_source):
-    batches, _ = trace_source
-    forced = {batch["unit_ref"] for batch in batches}
-    pool = [PoolUnit(key, "source", None) for key in forced]
-    with pytest.raises(GoldenSetError, match="forced units exceed"):
-        sample(pool, 1, 0, forced)
-    assert set(sample(pool, len(pool), 0, forced).units) == forced
-    with pytest.raises(GoldenSetError, match="forced units outside the pool"):
-        sample(pool, len(pool), 0, (*forced, "special/Gamma.html#dfn4"))
 
 
 def test_repeated_evaluation_rewrite_preserves_dated_qualification_and_exact_decimal():

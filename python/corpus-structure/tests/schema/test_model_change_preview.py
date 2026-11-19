@@ -59,6 +59,28 @@ def test_logical_model_change_compares_captures_without_revision(model_checkout)
     assert all("revisions.yaml" not in item for item in preview.inputs)
 
 
+def test_preview_retains_generated_decimal_guard_change(model_checkout):
+    root, location = model_checkout
+    path = location / "semantic" / "value-codec.yaml"
+    candidate = path.read_text().replace("16384", "16385")
+    preview = prepare_preview(
+        root,
+        ChangeRequest(
+            logical_sources=(
+                LogicalSourceEdit(path=path.relative_to(root).as_posix(), content=candidate),
+            )
+        ),
+    )
+    assert preview.sql_explanation is not None
+    decimal = next(
+        change
+        for change in preview.sql_explanation.changes
+        if json.loads(change.identity)["name"] == "decimal_canonical"
+    )
+    assert decimal.before is not None and decimal.after is not None
+    assert "16384" in decimal.before.text and "16385" in decimal.after.text
+
+
 def test_release_candidate_must_match_the_reviewed_release(model_checkout):
     from corpus_structure.semantic.types import PreparedArtifact, PreparedRelease
 
@@ -178,7 +200,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
 
     app = build_full_app()
     from corpus_structure.cli.output import CliState
-    from corpus_structure.schema import model_deployment
+    from corpus_structure.schema import model_change, model_deployment
     from corpus_structure.semantic import migrations
     from corpus_structure.semantic.storage_target import StorageTarget
 
@@ -191,6 +213,9 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     versions.mkdir(parents=True, exist_ok=True)
     (versions / "before.py").write_text('revision = "before"\ndown_revision = None\n')
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", migrations_dir)
+    # The routing fixture has no installed native catalog. Generated-statement
+    # comparison is exercised against captured models by the preview controls.
+    monkeypatch.setattr(model_change, "preview_native_delta", lambda *_args, **_kwargs: None)
     settings = Settings(
         database={"url": "postgresql://dev:private@localhost/development"},
         deployment={"url": "postgresql://prod:secret@localhost/approved-destination"},
@@ -253,8 +278,10 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         *,
         expected_predecessor,
         expected_target,
+        native_base,
         target_metadata,
         logical_sources,
+        reviewed_delta,
         retire,
         recreate,
         data_steps,
@@ -262,6 +289,7 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
         assert source.database.url == settings.database.url
         assert expected_predecessor == "before"
         assert expected_target == source_identity
+        assert native_base is None and reviewed_delta is None
         assert target_metadata.tables["data.project"].c.reviewed_fixture.nullable
         assert b"SourceValue:" in logical_sources["observations.yaml"]
         assert {item.name for item in retire} == {"retired_fixture"}

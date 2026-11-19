@@ -7,6 +7,10 @@ the sequence's content.
 
 ## 1. Layout
 
+**Historical phase 0 proposal.** The current migration chain is `target_alembic/`.
+The former migration trees and pack split configuration were retired.
+[UDM-19 execution evidence](../plans/unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#execution-evidence)
+
 The template gives a uv workspace root (`pyproject.toml`, product packages join as members) and
 a dormant Rust workspace (`crates/`). Product code is one Python package; domains are data plus
 verifier plug-ins.

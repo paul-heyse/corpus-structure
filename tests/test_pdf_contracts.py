@@ -8,7 +8,6 @@ import pytest
 from jsonschema.exceptions import ValidationError as JsonSchemaValidationError
 
 from corpus_structure.semantic.pdf_contracts import (
-    pdf_shape_guard_sql,
     prepare_pdf_product,
     require_pdf_coverage,
     trusted_pdf_context,
@@ -191,15 +190,6 @@ def test_equal_formulas_keep_distinct_occurrences(source, context):
     p["items"].append(second_projection)
     p["health"]["formula_outcomes"].append({"pointer": "#/texts/1", "outcome": "succeeded"})
     assert len(prepare_pdf_product(*source, context=context).values()["items"]) == 4
-
-
-def test_native_guard_derives_nested_fields_and_coverage_from_model(context):
-    sql = pdf_shape_guard_sql()
-    assert "display_coverage" in sql
-    assert "formula_outcomes" in sql
-    assert "region_index" in sql
-    assert "coord_origin" not in sql  # Application field is origin, not an untyped bbox.
-    assert "23514" in sql
 
 
 def test_complete_coverage_cannot_hide_unattributed_recognition(source, context):

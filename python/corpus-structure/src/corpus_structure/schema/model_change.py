@@ -30,6 +30,7 @@ from corpus_structure.schema.data_steps import (
     prepare_data_steps,
 )
 from corpus_structure.schema.declarations import ModelError
+from corpus_structure.schema.model_explanation import ModelChangeExplanation
 from corpus_structure.schema.physical import (
     PHYSICAL_ROOT,
     compile_physical,
@@ -238,6 +239,7 @@ class ChangePreview(BaseModel):
     effects: ChangeEffects
     comparison: dict | None = None
     model_comparison: CompiledModelComparison | None = None
+    sql_explanation: ModelChangeExplanation | None = None
     local_release: str | None = None
     release_manifest_sha256: str | None = None
     release_artifacts_sha256: str | None = None
@@ -615,10 +617,12 @@ def prepare_preview(
     model_paths = {
         path
         for path in _git(root, "ls-files", "-z", "--", str(_PHYSICAL_DIR)).split("\0")
-        if path.endswith(".yaml")
+        if path.endswith((".yaml", ".json"))
     }
     model_paths.update(
-        path.relative_to(root).as_posix() for path in (root / _PHYSICAL_DIR).glob("*.yaml")
+        path.relative_to(root).as_posix()
+        for path in (root / _PHYSICAL_DIR).iterdir()
+        if path.is_file() and path.suffix in {".yaml", ".json"}
     )
     original = {}
     for path in model_paths:
@@ -683,13 +687,31 @@ def prepare_preview(
 
     old, new = capture(original), capture(source)
     model_comparison = compare_compiled_models(old, new)
+    from corpus_structure.schema.model_explanation import (
+        capture_sql_changes,
+        generated_sql_snapshot,
+    )
+
+    if (
+        old.identity != new.identity
+        and PHYSICAL_ROOT in old.sources
+        and PHYSICAL_ROOT in new.sources
+    ):
+        before_sql = generated_sql_snapshot(old)
+        after_sql = generated_sql_snapshot(new)
+        sql_explanation = capture_sql_changes(before_sql, after_sql)
+    else:
+        sql_explanation = capture_sql_changes({}, {})
     changed = model_comparison.changes
     # Force both physical projections when the capture owns that contract. This
     # resolves imported ranges, structured constraints and vocabulary membership.
     if PHYSICAL_ROOT in new.sources:
         new.physical()
     for item in request.logical_sources:
-        new.view(Path(item.path).name)
+        if Path(item.path).suffix == ".yaml":
+            new.view(Path(item.path).name)
+        else:
+            json.loads(item.content)
     native = request.native_effect(native_delta)
     physical_edits = (
         any(
@@ -1088,6 +1110,7 @@ def prepare_preview(
         ),
         comparison=comparison,
         model_comparison=model_comparison,
+        sql_explanation=sql_explanation,
         local_release=local_release,
         release_manifest_sha256=release_manifest_sha256,
         release_artifacts_sha256=release_artifacts_sha256,

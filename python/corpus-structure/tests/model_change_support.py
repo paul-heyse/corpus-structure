@@ -14,7 +14,9 @@ def model_checkout(tmp_path):
     location.mkdir(parents=True)
     (location / "semantic").mkdir()
     semantic = Path(preparation.__file__).resolve().parents[1] / "model" / "semantic"
-    for source in semantic.glob("*.yaml"):
+    for source in semantic.iterdir():
+        if source.suffix not in {".yaml", ".json"}:
+            continue
         (location / "semantic" / source.name).write_bytes(source.read_bytes())
     from corpus_structure.semantic.migrations import ALEMBIC_DIR
 

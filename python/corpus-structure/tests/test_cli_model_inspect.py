@@ -669,14 +669,9 @@ def test_real_preview_refusal_publishes_inspectable_original_sql(model_results, 
 
 def test_sql_publication_failure_cannot_settle_preview_passed(model_results, monkeypatch):
     from corpus_structure.cli import recipes
-    from corpus_structure.schema import model_change, model_explanation
+    from corpus_structure.schema import model_change
 
     monkeypatch.setattr(recipes, "checkout", lambda ctx: Path(__file__).parents[3])
-    monkeypatch.setattr(
-        model_explanation,
-        "capture_sql_changes",
-        lambda *args: model_explanation.ModelChangeExplanation(source_basis="captured"),
-    )
     monkeypatch.setattr(model_change, "prepare_preview", lambda *args, **kwargs: _preview())
     publish = model._publish_sql_explanation
     calls = 0
