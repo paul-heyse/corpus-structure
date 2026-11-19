@@ -14,7 +14,6 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.data_operation_demands import RootSubject
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import (
-    MODEL_VERSION,
     BoundRoleMember,
     ResolvedOperationBinding,
     ResolvedRoleBinding,
@@ -22,6 +21,7 @@ from corpus_structure.semantic.data_operation_model import (
 )
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.data_operation_values import semantic_value
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import SourceArtifact
 

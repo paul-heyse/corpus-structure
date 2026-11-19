@@ -26,13 +26,13 @@ from corpus_structure.semantic.data_operation_cpu_basis import (
 )
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import (
-    MODEL_VERSION,
     BoundRoleMember,
     ExternalExecutorContract,
     ResolvedRoleBinding,
     SubjectContext,
 )
 from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.external_extraction import (
     execute_rich_kernel,
     external_extraction_assets,

@@ -33,7 +33,7 @@ def data_operation_dependencies(
         declaration_sources,
     )
 
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
 
     if any(item.name.startswith(_PREFIX) for item in dependencies.artifacts):
         raise ValueError(
@@ -115,7 +115,7 @@ def data_operation_dependencies(
 
 def read_data_operation_inputs(dependencies: ResolvedDependencies):
     """Decode the closed captured manifest without imports or source discovery."""
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     artifacts = [

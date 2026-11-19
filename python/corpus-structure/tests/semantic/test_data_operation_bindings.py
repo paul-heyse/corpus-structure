@@ -20,7 +20,6 @@ from corpus_structure.semantic.data_operation_bindings import (
 )
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_model import (
-    MODEL_VERSION,
     BindingExpression,
     BindingField,
     BindingOperand,
@@ -44,6 +43,7 @@ from corpus_structure.semantic.data_operation_model import (
 )
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 from corpus_structure.semantic.types import SourceArtifact

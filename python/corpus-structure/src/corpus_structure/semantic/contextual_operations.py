@@ -137,7 +137,7 @@ def contextual_numerical_asset(numerical_policy=None):
 
 def contextual_operation_declarations():
     from .contextual_neighborhood import NeighborhoodNumericalPolicy
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
 
     return SourceArtifact(

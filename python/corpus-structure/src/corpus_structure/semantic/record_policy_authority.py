@@ -244,7 +244,7 @@ def check_record_policy_application(
 
 def record_policy_kind_declarations():
     """One closed nominal owner for the public contract and its nested values."""
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
     from .types import SourceArtifact
 

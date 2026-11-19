@@ -107,16 +107,13 @@ def test_prepared_batch_uses_one_actual_owned_cpu_reply_for_all_controlled_membe
     from corpus_structure.semantic.data_operation_admission import PreparedCapabilityIdentity
     from corpus_structure.semantic.data_operation_bindings import BindingResult
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-    from corpus_structure.semantic.data_operation_model import (
-        MODEL_VERSION,
-        BoundRoleMember,
-        ResolvedRoleBinding,
-    )
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding
     from corpus_structure.semantic.data_operation_ports import (
         PythonBatchMember,
         PythonRoleValue,
         python_port_identity,
     )
+    from corpus_structure.semantic.data_operation_version import MODEL_VERSION
     from semantic.data_operation_port_support import scope
     from semantic.prepared_batch_control import controlled_sources, resolve_controlled_port
 

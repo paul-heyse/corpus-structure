@@ -32,12 +32,9 @@ from corpus_structure.semantic.data_operation_bindings import (
     BindingResult,
     BindingStatus,
 )
-from corpus_structure.semantic.data_operation_model import (
-    MODEL_VERSION,
-    BoundRoleMember,
-    ResolvedRoleBinding,
-)
+from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 from test_preparation import preparation_fixture

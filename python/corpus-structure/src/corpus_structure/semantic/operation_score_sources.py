@@ -7,7 +7,7 @@ import sys
 from importlib.metadata import version
 from pathlib import Path
 
-from .data_operation_model import MODEL_VERSION
+from .data_operation_version import MODEL_VERSION
 from .identity import canonical_bytes
 from .nominal_schema_kinds import nominal_schema_kinds
 from .operation_policy import (

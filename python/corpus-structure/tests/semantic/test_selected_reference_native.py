@@ -7,12 +7,13 @@ import pytest
 
 from corpus_structure.evaluate.selected_references import author_selected_references
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION, SubjectContext
+from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_service import (
     NativeDemandRequest,
     execute_data_demand,
 )
 from corpus_structure.semantic.data_operation_support import authored_fact_selection
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
 from corpus_structure.semantic.observations import source_value
 from semantic.data_operation_declaration_support import source_declaration

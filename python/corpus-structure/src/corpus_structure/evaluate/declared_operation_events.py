@@ -60,7 +60,7 @@ _PATHS = (
 def operation_event_kind_declarations():
     from pydantic import BaseModel
 
-    from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+    from corpus_structure.semantic.data_operation_version import MODEL_VERSION
     from corpus_structure.semantic.nominal_schema_kinds import nominal_schema_kinds
     from corpus_structure.semantic.types import SourceArtifact
 

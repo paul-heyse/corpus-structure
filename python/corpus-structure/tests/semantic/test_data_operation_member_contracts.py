@@ -6,11 +6,11 @@ import pytest
 
 from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
 from corpus_structure.semantic.data_operation_model import (
-    MODEL_VERSION,
     EffectiveDataOperationModel,
     EffectiveKind,
     SemanticEdge,
 )
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import PreparationError
 

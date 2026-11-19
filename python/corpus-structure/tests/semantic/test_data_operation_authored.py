@@ -19,12 +19,13 @@ from corpus_structure.semantic.data_operation_compilation import (
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
 )
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION, SubjectContext
+from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_support import (
     AuthoredFactSupportReference,
     authored_fact_selection,
 )
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import PreparationError
 from semantic.data_operation_declaration_support import (

@@ -67,7 +67,7 @@ class _AnalysisKinds(BaseModel):
 
 @lru_cache(maxsize=1)
 def math_analysis_declarations():
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
 
     return SourceArtifact(

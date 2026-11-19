@@ -438,7 +438,7 @@ def current_admission_fields(
     inputs: NativeAuthoringInputs | None = None, *, target_metadata: MetaData | None = None
 ) -> dict:
     """Model-owned admission fields; immutable predecessors own unchanged native programs."""
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
     from .identity import canonical_bytes
 
     if target_metadata is None:

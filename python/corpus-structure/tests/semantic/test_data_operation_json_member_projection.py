@@ -10,9 +10,9 @@ from pydantic import BaseModel, ConfigDict
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_json import DdoJsonValue, json_loads
 from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION
 from corpus_structure.semantic.data_operation_ports import PortRefusal, project_product_members
 from corpus_structure.semantic.data_operation_storage import data_operation_definition_projection
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.nominal_schema_kinds import nominal_schema_kinds
 from corpus_structure.semantic.types import PreparationError, SourceArtifact

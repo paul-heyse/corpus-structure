@@ -17,7 +17,8 @@ from typing import Any
 from pydantic import TypeAdapter
 
 from .data_operation_json import json_bytes
-from .data_operation_model import MODEL_VERSION, ResolvedRoleBinding
+from .data_operation_model import ResolvedRoleBinding
+from .data_operation_version import MODEL_VERSION
 from .declared_structural_references import (
     DeclaredContributionRef,
     DeclaredStructuralSource,

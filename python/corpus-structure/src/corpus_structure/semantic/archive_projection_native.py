@@ -17,7 +17,7 @@ from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 
 from corpus_structure.schema.integrity import role_name
 
-from .data_operation_model import MODEL_VERSION
+from .data_operation_version import MODEL_VERSION
 from .native_objects import INTERNAL_PROGRAM, native_sql_script
 from .native_program import (
     Block,

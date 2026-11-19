@@ -151,7 +151,8 @@ def external_extraction_operation_sources():
 
 def rich_external_declarations(protocol):
     """One authored external actor/protocol, with no central agent/method registry."""
-    from .data_operation_model import MODEL_VERSION, ExternalExecutorContract
+    from .data_operation_model import ExternalExecutorContract
+    from .data_operation_version import MODEL_VERSION
 
     if not isinstance(protocol, ExternalExecutorContract):
         raise TypeError("rich extraction requires its explicit authored external contract")

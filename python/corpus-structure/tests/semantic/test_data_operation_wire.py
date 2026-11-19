@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.data_operation_wire import (
     KIND_PREFIX,
     ExactJSONValue,

@@ -143,7 +143,7 @@ def rich_knowledge_schema_inputs(
     Policy/terminology composition may already have occurred over captured inputs;
     this stage preserves those dependencies and does not recapture domain rules.
     """
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
     from .external_extraction import external_extraction_inputs
     from .observations import prepare_source_inputs
     from .reading_resolution_products import reading_resolution_inputs

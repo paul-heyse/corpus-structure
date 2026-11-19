@@ -84,7 +84,7 @@ classes:
         ),
         binding=dict(operator="all", children=[]),
     )
-    from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+    from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 
     declaration = SourceArtifact(
         "operations", canonical_bytes(dict(version=MODEL_VERSION, operations=[operation]))

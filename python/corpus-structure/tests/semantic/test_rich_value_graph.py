@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.rich_knowledge_contracts import (

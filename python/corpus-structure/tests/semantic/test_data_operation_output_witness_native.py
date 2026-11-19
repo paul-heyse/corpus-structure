@@ -14,9 +14,10 @@ from corpus_structure.semantic._data_operation_wire import (
     WireRetainDataCompletionIntentRequest,
 )
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION, json_context_meaning
+from corpus_structure.semantic.data_operation_model import json_context_meaning
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_values import semantic_value
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.data_operation_binding_support import discover
 from semantic.data_operation_demand_support import claim, publish

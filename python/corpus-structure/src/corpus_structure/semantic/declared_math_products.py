@@ -18,7 +18,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from .constructions.math_scope import Binders, NativeDomainRule
-from .data_operation_model import MODEL_VERSION, ResolvedRoleBinding
+from .data_operation_model import ResolvedRoleBinding
+from .data_operation_version import MODEL_VERSION
 from .declared_record_sources import DeclaredNativeFrameSource
 from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes

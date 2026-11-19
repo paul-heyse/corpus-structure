@@ -14,7 +14,6 @@ from corpus_structure.semantic.data_operation_consumers import (
 from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.data_operation_jsonb import json_context_value
 from corpus_structure.semantic.data_operation_model import (
-    MODEL_VERSION,
     BoundRoleMember,
     ResolvedRoleBinding,
     SubjectContext,
@@ -26,6 +25,7 @@ from corpus_structure.semantic.data_operation_support import (
     support_reference_records,
 )
 from corpus_structure.semantic.data_operation_values import semantic_value
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 
 
 def _member(**changes):

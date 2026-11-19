@@ -15,8 +15,8 @@ from sqlalchemy import Engine
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
 from corpus_structure.semantic.cpu_execution import release_capsule
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION
 from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
 

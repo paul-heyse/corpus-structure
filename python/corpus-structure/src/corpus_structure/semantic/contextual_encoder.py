@@ -110,7 +110,7 @@ def contextual_encoder_custody(selection):
 
 
 def contextual_encoder_declarations():
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
 
     return SourceArtifact(

@@ -13,9 +13,7 @@ from corpus_structure.semantic.data_operation_compilation import (
     compile_data_operations,
     project_operation_binding,
 )
-from corpus_structure.semantic.data_operation_model import (
-    MODEL_VERSION,
-)
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.python_operation_sources import (

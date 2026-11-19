@@ -38,10 +38,7 @@ from .identity import canonical_bytes
 from .input_values import _untrusted_value
 from .operation_value_types import decode_json_text, native_result_scope
 from .python_operation_sources import PythonSourceCollection
-from .types import (
-    SourceArtifact,
-    SourceBundle,
-)
+from .types import SourceArtifact, SourceBundle
 
 # Trusted references are captured once rather than reread from a mutable namespace
 # during invocation. Only consumed names participate in callable authentication.
@@ -1071,7 +1068,7 @@ def python_port_identity(
     """Prepare a correspondence statically; no import and no execution permission."""
     from dataclasses import asdict
 
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
 
     if model.version != MODEL_VERSION:
         raise PortRefusal("historical model cannot authorize a current Python port")

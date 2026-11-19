@@ -197,7 +197,7 @@ def test_current_archive_requires_explicit_nullable_fact_even_when_false(field_n
 def test_nominal_parameter_keeps_required_nullable_field_in_body_and_meaning_schemas():
     from corpus_structure.semantic.data_operation_bindings import effective_binding_parameters
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-    from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+    from corpus_structure.semantic.data_operation_version import MODEL_VERSION
     from semantic.data_operation_declaration_support import PARAMETER
     from semantic.data_operation_declaration_support import declaration as build_declaration
 

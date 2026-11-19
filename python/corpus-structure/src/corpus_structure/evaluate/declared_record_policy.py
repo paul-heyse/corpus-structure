@@ -804,7 +804,7 @@ class DdoProtectedRecordPolicyContracts(FrozenContract):
 
 
 def protected_record_policy_kind_declarations():
-    from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+    from corpus_structure.semantic.data_operation_version import MODEL_VERSION
     from corpus_structure.semantic.nominal_schema_kinds import nominal_schema_kinds
     from corpus_structure.semantic.types import SourceArtifact
 

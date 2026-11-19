@@ -13,7 +13,8 @@ from hashlib import sha256
 from typing import Any
 
 from .data_operation_bindings import BindingResult
-from .data_operation_model import MODEL_VERSION, BoundRoleMember, ResolvedRoleBinding
+from .data_operation_model import BoundRoleMember, ResolvedRoleBinding
+from .data_operation_version import MODEL_VERSION
 from .python_module_projection import admitted_operation_module_digest
 
 

@@ -19,12 +19,10 @@ from .data_operation_support import (
     OriginalSourceSupportReference,
     SupportReference,
 )
+from .data_operation_version import MODEL_VERSION
 from .identity import canonical_bytes
 from .selected_support import ProducerOutputOccurrence
 from .types import Diagnostic
-
-MODEL_VERSION = "data-operation-model-v9"
-
 
 SubjectScope = Literal[
     "original-source", "original-document", "selected-source-set", "project", "invocation"

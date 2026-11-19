@@ -16,7 +16,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from corpus_structure.schema.integrity import role_name
 
 from .data_operation_json import json_bytes
-from .data_operation_model import MODEL_VERSION
+from .data_operation_version import MODEL_VERSION
 from .identity import canonical_bytes
 from .native_call_contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType
 from .types import SourceArtifact

@@ -7,7 +7,7 @@ from jsonschema import Draft7Validator
 from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.nominal_schema_kinds import nominal_schema_kinds
 from corpus_structure.semantic.types import PreparationError, SourceArtifact

@@ -24,15 +24,13 @@ from corpus_structure.semantic.data_operation_admission import (
     admit_data_operation_release,
     bound_data_operation_model,
 )
-from corpus_structure.semantic.data_operation_model import (
-    MODEL_VERSION,
-    EffectiveDataOperationModel,
-)
+from corpus_structure.semantic.data_operation_model import EffectiveDataOperationModel
 from corpus_structure.semantic.data_operation_preparation import prepare_data_operation_inputs
 from corpus_structure.semantic.data_operation_runtime import (
     RuntimeBinding,
     prepare_data_operation_runtime,
 )
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import persist_release

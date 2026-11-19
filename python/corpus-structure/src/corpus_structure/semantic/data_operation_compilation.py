@@ -25,7 +25,6 @@ from corpus_structure.schema.operation_declarations import (
 
 from .data_operation_json import json_loads, scope_identity, wire_json_loads
 from .data_operation_model import (
-    MODEL_VERSION,
     BindingExpression,
     BindingField,
     BindingOperand,
@@ -63,6 +62,7 @@ from .data_operation_model import (
     validate_subject_context,
     validate_subject_source,
 )
+from .data_operation_version import MODEL_VERSION
 from .data_operation_wire import checked_json_schema, json_schema_category
 from .identity import canonical_bytes
 from .python_operation_sources import ClosedPythonSources, PythonSourceCollection

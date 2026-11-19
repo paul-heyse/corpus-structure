@@ -36,7 +36,7 @@ def effective_nominal_kind_declarations(model):
     """
     import json
 
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
     from .identity import canonical_bytes
     from .types import SourceArtifact
 

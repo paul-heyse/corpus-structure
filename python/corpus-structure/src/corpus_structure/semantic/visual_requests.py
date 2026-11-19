@@ -44,7 +44,7 @@ def visual_external_declaration():
         chandra_recognition_identity,
     )
 
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
 
     root = Path(__file__).parents[1] / "model/semantic"
     image_fields = tuple(

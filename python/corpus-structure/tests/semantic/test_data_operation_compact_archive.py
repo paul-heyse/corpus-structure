@@ -11,10 +11,10 @@ from corpus_structure.semantic.data_operation_identity import (
     kind_fingerprint,
 )
 from corpus_structure.semantic.data_operation_model import (
-    MODEL_VERSION,
     EffectiveIdentity,
     read_effective_data_operations,
 )
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
 from semantic.data_operation_declaration_support import contract

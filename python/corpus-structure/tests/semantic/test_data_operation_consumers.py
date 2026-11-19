@@ -6,12 +6,9 @@ import pytest
 
 from corpus_structure.semantic.data_operation_bindings import BindingResult
 from corpus_structure.semantic.data_operation_consumers import BoundConsumerSelection
-from corpus_structure.semantic.data_operation_model import (
-    MODEL_VERSION,
-    BoundRoleMember,
-    ResolvedRoleBinding,
-)
+from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 
 
 def retained(operation):

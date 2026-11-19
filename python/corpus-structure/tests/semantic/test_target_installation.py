@@ -290,7 +290,7 @@ def test_generated_projection_guard_rejects_legacy_kind_after_current_baseline(
     from sqlalchemy.schema import CreateTable
 
     from corpus_structure.semantic.archive_projection_native import execution_projection_check_sql
-    from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+    from corpus_structure.semantic.data_operation_version import MODEL_VERSION
     from corpus_structure.semantic.types import SEMANTIC_COMPILER_VERSION
 
     connection = infrastructure_rollback

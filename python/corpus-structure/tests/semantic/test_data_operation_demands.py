@@ -19,7 +19,8 @@ from corpus_structure.semantic.data_operation_demands import (
     RootSubject,
     freeze_demand,
 )
-from corpus_structure.semantic.data_operation_model import MODEL_VERSION, SubjectContext
+from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.data_operation_declaration_support import model, operation
 

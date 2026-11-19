@@ -42,7 +42,6 @@ from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_jsonb import ContextJSONB, json_context_equal
 from .data_operation_kind_refinements import input_kind_contracts
 from .data_operation_model import (
-    MODEL_VERSION,
     BindingExpression,
     BindingOperand,
     BoundRoleMember,
@@ -60,6 +59,7 @@ from .data_operation_source_sets import (
     source_sets_record,
 )
 from .data_operation_values import decode_semantic_value, semantic_value
+from .data_operation_version import MODEL_VERSION
 from .identity import canonical_bytes
 from .selected_support import ProducerOutputOccurrence
 
@@ -1058,9 +1058,7 @@ def compile_binding(
             )
         else:
             selected_relation = (
-                joined_relation(optional_join_filters, (name,))
-                if independent_roles
-                else relation
+                joined_relation(optional_join_filters, (name,)) if independent_roles else relation
             )
             query = (
                 select(*query_columns)

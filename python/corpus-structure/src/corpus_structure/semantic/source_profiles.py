@@ -139,7 +139,7 @@ def source_profile_numerical_asset():
 
 
 def source_profile_declarations():
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
     from .identity import canonical_bytes
     from .nominal_schema_kinds import nominal_schema_kinds
     from .source_profile_numerics import SourceRatioNumericalPolicy

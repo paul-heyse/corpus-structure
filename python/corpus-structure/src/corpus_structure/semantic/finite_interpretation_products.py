@@ -87,7 +87,7 @@ def finite_interpretation_assets():
 
 
 def finite_interpretation_declarations():
-    from .data_operation_model import MODEL_VERSION
+    from .data_operation_version import MODEL_VERSION
     from .nominal_schema_kinds import nominal_schema_kinds
     from .record_interpretation import FiniteNumericalPolicy
 

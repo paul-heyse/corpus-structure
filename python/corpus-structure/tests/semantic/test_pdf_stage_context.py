@@ -101,7 +101,7 @@ def _unapproved_pdf_preparation_recipe():
     from dataclasses import replace
 
     from corpus_structure.semantic.data_operation_json import json_bytes
-    from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+    from corpus_structure.semantic.data_operation_version import MODEL_VERSION
     from semantic.data_operation_declaration_support import source_declaration
     from semantic.data_operation_kernel_support import STORAGE
 
