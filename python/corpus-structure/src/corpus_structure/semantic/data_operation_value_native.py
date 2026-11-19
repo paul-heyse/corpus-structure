@@ -22,7 +22,13 @@ from sqlalchemy import (
     or_,
     select,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, DOUBLE_PRECISION, JSONB, aggregate_order_by
+from sqlalchemy.dialects.postgresql import (
+    ARRAY,
+    DOUBLE_PRECISION,
+    JSONB,
+    JSONPATH,
+    aggregate_order_by,
+)
 
 from .data_operation_identity import ENCODING_VERSION
 from .data_operation_values import CollectionValue, OptionalValue
@@ -75,6 +81,16 @@ def canonical_identity_programs(*, decimal_digits: int):
 
     array_json = enclosed(
         "[", func.data.canonical_json(elements.c.value), elements.c.ordinal, elements, "]"
+    )
+    # Tagged values are arrays with scalar leaves. JSONB already emits their
+    # scalar text and array order, so only separators outside strings differ.
+    # Arrays containing objects retain the ordered traversal for their keys.
+    nested_objects = cast(literal('strict $.** ? (@.type() == "object")'), JSONPATH())
+    compact_array = func.regexp_replace(
+        cast(value, Text()).collate("C"), r'("(?:[^"\\]|\\.)*")|[[:space:]]+', r"\1", "g"
+    )
+    array_json = case(
+        (func.jsonb_path_exists(value, nested_objects), array_json), else_=compact_array
     )
     object_json = enclosed(
         "{",

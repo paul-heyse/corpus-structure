@@ -138,3 +138,24 @@ def test_json_subject_context_encoding_matches_literals_and_python(native_rollba
             {"value": json_bytes(context.record).decode()},
         ).scalar_one()
         assert actual == semantic_value(context.identity_record)
+
+
+@pytest.mark.db
+def test_current_canonical_json_preserves_array_text_and_nested_object_order(native_rollback):
+    from corpus_structure.semantic.data_operation_value_native import canonical_identity_programs
+    from semantic.native_program_support import routine_declaration
+
+    connection = native_rollback.connection
+    canonical, _ = canonical_identity_programs(decimal_digits=128)
+    connection.exec_driver_sql(
+        routine_declaration(canonical.routine.render(), "data", "canonical_json")
+    )
+    query = text("SELECT pg_temp.canonical_json(CAST(:value AS jsonb))")
+    value = [" a\t b\n ", 'quote " with slash \\', "雪 Ω\u00a0", []]
+    vectors = (
+        (json.dumps(value), json.dumps(value, ensure_ascii=False, separators=(",", ":"))),
+        ("[1.00, 1.20, [], true, null]", "[1.00,1.20,[],true,null]"),
+        ('[[{"z": [], "aa": " spaced "}]]', '[[{"aa":" spaced ","z":[]}]]'),
+    )
+    for payload, expected in vectors:
+        assert connection.scalar(query, {"value": payload}) == expected

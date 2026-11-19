@@ -7,6 +7,7 @@ from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_runtime import prepare_data_operation_runtime
 from corpus_structure.semantic.hanlp_products import (
     hanlp_execution_custody,
+    hanlp_profile_assets,
     hanlp_provider_asset,
 )
 from corpus_structure.semantic.prepare import prepare_release
@@ -25,6 +26,7 @@ def inputs(directory: Path, *, runtime: str, adapter: str = "pm2-native-1"):
             (),
             boundary_contracts=(
                 hanlp_provider_asset(selection),
+                hanlp_profile_assets(selection),
                 hanlp_execution_custody(selection),
             ),
         ),
