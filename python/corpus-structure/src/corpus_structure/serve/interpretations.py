@@ -110,8 +110,8 @@ def group_selected_interpretations(
                 "corpus_structure.semantic.grouped_interpretation_projection.grouped_interpretation_rows",
                 "corpus_structure.semantic.selected_contribution_input.SelectedContributionScope.products",
                 "corpus_structure.semantic.selected_pages.byte_bounded_page",
-                "corpus_structure.semantic.selected_pages.encode_cursor",
-                "corpus_structure.semantic.selected_pages.decode_cursor",
+                "corpus_structure.semantic.continuation_codec.encode_cursor",
+                "corpus_structure.semantic.continuation_codec.decode_cursor",
             ),
         ) as implementation:
             return _group_selected_interpretations(connection, request, implementation)

@@ -284,6 +284,16 @@ def capture_code_identity(
                 return candidate
         return None
 
+    # Determining callables may be declared independently of an import from the
+    # acquisition entry module (for example a shared paginator or report owner).
+    # Their own modules must be captured rather than relying on incidental imports.
+    for reference in callables:
+        owner = reference
+        while owner and path_for(owner) is None:
+            owner = owner.rpartition(".")[0]
+        if owner:
+            pending.add(owner)
+
     while pending:
         name = min(pending)
         pending.remove(name)

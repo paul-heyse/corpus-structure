@@ -43,6 +43,22 @@ def test_dynamic_import_reports_incomplete_without_import_or_exception(tmp_path)
     ]
 
 
+def test_explicit_callable_owner_is_discovered_without_an_incidental_import(tmp_path):
+    root = package(tmp_path)
+    (root / "entry.py").write_text("def result():\n return 7\n")
+    (root / "report.py").write_text("def envelope():\n return 11\n")
+    entries = ("example.entry",)
+    callables = ("example.entry.result", "example.report.envelope")
+    first = capture_code_identity(root, entries, callables=callables)
+    assert first.complete
+    assert "example.report" in {item.module for item in first.determining_modules}
+    (root / "report.py").write_text("def envelope():\n return 12\n")
+    assert capture_code_identity(root, entries, callables=callables).digest != first.digest
+    (root / "report.py").unlink()
+    missing = capture_code_identity(root, entries, callables=callables)
+    assert not missing.complete and missing.digest is None
+
+
 def test_type_checking_import_is_not_required_at_execution(tmp_path):
     root = package(tmp_path)
     (root / "entry.py").write_text(

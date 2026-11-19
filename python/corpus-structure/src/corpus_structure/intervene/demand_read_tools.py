@@ -8,9 +8,9 @@ from typing import Literal
 from fastmcp import Context
 from pydantic import BaseModel
 
+from corpus_structure.semantic.continuation_codec import decode_cursor as _decode
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
-from corpus_structure.semantic.selected_pages import decode_cursor as _decode
 from corpus_structure.serve.characterization import (
     DemandCharacterizationRequest,
     DemandDefinitionRequest,

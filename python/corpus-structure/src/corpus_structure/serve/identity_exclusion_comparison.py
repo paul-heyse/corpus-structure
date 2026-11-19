@@ -5,6 +5,8 @@ from hashlib import sha256
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from corpus_structure.semantic.continuation_codec import decode_rich_cursor
+from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity_exclusion_comparison import (
@@ -14,8 +16,7 @@ from corpus_structure.semantic.identity_exclusion_comparison import (
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.semantic.selected_contribution_input import RICH_NAMESPACE
-from corpus_structure.semantic.selected_pages import byte_bounded_page, decode_rich_cursor
-from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
+from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.serving_identity import installed_read_implementation
 
 from .contribution_facets import ContributionFacetsRequest
@@ -116,8 +117,8 @@ def compare_selected_exclusions(connection, request: ExclusionComparisonRequest)
                 "corpus_structure.semantic.selected_contribution_input.SelectedContributionScope.products",
                 "corpus_structure.semantic.selected_contribution_input.SelectedContributionScope.graph",
                 "corpus_structure.semantic.selected_pages.byte_bounded_page",
-                "corpus_structure.semantic.selected_pages.encode_cursor",
-                "corpus_structure.semantic.selected_pages.decode_rich_cursor",
+                "corpus_structure.semantic.continuation_codec.encode_cursor",
+                "corpus_structure.semantic.continuation_codec.decode_rich_cursor",
             ),
         ) as implementation:
             return _compare(connection, request, implementation)

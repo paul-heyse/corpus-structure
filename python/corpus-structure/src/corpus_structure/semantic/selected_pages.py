@@ -1,37 +1,6 @@
 """Semantic continuation encoding and exact response-envelope pagination."""
 
-import base64
-
-from .data_operation_json import json_bytes, json_loads, wire_json_loads
-from .refusals import InvalidContinuation
-
-_SEPARATOR = len(json_bytes([0, 0])) - 2 * len(json_bytes(0)) - 2
-
-
-def encode_cursor(value):
-    encoded = base64.urlsafe_b64encode(json_bytes(value)).decode()
-    if len(encoded) > 32768:
-        raise ValueError("selected cursor exceeds the supported encoded bound")
-    return encoded
-
-
-def decode_cursor(value):
-    try:
-        return wire_json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
-    except (ValueError, TypeError) as error:
-        raise ValueError("invalid selected-result cursor") from error
-
-
-def decode_rich_cursor(value: str) -> dict:
-    try:
-        parsed = json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
-    except (ValueError, TypeError) as error:
-        raise InvalidContinuation(
-            "invalid rich query cursor", reason="invalid_continuation"
-        ) from error
-    if not isinstance(parsed, dict):
-        raise InvalidContinuation("invalid rich query cursor", reason="invalid_continuation")
-    return parsed
+from .data_operation_json import json_bytes
 
 
 def byte_bounded_page(rows, *, offset, limit, max_bytes, report, row_fields=None):
@@ -42,6 +11,7 @@ def byte_bounded_page(rows, *, offset, limit, max_bytes, report, row_fields=None
     """
     from .serving_code import serving_report
 
+    separator = len(json_bytes([0, 0])) - 2 * len(json_bytes(0)) - 2
     original_report = report
 
     def report(end, values, more):
@@ -77,13 +47,13 @@ def byte_bounded_page(rows, *, offset, limit, max_bytes, report, row_fields=None
         dynamic = {key: value for key, value in candidate.items() if key in dynamic_names}
         dynamic.update({name: [] for name in fields})
         row_width = sum(
-            next_widths[name] + _SEPARATOR * max(0, next_counts[name] - 1) for name in fields
+            next_widths[name] + separator * max(0, next_counts[name] - 1) for name in fields
         )
         width = (
             static_width
             + len(json_bytes(dynamic))
             - 2
-            + (_SEPARATOR if static and dynamic else 0)
+            + (separator if static and dynamic else 0)
             + row_width
         )
         if width > max_bytes:

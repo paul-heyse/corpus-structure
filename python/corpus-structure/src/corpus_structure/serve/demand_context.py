@@ -10,6 +10,7 @@ from corpus_structure.methods.contextual_query import (
     DeclaredQueryContextSelection,
     resolve_query_contexts,
 )
+from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
@@ -23,7 +24,6 @@ from corpus_structure.semantic.declared_record_sources import (
     DeclaredRecordSource,
 )
 from corpus_structure.semantic.demand_results import selected_record_index
-from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
 from corpus_structure.semantic.source_contexts import PreparedNativeSources
 
 

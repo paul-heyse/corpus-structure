@@ -8,11 +8,11 @@ import pytest
 from fastmcp import Client
 from sqlalchemy import create_engine
 
+from corpus_structure.semantic.continuation_codec import decode_cursor as _decode
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.demand_results import CutSelection, DemandResult
-from corpus_structure.semantic.selected_pages import decode_cursor as _decode
 from semantic.demand_result_support import demand_result_page
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
 
@@ -111,8 +111,8 @@ def test_waiting_and_completed_empty_operations_do_not_claim_absence(monkeypatch
 
 def test_actual_main_mcp_read_and_resource_use_same_owner_and_exact_json(monkeypatch):
     from corpus_structure.intervene.server import build_server
+    from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
     from corpus_structure.semantic.data_operation_external import ExternalDataSession
-    from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
 
     engine = create_engine("sqlite://")
     request = DemandQueryRequest(demand_id="demand:A", project_id="project:A", max_bytes=8192)

@@ -15,14 +15,10 @@ from corpus_structure.evaluate.selected_references import (
     evaluate_selected_references,
 )
 from corpus_structure.intervene.mcp_results import bounded_mcp_result
+from corpus_structure.semantic.continuation_codec import decode_cursor as _decode
+from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.refusals import tool_refusals
-from corpus_structure.semantic.selected_pages import (
-    decode_cursor as _decode,
-)
-from corpus_structure.semantic.selected_pages import (
-    encode_cursor as _cursor,
-)
 from corpus_structure.settings import Settings
 
 

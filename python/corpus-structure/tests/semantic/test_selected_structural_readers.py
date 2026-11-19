@@ -96,8 +96,8 @@ def test_dossier_pages_preserve_full_membership_and_exact_citations(dossier):
 def test_selected_dossier_cursor_rejects_foreign_read_population_and_membership(
     monkeypatch, dossier
 ):
-    from corpus_structure.semantic.selected_pages import decode_rich_cursor
-    from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
+    from corpus_structure.semantic.continuation_codec import decode_rich_cursor
+    from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 
     selected = SimpleNamespace()
     scope = SimpleNamespace(

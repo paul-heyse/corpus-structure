@@ -4,12 +4,13 @@ from hashlib import sha256
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from corpus_structure.semantic.continuation_codec import decode_rich_cursor
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.semantic.selected_contribution_projection import contribution_rows
-from corpus_structure.semantic.selected_pages import byte_bounded_page, decode_rich_cursor
+from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.serving_identity import installed_read_implementation
 
 from .selected_contributions import selected_contribution_scope
@@ -71,8 +72,8 @@ def serve_contribution_facets(connection, request: ContributionFacetsRequest):
                 "corpus_structure.semantic.selected_contribution_input.SelectedContributionScope.products",
                 "corpus_structure.semantic.selected_contribution_input.SelectedContributionScope.graph",
                 "corpus_structure.semantic.selected_pages.byte_bounded_page",
-                "corpus_structure.semantic.selected_pages.encode_cursor",
-                "corpus_structure.semantic.selected_pages.decode_rich_cursor",
+                "corpus_structure.semantic.continuation_codec.encode_cursor",
+                "corpus_structure.semantic.continuation_codec.decode_rich_cursor",
             ),
         ) as implementation:
             return _serve(connection, request, implementation)
@@ -81,7 +82,7 @@ def serve_contribution_facets(connection, request: ContributionFacetsRequest):
 
 
 def _serve(connection, request, implementation):
-    from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
+    from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 
     digest = sha256(json_bytes(semantic_value(request.selection()))).hexdigest()
     if request.implementation is not None and request.implementation != implementation:

@@ -146,8 +146,8 @@ def inspect_selected_dossier(conn, request: SelectedDossierRequest):
 
 
 def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementation):
-    from corpus_structure.semantic.selected_pages import decode_rich_cursor
-    from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
+    from corpus_structure.semantic.continuation_codec import decode_rich_cursor
+    from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 
     cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
     if cursor is not None:

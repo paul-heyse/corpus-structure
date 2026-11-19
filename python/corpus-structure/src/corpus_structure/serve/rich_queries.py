@@ -8,6 +8,8 @@ from hashlib import sha256
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from corpus_structure.semantic.continuation_codec import decode_rich_cursor
+from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
@@ -22,8 +24,7 @@ from corpus_structure.semantic.rich_query_projection import (
     prepare_rich_query,
     rich_query_metadata,
 )
-from corpus_structure.semantic.selected_pages import byte_bounded_page, decode_rich_cursor
-from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
+from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.selected_query_cache import (
     SELECTED_QUERY_CACHE,
     bounded_rows,
@@ -49,8 +50,8 @@ def rich_query_implementation(query):
             "corpus_structure.semantic.rich_query_projection.derive_rich_query_rows",
             "corpus_structure.semantic.rich_query_projection.rich_query_metadata",
             "corpus_structure.semantic.selected_pages.byte_bounded_page",
-            "corpus_structure.semantic.selected_pages.encode_cursor",
-            "corpus_structure.semantic.selected_pages.decode_rich_cursor",
+            "corpus_structure.semantic.continuation_codec.encode_cursor",
+            "corpus_structure.semantic.continuation_codec.decode_rich_cursor",
         ),
     ) as identity:
         yield identity

@@ -5,11 +5,11 @@ from typing import Literal
 from fastmcp import Context
 from pydantic import BaseModel, Field, ValidationError
 
+from corpus_structure.semantic.continuation_codec import decode_rich_cursor
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_results import SelectedGraphBudgetExceeded
 from corpus_structure.semantic.refusals import InvalidContinuation, tool_refusals
 from corpus_structure.semantic.rich_queries import RichQueryRefused
-from corpus_structure.semantic.selected_pages import decode_rich_cursor
 from corpus_structure.serve.contribution_facets import (
     ContributionFacetsRequest,
     serve_contribution_facets,

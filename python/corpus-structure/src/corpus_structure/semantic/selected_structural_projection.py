@@ -13,8 +13,8 @@ STRUCTURAL_QUERY_ROOTS = (
     "corpus_structure.semantic.selected_structural_projection.dossier_rows",
     "corpus_structure.semantic.selected_structural_projection.producer",
     "corpus_structure.semantic.selected_pages.byte_bounded_page",
-    "corpus_structure.semantic.selected_pages.encode_cursor",
-    "corpus_structure.semantic.selected_pages.decode_rich_cursor",
+    "corpus_structure.semantic.continuation_codec.encode_cursor",
+    "corpus_structure.semantic.continuation_codec.decode_rich_cursor",
 )
 
 

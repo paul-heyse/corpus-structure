@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastmcp import Context
 
+from corpus_structure.semantic.continuation_codec import decode_rich_cursor
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.refusals import tool_refusals
-from corpus_structure.semantic.selected_pages import decode_rich_cursor
 from corpus_structure.serve.rich_queries import (
     RichQueryRequest,
     serve_rich_query,

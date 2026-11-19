@@ -1,8 +1,20 @@
 """Deterministic selected-member projection over an already acquired native page."""
 
-from collections.abc import Mapping
+from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass
+
+from .data_operation_json import json_loads, wire_json_loads
 from .data_operation_values import decode_semantic_value, semantic_value
+
+
+@dataclass(frozen=True)
+class DemandQueryProjectionInputs:
+    """Owned native wire bytes and the already validated semantic query selection."""
+
+    native: bytes
+    selection: bytes
 
 
 def selected_members(page: dict) -> tuple[dict, ...]:
@@ -60,8 +72,10 @@ def selected_members(page: dict) -> tuple[dict, ...]:
     return tuple(occurrences)
 
 
-def selected_query_rows(native: dict, request):
-    if request.view == "operations":
+def selected_query_rows(inputs: DemandQueryProjectionInputs):
+    native: dict = wire_json_loads(inputs.native)
+    selection: dict = json_loads(inputs.selection)
+    if selection["view"] == "operations":
         rows = (
             dict(
                 obligation=obligation,
@@ -73,13 +87,13 @@ def selected_query_rows(native: dict, request):
             )
             for obligation in native["obligations"]
         )
-    elif request.view in {"sources", "support"}:
+    elif selection["view"] in {"sources", "support"}:
         rows = (
             row
             for row in native["support_page"]["records"]
-            if request.view == "support" or row["relation"] == "ops.original_source_admission"
+            if selection["view"] == "support" or row["relation"] == "ops.original_source_admission"
         )
-    elif request.view == "coverage":
+    elif selection["view"] == "coverage":
         rows = (
             dict(
                 product_id=row["product_id"],
@@ -96,20 +110,23 @@ def selected_query_rows(native: dict, request):
         )
     else:
         rows = selected_members(native)
-    filters = dict(kind_contract=request.kind_contract, member_id=request.member_id)
-    if request.view in {"members", "coverage"}:
-        filters["product_id"] = request.product_id
+    filters = dict(kind_contract=selection["kind_contract"], member_id=selection["member_id"])
+    if selection["view"] in {"members", "coverage"}:
+        filters["product_id"] = selection["product_id"]
     for row in rows:
         body = row.get("body", row.get("coverage"))
         if (
-            (not request.containers_only or row.get("member_id") is None)
+            (not selection["containers_only"] or row.get("member_id") is None)
             and (
-                request.record_type is None
-                or (isinstance(body, Mapping) and body.get("record_type") == request.record_type)
+                selection["record_type"] is None
+                or (
+                    isinstance(body, Mapping)
+                    and body.get("record_type") == selection["record_type"]
+                )
             )
             and (
-                request.family is None
-                or (isinstance(body, Mapping) and body.get("family") == request.family)
+                selection["family"] is None
+                or (isinstance(body, Mapping) and body.get("family") == selection["family"])
             )
             and all(value is None or row.get(key) == value for key, value in filters.items())
         ):

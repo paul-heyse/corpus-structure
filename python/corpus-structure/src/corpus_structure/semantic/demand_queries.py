@@ -10,8 +10,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.demand_results import read_demand_result
 
-from .demand_query_projection import selected_query_rows
-from .selected_pages import byte_bounded_page, decode_cursor, encode_cursor
+from .continuation_codec import decode_cursor, encode_cursor
+from .demand_page_report import DemandPageReport
+from .demand_query_projection import DemandQueryProjectionInputs, selected_query_rows
+from .selected_pages import byte_bounded_page
 
 DemandView = Literal["members", "operations", "sources", "support", "coverage"]
 
@@ -50,9 +52,10 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
         profile="demand-query-v2",
         callables=(
             "corpus_structure.semantic.demand_query_projection.selected_query_rows",
+            "corpus_structure.semantic.demand_page_report.DemandPageReport.render",
             "corpus_structure.semantic.selected_pages.byte_bounded_page",
-            "corpus_structure.semantic.selected_pages.encode_cursor",
-            "corpus_structure.semantic.selected_pages.decode_cursor",
+            "corpus_structure.semantic.continuation_codec.encode_cursor",
+            "corpus_structure.semantic.continuation_codec.decode_cursor",
         ),
     ) as implementation:
         return _serve_demand_query(connection, request, implementation)
@@ -67,7 +70,8 @@ def _serve_demand_query(connection, request, implementation):
     )
 
     selection = request.selection()
-    digest = sha256(json_bytes(selection)).hexdigest()
+    selection_content = json_bytes(selection)
+    digest = sha256(selection_content).hexdigest()
     cursor = None if request.cursor is None else decode_cursor(request.cursor)
     if cursor is not None and (
         not isinstance(cursor, dict)
@@ -161,12 +165,20 @@ def _serve_demand_query(connection, request, implementation):
                     scope=scope,
                     view="products",
                 )
-                entry, remaining = bounded_rows(selected_query_rows(whole.record, request), {})
+                entry, remaining = bounded_rows(
+                    selected_query_rows(
+                        DemandQueryProjectionInputs(whole.content, selection_content)
+                    ),
+                    {},
+                )
                 if entry is not None:
                     SELECTED_QUERY_CACHE.put(key, entry)
         rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
     else:
-        rows = uncached_rows_from(selected_query_rows(page.record, request), offset)
+        rows = uncached_rows_from(
+            selected_query_rows(DemandQueryProjectionInputs(page.content, selection_content)),
+            offset,
+        )
     uses = [
         {
             **use,
@@ -205,28 +217,23 @@ def _serve_demand_query(connection, request, implementation):
             )
         )
 
-    def report(end, values, more):
-        if more:
-            continuation = token_for(current_request, end)
-        elif native_view == "support" and native["support_page"]["after"] is not None:
-            continuation = token_for(
-                dict(current_request, support_after=native["support_page"]["after"]), 0
-            )
-        else:
-            continuation = token_for(page.continuation, 0)
-        return dict(
+    following_cursor = (
+        token_for(dict(current_request, support_after=native["support_page"]["after"]), 0)
+        if native_view == "support" and native["support_page"]["after"] is not None
+        else token_for(page.continuation, 0)
+    )
+    current_cursor = token_for(current_request, 0)
+    assert current_cursor is not None
+    report = DemandPageReport(
+        header=dict(
             version="demand-query-v2",
             implementation=implementation,
             cut_id=page.cut.identity,
             cut=page.cut.record,
             selection=selection,
-            items=values,
             obligations=native["obligations"],
             uses=uses,
             populations=native["populations"],
-            knowledge="observed" if values else "unknown",
-            continuation=continuation,
-            page_complete=continuation is None,
             resource_handle=encode_cursor(
                 dict(
                     selection,
@@ -235,11 +242,18 @@ def _serve_demand_query(connection, request, implementation):
                     cursor=token_for(current_request, offset),
                 )
             ),
-        )
+        ),
+        current_cursor=decode_cursor(current_cursor),
+        following_cursor=following_cursor,
+    )
 
     try:
         return byte_bounded_page(
-            rows, offset=offset, limit=request.limit, max_bytes=request.max_bytes, report=report
+            rows,
+            offset=offset,
+            limit=request.limit,
+            max_bytes=request.max_bytes,
+            report=report.render,
         )
     finally:
         if remaining is not None:

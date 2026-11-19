@@ -13,7 +13,7 @@ from corpus_structure.cli import selected_results as cli_adapter
 from corpus_structure.cli.app import build_full_app
 from corpus_structure.intervene import contribution_facet_tools
 from corpus_structure.intervene.semantic_server import build_retained_reader_server
-from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
+from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 from corpus_structure.serve import contribution_facets
 
 app = build_full_app()
