@@ -60,8 +60,8 @@ def primary_operation_targets(
 def primary_operation_inputs(
     bundle: SourceBundle,
     *,
-    sentence_configuration,
-    hanlp_selection,
+    sentence_configuration=None,
+    hanlp_selection=None,
     dependencies: ResolvedDependencies | None = None,
     capture_sources: PythonSourceCollection | None = None,
     pdf_organization_sources: PythonSourceCollection | None = None,

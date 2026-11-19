@@ -201,10 +201,21 @@ class ClaimOwner:
             raise AssertionError("unreachable settlement state")
 
 
-def _deadlines(conn, database, *, statement_timeout_seconds: float):
+def _deadlines(
+    conn,
+    database,
+    *,
+    statement_timeout_seconds: float,
+    lock_timeout_seconds: float | None = None,
+):
     for setting, seconds in (
         ("statement_timeout", statement_timeout_seconds),
-        ("lock_timeout", database.renewal_lock_timeout_seconds),
+        (
+            "lock_timeout",
+            database.renewal_lock_timeout_seconds
+            if lock_timeout_seconds is None
+            else lock_timeout_seconds,
+        ),
     ):
         conn.execute(
             select(func.pg_catalog.set_config(setting, f"{max(1, int(seconds * 1000))}ms", True))

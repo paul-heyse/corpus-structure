@@ -68,6 +68,7 @@ class DatabaseSettings(_Section):
     cancel_request_timeout_seconds: float = Field(default=5.0, gt=0)
     renewal_statement_timeout_seconds: float = Field(default=10.0, gt=0)
     completion_statement_timeout_seconds: float = Field(default=120.0, gt=0, allow_inf_nan=False)
+    binding_statement_timeout_seconds: float = Field(default=120.0, gt=0, allow_inf_nan=False)
     renewal_lock_timeout_seconds: float = Field(default=5.0, gt=0)
 
     @model_validator(mode="after")

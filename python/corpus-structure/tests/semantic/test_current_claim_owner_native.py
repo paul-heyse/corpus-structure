@@ -146,15 +146,15 @@ def test_selected_cut_allows_lease_renewal_but_still_fences_revocation(ddo_kerne
         cut = DataOperationStorage(reader).read_demand_result(
             cast(WireReadDemandResultRequest, {"demand_id": demand["demand_id"], "limit": 1})
         )
+        expected_scope = reader.scalar(text("SELECT ops.ddo_scope('ddo-test','source:test')"))
+        assert cut["trust_snapshot"] == {expected_scope: 0}
         with ddo_kernel["engine"].begin() as renewal:
             renewal.exec_driver_sql("SET LOCAL lock_timeout='500ms'")
             renewed = DataOperationStorage(renewal).renew_data_request(
                 cast(WireRenewDataRequestRequest, {**fence, "lease_seconds": 120})
             )
         assert renewed["state"] == "renewed"
-        assert {key: value for key, value in renewed["trust_snapshot"].items() if value} == cut[
-            "trust_snapshot"
-        ]
+        assert renewed["trust_snapshot"] == cut["trust_snapshot"]
         # Withdrawal must wait for the actual selected-cut trust locks.
         with pytest.raises(DBAPIError) as blocked, ddo_kernel["engine"].begin() as revoker:
             revoker.exec_driver_sql("SET LOCAL lock_timeout='100ms'")

@@ -17,6 +17,7 @@ from typing import Any, Literal, cast
 from sqlalchemy import (
     Boolean,
     Integer,
+    Interval,
     Text,
     and_,
     false,
@@ -1017,25 +1018,26 @@ def compile_binding(
                 "membership",
             } and all(row_term(descendant) for descendant in selected_children(child))
 
-        if node.operator in {"cardinality", "collection", "covers"}:
+        if node.operator in {"scan", "cardinality", "collection", "covers"}:
             return not node.children
         names = referenced_roles(node)
         if not names:
             return row_term(node)
         if node.operator != "optional" or len(names) != 1:
             return False
-        return all(row_term(child) for child in selected_children(node))
+        return nullable(roles[next(iter(names))]) and all(
+            row_term(child) for child in selected_children(node)
+        )
 
-    independent_optional = (
-        expression.operator == "all"
+    independent_roles = (
+        expression.operator in {"all", "scan"}
         and not negative_roles
-        and all(nullable(roles[name]) for name in aliases)
         and all(independent_optional_term(child) for child in selected_children(expression))
     )
-    # Independent optional bundles always admit the anchor's empty row. Their
-    # role-local filters can select each population directly, without forming
-    # every combination merely to project DISTINCT members afterward.
-    relation = anchor if independent_optional else joined_relation(optional_join_filters)
+    # Independent role populations do not require their cartesian product.
+    # Each role's cardinality/coverage checks establish required membership,
+    # while optional predicates stay in that role's local join condition.
+    relation = anchor if independent_roles else joined_relation(optional_join_filters)
     queries = []
     selected_relations = {}
     for name, alias in aliases.items():
@@ -1057,7 +1059,7 @@ def compile_binding(
         else:
             selected_relation = (
                 joined_relation(optional_join_filters, (name,))
-                if independent_optional
+                if independent_roles
                 else relation
             )
             query = (
@@ -1073,7 +1075,7 @@ def compile_binding(
             query = query.order_by(selected.c.position)
         queries.append((name, query))
     checks = []
-    if independent_optional:
+    if independent_roles:
         null_comparisons: list[ColumnElement[bool]] = [condition.is_(None)]
         null_comparisons.extend(
             select(literal(1)).select_from(joined_relation({}, (name,))).where(unknown).exists()
@@ -1681,6 +1683,46 @@ def binding_statement(compiled: CompiledBinding) -> Select | None:
 
 
 def execute_binding(connection, compiled: CompiledBinding) -> BindingResult:
+    """Read a binding under its finite policy while preserving the caller's deadline."""
+    from corpus_structure.settings import DatabaseSettings
+
+    from .claim_lifetime import _deadlines
+
+    database = getattr(connection.engine, "_corpus_database_settings", None) or DatabaseSettings()
+    with connection.begin_nested():
+        previous = connection.execute(
+            select(
+                func.current_setting("statement_timeout"),
+                func.current_setting("lock_timeout"),
+                func.extract(
+                    "epoch", sql_cast(func.current_setting("statement_timeout"), Interval())
+                ),
+                func.extract("epoch", sql_cast(func.current_setting("lock_timeout"), Interval())),
+            )
+        ).one()
+        _deadlines(
+            connection,
+            database,
+            statement_timeout_seconds=min(
+                database.binding_statement_timeout_seconds,
+                float(previous[2]) or database.binding_statement_timeout_seconds,
+            ),
+            lock_timeout_seconds=min(
+                database.renewal_lock_timeout_seconds,
+                float(previous[3]) or database.renewal_lock_timeout_seconds,
+            ),
+        )
+        result = _execute_binding(connection, compiled)
+        connection.execute(
+            select(
+                func.set_config("statement_timeout", previous[0], True),
+                func.set_config("lock_timeout", previous[1], True),
+            )
+        )
+        return result
+
+
+def _execute_binding(connection, compiled: CompiledBinding) -> BindingResult:
     """Read all SQL selections/checks in one caller-pinned native statement."""
     statement = binding_statement(compiled)
     rows: dict[str, list[Mapping[str, Any]]] = {name: [] for name, _ in compiled.queries}

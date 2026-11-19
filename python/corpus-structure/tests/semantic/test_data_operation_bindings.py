@@ -219,6 +219,34 @@ def field(name="value", role="items"):
     return BindingOperand("field", "integer", BindingField(role, "urn:item", name))
 
 
+def test_independent_required_roles_preserve_available_members_when_one_is_missing(storage):
+    connection, _table, projection = storage
+    names = tuple("role" + str(index) for index in range(8))
+    target = model(BindingExpression("scan", roles=names), names=names)
+    operation = target.operations[0]
+    target = replace(
+        target,
+        operations=(
+            replace(
+                operation,
+                roles=(
+                    *operation.roles[:-1],
+                    replace(operation.roles[-1], subject_field="base"),
+                ),
+            ),
+        ),
+    )
+    result = execute_binding(
+        connection, compile_binding(target, "urn:op", (projection,), subject="doc")
+    )
+    assert result.status == "awaiting-inputs"
+    assert [len(role.members) for role in result.roles] == [3] * 7 + [0]
+    assert all(
+        {member.product for member in role.members} == {"p1", "p2", "p3"}
+        for role in result.roles[:-1]
+    )
+
+
 def test_declared_abstract_input_accepts_transitive_concrete_kinds_without_relabeling(storage):
     connection, table, projection = storage
     base = model(BindingExpression("scan", roles=("items",)))
@@ -2363,7 +2391,8 @@ def test_binding_transport_preserves_exact_context_checks_and_empty_role(storage
         result = execute_binding(connection, compiled)
     finally:
         event.remove(connection, "before_cursor_execute", executed)
-    assert len(statements) == 1
+    # Deadline/savepoint control stays outside the one member/check transport.
+    assert len([statement for statement in statements if " AS binding_output" in statement]) == 1
     assert result.status == "unknown"
     assert {reason.code for reason in result.reasons} == {"false-control", "null-control"}
     assert result.roles[1].members == ()
