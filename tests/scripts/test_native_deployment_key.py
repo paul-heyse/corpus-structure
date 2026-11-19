@@ -167,7 +167,6 @@ def test_real_chain_closure_contains_known_direct_machinery():
         "alembic_privileges.py",
     } <= selected
     assert {"metadata.py", "relational.py"}.isdisjoint(selected)
-    assert not any("semantic_alembic/" in name for name, _ in components["chain"])
     construction = {Path(name).name for name, _ in components["construction"]}
     assert {"native_deployment_build.py", "extensions.py", "migrations.py"} <= construction
     assert "native_test_support.py" not in construction

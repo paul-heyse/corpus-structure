@@ -68,15 +68,11 @@ docs/design_review/evidence/2026-11-03_ac14-acceptance/**/*.log filter=lfs diff=
 docs/design_review/evidence/2026-11-03_ac14-acceptance/**/attempt-*/** filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-03_ac14-acceptance/native*/candidate-*/* filter=lfs diff=lfs merge=lfs -text
 # Hash-bound generated native DDL retains the original compiler bytes.
-python/corpus-structure/semantic_alembic/versions/semantic_m1_admission_20261104_physical.sql filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-05_pce-structural-products/native_candidate_*/** filter=lfs diff=lfs merge=lfs -text
-python/corpus-structure/semantic_alembic/versions/semantic_pce_structure_20261105_* filter=lfs diff=lfs merge=lfs -text
-python/corpus-structure/semantic_alembic/versions/semantic_pce_exposure_20261105_* filter=lfs diff=lfs merge=lfs -text
 # WCE native authoring and parallel diagnostic outputs preserve exact raw bytes.
 docs/design_review/evidence/2026-11-06_wce-contracts/*.log filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce-contracts/*.json filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce-contracts/native-candidate*/** filter=lfs diff=lfs merge=lfs -text
-python/corpus-structure/semantic_alembic/versions/semantic_wce_* filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-06_wce-contracts/*.jsonl filter=lfs diff=lfs merge=lfs -text
 # Frozen WCE source intake, candidate captures and protected-reference receipts.
 docs/design_review/evidence/2026-11-06_wce-candidate-foundation/candidates*/** filter=lfs diff=lfs merge=lfs -text
@@ -113,17 +109,12 @@ docs/design_review/evidence/2026-11-06_wce-gs120/current-contextual-journey/cont
 docs/design_review/evidence/2026-11-06_wce-gs120/assessment/protected-current/native[0-9]*/review-bundle/** filter=lfs diff=lfs merge=lfs -text
 
 # Frozen WCE relation-lineage native transition.
-python/corpus-structure/semantic_alembic/versions/semantic_wce_lineage_20261107_* filter=lfs diff=lfs merge=lfs -text
 
 # Exact external terminology source/projection bytes.
 domains/statistics/terminology/sources/*.owl filter=lfs diff=lfs merge=lfs -text
 domains/statistics/terminology/sources/*.obo filter=lfs diff=lfs merge=lfs -text
 domains/statistics/terminology/sources/*-valuesets-0.4.2.yaml filter=lfs diff=lfs merge=lfs -text
-python/corpus-structure/semantic_alembic/versions/semantic_dmc_terminology_* filter=lfs diff=lfs merge=lfs -text
 
-python/corpus-structure/semantic_alembic/versions/semantic_dmc_interpretations_* filter=lfs diff=lfs merge=lfs -text
-python/corpus-structure/semantic_alembic/versions/semantic_dmc_unit_references_* filter=lfs diff=lfs merge=lfs -text
-python/corpus-structure/semantic_alembic/versions/semantic_dmc_digest_binding_* filter=lfs diff=lfs merge=lfs -text
 
 # Frozen source-only TC-10 reference packets and native execution reports.
 docs/design_review/evidence/2026-11-11_text-characterization-assessment/panel/*.json filter=lfs diff=lfs merge=lfs -text
@@ -134,14 +125,7 @@ docs/design_review/evidence/2026-11-11_text-characterization-assessment/task-pan
 docs/design_review/evidence/2026-11-11_text-characterization-assessment/output-panel/**/*.json filter=lfs diff=lfs merge=lfs -text
 
 # Frozen BEP native capacity authoring outputs retain their exact compiler bytes.
-python/corpus-structure/semantic_alembic/versions/semantic_bep_capacity_* filter=lfs diff=lfs merge=lfs -text
-python/corpus-structure/semantic_alembic/versions/semantic_bep_inventory_* filter=lfs diff=lfs merge=lfs -text
-python/corpus-structure/semantic_alembic/versions/semantic_tc_primary_gpu_* filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-11_bep-layer-capacity/*summary.json filter=lfs diff=lfs merge=lfs -text
-python/corpus-structure/semantic_alembic/versions/semantic_tc_choice_assessment_* filter=lfs diff=lfs merge=lfs -text
-python/corpus-structure/semantic_alembic/versions/semantic_bep_located_v2_* filter=lfs diff=lfs merge=lfs -text
 # Frozen qualification source packets and non-answer submission receipts.
 docs/design_review/evidence/2026-11-12_bep-tc-qualification/choice-source-panel/**/*.json filter=lfs diff=lfs merge=lfs -text
 docs/design_review/evidence/2026-11-12_bep-tc-qualification/choice-source-panel/**/*.stderr filter=lfs diff=lfs merge=lfs -text
-
-python/corpus-structure/semantic_alembic/versions/semantic_ddo_kernel_v1_* filter=lfs diff=lfs merge=lfs -text

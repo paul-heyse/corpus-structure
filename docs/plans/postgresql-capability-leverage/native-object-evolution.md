@@ -49,7 +49,7 @@ these public application contracts:
 | Comparison, rendering and execution | [alembic_native.py](../../../python/corpus-structure/src/corpus_structure/semantic/alembic_native.py): Plugin `corpus.semantic.native`, `compare_native`, and frozen payload-v1 `NativeTransitionOp`; rendered directives call `op.native_transition`. |
 | Recurring candidate and predecessor | [native_candidate.py (historical)](../../README.md#historical-recovery): `prepare_series_candidate`, `current_native_state`, `load_native_state` and `candidate_admission_sql`. Predecessors come from the revision's digest-bound native-state file or an explicit state file, never live catalog adoption; the bounded 0065 source fallback remains explicit. |
 | Operator authoring | [schema.py](../../../python/corpus-structure/src/corpus_structure/cli/schema.py): `ci schema native-candidate --authoring-database … --out … [--predecessor-state …]` writes `native_candidate.py`, `native_operations.json` and `native_admission.sql` after rollback. It requires a separate owned database and new output directory; it does not deploy or advance revision history. `ci schema derive` remains a foundation preview. |
-| Frozen realization | [0066](../../../python/corpus-structure/semantic_alembic/versions/0066_postgresql_capability_leverage.py), revision/head `semantic_pg_20261101`, binds ten native objects and admission SQL by digest, executes frozen operations once, and independently admits the desired state on the caller's Connection. The execution ABI is 18. Downgrade refuses before effects. |
+| Frozen realization | `semantic_alembic/versions/0066_postgresql_capability_leverage.py` ([historical source](../../README.md#historical-recovery)), revision/head `semantic_pg_20261101`, binds ten native objects and admission SQL by digest, executes frozen operations once, and independently admits the desired state on the caller's Connection. The execution ABI is 18. Downgrade refuses before effects. |
 | Source-qualified syntax | [prepared_sql.py](../../../python/corpus-structure/src/corpus_structure/semantic/prepared_sql.py): `prepare_sql`, `PreparedSQL`, `SQLSyntaxError`; [native_inventory.py](../../../python/corpus-structure/src/corpus_structure/semantic/native_inventory.py) shares this route with current inventory, authored-SQL admission and native function-body consumers. |
 
 The frozen ten-object set contains the native record shape and context reader, the companion-pin
@@ -77,7 +77,7 @@ Their existence does not transfer unfinished PDF obligations into this series.
 
 - [Semantic migrations](../../../python/corpus-structure/src/corpus_structure/semantic/migrations.py)
   supply `Config.attributes['connection']`; `upgrade` runs on the caller's transaction.
-  [env.py](../../../python/corpus-structure/semantic_alembic/env.py) configures shared metadata,
+  `semantic_alembic/env.py` ([historical source](../../README.md#historical-recovery)) configures shared metadata,
   schema filtering, CHECK/default plugins and `on_version_apply`.
 - [Native products](../../../python/corpus-structure/src/corpus_structure/semantic/native_products.py)
   compile Core DDL, assemble semantic SQL and inspect functions/grants/triggers for expected
