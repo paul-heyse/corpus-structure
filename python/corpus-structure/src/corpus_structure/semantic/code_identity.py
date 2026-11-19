@@ -44,6 +44,7 @@ class CodeBoundary:
 _GENERATED_INTERFACES = ("dataclasses-runtime",)
 _STANDARD_REFERENCES = {
     "dataclasses.dataclass": dataclasses.dataclass,
+    "dataclasses.field": dataclasses.field,
     "typing.Any": typing.Any,
     "typing.Literal": typing.Literal,
 }
@@ -788,6 +789,27 @@ def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSynt
             return False
         return True
 
+    def field_value(expression):
+        if not isinstance(expression, ast.Call):
+            return not isinstance(expression, ast.Name) and literal(expression)
+        if (
+            not isinstance(expression.func, ast.Name)
+            or scanner.package_names.get(expression.func.id) != "dataclasses.field"
+            or expression.func.id in scanner.assigned
+            or expression.args
+        ):
+            return False
+        names = [item.arg for item in expression.keywords]
+        return len(names) == len(set(names)) and all(
+            (item.arg == "default" and not isinstance(item.value, ast.Name) and literal(item.value))
+            or (
+                item.arg == "kw_only"
+                and isinstance(item.value, ast.Constant)
+                and type(item.value.value) is bool
+            )
+            for item in expression.keywords
+        )
+
     def dataclass_decorator(statement):
         if len(statement.decorator_list) != 1:
             return False
@@ -814,8 +836,7 @@ def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSynt
                 and isinstance(item.target, ast.Name)
                 and not item.target.id.startswith("__")
                 and annotation(item.annotation)
-                and not isinstance(item.value, ast.Name)
-                and literal(item.value)
+                and field_value(item.value)
             )
             or (
                 isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))

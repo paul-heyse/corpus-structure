@@ -273,6 +273,28 @@ def test_finite_builtin_dataclass_annotations_have_closed_initialization(tmp_pat
     assert basis.complete
 
 
+def test_literal_dataclass_field_options_close_without_admitting_a_factory(tmp_path):
+    root = package(tmp_path)
+    entry = root / "entry.py"
+    source = (
+        "from dataclasses import dataclass, field as slot\n"
+        "@dataclass(frozen=True)\nclass Value:\n"
+        " flag: bool = slot(default=False, kw_only=True)\n"
+        "def result():\n return Value()\n"
+    )
+    entry.write_text(source)
+    basis = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert basis.complete
+    entry.write_text(source.replace("@dataclass", "slot = object\n@dataclass"))
+    rebound = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert not rebound.complete
+    assert any("initializer" in item.reason for item in rebound.unknowns)
+    entry.write_text(source.replace("default=False", "default_factory=bool"))
+    factory = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert not factory.complete
+    assert any("initializer" in item.reason for item in factory.unknowns)
+
+
 def test_rebound_annotation_constructor_withholds_dataclass_initialization(tmp_path):
     root = package(tmp_path)
     (root / "entry.py").write_text(
