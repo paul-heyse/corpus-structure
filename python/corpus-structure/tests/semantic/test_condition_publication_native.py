@@ -10,9 +10,9 @@ import pytest
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_service import DemandOperationSelection
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.current_pdf_source_support import (
     admit_current_target,

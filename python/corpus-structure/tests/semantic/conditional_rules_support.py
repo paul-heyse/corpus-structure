@@ -6,7 +6,7 @@ from typing import Any
 
 import yaml
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def rule():

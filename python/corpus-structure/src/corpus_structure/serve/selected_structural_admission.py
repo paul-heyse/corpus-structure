@@ -3,8 +3,8 @@
 from typing import Any
 
 from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.declared_structural_admission import (
     ADMISSION_KIND,
     ADMISSION_OPERATION,

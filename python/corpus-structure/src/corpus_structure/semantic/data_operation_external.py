@@ -35,11 +35,11 @@ from corpus_structure.semantic._data_operation_wire import (
 from corpus_structure.semantic.identifiers import ProjectId
 
 from .data_operation_admission import bound_data_operation_model
-from .data_operation_identity import semantic_value
 from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_model import EffectiveDataOperationModel
 from .data_operation_ports import PortRefusal, project_product_members
 from .data_operation_storage import DataOperationStorage
+from .data_operation_values import semantic_value
 from .data_operation_wire import generated_json_schema, prepare_wire_schema
 from .releases import open_release
 
@@ -240,7 +240,7 @@ class ExternalDataSession:
 
     def read(self, packet_id: str, claim: Mapping[str, Any]) -> dict:
         read = self._read(packet_id, claim)
-        from .data_operation_identity import decode_semantic_value
+        from .data_operation_values import decode_semantic_value
 
         views = []
         for item in read["packet"]["inputs"]:
@@ -349,8 +349,8 @@ class ExternalDataSession:
         self, demand_id: str, *, limit: int = 100, continuation: dict | None = None
     ) -> dict:
         """Read mechanically placed rich reports through the native pinned public result."""
-        from .data_operation_identity import decode_semantic_value
         from .data_operation_service import read_data_demand
+        from .data_operation_values import decode_semantic_value
         from .rich_proposals import read_rich_proposals
 
         if self.demand_id is not None and demand_id != self.demand_id:

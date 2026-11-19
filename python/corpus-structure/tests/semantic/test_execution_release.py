@@ -9,11 +9,12 @@ import pytest
 import yaml
 from sqlalchemy import select, text, update
 
-from corpus_structure.semantic import prepare_release, releases
+from corpus_structure.semantic import releases
 from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
 from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.prepare import prepare_release
 from semantic.archive_faults import administrative_archive_edit
 from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
 

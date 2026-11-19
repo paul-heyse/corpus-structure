@@ -10,13 +10,13 @@ from corpus_structure.semantic.contextual_witnesses import (
     project_contextual_witnesses,
 )
 from corpus_structure.semantic.data_operation_cpu_basis import CPUInputRole, cpu_input_basis
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import (
     AuthoredFactSupportReference,
     ComputationalSupportReference,
 )
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.selected_support import ProducerOutputOccurrence

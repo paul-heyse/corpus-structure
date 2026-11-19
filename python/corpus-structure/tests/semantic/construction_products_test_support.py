@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.construction_products import (
     PreparedConstructionProfile,
@@ -16,7 +15,13 @@ from corpus_structure.semantic.formal_products import (
     formal_operation_sources,
     prepare_formal_evidence,
 )
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 
 
 @pytest.fixture(scope="module")

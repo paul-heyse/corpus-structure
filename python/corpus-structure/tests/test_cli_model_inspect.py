@@ -696,7 +696,7 @@ def test_candidate_authored_capture_preserves_preview_before_source_and_refuses_
     from types import SimpleNamespace
 
     from corpus_structure.schema.model_explanation import ModelChangeExplanation, sql_change
-    from corpus_structure.semantic import SourceArtifact
+    from corpus_structure.semantic.types import SourceArtifact
 
     original = "SELECT n FROM data.items WHERE n > 1"
     changed = "SELECT n FROM data.items WHERE n > 2"

@@ -2,11 +2,11 @@
 
 import pytest
 
-from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.rich_fact_graph import RichFactGraph
 from corpus_structure.semantic.rich_graph_validation import RichWholeInput, read_retained_rich_graph
 from corpus_structure.semantic.rich_knowledge_contracts import (

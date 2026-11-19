@@ -22,9 +22,9 @@ import yaml
 from corpus_structure.semantic.identifiers import TaskAttempt, TaskId
 from corpus_structure.semantic.input_values import _untrusted_value
 
-from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_ports import PortCompletion, PortRefusal, RoleValue
+from .data_operation_values import decode_semantic_value, semantic_value
 from .identity import canonical_bytes
 from .types import SourceArtifact
 

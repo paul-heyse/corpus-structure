@@ -341,7 +341,7 @@ def test_local_function_alias_rebinding_is_checked_transitively(tmp_path, monkey
 def test_frozen_semantic_parameters_drive_original_callable(tmp_path, monkeypatch):
     from corpus_structure.semantic.data_operation_bindings import BindingResult
     from corpus_structure.semantic.data_operation_demands import ReadyDataRequest
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.identity import canonical_bytes
 
     metadata = controlled_port_declaration()
@@ -770,8 +770,9 @@ def test_data_stream_close_and_cancel_never_mark_prefix_complete(tmp_path, monke
 
 
 @pytest.mark.parametrize("frozen", [False, True])
+@pytest.mark.parametrize("future_annotations", [False, True])
 def test_generated_dataclass_runtime_constructor_keeps_defaults_and_nominal_ingress(
-    tmp_path, monkeypatch, frozen
+    tmp_path, monkeypatch, frozen, future_annotations
 ):
     metadata = controlled_port_declaration()
     metadata["roles"][0]["kind"] = "urn:test:generated-input"
@@ -791,6 +792,8 @@ class Item:
     value: int
     label: str = field(default_factory=make_label)
 """
+    if future_annotations:
+        header = "from __future__ import annotations\n" + header
     model, inputs = fixture_source(
         tmp_path,
         monkeypatch,
@@ -930,6 +933,7 @@ class Item:
         "qualname",
         "match_args",
         "field_behavior",
+        "annotations",
         "hash_global",
     ],
 )
@@ -991,6 +995,8 @@ def test_generated_dataclass_refuses_changed_standard_behavior(tmp_path, monkeyp
         monkeypatch.setattr(item, "__match_args__", ())
     elif mutation == "field_behavior":
         monkeypatch.setattr(item.__dataclass_fields__["value"], "repr", False)
+    elif mutation == "annotations":
+        monkeypatch.setattr(item, "__annotations__", {"value": str})
     elif mutation == "hash_global":
         monkeypatch.setitem(port.function.__globals__, "hash", lambda _: 0)
     else:
@@ -1473,7 +1479,7 @@ def test_sequence_with_unordered_callable_container_refuses_at_acquisition(tmp_p
 def test_eager_sequence_outputs_keep_order_duplicates_and_nominal_item_meaning(
     tmp_path, monkeypatch, annotation, body
 ):
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.identity import canonical_bytes
 
     declaration = controlled_port_declaration()

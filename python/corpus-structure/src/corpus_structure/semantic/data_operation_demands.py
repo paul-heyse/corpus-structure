@@ -127,8 +127,8 @@ def freeze_demand(
 ) -> DemandIntent:
     """Freeze the selected closure, not the union of every possible producer."""
     from .data_operation_bindings import effective_binding_parameters
-    from .data_operation_identity import decode_semantic_value, semantic_value
     from .data_operation_model import validate_replicate_selection
+    from .data_operation_values import decode_semantic_value, semantic_value
     from .refusals import SemanticRefusal
 
     if not targets or not inference or not execution_profile:
@@ -710,8 +710,8 @@ class DemandPlanner:
             execute_binding,
             recordable_binding_fate,
         )
-        from .data_operation_identity import decode_semantic_value, semantic_value
         from .data_operation_storage import admitted_data_projection
+        from .data_operation_values import decode_semantic_value, semantic_value
 
         if snapshot.get("state") == "cancelled":
             return ()

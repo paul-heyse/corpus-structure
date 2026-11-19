@@ -6,7 +6,7 @@ from functools import cache
 
 from evaluation_record_alignment_support import frame, reading
 
-from corpus_structure.semantic import prepare_release
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.record_contracts import (
     interpretation_identity,
     record_family_contract,

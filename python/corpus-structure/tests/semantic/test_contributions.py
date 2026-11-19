@@ -7,7 +7,6 @@ from typing import Any
 import pytest
 
 from corpus_structure.core.method import UnitRef, UnitResult
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.contributions import (
     bind_contributions,
     contribution_identity,
@@ -16,9 +15,11 @@ from corpus_structure.semantic.contributions import (
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
 from corpus_structure.semantic.observations import bind_result, observation_inputs
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_types import ObservationOutcome
 from corpus_structure.semantic.task_types import TaskUnitType
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.record_contracts_support import PIN
 
 

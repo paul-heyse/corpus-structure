@@ -264,10 +264,10 @@ def prepare_primary_query_context(frame, occurrence, rows, *, recipe, evidence):
         resolve_query_contexts,
     )
 
-    from .data_operation_identity import semantic_value
     from .data_operation_json import json_bytes
     from .data_operation_model import json_context_meaning
     from .data_operation_support import ComputationalSupportReference
+    from .data_operation_values import semantic_value
     from .data_product_reference import (
         DataProductMemberReference,
         DataProductReference,
@@ -434,8 +434,8 @@ class SelectedQueryContextUnavailable(ValueError):
 
 def prepare_query_encoder_member(input_basis, frame):
     from .data_operation_cpu_basis import cpu_basis_values
-    from .data_operation_identity import decode_semantic_value
     from .data_operation_model import json_context_meaning
+    from .data_operation_values import decode_semantic_value
     from .declared_structural_references import DeclaredContributionRef
 
     roles, _ = cpu_basis_values(

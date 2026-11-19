@@ -12,7 +12,6 @@ from typing import Any
 
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_demands import RootSubject
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import (
     MODEL_VERSION,
@@ -22,6 +21,7 @@ from corpus_structure.semantic.data_operation_model import (
     SubjectContext,
 )
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import SourceArtifact
 

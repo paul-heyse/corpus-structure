@@ -133,9 +133,10 @@ def test_failed_capture_reports_diagnostic_without_occurrences(text, max_chars, 
 def test_unavailable_formula_diagnostics_survive_contribution_binding():
     from pathlib import Path
 
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
     from corpus_structure.semantic.contributions import bind_contributions
     from corpus_structure.semantic.observations import observation_inputs
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
     _, frame, output = discovery("using the equation X = χZ + µ.")
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"

@@ -98,7 +98,8 @@ def test_ordinary_addresses_keep_their_own_mechanical_abi():
 
 
 def test_renamed_display_properties_follow_authored_order():
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
     raw = b"""id: https://example.org/display
 name: display
@@ -291,9 +292,10 @@ def test_new_expression_form_spelling_uses_released_symbol_behavior():
 
     import yaml
 
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.rule_views import binding_symbols
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
     core = yaml.safe_load(
         (Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml").read_bytes()

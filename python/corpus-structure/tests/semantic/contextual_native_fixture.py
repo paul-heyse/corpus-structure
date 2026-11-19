@@ -244,7 +244,7 @@ def execute_cue_kernel(input_basis: list, *, prepared, check_active) -> dict:
 
 def execute_component_kernel(input_basis: list, *, prepared, check_active) -> dict:
     from corpus_structure.semantic.data_operation_cpu_basis import cpu_authority_reply
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     parameters = decode_semantic_value(input_basis)["parameters"]
     if set(parameters) != {"purpose"} or parameters["purpose"] not in {"meaning", "introduction"}:

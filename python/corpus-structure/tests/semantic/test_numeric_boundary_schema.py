@@ -7,7 +7,8 @@ import pytest
 from jsonschema import Draft202012Validator
 from pydantic import ValidationError
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def test_numeric_representation_bounds_and_exact_decimal_are_preserved():

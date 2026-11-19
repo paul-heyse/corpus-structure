@@ -1,8 +1,9 @@
 from pathlib import Path
 
 from corpus_structure.core.evidence import MacroDef
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.expression_context import bind_expression_context
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def test_only_referenced_macro_closure_changes_expression_meaning():

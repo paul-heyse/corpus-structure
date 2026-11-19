@@ -360,7 +360,7 @@ def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_e
         assert witness["evidence_ids"] == [subject["contribution_id"], object_["contribution_id"]]
         assert unrelated["contribution_id"] not in witness["evidence_ids"]
         assert witness["support_state"] == "unassessed"
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
 
     destination = tmp_path / "selected-private-count-relationships"

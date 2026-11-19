@@ -15,9 +15,9 @@ from corpus_structure.evaluate.selected_references import (
     _reference_invariants,
     evaluate_selected_references,
 )
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.observations import source_value
 from semantic.demand_result_support import demand_result_page

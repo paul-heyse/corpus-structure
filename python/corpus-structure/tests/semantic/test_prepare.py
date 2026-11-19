@@ -13,14 +13,13 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from corpus_structure.semantic import (
+from corpus_structure.semantic.identity import fact_key, occurrence_key
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import (
     PreparationError,
     ResolvedDependencies,
     SourceArtifact,
     SourceBundle,
-    fact_key,
-    occurrence_key,
-    prepare_release,
 )
 
 
@@ -580,7 +579,8 @@ def test_fresh_interpreters_cold_compile_deterministic_semantic_artifacts():
     )
     child = """
 import base64, hashlib, json, sys
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+from corpus_structure.semantic.prepare import prepare_release
 import corpus_structure.semantic.prepare as compiler
 from pydantic import ValidationError
 

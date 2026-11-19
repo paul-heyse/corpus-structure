@@ -9,8 +9,8 @@ from methods.contextual_query_support import POINTER, TEXT, primary, source
 from sqlalchemy import create_engine
 
 from corpus_structure.semantic.contributions import occurrence_identity
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.demand_results import DemandResult
 from corpus_structure.semantic.record_contracts import anchor_identity
 from corpus_structure.semantic.source_contexts import record_source_pin

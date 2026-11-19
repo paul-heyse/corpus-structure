@@ -299,8 +299,8 @@ def test_native_retention_refuses_foreign_provider_logical_fence(ddo_kernel, for
         ProviderExecutionReceipt,
     )
     from corpus_structure.methods.native_host import payload_digest
-    from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from semantic.data_operation_demand_support import attach, claim
 
     _, _, _, attached = attach(ddo_kernel)

@@ -14,7 +14,6 @@ from pydantic import JsonValue
 from spacy.lang.en import English
 
 from corpus_structure.ingest.annotation_views import annotation_view
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.construction_products import (
     PreparedConstructionProfile,
@@ -33,6 +32,7 @@ from corpus_structure.semantic.formal_products import (
     prepare_formal_evidence,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.sentence_products import (
     _blocks,
     source_annotation_packets,
@@ -40,7 +40,12 @@ from corpus_structure.semantic.sentence_products import (
     validate_source_annotations,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_subject
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 
 
 @lru_cache(maxsize=1)

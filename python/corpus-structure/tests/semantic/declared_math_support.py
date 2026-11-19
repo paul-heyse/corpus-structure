@@ -5,7 +5,6 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_model import (
@@ -23,9 +22,15 @@ from corpus_structure.semantic.formal_products import (
     prepare_formal_evidence,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.source_products import source_subject
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 from semantic.formal_products_support import selected
 
 

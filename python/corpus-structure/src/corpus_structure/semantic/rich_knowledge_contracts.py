@@ -548,7 +548,7 @@ class DdoRichAdmission(RichRecord):
 
 
 def rich_support_records(references: tuple[SupportReference, ...]) -> list[dict]:
-    from .data_operation_identity import semantic_value
+    from .data_operation_values import semantic_value
     from .identity import canonical_bytes
 
     unique = {
@@ -598,8 +598,8 @@ def rich_context_pin(context: SubjectContext) -> DdoRichContextPin:
 
 def read_rich_context_pin(pin: DdoRichContextPin) -> SubjectContext:
     """Decode the existing exact JSON context meaning without generic JSON coercion."""
-    from .data_operation_identity import decode_semantic_value
     from .data_operation_json import json_bytes, json_loads
+    from .data_operation_values import decode_semantic_value
 
     scope = decode_semantic_value(json_loads(pin.analyzed_scope_meaning))
     context = SubjectContext(

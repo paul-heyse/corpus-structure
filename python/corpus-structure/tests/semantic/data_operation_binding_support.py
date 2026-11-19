@@ -519,9 +519,10 @@ def discover(
         RootSubject,
         freeze_demand,
     )
-    from corpus_structure.semantic.data_operation_identity import SemanticRequestKey, semantic_value
+    from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.identity import canonical_bytes
     from semantic.data_operation_demand_support import (
         NativeObligation,

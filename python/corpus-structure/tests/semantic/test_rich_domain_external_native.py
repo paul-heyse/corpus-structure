@@ -6,7 +6,7 @@ from functools import partial
 
 import pytest
 
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.rich_queries import (
     ClaimsQuery,
     ConstructionProfileQuery,

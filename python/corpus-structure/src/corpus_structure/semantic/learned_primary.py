@@ -1200,7 +1200,6 @@ class PreparedLearnedPrimaryPort:
         from corpus_structure.semantic.input_values import _untrusted_value
 
         from .construction_products import CharacterizationSnapshot
-        from .data_operation_identity import semantic_value
         from .data_operation_outcomes import successful_return_outcome
         from .data_operation_ports import (
             PortCompletion,
@@ -1208,6 +1207,7 @@ class PreparedLearnedPrimaryPort:
             RoleValue,
             project_product_members,
         )
+        from .data_operation_values import semantic_value
         from .sentence_products import validate_source_annotations
         from .source_products import FrozenNativeSource
 
@@ -1266,7 +1266,7 @@ class PreparedLearnedPrimaryPort:
                     selected.product, canonical_bytes(inputs[name])
                 )
         from .data_operation_bindings import effective_binding_parameters
-        from .data_operation_identity import decode_semantic_value
+        from .data_operation_values import decode_semantic_value
 
         parameters = effective_binding_parameters(
             self.operation, decode_semantic_value(json.loads(binding.parameters))

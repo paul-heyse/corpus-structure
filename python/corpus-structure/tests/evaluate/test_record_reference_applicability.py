@@ -16,9 +16,9 @@ from corpus_structure.evaluate.record_alignment import (
     reference_contract,
     whole_reading_correct,
 )
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     evidence_set_identity,
@@ -26,6 +26,7 @@ from corpus_structure.semantic.record_contracts import (
     record_family_contract,
     record_identity,
 )
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 @cache

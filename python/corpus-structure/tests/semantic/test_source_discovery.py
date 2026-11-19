@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_discovery import (
     PreparedSourceDiscovery,
     selected_source_population,
@@ -14,6 +14,7 @@ from corpus_structure.semantic.source_discovery import (
     source_discovery_operation_sources,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def test_source_discovery_reuses_exact_owned_schema_through_current_policy_composition():
@@ -202,9 +203,9 @@ def test_discovery_views_require_computational_origin_and_exact_frozen_source_se
 
 
 def test_source_hierarchy_preserves_distinct_computational_member_addresses(profile, tmp_path):
-    from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
     from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.demand_results import CutSelection
     from corpus_structure.semantic.source_hierarchy_graph import source_hierarchy_snapshot
 

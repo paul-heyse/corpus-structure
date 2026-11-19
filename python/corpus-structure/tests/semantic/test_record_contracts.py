@@ -7,14 +7,9 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from corpus_structure.core.method import ObservationDraft, UnitRef, UnitResult
-from corpus_structure.semantic import (
-    PreparationError,
-    SourceArtifact,
-    SourceBundle,
-    prepare_release,
-)
 from corpus_structure.semantic.archive_reader import reconstruct_release
 from corpus_structure.semantic.observations import bind_result
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     bind_record_candidates,
@@ -26,6 +21,7 @@ from corpus_structure.semantic.record_contracts import (
 from corpus_structure.semantic.releases import _products
 from corpus_structure.semantic.source_types import ObservationKind, ObservationOutcome
 from corpus_structure.semantic.task_types import TaskUnitType
+from corpus_structure.semantic.types import PreparationError, SourceArtifact, SourceBundle
 from semantic.record_contracts_support import (
     PIN as PIN,
 )

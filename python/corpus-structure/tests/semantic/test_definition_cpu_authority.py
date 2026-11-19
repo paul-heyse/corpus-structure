@@ -11,13 +11,13 @@ from corpus_structure.semantic.data_operation_cpu_basis import (
     cpu_authority_value,
     cpu_input_basis_from_roles,
 )
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_model import (
     BoundRoleMember,
     ResolvedRoleBinding,
     SubjectContext,
 )
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 from semantic.test_contextual_workflow_preparation import prepared_workflow as prepared_workflow

@@ -10,7 +10,7 @@ from native_refusals import native_refusal
 from pglast import ast
 from sqlalchemy import text
 
-from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.established_validity import product_validation_native_sql
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions
 from corpus_structure.semantic.identity import canonical_bytes

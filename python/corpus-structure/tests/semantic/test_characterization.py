@@ -6,7 +6,6 @@ from typing import Any
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.characterization import (
     attachment_policies,
     characterization_inputs,
@@ -17,6 +16,8 @@ from corpus_structure.semantic.characterization import (
 )
 from corpus_structure.semantic.data_product_reference import member_reference
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.characterization_support import (
     current_inventory,
     current_product,

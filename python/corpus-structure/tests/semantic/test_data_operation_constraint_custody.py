@@ -9,7 +9,7 @@ from pglast import parse_plpgsql, parse_sql
 from sqlalchemy import insert, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table

@@ -385,8 +385,8 @@ class PreparedPdfCapturePort:
         from corpus_structure.core.work import PreparedWork
         from corpus_structure.semantic.input_values import _untrusted_value
 
-        from .data_operation_identity import semantic_value
         from .data_operation_ports import PortCompletion, PortRefusal, RoleValue
+        from .data_operation_values import semantic_value
 
         self._verify()
         if binding is None or not binding.sufficient or binding.subject_context is None:

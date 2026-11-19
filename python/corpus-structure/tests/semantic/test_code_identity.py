@@ -2,7 +2,7 @@
 
 import pytest
 
-from corpus_structure.semantic.code_identity import capture_code_identity
+from corpus_structure.semantic.code_identity import CodeBoundary, capture_code_identity
 
 
 def package(tmp_path):
@@ -51,6 +51,20 @@ def test_type_checking_import_is_not_required_at_execution(tmp_path):
     observed = capture_code_identity(root, ("example.entry",))
     assert not observed.complete
     assert all("absent_dependency" not in item.reason for item in observed.unknowns)
+
+
+def test_import_initialization_contract_does_not_authorize_arbitrary_calls(tmp_path):
+    root = package(tmp_path)
+    (root / "entry.py").write_text("import json\ndef result(value):\n return json.loads(value)\n")
+    initialization = CodeBoundary("json", "stdlib-json-import", "initialization", "a" * 64)
+    basis = capture_code_identity(
+        root,
+        ("example.entry",),
+        callables=("example.entry.result",),
+        boundaries=(initialization,),
+    )
+    assert not basis.complete
+    assert any("json.loads" in item.reason or "json" in item.reason for item in basis.unknowns)
 
 
 def test_package_location_does_not_determine_code_identity(tmp_path):
@@ -214,6 +228,33 @@ def test_dataclass_annotation_call_is_eager_even_when_class_is_unused(tmp_path):
     basis = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
     assert basis.digest is None
     assert any(item.line == 5 and "initializer" in item.reason for item in basis.unknowns)
+
+
+def test_finite_builtin_dataclass_annotations_have_closed_initialization(tmp_path):
+    root = package(tmp_path)
+    (root / "entry.py").write_text(
+        "from dataclasses import dataclass\n"
+        "@dataclass(frozen=True)\nclass Value:\n"
+        " keys: tuple[str, ...] = ()\n"
+        " optional: int | None = None\n"
+        "def result():\n return Value()\n"
+    )
+    basis = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert basis.complete
+
+
+def test_rebound_annotation_constructor_withholds_dataclass_initialization(tmp_path):
+    root = package(tmp_path)
+    (root / "entry.py").write_text(
+        "from dataclasses import dataclass\n"
+        "class Custom:\n def __class_getitem__(cls, key):\n  raise RuntimeError('eager')\n"
+        "tuple = Custom\n"
+        "@dataclass(frozen=True)\nclass Value:\n keys: tuple[str, ...] = ()\n"
+        "def result():\n return 1\n"
+    )
+    basis = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert not basis.complete
+    assert any("initializer" in item.reason for item in basis.unknowns)
 
 
 def test_revoked_workload_proof_cannot_publish_a_derived_entry():

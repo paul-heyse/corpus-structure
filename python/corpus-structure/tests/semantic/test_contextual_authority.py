@@ -19,9 +19,9 @@ from corpus_structure.semantic.data_operation_cpu_basis import (
     cpu_authority_value,
     cpu_input_basis,
 )
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
 from semantic.controlled_encoder_support import controlled_encoder_producer
@@ -167,7 +167,7 @@ def test_target_authority_uses_processed_target_and_refuses_query_origin(monkeyp
     "recipe", ["located-frame-2", "located-referent-2", "located-discourse-neighbor-2"]
 )
 def test_query_authority_rebuilds_actual_selected_primary_context(recipe, monkeypatch):
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from semantic.selected_context_support import case
     from semantic.test_contextual_encoder_batch import _query_members
 

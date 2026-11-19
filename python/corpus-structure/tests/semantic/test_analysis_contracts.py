@@ -175,7 +175,6 @@ def test_scientific_profile_and_source_sharing_are_admitted_data():
 def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_acquisition():
     import json
 
-    from corpus_structure.semantic import SourceArtifact, SourceBundle
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.math_context import acquire_analysis_context_profile
     from corpus_structure.semantic.scientific_evidence import (
@@ -184,7 +183,7 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
         require_scientific_policy,
         scientific_policy_recipe,
     )
-    from corpus_structure.semantic.types import PreparedArtifact
+    from corpus_structure.semantic.types import PreparedArtifact, SourceArtifact, SourceBundle
 
     current = acquire_analysis_context_profile()
     profile = replace(

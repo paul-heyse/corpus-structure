@@ -12,14 +12,10 @@ import psycopg
 import pytest
 from sqlalchemy import Engine, insert, select, text, update
 
-from corpus_structure.semantic import (
-    ResolvedDependencies,
-    SourceArtifact,
-    prepare_release,
-    releases,
-)
+from corpus_structure.semantic import releases
 from corpus_structure.semantic.metadata import table
-from corpus_structure.semantic.types import PreparedArtifact
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import PreparedArtifact, ResolvedDependencies, SourceArtifact
 from semantic.archive_faults import administrative_archive_edit
 from semantic.releases_support import prepare_archive, stage
 from semantic.releases_support import source_bundle as source_bundle

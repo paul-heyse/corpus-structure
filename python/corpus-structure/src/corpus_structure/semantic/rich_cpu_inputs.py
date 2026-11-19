@@ -3,10 +3,10 @@
 from dataclasses import dataclass, field
 
 from .data_operation_cpu_basis import CPUInputRole, cpu_input_basis
-from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_json import json_bytes
 from .data_operation_model import SubjectContext
 from .data_operation_support import read_support_references
+from .data_operation_values import decode_semantic_value, semantic_value
 from .identity import canonical_bytes
 from .rich_knowledge_contracts import DdoRichSelectedMember
 from .selected_support import ProducerOutputOccurrence

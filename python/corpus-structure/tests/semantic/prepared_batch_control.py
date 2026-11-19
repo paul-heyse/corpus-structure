@@ -139,7 +139,7 @@ def controlled_sources():
 
 def controlled_kernel(members: tuple[dict, ...], *, check_active) -> dict:
     from corpus_structure.semantic.data_operation_cpu_basis import cpu_authority_batch_reply
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     values = []
     for member in members:

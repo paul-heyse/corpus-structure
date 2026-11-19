@@ -14,129 +14,16 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from hashlib import sha256
 from types import MappingProxyType
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from .data_operation_model import SubjectContext
-from .graph_runtime import nx
-from .graph_topology import cyclic_components, ordered_nodes, rooted_closure, strong_components
+from .data_operation_values import CollectionValue, OptionalValue, semantic_value
 from .identity import canonical_bytes
-from .value_codec import value_meaning
+
+if TYPE_CHECKING:
+    from .graph_runtime import nx
 
 ENCODING_VERSION = "1"
-
-
-def decode_semantic_value(value: Any) -> Any:
-    """Decode the owned tagged value format, refusing noncanonical alternatives."""
-    result = _decode_semantic_value(value)
-    # Re-encoding the complete value checks every nested tag, ordering and spelling.
-    # Repeating this round-trip at each subtree serializes the same descendants again.
-    if canonical_bytes(semantic_value(result)) != canonical_bytes(value):
-        raise ValueError("noncanonical semantic value")
-    return result
-
-
-def _decode_semantic_value(value: Any) -> Any:
-    from datetime import date, datetime
-    from decimal import Decimal
-
-    if not isinstance(value, list) or not value or not isinstance(value[0], str):
-        raise ValueError("semantic value requires a tagged array")
-    tag = value[0]
-    if tag == "null" and len(value) == 1:
-        result = None
-    elif tag in {"known-absent", "unknown", "unavailable"} and len(value) == 1:
-        result = OptionalValue(tag)
-    elif len(value) == 2:
-        payload = value[1]
-        is_text = tag == "string" and isinstance(payload, str)
-        is_boolean = tag == "boolean" and type(payload) is bool
-        if is_text or is_boolean:
-            result = payload
-        elif tag == "integer" and isinstance(payload, str):
-            result = int(payload)
-        elif tag == "decimal" and isinstance(payload, str):
-            result = Decimal(payload)
-        elif tag == "float" and isinstance(payload, str):
-            result = float.fromhex(payload)
-        elif tag == "date" and isinstance(payload, str):
-            result = date.fromisoformat(payload)
-        elif tag == "datetime" and isinstance(payload, str):
-            result = datetime.fromisoformat(payload)
-        elif tag == "present":
-            result = OptionalValue("present", _decode_semantic_value(payload))
-        elif tag == "sequence" and isinstance(payload, list):
-            result = [_decode_semantic_value(member) for member in payload]
-        elif tag in {"set", "bag", "ordered-bag"} and isinstance(payload, list):
-            result = CollectionValue(
-                tag, tuple(_decode_semantic_value(member) for member in payload)
-            )
-        elif tag == "mapping" and isinstance(payload, list):
-            if any(
-                not isinstance(pair, list) or len(pair) != 2 or not isinstance(pair[0], str)
-                for pair in payload
-            ):
-                raise ValueError("invalid semantic mapping")
-            if len({pair[0] for pair in payload}) != len(payload):
-                raise ValueError("duplicate semantic mapping key")
-            result = {name: _decode_semantic_value(member) for name, member in payload}
-        else:
-            raise ValueError("unsupported semantic value tag or payload")
-    else:
-        raise ValueError("invalid semantic value arity")
-    return result
-
-
-@dataclass(frozen=True)
-class CollectionValue:
-    """An explicitly declared collection; an ordinary list remains a sequence."""
-
-    kind: Literal["ordered-bag", "bag", "set"]
-    members: tuple[Any, ...]
-
-
-@dataclass(frozen=True)
-class OptionalValue:
-    """Present null/empty, known absence and incomplete states have different tags."""
-
-    state: Literal["present", "known-absent", "unavailable", "unknown"]
-    value: Any = None
-
-
-def semantic_value(value: Any) -> Any:
-    """Extend the shared exact primitive codec with declared collection/state forms."""
-    if isinstance(value, CollectionValue):
-        if value.kind not in {"ordered-bag", "bag", "set"}:
-            raise ValueError(f"unsupported collection kind {value.kind!r}")
-        members = [semantic_value(member) for member in value.members]
-        if value.kind != "ordered-bag":
-            by_bytes = sorted(
-                ((canonical_bytes(member), member) for member in members), key=lambda item: item[0]
-            )
-            if value.kind == "set":
-                members = []
-                previous = None
-                for encoded, member in by_bytes:
-                    if encoded != previous:
-                        members.append(member)
-                    previous = encoded
-            else:
-                members = [member for _, member in by_bytes]
-        return [value.kind, members]
-    if isinstance(value, OptionalValue):
-        if value.state == "present":
-            return ["present", semantic_value(value.value)]
-        if value.state not in {"known-absent", "unavailable", "unknown"}:
-            raise ValueError(f"unsupported optional state {value.state!r}")
-        if value.value is not None:
-            raise ValueError(f"{value.state} cannot carry a present value")
-        return [value.state]
-    if isinstance(value, Mapping):
-        if any(not isinstance(key, str) for key in value):
-            raise TypeError("semantic mapping keys must be strings")
-        return ["mapping", [[key, semantic_value(item)] for key, item in sorted(value.items())]]
-    if isinstance(value, (list, tuple)):
-        return ["sequence", [semantic_value(item) for item in value]]
-    return value_meaning(value)
 
 
 def semantic_fields(fields: Iterable[tuple[str, Any]]) -> dict[str, Any]:
@@ -212,6 +99,8 @@ class SemanticGraph:
         *,
         iteration_components: Iterable[Iterable[str]] = (),
     ) -> None:
+        from .graph_runtime import nx
+
         self._nodes: dict[str, tuple[str, bytes]] = {}
         for node in records["nodes"]:
             name = _identifier(node["id"], "semantic node id")
@@ -262,6 +151,8 @@ class SemanticGraph:
         *,
         direction: Literal["dependencies", "dependents"] = "dependencies",
     ) -> tuple[str, ...]:
+        from .graph_topology import rooted_closure
+
         if direction not in {"dependencies", "dependents"}:
             raise ValueError(f"unknown graph direction {direction!r}")
         roots = tuple(roots)
@@ -276,6 +167,8 @@ class SemanticGraph:
         return tuple(sorted(self._graph.successors(owner)))
 
     def _projection(self, relations: set[str] | None) -> nx.DiGraph:
+        from .graph_runtime import nx
+
         if relations is None:
             return self._graph
         selected = frozenset(relations)
@@ -287,6 +180,8 @@ class SemanticGraph:
         )
 
     def components(self, relations: set[str] | None = None) -> tuple[tuple[str, ...], ...]:
+        from .graph_topology import strong_components
+
         return tuple(
             sorted(
                 tuple(sorted(component))
@@ -295,6 +190,8 @@ class SemanticGraph:
         )
 
     def cyclic_components(self, relations: set[str] | None = None) -> tuple[tuple[str, ...], ...]:
+        from .graph_topology import cyclic_components
+
         return tuple(
             sorted(
                 tuple(sorted(component))
@@ -319,6 +216,9 @@ class SemanticGraph:
 
     def dependency_order(self) -> tuple[str, ...]:
         """Prerequisites first; recursive reference graphs have no such order."""
+        from .graph_runtime import nx
+        from .graph_topology import ordered_nodes
+
         try:
             return ordered_nodes(self._graph, reverse=True, key=str)
         except nx.NetworkXUnfeasible as exc:

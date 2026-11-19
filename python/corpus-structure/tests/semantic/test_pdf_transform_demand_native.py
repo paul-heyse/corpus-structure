@@ -18,13 +18,13 @@ from corpus_structure.ingest.pdf_enrichment import PdfEnrichmentResult
 from corpus_structure.ingest.pdf_recognition import RecognitionPage
 from corpus_structure.orchestrate.source_operation import run_source_operation
 from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_service import (
     DemandOperationSelection,
     execute_data_demand,
     read_data_demand,
 )
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.pdf_effect_contract import (
     PDF_ENRICHMENT_EFFECT,

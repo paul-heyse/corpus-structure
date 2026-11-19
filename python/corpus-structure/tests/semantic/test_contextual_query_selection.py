@@ -7,9 +7,9 @@ from typing import Any
 import pytest
 
 from corpus_structure.semantic import contextual_selection as owner
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.selected_support import SelectedSupportAcquisition
 from semantic.demand_result_support import demand_result_page

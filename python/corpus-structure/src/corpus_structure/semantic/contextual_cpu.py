@@ -14,8 +14,8 @@ def checked_frame_source(frame_record, source):
 
 def checked_native_frame(frame, source):
     """Check the already prepared immutable view without decoding it again."""
-    from .data_operation_identity import semantic_value
     from .data_operation_model import json_context_meaning
+    from .data_operation_values import semantic_value
     from .identity import canonical_bytes
 
     pin, context = frame.pin.values(), source.context

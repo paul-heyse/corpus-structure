@@ -296,7 +296,7 @@ class DdoRecordGrade(FrozenContract):
         fitter wrapper owns restoration of its lossy JSONB projection after native
         authentication; that value must not pass through this stricter path.
         """
-        from corpus_structure.semantic.data_operation_identity import semantic_value
+        from corpus_structure.semantic.data_operation_values import semantic_value
 
         frame = DdoRecordGradeFrame.model_validate_json(body["frame_canonical_json"])
         original = frame.model_dump(mode="json")
@@ -765,7 +765,7 @@ def fit_declared_record_policy(
         threshold_procedure=specification.threshold_procedure,
         conditioning_assumptions=specification.assumptions,
     )
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
 
     basis = sha256(
         canonical_bytes(
@@ -1391,7 +1391,7 @@ def grade_complete_record_values(
 
 
 def _selected_body(index, product, member=None):
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     row = (
         index.mapping("kb.data_product", ("id",)).get(product)
@@ -1759,7 +1759,7 @@ def _bound_source_members(binding):
 
 def _verify_declared_sources(source_values, members, bodies, *, project):
     """Native source roles retain the same actual sources that the reference cut authenticated."""
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
 
     expected = {}
     for values in source_values:
@@ -2213,7 +2213,7 @@ def reacquire_selected_record_grade(
 def author_record_policy_inputs(engine, prepared, *, request):
     """Retain current source-only reference/specification facts; never authored grades."""
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.native_definition_projection import (
         read_native_definition_projection,
     )

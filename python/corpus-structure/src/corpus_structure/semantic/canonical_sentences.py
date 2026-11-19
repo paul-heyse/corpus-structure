@@ -304,8 +304,8 @@ class PreparedCanonicalPort:
     def _input(self, values, binding):
         from corpus_structure.semantic.input_values import _untrusted_value
 
-        from .data_operation_identity import decode_semantic_value
         from .data_operation_ports import PortRefusal, PythonRoleValue
+        from .data_operation_values import decode_semantic_value
         from .source_products import source_subject
 
         inputs = [role for role in self.operation.roles if role.direction == "input"]
@@ -336,8 +336,8 @@ class PreparedCanonicalPort:
     def _complete(self, value, binding=None):
         if binding is not None:
             value = replace(value, subject_context=binding.subject_context)
-        from .data_operation_identity import semantic_value
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
+        from .data_operation_values import semantic_value
 
         model_value = value.value
         typed = model_value.model_dump(mode="python", exclude_unset=True)

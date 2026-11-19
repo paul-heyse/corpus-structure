@@ -16,7 +16,6 @@ from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
 from corpus_structure.ingest.pdf_recognition import NemotronRecipe
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection, pm2_selection
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 from corpus_structure.semantic.data_operation_json import json_bytes
@@ -35,10 +34,12 @@ from corpus_structure.semantic.pdf_transforms import (
     pdf_transform_operation_sources,
     recognition_page_selection,
 )
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.primary_operations import (
     primary_operation_inputs,
     primary_operation_targets,
 )
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 @pytest.mark.parametrize("mode", ["enriched", "integrated"])

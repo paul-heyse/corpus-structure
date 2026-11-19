@@ -1,6 +1,7 @@
 """Independent expectations for the effective input universe."""
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def test_effective_roles_include_inherited_identity_required_and_display_only():

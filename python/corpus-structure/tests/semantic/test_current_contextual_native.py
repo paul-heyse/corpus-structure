@@ -18,10 +18,10 @@ from corpus_structure.semantic.contextual_selection import (
     ContextualSelectedProduct,
     ContextualVectorSelection,
 )
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, source_sets_record
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.observations import source_python, source_value
 from semantic.current_contextual_support import (
     contextual_recipe,

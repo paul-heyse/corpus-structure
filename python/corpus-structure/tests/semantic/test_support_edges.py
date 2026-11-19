@@ -346,9 +346,10 @@ def _cross_release_population(engine, location, tmp_path, monkeypatch, *, projec
         WireCloseDataPopulationRequest,
         WireRegisterDataDemandRequest,
     )
-    from corpus_structure.semantic.data_operation_identity import SemanticRequestKey, semantic_value
+    from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.identity import canonical_bytes
     from semantic.data_operation_binding_support import discover
     from semantic.data_operation_kernel_support import POPULATION, admit_kernel, prepare_kernel

@@ -379,7 +379,7 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
 
 
 def test_selected_math_checks_the_complete_source_address(math_profile):
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.serve.selected_math import _source_for_interpretation

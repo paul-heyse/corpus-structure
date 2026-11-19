@@ -13,11 +13,11 @@ from corpus_structure.evaluate.declared_record_policy import (
     DdoRecordReferenceQuestion,
     record_policy_inputs,
 )
-from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.reading_resolution_products import (
     reading_recipe_identity,
     reading_resolution_declarations,

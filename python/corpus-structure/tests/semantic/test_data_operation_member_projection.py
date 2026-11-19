@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_ports import (
     PortRefusal,
@@ -17,6 +16,7 @@ from corpus_structure.semantic.data_operation_ports import (
     resolve_python_port,
 )
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 @pytest.fixture

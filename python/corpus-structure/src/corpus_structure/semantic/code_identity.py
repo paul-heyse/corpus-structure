@@ -641,6 +641,7 @@ def _narrow(modules, callables, distributions, supplied_boundaries, package_root
     boundaries = tuple(
         OpaqueBoundary(item.reference, item.contract, item.role, item.digest)
         for item in supplied_boundaries
+        if item.role != "initialization"
     )
     try:
         # The shared parser owns mutable library resolution caches.
@@ -702,6 +703,36 @@ def _narrow(modules, callables, distributions, supplied_boundaries, package_root
 
 
 def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSyntax):
+    annotation_types = {
+        "bool",
+        "bytes",
+        "float",
+        "int",
+        "str",
+        "tuple",
+        "list",
+        "dict",
+        "set",
+        "frozenset",
+    }
+
+    def annotation(expression):
+        if isinstance(expression, ast.Name):
+            return (
+                expression.id in annotation_types
+                and expression.id not in scanner.assigned
+                and expression.id not in scanner.package_names
+            )
+        if isinstance(expression, ast.Constant):
+            return expression.value is None or expression.value is Ellipsis
+        if isinstance(expression, ast.Subscript):
+            return annotation(expression.value) and annotation(expression.slice)
+        if isinstance(expression, ast.Tuple):
+            return all(annotation(item) for item in expression.elts)
+        if isinstance(expression, ast.BinOp) and isinstance(expression.op, ast.BitOr):
+            return annotation(expression.left) and annotation(expression.right)
+        return False
+
     def literal(expression):
         if expression is None or isinstance(expression, ast.Name):
             return True
@@ -741,10 +772,7 @@ def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSynt
                 isinstance(item, ast.AnnAssign)
                 and isinstance(item.target, ast.Name)
                 and not item.target.id.startswith("__")
-                and isinstance(item.annotation, ast.Name)
-                and item.annotation.id in {"bool", "bytes", "float", "int", "str"}
-                and item.annotation.id not in scanner.assigned
-                and item.annotation.id not in scanner.package_names
+                and annotation(item.annotation)
                 and not isinstance(item.value, ast.Name)
                 and literal(item.value)
             )

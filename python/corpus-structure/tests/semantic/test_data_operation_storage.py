@@ -33,7 +33,7 @@ from corpus_structure.semantic._data_operation_wire import (
     WireSelectDataPopulationRequest,
 )
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.data_operation_identity import SemanticRequestKey, semantic_value
+from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_storage import (
@@ -43,6 +43,7 @@ from corpus_structure.semantic.data_operation_storage import (
     native_protocol_sources,
     native_source_digest,
 )
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from semantic.data_operation_binding_support import BINDING_RANGE_CASES, BindingEvidenceCase
@@ -707,7 +708,8 @@ def _protected_binding_case(
 ) -> tuple[dict[str, Any], SemanticRequestKey]:
     from decimal import Decimal
 
-    from corpus_structure.semantic.data_operation_identity import OptionalValue, SemanticRequestKey
+    from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
+    from corpus_structure.semantic.data_operation_values import OptionalValue
 
     sample_value = case.sample_value
     assert sample_value is not None
@@ -890,7 +892,8 @@ def test_actual_writer_admits_exact_authored_binding_and_retains_every_input(ddo
 def test_actual_writer_rejects_independently_authored_binding_substitutions(ddo_kernel):
     from copy import deepcopy
 
-    from corpus_structure.semantic.data_operation_identity import OptionalValue, SemanticRequestKey
+    from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
+    from corpus_structure.semantic.data_operation_values import OptionalValue
 
     baseline, authored = _protected_binding_case(
         ddo_kernel, BINDING_RANGE_CASES["range-ready"], prepare_only=True
@@ -1046,11 +1049,8 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
     from copy import deepcopy
     from decimal import Decimal
 
-    from corpus_structure.semantic.data_operation_identity import (
-        CollectionValue,
-        OptionalValue,
-        SemanticRequestKey,
-    )
+    from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
+    from corpus_structure.semantic.data_operation_values import CollectionValue, OptionalValue
     from semantic.data_operation_binding_support import discover
 
     demand, obligation, parent = discover(ddo_kernel, values=(15, 16))

@@ -64,8 +64,8 @@ def test_current_rich_recipe_preserves_actual_producers_and_complete_reading_fie
 def test_actual_rich_admission_keeps_complete_reading_authority_separate_from_scientific_truth(
     current_rich_policy, monkeypatch
 ):
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSourceReadingAssertion
     from corpus_structure.semantic.rich_queries import ClaimsQuery, SourceReadingsQuery
     from corpus_structure.serve.rich_queries import RichQueryRequest, serve_rich_query
@@ -211,12 +211,12 @@ def refuse_resolution_score_substitution(fitted, authorization, monkeypatch):
     from evaluate.declared_record_native_support import run_readings
 
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
-    from corpus_structure.semantic.data_operation_identity import (
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.data_operation_values import (
         decode_semantic_value,
         semantic_value,
     )
-    from corpus_structure.semantic.data_operation_json import json_bytes
-    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.observations import source_python, source_value
     from corpus_structure.semantic.reading_resolution_products import (
         RECIPE,

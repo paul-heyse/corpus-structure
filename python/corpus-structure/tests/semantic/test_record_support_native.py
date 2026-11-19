@@ -28,7 +28,7 @@ def test_native_support_keeps_actual_raw_resolution_and_admission_producers(
     from evaluate.declared_rich_native_journey_test_support import verify_completion_refusals
     from evaluate.declared_rich_native_support import selected_policy_authorization
 
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     journey = rich_publication
 

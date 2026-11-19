@@ -37,7 +37,6 @@ from corpus_structure.semantic.data_operation_cpu_basis import (
     cpu_input_basis_from_binding,
     cpu_input_basis_native_sql,
 )
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import (
     MODEL_VERSION,
@@ -45,6 +44,7 @@ from corpus_structure.semantic.data_operation_model import (
     ResolvedRoleBinding,
     SubjectContext,
 )
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.prepared_sql import prepare_sql

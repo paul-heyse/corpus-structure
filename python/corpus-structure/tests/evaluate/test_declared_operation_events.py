@@ -35,7 +35,7 @@ from corpus_structure.evaluate.selected_operation_events import (
     SelectedOperationEventFrameSelection,
     operation_event_parameter_value,
 )
-from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.operation_policy import (
     OperationEventAlgorithm,
     OperationEventScore,
@@ -293,9 +293,9 @@ def test_actual_current_cpu_kernels_bind_frame_fit_and_ordered_score_values(nomi
         cpu_authority_value,
         cpu_input_basis,
     )
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.identity import canonical_bytes
 
     for kernel in (execute_frame_kernel, execute_fit_kernel, execute_score_kernel):

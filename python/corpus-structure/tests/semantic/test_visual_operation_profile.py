@@ -6,20 +6,20 @@ import pytest
 
 from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
-from corpus_structure.semantic import (
-    PreparationProfile,
-    ResolvedDependencies,
-    SourceArtifact,
-    SourceBundle,
-    prepare_release,
-)
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.native_requests import (
     pdf_region_inputs,
     pdf_region_operation_sources,
 )
 from corpus_structure.semantic.pdf_capture import pdf_capture_inputs, pdf_capture_operation_sources
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.primary_operations import combine_primary_sources
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 from corpus_structure.semantic.visual_requests import (
     visual_external_declaration,
     visual_operation_sources,

@@ -2402,13 +2402,8 @@ def project_operation_binding(
     This pure projection does not resolve native rows, assert support validity or
     authorize execution. It preserves their supplied evidence for later admission.
     """
-    from .data_operation_identity import (
-        AdmissionManifest,
-        CollectionValue,
-        OptionalValue,
-        SemanticRequestKey,
-        decode_semantic_value,
-    )
+    from .data_operation_identity import AdmissionManifest, SemanticRequestKey
+    from .data_operation_values import CollectionValue, OptionalValue, decode_semantic_value
 
     operation = model.operation(binding.operation)
     try:

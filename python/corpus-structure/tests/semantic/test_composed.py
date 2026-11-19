@@ -5,19 +5,19 @@ from dataclasses import replace
 
 import pytest
 
-from corpus_structure.semantic import (
-    PreparationError,
-    PreparationProfile,
-    ResolvedDependencies,
-    SourceArtifact,
-    SourceBundle,
-    prepare_release,
-)
 from corpus_structure.semantic.composed import (
     data_operation_dependencies,
     read_data_operation_inputs,
 )
 from corpus_structure.semantic.data_operation_model import MODEL_VERSION
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import (
+    PreparationError,
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 
 
 def domain():

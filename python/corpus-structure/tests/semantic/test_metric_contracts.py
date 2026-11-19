@@ -5,12 +5,17 @@ from pathlib import Path
 import pytest
 
 from corpus_structure.core.method import MeasurementDraft, UnitRef, UnitResult
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.metrics import metric_definitions, observation_dependencies
 from corpus_structure.semantic.observations import bind_result, observation_inputs, source_python
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_types import MeasurementScope, ObservationOutcome
 from corpus_structure.semantic.task_types import TaskUnitType
-from corpus_structure.semantic.types import PreparationError, ResolvedDependencies
+from corpus_structure.semantic.types import (
+    PreparationError,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 
 
 def release(content=None):

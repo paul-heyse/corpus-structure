@@ -3,12 +3,8 @@
 import pytest
 import yaml
 
-from corpus_structure.semantic import (
-    PreparationError,
-    SourceArtifact,
-    SourceBundle,
-    prepare_release,
-)
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import PreparationError, SourceArtifact, SourceBundle
 
 
 def domain(*, explicit_splits=False):

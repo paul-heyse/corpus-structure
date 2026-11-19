@@ -19,8 +19,9 @@ from corpus_structure.semantic._data_operation_wire import (
     WireRegisterDataDemandRequest,
     WireRetainDataCompletionIntentRequest,
 )
-from corpus_structure.semantic.data_operation_identity import SemanticRequestKey, semantic_value
+from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_values import semantic_value
 from semantic.data_operation_declaration_support import root_subject, subject_context
 
 

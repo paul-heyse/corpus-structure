@@ -10,7 +10,6 @@ from semantic.source_annotations_test_support import detached as detached
 
 from corpus_structure.methods.assertion_qualification import AssertionQualification
 from corpus_structure.methods.m1_source import M1CandidateProduct, configured_packs
-from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.construction_products import PreparedConstructionProfile
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_identity import (
@@ -26,6 +25,7 @@ from corpus_structure.semantic.formal_evidence import grammar_identity
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions, prepare_formal_evidence
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.m1_products import PreparedM1Inputs, m1_operation_inputs
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.sentence_products import validate_source_annotations
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,

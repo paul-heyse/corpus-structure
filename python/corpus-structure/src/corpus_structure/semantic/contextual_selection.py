@@ -88,8 +88,8 @@ def freeze_contextual_target_demand(
 
 
 def _selected_product_with_kind(connection, selection, *, project_id, kind_name):
-    from .data_operation_identity import decode_semantic_value
     from .data_operation_support import ComputationalSupportReference
+    from .data_operation_values import decode_semantic_value
     from .demand_results import selected_record_index
     from .selected_support import SelectedReadReference
 
@@ -363,9 +363,9 @@ def acquire_contextual_witness_selection(connection, selection, *, project_id, q
     A missing carrier or a cue outside that closure is a refusal. Callers never
     replace those cases with an empty witness population or a newer source read.
     """
-    from .data_operation_identity import decode_semantic_value
     from .data_operation_json import json_bytes
     from .data_operation_model import SubjectContext, json_context_meaning
+    from .data_operation_values import decode_semantic_value
     from .declared_structural_references import DeclaredContributionRef, DeclaredProductRef
     from .demand_results import selected_record_index
 

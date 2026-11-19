@@ -297,7 +297,7 @@ def _current_pdf_custody():
     from dataclasses import asdict
     from types import SimpleNamespace
 
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.pdf_publication import (
         PdfExecutionReceipt,
         PdfPublicationCertification,

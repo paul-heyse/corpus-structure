@@ -10,8 +10,6 @@ import pytest
 
 from corpus_structure.semantic.data_operation_identity import (
     AdmissionManifest,
-    CollectionValue,
-    OptionalValue,
     ProfileField,
     SemanticGraph,
     SemanticRequestKey,
@@ -26,9 +24,13 @@ from corpus_structure.semantic.data_operation_identity import (
     recipe_fingerprint,
     runtime_artifact_identity,
     semantic_fields,
-    semantic_value,
 )
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.data_operation_values import (
+    CollectionValue,
+    OptionalValue,
+    semantic_value,
+)
 from semantic.data_operation_identity_vectors import CONTEXTUAL_PRODUCTS, REQUEST, SubjectVector
 
 
@@ -474,7 +476,7 @@ def test_subject_context_equality_uses_tagged_json_meaning_not_python_numeric_eq
 
 
 def test_nested_decode_retains_exact_values_and_canonical_refusals():
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     def wrap(value: Any) -> list[Any]:
         return [value]

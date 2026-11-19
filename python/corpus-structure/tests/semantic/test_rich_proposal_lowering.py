@@ -5,10 +5,8 @@ from dataclasses import replace
 from decimal import Decimal
 
 from corpus_structure.methods.llm.cascade import PlacementPolicy
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_cpu_basis import CPUInputRole
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_model import (
     ExternalExecutorContract,
@@ -18,6 +16,7 @@ from corpus_structure.semantic.data_operation_support import (
     AuthoredFactSupportReference,
     ComputationalSupportReference,
 )
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.declared_math_products import math_operation_declarations
 from corpus_structure.semantic.external_extraction import (
     external_extraction_operation_sources,
@@ -25,6 +24,7 @@ from corpus_structure.semantic.external_extraction import (
     rich_external_declarations,
 )
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
 from corpus_structure.semantic.record_policy_authority import record_policy_kind_declarations
 from corpus_structure.semantic.rich_consolidation import consolidate_rich_knowledge
@@ -43,7 +43,7 @@ from corpus_structure.semantic.rich_knowledge_sources import (
 )
 from corpus_structure.semantic.rich_policy_binding import rich_policy_value
 from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
-from corpus_structure.semantic.types import ResolvedDependencies
+from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 from semantic.proposals_support import batch
 from semantic.record_contracts_support import release_inputs
 from semantic.test_external_rich_extraction import packet

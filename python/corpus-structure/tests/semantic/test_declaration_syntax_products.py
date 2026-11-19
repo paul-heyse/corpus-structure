@@ -4,9 +4,10 @@ from pathlib import Path
 
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection, pm2_selection
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def test_declaration_syntax_is_distinct_from_source_grammar_and_uses_actual_canonical_hanlp(

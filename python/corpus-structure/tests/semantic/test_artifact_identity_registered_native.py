@@ -10,10 +10,10 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_service import DemandOperationSelection
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import (
     DeclaredArtifactDeclaredRelationship,

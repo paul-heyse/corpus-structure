@@ -293,7 +293,7 @@ def named_witness_case() -> dict[str, Any]:
 
 
 def _named_witness(case):
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.data_product_reference import DataProductReference
     from corpus_structure.semantic.declared_formal_readings import (
         SelectedCharacterizationInventories,
@@ -663,7 +663,7 @@ def test_author_witness_graph_enforces_budget_before_full_closure():
 
 
 def _selected_member_projection(annotations):
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.data_product_reference import DataProductReference
     from corpus_structure.semantic.declared_formal_readings import (
         SelectedCharacterizationInventories,

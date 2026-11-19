@@ -6,13 +6,14 @@ from typing import Any
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.formal_evidence import grammar_identity
 from corpus_structure.semantic.formal_products import (
     FrozenFormalSource,
     formal_product_inputs,
     prepare_formal_evidence,
 )
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 @lru_cache(maxsize=1)

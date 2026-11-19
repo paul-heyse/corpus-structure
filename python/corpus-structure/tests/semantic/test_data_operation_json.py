@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import bindparam, cast, select, text
 
-from corpus_structure.semantic.data_operation_identity import SemanticRequestKey, semantic_value
+from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
 from corpus_structure.semantic.data_operation_json import (
     json_bytes,
     json_loads,
@@ -13,6 +13,7 @@ from corpus_structure.semantic.data_operation_json import (
 )
 from corpus_structure.semantic.data_operation_jsonb import ContextJSONB
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_operation_wire import validate_native_wire
 
 PRECISE = b'{"coordinate":0.12345678901234567890123456789,"page":1}'

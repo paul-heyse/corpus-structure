@@ -5,7 +5,6 @@ from pathlib import Path
 
 from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.pdf_capture import (
     pdf_capture_inputs,
@@ -13,6 +12,8 @@ from corpus_structure.semantic.pdf_capture import (
     pdf_publication_value,
 )
 from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def test_pdf_capture_declares_exact_effect_and_captured_native_recipe(tmp_path):

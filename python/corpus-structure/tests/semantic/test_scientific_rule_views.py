@@ -8,8 +8,8 @@ import pytest
 from pydantic import ValidationError
 
 from corpus_structure.schema.rulelang import RuleError
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.rule_views import RULE_VIEW_INPUT, ValueView, build_rule_language
 from corpus_structure.semantic.scientific_evidence import (
     EvidenceTier,
@@ -20,7 +20,12 @@ from corpus_structure.semantic.scientific_evidence import (
     parse_scientific_assessment_reason,
     scientific_assessment_reason,
 )
-from corpus_structure.semantic.types import PreparedArtifact, RegistryRow
+from corpus_structure.semantic.types import (
+    PreparedArtifact,
+    RegistryRow,
+    SourceArtifact,
+    SourceBundle,
+)
 from semantic.scientific_rule_views_support import language as language
 
 

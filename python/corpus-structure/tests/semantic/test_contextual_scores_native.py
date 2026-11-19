@@ -15,8 +15,8 @@ from corpus_structure.semantic.contextual_scores import (
     candidates_from_scores,
     query_contextual_scores,
 )
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.observations import source_value
 from semantic.test_declared_contextual_operations import inputs
 

@@ -7,14 +7,14 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from corpus_structure.semantic import (
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.statement_types import effective_bindings, statement_definition
+from corpus_structure.semantic.types import (
     PreparationError,
     PreparationProfile,
     SourceArtifact,
     SourceBundle,
-    prepare_release,
 )
-from corpus_structure.semantic.statement_types import effective_bindings, statement_definition
 from semantic.conditional_rules_support import bundle, schema
 
 

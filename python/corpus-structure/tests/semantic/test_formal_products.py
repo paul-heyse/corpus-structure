@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
@@ -12,6 +11,8 @@ from corpus_structure.semantic.formal_products import (
     formal_product_inputs,
 )
 from corpus_structure.semantic.original_documents import original_document_subject
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.formal_products_support import (
     acquire_source as acquire_source,
 )
@@ -345,8 +346,8 @@ def admitted_port(profile):
 def test_original_prepared_entrypoint_emits_typed_body_and_native_members(profile):
     import json
 
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.data_operation_wire import validate_native_wire
 
     port = admitted_port(profile)

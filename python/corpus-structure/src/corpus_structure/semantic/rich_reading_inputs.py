@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from hashlib import sha256
 
-from .data_operation_identity import semantic_value
 from .data_operation_json import json_bytes
+from .data_operation_values import semantic_value
 from .identity import canonical_bytes
 from .rich_knowledge_contracts import DdoRichSelectedMember
 

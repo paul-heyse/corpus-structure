@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.execution_evidence_leaf import (
     NativeExecutionEvidenceLeaf,
     execution_evidence_leaf_schema,

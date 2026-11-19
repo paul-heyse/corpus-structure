@@ -12,13 +12,13 @@ from corpus_structure.semantic.native_definition_projection import read_native_d
 def test_native_projection_preserves_actual_timezone_aware_datetime_meaning():
     from datetime import UTC, datetime
 
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
     from corpus_structure.semantic.composed import data_operation_dependencies
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-    from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_storage import kind_meaning_schema
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.data_operation_wire import validate_wire_schema
-    from corpus_structure.semantic.types import ResolvedDependencies
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 
     declaration = b"""id: urn:projection-event
 name: event

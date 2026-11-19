@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from corpus_structure.core.evidence import MacroDef
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
@@ -15,6 +14,7 @@ from corpus_structure.semantic.data_operation_support import ComputationalSuppor
 from corpus_structure.semantic.expression_context import bind_expression_context
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.observations import source_value
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.rich_fact_graph import RichFactGraph
 from corpus_structure.semantic.rich_graph_validation import RichWholeInput
 from corpus_structure.semantic.rich_knowledge_contracts import (
@@ -38,7 +38,7 @@ from corpus_structure.semantic.scientific_evidence import (
     SCIENTIFIC_POLICY_INPUT,
     parse_scientific_assessment_reason,
 )
-from corpus_structure.semantic.types import ResolvedDependencies
+from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 from semantic.record_contracts_support import release_inputs
 from semantic.test_external_rich_extraction import packet
 

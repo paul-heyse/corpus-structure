@@ -5,8 +5,9 @@ import yaml
 
 def test_native_constraints_prepares_datatype_aliases_and_scientific_bounds():
 
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.property_constraints import native_constraints
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
     source = {
         "id": "https://example/alias",

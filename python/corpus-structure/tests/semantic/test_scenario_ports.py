@@ -14,13 +14,13 @@ def test_shared_scenario_imports_do_not_prepare_or_acquire_native_resources():
 import importlib
 import sys
 sys.path[:0] = ["scripts", "python/corpus-structure/tests"]
-import corpus_structure.semantic as semantic
+import corpus_structure.semantic.prepare as preparation
 import sqlalchemy
 
 def unexpected(*args, **kwargs):
     raise AssertionError("scenario import prepared a release or acquired a native engine")
 
-semantic.prepare_release = unexpected
+preparation.prepare_release = unexpected
 sqlalchemy.create_engine = unexpected
 for name in (
     "semantic.current_pdf_source_support",

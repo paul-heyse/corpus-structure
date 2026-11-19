@@ -9,8 +9,8 @@ from typing import Any
 from pydantic import TypeAdapter
 from sqlalchemy import func, select
 
-from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_outcomes import successful_return_outcome
+from .data_operation_values import decode_semantic_value, semantic_value
 from .identity import canonical_bytes
 from .source_discovery import PreparedSourceDiscovery
 from .source_products import FrozenNativeSource

@@ -6,8 +6,8 @@ from typing import Any
 import pytest
 
 from corpus_structure.cache_store import CacheStore
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.semantic.rich_query_projection import RichQueryInput, frontier_content_witness

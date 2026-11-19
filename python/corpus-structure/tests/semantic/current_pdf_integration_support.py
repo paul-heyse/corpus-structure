@@ -22,8 +22,8 @@ from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
 from corpus_structure.ingest.pdf_recognition import NemotronRecipe, RecognitionPage
 from corpus_structure.orchestrate.source_operation import run_source_operation
 from corpus_structure.orchestrate.source_request import SourceRunRequest, WholeDocument
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_service import read_data_demand
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.pdf_capture import pdf_capture_inputs
 from corpus_structure.semantic.pdf_transforms import (
     PdfEnrichmentOptions,

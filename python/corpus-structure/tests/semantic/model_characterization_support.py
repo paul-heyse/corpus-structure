@@ -9,7 +9,6 @@ import pytest
 from corpus_structure.methods.gliner import GlinerPreparation, GlinerProfile, GlinerReport
 from corpus_structure.methods.model_observation import installed_policy, observation_digest
 from corpus_structure.methods.pm2_gliner_classification import ClassificationProfile
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.characterization import characterization_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.interpretation_questions import (
@@ -18,7 +17,8 @@ from corpus_structure.semantic.interpretation_questions import (
 from corpus_structure.semantic.model_characterization import (
     prepare_model_scope,
 )
-from corpus_structure.semantic.types import ResolvedDependencies
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 
 
 @pytest.fixture(scope="module")

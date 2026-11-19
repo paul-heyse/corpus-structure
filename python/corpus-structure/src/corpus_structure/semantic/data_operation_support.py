@@ -44,7 +44,7 @@ class AuthoredFactRef(BaseModel):
 
     @model_validator(mode="after")
     def exact_semantic_body(self):
-        from .data_operation_identity import decode_semantic_value
+        from .data_operation_values import decode_semantic_value
 
         decode_semantic_value(self.meaning_body)
         return self
@@ -162,7 +162,7 @@ def authored_fact_selection(name, value, *, kind_contract, context, author, sele
     Native admission validates the kind/body, caller purpose, frozen intent and
     root context. Possessing this value grants no publication permission.
     """
-    from .data_operation_identity import semantic_value
+    from .data_operation_values import semantic_value
 
     reference = AuthoredFactRef(
         kind="authored-fact",

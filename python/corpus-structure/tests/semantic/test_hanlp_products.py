@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.canonical_sentences import CanonicalProduct
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.hanlp_products import (
@@ -24,11 +23,13 @@ from corpus_structure.semantic.hanlp_products import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.original_documents import original_document_subject
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_products import (
     FrozenNativeSource,
     native_projection_identity,
     source_subject,
 )
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from test_preparation import preparation_fixture
 
 

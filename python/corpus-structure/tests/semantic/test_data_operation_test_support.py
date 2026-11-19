@@ -14,10 +14,10 @@ from semantic.data_operation_kernel_support import (
     CLAIM_SOURCE,
     EXECUTION,
     ORIGINAL_DOCUMENT,
-    ORIGINAL_PDF,
     POPULATION,
     STORAGE,
     build_kernel,
+    original_pdf_recipe,
     prepare_kernel,
 )
 
@@ -30,11 +30,12 @@ from semantic.data_operation_kernel_support import (
         (EXECUTION, "urn:ddo-execution:answer"),
         (CLAIM_SOURCE, "urn:corpus:operation:claim-source-item"),
         (ORIGINAL_DOCUMENT, "urn:original-fact-test:consume"),
-        (ORIGINAL_PDF, "urn:original-fact-test:consume"),
+        (original_pdf_recipe, "urn:original-fact-test:consume"),
     ],
     ids=lambda value: getattr(value, "name", value),
 )
 def test_recipe_prepares_its_captured_model_and_reuses_equal_value(recipe, operation):
+    recipe = recipe() if callable(recipe) else recipe
     prepared = prepare_kernel(recipe)
     assert prepared.model.operation(operation).semantic_id == operation
     assert prepare_kernel(replace(recipe)) is prepared

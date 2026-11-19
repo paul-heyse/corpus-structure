@@ -10,8 +10,8 @@ from native_refusals import native_refusal
 from sqlalchemy import text
 
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.data_operation_binding_support import discover
 from semantic.data_operation_kernel_support import POPULATION
@@ -161,7 +161,7 @@ def test_native_context_fanin_waits_for_new_child_products_and_preserves_pinned_
         raw = json.loads(json.dumps(binding))
         # Request-input witness is a typed semantic mapping. Rebuild from an
         # independent changed value so native reconstruction, not shape, decides.
-        from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+        from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
         inputs = decode_semantic_value(raw["request_inputs"])
         changed = inputs["items"]["population_witness"]["members"]

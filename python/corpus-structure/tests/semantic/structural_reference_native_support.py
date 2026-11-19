@@ -2,8 +2,9 @@
 
 from copy import deepcopy
 
-from corpus_structure.semantic.data_operation_identity import body_identity, semantic_value
+from corpus_structure.semantic.data_operation_identity import body_identity
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.declared_structural_references import DeclaredProductRef
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_admission import POLICIES

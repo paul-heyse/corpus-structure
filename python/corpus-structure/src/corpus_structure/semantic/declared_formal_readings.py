@@ -8,8 +8,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from .data_operation_identity import decode_semantic_value
 from .data_operation_json import json_bytes, json_loads
+from .data_operation_values import decode_semantic_value
 from .data_product_reference import DataProductReference, member_reference
 from .identity import canonical_bytes
 

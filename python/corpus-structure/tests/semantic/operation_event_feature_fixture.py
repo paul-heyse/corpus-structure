@@ -191,8 +191,8 @@ def kernel(input_basis: list, *, prepared, check_active) -> dict:
         cpu_authority_reply,
         cpu_basis_values,
     )
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.source_products import FrozenNativeSource

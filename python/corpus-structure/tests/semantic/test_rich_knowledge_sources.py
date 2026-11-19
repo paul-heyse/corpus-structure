@@ -70,9 +70,9 @@ def test_actual_rich_composition_captures_schema_policy_and_nominal_members_with
     assert not any("execution_model" in artifact.name for artifact in deps.artifacts)
     from pydantic import ValidationError
 
-    from corpus_structure.semantic import prepare_release
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
+    from corpus_structure.semantic.prepare import prepare_release
 
     prepared = prepare_release(bundle, deps)
     current = DeclaredRecordSource(
@@ -134,7 +134,7 @@ def test_policy_capture_keeps_duplicate_key_refusal_and_one_actual_archived_owne
 
 
 def test_schema_augmentation_consumes_already_captured_policy_without_a_second_policy_owner():
-    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic.prepare import prepare_release
 
     root = Path(__file__).resolve().parents[4]
     policy = rich_policy_inputs(
@@ -164,7 +164,7 @@ def test_schema_augmentation_consumes_already_captured_policy_without_a_second_p
 
 
 def test_rich_policy_refs_resolve_exact_captured_profile_and_checked_kind_owners():
-    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.rich_policy_binding import (
         require_rich_policy,
         rich_context_profile,
@@ -208,8 +208,9 @@ def test_rich_policy_refs_resolve_exact_captured_profile_and_checked_kind_owners
 
 
 def test_rich_augmentation_preserves_exact_captured_current_observations(monkeypatch):
-    from corpus_structure.semantic import observations, prepare_release
+    from corpus_structure.semantic import observations
     from corpus_structure.semantic.observations import observation_inputs
+    from corpus_structure.semantic.prepare import prepare_release
 
     current = observation_inputs(release_inputs()[0])
     captured = next(source.content for source in current.sources if source.name == "observations")

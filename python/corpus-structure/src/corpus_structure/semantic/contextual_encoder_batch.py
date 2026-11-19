@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from corpus_structure.methods.contextual_embeddings import ContextInput
 
-from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_json import json_bytes
+from .data_operation_values import decode_semantic_value, semantic_value
 from .identity import canonical_bytes
 
 PACKET_VERSION = "contextual-encoder-packet-1"

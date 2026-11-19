@@ -8,8 +8,8 @@ from typing import Any
 import pytest
 import yaml
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.rich_knowledge import (
     RichEntitySource,
     RichIdentityConflict,
@@ -17,6 +17,7 @@ from corpus_structure.semantic.rich_knowledge import (
     RichKnownEntityIdentity,
     resolve_rich_entities,
 )
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.identity_resolution_support import source_values
 
 

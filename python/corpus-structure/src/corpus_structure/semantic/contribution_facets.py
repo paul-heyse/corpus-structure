@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 
-from .data_operation_identity import semantic_value
+from .data_operation_values import semantic_value
 from .rich_decisions import DdoRichOccurrenceDecision
 from .rich_knowledge_contracts import (
     DdoRichAdmission,

@@ -115,7 +115,6 @@ def test_original_origin_and_historical_default_survive_owned_archive_roundtrip(
     [None, False, 0, {"fraction": Decimal("0.123456789012345678901"), "nested": [True, None]}],
 )
 def test_authored_scope_preserves_exact_fraction_null_and_boolean_distinctions(scope):
-    from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.data_operation_support import (
@@ -123,6 +122,7 @@ def test_authored_scope_preserves_exact_fraction_null_and_boolean_distinctions(s
         authored_fact_selection,
         read_original_source_reference,
     )
+    from corpus_structure.semantic.data_operation_values import semantic_value
 
     selected = authored_fact_selection(
         "fact",

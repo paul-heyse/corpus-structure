@@ -105,7 +105,7 @@ def test_requested_context_refuses_wrong_member_source_dependency_and_missing_po
 @pytest.mark.parametrize("failure", ["missing", "empty"])
 def test_named_context_failure_is_typed_before_model_allocation(failure, monkeypatch):
     from corpus_structure.semantic import contextual_encoder_batch as batch
-    from corpus_structure.semantic.data_operation_identity import (
+    from corpus_structure.semantic.data_operation_values import (
         decode_semantic_value,
         semantic_value,
     )

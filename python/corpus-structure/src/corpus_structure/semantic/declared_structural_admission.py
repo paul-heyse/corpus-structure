@@ -44,7 +44,7 @@ class DdoStructuralAdmission(BaseModel):
 
     @model_validator(mode="after")
     def exact_statement(self):
-        from .data_operation_identity import semantic_value
+        from .data_operation_values import semantic_value
         from .structural_admission import POLICIES
 
         value = self.statement
@@ -63,7 +63,7 @@ class DdoStructuralAdmission(BaseModel):
     def statement(self):
         import json
 
-        from .data_operation_identity import decode_semantic_value
+        from .data_operation_values import decode_semantic_value
 
         value = decode_semantic_value(json.loads(self.statement_meaning_json))
         if not isinstance(value, dict):
@@ -236,8 +236,8 @@ def validate_structural_authority_leaf(leaf, *, products, kinds, definitions, ru
     """Interpret an authenticated disclosure; never validate undisclosed adjudication."""
     from dataclasses import asdict
 
-    from .data_operation_identity import decode_semantic_value
     from .data_operation_json import json_bytes
+    from .data_operation_values import decode_semantic_value
 
     definition = definitions.get((leaf.release_id, leaf.issuer_operation))
     product = products.get(leaf.product_id)
@@ -328,9 +328,9 @@ def validate_structural_report_support(
     # Leaf authenticity/runtime visibility is supplied by the existing native
     # acquisition or detached validate_authority_leaf owner before this projection.
     from .authority_leaf import NativeAuthorityLeaf
-    from .data_operation_identity import decode_semantic_value, semantic_value
     from .data_operation_json import json_bytes
     from .data_operation_model import json_context_meaning
+    from .data_operation_values import decode_semantic_value, semantic_value
     from .structural_admission import structural_statement
     from .structural_products import (
         DeclaredComparisonReport,

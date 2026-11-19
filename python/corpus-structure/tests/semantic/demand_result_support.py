@@ -3,7 +3,7 @@
 from decimal import Decimal
 from typing import Any
 
-from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_operation_wire import validate_native_wire
 
 

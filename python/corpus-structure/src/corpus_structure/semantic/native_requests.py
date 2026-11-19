@@ -15,8 +15,8 @@ from sqlalchemy import func, select
 
 from corpus_structure.semantic.input_values import _untrusted_value
 
-from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_ports import PortCompletion, PortRefusal, RoleValue
+from .data_operation_values import decode_semantic_value, semantic_value
 from .identity import canonical_bytes
 from .types import SourceArtifact, SourceBundle
 

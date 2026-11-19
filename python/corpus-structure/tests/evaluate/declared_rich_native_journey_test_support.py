@@ -44,7 +44,7 @@ def _refuse_completion(storage, altered, actual_retain, *, message):
 
 def _grade_label_substitution(payload):
     from corpus_structure.evaluate.declared_record_policy import DdoRecordGrade
-    from corpus_structure.semantic.data_operation_identity import (
+    from corpus_structure.semantic.data_operation_values import (
         decode_semantic_value,
         semantic_value,
     )
@@ -73,7 +73,7 @@ def _grade_label_substitution(payload):
 
 
 def _rich_substitution(payload, attack):
-    from corpus_structure.semantic.data_operation_identity import (
+    from corpus_structure.semantic.data_operation_values import (
         decode_semantic_value,
         semantic_value,
     )

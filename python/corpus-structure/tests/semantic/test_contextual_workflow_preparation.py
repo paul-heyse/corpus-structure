@@ -113,7 +113,7 @@ def test_finite_matcher_retains_distinct_same_span_carriers_and_actual_component
         cpu_authority_value,
         cpu_input_basis,
     )
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.identity import canonical_bytes
     from semantic.contextual_native_fixture import (
         TEXT,
@@ -150,7 +150,7 @@ def test_finite_matcher_retains_distinct_same_span_carriers_and_actual_component
     )
     assert subject["occurrence_id"] == unrelated["occurrence_id"] != object_["occurrence_id"]
     assert len({row["contribution_id"] for row in (subject, unrelated, object_)}) == 3
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     selected = decode_semantic_value(processed)
     selected["parameters"] = {"purpose": "meaning"}

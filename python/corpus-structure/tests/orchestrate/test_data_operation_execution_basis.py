@@ -213,7 +213,8 @@ def test_batches_never_mix_distinct_execution_bases(monkeypatch, prepared):
 
 
 def test_two_exact_release_capsules_share_one_cpu_pool(tmp_path, monkeypatch, prepared):
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
     other = prepare_release(
         SourceBundle(

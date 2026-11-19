@@ -8,7 +8,7 @@ from evaluate.declared_record_grading_support import current, cut, references
 from evaluate.declared_record_policy_support import source
 
 from corpus_structure.evaluate import declared_record_policy as policy
-from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.refusals import SemanticRefusal

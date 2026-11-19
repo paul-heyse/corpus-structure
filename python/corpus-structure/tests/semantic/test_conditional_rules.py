@@ -9,16 +9,12 @@ import pytest
 from jsonschema import Draft202012Validator
 from pydantic import MISSING, ConfigDict, Field, ValidationError, create_model
 
-from corpus_structure.semantic import (
-    PreparationError,
-    PreparationProfile,
-    prepare_release,
-)
 from corpus_structure.semantic.conditional_rules import (
     compile_conditional_rules,
     conditional_model_namespace,
 )
-from corpus_structure.semantic.prepare import _view, preview_schema
+from corpus_structure.semantic.prepare import _view, prepare_release, preview_schema
+from corpus_structure.semantic.types import PreparationError, PreparationProfile
 from semantic.conditional_rules_support import bundle, rule, schema
 
 PROFILE = PreparationProfile(version="semantic-2")

@@ -1,10 +1,10 @@
 """Actual typed raw/resolved family inputs and exact shared predictor application."""
 
 from corpus_structure.semantic.data_operation_cpu_basis import CPUInputRole
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.declared_candidate_products import candidate_member_id
 from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
 from corpus_structure.semantic.observations import source_value
@@ -38,8 +38,8 @@ from semantic.test_rich_record_readings import inspected_reading
 
 
 def actual_inputs():
-    from corpus_structure.semantic import prepare_release
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.reading_resolution_products import (
         reading_resolution_declarations,
         reading_resolution_operation_sources,
@@ -72,7 +72,7 @@ def actual_inputs():
     row, coordinates = inspected_reading("table")
     from copy import deepcopy
 
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.original_documents import original_document_subject
     from corpus_structure.semantic.record_contracts import (

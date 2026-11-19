@@ -9,15 +9,18 @@ from __future__ import annotations
 import math
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from corpus_structure.model.compiled import CompiledModel, annotation_values, running_model
+if TYPE_CHECKING:
+    from corpus_structure.model.compiled import CompiledModel
 
 VALUE_CODEC_SOURCE = "value-codec.yaml"
 DECIMAL_LIMIT_MESSAGE = "decimal exceeds canonical fixed-point digit limit"
 
 
 def decimal_digit_limit(model: CompiledModel | None = None) -> int:
+    from corpus_structure.model.compiled import annotation_values, running_model
+
     capture = running_model() if model is None else model
 
     def build():

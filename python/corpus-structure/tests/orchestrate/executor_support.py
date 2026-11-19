@@ -160,8 +160,8 @@ def execution_case(monkeypatch, prepared, policy, requests, ports, **options):
     raw_results = {}
 
     def factory(prepared, model, operation, *, identity, **options):
-        from corpus_structure.semantic.data_operation_identity import semantic_value
         from corpus_structure.semantic.data_operation_ports import PortCompletion, RoleValue
+        from corpus_structure.semantic.data_operation_values import semantic_value
 
         port = ports[operation]
         port.operation, port.identity = model.operation(operation), identity

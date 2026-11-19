@@ -523,7 +523,7 @@ def test_native_subject_association_uses_explicit_original_source_and_retains_su
     binding_native_connection,
 ):
     connection = binding_native_connection
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
 
     role = {"subject_field": "/source/document", "subject_target": "original-source"}
     value = {
@@ -892,7 +892,7 @@ def test_native_binding_roles_recurses_and_keeps_sorted_distinct_null(binding_na
 def test_native_primitive_parameters_preserve_exact_meaning_and_required_policy(
     binding_native_connection, case
 ):
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
 
     parameters: dict[str, Any] = {"values": [1, 2]}
     definitions: dict[str, dict[str, Any]] = {

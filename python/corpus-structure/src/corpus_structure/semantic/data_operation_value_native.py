@@ -24,7 +24,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import ARRAY, DOUBLE_PRECISION, JSONB, aggregate_order_by
 
-from .data_operation_identity import ENCODING_VERSION, CollectionValue, OptionalValue
+from .data_operation_identity import ENCODING_VERSION
+from .data_operation_values import CollectionValue, OptionalValue
 from .native_objects import native_sql_script
 from .native_program import (
     Assign,

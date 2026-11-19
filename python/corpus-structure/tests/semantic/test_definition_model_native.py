@@ -167,11 +167,11 @@ def test_current_observation_refuses_wrong_or_untyped_member_position(ordinal):
 def test_current_named_definition_preserves_source_cue_and_refuses_changed_cpu_body_atomically(
     current_pdf_source_factory, tmp_path, monkeypatch
 ):
-    from corpus_structure.semantic.data_operation_identity import (
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.data_operation_values import (
         decode_semantic_value,
         semantic_value,
     )
-    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsReport
     from semantic.current_pdf_source_support import admit_current_target
     from semantic.structural_production_native_support import (

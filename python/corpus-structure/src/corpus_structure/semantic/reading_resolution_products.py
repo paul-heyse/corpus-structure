@@ -204,7 +204,7 @@ def resolve_reading_values(prepared, candidates, policy, *, model, check_active=
         raise ValueError("reading policy repeats a fitted instance applicability")
     recipe = reading_recipe_identity(model)
     detail = json.loads(candidates["diagnostics_json"])
-    from .data_operation_identity import semantic_value
+    from .data_operation_values import semantic_value
 
     digest = sha256(canonical_bytes(semantic_value(candidates))).hexdigest()
     packets, events = [], []
@@ -315,7 +315,7 @@ def execute_reading_profile(receiver, candidates, policy):
 def execute_reading_kernel(input_basis: list, *, prepared, check_active) -> dict:
     from .data_operation_admission import bound_data_operation_model
     from .data_operation_cpu_basis import cpu_authority_reply
-    from .data_operation_identity import decode_semantic_value
+    from .data_operation_values import decode_semantic_value
 
     basis = decode_semantic_value(input_basis)
     roles = basis["roles"]

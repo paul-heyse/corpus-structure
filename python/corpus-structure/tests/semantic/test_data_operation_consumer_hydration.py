@@ -11,7 +11,6 @@ from corpus_structure.semantic.data_operation_consumers import (
     BoundConsumerSelection,
     hydrate_consumer_selection,
 )
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.data_operation_jsonb import json_context_value
 from corpus_structure.semantic.data_operation_model import (
@@ -26,6 +25,7 @@ from corpus_structure.semantic.data_operation_support import (
     ComputationalSupportReference,
     support_reference_records,
 )
+from corpus_structure.semantic.data_operation_values import semantic_value
 
 
 def _member(**changes):

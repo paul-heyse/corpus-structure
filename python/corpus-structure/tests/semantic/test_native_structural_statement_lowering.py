@@ -6,8 +6,8 @@ from typing import Any
 import pytest
 from sqlalchemy import text
 
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.structural_admission_native import structural_admission_native_sql

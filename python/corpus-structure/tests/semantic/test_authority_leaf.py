@@ -56,7 +56,7 @@ def public_policy_body():
 
 
 def disclosure():
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
 
     row = dict(
         format="ddo-native-authority-leaf-v1",
@@ -173,7 +173,7 @@ def test_virtual_authority_parquet_preserves_closed_fields_and_nullable_use(tmp_
 
 def test_structural_disclosure_uses_its_exact_captured_issuer_and_ordinary_body():
     from corpus_structure.evaluate.declared_structural_admission import structural_admission_value
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.declared_structural_admission import (
         ADMISSION_EFFECT,
         ADMISSION_FACTORY,

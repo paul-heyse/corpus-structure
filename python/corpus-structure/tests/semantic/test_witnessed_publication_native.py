@@ -7,7 +7,7 @@ linguistic accuracy. The independent A/B/C authors are explicitly attributed.
 import pytest
 
 from corpus_structure.evaluate.declared_structural_admission import DdoStructuralAssessmentFrame
-from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.current_pdf_source_support import (
     admit_current_target,

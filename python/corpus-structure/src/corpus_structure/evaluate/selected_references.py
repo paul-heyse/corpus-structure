@@ -13,9 +13,9 @@ from functools import cached_property
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.semantic._data_operation_wire import WireCutSelection
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import json_context_meaning
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
 from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 from corpus_structure.semantic.observations import source_python
@@ -155,7 +155,7 @@ def _authenticate_reference_sources(connection, body, *, project_id, max_bytes=8
 
 def author_selected_references(engine, prepared, *, request):
     """Admit actual protected authored facts after checking their exact source pins."""
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.serve.interpretation_authoring import author_interpretations
 
     if request.targets != ("reference.snapshot/declared",):

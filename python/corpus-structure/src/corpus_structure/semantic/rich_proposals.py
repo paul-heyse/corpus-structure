@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pydantic_core import to_json
 
-from .data_operation_identity import decode_semantic_value
 from .data_operation_json import json_loads
+from .data_operation_values import decode_semantic_value
 
 FAMILIES = (
     ("entities", "entity", "DdoRichEntityProposal"),

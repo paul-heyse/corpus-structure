@@ -9,12 +9,9 @@ import pytest
 from native_refusals import native_refusal
 from sqlalchemy import text
 
-from corpus_structure.semantic.data_operation_identity import (
-    CollectionValue,
-    OptionalValue,
-    canonical_identity,
-)
+from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_values import CollectionValue, OptionalValue
 from semantic.data_operation_identity_vectors import (
     CONTEXTUAL_PRODUCTS,
     JSON_MEANING_VECTORS,
@@ -116,9 +113,9 @@ def test_deployed_frame_matches_independent_literal_vectors(native_read):
 
 @pytest.mark.db
 def test_json_subject_context_encoding_matches_literals_and_python(native_rollback):
-    from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.data_operation_value_native import data_operation_value_sql
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from semantic.native_program_support import routine_declaration
 
     helper = routine_declaration(data_operation_value_sql(), "data", "ddo_json_meaning")

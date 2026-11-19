@@ -194,7 +194,6 @@ def test_examined_empty_named_variant_remains_distinct_from_unavailable_or_unper
 def test_named_definition_acquisition_compiles_without_model_provider_dependencies(tmp_path):
     from pathlib import Path
 
-    from corpus_structure.semantic import SourceArtifact, SourceBundle
     from corpus_structure.semantic.characterization_ports import characterization_operation_sources
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
     from corpus_structure.semantic.declared_structural_calls import (
@@ -206,6 +205,7 @@ def test_named_definition_acquisition_compiles_without_model_provider_dependenci
     )
     from corpus_structure.semantic.formal_products import formal_operation_sources
     from corpus_structure.semantic.primary_operations import combine_primary_sources
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = definition_component_inputs(

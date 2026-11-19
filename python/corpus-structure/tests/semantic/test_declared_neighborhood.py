@@ -359,9 +359,9 @@ def selected_neighborhood_read(tmp_path, monkeypatch):
     from contextlib import contextmanager
     from types import SimpleNamespace
 
-    from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
     from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.demand_results import CutSelection
     from corpus_structure.serve import selected_contributions
     from semantic.test_rich_query_delivery import CUT

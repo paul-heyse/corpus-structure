@@ -109,7 +109,7 @@ def qualifier_release(request):
     import yaml
     from semantic.record_contracts_support import release_inputs
 
-    from corpus_structure.semantic import prepare_release
+    from corpus_structure.semantic.prepare import prepare_release
 
     bundle, profile, prepared = release_inputs()
     if request.param == "declared":
@@ -349,9 +349,10 @@ def test_retained_linguistic_roles_join_action_to_its_real_scoped_artifact():
     assert links["uses_artifact"][1]["text"] == "Table 5.1"
     from pathlib import Path
 
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
     from corpus_structure.semantic.contributions import bind_contributions
     from corpus_structure.semantic.observations import observation_inputs
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     prepared = prepare_release(
@@ -500,9 +501,10 @@ def test_retained_predicate_publication_preserves_exact_hosts_and_refuses_swappe
     from pathlib import Path
 
     from corpus_structure.ingest.annotations import AnnotationProfile
-    from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
     from corpus_structure.semantic.contributions import bind_contributions, contribution_identity
     from corpus_structure.semantic.observations import observation_inputs
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
     from methods.m1_source_preparation_support import prepare_declared_source
 
     text = (

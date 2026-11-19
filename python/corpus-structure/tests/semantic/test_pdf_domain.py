@@ -8,7 +8,6 @@ import pytest
 from pglast import ast
 from pydantic import ValidationError
 
-from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.operation_value_types import require_call_context
 from corpus_structure.semantic.pdf_contracts import PreparedPdfContext
@@ -19,9 +18,10 @@ from corpus_structure.semantic.pdf_domain import (
 )
 from corpus_structure.semantic.pdf_domain_native import pdf_domain_native_sql
 from corpus_structure.semantic.pdf_lowering import PRODUCER_IDENTITY_INPUTS
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.refusals import SemanticRefusal
-from corpus_structure.semantic.types import SourceArtifact
+from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies, SourceArtifact
 from semantic.releases_support import source_bundle
 
 

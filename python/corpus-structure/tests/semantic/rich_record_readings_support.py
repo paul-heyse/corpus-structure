@@ -8,8 +8,8 @@ from functools import cache
 
 from evaluate.declared_record_grading_support import current_reading
 
-from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.rich_knowledge_sources import (
     rich_knowledge_declarations,
     rich_knowledge_schema_inputs,

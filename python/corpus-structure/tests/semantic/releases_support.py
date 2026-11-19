@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from corpus_structure.semantic import (
-    ResolvedDependencies,
-    SourceArtifact,
-    SourceBundle,
-    prepare_release,
-    releases,
-)
+from corpus_structure.semantic import releases
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 
 
 def source_bundle(extra: bytes = b"") -> SourceBundle:

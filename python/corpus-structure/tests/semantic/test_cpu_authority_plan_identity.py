@@ -8,13 +8,13 @@ import pytest
 
 from corpus_structure.semantic.data_operation_bindings import BindingResult
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_model import (
     BoundRoleMember,
     ResolvedRoleBinding,
     SubjectContext,
 )
 from corpus_structure.semantic.data_operation_ports import python_port_identity
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSource, PythonSourceCollection
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.demand_results import selected_record_index
 
 

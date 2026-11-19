@@ -477,7 +477,7 @@ def execute_rich_profile(receiver, values):
 def _rich_kernel_inputs(action, input_basis, *, prepared, asset_content):
     """Read actual child operands and captured policy, without parent pin claims."""
     from .data_operation_admission import bound_data_operation_model
-    from .data_operation_identity import decode_semantic_value
+    from .data_operation_values import decode_semantic_value
 
     model = bound_data_operation_model(prepared)
     operation = model.operation(action)

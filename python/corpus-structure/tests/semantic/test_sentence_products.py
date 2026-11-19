@@ -9,10 +9,6 @@ import pytest
 import spacy
 
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.semantic import (
-    SourceArtifact,
-    SourceBundle,
-)
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.sentence_products import (
@@ -22,6 +18,7 @@ from corpus_structure.semantic.sentence_products import (
     validate_source_annotations,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource, native_projection_identity
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.sentence_products_test_support import (
     controlled_source_pin as controlled_source_pin,
 )

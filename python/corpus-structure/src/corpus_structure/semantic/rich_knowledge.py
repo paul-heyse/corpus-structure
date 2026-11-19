@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any, Literal
 
-from .data_operation_identity import semantic_value
 from .data_operation_model import SubjectContext
+from .data_operation_values import semantic_value
 from .identity import canonical_bytes
 from .reference_positions import LocatedReference
 from .types import ClassDefinition, PreparedRelease, PropertyDefinition

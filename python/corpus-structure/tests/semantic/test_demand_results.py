@@ -8,8 +8,8 @@ import pytest
 from fastmcp import Client
 from sqlalchemy import create_engine
 
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.demand_results import CutSelection, DemandResult
 from corpus_structure.semantic.selected_pages import decode_cursor as _decode
@@ -458,7 +458,7 @@ def test_detached_selected_use_requires_its_producing_custody_even_without_remai
 
 
 def test_detached_container_requires_members_even_when_selected_as_whole_product():
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.demand_results import verify_detached_result
 
     packet = dict(

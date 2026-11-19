@@ -6,6 +6,7 @@ native publication authority; effects require a separately admitted implementati
 """
 
 from __future__ import annotations
+import __future__
 
 import ast
 import builtins
@@ -335,8 +336,8 @@ def project_product_members(
     model: EffectiveDataOperationModel, kind: str, value: Any
 ) -> tuple[bytes, ...]:
     """Copy actual declared packet facts; this grants no native publication authority."""
-    from .data_operation_identity import semantic_value
     from .data_operation_member_contracts import derive_member_kinds
+    from .data_operation_values import semantic_value
 
     raw = _untrusted_value(value)
     members = raw.get("members") if isinstance(raw, dict) else None
@@ -610,8 +611,8 @@ class ResolvedPythonPort:
     def plan_stream_python(
         self, values, *, binding=None, check_active=lambda: None, execution_owner
     ):
-        from .data_operation_identity import semantic_value
         from .data_operation_stream import plan_cpu_stream
+        from .data_operation_values import semantic_value
 
         settlement = self.operation.capabilities.stream_settlement
         if settlement is None:
@@ -825,7 +826,7 @@ class ResolvedPythonPort:
         semantic_parameters = {}
         if binding is not None:
             from .data_operation_bindings import effective_binding_parameters
-            from .data_operation_identity import decode_semantic_value
+            from .data_operation_values import decode_semantic_value
 
             semantic_parameters = effective_binding_parameters(
                 self.operation, decode_semantic_value(json.loads(binding.parameters))
@@ -934,7 +935,7 @@ class ResolvedPythonPort:
         outcome = successful_return_outcome(self.operation)
         contracts = dict(self.kind_contracts)
         checked = _validated_python_input(return_annotation, result, adapters=self.adapters)
-        from .data_operation_identity import semantic_value
+        from .data_operation_values import semantic_value
 
         outputs = [role for role in self.operation.roles if role.direction == "output"]
         if self.operation.result_fields:
@@ -1630,7 +1631,13 @@ def _verify_closed_runtime_sources(
                     and dataclasses.is_dataclass(value)
                 ):
                     _verify_generated_dataclass(
-                        value, node, module, qualname=path.removeprefix(source.module + ".")
+                        value,
+                        node,
+                        module,
+                        qualname=path.removeprefix(source.module + "."),
+                        future_annotations=bool(
+                            code.co_flags & __future__.annotations.compiler_flag
+                        ),
                     )
                     continue
                 if (
@@ -1714,7 +1721,7 @@ def _verify_generated_typeddict(value, node, module):
         raise PortRefusal("TypedDict runtime fields differ from captured declaration")
 
 
-def _verify_generated_dataclass(value, node, module, *, qualname):
+def _verify_generated_dataclass(value, node, module, *, qualname, future_annotations):
     """Check the selected standard transformation without running a factory."""
 
     def same_default(actual: Any, modeled: Any) -> bool:
@@ -1762,6 +1769,7 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
         if dataclasses.is_dataclass(base)
         for field in dataclasses.fields(base)
     )
+    expected_annotations = {}
     for declaration in node.body:
         if isinstance(declaration, ast.FunctionDef) and declaration.name in {
             "__init__",
@@ -1778,12 +1786,17 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
         actual = actual_fields.get(name)
         if actual is None:
             raise PortRefusal("generated dataclass field correspondence differs")
-        annotation = eval(
-            compile(ast.Expression(declaration.annotation), module.__file__, "eval"),
-            module.__dict__,
+        annotation = (
+            ast.unparse(declaration.annotation)
+            if future_annotations
+            else eval(
+                compile(ast.Expression(declaration.annotation), module.__file__, "eval"),
+                module.__dict__,
+            )
         )
         if actual.type != annotation:
             raise PortRefusal("generated dataclass field annotation differs")
+        expected_annotations[name] = annotation
         default, factory = dataclasses.MISSING, dataclasses.MISSING
         kw_only = options.get("kw_only", False)
         if isinstance(declaration.value, ast.Call):
@@ -1812,6 +1825,8 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
             raise PortRefusal("dataclass default or factory correspondence differs")
     if set(actual_fields) != set(expected_names):
         raise PortRefusal("generated dataclass acquired undeclared fields")
+    if value.__annotations__ != expected_annotations:
+        raise PortRefusal("generated dataclass class annotations differ")
     parameters = inspect.getattr_static(value, "__dataclass_params__")
     if parameters.frozen != options.get("frozen", False) or not parameters.init:
         raise PortRefusal("generated dataclass runtime options differ")
@@ -1893,6 +1908,7 @@ def _verify_generated_dataclass(value, node, module, *, qualname):
         "__firstlineno__",
         "__static_attributes__",
         "__annotate_func__",
+        "__annotations__",
     }
     if "__slotnames__" in vars(value):
         if vars(value)["__slotnames__"] != []:

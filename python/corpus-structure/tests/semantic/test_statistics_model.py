@@ -4,9 +4,9 @@ import pytest
 from pydantic import ValidationError
 from statistics_pack_support import statistics_bundle
 
-from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.observations import observation_inputs
+from corpus_structure.semantic.prepare import prepare_release
 
 
 def statistics_inputs():
@@ -94,7 +94,8 @@ def test_operation_products_are_deterministic_across_fresh_interpreters():
 
     code = '''
 from hashlib import sha256
-from corpus_structure.semantic import SourceArtifact,SourceBundle,prepare_release
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.identity import canonical_bytes
 source=b"""id: https://example.org/x
 name: x
@@ -183,8 +184,8 @@ def test_released_conditions_preserve_operators_nested_math_and_uncertain_dates(
 
 
 def test_required_released_rules_are_compiled_at_preparation():
-    from corpus_structure.semantic import PreparationError, ResolvedDependencies
     from corpus_structure.semantic.rich_knowledge_sources import rich_policy_inputs
+    from corpus_structure.semantic.types import PreparationError, ResolvedDependencies
 
     dependencies = rich_policy_inputs(
         ResolvedDependencies(),

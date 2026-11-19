@@ -694,18 +694,18 @@ def admitted_scientific_model():
     from dataclasses import replace
     from pathlib import Path
 
-    from corpus_structure.semantic import (
+    from corpus_structure.semantic.determinants import SCIENTIFIC_LIBRARIES, determinant_version
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.scientific_evidence import (
+        SCIENTIFIC_POLICY_INPUT,
+        scientific_policy_recipe,
+    )
+    from corpus_structure.semantic.types import (
         PreparationProfile,
         ResolvedDependencies,
         SourceArtifact,
         SourceBundle,
-        prepare_release,
-    )
-    from corpus_structure.semantic.determinants import SCIENTIFIC_LIBRARIES, determinant_version
-    from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.scientific_evidence import (
-        SCIENTIFIC_POLICY_INPUT,
-        scientific_policy_recipe,
     )
 
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"

@@ -149,7 +149,6 @@ def test_source_set_envelope_is_current_only_and_emitting_member_is_distinct():
 
 def test_request_identity_keeps_selected_episode_and_excludes_acquisition_cut():
     from corpus_structure.semantic.data_operation_compilation import project_operation_binding
-    from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_model import (
         BindingExpression,
         BoundRoleMember,
@@ -157,6 +156,7 @@ def test_request_identity_keeps_selected_episode_and_excludes_acquisition_cut():
         ResolvedOperationBinding,
         ResolvedRoleBinding,
     )
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from semantic.test_data_operation_bindings import model
 
     target = model(BindingExpression("scan", roles=("items",)))

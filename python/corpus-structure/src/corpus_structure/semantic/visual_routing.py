@@ -502,8 +502,8 @@ def _selected_pdf_publication(page, member, records, capture_kind):
     """Follow this exact derivation's support to its actual capture publication receipt."""
     from pydantic import TypeAdapter
 
-    from .data_operation_identity import decode_semantic_value
     from .data_operation_json import json_bytes
+    from .data_operation_values import decode_semantic_value
     from .pdf_publication import PdfExecutionReceipt
 
     relations = defaultdict(list)

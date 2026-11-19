@@ -4,9 +4,9 @@ from dataclasses import replace
 from pathlib import Path
 
 from corpus_structure.schema.rulelang import Vocabulary
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.rule_views import RULE_VIEW_INPUT, build_rule_language
-from corpus_structure.semantic.types import PreparedArtifact
+from corpus_structure.semantic.types import PreparedArtifact, SourceArtifact, SourceBundle
 
 
 def language():

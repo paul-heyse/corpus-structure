@@ -7,11 +7,8 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from corpus_structure.semantic import (
-    SourceArtifact,
-    SourceBundle,
-    prepare_release,
-)
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def inputs():

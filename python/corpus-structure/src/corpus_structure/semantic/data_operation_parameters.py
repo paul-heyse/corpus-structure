@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import json
 
-from .data_operation_identity import semantic_value
+from .data_operation_values import semantic_value
 from .data_operation_wire import checked_json_schema, generated_json_schema, validate_wire_schema
 
 
@@ -151,7 +151,7 @@ def validate_nominal_parameter(definition, value):
     """Preserve exact nested primitive tags; JSON display alone cannot type an integer."""
     meaning = semantic_value(value)
     validate_wire_schema(definition["meaning_schema"], meaning)
-    from .data_operation_identity import decode_semantic_value
+    from .data_operation_values import decode_semantic_value
 
     # The owning semantic codec provides the lossless input; the body schema
     # independently enforces the generated nominal shape and scalar constraints.

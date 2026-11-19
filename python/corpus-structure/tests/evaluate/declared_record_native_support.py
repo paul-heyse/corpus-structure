@@ -1338,13 +1338,13 @@ def refuse_exchanged_fitted_body(fitted, monkeypatch):
         author_record_policy_inputs,
     )
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
-    from corpus_structure.semantic.data_operation_identity import (
-        decode_semantic_value,
-        semantic_value,
-    )
     from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.data_operation_values import (
+        decode_semantic_value,
+        semantic_value,
+    )
 
     journey = fitted.journey
     _, specifications, *_ = journey.selected_products(

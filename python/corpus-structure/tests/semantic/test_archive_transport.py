@@ -6,7 +6,6 @@ from typing import Any
 import pyarrow as pa
 import pytest
 
-from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
 from corpus_structure.semantic.archive_native import archive_native_sql
 from corpus_structure.semantic.archive_transport import (
     archive_batch,
@@ -14,8 +13,10 @@ from corpus_structure.semantic.archive_transport import (
     archive_write_profile,
 )
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.releases import _projection_rows
+from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
 from semantic.releases_support import source_bundle
 
 

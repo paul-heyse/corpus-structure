@@ -8,10 +8,9 @@ import pytest
 import yaml
 
 from corpus_structure.methods.llm.cascade import PlacementPolicy
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_model import ExternalExecutorContract
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.declared_proposal_frames import DeclaredProposalFrame
 from corpus_structure.semantic.external_extraction import (
     external_extraction_inputs,
@@ -22,8 +21,10 @@ from corpus_structure.semantic.external_extraction import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.proposals import ProposalRefused, ProposalSentence, native_address
 from corpus_structure.semantic.rich_proposals import read_rich_proposals
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.proposals_support import batch
 
 

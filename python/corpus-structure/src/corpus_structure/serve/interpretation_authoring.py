@@ -48,8 +48,8 @@ def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
 
     with engine.begin() as connection:
         from corpus_structure.semantic.authored_interpretations import JUDGMENT_KINDS
-        from corpus_structure.semantic.data_operation_identity import decode_semantic_value
         from corpus_structure.semantic.data_operation_json import json_bytes
+        from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
         model = bound_data_operation_model(prepared)
         definitions = {item.iri: item.name for item in prepared.definitions}
@@ -194,9 +194,9 @@ def authenticate_judgment_source(connection, prepared, nominal, body, *, expecte
 
 def selected_authored_judgments(connection, selected, product_ids):
     """Read actual authored admissions from this selected demand's pinned native index."""
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.data_operation_support import AuthoredFactSupportReference
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
 
     products = selected.index.mapping("kb.data_product", ("id",))

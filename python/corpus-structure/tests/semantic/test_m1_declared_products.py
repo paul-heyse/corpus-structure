@@ -7,7 +7,6 @@ import pytest
 
 from corpus_structure.core.method import CoverageDraft
 from corpus_structure.methods.m1_source import M1CandidateProduct, M1Config
-from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
@@ -18,6 +17,7 @@ from corpus_structure.semantic.m1_products import (
     m1_operation_inputs,
     m1_profile_assets,
 )
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_subject
 from corpus_structure.semantic.source_types import ObservationOutcome
 from corpus_structure.semantic.types import PreparationProfile

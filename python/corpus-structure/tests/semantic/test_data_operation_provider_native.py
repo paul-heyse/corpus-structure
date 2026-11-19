@@ -16,15 +16,14 @@ from corpus_structure.semantic._data_operation_wire import (
 from corpus_structure.semantic.data_operation_identity import (
     ProfileField,
     canonical_identity,
-    decode_semantic_value,
     profile_identities,
-    semantic_value,
 )
 from corpus_structure.semantic.data_operation_runtime import (
     RuntimeBindingError,
     validate_data_operation_runtime,
 )
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.test_data_operation_pinned_reuse_native import (
     CONSUMER,

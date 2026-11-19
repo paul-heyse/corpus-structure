@@ -65,7 +65,7 @@ class SelectedConsumerValue:
         import json
 
         if self.meaning is not None:
-            from .data_operation_identity import decode_semantic_value
+            from .data_operation_values import decode_semantic_value
 
             return decode_semantic_value(json.loads(self.meaning))
         return json.loads(self.content)
@@ -114,12 +114,12 @@ def hydrate_consumer_selection(
 
     from sqlalchemy import BigInteger, and_, cast, column, select, values
 
-    from .data_operation_identity import decode_semantic_value
     from .data_operation_json import json_loads
     from .data_operation_jsonb import json_context_equal, json_context_value
     from .data_operation_projections import binding_columns
     from .data_operation_storage import admitted_data_read
     from .data_operation_support import support_reference_records
+    from .data_operation_values import decode_semantic_value
     from .identity import canonical_bytes
 
     binding = selection.binding

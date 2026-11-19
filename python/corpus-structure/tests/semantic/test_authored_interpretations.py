@@ -203,8 +203,8 @@ def test_exact_judgment_nominal_and_actual_captured_schema_required():
 def test_selected_original_admission_exposes_authorship_without_computational_receipt(monkeypatch):
     from types import SimpleNamespace
 
-    from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_support import authored_fact_selection
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.serve import interpretation_authoring
 
     _, _, selected, group, body = judgment_fixture()

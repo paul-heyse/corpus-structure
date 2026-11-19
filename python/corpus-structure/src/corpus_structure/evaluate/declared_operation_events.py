@@ -176,7 +176,7 @@ def _input_basis(port, binding, values):
 
 
 def _selected_body(index, product, member=None):
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     row = (
         index.mapping("kb.data_product", ("id",)).get(product)
@@ -620,8 +620,8 @@ def validate_operation_event_authority_leaf(leaf, *, products, kinds, definition
     import re
     from dataclasses import asdict
 
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.operation_policy import OperationEventParameters
 
     definition = definitions.get((leaf.release_id, leaf.issuer_operation))
@@ -669,8 +669,8 @@ def execute_score_kernel(input_basis: list, *, check_active) -> dict:
         cpu_authority_reply,
         cpu_basis_values,
     )
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.operation_policy import (
         OperationEventParameters,
         score_operation_event,

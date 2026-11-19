@@ -4,18 +4,18 @@ from pathlib import Path
 
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection, pm2_selection
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.predicate_products import (
     predicate_inputs,
     predicate_operation_sources,
 )
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.primary_operations import (
     combine_primary_sources,
     primary_operation_inputs,
 )
-from corpus_structure.semantic.types import ResolvedDependencies
+from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 
 
 def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses(

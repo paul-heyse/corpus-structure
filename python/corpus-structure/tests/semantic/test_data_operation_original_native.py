@@ -22,18 +22,15 @@ from corpus_structure.semantic.data_operation_admission import (
     bound_data_operation_model,
 )
 from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
-from corpus_structure.semantic.data_operation_identity import (
-    canonical_identity,
-    decode_semantic_value,
-    semantic_value,
-)
+from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.original_documents import (
     acquire_original_document_selection,
     register_original_document,
 )
-from semantic.data_operation_kernel_support import ORIGINAL_DOCUMENT, ORIGINAL_PDF
+from semantic.data_operation_kernel_support import ORIGINAL_DOCUMENT, original_pdf_recipe
 
 
 def _exact_original_recipe():
@@ -308,7 +305,7 @@ def test_authentic_original_fact_admission_publication_and_revocation(ddo_kernel
 
 @pytest.mark.parametrize(
     "ddo_kernel",
-    [ORIGINAL_PDF],
+    [original_pdf_recipe],
     indirect=True,
     ids=("original-document",),
 )

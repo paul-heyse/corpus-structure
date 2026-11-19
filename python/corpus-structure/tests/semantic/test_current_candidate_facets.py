@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.candidate_contribution_facets import (
     CANDIDATE_NAMESPACE,
     FINITE_KIND,
@@ -16,14 +15,15 @@ from corpus_structure.semantic.candidate_contribution_facets import (
     candidate_facets,
 )
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.finite_interpretation_products import finite_interpretation_inputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.original_documents import original_document_subject
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.reading_resolution_products import reading_resolution_inputs
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember

@@ -26,11 +26,11 @@ from corpus_structure.semantic.data_operation_demands import (
     freeze_demand,
 )
 from corpus_structure.semantic.data_operation_execution_evidence import bind_execution_evidence
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_outcomes import successful_return_outcome
 from corpus_structure.semantic.data_operation_service import execute_data_demand
 from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import stream_demand_result
 from corpus_structure.semantic.identifiers import ProjectId, ReleaseId, RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes

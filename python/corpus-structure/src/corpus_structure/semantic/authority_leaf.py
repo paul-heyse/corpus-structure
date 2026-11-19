@@ -96,7 +96,7 @@ def validate_authority_leaf(value, *, products, kinds, definitions, runtimes, sc
         or capability.get("prepared_factory", {}).get("entrypoint") != AUTHORIZATION_FACTORY
     ):
         raise ValueError("bounded authority differs from its captured command/effect/factory")
-    from .data_operation_identity import decode_semantic_value
+    from .data_operation_values import decode_semantic_value
     from .identity import canonical_bytes
 
     DdoRecordPolicyAuthorization.model_validate_json(

@@ -26,9 +26,9 @@ from .construction_products import (
     retained_construction_product,
     validate_construction_product,
 )
-from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_model import SubjectContext
 from .data_operation_outcomes import successful_return_outcome
+from .data_operation_values import decode_semantic_value, semantic_value
 from .data_product_reference import DataProductReference
 from .enriched_document_products import (
     EnrichedDocumentProduct,

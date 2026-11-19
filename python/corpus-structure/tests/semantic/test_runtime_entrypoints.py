@@ -58,8 +58,9 @@ def test_db_migrate_uses_current_target_root_and_refuses_legacy(commit_db_engine
 
 
 def test_current_archive_admission_refuses_schema_only_release_before_effects(commit_db_engine):
-    from corpus_structure.semantic import PreparationProfile, ResolvedDependencies, prepare_release
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.releases import ReleaseConflict, persist_release
+    from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
     from semantic.releases_support import source_bundle
 
     bundle = source_bundle()

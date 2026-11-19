@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from .authority_leaf import NativeAuthorityLeaf
-from .data_operation_identity import decode_semantic_value
 from .data_operation_json import json_bytes
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .data_operation_read_index import SelectedRecordIndex
 from .data_operation_support import ComputationalSupportReference, read_support_references
+from .data_operation_values import decode_semantic_value
 from .demand_results import CutSelection, SelectedGraphBudgetExceeded
 from .rich_graph_validation import RichWholeInput, read_retained_rich_graph, read_rich_graph
 from .rich_knowledge_contracts import (

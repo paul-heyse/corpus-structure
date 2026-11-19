@@ -10,9 +10,9 @@ from corpus_structure.methods.contextual_query import (
     DeclaredQueryContextSelection,
     resolve_query_contexts,
 )
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.data_product_reference import (
     DataProductMemberReference,
     DataProductReference,

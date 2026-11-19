@@ -4,8 +4,8 @@ import json
 from typing import cast as typing_cast
 
 from corpus_structure.semantic._data_operation_wire import WireRetainDataCompletionIntentRequest
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_values import semantic_value
 from semantic.data_operation_demand_support import claim, publish
 
 

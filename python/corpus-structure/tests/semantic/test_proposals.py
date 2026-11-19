@@ -6,13 +6,14 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.analysis_policies import prepare_placement_policy
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.proposals import (
     ProposalRefused,
     locate_proposal,
     proposal_inputs,
 )
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.proposals_support import batch as batch
 from semantic.proposals_support import frame as frame
 from semantic.proposals_support import prepared as prepared

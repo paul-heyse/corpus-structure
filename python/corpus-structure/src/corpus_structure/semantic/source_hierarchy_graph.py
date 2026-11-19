@@ -3,8 +3,8 @@
 from hashlib import sha256
 from typing import Any
 
-from .data_operation_identity import decode_semantic_value
 from .data_operation_json import json_bytes
+from .data_operation_values import decode_semantic_value
 from .graph_inspection import GraphNode, GraphOccurrence, GraphSnapshot
 from .graph_runtime import nx
 

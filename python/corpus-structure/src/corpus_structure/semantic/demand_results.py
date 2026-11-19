@@ -15,13 +15,10 @@ from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from ._data_operation_wire import WireCutSelection
-from .data_operation_identity import (
-    body_identity,
-    contextual_product_identity,
-    decode_semantic_value,
-)
+from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_model import SubjectContext, validate_replicate_selection
+from .data_operation_values import decode_semantic_value
 
 if TYPE_CHECKING:
     from ._data_operation_wire import WireReadDemandResultRequest

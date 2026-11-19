@@ -12,9 +12,7 @@ from semantic.current_pdf_source_support import (
 from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
 
 from corpus_structure.core.method import MethodSettings
-from corpus_structure.semantic import SourceArtifact, SourceBundle
 from corpus_structure.semantic.composed import data_operation_dependencies
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_service import (
     create_native_demand,
     execute_data_demand,
@@ -24,8 +22,14 @@ from corpus_structure.semantic.data_operation_storage import (
     native_operation_declarations,
     native_protocol_sources,
 )
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.primary_operations import combine_primary_sources
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 
 ROOT = Path(__file__).resolve().parents[4]
 

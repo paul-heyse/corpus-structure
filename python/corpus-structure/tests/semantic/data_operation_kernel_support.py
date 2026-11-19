@@ -10,6 +10,7 @@ import json
 from collections import OrderedDict
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
+from functools import cache
 from pathlib import Path
 from tempfile import TemporaryDirectory, mkdtemp
 from threading import RLock
@@ -146,6 +147,11 @@ def _prepare_kernel(recipe: KernelRecipe, directory: Path | None = None) -> Kern
 
     def source_file(name, content):
         path = Path(name)
+        if path.parts and path.parts[0] == "corpus_structure":
+            source_root = Path(__file__).parents[2] / "src"
+            path = (source_root / path).resolve()
+            if not path.is_relative_to(source_root.resolve()):
+                raise ValueError("captured package source escapes its read-only root")
         if path.is_absolute():
             if not path.is_file() or path.read_bytes() != content:
                 raise ValueError("captured package source differs from its read-only file: " + name)
@@ -387,6 +393,8 @@ register_scenario_builder(KernelRecipe, build_kernel)
 
 def kernel_clone(request, scenario_seeds):
     recipe = getattr(request, "param", None)
+    if callable(recipe):
+        recipe = recipe()
     if not isinstance(recipe, KernelRecipe):
         raise TypeError("ddo_kernel requires a KernelRecipe")
     with scenario_seeds.commit_clone(recipe) as clone:
@@ -678,7 +686,12 @@ classes: {Marker: {}}
 
 
 ORIGINAL_DOCUMENT = _original_recipe(pdf_capability=False)
-ORIGINAL_PDF = _original_recipe(pdf_capability=True)
+
+
+@cache
+def original_pdf_recipe():
+    """Acquire the current PDF helper only when a PDF scenario is requested."""
+    return _original_recipe(pdf_capability=True)
 
 
 def original_target(tmp_path, request):

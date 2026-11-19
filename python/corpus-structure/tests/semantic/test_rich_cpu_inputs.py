@@ -6,10 +6,10 @@ import pytest
 from pydantic import TypeAdapter
 
 from corpus_structure.semantic.data_operation_cpu_basis import CPUInputRole, cpu_input_basis
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.rich_cpu_inputs import RichKernelInputs
 from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 
@@ -64,7 +64,7 @@ def test_actual_child_inputs_reconstruct_exact_scope_typed_body_and_support_afte
         inputs.scalar("unknown")
     altered = decode_semantic_value(meaning)
     altered["roles"][0]["invented"] = "ignored"
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
 
     with pytest.raises(ValueError, match="finite role"):
         RichKernelInputs.from_basis(semantic_value(altered))
@@ -77,7 +77,7 @@ def test_shared_cpu_basis_distinguishes_exact_parameters_with_same_roles_and_con
         cpu_authority_reply,
         cpu_authority_value,
     )
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.identity import canonical_bytes
 
     context = SubjectContext(

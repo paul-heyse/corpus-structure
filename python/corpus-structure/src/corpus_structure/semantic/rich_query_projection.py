@@ -3,9 +3,9 @@
 from dataclasses import dataclass
 from hashlib import sha256
 
-from .data_operation_identity import decode_semantic_value
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
+from .data_operation_values import decode_semantic_value
 from .rich_graph_validation import RichWholeInput, read_retained_rich_graph
 from .rich_knowledge_contracts import DdoRichSelectedMember
 from .rich_queries import PreparedRichQueryIndex, RichQuery, RichQueryIndex, query_rows

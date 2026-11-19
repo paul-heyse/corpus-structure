@@ -202,7 +202,7 @@ def test_frozen_parameter_defaults_match_the_later_binding_manifest():
 
 
 def test_frozen_typed_parameters_survive_jsonb_display_loss():
-    from corpus_structure.semantic.data_operation_identity import (
+    from corpus_structure.semantic.data_operation_values import (
         decode_semantic_value,
         semantic_value,
     )

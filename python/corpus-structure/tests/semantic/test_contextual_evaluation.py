@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.construction_products import (
@@ -28,7 +27,13 @@ from corpus_structure.semantic.data_product_reference import (
 from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
 from corpus_structure.semantic.formal_products import formal_operation_sources
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 from semantic.formal_products_support import publication_context
 from semantic.formal_products_support import selected as select_source
 

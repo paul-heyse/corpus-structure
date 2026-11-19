@@ -22,7 +22,6 @@ from corpus_structure.semantic.data_operation_demands import (
     RootSubject,
     freeze_demand,
 )
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_service import execute_data_demand
 from corpus_structure.semantic.data_operation_storage import (
@@ -31,6 +30,7 @@ from corpus_structure.semantic.data_operation_storage import (
     native_protocol_sources,
 )
 from corpus_structure.semantic.data_operation_support import authored_fact_selection
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.declared_structural_calls import (
     structural_inputs,
     structural_operation_declarations,

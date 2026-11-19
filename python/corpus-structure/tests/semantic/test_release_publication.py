@@ -4,12 +4,9 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from corpus_structure.semantic import (
-    ResolvedDependencies,
-    SourceArtifact,
-    releases,
-)
+from corpus_structure.semantic import releases
 from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact
 from semantic.releases_support import prepare_archive, source_bundle
 
 

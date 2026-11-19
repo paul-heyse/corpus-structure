@@ -12,13 +12,14 @@ from pydantic import BaseModel
 
 from corpus_structure.semantic.input_values import _untrusted_value
 
-from .data_operation_identity import canonical_identity, semantic_value
+from .data_operation_identity import canonical_identity
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_model import (
     EffectiveDataOperationModel,
     SubjectContext,
     validate_subject_context,
 )
+from .data_operation_values import semantic_value
 from .data_operation_wire import validate_wire_schema
 from .rich_knowledge_contracts import (
     DdoRichAdmission,

@@ -484,7 +484,7 @@ def artifact_kernel(
     from corpus_structure.methods.artifact_identity_declared import ArtifactIdentityOperation
 
     from .data_operation_cpu_basis import cpu_authority_reply, require_consumed_cpu_basis
-    from .data_operation_identity import semantic_value
+    from .data_operation_values import semantic_value
 
     names = {role.role for role in roles}
     if names != {"sources", "constructions", "nominations"}:

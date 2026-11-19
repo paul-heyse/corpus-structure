@@ -246,13 +246,8 @@ def test_same_identity_cannot_bind_different_fields():
 
 
 def test_explicit_iris_cross_preparation_and_archive_as_plain_text():
-    from corpus_structure.semantic import (
-        PreparationProfile,
-        SourceArtifact,
-        SourceBundle,
-        prepare_release,
-    )
-    from corpus_structure.semantic.prepare import preview_schema
+    from corpus_structure.semantic.prepare import prepare_release, preview_schema
+    from corpus_structure.semantic.types import PreparationProfile, SourceArtifact, SourceBundle
 
     bundle = SourceBundle(
         "explicit",

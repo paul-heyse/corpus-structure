@@ -5,8 +5,8 @@ from hashlib import sha256
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity_exclusion_comparison import (
     compare_constraint_snapshots,
     constraint_snapshot,

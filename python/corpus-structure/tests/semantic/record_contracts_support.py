@@ -5,13 +5,10 @@ from pathlib import Path
 
 from statistics_pack_support import statistics_bundle
 
-from corpus_structure.semantic import (
-    PreparationProfile,
-    prepare_release,
-)
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
 from corpus_structure.semantic.observations import observation_inputs
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     bind_record_candidates,
@@ -20,6 +17,7 @@ from corpus_structure.semantic.record_contracts import (
     record_family_contract,
     record_identity,
 )
+from corpus_structure.semantic.types import PreparationProfile
 
 ROOT = Path(__file__).resolve().parents[4]
 

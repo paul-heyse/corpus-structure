@@ -34,6 +34,8 @@ class _GenerationFailure:
 def _held_target_installation(inputs: NativeGeneratorInputs):
     from corpus_structure.schema.physical import compile_physical
 
+    from .code_reuse import record_code_reuse
+
     owned = compile_physical(dict(inputs.physical_sources), linkml_types=inputs.linkml_types)
     try:
         from .native_program_store import (
@@ -46,11 +48,23 @@ def _held_target_installation(inputs: NativeGeneratorInputs):
         key = input_key(inputs, include_format=True)
         retained = None if key is None else load_installation(key, owned)
         if retained is not None:
+            record_code_reuse(
+                inputs.code_identity,
+                entry_point="corpus_structure.semantic.target_installation.render_target_installation",
+                tier="native-programs",
+                outcome="reused",
+            )
             return retained
         with capture_generator_custody(inputs.code_identity, closed=True):
             result = render_target_installation(inputs)
         if key is not None:
             save_installation(key, result)
+        record_code_reuse(
+            inputs.code_identity,
+            entry_point="corpus_structure.semantic.target_installation.render_target_installation",
+            tier="native-programs",
+            outcome="derived",
+        )
         return result
     except (ValueError, TypeError) as error:
         return _GenerationFailure(error)
@@ -116,6 +130,7 @@ def capture_target_installation(
     pdf_sources: tuple[SourceArtifact, ...] | None = None,
     extra_sources: tuple[SourceArtifact, ...] = (),
 ) -> TargetInstallation:
+    from .code_reuse import record_code_reuse
     from .native_program_store import capture_generator_custody
 
     inputs = capture_generator_inputs(
@@ -124,6 +139,12 @@ def capture_target_installation(
         pdf_actions=pdf_actions,
         pdf_sources=pdf_sources,
         extra_sources=extra_sources,
+    )
+    record_code_reuse(
+        inputs.code_identity,
+        entry_point="corpus_structure.semantic.target_installation.render_target_installation",
+        tier="native-programs",
+        outcome="unknown" if inputs.complete else "withheld",
     )
     if not inputs.complete:
         return render_target_installation(inputs)

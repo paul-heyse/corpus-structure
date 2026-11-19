@@ -16,9 +16,9 @@ from corpus_structure.semantic.construction_products import (
     PreparedConstructionProfile,
     validate_construction_product,
 )
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.formal_evidence import grammar_identity
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,

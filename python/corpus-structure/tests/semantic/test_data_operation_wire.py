@@ -520,7 +520,7 @@ def test_native_attachment_binding_requires_the_authenticated_read_receipt_refer
 
 
 def member_completion(member, *, domain_body=None):
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
 
     return {
         "request_id": "request:x",
@@ -634,7 +634,7 @@ def test_endpoint_scope_is_explicit_and_local_never_embeds_a_self_product_key(en
         "body": ["mapping", [["endpoints", ["sequence", []]]]],
         "endpoints": [endpoint],
     }
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
 
     member["body"] = semantic_value({"endpoints": [endpoint]})
     if valid:

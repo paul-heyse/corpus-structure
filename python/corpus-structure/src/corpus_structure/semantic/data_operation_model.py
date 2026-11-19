@@ -1117,7 +1117,7 @@ class ResolvedRoleBinding:
 
 def json_context_meaning(content: bytes) -> bytes:
     """Canonical typed JSON meaning with JSONB-equivalent numeric semantics."""
-    from .data_operation_identity import semantic_value
+    from .data_operation_values import semantic_value
 
     return canonical_bytes(
         semantic_value(json.loads(content, parse_int=Decimal, parse_float=Decimal))
@@ -1164,7 +1164,7 @@ class SubjectContext:
 
     @property
     def identity_content(self) -> bytes:
-        from .data_operation_identity import semantic_value
+        from .data_operation_values import semantic_value
 
         return canonical_bytes(semantic_value(self.identity_record))
 

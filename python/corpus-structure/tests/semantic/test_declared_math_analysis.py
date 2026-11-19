@@ -280,7 +280,6 @@ def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependenc
 
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
-    from corpus_structure.semantic import SourceArtifact, SourceBundle
     from corpus_structure.semantic.characterization_ports import characterization_operation_sources
     from corpus_structure.semantic.construction_products import construction_product_inputs
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
@@ -294,6 +293,7 @@ def test_analysis_operations_compile_with_explicit_weak_and_contextual_dependenc
     )
     from corpus_structure.semantic.formal_products import formal_operation_sources
     from corpus_structure.semantic.primary_operations import combine_primary_sources
+    from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
     configuration = SentenceConfig(exclude=("ner",))
     selection = NativeSelection(

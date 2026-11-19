@@ -96,9 +96,9 @@ def freeze_native_demand(prepared, request: NativeDemandRequest) -> DemandIntent
         RootSubject,
         freeze_demand,
     )
-    from .data_operation_identity import semantic_value
     from .data_operation_source_sets import read_source_sets
     from .data_operation_support import OriginalSourceSelection
+    from .data_operation_values import semantic_value
     from .identity import canonical_bytes
 
     return freeze_demand(

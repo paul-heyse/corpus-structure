@@ -98,12 +98,12 @@ def test_canonical_observations_refuse_independent_pin_override():
 
 
 def test_declared_member_maps_literal_spans_without_a_physical_view_or_task():
-    from corpus_structure.semantic import prepare_release
     from corpus_structure.semantic.data_operation_model import BoundRoleMember
     from corpus_structure.semantic.declared_record_sources import (
         DeclaredNativeFrameSource,
         DeclaredSourceSlice,
     )
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.source_contexts import (
         NativeSourceContext,
         PreparedNativeSources,
@@ -182,9 +182,9 @@ def test_declared_literal_record_assembly_preserves_semantic_member_pin():
         RoleInput,
         assemble_native_records,
     )
-    from corpus_structure.semantic import prepare_release
     from corpus_structure.semantic.data_operation_model import BoundRoleMember
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.source_contexts import (
         NativeSourceContext,
         PreparedNativeSources,
@@ -264,9 +264,9 @@ def test_candidate_preparation_accepts_explicit_declared_frame_without_view_refe
     from types import SimpleNamespace
 
     from corpus_structure.methods.source_preparation import prepare_source
-    from corpus_structure.semantic import prepare_release
     from corpus_structure.semantic.data_operation_model import BoundRoleMember
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
 
     root = Path(__file__).resolve().parents[2] / "src/corpus_structure/model/semantic"
@@ -333,9 +333,9 @@ def test_declared_formula_occurrence_keeps_original_member_address_without_conve
         formula_occurrence,
     )
     from corpus_structure.methods.record_assembly import native_formula_group
-    from corpus_structure.semantic import prepare_release
     from corpus_structure.semantic.data_operation_model import BoundRoleMember
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.source_contexts import (
         NativeSourceContext,
         PreparedNativeSources,
@@ -407,7 +407,6 @@ def test_declared_formula_occurrence_keeps_original_member_address_without_conve
 
 
 def test_declared_related_context_selects_only_closed_native_link_members():
-    from corpus_structure.semantic import prepare_release
     from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding
     from corpus_structure.semantic.declared_contexts import (
         DeclaredContextPopulation,
@@ -415,6 +414,7 @@ def test_declared_related_context_selects_only_closed_native_link_members():
     )
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
     from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.source_contexts import (
         ContextRelationship,
         RetrievalOutcome,

@@ -40,8 +40,8 @@ from corpus_structure.evaluate.record_alignment import (
     RecordSide,
     align_records,
 )
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     bind_record_candidates,
@@ -50,6 +50,7 @@ from corpus_structure.semantic.record_contracts import (
     record_family_contract,
     record_identity,
 )
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def score(reference, prediction, contexts, *, binding=None):

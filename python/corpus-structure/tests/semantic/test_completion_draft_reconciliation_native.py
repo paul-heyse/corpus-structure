@@ -9,8 +9,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.completion_drafts import CompletionDraftStore
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.target_installation import capture_target_installation
 from native_test_support import principal_engine

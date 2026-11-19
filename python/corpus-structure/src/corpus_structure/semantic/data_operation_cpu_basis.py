@@ -14,13 +14,13 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
-from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_model import SubjectContext
 from .data_operation_support import (
     ComputationalSupportReference,
     SupportReference,
     support_reference_records,
 )
+from .data_operation_values import decode_semantic_value, semantic_value
 from .identity import canonical_bytes
 from .selected_support import ProducerOutputOccurrence
 

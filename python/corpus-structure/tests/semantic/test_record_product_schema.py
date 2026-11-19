@@ -5,16 +5,12 @@ from importlib.resources import files
 import pytest
 import yaml
 
-from corpus_structure.semantic import (
-    PreparationError,
-    SourceArtifact,
-    SourceBundle,
-    prepare_release,
-)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import observation_inputs
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.record_contracts import record_product_classes
 from corpus_structure.semantic.releases import _projection_rows
+from corpus_structure.semantic.types import PreparationError, SourceArtifact, SourceBundle
 from semantic.record_contracts_support import PIN, release_inputs
 
 

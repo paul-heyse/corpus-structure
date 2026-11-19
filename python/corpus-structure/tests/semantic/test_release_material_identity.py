@@ -6,11 +6,16 @@ from hashlib import sha256
 
 import pytest
 
-from corpus_structure.semantic import ResolvedDependencies, SourceArtifact, prepare_release
 from corpus_structure.semantic.determinants import release_library_versions
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.release_identity import material_dependencies, release_manifest
 from corpus_structure.semantic.releases import _archive_bytes
-from corpus_structure.semantic.types import PreparationProfile, PreparedArtifact
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    PreparedArtifact,
+    ResolvedDependencies,
+    SourceArtifact,
+)
 from semantic.releases_support import source_bundle
 
 

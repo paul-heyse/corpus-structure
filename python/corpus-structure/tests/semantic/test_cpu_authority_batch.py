@@ -12,8 +12,8 @@ from corpus_structure.semantic.data_operation_cpu_basis import (
     cpu_authority_value,
     cpu_input_basis,
 )
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 
 

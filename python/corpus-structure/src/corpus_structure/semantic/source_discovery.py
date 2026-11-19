@@ -251,13 +251,13 @@ class PreparedSourceDiscoveryPort:
     def invoke_python(self, values, *, binding=None, check_active=lambda: None):
         from corpus_structure.semantic.input_values import _untrusted_value
 
-        from .data_operation_identity import decode_semantic_value, semantic_value
         from .data_operation_ports import (
             PortCompletion,
             PortRefusal,
             RoleValue,
             project_product_members,
         )
+        from .data_operation_values import decode_semantic_value, semantic_value
 
         self._verify()
         check_active()

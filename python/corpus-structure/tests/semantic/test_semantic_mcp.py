@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from corpus_structure.methods.llm.cascade import PlacementPolicy
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_model import ExternalExecutorContract
 from corpus_structure.semantic.declared_math_products import math_operation_declarations
@@ -16,7 +15,9 @@ from corpus_structure.semantic.external_extraction import (
     locate_external_extraction,
     rich_external_declarations,
 )
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.proposals import ProposalRefused
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.proposals_support import batch
 from semantic.test_external_rich_extraction import frame, packet
 

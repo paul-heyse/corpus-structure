@@ -633,8 +633,8 @@ def test_native_population_closure_requires_each_frozen_producer_context(ddo_ker
     )
     from corpus_structure.semantic.change_impact import _acquire
     from corpus_structure.semantic.data_operation_demands import DemandPlanner, RootSubject
-    from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from semantic.data_operation_binding_support import discover
     from semantic.data_operation_demand_support import claim, publish
 

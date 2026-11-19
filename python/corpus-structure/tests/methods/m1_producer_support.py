@@ -13,9 +13,9 @@ from corpus_structure.methods.gliner_worker import (
     GlinerBatchResult,
     GlinerWorkerError,
 )
-from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import observation_inputs
+from corpus_structure.semantic.prepare import prepare_release
 
 ROOT = Path(__file__).resolve().parents[4]
 

@@ -10,7 +10,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.characterization_ports import (
     construction_operation_sources,
     contextual_operation_sources,
@@ -33,7 +32,13 @@ from corpus_structure.semantic.formal_products import (
     prepare_formal_evidence,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 from semantic.formal_products_support import selected
 
 
@@ -321,7 +326,7 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
     from corpus_structure.core.work import drive_prepared_work
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.semantic.cpu_execution import CPUExecutionScope
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.sentence_products import (
         _blocks,
         _detach_annotation_block,

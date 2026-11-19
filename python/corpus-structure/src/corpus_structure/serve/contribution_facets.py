@@ -4,8 +4,8 @@ from hashlib import sha256
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused
 from corpus_structure.semantic.selected_contribution_projection import contribution_rows

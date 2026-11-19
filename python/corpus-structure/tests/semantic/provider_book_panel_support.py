@@ -106,10 +106,10 @@ def panel_release():
     from methods.record_assembly_support import bundle
 
     from corpus_structure.methods import model_observation
-    from corpus_structure.semantic import prepare_release
     from corpus_structure.semantic.interpretation_questions import (
         characterization_question_dependencies,
     )
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact
 
     dependencies = characterization_question_dependencies(

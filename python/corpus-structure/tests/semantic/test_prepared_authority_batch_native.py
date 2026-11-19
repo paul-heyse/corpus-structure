@@ -19,12 +19,12 @@ from corpus_structure.semantic.data_operation_demands import (
     RootSubject,
     freeze_demand,
 )
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_service import execute_data_demand
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_support import authored_fact_selection
+from corpus_structure.semantic.data_operation_values import semantic_value
 from semantic.data_operation_demand_support import claim, publish
 from semantic.prepared_batch_control import controlled_recipe, controlled_sources
 
@@ -164,8 +164,8 @@ def test_real_batch_retained_intent_keeps_original_member_after_adoption(
             semantic_value(9),
         )
 
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.serve.demand_export import export_demand_result, verify_demand_export
 
     expected_input, expected_output = {"one": (4, 5), "two": (8, 9)}[subject]

@@ -60,7 +60,6 @@ from corpus_structure.semantic.data_operation_admission import (
     bound_data_operation_model,
 )
 from corpus_structure.semantic.data_operation_demands import ReadyDataRequest
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.data_operation_ports import (
     HydratedRoleValue,
@@ -72,6 +71,7 @@ from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
 from corpus_structure.semantic.data_operation_service import (
     DataExecutionBasis,
 )
+from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.identifiers import RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection

@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_product_reference import (
     DataProductMemberReference,
     DataProductReference,
@@ -13,6 +12,8 @@ from corpus_structure.semantic.data_product_reference import (
     reference_inputs,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def test_shared_reference_schema_matches_actual_addresses_and_refuses_unqualified_members():

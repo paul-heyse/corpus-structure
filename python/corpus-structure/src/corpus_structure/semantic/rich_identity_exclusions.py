@@ -1,7 +1,8 @@
 """Materialized source declarations and their explicit current resolution outcome."""
 
-from .data_operation_identity import canonical_identity, semantic_value
+from .data_operation_identity import canonical_identity
 from .data_operation_model import SubjectContext
+from .data_operation_values import semantic_value
 from .identity import canonical_bytes
 from .rich_knowledge_contracts import DdoRichIdentityExclusion, DdoRichLocatedEvidence
 

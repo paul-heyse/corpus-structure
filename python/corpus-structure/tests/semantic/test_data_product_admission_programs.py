@@ -8,8 +8,8 @@ from sqlalchemy import insert, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_storage import native_protocol_sources, native_sql
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_product_admission_native import product_admission_native_sql
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner

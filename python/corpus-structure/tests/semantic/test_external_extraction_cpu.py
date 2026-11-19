@@ -15,7 +15,6 @@ import pytest
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.work import drive_prepared_work
 from corpus_structure.ingest.sentences import SentenceConfig
-from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
@@ -25,7 +24,6 @@ from corpus_structure.semantic.data_operation_cpu_basis import (
     cpu_authority_value,
     cpu_input_basis_from_binding,
 )
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import (
     MODEL_VERSION,
@@ -34,6 +32,7 @@ from corpus_structure.semantic.data_operation_model import (
     ResolvedRoleBinding,
     SubjectContext,
 )
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.external_extraction import (
     execute_rich_kernel,
     external_extraction_assets,
@@ -42,6 +41,7 @@ from corpus_structure.semantic.external_extraction import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import ResolvedDependencies
 from semantic.proposals_support import batch
 from semantic.test_external_rich_extraction import frame, packet

@@ -6,10 +6,15 @@ from dataclasses import replace
 import pytest
 import yaml
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.inspection_metadata import ARTIFACT, get_inspection
-from corpus_structure.semantic.types import PreparationError, PreparedArtifact
+from corpus_structure.semantic.prepare import prepare_release
+from corpus_structure.semantic.types import (
+    PreparationError,
+    PreparedArtifact,
+    SourceArtifact,
+    SourceBundle,
+)
 
 
 def source_bundle():

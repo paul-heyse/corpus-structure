@@ -11,7 +11,6 @@ from annotation_support import ControlledPipeline, selected_item
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfile, annotate
 from corpus_structure.ingest.sentences import Block
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.canonical_sentences import (
     CanonicalProduct,
     canonical_packet_values,
@@ -30,8 +29,14 @@ from corpus_structure.semantic.hanlp_products import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.learned_primary import learned_primary_inputs
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_products import source_subject
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 from methods.navigation_fixture import SourcePrimaryProducts, source_primary_products
 
 

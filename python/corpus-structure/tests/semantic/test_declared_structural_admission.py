@@ -8,11 +8,8 @@ import pytest
 from pglast import parse_plpgsql, parse_sql
 
 from corpus_structure.evaluate.declared_structural_admission import structural_admission_value
-from corpus_structure.semantic.data_operation_identity import (
-    body_identity,
-    decode_semantic_value,
-    semantic_value,
-)
+from corpus_structure.semantic.data_operation_identity import body_identity
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.declared_structural_admission import DdoStructuralAdmission
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import get_metadata

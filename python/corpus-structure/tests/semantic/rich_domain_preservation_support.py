@@ -3,11 +3,11 @@
 from decimal import Decimal
 from pathlib import Path
 
-from corpus_structure.semantic import prepare_release
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.regeneration import acquire_pack
 from corpus_structure.semantic.rich_fact_graph import RichFactGraph
 from corpus_structure.semantic.rich_graph_validation import read_rich_graph

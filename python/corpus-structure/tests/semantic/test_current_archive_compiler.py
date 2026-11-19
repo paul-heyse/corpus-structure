@@ -8,17 +8,19 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.archive_reader import reconstruct_release
 from corpus_structure.semantic.comparison_projection import ARTIFACT as COMPARISON_ARTIFACT
 from corpus_structure.semantic.comparison_projection import comparison_projection
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.record_projection import ARTIFACT, read_record_projection
 from corpus_structure.semantic.types import (
     SEMANTIC_COMPILER_VERSION,
     PreparationError,
     PreparationProfile,
     PreparedArtifact,
+    SourceArtifact,
+    SourceBundle,
 )
 
 ROOT = Path(__file__).resolve().parents[4]

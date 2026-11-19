@@ -6,8 +6,9 @@ from typing import Any
 
 import yaml
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.proposals import ProposalFrame, ProposalSentence, proposal_inputs
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 @cache

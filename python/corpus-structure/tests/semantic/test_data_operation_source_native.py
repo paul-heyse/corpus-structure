@@ -11,15 +11,16 @@ from pglast import ast
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
-from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_source_native import (
     source_native_sources,
     source_native_sql,
 )
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 @pytest.fixture(scope="module")

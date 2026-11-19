@@ -3,7 +3,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 
-from .data_operation_identity import semantic_value
+from .data_operation_values import semantic_value
 from .identity import canonical_bytes
 from .rich_knowledge_contracts import DdoRichAdmission, DdoRichEntity, DdoRichIdentityExclusion
 from .rich_queries import RichQueryRefused, RichQueryRow

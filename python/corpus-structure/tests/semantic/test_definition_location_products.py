@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from corpus_structure.methods.contextual_candidates import retained_occurrences
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_model import BoundRoleMember
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
@@ -15,6 +14,7 @@ from corpus_structure.semantic.definition_location_products import (
     definition_location_values,
 )
 from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_products import FrozenNativeSource
 from corpus_structure.semantic.structural_products import (
     DeclaredDefinitionComponentsProduct,
@@ -25,6 +25,7 @@ from corpus_structure.semantic.structural_products import (
     StructuralPassage,
     declared_definition_component,
 )
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 @pytest.fixture(scope="module")

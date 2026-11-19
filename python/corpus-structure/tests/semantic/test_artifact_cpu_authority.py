@@ -13,7 +13,7 @@ from corpus_structure.semantic.data_operation_cpu_basis import (
     cpu_authority_value,
     cpu_input_basis_from_roles,
 )
-from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from semantic.current_artifact_support import ARTIFACT, artifact_recipe

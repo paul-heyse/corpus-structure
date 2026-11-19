@@ -12,9 +12,10 @@ import pytest
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.data_operation_identity import body_identity, semantic_value
+from corpus_structure.semantic.data_operation_identity import body_identity
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.current_pdf_source_support import admit_current_target
 from semantic.current_pdf_source_support import (
@@ -892,8 +893,8 @@ def _assert_native_issuer_refusal(kernel, pending, monkeypatch, *, exchange_outp
     import psycopg
 
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     actual = DataOperationStorage.retain_data_completion_intent
     observed = []

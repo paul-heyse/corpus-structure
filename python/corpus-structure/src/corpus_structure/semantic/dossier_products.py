@@ -558,7 +558,7 @@ def apply_structural_admissions(retained, admissions, *, project_id):
     support. These CPU checks prevent borrowing another retained report's statement;
     product possession alone confers no admission authority.
     """
-    from .data_operation_identity import semantic_value
+    from .data_operation_values import semantic_value
     from .declared_structural_admission import DdoStructuralAdmission
     from .declared_structural_references import DeclaredProductRef
     from .structural_admission import structural_statement

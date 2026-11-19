@@ -179,16 +179,12 @@ def test_literal_scoped_description(commit_db_engine, native_settings):
 def test_query_schema_uses_actual_reader_and_refuses_effects(
     commit_db_engine, native_settings, cli
 ):
-    from corpus_structure.semantic import (
-        PreparationProfile,
-        SourceArtifact,
-        SourceBundle,
-        prepare_release,
-    )
     from corpus_structure.semantic.analytical_profile import analytical_inputs
     from corpus_structure.semantic.authored_sql import SQLAdmissionError
     from corpus_structure.semantic.composed import data_operation_dependencies
+    from corpus_structure.semantic.prepare import prepare_release
     from corpus_structure.semantic.releases import persist_release
+    from corpus_structure.semantic.types import PreparationProfile, SourceArtifact, SourceBundle
 
     bundle, dependencies = analytical_inputs(
         SourceBundle(

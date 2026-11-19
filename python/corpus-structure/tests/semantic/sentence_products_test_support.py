@@ -6,19 +6,16 @@ from types import SimpleNamespace
 
 import pytest
 
-from corpus_structure.semantic import (
-    SourceArtifact,
-    SourceBundle,
-    prepare_release,
-)
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.sentence_products import (
     prepare_sentence_profile,
     sentence_operation_sources,
     sentence_product_inputs,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource, native_projection_identity
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 @pytest.fixture(scope="module")

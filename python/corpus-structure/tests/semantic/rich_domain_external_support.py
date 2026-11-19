@@ -72,7 +72,6 @@ def publish_external_report(journey, source, response_factory, *, inference):
     from evaluate.declared_rich_native_support import selected_entry
 
     from corpus_structure.semantic.data_operation_external import ExternalDataSession
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.data_operation_service import (
         DemandDiscoverySelection,
@@ -80,6 +79,7 @@ def publish_external_report(journey, source, response_factory, *, inference):
         execute_data_demand,
     )
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.semantic.observations import source_value
     from corpus_structure.semantic.original_documents import acquire_original_document_selection
     from corpus_structure.semantic.rich_knowledge_contracts import (

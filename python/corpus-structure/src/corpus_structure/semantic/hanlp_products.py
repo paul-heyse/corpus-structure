@@ -752,8 +752,8 @@ class PreparedHanlpPort:
     def _inputs(self, values, binding):
         from corpus_structure.semantic.input_values import _untrusted_value
 
-        from .data_operation_identity import decode_semantic_value
         from .data_operation_ports import PortRefusal, PythonRoleValue
+        from .data_operation_values import decode_semantic_value
 
         roles = [role for role in self.operation.roles if role.direction == "input"]
         ids = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
@@ -815,8 +815,8 @@ class PreparedHanlpPort:
         return source, canonical
 
     def _complete(self, product):
-        from .data_operation_identity import semantic_value
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
+        from .data_operation_values import semantic_value
 
         output = next(role for role in self.operation.roles if role.direction == "output")
         kind = next(

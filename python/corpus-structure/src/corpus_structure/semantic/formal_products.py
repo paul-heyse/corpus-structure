@@ -768,8 +768,8 @@ class PreparedFormalEvidencePort:
         )
 
     def _source(self, values, binding):
-        from .data_operation_identity import decode_semantic_value
         from .data_operation_ports import PortRefusal, PythonRoleValue
+        from .data_operation_values import decode_semantic_value
 
         inputs = tuple(role for role in self.operation.roles if role.direction == "input")
         contracts = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
@@ -799,8 +799,8 @@ class PreparedFormalEvidencePort:
     def _completion(self, product, binding=None):
         if binding is not None:
             product = replace(product, subject_context=binding.subject_context)
-        from .data_operation_identity import semantic_value
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
+        from .data_operation_values import semantic_value
         from .established_validity import bind_product_validation
 
         proof = bind_product_validation(product, product.subject_context)

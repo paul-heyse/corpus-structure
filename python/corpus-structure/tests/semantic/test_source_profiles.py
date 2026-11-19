@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_ports import (
@@ -16,6 +15,7 @@ from corpus_structure.semantic.data_operation_ports import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.original_documents import original_document_subject
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_products import FrozenNativeSource, native_projection_identity
 from corpus_structure.semantic.source_profiles import (
     source_profile_declarations,
@@ -23,7 +23,12 @@ from corpus_structure.semantic.source_profiles import (
     source_profile_operation_sources,
     source_profile_values,
 )
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 
 
 @pytest.fixture(scope="module")

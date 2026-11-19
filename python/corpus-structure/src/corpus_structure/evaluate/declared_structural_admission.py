@@ -8,7 +8,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
-from corpus_structure.semantic.data_operation_identity import body_identity, semantic_value
+from corpus_structure.semantic.data_operation_identity import body_identity
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.declared_structural_references import DeclaredProductRef
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_admission import POLICIES, structural_statement
@@ -85,7 +86,7 @@ class DdoStructuralReferenceCase(StructuralAssessmentValue):
     def exact_case(self):
         import json
 
-        from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+        from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
         if self.path != ("public_statement",) or len(set(self.source_passages)) != len(
             self.source_passages

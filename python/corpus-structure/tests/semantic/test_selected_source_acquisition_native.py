@@ -417,7 +417,7 @@ MEMBER_SOURCES = _member_source_recipe()
     "ddo_kernel", [MEMBER_SOURCES], indirect=True, ids=["whole-and-member-output"]
 )
 def test_native_source_acquisition_preserves_emitting_member_distinction(ddo_kernel):
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from semantic.data_operation_demand_support import attach, claim, publish, retain
 
     def contract(name):

@@ -9,7 +9,6 @@ import pytest
 from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
 from corpus_structure.ingest.pdf_hierarchy import SectionPolicy
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_admission import (
     PreparedCapabilityIdentity,
@@ -27,8 +26,14 @@ from corpus_structure.semantic.pdf_views import (
     pdf_views_assets,
     pdf_views_operation_sources,
 )
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_discovery import source_discovery_inputs
-from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies
+from corpus_structure.semantic.types import (
+    PreparationProfile,
+    ResolvedDependencies,
+    SourceArtifact,
+    SourceBundle,
+)
 
 
 @pytest.fixture(scope="module")

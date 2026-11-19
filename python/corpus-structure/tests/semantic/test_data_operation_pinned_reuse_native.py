@@ -467,10 +467,10 @@ def test_same_native_value_and_position_keep_each_exact_selected_producing_episo
                 assert result["sqlstate"] == "23514"
                 assert re.search(r"wire|support|native manifest member", result["reason"])
             assert counts(connection) == before
-    from corpus_structure.semantic.data_operation_identity import (
+    from corpus_structure.semantic.data_operation_identity import canonical_identity
+    from corpus_structure.semantic.data_operation_values import (
         CollectionValue,
         OptionalValue,
-        canonical_identity,
         decode_semantic_value,
         semantic_value,
     )

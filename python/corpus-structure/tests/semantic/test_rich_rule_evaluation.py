@@ -11,11 +11,11 @@ from typing import Any
 import pytest
 import yaml
 
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.rich_decisions import DdoRichScientificRepresentative
 from corpus_structure.semantic.rich_graph_validation import RichWholeInput
 from corpus_structure.semantic.rich_knowledge_contracts import (
@@ -40,7 +40,7 @@ from corpus_structure.semantic.rich_rule_evaluation import (
 )
 from corpus_structure.semantic.rich_rules import RichRulePolicy
 from corpus_structure.semantic.rich_scientific import assess_rich_scientific
-from corpus_structure.semantic.types import ResolvedDependencies
+from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 from semantic.record_contracts_support import release_inputs
 from semantic.test_rich_scientific import formula, graph_inputs
 

@@ -337,13 +337,13 @@ class PreparedContextualNativePort:
             validate_interpreted_product,
         )
         from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
-        from .data_operation_identity import semantic_value
         from .data_operation_ports import (
             PortCompletion,
             PortRefusal,
             RoleValue,
             project_product_members,
         )
+        from .data_operation_values import semantic_value
         from .learned_primary import _FILES, _ROOT, learned_profile_assets
 
         self._verify()

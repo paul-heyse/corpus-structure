@@ -201,7 +201,7 @@ def test_native_projection_refuses_unfitted_or_unheld_out_basis(
 def test_native_projection_preserves_exact_floating_point_semantic_subtrees(
     policy_projection_connection,
 ):
-    from corpus_structure.semantic.data_operation_identity import semantic_value
+    from corpus_structure.semantic.data_operation_values import semantic_value
 
     current = basis()
     feature = current.instance.feature.model_copy(

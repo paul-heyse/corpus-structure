@@ -8,7 +8,6 @@ import spacy
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.sentences import SentenceConfig, make_doc, prepare_layout
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_model import BoundRoleMember
 from corpus_structure.semantic.declared_record_sources import (
@@ -16,6 +15,7 @@ from corpus_structure.semantic.declared_record_sources import (
     DeclaredSourcePin,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.sentence_products import (
     _blocks,
     _detach_annotation_block,
@@ -25,6 +25,7 @@ from corpus_structure.semantic.sentence_products import (
     spacy_family_coverage,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_subject
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 @pytest.fixture(scope="module")

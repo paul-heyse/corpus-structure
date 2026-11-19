@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import json
 
-from .data_operation_identity import canonical_identity, decode_semantic_value
+from .data_operation_identity import canonical_identity
+from .data_operation_values import decode_semantic_value
 from .identity import canonical_bytes
 from .types import SourceArtifact
 

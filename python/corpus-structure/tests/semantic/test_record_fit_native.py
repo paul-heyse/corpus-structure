@@ -12,7 +12,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
 from corpus_structure.evaluate.declared_record_policy import fit_declared_record_policy
-from corpus_structure.semantic.data_operation_identity import semantic_value
+from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import get_metadata, table
 from corpus_structure.semantic.prepared_sql import prepare_sql

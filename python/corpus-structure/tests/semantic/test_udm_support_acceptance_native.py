@@ -154,8 +154,8 @@ def test_undetermined_pdf_still_requires_actual_publication_receipt(published_pd
     from corpus_structure.semantic.composed import data_operation_dependencies
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
     from corpus_structure.semantic.data_operation_execution_evidence import bind_execution_evidence
-    from corpus_structure.semantic.data_operation_identity import semantic_value
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.original_documents import register_original_document
     from semantic.current_pdf_source_support import PROJECT as SOURCE_PROJECT
     from semantic.data_operation_demand_support import claim

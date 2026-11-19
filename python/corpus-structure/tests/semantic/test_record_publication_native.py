@@ -63,8 +63,8 @@ def test_publication_prepares_current_rich_contracts_and_authored_semantics(tmp_
 
 
 def test_native_authored_publication_keeps_entity_qualification_and_origin(rich_publication):
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
     from corpus_structure.semantic.data_operation_service import execute_data_demand
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     selected = publish_authored(
         rich_publication,
@@ -522,7 +522,7 @@ def test_actual_current_record_structure_and_literal_evidence_refuse_semantic_ta
 
 
 def test_native_qualification_keeps_distinct_propositions_in_one_entity(rich_publication):
-    from corpus_structure.semantic.data_operation_identity import decode_semantic_value
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     selected = publish_authored(
         rich_publication,

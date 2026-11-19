@@ -7,11 +7,11 @@ from typing import Any
 from statistics_pack_support import statistics_bundle
 
 from corpus_structure.evaluate.record_alignment import RecordEvaluationFrame
-from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_release
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import observation_inputs
+from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.record_contracts import (
     anchor_identity,
     evidence_set_identity,
@@ -19,6 +19,7 @@ from corpus_structure.semantic.record_contracts import (
     record_family_contract,
     record_identity,
 )
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 ROOT = Path(__file__).resolve().parents[3]
 

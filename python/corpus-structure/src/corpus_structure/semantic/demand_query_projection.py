@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 
-from .data_operation_identity import decode_semantic_value, semantic_value
+from .data_operation_values import decode_semantic_value, semantic_value
 
 
 def selected_members(page: dict) -> tuple[dict, ...]:
