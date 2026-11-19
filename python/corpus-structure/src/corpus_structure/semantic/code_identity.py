@@ -12,6 +12,7 @@ import importlib
 import importlib.metadata
 import json
 import sys
+import typing
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from functools import lru_cache
@@ -41,7 +42,11 @@ class CodeBoundary:
 
 
 _GENERATED_INTERFACES = ("dataclasses-runtime",)
-_STANDARD_REFERENCES = {"dataclasses.dataclass": dataclasses.dataclass}
+_STANDARD_REFERENCES = {
+    "dataclasses.dataclass": dataclasses.dataclass,
+    "typing.Any": typing.Any,
+    "typing.Literal": typing.Literal,
+}
 
 
 @dataclass(frozen=True)
@@ -728,14 +733,28 @@ def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSynt
 
     def annotation(expression):
         if isinstance(expression, ast.Name):
-            return (
-                expression.id in annotation_types
-                and expression.id not in scanner.assigned
-                and expression.id not in scanner.package_names
+            return expression.id not in scanner.assigned and (
+                (expression.id in annotation_types and expression.id not in scanner.package_names)
+                or scanner.package_names.get(expression.id) == "typing.Any"
             )
         if isinstance(expression, ast.Constant):
             return expression.value is None or expression.value is Ellipsis
         if isinstance(expression, ast.Subscript):
+            if (
+                isinstance(expression.value, ast.Name)
+                and scanner.package_names.get(expression.value.id) == "typing.Literal"
+                and expression.value.id not in scanner.assigned
+            ):
+                values = (
+                    expression.slice.elts
+                    if isinstance(expression.slice, ast.Tuple)
+                    else (expression.slice,)
+                )
+                return all(
+                    isinstance(item, ast.Constant)
+                    and type(item.value) in {str, int, bool, type(None)}
+                    for item in values
+                )
             return annotation(expression.value) and annotation(expression.slice)
         if isinstance(expression, ast.Tuple):
             return all(annotation(item) for item in expression.elts)

@@ -273,6 +273,30 @@ def test_rebound_annotation_constructor_withholds_dataclass_initialization(tmp_p
     assert any("initializer" in item.reason for item in basis.unknowns)
 
 
+def test_finite_typing_annotations_close_initialization_without_a_namespace_waiver(tmp_path):
+    root = package(tmp_path)
+    source = (
+        "from dataclasses import dataclass\n"
+        "from typing import Any, Literal as Choice\n"
+        "@dataclass(frozen=True)\nclass Value:\n"
+        " state: Choice['known', 'unknown']\n"
+        " members: tuple[Any, ...]\n"
+        "def result():\n return 1\n"
+    )
+    entry = root / "entry.py"
+    entry.write_text(source)
+    basis = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert basis.complete
+    entry.write_text(source.replace("@dataclass", "Choice = object\n@dataclass"))
+    rebound = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert not rebound.complete
+    assert any("initializer" in item.reason for item in rebound.unknowns)
+    entry.write_text(source.replace("Choice['known', 'unknown']", "Choice[setup()]"))
+    eager = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert not eager.complete
+    assert any("initializer" in item.reason for item in eager.unknowns)
+
+
 def test_revoked_workload_proof_cannot_publish_a_derived_entry():
     from corpus_structure._query_custody import SourceCustodyError
     from corpus_structure.semantic.code_identity import CodeIdentity
