@@ -79,6 +79,10 @@ class SelectedRecordIndex:
                 + ")"
             )
 
+    def freeze(self):
+        """Seal the acquired support against writes through this private connection."""
+        self.connection.execute("PRAGMA query_only=ON")
+
     def append(self, payload, *, allow_equal=False):
         row = wire_json_loads(payload)
         previous = self.connection.execute(

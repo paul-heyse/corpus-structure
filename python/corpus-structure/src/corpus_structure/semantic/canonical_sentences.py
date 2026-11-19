@@ -222,6 +222,11 @@ def canonical_sentence_operation_sources(*, sentence_configuration=None, include
     own = PythonSourceCollection(
         (
             PythonSource(
+                "corpus_structure.semantic.input_values",
+                Path(__file__).with_name("input_values.py").read_bytes(),
+                str(Path(__file__).with_name("input_values.py")),
+            ),
+            PythonSource(
                 "corpus_structure.semantic.canonical_sentences",
                 Path(__file__).read_bytes(),
                 str(Path(__file__)),
@@ -297,8 +302,10 @@ class PreparedCanonicalPort:
         )
 
     def _input(self, values, binding):
+        from corpus_structure.semantic.input_values import _untrusted_value
+
         from .data_operation_identity import decode_semantic_value
-        from .data_operation_ports import PortRefusal, PythonRoleValue, _untrusted_value
+        from .data_operation_ports import PortRefusal, PythonRoleValue
         from .source_products import source_subject
 
         inputs = [role for role in self.operation.roles if role.direction == "input"]

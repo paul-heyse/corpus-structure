@@ -714,8 +714,9 @@ class NativeDemandExecutor:
                     resolve_prepared_factory,
                 )
 
+                prepared_sources = basis.prepared_sources
                 factory = (
-                    resolve_prepared_factory(context.model, basis.sources, operation)
+                    resolve_prepared_factory(context.model, prepared_sources, operation)
                     if selected.capabilities.prepared_factory is not None
                     else self.capability_factories.get(operation)
                 )
@@ -729,7 +730,7 @@ class NativeDemandExecutor:
                     identity=admission.identity,
                     authorize=admission.authorize,
                     custody=admission.custody,
-                    sources=basis.sources,
+                    sources=prepared_sources,
                 )
                 if selected.effects:
                     from corpus_structure.semantic.data_operation_effects import (
@@ -749,7 +750,7 @@ class NativeDemandExecutor:
 
                     context.consumer_selectors[operation] = resolve_consumer_selection(
                         context.model,
-                        basis.sources,
+                        prepared_sources,
                         operation,
                         port.consumer_receiver,
                         authorize=lambda admission=admission, port=port: admission.authorize(

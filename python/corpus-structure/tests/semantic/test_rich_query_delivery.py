@@ -1,6 +1,7 @@
 """Pinned current query pages and exact transport; native acquisition is controlled here."""
 
 from contextlib import nullcontext
+from datetime import UTC, datetime
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -12,11 +13,13 @@ from sqlalchemy import create_engine
 from typer.testing import CliRunner
 
 from corpus_structure.cli.app import build_full_app
+from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-from corpus_structure.semantic.demand_queries import _cursor
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.rich_query_projection import RichQueryInput
+from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
 from corpus_structure.serve import rich_queries as service
 from corpus_structure.serve.rich_knowledge import SelectedRichKnowledge, SelectedRichReference
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
@@ -53,6 +56,35 @@ def request(**changes):
     )
 
 
+def test_rich_preparation_preserves_native_tagged_values(monkeypatch, statistics):
+    from corpus_structure.semantic import rich_query_projection as projection
+
+    graph, index = statistics
+    instant = datetime(2026, 11, 19, 2, 0, tzinfo=UTC)
+    decimal = Decimal("12.25")
+    value = {"instant": instant, "decimal": decimal, "measurement": -0.0}
+    seen = []
+
+    def prepare_graph(*args, retained, **kwargs):
+        seen.append(retained.value)
+        return index.state
+
+    monkeypatch.setattr(projection, "read_retained_rich_graph", prepare_graph)
+    inputs = RichQueryInput(
+        index.state.prepared,
+        index.state.model,
+        graph.context,
+        json_bytes(graph.root_input.reference.model_dump(mode="python")),
+        json_bytes(semantic_value(value)),
+    )
+
+    projection.prepare_rich_query(inputs, max_members=100)
+
+    assert seen == [value]
+    assert seen[0]["decimal"].as_tuple() == decimal.as_tuple()
+    assert seen[0]["measurement"].hex() == (-0.0).hex()
+
+
 def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, statistics):
     graph, index = statistics
     ref = graph.root_input.reference
@@ -63,7 +95,19 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
         view="products",
         scope={"operation_id": "rich.admit", "product_ids": ["selected-knowledge"]},
     )
-    selected = SelectedRichKnowledge(cut, json_bytes(read), ref, graph.context, index.state)
+    selected = SelectedRichKnowledge(
+        cut,
+        json_bytes(read),
+        ref,
+        graph.context,
+        RichQueryInput(
+            index.state.prepared,
+            index.state.model,
+            graph.context,
+            json_bytes(graph.root_input.reference.model_dump(mode="python")),
+            json_bytes(semantic_value(index.state.graph.model_dump(mode="python"))),
+        ),
+    )
     seen = []
 
     def load(connection, demand_id, **kwargs):
@@ -143,7 +187,19 @@ def test_exact_cursor_keeps_fractional_parameters_and_refuses_work_and_response_
     monkeypatch.setattr(
         service,
         "read_selected_rich_knowledge",
-        lambda *a, **k: SelectedRichKnowledge(cut, b"{}", ref, graph.context, index.state),
+        lambda *a, **k: SelectedRichKnowledge(
+            cut,
+            b"{}",
+            ref,
+            graph.context,
+            RichQueryInput(
+                index.state.prepared,
+                index.state.model,
+                graph.context,
+                json_bytes(graph.root_input.reference.model_dump(mode="python")),
+                json_bytes(semantic_value(index.state.graph.model_dump(mode="python"))),
+            ),
+        ),
     )
     monkeypatch.setattr(
         service,

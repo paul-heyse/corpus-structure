@@ -3,9 +3,9 @@
 from fastmcp import Context
 
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.demand_queries import _cursor
 from corpus_structure.semantic.refusals import tool_refusals
-from corpus_structure.serve.rich_queries import decode_rich_cursor
+from corpus_structure.semantic.selected_pages import decode_rich_cursor
+from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
 from corpus_structure.serve.source_decision_journey import (
     SelectedSourceDecisionJourneyRequest,
     inspect_selected_source_journey,

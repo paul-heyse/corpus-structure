@@ -2,10 +2,11 @@
 
 from dataclasses import asdict
 
+from corpus_structure.semantic.input_values import _untrusted_value
+
 from .data_operation_identity import canonical_identity, semantic_value
 from .data_operation_json import json_loads
 from .data_operation_model import validate_subject_context
-from .data_operation_ports import _untrusted_value
 from .identity import canonical_bytes
 from .rich_decisions import (
     DdoRichEligibility,

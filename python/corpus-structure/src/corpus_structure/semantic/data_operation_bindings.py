@@ -38,7 +38,8 @@ from sqlalchemy.sql.visitors import replacement_traverse
 from ._data_operation_fates import RecordableFate
 from .binding_primitives import BINDING_PRIMITIVE_ALIASES, BINDING_VALUE_TYPES
 from .data_operation_identity import decode_semantic_value, semantic_value
-from .data_operation_json import ContextJSONB, json_bytes, json_context_equal, wire_json_loads
+from .data_operation_json import json_bytes, wire_json_loads
+from .data_operation_jsonb import ContextJSONB, json_context_equal
 from .data_operation_kind_refinements import input_kind_contracts
 from .data_operation_model import (
     MODEL_VERSION,

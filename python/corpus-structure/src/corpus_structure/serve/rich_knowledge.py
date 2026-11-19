@@ -7,21 +7,15 @@ explicit selected whole product; historical source references remain provenance.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from hashlib import sha256
 
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-from corpus_structure.semantic.data_operation_identity import decode_semantic_value
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.demand_results import CutSelection, read_demand_result
 from corpus_structure.semantic.releases import open_release
-from corpus_structure.semantic.rich_graph_validation import (
-    RichGraphState,
-    RichWholeInput,
-    read_retained_rich_graph,
-)
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
+from corpus_structure.semantic.rich_query_projection import RichQueryInput, frontier_content_witness
 
 
 @dataclass(frozen=True)
@@ -35,32 +29,7 @@ class SelectedRichReference:
 
 @dataclass(frozen=True)
 class SelectedRichKnowledge(SelectedRichReference):
-    state: RichGraphState
-
-
-def _frontier_content_witness(content: bytes) -> str | None:
-    """Identify an authorized bodyless page while preserving its native envelope size.
-
-    N34's product view adds the immutable canonical bodies to the same page
-    projection used by the body-rechecking frontier view. The three varying
-    receipt strings still contribute their encoded lengths to the key because
-    PostgreSQL enforces the byte limit on the complete product envelope.
-    """
-    projection = json_loads(content)
-    if projection["view"] != "frontier" or projection.get("support_page") is not None:
-        return None
-    for name in ("read_id", "read_snapshot", "frontier_at"):
-        value = projection.get(name)
-        following = projection.get("continuation")
-        if not isinstance(value, str) or not value or not value.isascii():
-            return None
-        size = len(json_bytes(value))
-        projection[name] = size
-        if following is not None:
-            if following.get(name) != value:
-                return None
-            following[name] = size
-    return sha256(json_bytes(projection)).hexdigest()
+    inputs: RichQueryInput
 
 
 def read_selected_rich_reference(
@@ -142,20 +111,18 @@ def read_selected_rich_reference(
         }
     )
     if not _bodies:
-        witness = _frontier_content_witness(page.content) if content_witness else None
+        witness = frontier_content_witness(page.content) if content_witness else None
         return SelectedRichReference(page.cut, request, reference, context, content_witness=witness)
     prepared = open_release(connection, native["release_id"])
     model = bound_data_operation_model(prepared)
-    proof = RichWholeInput(reference, decode_semantic_value(product["body"]))
-    state = read_retained_rich_graph(
+    inputs = RichQueryInput(
         prepared,
         model,
-        context=context,
-        retained=proof,
-        inputs=(reference,),
-        whole_inputs=(proof,),
+        context,
+        json_bytes(reference.model_dump(mode="python")),
+        json_bytes(product["body"]),
     )
-    return SelectedRichKnowledge(page.cut, request, reference, context, state)
+    return SelectedRichKnowledge(page.cut, request, reference, context, inputs)
 
 
 def read_selected_rich_knowledge(

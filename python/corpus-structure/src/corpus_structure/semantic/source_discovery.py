@@ -177,6 +177,11 @@ def source_discovery_operation_sources():
     return PythonSourceCollection(
         (
             PythonSource(
+                "corpus_structure.semantic.input_values",
+                Path(__file__).with_name("input_values.py").read_bytes(),
+                str(Path(__file__).with_name("input_values.py")),
+            ),
+            PythonSource(
                 "corpus_structure.semantic.source_discovery",
                 Path(__file__).read_bytes(),
                 str(Path(__file__)),
@@ -244,12 +249,13 @@ class PreparedSourceDiscoveryPort:
         return self.invoke_python(values, binding=binding, check_active=check_active)
 
     def invoke_python(self, values, *, binding=None, check_active=lambda: None):
+        from corpus_structure.semantic.input_values import _untrusted_value
+
         from .data_operation_identity import decode_semantic_value, semantic_value
         from .data_operation_ports import (
             PortCompletion,
             PortRefusal,
             RoleValue,
-            _untrusted_value,
             project_product_members,
         )
 

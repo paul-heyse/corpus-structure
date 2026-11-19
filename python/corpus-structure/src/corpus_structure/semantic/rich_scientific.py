@@ -140,7 +140,7 @@ def checked_rich_source_contexts(
             )
             actual_macros = source_python(_plain(checked_packet)["macros"])
         else:
-            from .data_operation_ports import _untrusted_value
+            from corpus_structure.semantic.input_values import _untrusted_value
 
             authored = DdoRichAuthoredPropositions.model_validate(_untrusted_value(packet))
             actual_macros = _plain(authored.macros)

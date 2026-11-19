@@ -7,9 +7,9 @@ from typing import Literal
 import networkx as nx
 
 from corpus_structure.core.evidence import MacroDef
+from corpus_structure.semantic.input_values import _untrusted_value
 
 from .data_operation_identity import canonical_identity, semantic_value
-from .data_operation_ports import _untrusted_value
 from .identity import canonical_bytes
 from .observations import source_python
 from .rich_knowledge_contracts import (

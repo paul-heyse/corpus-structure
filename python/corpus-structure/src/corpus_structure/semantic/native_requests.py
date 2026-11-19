@@ -13,8 +13,10 @@ import yaml
 from pydantic import TypeAdapter
 from sqlalchemy import func, select
 
+from corpus_structure.semantic.input_values import _untrusted_value
+
 from .data_operation_identity import decode_semantic_value, semantic_value
-from .data_operation_ports import PortCompletion, PortRefusal, RoleValue, _untrusted_value
+from .data_operation_ports import PortCompletion, PortRefusal, RoleValue
 from .identity import canonical_bytes
 from .types import SourceArtifact, SourceBundle
 
@@ -85,6 +87,10 @@ def pdf_region_operation_sources(capture_sources):
         tuple(
             PythonSource(module, path.read_bytes(), str(path))
             for module, path in (
+                (
+                    "corpus_structure.semantic.input_values",
+                    Path(__file__).with_name("input_values.py"),
+                ),
                 (
                     "corpus_structure.ingest.pdf_region_operation",
                     root / "ingest/pdf_region_operation.py",

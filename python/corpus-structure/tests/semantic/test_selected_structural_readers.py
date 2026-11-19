@@ -6,8 +6,12 @@ from types import SimpleNamespace
 import pytest
 
 from corpus_structure.methods.structural_products import produce_structural_dossier
+from corpus_structure.semantic.selected_structural_projection import (
+    dossier_member_page,
+    selected_root,
+)
 from corpus_structure.serve import structural_products as reader
-from corpus_structure.serve.selected_structural import SelectedStructuralRoot, selected_root
+from corpus_structure.serve.selected_structural import SelectedStructuralRoot
 from corpus_structure.serve.source_decision_journey import (
     SelectedJourneyLayer,
     SelectedOpportunity,
@@ -34,7 +38,7 @@ ROOT = SelectedStructuralRoot.model_validate(
 
 
 def test_structural_read_implementation_owns_actual_bootstrapped_helper_objects():
-    from corpus_structure.serve.rich_queries import installed_read_implementation
+    from corpus_structure.semantic.serving_identity import installed_read_implementation
 
     # This checks the actual warm module objects, including this family's new
     # selected owner. A source bundle alone cannot authenticate a prior plain import.
@@ -75,14 +79,14 @@ def dossier():
 def test_dossier_pages_preserve_full_membership_and_exact_citations(dossier):
     before = dossier.model_dump(mode="json")
     keys = [member.member_id for member in dossier.dossier.members]
-    first = reader.dossier_member_page(dossier, population="membership", offset=0, limit=1)
-    second = reader.dossier_member_page(dossier, population="membership", offset=1, limit=1)
+    first = dossier_member_page(dossier, population="membership", offset=0, limit=1)
+    second = dossier_member_page(dossier, population="membership", offset=1, limit=1)
     assert [first["members"][0]["member_id"], second["members"][0]["member_id"]] == keys
     assert first["next_offset"] == 1 and second["next_offset"] is None
     assert first["full_member_count"] == 2
     assert first["citations"][0]["citation"]["text"] in {"term", "def"}
     assert first["citations"][0]["source"]["source_product"] == "source:actual"
-    display = reader.dossier_member_page(dossier, population="display", offset=0, limit=100)
+    display = dossier_member_page(dossier, population="display", offset=0, limit=100)
     assert [member["member_id"] for member in display["members"]] == list(
         dossier.dossier.representation.selected
     )
@@ -92,8 +96,8 @@ def test_dossier_pages_preserve_full_membership_and_exact_citations(dossier):
 def test_selected_dossier_cursor_rejects_foreign_read_population_and_membership(
     monkeypatch, dossier
 ):
-    from corpus_structure.semantic.demand_queries import _cursor
-    from corpus_structure.serve.rich_queries import decode_rich_cursor
+    from corpus_structure.semantic.selected_pages import decode_rich_cursor
+    from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
 
     selected = SimpleNamespace()
     scope = SimpleNamespace(

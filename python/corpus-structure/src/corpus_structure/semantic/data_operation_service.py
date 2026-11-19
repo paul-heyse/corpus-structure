@@ -171,6 +171,21 @@ class DataExecutionBasis:
     def key(self):
         return self.prepared.release_id, self.runtime.runtime_id
 
+    @property
+    def prepared_sources(self) -> PythonSourceCollection:
+        """Bind live prepared owners to this acquisition's explicit locations."""
+        from dataclasses import replace
+
+        if self.runtime_locations is None:
+            return self.sources
+        return replace(
+            self.sources,
+            sources=tuple(
+                replace(source, filename=str(self.runtime_locations[source.module]))
+                for source in self.sources.sources
+            ),
+        )
+
 
 def acquire_data_execution_basis(connection, release_id, runtime_id, *, source_root=None):
     """Acquire retained execution custody once, independent of a target demand."""
@@ -205,6 +220,12 @@ def acquire_data_execution_basis(connection, release_id, runtime_id, *, source_r
     locations = {}
     for source in sources.sources:
         assert root is not None
+        if not all(part.isidentifier() for part in source.module.split(".")) or (
+            source.filename != source.logical_filename
+        ):
+            raise SemanticRefusal(
+                "runtime archive source requires its canonical logical module path"
+            )
         path = root / source.filename
         if not path.resolve().is_relative_to(root):
             raise SemanticRefusal("runtime source location escapes its explicit root")

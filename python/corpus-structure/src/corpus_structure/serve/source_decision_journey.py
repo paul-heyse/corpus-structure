@@ -7,15 +7,17 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+from corpus_structure.semantic.selected_structural_projection import (
+    producer,
+    selected_contextual,
+    selected_root,
+    structural_report,
+)
 
 from .selected_structural import (
     SelectedStructuralRoot,
     StructuralReadRequest,
     bounded_result,
-    producer,
-    selected_contextual,
-    selected_root,
-    structural_report,
     structural_scope,
 )
 

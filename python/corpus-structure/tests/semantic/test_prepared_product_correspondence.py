@@ -6,6 +6,7 @@ import pytest
 
 from corpus_structure.semantic import data_operation_prepared_products as owner
 from corpus_structure.semantic.data_operation_ports import PortRefusal
+from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
 
 
 def foreign_named_function():
@@ -31,3 +32,18 @@ def test_spoofed_callable_name_and_namespace_do_not_change_original_source_owner
     function.__qualname__ = "_verify_prepared_callable"
     with pytest.raises(PortRefusal, match=r"owning module|callable runtime binding was replaced"):
         owner._verify_prepared_callable(owner.__name__ + "._verify_prepared_callable", function)
+
+
+def test_prepared_custody_refuses_callable_omitted_from_required_source_subset():
+    sources = PythonSourceCollection(())
+    with pytest.raises(PortRefusal, match="outside its required source subset"):
+        owner.authenticated_prepared_product(
+            sources,
+            (
+                (
+                    foreign_named_function.__module__ + ".foreign_named_function",
+                    foreign_named_function,
+                ),
+            ),
+            required_sources=sources,
+        )

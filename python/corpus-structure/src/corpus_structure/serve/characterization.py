@@ -10,9 +10,9 @@ from corpus_structure.semantic.characterization_summary import (
     RetainedProviderSummary,
 )
 from corpus_structure.semantic.data_operation_json import DdoJsonValue
+from corpus_structure.semantic.demand_queries import DemandQueryRequest
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.native_definition_projection import DefinitionVariant
-from corpus_structure.serve.demand_journey import DemandQueryRequest
 
 
 class DemandCharacterizationRequest(DemandQueryRequest):

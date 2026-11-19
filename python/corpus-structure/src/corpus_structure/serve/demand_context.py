@@ -23,9 +23,8 @@ from corpus_structure.semantic.declared_record_sources import (
     DeclaredRecordSource,
 )
 from corpus_structure.semantic.demand_results import selected_record_index
+from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
 from corpus_structure.semantic.source_contexts import PreparedNativeSources
-
-from .demand_journey import _cursor
 
 
 class DemandContextRequest(BaseModel):

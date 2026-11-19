@@ -6,15 +6,8 @@ from dataclasses import asdict, dataclass
 from functools import cache, wraps
 from typing import TYPE_CHECKING, Any, Literal, Self
 
-import adbc_driver_manager
-import psycopg
-from psycopg_pool import PoolClosed, PoolTimeout, TooManyRequests
 from pydantic import ConfigDict, TypeAdapter
 from pydantic.dataclasses import dataclass as validated_dataclass
-from sqlalchemy.exc import DBAPIError
-
-from corpus_structure.core.db.lifetime import DatabaseOperationCancelled
-from corpus_structure.core.db.store import operation_failure
 
 if TYPE_CHECKING:
     from .types import PreparedRelease, SourceArtifact
@@ -183,39 +176,6 @@ def failure_context(error, fallback: FailureContext | None = None) -> FailureCon
     return getattr(error, "semantic_failure_context", None) or fallback or FailureContext()
 
 
-DATABASE_ERRORS = (
-    DBAPIError,
-    adbc_driver_manager.Error,
-    psycopg.Error,
-    PoolClosed,
-    PoolTimeout,
-    TooManyRequests,
-    DatabaseOperationCancelled,
-)
-
-
-def database_failure_code(error):
-    """Name physical cause without selecting a domain replay policy."""
-    return "database_" + operation_failure(error).failure.cause.value
-
-
-def database_failure_report(
-    error: BaseException, *, context: FailureContext | None = None
-) -> dict[str, Any]:
-    """Safe typed fields for both CLI and tool reports; no SQL or credentials."""
-    native = operation_failure(error)
-    report: dict[str, Any] = {
-        "code": database_failure_code(error),
-        "message": "database operation failed",
-        **asdict(native),
-    }
-    report["validation"] = failure_context(error, context).report(error).model_dump(mode="json")
-    diagnostic = getattr(error, "database_diagnostic", None)
-    if diagnostic is not None:
-        report["database"] = asdict(diagnostic)
-    return report
-
-
 _CREDENTIAL = re.compile(
     r"(://[^:/@\s]+:)[^@/\s]+(?=@)|(?i:(password|token|api[_-]?key)=)([^\s&]+)"
 )
@@ -280,6 +240,7 @@ def tool_refusals(*expected: type[Exception]):
         def invoke(*args, **kwargs):
             from pydantic import ValidationError
 
+            from .database_failures import DATABASE_ERRORS, database_failure_report
             from .operation_value_types import NativeResultViolation
 
             try:

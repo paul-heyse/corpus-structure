@@ -7,8 +7,8 @@ from decimal import Decimal
 
 from corpus_structure.semantic.data_operation_cpu_basis import CPUInputRole
 from corpus_structure.semantic.data_operation_identity import canonical_identity
-from corpus_structure.semantic.data_operation_ports import _untrusted_value
 from corpus_structure.semantic.data_operation_support import AuthoredFactSupportReference
+from corpus_structure.semantic.input_values import _untrusted_value
 from corpus_structure.semantic.rich_consolidation import consolidate_rich_knowledge
 from corpus_structure.semantic.rich_cpu_inputs import RichKernelInputs
 from corpus_structure.semantic.rich_knowledge_contracts import (

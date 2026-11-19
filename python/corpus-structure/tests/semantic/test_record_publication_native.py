@@ -155,13 +155,13 @@ def test_minimal_native_entity_query_reuses_across_fresh_cli_processes(
     authored_publication, native_settings, tmp_path
 ):
     """Run the installed selected-result CLI twice against one retained native admission."""
-    import subprocess
-    import sys
-
     from conftest import settings_for_native_clone
 
     from corpus_structure.semantic.data_operation_json import json_loads
-    from semantic.record_publication_native_support import AuthoredPublicationJourney
+    from semantic.record_publication_native_support import (
+        AuthoredPublicationJourney,
+        run_observed_cli,
+    )
 
     assert isinstance(authored_publication, AuthoredPublicationJourney)
     selected = publish_authored(
@@ -186,71 +186,87 @@ def test_minimal_native_entity_query_reuses_across_fresh_cli_processes(
         "CORPUS_CACHE__PAGE_STORE_BYTES": str(8 * 1024**2),
         "CORPUS_RUNTIME__DEFAULT_PROJECT": PROJECT,
     }
-    script = """
-import os
-import sys
-from pathlib import Path
-
-derived = 0
-def observe(frame, event, arg):
-    global derived
-    if (
-        event == "call"
-        and frame.f_globals.get("__name__") == "corpus_structure.serve.rich_knowledge"
-        and frame.f_code.co_name == "read_selected_rich_knowledge"
-    ):
-        derived += 1
-    return observe
-
-sys.setprofile(observe)
-try:
-    from corpus_structure.cli.app import main
-    main()
-finally:
-    sys.setprofile(None)
-    Path(os.environ["NATIVE_ENTITY_DERIVATIONS"]).write_text(str(derived))
-"""
     command = [
-        sys.executable,
-        "-c",
-        script,
         "query",
         "entity",
         "--demand",
         selected.demand_id,
-        "--project",
-        PROJECT,
-        "--product",
-        selected.product["id"],
         "--json",
     ]
 
-    def invoke(ordinal):
+    def invoke(ordinal, *, project=PROJECT, product=None, accepted=True):
         count_path = tmp_path / f"derived-{ordinal}.txt"
-        reply = subprocess.run(
-            command,
-            cwd=ROOT,
-            env=environment | {"NATIVE_ENTITY_DERIVATIONS": str(count_path)},
-            capture_output=True,
-            check=False,
-            text=True,
-            timeout=180,
+        reply, observed = run_observed_cli(
+            [
+                *command,
+                "--project",
+                project,
+                "--product",
+                selected.product["id"] if product is None else product,
+            ],
+            environment=environment,
+            observations=count_path,
         )
-        assert reply.returncode == 0, reply.stdout + reply.stderr
-        return json_loads(reply.stdout), int(count_path.read_text())
+        assert (reply.returncode == 0) is accepted, reply.stdout + reply.stderr
+        return (
+            json_loads(reply.stdout) if accepted else None,
+            observed,
+        )
 
-    first, first_derivations = invoke(1)
-    second, second_derivations = invoke(2)
+    first, first_observations = invoke(1)
+    second, second_observations = invoke(2)
 
-    assert first_derivations == 1
-    assert second_derivations == 0
+    assert first is not None and second is not None
+    assert first_observations["derived"] == 1
+    assert first_observations["prepared"] == 1
+    assert second_observations["derived"] == 0
+    assert second_observations["prepared"] == 0
+    assert second_observations["page_hits"] == 1
     assert first["rows"] == second["rows"]
     assert {row["entity"]["entity_id"] for row in first["rows"]} == {
         "authored:one",
         "authored:two",
     }
+    assert all(
+        row["standing"] == "resolved-identity"
+        and row["classes"] == ["urn:record-publication:PublicationSubject"]
+        and len(row["selected_fact_ids"]) == 1
+        for row in first["rows"]
+    )
+    assert {fact for row in first["rows"] for fact in row["selected_fact_ids"]} == set(
+        selected.admission.selected_fact_ids
+    )
     assert first["cut"]["read_id"] != second["cut"]["read_id"]
     assert first["cut_id"] != second["cut_id"]
+
+    for ordinal, scope in enumerate(
+        ({"project": "another-project"}, {"product": "unselected:product"}), start=3
+    ):
+        _, refused = invoke(ordinal, accepted=False, **scope)
+        assert all(
+            refused[name] == 0 for name in ("derived", "prepared", "page_lookups", "page_hits")
+        )
+
+    from typing import cast
+
+    from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+
+    with authored_publication.kernel.purpose("write").begin() as connection:
+        DataOperationStorage(connection).revoke_data_support(
+            cast(
+                WireRevokeDataSupportRequest,
+                {
+                    "project_id": PROJECT,
+                    "original_source": None,
+                    "selector_kind": "product",
+                    "selector": selected.product["id"],
+                    "reason": "qualify entity cache refusal after actual support withdrawal",
+                },
+            )
+        )
+    _, revoked = invoke(5, accepted=False)
+    assert all(revoked[name] == 0 for name in ("derived", "prepared", "page_lookups", "page_hits"))
 
 
 def test_native_empty_admission_is_explicit_and_does_not_assert_global_absence(rich_publication):

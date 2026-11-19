@@ -7,11 +7,11 @@ from sqlalchemy import bindparam, cast, select, text
 
 from corpus_structure.semantic.data_operation_identity import SemanticRequestKey, semantic_value
 from corpus_structure.semantic.data_operation_json import (
-    ContextJSONB,
     json_bytes,
     json_loads,
     wire_json_loads,
 )
+from corpus_structure.semantic.data_operation_jsonb import ContextJSONB
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_wire import validate_native_wire
 

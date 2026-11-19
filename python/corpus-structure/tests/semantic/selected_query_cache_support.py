@@ -31,9 +31,8 @@ def control_frontier(monkeypatch, select):
 @pytest.fixture
 def complete_serving_code(monkeypatch):
     """Controlled producing custody for tests whose native acquisition is already simulated."""
-    from corpus_structure.semantic import selected_query_cache
+    from corpus_structure.semantic import selected_query_cache, serving_identity
     from corpus_structure.semantic.code_identity import CodeIdentity
-    from corpus_structure.serve import rich_queries
 
     def controlled_basis(contract, entry, profile, model_identity, *, callables):
         meaning = json_bytes(
@@ -42,7 +41,7 @@ def complete_serving_code(monkeypatch):
         code = CodeIdentity((entry,), (), (), (), meaning)
         return sha256(meaning).hexdigest(), code
 
-    monkeypatch.setattr(rich_queries, "_installed_read_basis", controlled_basis)
+    monkeypatch.setattr(serving_identity, "_installed_read_basis", controlled_basis)
     monkeypatch.setattr(
         selected_query_cache, "_authorization_scope", lambda conn: ("controlled-native-reader",)
     )

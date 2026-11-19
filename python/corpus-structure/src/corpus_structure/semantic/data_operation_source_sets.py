@@ -323,7 +323,7 @@ def source_entry_predicate(scope, relation):
     from sqlalchemy import and_, column, exists, func, literal, select, type_coerce
     from sqlalchemy.dialects.postgresql import JSONB
 
-    from .data_operation_json import ContextJSONB
+    from .data_operation_jsonb import ContextJSONB
 
     entries = (
         func.jsonb_array_elements(literal(scope["entries"], type_=ContextJSONB()))

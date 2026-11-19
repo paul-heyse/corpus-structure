@@ -6,9 +6,9 @@ from fastmcp import Context
 
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.refusals import tool_refusals
+from corpus_structure.semantic.selected_pages import decode_rich_cursor
 from corpus_structure.serve.rich_queries import (
     RichQueryRequest,
-    decode_rich_cursor,
     serve_rich_query,
 )
 

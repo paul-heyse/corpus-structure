@@ -280,7 +280,7 @@ def diagnostic_scope(
             try:
                 yield failure, invocation
             except expected_refusal_types(expected) as error:
-                from corpus_structure.semantic.refusals import DATABASE_ERRORS
+                from corpus_structure.semantic.database_failures import DATABASE_ERRORS
 
                 if invocation is not None and not isinstance(error, DATABASE_ERRORS):
                     failure.retained_validation = retain_optional_diagnostic(

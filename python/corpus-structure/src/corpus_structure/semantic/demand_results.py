@@ -19,7 +19,6 @@ from .data_operation_identity import (
     body_identity,
     contextual_product_identity,
     decode_semantic_value,
-    semantic_value,
 )
 from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_model import SubjectContext, validate_replicate_selection
@@ -133,58 +132,9 @@ class DemandResult:
 
     def members(self) -> tuple[dict[str, Any], ...]:
         """Project actual selected packets without opening any other product body."""
-        page = self.record
-        if page["view"] != "products":
-            raise ValueError("member reads require a body-bearing selected result")
-        occurrences = []
-        for use in page["uses"]:
-            if use["fate"] != "fulfilled":
-                continue
-            for output in use["products"]:
-                body = decode_semantic_value(output["body"])
-                header = dict(
-                    use_id=use["use_id"],
-                    derivation_id=use["derivation_id"],
-                    product_id=output["product_id"],
-                    role=output["role"],
-                    output_member_id=output["member_id"],
-                    position=output["position"],
-                    multiplicity=output["multiplicity"],
-                )
-                if output["member_id"] is None:
-                    occurrences.append(
-                        dict(
-                            header,
-                            member_id=None,
-                            kind_contract=output["kind_contract"],
-                            subject=output["subject"],
-                            subject_definition=output["subject_definition"],
-                            original_source=output["original_source"],
-                            analyzed_scope=output["analyzed_scope"],
-                            body=body,
-                            meaning_body=output["body"],
-                        )
-                    )
-                packets = body.get("members", ()) if isinstance(body, dict) else ()
-                projected = [
-                    packet
-                    for packet in packets
-                    if output["member_id"] is None or packet["member_id"] == output["member_id"]
-                ]
-                if output["member_id"] is not None and len(projected) != 1:
-                    raise ValueError("selected output member is absent from its canonical product")
-                occurrences.extend(
-                    dict(
-                        header,
-                        member_id=packet["member_id"],
-                        kind_contract=packet["kind_contract"],
-                        **packet["context"],
-                        body=packet["body"],
-                        meaning_body=semantic_value(packet["body"]),
-                    )
-                    for packet in projected
-                )
-        return tuple(occurrences)
+        from .demand_query_projection import selected_members
+
+        return selected_members(self.record)
 
     def report(self) -> dict[str, Any]:
         page = self.record

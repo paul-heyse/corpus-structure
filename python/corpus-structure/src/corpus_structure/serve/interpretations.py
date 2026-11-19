@@ -10,6 +10,7 @@ from corpus_structure.semantic.data_operation_json import DdoJsonValue, json_byt
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.grouped_record_interpretations import GroupedInterpretationRequest
 from corpus_structure.semantic.releases import open_release
+from corpus_structure.semantic.selected_pages import byte_bounded_page
 
 
 class InterpretationAnswer(BaseModel):
@@ -98,14 +99,20 @@ def group_selected_interpretations(
     from corpus_structure._query_custody import (
         SourceCustodyError,
     )
-    from corpus_structure.serve.rich_queries import installed_read_implementation
+    from corpus_structure.semantic.serving_identity import installed_read_implementation
 
     try:
         with installed_read_implementation(
             type(request),
-            entry="corpus_structure.serve.interpretations",
+            entry="corpus_structure.semantic.grouped_interpretation_projection",
             profile="grouped-source-records-2",
-            callables=("corpus_structure.serve.interpretations._group_selected_interpretations",),
+            callables=(
+                "corpus_structure.semantic.grouped_interpretation_projection.grouped_interpretation_rows",
+                "corpus_structure.semantic.selected_contribution_input.SelectedContributionScope.products",
+                "corpus_structure.semantic.selected_pages.byte_bounded_page",
+                "corpus_structure.semantic.selected_pages.encode_cursor",
+                "corpus_structure.semantic.selected_pages.decode_cursor",
+            ),
         ) as implementation:
             return _group_selected_interpretations(connection, request, implementation)
     except SourceCustodyError as error:
@@ -117,15 +124,11 @@ def _group_selected_interpretations(connection, request, implementation):
     from hashlib import sha256
 
     from corpus_structure.semantic.data_operation_json import json_loads
-    from corpus_structure.semantic.grouped_record_interpretations import (
-        attach_finite_interpretations,
-        grouped_candidate_product,
+    from corpus_structure.semantic.grouped_interpretation_projection import (
+        grouped_interpretation_rows,
     )
     from corpus_structure.semantic.refusals import InvalidContinuation, ReadLimit
-    from corpus_structure.serve.selected_contributions import (
-        actual_graph_inputs,
-        selected_contribution_scope,
-    )
+    from corpus_structure.serve.selected_contributions import selected_contribution_scope
 
     if request.implementation is not None and request.implementation != implementation:
         raise ValueError("grouped interpretation resource differs from actual installed meaning")
@@ -169,7 +172,6 @@ def _group_selected_interpretations(connection, request, implementation):
     from corpus_structure.semantic.selected_query_cache import (
         SELECTED_QUERY_CACHE,
         bounded_rows,
-        byte_bounded_page,
         served_key,
         uncached_rows_from,
     )
@@ -219,128 +221,23 @@ def _group_selected_interpretations(connection, request, implementation):
             with selected_contribution_scope(
                 connection, acquired, product_ids=(*roots, *request.authored_products)
             ) as selected:
-                groups, found, universes, finite = {}, set(), {}, []
-                for product in selected.products():
-                    identity = product.reference.product_id
-                    if identity not in roots:
-                        continue
-                    # A whole selected product authenticates its complete member population.
-                    # A member-only native output cannot silently claim whole-report selection.
-                    if product.reference.member_id is not None:
-                        continue
-                    found.add(identity)
-                    definition = next(
-                        (
-                            value
-                            for value in selected.prepared.definitions
-                            if value.iri == product.nominal
-                        ),
-                        None,
-                    )
-                    if definition is not None and (
-                        definition.name == "DdoFiniteInterpretationProduct"
-                        or "DdoFiniteInterpretationProduct" in definition.ancestors
-                    ):
-                        if any(
-                            root.member_id is not None or root.interpretation_id is not None
-                            for root in roots[identity]
-                        ):
-                            raise ValueError(
-                                "finite root selects its complete product; occurrence selectors belong to the candidate root"
-                            )
-                        finite.append(product)
-                        continue
-                    universes[json_bytes(product.reference.model_dump(mode="python"))] = {
-                        "reference": product.reference.model_dump(mode="python"),
-                        "context": product.context.record,
-                        "source_pin": product.body["source_pin"],
-                        "inspection_outcome": product.body["inspection_outcome"],
-                        "coverage": product.body["coverage"],
-                    }
-                    for group in grouped_candidate_product(
-                        selected.prepared, selected.model, product, roots[identity]
-                    ):
-                        groups[group.identity] = group
-                if set(roots) != found:
-                    raise ValueError(
-                        "interpretation roots require exact selected whole candidate products"
-                    )
-                grouped = tuple(groups[key] for key in sorted(groups))
-                candidate_product_ids = set(roots) - {
-                    value.reference.product_id for value in finite
-                }
-                finite_universes = []
-                for product in finite:
-                    # Input role membership is authenticated native binding, not matching IDs
-                    # found by recursively searching the result payload.
-                    episodes = selected.index.mapping("ops.data_derivation", ("id",))
-                    requests = selected.index.mapping("ops.data_request", ("id",))
-                    binding = requests[episodes[product.derivation_id]["request_id"]]["binding"]
-                    inputs = [value for value in binding["inputs"] if value["role"] == "candidates"]
-                    if (
-                        len(inputs) != 1
-                        or inputs[0].get("member_id") is not None
-                        or inputs[0]["product_id"] not in candidate_product_ids
-                    ):
-                        raise ValueError(
-                            "finite root requires its exact selected whole candidate input"
-                        )
-                    candidate_id = inputs[0]["product_id"]
-                    references, _ = actual_graph_inputs(
-                        selected.index,
-                        product.derivation_id,
-                        cut=selected.cut,
-                        max_support_edges=request.max_support_edges,
-                    )
-                    if not any(
-                        reference.product_id == candidate_id and reference.member_id is None
-                        for reference in references
-                    ):
-                        raise ValueError("finite candidate universe lacks authentic input support")
-                    grouped = attach_finite_interpretations(
-                        selected.prepared, product, grouped, candidate_product_id=candidate_id
-                    )
-                    finite_universes.append(
-                        {
-                            "reference": product.reference.model_dump(mode="python"),
-                            "context": product.context.record,
-                            "candidate_product_id": candidate_id,
-                            "mode": product.body["mode"],
-                            "source_pin": product.body["source_pin"],
-                        }
-                    )
+                authored_judgments = []
                 if request.authored_products or request.authored_reads:
-                    from corpus_structure.semantic.authored_interpretations import (
-                        attach_authored_judgment,
-                    )
-                    from corpus_structure.serve.interpretation_authoring import (
+                    from .interpretation_authoring import (
                         read_authored_judgment_selection,
                         selected_authored_judgments,
                     )
 
-                    for body, provenance in selected_authored_judgments(
-                        connection, selected, request.authored_products
-                    ):
-                        grouped = attach_authored_judgment(grouped, body, **provenance)
+                    authored_judgments.extend(
+                        selected_authored_judgments(connection, selected, request.authored_products)
+                    )
                     for authored_read in request.authored_reads:
-                        for body, provenance in read_authored_judgment_selection(
-                            connection, request, authored_read
-                        ):
-                            grouped = attach_authored_judgment(grouped, body, **provenance)
-                from corpus_structure.semantic.authored_interpretations import JUDGMENT_KINDS
-
-                definitions = {value.iri: value.name for value in selected.prepared.definitions}
-                judgment_contracts = {
-                    definitions[value.owner]: value.key
-                    for value in selected.model.identities
-                    if value.domain == "kind" and definitions.get(value.owner) in JUDGMENT_KINDS
-                }
-                items = [group.model_dump(mode="python") for group in grouped]
-            metadata = dict(
-                universes=list(universes.values()),
-                finite_universes=finite_universes,
-                judgment_contracts=judgment_contracts,
-            )
+                        authored_judgments.extend(
+                            read_authored_judgment_selection(connection, request, authored_read)
+                        )
+                items, metadata = grouped_interpretation_rows(
+                    selected, request, tuple(authored_judgments)
+                )
             entry, remaining = bounded_rows(items, metadata)
             if entry is not None:
                 SELECTED_QUERY_CACHE.put(cache_key, entry)

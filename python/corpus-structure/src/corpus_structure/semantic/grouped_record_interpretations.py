@@ -21,7 +21,7 @@ from .rich_knowledge_contracts import DdoRichContext, DdoRichSelectedMember
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from corpus_structure.serve.selected_contributions import SelectedContribution
+    from corpus_structure.semantic.selected_contribution_input import SelectedContribution
 
     from .data_operation_model import EffectiveDataOperationModel
     from .types import PreparedRelease

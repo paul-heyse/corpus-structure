@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal
 
@@ -29,6 +30,114 @@ from corpus_structure.semantic.types import (
     SourceBundle,
 )
 from semantic.data_operation_declaration_support import contract, declarations
+
+
+@pytest.mark.parametrize(
+    ("filename", "logical_filename"),
+    [
+        ("/installed/sample/member.py", "sample/member.py"),
+        ("/installed/sample/member/__init__.py", "sample/member/__init__.py"),
+    ],
+)
+def test_captured_python_sources_compose_with_their_acquired_origin(filename, logical_filename):
+    from corpus_structure.semantic.composed import read_data_operation_inputs
+    from corpus_structure.semantic.primary_operations import combine_primary_sources
+    from corpus_structure.semantic.python_operation_sources import (
+        PythonSource,
+        PythonSourceCollection,
+    )
+
+    source = PythonSource("sample.member", b"from . import sibling\n", filename, b"value: int\n")
+    acquired = PythonSourceCollection((source,))
+    dependencies = data_operation_dependencies(ResolvedDependencies(), python_sources=acquired)
+    decoded = read_data_operation_inputs(dependencies)
+    assert decoded is not None and decoded[1] is not None
+    captured = decoded[1]
+    assert captured.sources == (replace(source, filename=logical_filename),)
+    assert combine_primary_sources(captured, acquired).sources == acquired.sources
+    assert combine_primary_sources(acquired, captured).sources == acquired.sources
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"content": b"value = 2\n"},
+        {"stub": b"value: str\n"},
+        {"filename": "sample/member/__init__.py"},
+    ],
+)
+def test_captured_python_composition_refuses_different_module_meaning(change):
+    from corpus_structure.semantic.primary_operations import combine_primary_sources
+    from corpus_structure.semantic.python_operation_sources import (
+        PythonSource,
+        PythonSourceCollection,
+    )
+
+    source = PythonSource("sample.member", b"value = 1\n", "sample/member.py", b"value: int\n")
+    with pytest.raises(ValueError, match="disagree on a captured module"):
+        combine_primary_sources(
+            PythonSourceCollection((source,)), PythonSourceCollection((replace(source, **change),))
+        )
+
+
+def test_captured_python_composition_preserves_interpretation_and_custody_conflicts():
+    from corpus_structure.semantic.primary_operations import combine_primary_sources
+    from corpus_structure.semantic.python_operation_sources import (
+        PythonSource,
+        PythonSourceCollection,
+    )
+
+    acquired = PythonSourceCollection(
+        (PythonSource("sample.member", b"value = 1\n", "sample/member.py"),),
+        boundary_contracts=(SourceArtifact("sample/custody", b"first"),),
+    )
+    with pytest.raises(ValueError, match="incompatible interpretation"):
+        combine_primary_sources(acquired, replace(acquired, interpretation="other"))
+    with pytest.raises(ValueError, match="disagree on acquired custody"):
+        combine_primary_sources(
+            acquired,
+            replace(acquired, boundary_contracts=(SourceArtifact("sample/custody", b"other"),)),
+        )
+
+
+def test_captured_python_composition_refuses_different_acquired_module_origins():
+    from corpus_structure.semantic.primary_operations import combine_primary_sources
+    from corpus_structure.semantic.python_operation_sources import (
+        PythonSource,
+        PythonSourceCollection,
+    )
+
+    first = PythonSource("sample.member", b"value = 1\n", "/first/sample/member.py")
+    second = replace(first, filename="/second/sample/member.py")
+    for sources in ((first, second), (second, first)):
+        with pytest.raises(ValueError, match="disagree on acquired module origin"):
+            combine_primary_sources(*(PythonSourceCollection((source,)) for source in sources))
+
+
+def test_captured_python_package_preserves_relative_import_resolution():
+    from corpus_structure.semantic.composed import read_data_operation_inputs
+    from corpus_structure.semantic.python_operation_sources import (
+        ClosedPythonSources,
+        PythonSource,
+        PythonSourceCollection,
+    )
+
+    acquired = PythonSourceCollection(
+        (
+            PythonSource("sample", b"from .sibling import run\n", "/installed/sample/__init__.py"),
+            PythonSource(
+                "sample.sibling",
+                b"def run() -> int:\n    return 1\n",
+                "/installed/sample/sibling.py",
+            ),
+        )
+    )
+    decoded = read_data_operation_inputs(
+        data_operation_dependencies(ResolvedDependencies(), python_sources=acquired)
+    )
+    assert decoded is not None and decoded[1] is not None
+    captured = ClosedPythonSources(decoded[1], resolve_relative_imports=True)
+    assert captured.resolve("sample.run").canonical_path == "sample.sibling.run"
 
 
 def operation(**changes):

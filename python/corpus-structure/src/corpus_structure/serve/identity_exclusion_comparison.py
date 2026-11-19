@@ -7,17 +7,19 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.demand_queries import _cursor
 from corpus_structure.semantic.identity_exclusion_comparison import (
     compare_constraint_snapshots,
     constraint_snapshot,
 )
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.selected_contribution_input import RICH_NAMESPACE
+from corpus_structure.semantic.selected_pages import byte_bounded_page, decode_rich_cursor
+from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
+from corpus_structure.semantic.serving_identity import installed_read_implementation
 
 from .contribution_facets import ContributionFacetsRequest
-from .rich_queries import decode_rich_cursor, installed_read_implementation
-from .selected_contributions import RICH_NAMESPACE, selected_contribution_scope
+from .selected_contributions import selected_contribution_scope
 
 VERSION = "selected-identity-exclusion-comparison-2"
 
@@ -106,9 +108,17 @@ def compare_selected_exclusions(connection, request: ExclusionComparisonRequest)
     try:
         with installed_read_implementation(
             type(request),
-            entry="corpus_structure.serve.identity_exclusion_comparison",
+            entry="corpus_structure.semantic.identity_exclusion_comparison",
             profile=VERSION,
-            callables=("corpus_structure.serve.identity_exclusion_comparison._compare",),
+            callables=(
+                "corpus_structure.semantic.identity_exclusion_comparison.constraint_snapshot",
+                "corpus_structure.semantic.identity_exclusion_comparison.compare_constraint_snapshots",
+                "corpus_structure.semantic.selected_contribution_input.SelectedContributionScope.products",
+                "corpus_structure.semantic.selected_contribution_input.SelectedContributionScope.graph",
+                "corpus_structure.semantic.selected_pages.byte_bounded_page",
+                "corpus_structure.semantic.selected_pages.encode_cursor",
+                "corpus_structure.semantic.selected_pages.decode_rich_cursor",
+            ),
         ) as implementation:
             return _compare(connection, request, implementation)
     except SourceCustodyError as error:
@@ -137,7 +147,6 @@ def _compare(connection, request, implementation):
     from corpus_structure.semantic.selected_query_cache import (
         SELECTED_QUERY_CACHE,
         bounded_rows,
-        byte_bounded_page,
         served_key,
         uncached_rows_from,
     )

@@ -5,17 +5,18 @@ from typing import Any, Literal
 
 from pydantic import Field, model_validator
 
+from corpus_structure.semantic.selected_structural_projection import producer as selected_producer
+from corpus_structure.semantic.selected_structural_projection import (
+    selected_contextual,
+    selected_root,
+    structural_report,
+)
+
 from .selected_structural import (
     SelectedStructuralRoot,
     StructuralReadRequest,
     bounded_result,
-    selected_contextual,
-    selected_root,
-    structural_report,
     structural_scope,
-)
-from .selected_structural import (
-    producer as selected_producer,
 )
 
 
@@ -114,9 +115,8 @@ def selected_gap_rows(request, body) -> list[dict[str, Any]]:
 
 def inspect_selected_gap(conn, request: SelectedGapRequest):
     from corpus_structure.semantic.data_operation_json import json_bytes
-    from corpus_structure.semantic.demand_queries import _cursor
-
-    from .rich_queries import decode_rich_cursor
+    from corpus_structure.semantic.selected_pages import decode_rich_cursor
+    from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
 
     selection = request.model_dump(
         mode="python",

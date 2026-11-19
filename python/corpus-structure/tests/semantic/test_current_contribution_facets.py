@@ -184,7 +184,7 @@ def test_actual_located_proposals_keep_alternatives_coverage_and_unknown_accepta
     raw = batch()
     raw["unit_ref"] = original["unit_ref"]
     raw["statements"][0]["anchor"] = original["unit_ref"]
-    raw["claims"][0]["evidence"][0]["sentence"] = "native_evidence:1"
+    raw["claims"][0]["evidence"][0]["sentence"] = "native_evidence:0"
     raw["claims"].append(dict(deepcopy(raw["claims"][0]), id="c2"))
     raw["alternatives"] = [
         dict(

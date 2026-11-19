@@ -635,6 +635,11 @@ def hanlp_operation_sources(selection, *, sentence_configuration=None, include_d
     own = PythonSourceCollection(
         (
             PythonSource(
+                "corpus_structure.semantic.input_values",
+                Path(__file__).with_name("input_values.py").read_bytes(),
+                str(Path(__file__).with_name("input_values.py")),
+            ),
+            PythonSource(
                 "corpus_structure.semantic.hanlp_products",
                 Path(__file__).read_bytes(),
                 str(Path(__file__)),
@@ -745,8 +750,10 @@ class PreparedHanlpPort:
         )
 
     def _inputs(self, values, binding):
+        from corpus_structure.semantic.input_values import _untrusted_value
+
         from .data_operation_identity import decode_semantic_value
-        from .data_operation_ports import PortRefusal, PythonRoleValue, _untrusted_value
+        from .data_operation_ports import PortRefusal, PythonRoleValue
 
         roles = [role for role in self.operation.roles if role.direction == "input"]
         ids = {(item.owner, item.domain): item.key for item in self.profile.model.identities}

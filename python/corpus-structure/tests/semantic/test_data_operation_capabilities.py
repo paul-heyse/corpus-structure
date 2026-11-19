@@ -3,8 +3,9 @@
 import copy
 import importlib
 import json
+from dataclasses import replace
 from hashlib import sha256
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -81,6 +82,43 @@ def test_compiled_factory_is_captured_from_original_static_owner(tmp_path, monke
     )
     with pytest.raises(ValueError, match="rebound"):
         acquired()
+
+
+def test_archived_factory_uses_explicit_runtime_location_and_refuses_another_origin(
+    tmp_path, monkeypatch
+):
+    from corpus_structure.semantic.data_operation_service import DataExecutionBasis
+
+    name = "archived_factory_" + tmp_path.name.replace("-", "_")
+    metadata = capability_metadata(name + ".Operation.run")
+    metadata["entrypoints"] = ["run"]
+    metadata["capabilities"]["prepared_factory"] = "acquire_port"
+    content = (
+        "class Operation:\n"
+        "    def run(self, index: int) -> str: return str(index)\n"
+        "    @staticmethod\n"
+        '    def acquire_port(*args, **kwargs): return "captured"\n'
+        f"Operation.__data_operation__ = {metadata!r}\n"
+    ).encode()
+    path = tmp_path / (name + ".py")
+    path.write_bytes(content)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    source = PythonSource(name, content, name + ".py")
+    archived = PythonSourceCollection((source,))
+    model = compile_data_operations(python_sources=archived)
+    basis = DataExecutionBasis(
+        cast(Any, None), cast(Any, None), archived, None, None, (), {name: path}
+    )
+    factory = resolve_prepared_factory(
+        model, basis.prepared_sources, model.operations[0].semantic_id
+    )
+    assert factory() == "captured"
+    assert basis.sources.sources == (source,)
+    other = tmp_path / "other.py"
+    other.write_bytes(content)
+    wrong = replace(basis, runtime_locations={name: other})
+    with pytest.raises(ValueError, match="runtime was rebound"):
+        resolve_prepared_factory(model, wrong.prepared_sources, model.operations[0].semantic_id)()
 
 
 @pytest.mark.parametrize("count", [0, 2])

@@ -6,15 +6,16 @@ from typing import Any
 import pytest
 
 from corpus_structure.cache_store import CacheStore
+from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.rich_query_projection import RichQueryInput, frontier_content_witness
 from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE, disk_row_cache
 from corpus_structure.serve import rich_queries
 from corpus_structure.serve.rich_knowledge import (
     SelectedRichKnowledge,
     SelectedRichReference,
-    _frontier_content_witness,
 )
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
 from semantic.test_rich_queries import query_source as query_source
@@ -40,17 +41,17 @@ def test_frontier_witness_keeps_scope_and_native_width_without_receipt_identity(
     second["read_id"] = second["continuation"]["read_id"] = "read:2222"
     second["read_snapshot"] = second["continuation"]["read_snapshot"] = "3:9:"
 
-    first = _frontier_content_witness(json_bytes(before))
-    assert first is not None and _frontier_content_witness(json_bytes(second)) == first
+    first = frontier_content_witness(json_bytes(before))
+    assert first is not None and frontier_content_witness(json_bytes(second)) == first
     for name, value in (
         ("release_id", "release:updated"),
         ("runtime_id", "runtime:updated"),
         ("trust_snapshot", {"scope": 2}),
         ("uses", [{"use_id": "use:2", "products": [{"product_id": "product:1"}]}]),
     ):
-        assert _frontier_content_witness(json_bytes(second | {name: value})) != first
+        assert frontier_content_witness(json_bytes(second | {name: value})) != first
     second["read_snapshot"] = second["continuation"]["read_snapshot"] = "30:90:"
-    assert _frontier_content_witness(json_bytes(second)) != first
+    assert frontier_content_witness(json_bytes(second)) != first
 
 
 @pytest.mark.usefixtures("complete_serving_code")
@@ -69,12 +70,24 @@ def test_entity_reuses_disk_rows_after_fresh_cut_check(
         read_id = f"read:{len(acquisitions):04d}"
         cut = CutSelection(json_bytes(CUT | {"read_id": read_id}))
         acquisitions.append(cut.identity)
-        witness = _frontier_content_witness(json_bytes(cut.record | {"view": "frontier"}))
+        witness = frontier_content_witness(json_bytes(cut.record | {"view": "frontier"}))
         return SelectedRichReference(cut, b"{}", reference, graph.context, content_witness=witness)
 
     def derive(connection, demand_id, *, cut, **options):
         derived.append(cut.identity)
-        return SelectedRichKnowledge(cut, b"{}", reference, graph.context, index.state)
+        return SelectedRichKnowledge(
+            cut,
+            b"{}",
+            reference,
+            graph.context,
+            RichQueryInput(
+                index.state.prepared,
+                index.state.model,
+                graph.context,
+                json_bytes(graph.root_input.reference.model_dump(mode="python")),
+                json_bytes(semantic_value(index.state.graph.model_dump(mode="python"))),
+            ),
+        )
 
     monkeypatch.setattr(rich_queries, "read_selected_rich_reference", acquire)
     monkeypatch.setattr(rich_queries, "read_selected_rich_knowledge", derive)

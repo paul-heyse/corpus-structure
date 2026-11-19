@@ -115,7 +115,8 @@ def hydrate_consumer_selection(
     from sqlalchemy import BigInteger, and_, cast, column, select, values
 
     from .data_operation_identity import decode_semantic_value
-    from .data_operation_json import json_context_equal, json_context_value, json_loads
+    from .data_operation_json import json_loads
+    from .data_operation_jsonb import json_context_equal, json_context_value
     from .data_operation_projections import binding_columns
     from .data_operation_storage import admitted_data_read
     from .data_operation_support import support_reference_records

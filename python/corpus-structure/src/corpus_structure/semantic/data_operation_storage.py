@@ -23,7 +23,8 @@ from corpus_structure.semantic._data_operation_wire import (
 )
 
 from ._data_operation_wire import DataOperationCalls
-from .data_operation_json import ContextJSONB, json_bytes, json_context_value, wire_json_loads
+from .data_operation_json import json_bytes, wire_json_loads
+from .data_operation_jsonb import ContextJSONB, json_context_value
 from .data_operation_model import MODEL_VERSION
 from .identity import canonical_bytes
 from .native_call_contracts import OperationCallBinding, OperationFieldBinding, OperationFieldType

@@ -143,7 +143,7 @@ def authenticate_judgment_source(connection, prepared, nominal, body, *, expecte
         grouped_candidate_product,
     )
     from corpus_structure.semantic.releases import open_release
-    from corpus_structure.serve.selected_contributions import SelectedContributionScope
+    from corpus_structure.semantic.selected_contribution_input import SelectedContributionScope
 
     body = checked_judgment(prepared, nominal, body)
     source = body["source_record"]
@@ -291,7 +291,7 @@ def read_authored_judgment_selection(connection, request, selected_read):
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.demand_results import selected_record_index
     from corpus_structure.semantic.releases import open_release
-    from corpus_structure.serve.selected_contributions import SelectedContributionScope
+    from corpus_structure.semantic.selected_contribution_input import SelectedContributionScope
 
     with selected_record_index(
         connection,

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-from collections.abc import Mapping
 from hashlib import sha256
 from typing import Literal
 
@@ -11,6 +9,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.demand_results import read_demand_result
+
+from .demand_query_projection import selected_query_rows
+from .selected_pages import byte_bounded_page, decode_cursor, encode_cursor
 
 DemandView = Literal["members", "operations", "sources", "support", "coverage"]
 
@@ -40,85 +41,19 @@ class DemandQueryRequest(BaseModel):
         return selected
 
 
-def _cursor(value):
-    encoded = base64.urlsafe_b64encode(json_bytes(value)).decode()
-    if len(encoded) > 32768:
-        raise ValueError("selected cursor exceeds the supported encoded bound")
-    return encoded
-
-
-def _decode(value):
-    try:
-        return wire_json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
-    except (ValueError, TypeError) as error:
-        raise ValueError("invalid selected-result cursor") from error
-
-
-def _selected_query_rows(page, request):
-    native = page.record
-    if request.view == "operations":
-        rows = (
-            dict(
-                obligation=obligation,
-                uses=[
-                    use
-                    for use in native["uses"]
-                    if use["obligation_id"] == obligation["obligation_id"]
-                ],
-            )
-            for obligation in native["obligations"]
-        )
-    elif request.view in {"sources", "support"}:
-        rows = (
-            row
-            for row in native["support_page"]["records"]
-            if request.view == "support" or row["relation"] == "ops.original_source_admission"
-        )
-    elif request.view == "coverage":
-        rows = (
-            dict(
-                product_id=row["product_id"],
-                use_id=row["use_id"],
-                derivation_id=row["derivation_id"],
-                source=row["body"]["source"],
-                coverage=coverage,
-            )
-            for row in page.members()
-            if row["member_id"] is None
-            and isinstance(row["body"], dict)
-            and "source" in row["body"]
-            for coverage in row["body"].get("coverage", ())
-        )
-    else:
-        rows = page.members()
-    filters = dict(kind_contract=request.kind_contract, member_id=request.member_id)
-    if request.view in {"members", "coverage"}:
-        filters["product_id"] = request.product_id
-    for row in rows:
-        body = row.get("body", row.get("coverage"))
-        if (
-            (not request.containers_only or row.get("member_id") is None)
-            and (
-                request.record_type is None
-                or (isinstance(body, Mapping) and body.get("record_type") == request.record_type)
-            )
-            and (
-                request.family is None
-                or (isinstance(body, Mapping) and body.get("family") == request.family)
-            )
-            and all(value is None or row.get(key) == value for key, value in filters.items())
-        ):
-            yield row
-
-
 def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
-    from corpus_structure.serve.rich_queries import installed_read_implementation
+    from .serving_identity import installed_read_implementation
 
     with installed_read_implementation(
         type(request),
-        entry="corpus_structure.semantic.demand_queries",
+        entry="corpus_structure.semantic.demand_query_projection",
         profile="demand-query-v2",
-        callables=("corpus_structure.semantic.demand_queries._serve_demand_query",),
+        callables=(
+            "corpus_structure.semantic.demand_query_projection.selected_query_rows",
+            "corpus_structure.semantic.selected_pages.byte_bounded_page",
+            "corpus_structure.semantic.selected_pages.encode_cursor",
+            "corpus_structure.semantic.selected_pages.decode_cursor",
+        ),
     ) as implementation:
         return _serve_demand_query(connection, request, implementation)
 
@@ -127,14 +62,13 @@ def _serve_demand_query(connection, request, implementation):
     from .selected_query_cache import (
         SELECTED_QUERY_CACHE,
         bounded_rows,
-        byte_bounded_page,
         served_key,
         uncached_rows_from,
     )
 
     selection = request.selection()
     digest = sha256(json_bytes(selection)).hexdigest()
-    cursor = None if request.cursor is None else _decode(request.cursor)
+    cursor = None if request.cursor is None else decode_cursor(request.cursor)
     if cursor is not None and (
         not isinstance(cursor, dict)
         or set(cursor) != {"version", "implementation", "selection", "request", "cut", "ordinal"}
@@ -227,12 +161,12 @@ def _serve_demand_query(connection, request, implementation):
                     scope=scope,
                     view="products",
                 )
-                entry, remaining = bounded_rows(_selected_query_rows(whole, request), {})
+                entry, remaining = bounded_rows(selected_query_rows(whole.record, request), {})
                 if entry is not None:
                     SELECTED_QUERY_CACHE.put(key, entry)
         rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
     else:
-        rows = uncached_rows_from(_selected_query_rows(page, request), offset)
+        rows = uncached_rows_from(selected_query_rows(page.record, request), offset)
     uses = [
         {
             **use,
@@ -260,7 +194,7 @@ def _serve_demand_query(connection, request, implementation):
             if key not in {"selection", "trust_snapshot", "limit", "max_bytes", "recheck_bodies"}
         }
         selected_request.update(view=native_view, read_id=native["read_id"], scope=scope)
-        return _cursor(
+        return encode_cursor(
             dict(
                 version="demand-query-v2",
                 implementation=implementation,
@@ -293,7 +227,7 @@ def _serve_demand_query(connection, request, implementation):
             knowledge="observed" if values else "unknown",
             continuation=continuation,
             page_complete=continuation is None,
-            resource_handle=_cursor(
+            resource_handle=encode_cursor(
                 dict(
                     selection,
                     limit=request.limit,

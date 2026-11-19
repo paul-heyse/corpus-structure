@@ -11,14 +11,14 @@ from pydantic import BaseModel
 
 from corpus_structure import _query_custody as custody
 from corpus_structure.semantic import file_custody
-from corpus_structure.serve import rich_queries as service
+from corpus_structure.semantic import serving_identity as service
 
 
 @pytest.fixture
 def promised(tmp_path, monkeypatch):
     name = "query_custody_" + tmp_path.name.replace("-", "_")
     path = tmp_path / (name + ".py")
-    path.write_text("VALUE = 7\n")
+    path.write_text("VALUE = 7\ndef read():\n    return VALUE\n")
     monkeypatch.syspath_prepend(str(tmp_path))
     monkeypatch.setitem(custody._NAMES, name, str(path))
     clock = file_custody.time_ns()
@@ -134,6 +134,44 @@ def test_unknown_loader_cannot_gain_source_custody_from_matching_disk_bytes(prom
     monkeypatch.setitem(sys.modules, name, module)
     with pytest.raises(custody.SourceCustodyError, match="without matching source custody"):
         custody.capture_sources((path,))
+
+
+def test_authenticated_workload_rechecks_the_definition_and_consumed_binding(promised, monkeypatch):
+    from corpus_structure.semantic.code_identity import (
+        CodeIdentity,
+        ModuleSource,
+        authenticate_workload,
+    )
+
+    name, path, _ = promised
+    content = path.read_bytes()
+    source = ModuleSource(name, path.name, content, b"")
+    basis = CodeIdentity(
+        (name,),
+        (source,),
+        (),
+        (),
+        b"{}",
+        determining_modules=(source,),
+        determining_definitions=(f"{name}.read",),
+    )
+    with authenticate_workload(path.parent, basis):
+        module = sys.modules[name]
+        assert module.read() == 7
+    with monkeypatch.context() as changed:
+        changed.setattr(module, "VALUE", 8)
+        with (
+            pytest.raises(custody.SourceCustodyError, match="authenticated runtime slice changed"),
+            authenticate_workload(path.parent, basis),
+        ):
+            pytest.fail("a rebound global reached the workload")
+    with monkeypatch.context() as changed:
+        changed.setattr(module, "read", lambda: 7)
+        with (
+            pytest.raises(custody.SourceCustodyError, match="authenticated runtime slice changed"),
+            authenticate_workload(path.parent, basis),
+        ):
+            pytest.fail("a rebound definition reached the workload")
 
 
 def test_serving_basis_prepares_contract_once_and_checks_exact_imported_bytes(monkeypatch):

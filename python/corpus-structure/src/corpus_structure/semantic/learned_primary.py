@@ -24,6 +24,7 @@ from .types import SourceArtifact, SourceBundle
 _ROOT = Path(__file__).parents[1]
 _MODEL = _ROOT / "model/semantic/data-operation-learned.yaml"
 _FILES = (
+    "semantic/input_values.py",
     "methods/learned_primary.py",
     "semantic/learned_primary.py",
     "semantic/d1_limitation.py",
@@ -186,6 +187,7 @@ def learned_primary_operation_sources(selections, *, threshold=0.5, max_context_
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     modules = (
+        "semantic/input_values.py",
         "methods/learned_primary.py",
         "semantic/learned_primary.py",
         "semantic/contextual_native_products.py",
@@ -1195,6 +1197,8 @@ class PreparedLearnedPrimaryPort:
         )
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
+        from corpus_structure.semantic.input_values import _untrusted_value
+
         from .construction_products import CharacterizationSnapshot
         from .data_operation_identity import semantic_value
         from .data_operation_outcomes import successful_return_outcome
@@ -1202,7 +1206,6 @@ class PreparedLearnedPrimaryPort:
             PortCompletion,
             PortRefusal,
             RoleValue,
-            _untrusted_value,
             project_product_members,
         )
         from .sentence_products import validate_source_annotations

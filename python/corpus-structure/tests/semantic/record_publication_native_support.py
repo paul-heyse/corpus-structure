@@ -1,6 +1,10 @@
 """Actual rich CPU/native publication over explicit original and authored inputs."""
 
+import json
+import subprocess
+import sys
 from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -29,6 +33,90 @@ from corpus_structure.semantic.rich_knowledge_contracts import (
 from semantic.data_operation_kernel_support import CapturedKernelInputs
 
 DOMAIN = "urn:record-publication:"
+
+
+def run_observed_cli(
+    arguments: list[str], *, environment: dict[str, str], observations: Path
+) -> tuple[subprocess.CompletedProcess[str], dict[str, int]]:
+    """Observe the actual installed CLI without replacing its code, keys or authority."""
+    script = """
+import json
+import os
+import sys
+from pathlib import Path
+
+observations = dict(
+    derived=0, prepared=0, demand_bodies=0, demand_rows=0,
+    contribution_scopes=0, contribution_rows=0, page_lookups=0, page_hits=0,
+)
+def observe(frame, event, arg):
+    if event not in ("call", "return"):
+        return
+    if (
+        event == "call"
+        and frame.f_code.co_name == "read_selected_rich_knowledge"
+        and frame.f_globals.get("__name__") == "corpus_structure.serve.rich_knowledge"
+    ):
+        observations["derived"] += 1
+    if (
+        event == "call"
+        and frame.f_code.co_name == "prepare_rich_query"
+        and frame.f_globals.get("__name__") == "corpus_structure.semantic.rich_query_projection"
+    ):
+        observations["prepared"] += 1
+    if event == "call":
+        module = frame.f_globals.get("__name__")
+        name = frame.f_code.co_name
+        if (
+            module == "corpus_structure.semantic.demand_results"
+            and name == "read_demand_result"
+            and frame.f_locals.get("view") == "products"
+        ):
+            observations["demand_bodies"] += 1
+        if (
+            module == "corpus_structure.semantic.demand_query_projection"
+            and name == "selected_query_rows"
+        ):
+            observations["demand_rows"] += 1
+        if (
+            module == "corpus_structure.serve.selected_contributions"
+            and name == "selected_contribution_scope"
+        ):
+            observations["contribution_scopes"] += 1
+        if (
+            module == "corpus_structure.semantic.selected_contribution_projection"
+            and name == "contribution_rows"
+        ):
+            observations["contribution_rows"] += 1
+    if (
+        frame.f_code.co_name == "get"
+        and frame.f_globals.get("__name__") == "corpus_structure.cache_store"
+        and frame.f_locals.get("tier") == "pages"
+    ):
+        if event == "call":
+            observations["page_lookups"] += 1
+        elif event == "return" and arg is not None:
+            observations["page_hits"] += 1
+    return observe
+
+try:
+    from corpus_structure.cli.app import main
+    sys.setprofile(observe)
+    main()
+finally:
+    sys.setprofile(None)
+    Path(os.environ["NATIVE_ENTITY_DERIVATIONS"]).write_text(json.dumps(observations))
+"""
+    reply = subprocess.run(
+        [sys.executable, "-c", script, *arguments],
+        cwd=ROOT,
+        env=environment | {"NATIVE_ENTITY_DERIVATIONS": str(observations)},
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=180,
+    )
+    return reply, json.loads(observations.read_text())
 
 
 def publication_recipe(directory):
@@ -83,7 +171,27 @@ class AuthoredPublicationStage:
         return self.kernel_stage.seed_files
 
     def validate_clone(self, admin):
+        from sqlalchemy import select
+
+        from corpus_structure.semantic.metadata import table
+
         self.kernel_stage.validate_clone(admin)
+        stage = self.kernel_stage
+        grants = table("sem.data_operation_effect_grant")
+        with admin.connect() as connection:
+            actual = connection.execute(
+                select(grants.c.operation_id, grants.c.effect, grants.c.definition_identity).where(
+                    grants.c.release_id == stage.preparation.prepared.release_id
+                )
+            ).all()
+        if actual != [
+            (
+                "rich.admit",
+                "native-rich-knowledge-admission",
+                stage.identities["rich.admit", "definition"],
+            )
+        ]:
+            raise ValueError("authored publication requires its exact approved rich effect owner")
 
     def acquired(self, clone):
         from semantic.data_operation_kernel_support import Kernel
@@ -150,17 +258,24 @@ class AuthoredPublicationJourney:
 
 
 def _build_authored_publication(scenario, admin, writer, directory, *, purpose_engine):
+    from corpus_structure.semantic.effect_policy import ApprovedEffect, admit_effect_grants
     from semantic.data_operation_kernel_support import build_kernel
 
-    return AuthoredPublicationStage(
-        build_kernel(
-            replace(publication_recipe(directory), project_id=PROJECT),
-            admin,
-            writer,
-            directory,
-            purpose_engine=purpose_engine,
-        )
+    stage = build_kernel(
+        replace(publication_recipe(directory), project_id=PROJECT),
+        admin,
+        writer,
+        directory,
+        purpose_engine=purpose_engine,
     )
+    with admin.begin() as connection:
+        admit_effect_grants(
+            connection,
+            stage.preparation.prepared,
+            stage.preparation.model,
+            (ApprovedEffect("rich.admit", "native-rich-knowledge-admission"),),
+        )
+    return AuthoredPublicationStage(stage)
 
 
 register_scenario_builder(AuthoredPublicationCapture, _build_authored_publication)
@@ -354,7 +469,7 @@ def publish_authored(journey, values, *, inference, qualifications=None, entitie
     result = execute_data_demand(
         journey.kernel.purpose("write"),
         retained["demand_id"],
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=journey.kernel.purpose("admit"),
         project_id=PROJECT,
         database_capacity=6,

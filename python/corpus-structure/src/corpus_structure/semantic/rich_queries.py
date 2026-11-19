@@ -17,12 +17,12 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_serializer
 
+from corpus_structure.semantic.input_values import _untrusted_value
 from corpus_structure.semantic.source_types import CaseRule
 
 from .alias_policy import label_normalizer
 from .data_operation_identity import semantic_value
 from .data_operation_json import DdoJsonValue, json_bytes
-from .data_operation_ports import _untrusted_value
 from .identity import canonical_bytes
 from .refusals import SemanticRefusal
 from .rich_graph_validation import RichGraphState

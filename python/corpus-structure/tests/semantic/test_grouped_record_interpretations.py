@@ -19,7 +19,7 @@ from corpus_structure.semantic.grouped_record_interpretations import (
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.record_contracts import interpretation_identity
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
-from corpus_structure.serve.selected_contributions import SelectedContribution
+from corpus_structure.semantic.selected_contribution_input import SelectedContribution
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
 from semantic.selected_query_cache_support import (
     control_frontier,

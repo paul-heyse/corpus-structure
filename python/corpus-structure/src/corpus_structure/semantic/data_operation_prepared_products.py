@@ -18,6 +18,7 @@ def verify_prepared_product(
 ):
     """Verify original source and actual opaque resources; no callback registry or effects."""
     actual_sources = {source.module: source for source in sources.sources}
+    required_modules = {source.module for source in required_sources.sources}
     if len(actual_sources) != len(sources.sources) or any(
         source.module not in actual_sources
         or actual_sources[source.module].content != source.content
@@ -65,11 +66,20 @@ def verify_prepared_product(
         contracts.get(boundary.contract) != boundary.content_digest for boundary in boundaries
     ):
         raise PortRefusal("prepared product semantic assets differ from declared boundaries")
-    for source in sources.sources:
+    for required in required_sources.sources:
+        source = actual_sources[required.module]
         if Path(source.filename).read_bytes() != source.content:
             raise PortRefusal("prepared product original source changed")
     for expected_owner, supplied in functions:
+        function = supplied.__func__ if inspect.ismethod(supplied) else supplied
+        if not inspect.isfunction(function) or function.__module__ not in required_modules:
+            raise PortRefusal("prepared product callable is outside its required source subset")
         _verify_prepared_callable(expected_owner, supplied)
+        if (
+            Path(inspect.getfile(function)).resolve()
+            != Path(actual_sources[function.__module__].filename).resolve()
+        ):
+            raise PortRefusal("prepared product callable differs from its acquired source origin")
     authorize(identity)
 
 
@@ -113,20 +123,24 @@ def _verify_prepared_callable(expected_owner, supplied):
         raise PortRefusal("prepared product loaded algorithm differs from acquired source")
 
 
-def authenticated_prepared_product(sources, functions):
+def authenticated_prepared_product(sources, functions, *, required_sources):
     """Carry successful prepared-product correspondence with its mutable premises."""
     from .data_operation_ports import _code_globals
     from .file_custody import verified_file
     from .runtime_slice import AuthenticatedSlice
 
+    required = {source.module for source in required_sources.sources}
     files = tuple(
         verified_file(Path(source.filename), sha256(source.content).hexdigest())
         for source in sources.sources
+        if source.module in required
     )
     modules = {}
     members, globals = [], []
     for _expected_owner, supplied in functions:
         function = supplied.__func__ if inspect.ismethod(supplied) else supplied
+        if not inspect.isfunction(function) or function.__module__ not in required:
+            raise PortRefusal("prepared product callable is outside its required source subset")
         module = sys.modules[function.__module__]
         modules[function.__module__] = module
         components = function.__qualname__.split(".")

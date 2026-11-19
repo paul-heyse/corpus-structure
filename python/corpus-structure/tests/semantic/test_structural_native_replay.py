@@ -254,8 +254,8 @@ def test_current_navigation_uses_the_whole_original_note(profile, prefix):
 def test_current_dossier_page_excludes_unselected_member_source_closure():
     from corpus_structure.methods.structural_products import produce_structural_dossier
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
+    from corpus_structure.semantic.selected_structural_projection import dossier_member_page
     from corpus_structure.semantic.structural_products import StructuralPassage
-    from corpus_structure.serve.structural_products import dossier_member_page
     from semantic.test_dossier_products import _predecessor
 
     component, root, predecessor, report, inputs = _predecessor()

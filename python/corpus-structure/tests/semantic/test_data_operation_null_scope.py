@@ -5,7 +5,7 @@ import json
 import pytest
 from sqlalchemy import JSON, bindparam, func, literal_column, select
 
-from corpus_structure.semantic.data_operation_json import ContextJSONB, json_context_equal
+from corpus_structure.semantic.data_operation_jsonb import ContextJSONB, json_context_equal
 from corpus_structure.semantic.data_operation_storage import _binding_context_parameter
 from semantic.data_operation_kernel_support import STORAGE
 

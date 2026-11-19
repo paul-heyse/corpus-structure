@@ -1,5 +1,7 @@
 """Independent examples for source discovery and reusable code standing."""
 
+import pytest
+
 from corpus_structure.semantic.code_identity import capture_code_identity
 
 
@@ -68,11 +70,11 @@ def test_package_location_does_not_determine_code_identity(tmp_path):
 
 def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
     from corpus_structure.semantic.code_identity import CodeIdentity, CodeUnknown
+    from corpus_structure.semantic.selected_pages import byte_bounded_page
     from corpus_structure.semantic.selected_query_cache import (
         SelectedQueryCache,
         ServedKey,
         bounded_rows,
-        byte_bounded_page,
     )
     from corpus_structure.semantic.serving_code import ServingImplementation, serving_code
 
@@ -174,3 +176,68 @@ def test_eager_effect_withholds_reuse_even_if_its_binding_is_unused(tmp_path):
     basis = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
     assert basis.digest is None
     assert any(item.line == 3 and "initializer" in item.reason for item in basis.unknowns)
+
+
+def test_a_finite_dataclass_initializer_is_distinct_from_a_rebound_decorator(tmp_path):
+    root = package(tmp_path)
+    entry = root / "entry.py"
+    source = (
+        "from dataclasses import dataclass as record\n"
+        "@record(frozen=True)\n"
+        "class Value:\n"
+        " key: int = 3\n"
+        "def result():\n"
+        " return Value()\n"
+    )
+    entry.write_text(source)
+    basis = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert basis.complete
+    assert basis.determining_definitions == (
+        "example.entry.Value",
+        "example.entry.Value.key",
+        "example.entry.result",
+    )
+    entry.write_text(source.replace("@record", "record = object\n@record"))
+    rebound = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert rebound.digest is None
+    assert any("initializer" in item.reason for item in rebound.unknowns)
+
+
+def test_dataclass_annotation_call_is_eager_even_when_class_is_unused(tmp_path):
+    root = package(tmp_path)
+    (root / "entry.py").write_text(
+        "from dataclasses import dataclass\n"
+        "def setup():\n return int\n"
+        "@dataclass\nclass Unused:\n key: setup()\n"
+        "def result():\n return 1\n"
+    )
+    basis = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert basis.digest is None
+    assert any(item.line == 5 and "initializer" in item.reason for item in basis.unknowns)
+
+
+def test_revoked_workload_proof_cannot_publish_a_derived_entry():
+    from corpus_structure._query_custody import SourceCustodyError
+    from corpus_structure.semantic.code_identity import CodeIdentity
+    from corpus_structure.semantic.selected_query_cache import (
+        SelectedQueryCache,
+        ServedKey,
+        bounded_rows,
+    )
+    from corpus_structure.semantic.serving_code import ServingImplementation, serving_code
+
+    def refuse():
+        raise SourceCustodyError("executing binding changed during derivation")
+
+    basis = CodeIdentity(("control",), (), (), (), b"{}")
+    cache = SelectedQueryCache()
+    key = ServedKey("test", b"selection", "current", ("reader",), "cut", b"cut")
+    entry, _ = bounded_rows((7,), {})
+    assert entry is not None
+    with (
+        serving_code(ServingImplementation("current", basis, refuse)),
+        pytest.raises(SourceCustodyError, match="changed during derivation"),
+    ):
+        cache.put(key, entry)
+    with serving_code(ServingImplementation("current", basis)):
+        assert cache.get(key) is None

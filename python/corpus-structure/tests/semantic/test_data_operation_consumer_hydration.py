@@ -12,7 +12,8 @@ from corpus_structure.semantic.data_operation_consumers import (
     hydrate_consumer_selection,
 )
 from corpus_structure.semantic.data_operation_identity import semantic_value
-from corpus_structure.semantic.data_operation_json import json_context_value, json_loads
+from corpus_structure.semantic.data_operation_json import json_loads
+from corpus_structure.semantic.data_operation_jsonb import json_context_value
 from corpus_structure.semantic.data_operation_model import (
     MODEL_VERSION,
     BoundRoleMember,

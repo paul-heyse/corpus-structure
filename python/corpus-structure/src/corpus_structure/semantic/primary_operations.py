@@ -568,8 +568,18 @@ def combine_primary_sources(*collections: PythonSourceCollection) -> PythonSourc
             raise ValueError("primary source collections have incompatible interpretation")
         for source in collection.sources:
             previous = sources.setdefault(source.module, source)
-            if previous != source:
+            if (previous.content, previous.stub, previous.logical_filename) != (
+                source.content,
+                source.stub,
+                source.logical_filename,
+            ):
                 raise ValueError("primary source collections disagree on a captured module")
+            previous_origin = previous.filename != previous.logical_filename
+            source_origin = source.filename != source.logical_filename
+            if previous_origin and source_origin and previous.filename != source.filename:
+                raise ValueError("primary source collections disagree on acquired module origin")
+            if source_origin:
+                sources[source.module] = source
         for contract in collection.boundary_contracts:
             previous = contracts.setdefault(contract.name, contract)
             if previous != contract:

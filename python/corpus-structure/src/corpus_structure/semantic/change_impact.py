@@ -625,7 +625,7 @@ def inspect_change_impact(
         if target_cut.record["release_id"] != request.target_release_id:
             raise ValueError("target selection belongs to another release")
     from corpus_structure.model.compiled import running_model
-    from corpus_structure.serve.rich_queries import _installed_read_basis
+    from corpus_structure.semantic.serving_identity import _installed_read_basis
 
     implementation, code_basis = _installed_read_basis(
         ChangeImpactRequest,

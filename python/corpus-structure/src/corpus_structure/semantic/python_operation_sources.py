@@ -100,6 +100,14 @@ class PythonSource:
     filename: str
     stub: bytes | None = None
 
+    @property
+    def logical_filename(self) -> str:
+        """Archive module identity independently of its acquired filesystem origin."""
+        module_path = self.module.replace(".", "/")
+        if Path(self.filename).name == "__init__.py":
+            return module_path + "/__init__.py"
+        return module_path + ".py"
+
 
 @dataclass(frozen=True)
 class PythonSourceCollection:

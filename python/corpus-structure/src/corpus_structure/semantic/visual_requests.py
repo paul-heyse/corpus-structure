@@ -20,10 +20,11 @@ from typing import Any
 import yaml
 
 from corpus_structure.semantic.identifiers import TaskAttempt, TaskId
+from corpus_structure.semantic.input_values import _untrusted_value
 
 from .data_operation_identity import decode_semantic_value, semantic_value
 from .data_operation_json import json_bytes, wire_json_loads
-from .data_operation_ports import PortCompletion, PortRefusal, RoleValue, _untrusted_value
+from .data_operation_ports import PortCompletion, PortRefusal, RoleValue
 from .identity import canonical_bytes
 from .types import SourceArtifact
 
@@ -200,6 +201,10 @@ def visual_operation_sources():
         tuple(
             PythonSource(module, path.read_bytes(), str(path))
             for module, path in (
+                (
+                    "corpus_structure.semantic.input_values",
+                    Path(__file__).with_name("input_values.py"),
+                ),
                 ("corpus_structure.semantic.visual_requests", Path(__file__)),
                 (
                     "corpus_structure.ingest.chandra_mapping_operation",

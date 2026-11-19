@@ -158,7 +158,9 @@ class PreparedOriginalCallPort:
             self._verify,
             logical_batch_signature(signature) if batch else None,
         )
-        self._verification = authenticated_prepared_product(self.sources, functions)
+        self._verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=self.required_sources
+        )
         self._basis = tuple(
             (name, getattr(self, name))
             for name in (

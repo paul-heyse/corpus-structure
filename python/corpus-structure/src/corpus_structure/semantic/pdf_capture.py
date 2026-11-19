@@ -383,9 +383,10 @@ class PreparedPdfCapturePort:
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.core.work import PreparedWork
+        from corpus_structure.semantic.input_values import _untrusted_value
 
         from .data_operation_identity import semantic_value
-        from .data_operation_ports import PortCompletion, PortRefusal, RoleValue, _untrusted_value
+        from .data_operation_ports import PortCompletion, PortRefusal, RoleValue
 
         self._verify()
         if binding is None or not binding.sufficient or binding.subject_context is None:

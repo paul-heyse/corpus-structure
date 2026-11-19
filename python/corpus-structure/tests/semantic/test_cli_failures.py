@@ -305,10 +305,10 @@ def test_schema_derive_existing_directory_refuses_before_prepare(cli, tmp_path):
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True)
-def test_actual_database_check_preserves_native_admission_diagnostic(
+def test_explicit_native_release_proof_reports_admission_acl_drift(
     cli, ddo_kernel, native_settings
 ):
-    """Current reader checks actual admitted contracts; posture tampering still refuses."""
+    """Reader correspondence uses carried admission; explicit proof checks catalog posture."""
     from hashlib import sha256
 
     from sqlalchemy import text
@@ -364,22 +364,27 @@ def test_actual_database_check_preserves_native_admission_diagnostic(
     assert report["native_digest"] == read_native_definition_projection(prepared)["native_digest"]
     assert report["physical_id"] and report["physical_id"] != report["native_digest"]
     assert "execution_model_id" not in report
+    proof_args = ("release", "check", "--native-proof", "--release", prepared.release_id, "--json")
+    admit_settings = settings_for_native_clone(native_settings, database, "admit")
+    proof = cli(*proof_args, settings=lambda: admit_settings)
+    assert proof.exit_code == 0, proof.output
     try:
         with kernel.engine.begin() as connection:
             connection.exec_driver_sql(
                 "GRANT EXECUTE ON FUNCTION ops.inspect_data_operation_release(jsonb) TO PUBLIC"
             )
-        refused = cli(*args, settings=lambda: settings)
+        refused = cli(*proof_args, settings=lambda: admit_settings)
         assert refused.exit_code == 1, refused.output
         error = json.loads(refused.stdout)["error"]
-        assert error["code"] == "ExecutionAdmissionError"
-        assert "native execution deployment or archived binding is incompatible" in error["message"]
-        assert "ops.inspect_data_operation_release(jsonb)" in error["message"]
+        assert error["code"] == "database_permission", error
+        assert error["message"] == "database operation failed"
     finally:
         with kernel.engine.begin() as connection:
             connection.exec_driver_sql(
                 "REVOKE EXECUTE ON FUNCTION ops.inspect_data_operation_release(jsonb) FROM PUBLIC"
             )
+    restored = cli(*proof_args, settings=lambda: admit_settings)
+    assert restored.exit_code == 0, restored.output
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True)

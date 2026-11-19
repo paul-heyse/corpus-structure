@@ -31,7 +31,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by
 from sqlalchemy.sql.elements import ColumnClause
 from sqlalchemy.sql.type_api import TypeEngine
 
-from .data_operation_json import ContextJSONB
+from .data_operation_jsonb import ContextJSONB
 
 
 def _json(value):

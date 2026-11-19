@@ -1,25 +1,32 @@
 """Serving code eligibility shared by bounded pages and their expendable cache."""
 
+from __future__ import annotations
+
+from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import asdict
 from hashlib import sha256
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from .code_identity import CodeIdentity
+if TYPE_CHECKING:
+    from .code_identity import CodeIdentity
 
 
 class ServingImplementation(str):
     complete: bool
     diagnostics: tuple[dict, ...]
+    verify: Callable[[], None] | None
 
-    def __new__(cls, identity: str, code: CodeIdentity):
+    def __new__(cls, identity: str, code: CodeIdentity, verify: Callable[[], None] | None = None):
         # An incomplete observation is useful attribution for this one read.
         # Its nonce prevents a guessed repeat from acquiring continuation rights.
         token = identity if code.complete else sha256((identity + uuid4().hex).encode()).hexdigest()
         value = super().__new__(cls, token)
         value.complete = code.complete
         value.diagnostics = tuple(asdict(item) for item in code.unknowns)
+        value.verify = verify
         return value
 
 
@@ -37,11 +44,15 @@ def serving_code(implementation: ServingImplementation):
 
 def reusable_serving_code(implementation: str | None = None) -> bool:
     selected = _ACTIVE.get()
-    return (
-        selected is not None
-        and selected.complete
-        and (implementation is None or implementation == selected)
-    )
+    if (
+        selected is None
+        or not selected.complete
+        or (implementation is not None and implementation != selected)
+    ):
+        return False
+    if selected.verify is not None:
+        selected.verify()
+    return True
 
 
 def serving_report(record):

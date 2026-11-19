@@ -2,35 +2,35 @@
 
 from __future__ import annotations
 
-import base64
-import unicodedata
 from contextlib import contextmanager
-from functools import lru_cache, partial
+from functools import partial
 from hashlib import sha256
-from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-from corpus_structure.semantic.demand_queries import _cursor
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.refusals import InvalidContinuation
 from corpus_structure.semantic.rich_queries import (
     EntityQuery,
-    PreparedRichQueryIndex,
     RichQuery,
-    RichQueryIndex,
     RichQueryRefused,
-    query_rows,
 )
+from corpus_structure.semantic.rich_query_projection import (
+    derive_rich_query_rows,
+    prepare_rich_query,
+    rich_query_metadata,
+)
+from corpus_structure.semantic.selected_pages import byte_bounded_page, decode_rich_cursor
+from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
 from corpus_structure.semantic.selected_query_cache import (
     SELECTED_QUERY_CACHE,
     bounded_rows,
-    byte_bounded_page,
     served_key,
     uncached_rows_from,
 )
+from corpus_structure.semantic.serving_identity import installed_read_implementation
 
 from .rich_knowledge import read_selected_rich_knowledge, read_selected_rich_reference
 
@@ -41,53 +41,19 @@ VERSION = "selected-rich-query-2"
 def rich_query_implementation(query):
     with installed_read_implementation(
         type(query),
-        entry="corpus_structure.serve.rich_queries",
+        entry="corpus_structure.semantic.rich_query_projection",
         profile=VERSION,
-        callables=("corpus_structure.serve.rich_queries._serve_rich_query",),
+        callables=(
+            "corpus_structure.semantic.rich_query_projection.frontier_content_witness",
+            "corpus_structure.semantic.rich_query_projection.prepare_rich_query",
+            "corpus_structure.semantic.rich_query_projection.derive_rich_query_rows",
+            "corpus_structure.semantic.rich_query_projection.rich_query_metadata",
+            "corpus_structure.semantic.selected_pages.byte_bounded_page",
+            "corpus_structure.semantic.selected_pages.encode_cursor",
+            "corpus_structure.semantic.selected_pages.decode_rich_cursor",
+        ),
     ) as identity:
         yield identity
-
-
-@lru_cache(maxsize=64)
-def _installed_read_basis(contract, entry, profile, model_identity, *, callables):
-    from corpus_structure.semantic.code_identity import capture_code_identity
-
-    root = Path(__file__).resolve().parents[1]
-    basis = capture_code_identity(root, (entry,), callables=callables)
-    # cachetools owns expendable row retention. Its release changes entry
-    # compatibility, while selected query semantics and cursor ordering stay here.
-    meaning = json_loads(basis.meaning)
-    meaning.get("distributions", {}).pop("cachetools", None)
-    identity = sha256(
-        json_bytes(
-            dict(
-                version=profile,
-                code=meaning,
-                model=model_identity,
-                query_contract=contract.model_json_schema(),
-                unicode=unicodedata.unidata_version,
-            )
-        )
-    ).hexdigest()
-    return identity, basis
-
-
-@contextmanager
-def installed_read_implementation(contract, *, entry, profile, callables):
-    """Authenticate determining source and carry explicit reusable-code standing."""
-    from corpus_structure._query_custody import capture_workload_sources, query_sources
-    from corpus_structure.model.compiled import running_model
-    from corpus_structure.semantic.serving_code import ServingImplementation, serving_code
-
-    identity, basis = _installed_read_basis(
-        contract, entry, profile, running_model().identity, callables=callables
-    )
-    root = Path(__file__).resolve().parents[1]
-    captured = capture_workload_sources(root, basis)
-    implementation = ServingImplementation(identity, basis)
-    closed = basis.complete and bool(basis.determining_modules)
-    with query_sources(captured, closed=closed), serving_code(implementation):
-        yield implementation
 
 
 class RichQueryRequest(BaseModel):
@@ -118,18 +84,6 @@ class RichQueryRequest(BaseModel):
         )
 
 
-def decode_rich_cursor(value: str) -> dict:
-    try:
-        parsed = json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
-    except (ValueError, TypeError) as error:
-        raise InvalidContinuation(
-            "invalid rich query cursor", reason="invalid_continuation"
-        ) from error
-    if not isinstance(parsed, dict):
-        raise InvalidContinuation("invalid rich query cursor", reason="invalid_continuation")
-    return parsed
-
-
 def serve_rich_query(connection, request: RichQueryRequest) -> dict:
     from corpus_structure._query_custody import SourceCustodyError
 
@@ -138,17 +92,6 @@ def serve_rich_query(connection, request: RichQueryRequest) -> dict:
             return _serve_rich_query(connection, request, implementation=implementation)
     except SourceCustodyError as error:
         raise RichQueryRefused(str(error)) from error
-
-
-def rich_query_metadata(index: RichQueryIndex) -> dict:
-    """Derive diagnostics from the same admitted index that produced the rows."""
-    return dict(unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
-
-
-def derive_rich_query_rows(index: RichQueryIndex, query: RichQuery):
-    """Project rows from an already acquired immutable admission and typed selection."""
-    for row in query_rows(index, query):
-        yield dict(value=row.value, **rich_query_metadata(index))
 
 
 def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: str) -> dict:
@@ -243,8 +186,8 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
                             "rich body differs from its freshly acquired root",
                             reason="invalid_continuation",
                         )
-                    prepared_index = PreparedRichQueryIndex.build(
-                        whole.state, max_members=request.max_graph_members
+                    prepared_index = prepare_rich_query(
+                        whole.inputs, max_members=request.max_graph_members
                     )
                     SELECTED_QUERY_CACHE.put(graph_key, prepared_index)
             index = prepared_index.query_index()

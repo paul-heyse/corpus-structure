@@ -25,10 +25,10 @@ from corpus_structure.semantic.rich_knowledge_sources import (
     rich_knowledge_declarations,
     rich_knowledge_inputs,
 )
+from corpus_structure.semantic.selected_contribution_input import SelectedContributionScope
 from corpus_structure.semantic.types import ResolvedDependencies
 from corpus_structure.serve import contribution_facets as facets
 from corpus_structure.serve import identity_exclusion_comparison as comparison
-from corpus_structure.serve.selected_contributions import SelectedContributionScope
 from semantic.record_contracts_support import release_inputs
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
 from semantic.selected_query_cache_support import (

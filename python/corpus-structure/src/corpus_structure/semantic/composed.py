@@ -81,7 +81,7 @@ def data_operation_dependencies(
             "sources": [
                 {
                     "module": s.module,
-                    "filename": s.module.replace(".", "/") + ".py",
+                    "filename": s.logical_filename,
                     "stub": s.stub is not None,
                 }
                 for s in sources

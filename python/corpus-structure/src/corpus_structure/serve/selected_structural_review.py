@@ -8,9 +8,10 @@ from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.demand_results import CutSelection
+from corpus_structure.semantic.selected_structural_projection import STRUCTURAL_QUERY_ROOTS
+from corpus_structure.semantic.serving_identity import installed_read_implementation
 
 from .demand_export import export_demand_result, verified_demand_export
-from .rich_queries import installed_read_implementation
 from .selected_structural import StructuralScope
 from .source_decision_journey import (
     SelectedSourceDecisionJourneyRequest,
@@ -71,9 +72,9 @@ def _replay(root, selection, native_digest):
         release = cut.record["release_id"]
         with installed_read_implementation(
             type(request),
-            entry="corpus_structure.serve.selected_structural",
+            entry="corpus_structure.semantic.selected_structural_projection",
             profile="selected-structural-read-v1",
-            callables=("corpus_structure.serve.selected_structural.structural_scope",),
+            callables=STRUCTURAL_QUERY_ROOTS,
         ) as implementation:
             scope = StructuralScope(
                 cut,

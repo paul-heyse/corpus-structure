@@ -20,7 +20,7 @@ from corpus_structure.semantic import SourceArtifact, SourceBundle, prepare_rele
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_consumers import resolve_prepared_factory
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.data_operation_ports import _untrusted_value
+from corpus_structure.semantic.input_values import _untrusted_value
 from corpus_structure.semantic.pdf_capture import pdf_capture_operation_sources
 from corpus_structure.semantic.pdf_effect_contract import (
     PDF_ENRICHMENT_EFFECT,

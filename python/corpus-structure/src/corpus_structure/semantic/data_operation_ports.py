@@ -34,6 +34,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
 from .data_operation_static_preparation import prepare_data_operation_model
 from .identity import canonical_bytes
+from .input_values import _untrusted_value
 from .operation_value_types import decode_json_text, native_result_scope
 from .python_operation_sources import PythonSourceCollection
 from .types import (
@@ -1054,23 +1055,6 @@ def _validated_python_input(annotation: Any, value: Any, *, adapters=None) -> An
         return item
 
     return owned(checked)
-
-
-def _untrusted_value(value: Any) -> Any:
-    """Model instances can have bypassed validation; reconstruct their public fields."""
-    if isinstance(value, BaseModel):
-        return {
-            name: _untrusted_value(getattr(value, name))
-            for name in type(value).model_fields
-            if name in value.model_fields_set
-        }
-    if isinstance(value, Mapping):
-        return {key: _untrusted_value(item) for key, item in value.items()}
-    if isinstance(value, tuple):
-        return tuple(_untrusted_value(item) for item in value)
-    if isinstance(value, list):
-        return [_untrusted_value(item) for item in value]
-    return copy.deepcopy(value)
 
 
 def python_port_identity(

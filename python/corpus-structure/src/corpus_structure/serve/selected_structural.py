@@ -5,13 +5,15 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-from corpus_structure.semantic.nonrich_contribution_facets import read_nonrich_root
-from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.selected_contribution_input import SelectedContributionScope
+from corpus_structure.semantic.selected_structural_projection import (
+    STRUCTURAL_QUERY_ROOTS,
+)
 from corpus_structure.semantic.selected_support import SelectedOutputRoot
 
 from .contribution_facets import ContributionFacetsRequest
-from .selected_contributions import SelectedContributionScope, selected_contribution_scope
+from .selected_contributions import selected_contribution_scope
 
 
 @dataclass(frozen=True)
@@ -44,7 +46,7 @@ class StructuralReadRequest(BaseModel):
 @contextmanager
 def structural_scope(connection, request, *, roots, source_products=()):
     """Acquire native roots, or consume an explicitly authenticated detached selection."""
-    from .rich_queries import installed_read_implementation
+    from corpus_structure.semantic.serving_identity import installed_read_implementation
 
     products = sorted({root.product_id for root in roots} | set(source_products))
     acquired = ContributionFacetsRequest(
@@ -59,9 +61,9 @@ def structural_scope(connection, request, *, roots, source_products=()):
     )
     with installed_read_implementation(
         type(request),
-        entry="corpus_structure.serve.selected_structural",
+        entry="corpus_structure.semantic.selected_structural_projection",
         profile="selected-structural-read-v1",
-        callables=("corpus_structure.serve.selected_structural.structural_scope",),
+        callables=STRUCTURAL_QUERY_ROOTS,
     ) as implementation:
         if request.implementation is not None and request.implementation != implementation:
             raise ValueError("structural resource differs from its installed read implementation")
@@ -101,77 +103,6 @@ def structural_scope(connection, request, *, roots, source_products=()):
                 scope.max_support_edges,
                 implementation,
             )
-
-
-def selected_root(scope, root):
-    """An exact selected output, never a body found merely in dependency closure."""
-    candidates = tuple(
-        selected
-        for selected in scope.products(product_id=root.product_id)
-        if selected.reference.member_id == root.member_id
-        and selected.use_id == root.use_id
-        and selected.derivation_id == root.derivation_id
-    )
-    if not candidates:
-        return None
-    first = candidates[0]
-    if any(item.reference != first.reference or item.body != first.body for item in candidates):
-        raise ValueError("selected structural output address has conflicting values")
-    return first
-
-
-def structural_report(scope, selected):
-    root = read_nonrich_root(scope.model, selected)
-    if root.structural is None:
-        raise ValueError("selected output has no current structural report contract")
-    return root.structural
-
-
-def selected_contextual(scope, selected):
-    """Validate the captured nominal schema before interpreting its encoded source values."""
-    from corpus_structure.semantic.data_operation_wire import validate_wire_schema
-
-    nominal = "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualRetrievalProduct"
-    kind = next((kind for kind in scope.model.kinds if kind.semantic_id == nominal), None)
-    contract = next(
-        (
-            identity.key
-            for identity in scope.model.identities
-            if identity.domain == "kind" and identity.owner == nominal
-        ),
-        None,
-    )
-    if (
-        selected.nominal != nominal
-        or selected.reference.member_id is not None
-        or kind is None
-        or not kind.complete
-        or contract != selected.reference.kind_contract
-    ):
-        raise ValueError("contextual journey requires its actual captured retrieval whole")
-    schema = json_loads(kind.facts).get("json_schema")
-    if schema is None:
-        raise ValueError("contextual retrieval has no captured nominal schema")
-    validate_wire_schema(schema, json_loads(json_bytes(selected.body)))
-    return {
-        **selected.body,
-        **{
-            name: source_python(selected.body[name])
-            for name in ("inventory", "candidate_list", "relationship_decision")
-        },
-    }
-
-
-def producer(selected):
-    return dict(
-        reference=selected.reference.model_dump(mode="python"),
-        context=selected.context.identity_record,
-        nominal=selected.nominal,
-        operation_id=selected.operation_id,
-        use_id=selected.use_id,
-        derivation_id=selected.derivation_id,
-        output=selected.output,
-    )
 
 
 def bounded_result(request, result):

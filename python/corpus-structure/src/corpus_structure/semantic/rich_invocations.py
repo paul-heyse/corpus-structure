@@ -11,6 +11,7 @@ from .types import SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
 _FILES = (
+    "semantic/input_values.py",
     "methods/rich_knowledge.py",
     "semantic/rich_invocations.py",
     "semantic/rich_consolidation.py",

@@ -330,6 +330,8 @@ class PreparedContextualNativePort:
         )
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
+        from corpus_structure.semantic.input_values import _untrusted_value
+
         from .construction_products import (
             interpreted_member_contracts,
             validate_interpreted_product,
@@ -340,7 +342,6 @@ class PreparedContextualNativePort:
             PortCompletion,
             PortRefusal,
             RoleValue,
-            _untrusted_value,
             project_product_members,
         )
         from .learned_primary import _FILES, _ROOT, learned_profile_assets

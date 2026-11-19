@@ -11,11 +11,10 @@ import typer
 from pydantic import ValidationError
 
 from corpus_structure.cli.output import diagnostic, safe_text, write_report_text
+from corpus_structure.semantic.database_failures import DATABASE_ERRORS, database_failure_report
 from corpus_structure.semantic.refusals import (
-    DATABASE_ERRORS,
     FailureContext,
     SemanticRefusal,
-    database_failure_report,
     safe_failure_message,
     semantic_refusal_report,
 )

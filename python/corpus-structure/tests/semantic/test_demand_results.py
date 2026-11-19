@@ -10,9 +10,11 @@ from sqlalchemy import create_engine
 
 from corpus_structure.semantic.data_operation_identity import semantic_value
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.demand_results import CutSelection, DemandResult
-from corpus_structure.serve.demand_journey import DemandQueryRequest, _decode, serve_demand_query
+from corpus_structure.semantic.selected_pages import decode_cursor as _decode
 from semantic.demand_result_support import demand_result_page
+from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
 
 
 def test_members_retain_actual_context_episode_direction_and_multiplicity():
@@ -46,6 +48,7 @@ def test_cut_distinguishes_native_boundary_context_and_current_trust():
     assert original.identity != CutSelection.from_native(changed).identity
 
 
+@pytest.mark.usefixtures("complete_serving_code")
 def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(monkeypatch):
     reads = []
 
@@ -109,7 +112,7 @@ def test_waiting_and_completed_empty_operations_do_not_claim_absence(monkeypatch
 def test_actual_main_mcp_read_and_resource_use_same_owner_and_exact_json(monkeypatch):
     from corpus_structure.intervene.server import build_server
     from corpus_structure.semantic.data_operation_external import ExternalDataSession
-    from corpus_structure.serve.demand_journey import _cursor
+    from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
 
     engine = create_engine("sqlite://")
     request = DemandQueryRequest(demand_id="demand:A", project_id="project:A", max_bytes=8192)
@@ -279,7 +282,10 @@ def _detached_closure(
                 operation_id="op:A",
                 recipe="recipe:A",
                 subject_definition="document",
-                support_contract={"replicate_policy": "deterministic-single-result"},
+                support_contract={
+                    "replicate_policy": "deterministic-single-result",
+                    "reuse_eligible": True,
+                },
             ),
         ),
         (
@@ -671,6 +677,7 @@ def test_detached_source_free_context_requires_actual_checked_project_scope():
         )
 
 
+@pytest.mark.usefixtures("complete_serving_code")
 def test_public_query_distinguishes_explicit_null_source_and_omitted_filter(monkeypatch):
     scopes = []
 

@@ -9,6 +9,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_results import SelectedGraphBudgetExceeded
 from corpus_structure.semantic.refusals import InvalidContinuation, tool_refusals
 from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.selected_pages import decode_rich_cursor
 from corpus_structure.serve.contribution_facets import (
     ContributionFacetsRequest,
     serve_contribution_facets,
@@ -17,7 +18,6 @@ from corpus_structure.serve.identity_exclusion_comparison import (
     ExclusionComparisonRequest,
     compare_selected_exclusions,
 )
-from corpus_structure.serve.rich_queries import decode_rich_cursor
 
 from .mcp_results import bounded_mcp_result
 

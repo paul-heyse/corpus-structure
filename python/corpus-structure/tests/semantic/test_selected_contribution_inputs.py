@@ -7,7 +7,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.demand_results import CutSelection, SelectedGraphBudgetExceeded
 from corpus_structure.semantic.rich_queries import RichQueryRefused
-from corpus_structure.serve.selected_contributions import actual_graph_inputs
+from corpus_structure.semantic.selected_contribution_input import actual_graph_inputs
 from semantic.test_rich_query_delivery import CUT
 
 
@@ -22,7 +22,7 @@ def test_selected_products_respect_explicit_authority_disclosure_without_hiding_
     from types import SimpleNamespace
     from typing import cast
 
-    from corpus_structure.serve.selected_contributions import SelectedContributionScope
+    from corpus_structure.semantic.selected_contribution_input import SelectedContributionScope
     from semantic.test_authority_leaf import disclosure as authority_disclosure
 
     leaf, _ = authority_disclosure()
@@ -238,5 +238,28 @@ def test_actual_bounded_authority_leaf_is_not_reconstructed_as_hidden_edges(tmp_
             assert len(wholes) == 1 and "judgment_basis_digest" in wholes[0].value
             assert list(index.rows("ops.data_derivation_output")) == []
             assert [row["id"] for row in index.rows("ops.data_request")] == ["root-request"]
+    finally:
+        index.close()
+
+
+def test_acquired_support_can_be_sealed_while_retaining_exact_indexed_rows(tmp_path):
+    import sqlite3
+
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
+
+    index = SelectedRecordIndex(tmp_path / "selected.sqlite")
+    try:
+        first = {
+            "key": "episode:first",
+            "relation": "ops.data_derivation",
+            "record": {"id": "first"},
+        }
+        index.append(json_bytes(first))
+        index.freeze()
+        assert list(index.rows("ops.data_derivation")) == [{"id": "first"}]
+        assert index.mapping("ops.data_derivation", ("id",))["first"] == {"id": "first"}
+        with pytest.raises(sqlite3.OperationalError, match="readonly"):
+            index.append(json_bytes({**first, "key": "episode:second", "record": {"id": "second"}}))
     finally:
         index.close()

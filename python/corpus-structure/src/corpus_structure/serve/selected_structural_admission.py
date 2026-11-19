@@ -103,8 +103,7 @@ def selected_structural_support_root(scope, root, admission_root):
         validate_structural_report_support,
     )
     from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
-
-    from .selected_contributions import SelectedContribution
+    from corpus_structure.semantic.selected_contribution_input import SelectedContribution
 
     admitted = _selected_structural_conclusion(scope, admission_root)
     if admitted is None or root.member_id is not None:

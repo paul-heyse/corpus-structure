@@ -9,6 +9,8 @@ from fastmcp import Context
 from pydantic import BaseModel
 
 from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
+from corpus_structure.semantic.selected_pages import decode_cursor as _decode
 from corpus_structure.serve.characterization import (
     DemandCharacterizationRequest,
     DemandDefinitionRequest,
@@ -16,7 +18,6 @@ from corpus_structure.serve.characterization import (
     inspect_demand_definition,
 )
 from corpus_structure.serve.demand_context import DemandContextRequest, inspect_demand_context
-from corpus_structure.serve.demand_journey import DemandQueryRequest, _decode, serve_demand_query
 from corpus_structure.serve.selected_neighborhood import (
     DemandNeighborhoodRequest,
     inspect_demand_neighborhood,

@@ -8,11 +8,11 @@ import pytest
 
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.selected_query_cache import (
     SelectedQueryCache,
     ServedKey,
     bounded_rows,
-    byte_bounded_page,
     uncached_rows_from,
 )
 

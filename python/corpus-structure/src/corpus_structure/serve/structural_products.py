@@ -5,14 +5,19 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.selected_pages import byte_bounded_page
+from corpus_structure.semantic.selected_structural_projection import (
+    STRUCTURAL_QUERY_ROOTS,
+    dossier_rows,
+    producer,
+    selected_root,
+    structural_report,
+)
 
 from .selected_structural import (
     SelectedStructuralRoot,
     StructuralReadRequest,
     bounded_result,
-    producer,
-    selected_root,
-    structural_report,
     structural_scope,
 )
 
@@ -125,81 +130,15 @@ class SelectedDossierRequest(StructuralReadRequest):
     cursor: str | None = Field(default=None, max_length=32768)
 
 
-def dossier_member_page(report, *, population, offset, limit):
-    """The display policy chooses from immutable membership; reading changes neither."""
-    if report.dossier is None:
-        raise ValueError("selected output is not a dossier")
-    dossier = report.dossier
-    representation = dossier.representation
-    members = {member.member_id: member for member in dossier.members}
-    keys = (
-        tuple(member.member_id for member in dossier.members)
-        if population == "membership"
-        else representation.selected
-    )
-    if offset < 0 or offset > len(keys):
-        raise ValueError("dossier continuation is outside its immutable population")
-    chosen = keys[offset : offset + limit]
-    selected = set(chosen)
-    passages = {passage.passage_id: passage for passage in report.inputs.passages}
-    sources = {source.identity: source for source in report.inputs.sources}
-    citations = []
-    for key in chosen:
-        member = members[key]
-        if member.contribution_citations:
-            cited = tuple(citation.span for citation in member.contribution_citations)
-        else:
-            cited = (member.citation,)
-        for span in cited:
-            source = sources[passages[span.passage_id].source_ref]
-            citations.append(
-                dict(
-                    member_id=key,
-                    source=source.model_dump(mode="python"),
-                    citation=span.model_dump(mode="python"),
-                )
-            )
-        if member.comparison_binding is not None:
-            binding = member.comparison_binding
-            citations.append(
-                dict(
-                    member_id=key,
-                    context="opposite_comparison_side",
-                    source=binding.opposite_source.model_dump(mode="python"),
-                    citation=binding.opposite_citation.model_dump(mode="python"),
-                )
-            )
-    end = offset + len(chosen)
-    return dict(
-        members=[members[key].model_dump(mode="python", exclude_none=True) for key in chosen],
-        citations=citations,
-        supported_facets=[
-            facet.model_dump(mode="python")
-            for facet in dossier.supported_facets
-            if facet.member_id in selected
-        ],
-        next_offset=end if end < len(keys) else None,
-        full_member_count=len(members),
-        display_member_count=len(representation.selected),
-        omitted_member_count=len(representation.omitted),
-        missing_facet_count=len(representation.missing_facets),
-        mandatory_overflow=representation.mandatory_overflow,
-        membership_digest=representation.membership_digest,
-        facet_digest=representation.facet_digest,
-        policy=representation.policy,
-        product_id=report.product_id,
-    )
-
-
 def inspect_selected_dossier(conn, request: SelectedDossierRequest):
 
-    from .rich_queries import installed_read_implementation
+    from corpus_structure.semantic.serving_identity import installed_read_implementation
 
     with installed_read_implementation(
         type(request),
-        entry="corpus_structure.serve.structural_products",
+        entry="corpus_structure.semantic.selected_structural_projection",
         profile="selected-structural-read-v1",
-        callables=("corpus_structure.serve.structural_products._inspect_selected_dossier",),
+        callables=STRUCTURAL_QUERY_ROOTS,
     ) as implementation:
         if request.implementation is not None and request.implementation != implementation:
             raise ValueError("dossier resource differs from its installed implementation")
@@ -207,9 +146,8 @@ def inspect_selected_dossier(conn, request: SelectedDossierRequest):
 
 
 def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementation):
-    from corpus_structure.semantic.demand_queries import _cursor
-
-    from .rich_queries import decode_rich_cursor
+    from corpus_structure.semantic.selected_pages import decode_rich_cursor
+    from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
 
     cursor = None if request.cursor is None else decode_rich_cursor(request.cursor)
     if cursor is not None:
@@ -243,13 +181,10 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
                 implementation=cursor["binding"]["implementation"],
             )
         )
-    from collections import defaultdict
-
     from corpus_structure.semantic.demand_results import recheck_selected_frontier
     from corpus_structure.semantic.selected_query_cache import (
         SELECTED_QUERY_CACHE,
         bounded_rows,
-        byte_bounded_page,
         served_key,
         uncached_rows_from,
     )
@@ -308,31 +243,9 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
                 report = structural_report(scope, selected)
                 if report.dossier is None:
                     raise ValueError("selected output is not a dossier")
-                complete = dossier_member_page(
-                    report,
-                    population=request.population,
-                    offset=0,
-                    limit=len(report.dossier.members),
+                items, metadata = dossier_rows(
+                    report, population=request.population, provenance=producer(selected)
                 )
-                citations, facets = defaultdict(list), defaultdict(list)
-                for citation in complete["citations"]:
-                    citations[citation["member_id"]].append(citation)
-                for ordinal, facet in enumerate(complete["supported_facets"]):
-                    facets[facet["member_id"]].append(dict(ordinal=ordinal, value=facet))
-                items = [
-                    dict(
-                        members=[member],
-                        citations=citations[member["member_id"]],
-                        supported_facets=facets[member["member_id"]],
-                    )
-                    for member in complete["members"]
-                ]
-                metadata = {
-                    name: value
-                    for name, value in complete.items()
-                    if name not in {"members", "citations", "supported_facets", "next_offset"}
-                }
-                metadata["producer"] = producer(selected)
             entry, remaining = bounded_rows(items, metadata)
             if entry is not None and not detached:
                 SELECTED_QUERY_CACHE.put(key, entry)

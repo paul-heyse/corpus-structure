@@ -6,8 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.semantic.contextual_operations import admitted_contextual_inventory
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.demand_queries import _cursor
 from corpus_structure.semantic.observations import source_python
+from corpus_structure.semantic.selected_pages import encode_cursor as _cursor
 
 
 class DemandNeighborhoodRequest(BaseModel):

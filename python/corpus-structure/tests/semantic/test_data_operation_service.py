@@ -214,7 +214,9 @@ def test_execution_basis_acquisition_uses_exact_retained_pins_and_explicit_root(
     )
 
     prepared = SimpleNamespace(release_id="release:original")
-    runtime = SimpleNamespace(release_id="release:original", runtime_id="runtime:original")
+    runtime = SimpleNamespace(
+        release_id="release:original", runtime_id="runtime:original", implementation_digests=()
+    )
     dependencies = SimpleNamespace(artifacts=("captured-contract",))
     sources = PythonSourceCollection(
         (PythonSource("owned.source", b"VALUE = 1\n", "owned/source.py"),)
@@ -243,6 +245,36 @@ def test_execution_basis_acquisition_uses_exact_retained_pins_and_explicit_root(
     ]
     assert basis.prepared is prepared and basis.runtime is runtime
     assert basis.runtime_locations == {"owned.source": tmp_path / "owned/source.py"}
+    assert basis.sources == sources
+    assert basis.prepared_sources.sources[0].filename == str(tmp_path / "owned/source.py")
     assert basis.captured_contracts == ("captured-contract",)
     with pytest.raises(ValueError, match="explicit source root"):
         service.acquire_data_execution_basis("connection", "release:original", "runtime:original")
+
+
+@pytest.mark.parametrize("filename", ["../source.py", "/source.py", "owned/other.py"])
+def test_execution_basis_refuses_noncanonical_archive_locations(monkeypatch, tmp_path, filename):
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic import composed, releases, runtime_binding_store
+    from corpus_structure.semantic.python_operation_sources import (
+        PythonSource,
+        PythonSourceCollection,
+    )
+
+    sources = PythonSourceCollection((PythonSource("owned.source", b"VALUE = 1\n", filename),))
+    monkeypatch.setattr(
+        releases,
+        "load_release_inputs",
+        lambda *_: (None, SimpleNamespace(artifacts=()), None, None),
+    )
+    monkeypatch.setattr(
+        runtime_binding_store,
+        "runtime_binding_for_release",
+        lambda *_: SimpleNamespace(implementation_digests=()),
+    )
+    monkeypatch.setattr(composed, "read_data_operation_inputs", lambda _: ((), sources))
+    with pytest.raises(ValueError, match="canonical logical module path"):
+        service.acquire_data_execution_basis(
+            "connection", "release", "runtime", source_root=tmp_path
+        )
