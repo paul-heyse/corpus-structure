@@ -16,7 +16,9 @@ from sqlalchemy import (
     literal,
     or_,
     select,
+    true,
     tuple_,
+    union_all,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, aggregate_order_by, array
 from sqlalchemy.types import TypeEngine
@@ -1091,14 +1093,13 @@ def _observation_receipt(target):
 
 
 def _observation_source(target):
-    requests, derivations, definitions, products, support, outputs = (
+    requests, derivations, definitions, products, outputs = (
         target.tables[name]
         for name in (
             "ops.data_request",
             "ops.data_derivation",
             "sem.data_operation_definition",
             "kb.data_product",
-            "ops.data_derivation_support",
             "ops.data_derivation_output",
         )
     )
@@ -1129,10 +1130,13 @@ def _observation_source(target):
     lineage = select(func.ops.ddo_single_input_support_episode(capture).label("id")).cte(
         "lineage", recursive=True
     )
+    from .support_edges import support_edge_queries
+
+    historical = union_all(
+        *support_edge_queries(target, literal("episode"), lineage.c.id, "lineage")
+    ).lateral("historical_edge")
     lineage = lineage.union(
-        select(support.c.support_derivation_id).select_from(
-            support.join(lineage, support.c.derivation_id == lineage.c.id)
-        )
+        select(historical.c.child_id.label("id")).select_from(lineage.join(historical, true()))
     )
     candidate = products.alias("candidate")
     return _routine(

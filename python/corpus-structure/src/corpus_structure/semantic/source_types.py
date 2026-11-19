@@ -195,7 +195,7 @@ def _check_declarations():
         (CaseRule, "source-vocabularies.yaml", "CaseRule"),
         (DelimitingStatus, "source-vocabularies.yaml", "DelimitingStatus"),
         (DocumentSplit, "source-vocabularies.yaml", "DocumentSplit"),
-        (MathKind, "source-vocabularies.yaml", "MathKind"),
+        (MathKind, "core.yaml", "ExpressionForm"),
         (MeasurementScope, "observations.yaml", "SourceMeasurementScope"),
         (ObservationKind, "source-vocabularies.yaml", "ObservationKind"),
         (ObservationOutcome, "source-vocabularies.yaml", "ObservationOutcome"),

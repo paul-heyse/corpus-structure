@@ -298,6 +298,7 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
     }
     assert {item.name for item in current_acl.keys() - previous_acl.keys()} == {
         "ddo_conservative_dependencies_valid",
+        "ddo_support_reference_node",
     }
     assert all(
         current_acl[item] == previous_acl[item] for item in current_acl.keys() & previous_acl.keys()

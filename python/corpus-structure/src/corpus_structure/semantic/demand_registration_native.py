@@ -1125,7 +1125,7 @@ def _close_population(model: MetaData) -> str:
     complete_json = func.data.ddo_json(
         func.data.ddo_field(product_value("canonical_body"), "complete"), type_=JSONB()
     )
-    operation_id = request_value("operation_id")
+    operation_id = _owned_row("source_obligation", obligations, "operation_id")
     discovery = _items(selection["discovery"], "relation")
     declared = discovery.c.value
     relevant = (
@@ -1150,6 +1150,8 @@ def _close_population(model: MetaData) -> str:
 
     custody = (uses.c.demand_id == demand_id, uses.c.derivation_id == derivation_id)
     active_use = func.ops.ddo_node_valid("use", uses.c.id)
+    output_roles = _items(definitions.c.output_roles, "current_discovery_output")
+    output_role = output_roles.c.value
     owned_members = occurrences.c.product_id == product_id
     coordinates = (
         "member_id",
@@ -1202,7 +1204,7 @@ def _close_population(model: MetaData) -> str:
     )
     producer_context = func.jsonb_build_object(
         "operation_id",
-        operation_id,
+        request_value("operation_id"),
         "subject",
         request_value("subject"),
         "subject_definition",
@@ -1341,18 +1343,73 @@ def _close_population(model: MetaData) -> str:
                     ),
                 ),
                 Perform(func.ops.ddo_require_active_demand(demand_id)),
+                SelectInto(
+                    select(core_relation_row(uses))
+                    .select_from(uses.join(obligations, obligations.c.id == uses.c.obligation_id))
+                    .where(
+                        *custody,
+                        active_use,
+                        uses.c.fate == "fulfilled",
+                        obligations.c.demand_id == demand_id,
+                        obligations.c.subject.is_not_distinct_from(product_value("subject")),
+                        obligations.c.original_source.is_not_distinct_from(
+                            product_value("original_source")
+                        ),
+                        obligations.c.analyzed_scope.is_not_distinct_from(
+                            product_value("analyzed_scope")
+                        ),
+                        select(1)
+                        .select_from(discovery)
+                        .where(
+                            declared["population"].astext == name,
+                            declared["producer"].astext == obligations.c.operation_id,
+                            declared["output_role"].astext == role,
+                        )
+                        .correlate(obligations)
+                        .exists(),
+                    )
+                    .order_by(uses.c.created_at.desc(), uses.c.id.desc())
+                    .limit(1),
+                    ("source_use",),
+                ),
+                _refusal(
+                    source_use.is_(None), "population lacks admitted declared discovery output"
+                ),
+                acquire(
+                    obligations,
+                    "source_obligation",
+                    "id",
+                    _owned_row("source_use", uses, "obligation_id"),
+                ),
                 SelectInto(relevant, ("relation_",), strict=True),
                 _refusal(
                     or_(
                         product_value("project_id") != project_id,
                         request_value("project_id") != project_id,
-                        request_value("release_id") != release_id,
-                        ~observed(uses, *custody, active_use),
+                        _owned_row("source_obligation", obligations, "demand_id") != demand_id,
+                        _owned_row("source_obligation", obligations, "subject").is_distinct_from(
+                            product_value("subject")
+                        ),
+                        _owned_row(
+                            "source_obligation", obligations, "original_source"
+                        ).is_distinct_from(product_value("original_source")),
+                        _owned_row(
+                            "source_obligation", obligations, "analyzed_scope"
+                        ).is_distinct_from(product_value("analyzed_scope")),
                         ~observed(
                             definitions,
                             definitions.c.release_id == release_id,
                             definitions.c.operation_id == operation_id,
                             definitions.c.profile == "discovery",
+                            definitions.c.recipe == _owned_row("producer", derivation, "recipe"),
+                            select(1)
+                            .select_from(output_roles)
+                            .where(
+                                output_role["name"].astext == role,
+                                output_role["kind_contract"].astext
+                                == product_value("kind_contract"),
+                            )
+                            .exists(),
                         ),
                         ~observed(
                             outputs,
@@ -1360,7 +1417,6 @@ def _close_population(model: MetaData) -> str:
                             outputs.c.product_id == product_id,
                             outputs.c.role == role,
                         ),
-                        ~observed(uses, *custody, uses.c.fate == "fulfilled"),
                     ),
                     "population lacks admitted declared discovery output",
                 ),
@@ -1393,18 +1449,6 @@ def _close_population(model: MetaData) -> str:
                 ),
                 SelectInto(member_rows, ("members",)),
                 _refusal(repeated, "discovery has ambiguous duplicate complete contexts"),
-                SelectInto(
-                    select(core_relation_row(uses))
-                    .select_from(uses)
-                    .where(
-                        *custody,
-                        active_use,
-                    )
-                    .order_by(uses.c.created_at.desc(), uses.c.id.desc())
-                    .limit(1),
-                    ("source_use",),
-                    strict=True,
-                ),
                 Assign("semantic_key", _identify("population-value:", meaning)),
                 Assign("evidence", basis),
                 Assign(
@@ -1464,6 +1508,7 @@ def _close_population(model: MetaData) -> str:
                 Local("snapshot", pg_type("jsonb")),
                 Local("semantic_key", pg_type("text")),
                 Local("source_use", uses),
+                Local("source_obligation", obligations),
                 Local("inserted_count", pg_type("int8")),
             ),
         ),

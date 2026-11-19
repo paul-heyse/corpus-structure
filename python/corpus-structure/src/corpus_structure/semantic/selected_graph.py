@@ -118,17 +118,19 @@ def snapshot_from_index(prepared, cut, index, projection):
             raise ValueError("selected graph lacks required " + field + " endpoint: " + name)
         return name
 
+    from .support_edges import reference_node
+
     def reference(reference):
+        kind, key = reference_node(reference)
         authority = authority_reference(reference)
         if authority is not None:
             return authority
-        if reference.get("kind") in {"original-source", "authored"}:
-            return required(
-                "ops.original_source_admission", reference["admission_id"], "original support"
-            )
-        if reference.get("admission_use_id"):
-            return required("ops.demand_use", reference["admission_use_id"], "selected support use")
-        return required("ops.data_derivation", reference["derivation_id"], "support episode")
+        relation, description = {
+            "original": ("ops.original_source_admission", "original support"),
+            "use": ("ops.demand_use", "selected support use"),
+            "episode": ("ops.data_derivation", "support episode"),
+        }[kind]
+        return required(relation, key, description)
 
     if projection == "bound-requests":
         if not index.has_frontier:
@@ -173,17 +175,18 @@ def snapshot_from_index(prepared, cut, index, projection):
             node("ops.data_population", name, "population", row)
 
         def producer_request(ref):
+            kind, key = reference_node(ref)
             authority = authority_reference(ref)
             if authority is not None:
                 return authority
-            if ref.get("kind") in {"original-source", "authored"}:
+            if kind == "original":
                 return None
-            if ref.get("admission_use_id"):
-                support = all_uses.get(ref["admission_use_id"])
+            if kind == "use":
+                support = all_uses.get(key)
                 if support is None:
                     raise ValueError("bound request lacks its selected support use")
                 return required("ops.data_request", support["request_id"], "producer request")
-            producer = episodes.get(ref["derivation_id"])
+            producer = episodes.get(key)
             if producer is None:
                 raise ValueError("bound request lacks its producing episode")
             return required("ops.data_request", producer["request_id"], "producer request")

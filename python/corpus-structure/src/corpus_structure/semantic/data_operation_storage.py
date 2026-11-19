@@ -526,6 +526,10 @@ def native_protocol_sources(
         ),
         SourceArtifact("native/data-operation-storage.py", Path(__file__).read_bytes()),
         SourceArtifact(
+            "native/support-edges.py",
+            Path(__file__).with_name("support_edges.py").read_bytes(),
+        ),
+        SourceArtifact(
             "native/validity-programs.py",
             Path(__file__).with_name("validity_programs.py").read_bytes(),
         ),
@@ -1430,44 +1434,20 @@ def data_operation_definition_projection(
     }
     ids = {(identity.owner, identity.domain): identity.key for identity in model.identities}
     kinds = []
-    from .data_operation_kind_refinements import input_kind_contracts, input_kind_refinements
-    from .data_operation_member_contracts import derive_member_kinds
+    from .data_operation_compilation import native_kind_dependencies
+    from .data_operation_kind_refinements import input_kind_contracts
 
-    used = {role.kind for operation in model.operations for role in operation.roles}
-    used.update(
-        model.subject_definition(operation.subject).identifier_kind
-        for operation in model.operations
-    )
-    used.update(
-        parameter["kind"]
-        for operation in model.operations
-        for parameter in json.loads(operation.parameters).values()
-        if isinstance(parameter, dict) and "kind" in parameter
-    )
-    input_roots = {
-        role.kind
-        for operation in model.operations
-        for role in operation.roles
-        if role.direction == "input"
-    }
-    refinements = input_kind_refinements(model, input_roots)
+    input_roots, member_contracts = native_kind_dependencies(model)
     accepted = input_kind_contracts(model, input_roots)
-    used.update(kind for family in refinements.values() for kind in family)
-    pending = list(used)
-    while pending:
-        for member_kind in derive_member_kinds(model, pending.pop()):
-            if member_kind not in used:
-                used.add(member_kind)
-                pending.append(member_kind)
     for kind in model.kinds:
-        if kind.semantic_id not in used:
+        if kind.semantic_id not in member_contracts:
             continue
         contract = ids.get((kind.semantic_id, "kind"))
         if contract is None:
             raise ValueError("cannot admit an incomplete effective kind")
         facts = json.loads(kind.facts)
         schema = _kind_schema(prepared, kind)
-        member_kinds = derive_member_kinds(model, kind.semantic_id)
+        member_kinds = member_contracts[kind.semantic_id]
         member_schema = _member_schema(schema) if member_kinds else {"not": {}}
         if member_kinds and member_schema == {"not": {}}:
             raise ValueError(

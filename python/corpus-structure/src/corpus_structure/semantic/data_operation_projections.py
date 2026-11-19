@@ -153,123 +153,25 @@ def _set_valid(rows, kind, identity):
     )
 
 
-def _reference_node(reference):
-    from sqlalchemy import case
-
-    original = reference["kind"].astext.in_(("original-source", "authored"))
-    use = reference["admission_use_id"].astext.is_not(None)
-    return (
-        case((original, literal("original")), (use, literal("use")), else_=literal("episode")),
-        case(
-            (original, reference["admission_id"].astext),
-            (use, reference["admission_use_id"].astext),
-            else_=reference["derivation_id"].astext,
-        ),
-    )
-
-
 def _support_walk(metadata, seed, *, public=False, name="support_closure"):
-    """Visit finite receipt nodes, including explicitly selected replacement support.
+    """Visit declared finite edges through indexed per-node lookups."""
+    from .support_edges import support_edge_queries
 
-    Indexed per-node lateral lookups avoid materializing every historical edge.
-    UNION deduplicates nodes; this is reachability, never all-path expansion.
-    """
-    support = metadata.tables["ops.data_derivation_support"]
-    original_support = metadata.tables["ops.data_derivation_original_support"]
-    uses = metadata.tables["ops.demand_use"]
-    populations = metadata.tables["ops.data_population"]
     closure = select(seed.c.kind, seed.c.id).where(seed.c.id.is_not(None)).cte(name, recursive=True)
-    reference = _items(
-        func.coalesce(uses.c.selection["support"], _json([])), "selected_support_reference"
+    queries = support_edge_queries(
+        metadata,
+        closure.c.kind,
+        closure.c.id,
+        "public" if public else "scope",
+        authority=_public_authority_leaf if public else None,
+        boundary=literal_column("boundary"),
+        product_ids=_requested_read_scope()["product_ids"],
     )
-    population_ref = _items(
-        func.coalesce(uses.c.selection["populations"], _json([])), "selected_population_reference"
-    )
-    reference_kind, reference_id = _reference_node(reference.c.value)
-    from sqlalchemy import case
-
-    def episode_kind(identity):
-        return (
-            case(
-                (_public_authority_leaf(identity), literal("authority")),
-                else_=literal("episode"),
-            )
-            if public
-            else literal("episode")
-        )
-
-    use_inputs_visible = ~_public_authority_leaf(uses.c.derivation_id) if public else literal(True)
-    if public:
-        reference_kind = case(
-            (
-                and_(reference_kind == "episode", _public_authority_leaf(reference_id)),
-                literal("authority"),
-            ),
-            else_=reference_kind,
-        )
-    structural_report = cast(
-        func.ops.ddo_structural_report_support(
-            uses.c.id, literal_column("boundary"), _requested_read_scope()["product_ids"]
-        ),
-        JSONB,
-    )
-    edge_queries = (
-        _node(
-            case(
-                (support.c.admission_use_id.is_not(None), literal("use")),
-                else_=episode_kind(support.c.support_derivation_id),
-            ),
-            func.coalesce(support.c.admission_use_id, support.c.support_derivation_id),
-        ).where(closure.c.kind == "episode", support.c.derivation_id == closure.c.id),
-        _node("original", original_support.c.admission_id).where(
-            closure.c.kind == "episode", original_support.c.derivation_id == closure.c.id
-        ),
-        _node(episode_kind(uses.c.derivation_id), uses.c.derivation_id).where(
-            closure.c.kind == "use", uses.c.id == closure.c.id
-        ),
-        _node(reference_kind, reference_id)
-        .select_from(uses.join(reference, literal(True)))
-        .where(closure.c.kind == "use", uses.c.id == closure.c.id, use_inputs_visible),
-        _node("population", populations.c.id)
-        .select_from(
-            uses.join(population_ref, literal(True)).join(
-                populations,
-                and_(
-                    populations.c.id == population_ref.c.value["population_id"].astext,
-                    populations.c.demand_id == uses.c.demand_id,
-                ),
-            )
-        )
-        .where(closure.c.kind == "use", uses.c.id == closure.c.id, use_inputs_visible),
-        _node("use", uses.c.id)
-        .select_from(
-            populations.join(
-                uses,
-                and_(
-                    uses.c.id == populations.c.evidence["admission_use_id"].astext,
-                    uses.c.derivation_id == populations.c.evidence["derivation_id"].astext,
-                    uses.c.demand_id == populations.c.demand_id,
-                ),
-            )
-        )
-        .where(closure.c.kind == "population", populations.c.id == closure.c.id),
-        _node(
-            "population", populations.c.evidence["selection"]["parent_population_id"].astext
-        ).where(closure.c.kind == "population", populations.c.id == closure.c.id),
-    )
-    if public:
-        edge_queries += (
-            _node("use", structural_report["use_id"].astext).where(
-                closure.c.kind == "use",
-                uses.c.id == closure.c.id,
-                _public_authority_leaf(uses.c.derivation_id),
-            ),
-        )
-    edges = union_all(*(query.correlate(closure) for query in edge_queries)).lateral("support_edge")
+    edges = union_all(*(query.correlate(closure) for query in queries)).lateral("support_edge")
     return closure.union(
-        select(edges.c.kind, edges.c.id)
+        select(edges.c.child_kind.label("kind"), edges.c.child_id.label("id"))
         .select_from(closure.join(edges, literal(True)))
-        .where(edges.c.id.is_not(None))
+        .where(edges.c.child_id.is_not(None))
     )
 
 
@@ -523,7 +425,9 @@ def record_grade_census_nodes(metadata):
 
 def lock_support_scopes(metadata):
     reference = _items(_var("support", JSONB), "root_support_reference")
-    kind, identity = _reference_node(reference.c.value)
+    from .support_edges import support_reference_node
+
+    kind, identity = support_reference_node(reference.c.value)
     seed = _node(kind, identity).select_from(reference).cte("support_seed")
     return _scope_projection(
         metadata,
@@ -1482,6 +1386,11 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             relation.c.product_id.in_(select(product_ids.c.product_id)),
             *relation.primary_key.columns,
         )
+    from .support_edges import support_explanation_rows
+
+    fields["validity_explanations"] = support_explanation_rows(
+        metadata, seeds, literal_column("boundary"), reached
+    )
     rows = union(*fields.values()).cte("support_export_rows")
     bounded_rows = (
         select(rows)

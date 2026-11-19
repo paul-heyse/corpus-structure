@@ -176,20 +176,17 @@ def changed_operations(before: EffectiveDataOperationModel, target: EffectiveDat
         "edges": [],
     }
     for side, model in (("before", before), ("target", target)):
-        for operation in model.operations:
-            for relation, dependencies in (
-                ("required", operation.dependencies),
-                ("possible", operation.potential_dependencies),
-            ):
-                for position, dependency in enumerate(dependencies):
-                    records["edges"].append(
-                        dict(
-                            source=operation.semantic_id,
-                            target=dependency,
-                            relation=side + "_change_" + relation,
-                            position=position,
-                        )
-                    )
+        projection = model.projection_graph(
+            "selected-dependencies",
+            selected_dependencies=tuple(
+                (operation.semantic_id, operation.potential_dependencies)
+                for operation in model.operations
+            ),
+        )
+        for edge in projection.edges:
+            records["edges"].append(
+                {**edge.record(), "relation": side + "_change_" + edge.relation}
+            )
     graph = SemanticGraph(records)
     affected: dict[str, set[str]] = defaultdict(set)
     for root in sorted(roots):
@@ -329,115 +326,24 @@ def classify_change_impact(
     return tuple(rows)
 
 
-def _revocation_causes(index, roots, selected_uses=()):
-    """Attribute only native-exported selector/epoch witnesses to reached support."""
-    episodes = index.mapping("ops.data_derivation", ("id",))
-    requests = index.mapping("ops.data_request", ("id",))
-    admissions = index.mapping("ops.original_source_admission", ("id",))
-    revocations = tuple(index.rows("ops.data_revocation"))
-    uses = index.mapping("ops.demand_use", ("id",))
-    populations = index.mapping("ops.data_population", ("id",))
-    pending: list[tuple[str, str, tuple[str, ...]]] = [("use", use, ()) for use in selected_uses]
-    if not pending:
-        pending = [("episode", root, ()) for root in roots]
-    visited, causes = set(), {}
-
-    def reference_node(reference) -> tuple[str, str]:
-        if reference.get("kind") in {"original-source", "authored"}:
-            return "original", reference["admission_id"]
-        if reference.get("admission_use_id"):
-            return "use", reference["admission_use_id"]
-        return "episode", reference["derivation_id"]
-
-    while pending:
-        kind, identity, path = pending.pop()
-        path = (*path, kind + ":" + identity)
-        if (kind, identity) in visited:
+def _native_revocation_causes(index, roots, selected_uses):
+    """Classify native witnesses whose paths record a root and reached endpoint."""
+    causes = {}
+    selected = set(selected_uses)
+    for row in index.rows("ops.data_support_explanation"):
+        if row["root_use_id"] not in selected or row["valid"] or row["revocation_id"] is None:
             continue
-        visited.add((kind, identity))
-        if kind == "use":
-            use = uses.get(identity)
-            if use is None:
-                continue
-            # The exact use selects replacement support. Its producer episode is
-            # inspected directly, without following the episode's obsolete inputs.
-            if use.get("derivation_id"):
-                pending.append(("selected-episode", use["derivation_id"], path))
-            selection = use["selection"]
-            pending.extend(
-                (*reference_node(reference), path) for reference in selection.get("support", ())
+        episode = row["node_kind"] in {"episode", "producer"}
+        causes[row["revocation_id"], "episode" if episode else row["node_kind"], row["node_id"]] = (
+            RevocationCause(
+                kind="direct" if episode and row["node_id"] in roots else "upstream",
+                reference=row["revocation_id"],
+                derivation_id=row["node_id"] if episode else None,
+                support_path=tuple(row["support_path"]),
+                selector_kind=row["selector_kind"],
+                selector=row["selector"],
             )
-            pending.extend(
-                ("population", reference["population_id"], path)
-                for reference in selection.get("populations", ())
-            )
-            continue
-        if kind == "population":
-            population = populations.get(identity)
-            if population is not None:
-                evidence = population["evidence"]
-                if evidence.get("admission_use_id"):
-                    pending.append(("use", evidence["admission_use_id"], path))
-                elif evidence.get("derivation_id"):
-                    pending.append(("episode", evidence["derivation_id"], path))
-                parent = evidence.get("selection", {}).get("parent_population_id")
-                if parent:
-                    pending.append(("population", parent, path))
-            continue
-        episode_node = kind in {"episode", "selected-episode"}
-        row = episodes.get(identity) if episode_node else admissions.get(identity)
-        if row is None:
-            continue
-        if episode_node:
-            request = requests[row["request_id"]]
-            project, source = request["project_id"], request["original_source"]
-            products = {
-                r["product_id"]
-                for r in index.rows_for("ops.data_derivation_output", derivation_id=identity)
-            }
-            selectors = {
-                ("derivation", identity),
-                ("recipe", row["recipe"]),
-                ("runtime", row["runtime_id"]),
-            } | {("product", product) for product in products}
-            if kind == "episode":
-                for support in index.rows_for(
-                    "ops.data_derivation_support", derivation_id=identity
-                ):
-                    node: tuple[str, str] = (
-                        ("use", support["admission_use_id"])
-                        if support.get("admission_use_id")
-                        else ("episode", support["support_derivation_id"])
-                    )
-                    pending.append((*node, path))
-                pending.extend(
-                    ("original", r["admission_id"], path)
-                    for r in index.rows_for(
-                        "ops.data_derivation_original_support", derivation_id=identity
-                    )
-                )
-        else:
-            project, source = row["project_id"], row["original_source"]
-            selectors = {
-                ("original-admission", identity),
-                ("original-source", row["source_reference"]),
-                ("product", row["product_id"]),
-            }
-        # Scope is the existing native framed JSON project/source key.
-        scope = "source:" + sha256(json_bytes([project, source])).hexdigest()
-        for revoked in revocations:
-            if (
-                revoked["scope"] == scope
-                and (revoked["selector_kind"], revoked["selector"]) in selectors
-            ):
-                causes[revoked["id"], identity] = RevocationCause(
-                    kind="direct" if episode_node and identity in roots else "upstream",
-                    reference=revoked["id"],
-                    derivation_id=identity if episode_node else None,
-                    support_path=path,
-                    selector_kind=revoked["selector_kind"],
-                    selector=revoked["selector"],
-                )
+        )
     return tuple(causes[key] for key in sorted(causes))
 
 
@@ -622,7 +528,7 @@ def _acquire(connection, demand, *, project, scope, read_id, expected_cut, max_b
                         inputs=tuple(sorted(inputs, key=json_bytes)),
                         support=tuple(sorted(support)),
                         read_unknowns=read_unknowns,
-                        invalidity_causes=_revocation_causes(
+                        invalidity_causes=_native_revocation_causes(
                             index, derivations, tuple(use["use_id"] for use in selected)
                         )
                         if obligation["fate"] == "unavailable"

@@ -72,14 +72,60 @@ enums:
       rich:
         annotations:
           cs:requirements: {tag: "cs:requirements", value: {"profile": ["derivation", "command"], "forms": [["scalar"]], "preparation": ["resource", "native-publication"]}}
+  SupportReferenceKind:
+    annotations: {cs:openness: closed}
+    permissible_values:
+      original:
+        annotations:
+          cs:reference: {tag: "cs:reference", value: {order: 0, field: kind, values: [original-source, authored], identity: admission_id}}
+      use:
+        annotations:
+          cs:reference: {tag: "cs:reference", value: {order: 1, field: admission_use_id, identity: admission_use_id}}
+      episode:
+        annotations:
+          cs:reference: {tag: "cs:reference", value: {order: 2, field: derivation_id, identity: derivation_id}}
   SupportEdgeKind:
     annotations: {cs:openness: closed}
     permissible_values:
-      original: {}
-      use: {}
-      producer: {}
-      population: {}
-      episode: {}
+      public-authority-report:
+        annotations:
+          cs:edge: {tag: "cs:edge", value: {source: use, target: use, relation: ops.demand_use, group: conjunctive, profiles: [public]}}
+      terminal:
+        annotations:
+          cs:edge: {tag: "cs:edge", value: {source: terminal, target: choice, relation: native-terminal, group: conjunctive, profiles: [validity]}}
+      episode-producer:
+        annotations:
+          cs:edge: {"tag":"cs:edge","value":{"source":"episode","target":"producer","relation":"ops.data_derivation","group":"conjunctive","profiles":["validity"]}}
+      episode-support:
+        annotations:
+          cs:edge: {"tag":"cs:edge","value":{"source":"episode","target":"reference","relation":"ops.data_derivation_support","group":"conjunctive","profiles":["validity","scope","public"]}}
+      episode-original:
+        annotations:
+          cs:edge: {"tag":"cs:edge","value":{"source":"episode","target":"original","relation":"ops.data_derivation_original_support","group":"conjunctive","profiles":["validity","scope","public"]}}
+      use-choice:
+        annotations:
+          cs:edge: {"tag":"cs:edge","value":{"source":"use","target":"choice","relation":"ops.demand_use","group":"alternative","profiles":["validity"]}}
+      use-producer:
+        annotations:
+          cs:edge: {"tag":"cs:edge","value":{"source":"use","target":"producer","relation":"ops.demand_use","group":"alternative","profiles":["validity"]}}
+      use-episode:
+        annotations:
+          cs:edge: {"tag":"cs:edge","value":{"source":"use","target":"episode","relation":"ops.demand_use","group":"alternative","profiles":["validity","scope","public"]}}
+      use-selected-support:
+        annotations:
+          cs:edge: {"tag":"cs:edge","value":{"source":"use","target":"reference","relation":"ops.demand_use","group":"alternative","profiles":["validity","scope","public"]}}
+      use-population:
+        annotations:
+          cs:edge: {"tag":"cs:edge","value":{"source":"use","target":"population","relation":"ops.demand_use","group":"alternative","profiles":["validity","scope","public"]}}
+      population-use:
+        annotations:
+          cs:edge: {"tag":"cs:edge","value":{"source":"population","target":"use","relation":"ops.data_population","group":"conjunctive","profiles":["validity","scope","public"]}}
+      population-parent:
+        annotations:
+          cs:edge: {"tag":"cs:edge","value":{"source":"population","target":"population","relation":"ops.data_population","group":"conjunctive","profiles":["validity","scope","public"]}}
+      historical-support:
+        annotations:
+          cs:edge: {"tag":"cs:edge","value":{"source":"episode","target":"episode","relation":"ops.data_derivation_support","group":"conjunctive","profiles":["lineage"]}}
   Ownership:
     annotations: {cs:openness: open}
     permissible_values:

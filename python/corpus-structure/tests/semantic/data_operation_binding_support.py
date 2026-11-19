@@ -502,6 +502,7 @@ BINDING_RANGE_CASES = {
 def discover(
     ddo_kernel,
     *,
+    project_id="ddo-test",
     complete=True,
     ambiguous=False,
     values=(5, 15, 25),
@@ -552,7 +553,7 @@ def discover(
             typing_cast(
                 WireRegisterDataDemandRequest,
                 {
-                    "project_id": "ddo-test",
+                    "project_id": project_id,
                     "release_id": ddo_kernel["prepared"].release_id,
                     "runtime_id": ddo_kernel["runtime"],
                     "root": selection["roots"],
@@ -584,7 +585,7 @@ def discover(
             {"parameters": {}, "replicate": None},
             inference,
             subject_context=SubjectContext(
-                "ddo-test",
+                project_id,
                 "doc",
                 root["original_source"],
                 canonical_bytes(root["analyzed_scope"]),

@@ -799,13 +799,11 @@ where the reference is read. What remains of change impact after its walk retire
 Python classification, which indexes revocations by node instead of scanning every node
 against every revocation, as the review's judgment table asks.
 
-It cannot start generation until the native owner or the operator rules on the edge the
-encodings disagree about: change impact follows an edge from a population to an episode
-(`semantic/change_impact.py:381–382`) that the validity edges do not have. One of the two is
-wrong, and the plan does not decide which. This is a blocking open premise (P5), not a first
-step the package can settle by reading. If it is unsettled when the identity transition is
-ready, revision B is frozen without this package, which then joins the transition or a later
-revision that the stage absorbs before final source.
+The execution plan resolved P5. A population follows its admitted discovery use and
+parent population. A bare population-to-episode hop carried no corresponding evidence in
+validity and is removed from change impact. Source admission uses the separate historical
+lineage profile because it establishes source ancestry without imposing current validity
+on historical evidence.
 
 **Complete consumer scope.** The validity edge program (`semantic/data_validity_native.py:87–240`);
 `_support_walk` and its six callers (`semantic/data_operation_projections.py:396, 466, 530, 1157,
@@ -870,10 +868,10 @@ closure) is the first step of UDM-02 and is listed in the
 | P2. The contextual CPU-receipt count (zero for scores, one otherwise; `semantic/contextual_admission_native.py:255–258`, `semantic/definition_admission_native.py:366–369`) has no declared source | Tracing what produces CPU receipts; if the count is not derivable from forms or preparation, the native owner or the operator chooses a declared execution-evidence field for the grammar | **Blocking** for site 7 of UDM-05; until settled the count is a declared per-member requirement value, not an id test |
 | P3. The home of `structure.dossier/declared` (`semantic/structural_admission_native.py:1058`): a validity family member, a command class, or generic | The native owner's or the operator's decision | **Blocking** for site 18 of UDM-05 |
 | P4. "Writes a kind of the evaluator universe" implies the evaluator purpose for every operation, so the evaluator authorization can be derived | The native owner's confirmation against `semantic/operation_event_native.py:1277` and the declared effects; depends on the role-name premise in the model authorities companion | Site 4 of UDM-05 |
-| P5. The population-to-episode support edge exists in change impact and not in the validity edges; one encoding is wrong | The native owner's or the operator's ruling | **Blocking** for generation in UDM-07 |
+| P5. Population support | The accepted execution plan follows admitted discovery use and parent population | Settled for UDM-07 |
 | P6. The cut scopes of grade, fit and event operations lie in the request's project | Reading `ddo_record_grade_completion_scopes` and its two siblings | First step of UDM-06 |
 | P7. The rich module's further per-id branches (`semantic/rich_admission_native.py:582, 676, 920, 944, 951, 1219, 1278`) were located and not read | Reading each; each receives a declared selector or a family requirement | First step of UDM-05 for site 14 |
-| The lineage walk of source admission must agree with validity | Its owner's statement | Whether UDM-07 adds a `lineage` profile |
+| Historical lineage | Source admission establishes source ancestry even when later support is revoked | UDM-07 supplies a separate `lineage` profile |
 | The release-composition part (DA-073) was not designed by the investigation | An inventory of the flag logic and source functions at UDM-05's entry | The DA-073 part of UDM-05 only; nothing else waits on it |
 | P9. No family validator or guard contains a check that could widen validity for a member that claims it, which is the basis for allowing several families and for treating a wrong claim as safe | The native owner's reading of each of the seven validators and fourteen guards | Multi-family claims in UDM-05; if a widening check exists, that family refuses co-membership until it is removed |
 | P10. A declared purpose is as strong an owner as today's operation-id pin for each of the three privileged effects (rich admission, policy authorization, structural admission) | The native owner's reading of the three guards and of who may declare each purpose | Sites 13 and 19 of UDM-05; until settled, the affected guard keeps its pin |
@@ -918,8 +916,8 @@ check compares the retained publication against the current nonzero project epoc
 digest. `ci db check --release RELEASE --view validity` reports the conservative operation
 IDs after authenticating the retained projection. Preparation reports `validity_undetermined`
 and can advise `validity_claim_unprotected` for an explicit `none` that consumes a protected
-input. The private candidate is scoped to this increment. The stage observation and shared
-revision A registration remain open with the UDM-18 decimal bound and final native parity.
+input. The private candidate is scoped to this increment. Shared revision A includes the UDM-18
+decimal bound. Full native claim parity remains open.
 
 **Tested, 2026-11-18.** `uv run ci test --native-host private --workers 1 -- python/corpus-structure/tests/semantic/test_udm_validity_native.py`
 passed (`be346d29a38d4ed0a770d7b0283be765`). The test authored and replayed a private successor
@@ -967,7 +965,10 @@ during revocation, and checked the resulting publication receipts and retained i
 The corrected application-only deployment passed archive, admission, and verification on N30
 (`d807cfc761104106b3af8fae3aaea7a9`). It retained the exact N30 generator bytes and prepared a new
 application release with corrected nominal kind identities. The 21 nominal member controls passed
-(`b639e17532e24b25b1d5b9d143373595`).
+(`b639e17532e24b25b1d5b9d143373595`). Independent `ci db check` and `ci release check` passed for
+`release:10bbf4c1a4573778e4dd30f5f2e6022b5ef05213b493759ed676cb520c1b2299`.
+`ci release activate --expected-generation 26` selected it for `ddo-current-pdf-bounded` at
+generation 27. Canonical development and book activation remain in UDM-21.
 
 ```bash
 uv run ci test --native-host private --workers 2 -- \
@@ -975,10 +976,42 @@ uv run ci test --native-host private --workers 2 -- \
   python/corpus-structure/tests/semantic/test_target_installation_native.py::test_actual_fresh_target_authoring_render_replay_install_and_acl
 ```
 
+## Revision B execution
+
+The LinkML support-edge vocabulary now generates the validity, lock-scope, public-read and
+historical-lineage profiles. Its reference vocabulary supplies the PostgreSQL and Python
+reference classifiers. Unknown shapes refuse at the consuming boundary. Population
+support follows the admitted use and parent population. Historical source lineage
+continues through the producer's own evidence. Change impact reads the compiled
+operation dependencies and the native validity explanation. Its explanation names the
+root use, the reached endpoint and the applicable revocation selector.
+
+Discovery closure uses the exact fulfilled use in the current demand. It checks the
+current discovery producer recipe and output role, project and source scope, and retained
+population coverage. Reuse preserves the original derivation and release. The private
+cross-release scenario established population closure without a second discovery
+invocation and refused a wrong output role and revoked support. The original mixed
+receipt `0b463502ff67452ca8fbeccaeea5d55b` recorded that native pass along with a stale
+assertion about traversal profiles. The corrected profile control passed
+(`9288d554ea6c489e88ca0177bed56fa1`).
+
+**Tested, 2026-11-18.** N30-to-N31 rollback-only candidate
+`bfe5d6de22934a00a66b735ce1885164` contained 32 native changes and zero privilege
+changes. Registration `f1afa641d82d45ae89604e98b914d635` froze it. Stage deployment
+`35700b09ca64459bbcf18382a53c6eaa` reached N31, admitted and verified
+`release:9ac526c87da3e67038033fefec18b7bf1d915d9fbc6a1c866171b868eb24ff74`
+on PostgreSQL OID `130661481`. Independent `ci db check` and `ci release check` passed.
+`ci release activate --expected-generation 27` selected it for `ddo-current-pdf-bounded`
+at generation 28. The owned-stage observation (`949abc3179834a57aea9598b7da470b9`)
+verified exact N31 source custody, reused a prior-release discovery without invoking it,
+and refused wrong role, foreign source, wrong page and revoked support. Detached exports
+keep their selected cut and provenance. Validity explanations are available in live
+change-impact inspection.
+
 ## State
 
 | Package | State |
 |---|---|
 | UDM-05 | Claims, lowering, guard dispatch and release closure integrated. Remaining authority, capture and full native parity are open |
-| UDM-06 | Conservative publication and inspection passed on private PostgreSQL. Stage observation and shared revision A remain open |
-| UDM-07 | Not started |
+| UDM-06 | Conservative publication and inspection passed on the private successor and the owned N30 stage. Matching application activated at stage generation 27 |
+| UDM-07 | One support vocabulary and cross-release discovery reuse integrated. N31 deployed and activated at stage generation 28. Bounded live acceptance passed. The complete matrix remains open |

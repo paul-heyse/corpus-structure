@@ -472,6 +472,7 @@ def _consumer_declaration() -> dict[str, Any]:
 def _value_consumer_declaration():
     value = _consumer_declaration()
     value["id"] = "urn:ddo-test:value-consumer"
+    value["validity_family"] = ["none"]
     value["dependencies"] = ["urn:ddo-test:sample"]
     value["roles"][0]["support"].update(provenance="value_substitution", identity_requirements=[])
     return value

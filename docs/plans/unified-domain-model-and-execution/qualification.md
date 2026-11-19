@@ -805,7 +805,7 @@ only when both accounts are on the same commit.
 
 | Package | State |
 |---|---|
-| UDM-20 | Not started |
+| UDM-20 | The bounded cross-release discovery reproducer ran during UDM-07. Book failure diagnosis and selected-region work remain open. [Discovery evidence](lowered-operation-facts-and-validity.md#revision-b-execution) |
 | UDM-21 | Not started |
 | UDM-22 | Not started |
 | UDM-23 | Not started |

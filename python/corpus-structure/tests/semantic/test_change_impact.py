@@ -131,8 +131,15 @@ def test_both_dependency_sides_preserve_removed_consumer_edge_and_finite_cycle()
     before, target = models()
     root = before.operations[0]
     consumer = replace(root, semantic_id="consumer", dependencies=(root.semantic_id,))
-    old = replace(before, operations=(root, consumer))
-    new = replace(target, operations=(*target.operations, replace(consumer, dependencies=())))
+    consumer_node = replace(
+        next(node for node in before.nodes if node.id == root.semantic_id), id="consumer"
+    )
+    old = replace(before, operations=(root, consumer), nodes=(*before.nodes, consumer_node))
+    new = replace(
+        target,
+        operations=(*target.operations, replace(consumer, dependencies=())),
+        nodes=(*target.nodes, consumer_node),
+    )
     assert changed_operations(old, new)[1]["consumer"] == {root.semantic_id, "consumer"}
 
 
@@ -488,13 +495,15 @@ def _executed_change_recipe():
             support=dict(
                 provenance="value_substitution",
                 source="same-original",
-                coverage="selected-scope",
+                coverage={"role": "item", "description": "selected-scope"},
                 identity_requirements=[],
             ),
         ),
     )
     consumer["binding"] = dict(operator="scan", roles=["item"])
     consumer["capabilities"]["cancellation"] = "call-boundary"
+    for operation in (producer, consumer):
+        operation["coverage"]["result_owners"] = [{"kind": "implementation", "reference": "self"}]
     source = (
         "def helper(value: int) -> int:\n    return value\n"
         "def producer(*, value: int = 7) -> int:\n    return helper(value)\n"
@@ -697,7 +706,8 @@ def test_native_population_closure_requires_each_frozen_producer_context(ddo_ker
         use = next(
             row for row in snapshot["uses"] if row["derivation_id"] == receipt["derivation_id"]
         )
-        storage.close_data_population(
+    with ddo_kernel["engine"].begin() as connection:
+        DataOperationStorage(connection).close_data_population(
             cast(
                 WireCloseDataPopulationRequest,
                 dict(
@@ -768,7 +778,8 @@ def test_native_rebound_selected_support_attributes_new_upstream_revocation(ddo_
             target_observed=True,
         )
         assert result[0].state == "substitutable"
-        revoked = planner.storage.revoke_data_support(
+    with ddo_kernel["engine"].begin() as connection:
+        revoked = DataOperationStorage(connection).revoke_data_support(
             cast(
                 WireRevokeDataSupportRequest,
                 dict(

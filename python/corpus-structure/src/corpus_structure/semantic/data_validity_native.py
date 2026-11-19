@@ -18,6 +18,7 @@ from sqlalchemy import (
     true,
     tuple_,
     union,
+    union_all,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, array
 from sqlalchemy.types import NullType
@@ -26,10 +27,10 @@ from .native_objects import native_sql_script
 from .native_program import (
     Assign,
     Block,
-    ForQuery,
     If,
     Local,
     Parameter,
+    Raise,
     Return,
     ReturnQuery,
     SelectInto,
@@ -84,153 +85,54 @@ def _program(name, inputs, returns, body, locals_=(), *, columns=()):
     )
 
 
-def _edge_program(model, parameters, kind, node_id):
-    uses = model.tables["ops.demand_use"]
-    populations = model.tables["ops.data_population"]
-    episodes = model.tables["ops.data_derivation"]
-    original = model.tables["ops.data_derivation_original_support"]
-    support = model.tables["ops.data_derivation_support"]
-    definitions = model.tables["sem.data_operation_definition"]
-    demands = model.tables["ops.data_demand"]
-    use_episode, selection, demand_id = _row("u", uses, "derivation_id", "selection", "demand_id")
-    (evidence,) = _row("pop", populations, "evidence")
-    choice = core_variable("choice", Integer())
-    substitute = core_variable("substitution", Boolean())
-    chosen_populations = _items(selection["populations"], "selected_populations")
-    chosen_support = _items(selection["support"], "selected_support")
-    reference = chosen_support.c.value
+def _reference_program(model):
+    from .support_edges import declared_support_references
 
-    def edge(alternative, child_kind, child_id):
-        return select(alternative, child_kind, child_id)
-
-    def fixed(alternative, child_kind, child_id):
-        return ReturnQuery(edge(literal(alternative), cast(literal(child_kind), Text()), child_id))
-
-    can_substitute = _exists(
-        episodes.join(
-            definitions,
-            and_(
-                definitions.c.release_id == episodes.c.release_id,
-                definitions.c.recipe == episodes.c.recipe,
-            ),
-        ).join(demands, demands.c.id == demand_id),
-        episodes.c.id == use_episode,
-        definitions.c.support_contract["provenance"].astext == "value_substitution",
-        demands.c.strength == "value",
+    reference = core_variable("reference", JSONB())
+    choices = tuple(
+        (
+            reference[field].astext.in_(values)
+            if values is not None
+            else reference[field].astext.is_not(None),
+            kind,
+            identity,
+        )
+        for _, kind, field, values, identity in declared_support_references(model)
     )
-    empty = cast(literal(None), Text())
+    kind = case(*((condition, kind) for condition, kind, _ in choices), else_=None)
+    identity = case(
+        *((condition, reference[field].astext) for condition, _, field in choices), else_=None
+    )
+    identity_type = case(
+        *((condition, func.jsonb_typeof(reference[field])) for condition, _, field in choices),
+        else_=None,
+    )
+    return _program(
+        "ddo_support_reference_node",
+        (Parameter("reference", pg_type("jsonb")),),
+        "jsonb",
+        (
+            If(
+                or_(
+                    func.jsonb_typeof(reference).is_distinct_from("object"),
+                    identity_type.is_distinct_from("string"),
+                    func.nullif(identity, "").is_(None),
+                ),
+                (Raise("unrecognized native support reference", "23514"),),
+            ),
+            Return(func.jsonb_build_object("kind", kind, "id", identity)),
+        ),
+    )
+
+
+def _edge_program(model, parameters, kind, node_id):
+    from .support_edges import support_edge_queries
+
     return _program(
         "ddo_validity_edges",
         parameters,
         "record",
-        (
-            If(
-                kind == "episode",
-                (
-                    fixed(0, "producer", node_id),
-                    ReturnQuery(
-                        edge(
-                            literal(0),
-                            case((support.c.admission_use_id.is_(None), "episode"), else_="use"),
-                            func.coalesce(
-                                support.c.admission_use_id, support.c.support_derivation_id
-                            ),
-                        ).where(support.c.derivation_id == node_id)
-                    ),
-                    ReturnQuery(
-                        edge(
-                            literal(0), cast(literal("original"), Text()), original.c.admission_id
-                        ).where(original.c.derivation_id == node_id)
-                    ),
-                    Return(),
-                ),
-            ),
-            If(
-                kind == "use",
-                (
-                    SelectInto(_rows(uses, uses.c.id == node_id), ("u",)),
-                    Assign("substitution", can_substitute),
-                    ForQuery(
-                        ("choice",),
-                        select(literal(1)).union_all(select(literal(2)).where(substitute)),
-                        (
-                            ReturnQuery(edge(choice, empty, empty)),
-                            ReturnQuery(
-                                edge(choice, cast(literal("producer"), Text()), use_episode)
-                            ),
-                            ReturnQuery(
-                                edge(
-                                    choice,
-                                    cast(literal("population"), Text()),
-                                    chosen_populations.c.value["population_id"].astext,
-                                )
-                            ),
-                            If(
-                                choice == 1,
-                                (
-                                    ReturnQuery(
-                                        edge(choice, cast(literal("episode"), Text()), use_episode)
-                                    ),
-                                ),
-                                (
-                                    ReturnQuery(
-                                        edge(
-                                            choice,
-                                            case(
-                                                (
-                                                    reference["kind"].astext.in_(
-                                                        ("original-source", "authored")
-                                                    ),
-                                                    "original",
-                                                ),
-                                                (
-                                                    reference["admission_use_id"].astext.is_not(
-                                                        None
-                                                    ),
-                                                    "use",
-                                                ),
-                                                else_="episode",
-                                            ),
-                                            func.coalesce(
-                                                reference["admission_id"].astext,
-                                                reference["admission_use_id"].astext,
-                                                reference["derivation_id"].astext,
-                                            ),
-                                        ).select_from(chosen_support)
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    Return(),
-                ),
-            ),
-            If(
-                kind == "population",
-                (
-                    SelectInto(_rows(populations, populations.c.id == node_id), ("pop",)),
-                    fixed(0, "use", evidence["admission_use_id"].astext),
-                    If(
-                        evidence.has_key("selection"),
-                        (
-                            fixed(
-                                0,
-                                "population",
-                                evidence["selection"]["parent_population_id"].astext,
-                            ),
-                        ),
-                    ),
-                    Return(),
-                ),
-            ),
-            ReturnQuery(edge(literal(0), empty, empty)),
-        ),
-        (
-            Local("u", uses),
-            Local("pop", populations),
-            Local("choice", pg_type("int4")),
-            Local("substitution", pg_type("bool")),
-        ),
+        (ReturnQuery(union_all(*support_edge_queries(model, kind, node_id, "validity"))),),
         columns=(
             ("alternative", pg_type("int4")),
             ("child_kind", pg_type("text")),
@@ -620,6 +522,7 @@ def data_validity_sql(model: MetaData) -> str:
     )
     return native_sql_script(
         (
+            _reference_program(model),
             _edge_program(model, parameters, kind, identity),
             _direct_program(
                 model, (*parameters, Parameter("boundary", demand_read)), kind, identity

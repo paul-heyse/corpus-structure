@@ -71,14 +71,6 @@ enums:
       dev: {}
       test: {}
       reserved: {}
-  MathKind:
-    annotations: {cs:openness: closed}
-    permissible_values:
-      formula: {}
-      relation: {}
-      membership: {}
-      set: {}
-      list: {}
   UnitFeatureKind:
     annotations: {cs:openness: closed}
     permissible_values:

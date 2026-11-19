@@ -190,6 +190,9 @@ def export_demand_result(
         if cut is None:
             raise ValueError("native result did not produce its empty frontier page")
         for record in stream_selected_support(connection, page, whole_read=True):
+            # Current validity explanations belong to live trust inspection.
+            if record["relation"] == "ops.data_support_explanation":
+                continue
             payload = json_bytes(record)
             previous = spool.execute(
                 "SELECT payload FROM records WHERE key=?", (record["key"],)
