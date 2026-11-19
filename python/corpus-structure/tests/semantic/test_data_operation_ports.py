@@ -1294,7 +1294,7 @@ def test_historical_effective_model_cannot_authorize_current_pure_port(tmp_path,
 
 
 def test_static_correspondence_reuses_only_identical_captured_inputs():
-    from corpus_structure.semantic.data_operation_ports import _prepared_python_sources
+    from corpus_structure.semantic.data_operation_static_preparation import _prepared_python_sources
 
     model, sources = actual()
     operation = model.operations[0].semantic_id
@@ -1311,7 +1311,7 @@ def test_static_correspondence_reuses_only_identical_captured_inputs():
 
 def test_explicit_compiler_override_bypasses_static_reuse(monkeypatch):
     from corpus_structure.semantic import data_operation_compilation
-    from corpus_structure.semantic.data_operation_ports import _prepared_python_sources
+    from corpus_structure.semantic.data_operation_static_preparation import _prepared_python_sources
 
     model, sources = actual()
     original = data_operation_compilation.compile_data_operations
@@ -1331,7 +1331,7 @@ def test_explicit_compiler_override_bypasses_static_reuse(monkeypatch):
 
 @pytest.mark.parametrize("change", ["body", "stub", "boundary", "interpreter"])
 def test_static_correspondence_input_changes_cannot_hit_old_preparation(change):
-    from corpus_structure.semantic.data_operation_ports import _prepared_python_sources
+    from corpus_structure.semantic.data_operation_static_preparation import _prepared_python_sources
     from corpus_structure.semantic.types import SourceArtifact
 
     model, sources = actual()
@@ -1361,7 +1361,7 @@ def test_static_correspondence_input_changes_cannot_hit_old_preparation(change):
 
 
 def test_colliding_source_subclass_cannot_borrow_warm_static_correspondence():
-    from corpus_structure.semantic.data_operation_ports import _prepared_python_sources
+    from corpus_structure.semantic.data_operation_static_preparation import _prepared_python_sources
 
     model, sources = actual()
     operation = model.operations[0].semantic_id

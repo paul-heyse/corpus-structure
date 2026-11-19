@@ -390,7 +390,7 @@ def _bounds(view: SchemaView, rng: str) -> tuple[list[Decimal], list[Decimal], l
         if getattr(typ, "maximum_value", None) is not None:
             high.append(Decimal(str(typ.maximum_value)))
         if typ.pattern:
-            patterns.append(typ.pattern)
+            patterns.append(_plain_text(typ.pattern))
         rng = str(typ.typeof or typ.base or "string")
     return low, high, patterns
 
@@ -457,6 +457,17 @@ def _view_and_vocabularies(
         }
     except Exception as exc:
         _fail("ontology", "dependencies", str(exc), "unresolved")
+
+    def resolved_members(result):
+        return tuple(
+            VocabularyMember(
+                _plain_text(member.value),
+                _plain_text(member.meaning) if member.meaning is not None else None,
+                _plain_text(member.label) if member.label is not None else None,
+            )
+            for member in result.members
+        )
+
     diagnostics: list[Diagnostic] = []
     vocabularies: list[VocabularySnapshot] = []
     for name, enum in sorted(view.all_enums().items()):
@@ -467,7 +478,7 @@ def _view_and_vocabularies(
             result = resolved.get(name)
             if result is None:
                 _fail("missing_vocabulary", name, "resolved membership is required", "unresolved")
-            members = tuple(VocabularyMember(m.value, m.meaning, m.label) for m in result.members)
+            members = resolved_members(result)
             if name in supplied and supplied[name].members != members:
                 _fail("vocabulary_mismatch", name, "supplied membership differs from ontology")
             snapshot = VocabularySnapshot(
@@ -499,7 +510,7 @@ def _view_and_vocabularies(
             result = resolved[name]
             snapshot = VocabularySnapshot(
                 name,
-                tuple(VocabularyMember(m.value, m.meaning, m.label) for m in result.members),
+                resolved_members(result),
                 ";".join(n for n, _ in result.source_hashes) or "local",
                 sha256(canonical_bytes(json_dumper.to_dict(enum))).hexdigest(),
                 sha256(canonical_bytes(result.source_hashes)).hexdigest(),
@@ -514,8 +525,8 @@ def _view_and_vocabularies(
     return view, tuple(vocabularies), tuple(diagnostics)
 
 
-def _plain_uri(value: str) -> str:
-    """LinkML's annotated str may be a URIorCURIE; archive DTOs require builtin str."""
+def _plain_text(value: str) -> str:
+    """Detach LinkML text values from loader wrappers before retaining compiled facts."""
     return str.__str__(value)
 
 
@@ -530,12 +541,12 @@ def preview_schema(
     classes = tuple(
         ClassPreview(
             str(name),
-            _plain_uri(view.get_uri(cls, expand=True)),
+            _plain_text(view.get_uri(cls, expand=True)),
             tuple(sorted(str(parent) for parent in view.class_ancestors(name, reflexive=False))),
             tuple(
                 PropertyPreview(
                     str(slot.name),
-                    _plain_uri(view.get_uri(slot, expand=True)),
+                    _plain_text(view.get_uri(slot, expand=True)),
                     str(slot.range or "string"),
                 )
                 for slot in view.class_induced_slots(name)
@@ -744,8 +755,9 @@ def effective_class_definitions(
                 low.append(Decimal(str(slot.minimum_value)))
             if slot.maximum_value is not None:
                 high.append(Decimal(str(slot.maximum_value)))
-            if slot.pattern:
-                patterns.append(slot.pattern)
+            pattern = _plain_text(slot.pattern) if slot.pattern else None
+            if pattern is not None:
+                patterns.append(pattern)
             if low and high and max(low) > min(high):
                 _fail("incompatible_bounds", f"{name}/{sn}", "minimum exceeds maximum")
             collection_key = None
@@ -757,7 +769,7 @@ def effective_class_definitions(
                     collection_key = identifiers[0]
             prop = PropertyDefinition(
                 sn,
-                _plain_uri(view.get_uri(slot, expand=True)),
+                _plain_text(view.get_uri(slot, expand=True)),
                 rng,
                 bool(
                     slot.required
@@ -770,7 +782,7 @@ def effective_class_definitions(
                 maximum_cardinality,
                 str(max(low)) if low else None,
                 str(min(high)) if high else None,
-                slot.pattern if slot.pattern else None,
+                pattern,
                 bool(slot.inlined or slot.inlined_as_list),
                 scope,
                 str(slot.inverse) if slot.inverse else None,
@@ -798,7 +810,7 @@ def effective_class_definitions(
         definitions.append(
             ClassDefinition(
                 name,
-                _plain_uri(view.get_uri(cls, expand=True)),
+                _plain_text(view.get_uri(cls, expand=True)),
                 tuple(sorted(str(x) for x in view.class_ancestors(name, reflexive=False))),
                 tuple(slots),
                 keys,

@@ -460,7 +460,7 @@ kind, its group (conjunctive, or an alternative with its activation condition, w
 substitution under a value-strength demand), and the *traversal profiles* it belongs to. A
 member without its source kind, target kind, group or profiles refuses at generation, as an
 omission in the integrity layer. The profiles are `validity`; `scope`, which is deliberately a superset of validity and is used for
-lock scope; `public`, which adds the authority leaf for public reads; and optionally `lineage`.
+lock scope; `public`, which adds the authority leaf for public reads; and `lineage`, which follows historical producer evidence.
 
 One reference-to-node mapping is declared once: a reference of kind `original-source` or
 `authored` is an original, identified by `admission_id`; one with `admission_use_id` present is
@@ -476,8 +476,8 @@ and its Python scope key retire. The trust-scope key then has one definition, `o
 Generating two profiles from one table keeps the distinction between validity and its superset
 explicit instead of erasing it. *Rejected:* moving change impact's walk to DuckDB over exported
 edges, which re-hosts the third encoding; keeping the encodings with a cross-check test, which
-leaves several places to edit per edge kind. *Reopens the choice:* if the lineage walk's owner
-shows it must not agree with validity, it stays a named single-purpose walk outside the table.
+leaves several places to edit per edge kind. The historical lineage profile has its own
+membership so source admission can reconstruct original ancestry across trust changes.
 
 ## The contract UDM-05 supplies to UDM-10
 
@@ -1007,6 +1007,16 @@ verified exact N31 source custody, reused a prior-release discovery without invo
 and refused wrong role, foreign source, wrong page and revoked support. Detached exports
 keep their selected cut and provenance. Validity explanations are available in live
 change-impact inspection.
+
+**Tested, 2026-11-18.** The private N31 matrix passed 51 of 53 selected cases in
+`501ca6577012437fbb24abb2505719cb`. It includes incomplete population cases, changed
+producer recipe with downstream reuse, and the historical PDF generation and withdrawal case.
+The two failed cases used an invalid transaction sequence and an undeclared validity claim. Population closure moved to a new
+write transaction after acquiring a read. The value-substitution fixture declared `none`
+for the synthetic consumer so the test exercises selective support rather than conservative
+project-wide invalidation. The repaired contexts, replacement-support attribution, and fresh
+installation with detached Parquet export passed all five selected cases
+(`3ecd964f625e4439b14cb5d38feb606f`).
 
 ## State
 

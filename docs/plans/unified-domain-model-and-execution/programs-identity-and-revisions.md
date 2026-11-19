@@ -818,6 +818,22 @@ resolved by its exact intent, publication, or recovery authority before addition
 | P1. No consumer needs releases prepared before the transition to keep running | Operator confirmation; the standing position is that data is regenerable | The absence of a digest mapping table in UDM-10 |
 | X1. Callees collected from typed bodies cover the provider binding of SQL-language bodies | Installing the registry's order into an empty authoring database, in UDM-09 | Derived installation order |
 
+### Static Python correspondence on N31
+
+During the private historical PDF control, the runtime repeatedly reached JSON Schema
+validation from `python_port_identity`. The prepared schema carried LinkML loader-specific
+string values in inherited and local patterns and resolved vocabulary labels. The cache
+correctly reserves reuse for ordinary immutable input types, so those records bypassed it.
+Schema preparation now detaches those values into Python text. Port correspondence uses
+the shared static preparation entry point. The retained source model and the native
+authorization checks still govern acquisition.
+
+Readback of the deployed N31 release established that the re-prepared definitions and
+vocabularies equal the archived records and qualify for static reuse. The cache controls
+continue to exercise exact input changes, compiler substitution and colliding subclasses.
+The private historical PDF case and nine cache and input controls passed
+(`64d1c4441f8c42508e8876bd3a8afc67`) on 2026-11-18.
+
 ## State
 
 | Package | State |

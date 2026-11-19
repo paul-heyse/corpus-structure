@@ -37,12 +37,7 @@ if TYPE_CHECKING:
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
-from .data_operation_static_preparation import (
-    _STATIC_COMPILER,
-    _STATIC_COMPILER_CONTEXT,
-    _ordinary_static_input,
-    _prepared_python_sources,
-)
+from .data_operation_static_preparation import prepare_data_operation_model
 from .identity import canonical_bytes
 from .operation_value_types import decode_json_text, native_result_scope
 from .python_operation_sources import PythonSourceCollection
@@ -1096,7 +1091,6 @@ def python_port_identity(
     """Prepare a correspondence statically; no import and no execution permission."""
     from dataclasses import asdict
 
-    from .data_operation_compilation import compile_data_operations
     from .data_operation_model import MODEL_VERSION
 
     if model.version != MODEL_VERSION:
@@ -1112,29 +1106,14 @@ def python_port_identity(
         declarations = effective_nominal_kind_declarations(model)
     definitions = prepared.definitions if prepared is not None else None
     vocabularies = prepared.vocabularies if prepared is not None else ()
-    if compile_data_operations is _STATIC_COMPILER and _ordinary_static_input(
-        (schema, declarations, sources, definitions, vocabularies, captured_contracts)
-    ):
-        observed = _prepared_python_sources(
-            schema,
-            declarations,
-            sources,
-            definitions,
-            vocabularies,
-            _STATIC_COMPILER_CONTEXT,
-            captured_contracts,
-        )
-    else:
-        # Substituted compilers own their lifetime. Nonordinary values must be
-        # recompiled without letting their custom hash/equality select cached facts.
-        observed = compile_data_operations(
-            schema,
-            declarations=declarations,
-            python_sources=sources,
-            definitions=definitions,
-            vocabularies=vocabularies,
-            captured_contracts=captured_contracts,
-        )
+    observed = prepare_data_operation_model(
+        schema,
+        declarations,
+        sources,
+        definitions=definitions,
+        vocabularies=vocabularies,
+        captured_contracts=captured_contracts,
+    )
     expected = {(i.owner, i.domain): i.key for i in model.identities}
     actual = {(i.owner, i.domain): i.key for i in observed.identities}
     required = (

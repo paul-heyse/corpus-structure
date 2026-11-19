@@ -392,9 +392,9 @@ waiting for the model-impact view.
 
 **Native revisions.** The series plans three, authored and frozen close together in the order
 A, B, transition, and packages join them instead of adding their own. Revision A: UDM-05 and
-UDM-06, with UDM-18's decimal bound. Revision B: UDM-03 and UDM-07, with UDM-19's removal of
-the release-side authored-SQL machinery if it changes installed bytes. The identity
-transition: UDM-10's native slice, the explicit kernel predicate of UDM-11 in the generated
+UDM-06, with UDM-18's decimal bound. N31 froze revision B with UDM-03 and UDM-07.
+Any installed changes from the remaining UDM-19 release-side authored-SQL retirement join
+the identity transition. The identity transition: UDM-10's native slice, the explicit kernel predicate of UDM-11 in the generated
 guard and the installed-object changes of UDM-12, and UDM-09's differing objects if its
 equality premise fails. UDM-11's model-change commands install nothing and change outside any
 revision. Role-granular watermarking joins the identity transition revision only if its

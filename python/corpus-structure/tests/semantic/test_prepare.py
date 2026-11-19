@@ -80,11 +80,12 @@ def test_only_explicit_ontology_dependencies_reach_ontology_parser():
         lambda d: d.update(
             enums={
                 "Terms": {
+                    "permissible_values": {"local": {"title": "Local term"}},
                     "reachable_from": {
                         "source_ontology": "terms",
                         "source_nodes": ["EX:1"],
                         "include_self": True,
-                    }
+                    },
                 }
             }
         )
@@ -92,7 +93,11 @@ def test_only_explicit_ontology_dependencies_reach_ontology_parser():
     prepared = prepare_release(
         extended, ResolvedDependencies((opaque, sql, ontology), ontology_sources=("terms",))
     )
-    assert [m.value for m in prepared.vocabularies[0].members] == ["EX:1"]
+    assert {member.value: member.label for member in prepared.vocabularies[0].members} == {
+        "EX:1": "root",
+        "local": "Local term",
+    }
+    assert all(type(member.label) is str for member in prepared.vocabularies[0].members)
     with pytest.raises(PreparationError, match="distinct supplied artifacts"):
         prepare_release(bundle(), ResolvedDependencies((opaque,), ontology_sources=("absent",)))
 
@@ -258,10 +263,16 @@ def test_binding_identity_groups_consume_declared_case_policy():
 def test_inherited_pattern_and_numeric_bound():
     def update(d):
         d["types"]["Code"] = {"typeof": "string", "pattern": "^[A-Z]+$"}
-        d["classes"]["Thing"]["attributes"]["label"] = {"range": "Code"}
+        d["classes"]["Thing"]["attributes"]["label"] = {
+            "range": "Code",
+            "pattern": "^[A-Z]{1,4}$",
+        }
         d["classes"]["Thing"]["attributes"]["amount"] = {"range": "decimal", "minimum_value": 0}
 
     release = prepare_release(bundle(update))
+    label = next(field for field in release.definitions[0].properties if field.name == "label")
+    assert label.patterns == ("^[A-Z]+$", "^[A-Z]{1,4}$")
+    assert type(label.pattern) is str and all(type(item) is str for item in label.patterns)
     with pytest.raises(ValidationError):
         release.validate_json("Thing", '{"id":"A","label":"bad"}')
     with pytest.raises(ValidationError):
