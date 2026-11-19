@@ -44,6 +44,7 @@ from corpus_structure.cli.target import (
 from corpus_structure.schema.compiled_changes import CompiledModelComparison
 from corpus_structure.schema.model_change import RuntimeCustody
 from corpus_structure.schema.source_migrations import ConsumerOutcome
+from corpus_structure.semantic.code_reuse import ReuseExplanationReport
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
 from corpus_structure.semantic.model_comparison import DeclaredModelComparison
 from corpus_structure.semantic.projection_analysis_products import ProjectionAnalysisComparison
@@ -74,6 +75,7 @@ class ModelResult(BaseModel):
     acquired_target: StorageTarget | None = None
     selection: ConfiguredSelection | None = None
     operation_account: OperationAccount | None = None
+    reuse_explanation: ReuseExplanationReport | None = None
 
 
 class ApplicationNativeCandidateResult(NativeCandidateResult):
@@ -137,6 +139,11 @@ class PreviewEffectsReport(EffectGuidance):
     comparison: dict[str, JsonValue] | None
     discovery_status: Literal["available", "unavailable"]
     dependency_available: bool
+    native_change: Literal["no_native_change", "installed_change", "unobserved"] = "unobserved"
+    prior_work: Literal["requires_native_binding"] = "requires_native_binding"
+    live_conditions: tuple[str, ...] = (
+        "Exact material inputs, current support and native authorization determine adoption.",
+    )
 
 
 class PreviewDiscoveryReport(BaseModel):
@@ -667,6 +674,9 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
         ),
         ("Changed paths", _path_summary(report.changed_paths)),
         ("Native authoring", "required" if report.effects["native"] else "not required"),
+        ("Installed program change", report.native_change),
+        ("Prior work", report.prior_work),
+        ("Live conditions", "\n".join(report.live_conditions)),
         ("Release admission", "planned" if report.effects["admission"] else "not planned"),
         ("Compatibility routes", route_summary or "none declared"),
         ("Semantic comparison", impact),
@@ -987,6 +997,11 @@ def inspect_preview(
                 runtime=staged.runtime,
                 changed_paths=paths,
                 effects=staged.effects.model_dump(mode="json"),
+                native_change="no_native_change"
+                if staged.effects.native_delta is not None and staged.effects.native_delta.unchanged
+                else "installed_change"
+                if staged.effects.native
+                else "unobserved",
                 comparison_status="available"
                 if staged.comparison is not None
                 else "not_applicable"
@@ -1473,6 +1488,12 @@ def preview(
         str, typer.Argument(help="A change request file, '-' for stdin, or a managed ID.")
     ],
     json_: JsonOpt = False,
+    explain_reuse: Annotated[
+        bool,
+        typer.Option(
+            help="Explain this operation's captured code reuse.", rich_help_panel="Diagnostics"
+        ),
+    ] = False,
 ) -> None:
     """Validate and stage an inspectable patch without changing tracked or native state."""
     import yaml
@@ -1495,7 +1516,10 @@ def preview(
     )
 
     expected = (ModelError, ResultError, OSError, ValueError, yaml.YAMLError)
-    with refusal(json_, expected=expected):
+    retained_reuse = None
+    from corpus_structure.semantic.code_reuse import explain_code_reuse, retain_reuse_explanation
+
+    with explain_code_reuse(explain_reuse) as explanations, refusal(json_, expected=expected):
         store = result_store(ctx)
         root = checkout(ctx)
         with managed_operation(store, "model.preview", json=json_, expected=expected) as result:
@@ -1526,7 +1550,12 @@ def preview(
             ):
                 from corpus_structure.cli.schema import emit_unchanged_native
 
-                emit_unchanged_native(result, native_delta, json_=json_)
+                emit_unchanged_native(
+                    result,
+                    native_delta,
+                    json_=json_,
+                    explanations=explanations if explain_reuse else None,
+                )
                 return
             from corpus_structure.schema.model_explanation import ModelChangeExplanation
 
@@ -1767,6 +1796,8 @@ def preview(
                 result.publish("preview", artifact)
                 result.publish("patch", patch)
                 _publish_sql_explanation(result, sql_holder[0])
+                if explain_reuse:
+                    retained_reuse = retain_reuse_explanation(result, explanations)
                 result.settle(
                     sha256=sha256(artifact.read_bytes()).hexdigest(), revision=staged.revision
                 )
@@ -1783,6 +1814,7 @@ def preview(
                 acquired_target=staged.target_identity,
                 selection=current_selection(ctx, staged.target_profile),
                 operation_account=result.manifest.operation_account,
+                reuse_explanation=retained_reuse if explain_reuse else None,
             ),
             json=json_,
         )
@@ -1900,6 +1932,12 @@ def candidate(
     ctx: typer.Context,
     change: Annotated[str, typer.Argument(metavar="CHANGE", help="Managed preview result ID.")],
     json_: JsonOpt = False,
+    explain_reuse: Annotated[
+        bool,
+        typer.Option(
+            help="Explain this operation's captured code reuse.", rich_help_panel="Diagnostics"
+        ),
+    ] = False,
 ) -> None:
     """Author a rollback-only candidate for an applied preview on its bound database."""
     from corpus_structure.cli.managed import ResultError, result_store
@@ -1932,7 +1970,9 @@ def candidate(
         OSError,
         ReleaseConflict,
     )
-    with refusal(json_, expected=expected):
+    from corpus_structure.semantic.code_reuse import explain_code_reuse, retain_reuse_explanation
+
+    with explain_code_reuse(explain_reuse) as explanations, refusal(json_, expected=expected):
         root = checkout(ctx)
         store = result_store(ctx)
         with (
@@ -2110,6 +2150,10 @@ def candidate(
                 artifact.write_text(binding.model_dump_json(), encoding="utf-8")
                 result.publish("deployment", artifact)
                 _publish_sql_explanation(result, sql_holder[0])
+                if explain_reuse:
+                    report = report.model_copy(
+                        update={"reuse_explanation": retain_reuse_explanation(result, explanations)}
+                    )
                 result.settle(
                     sha256=sha256(artifact.read_bytes()).hexdigest(),
                     target=binding.target,

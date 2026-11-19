@@ -35,6 +35,7 @@ from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.managed import OperationAccount
 from corpus_structure.cli.output import JsonOpt, diagnostic, emit
 from corpus_structure.cli.target import ConfiguredSelection, current_selection, selection_summary
+from corpus_structure.semantic.code_reuse import ReuseExplanationReport
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
 from corpus_structure.semantic.native_revision_compare import NativeProgramDelta
 from corpus_structure.semantic.refusals import trusted_operation_model_id
@@ -403,6 +404,7 @@ class NativeCandidateResult(BaseModel):
     selection: ConfiguredSelection | None = None
     operation_account: OperationAccount | None = None
     native_delta: NativeProgramDelta | None = None
+    reuse_explanation: ReuseExplanationReport | None = None
 
 
 class NativeUnchangedResult(BaseModel):
@@ -411,14 +413,24 @@ class NativeUnchangedResult(BaseModel):
     object_count: int
     kernel_identity: str
     result_id: str
+    reuse_explanation: ReuseExplanationReport | None = None
 
 
-def emit_unchanged_native(result, comparison, *, json_: bool) -> None:
+def _retained_reuse(result, explanations):
+    if explanations is None:
+        return None
+    from corpus_structure.semantic.code_reuse import retain_reuse_explanation
+
+    return retain_reuse_explanation(result, explanations)
+
+
+def emit_unchanged_native(result, comparison, *, json_: bool, explanations=None) -> None:
     report = NativeUnchangedResult(
         head_revision=comparison.head_revision,
         object_count=comparison.object_count,
         kernel_identity=comparison.kernel_identity,
         result_id=result.id,
+        reuse_explanation=_retained_reuse(result, explanations),
     )
     model_stage(result, "no native change")
     result.settle(predecessor=report.head_revision)
@@ -427,7 +439,9 @@ def emit_unchanged_native(result, comparison, *, json_: bool) -> None:
         table = Table("field", "value", title="no native change")
         for key in ("head_revision", "object_count", "kernel_identity"):
             table.add_row(key, str(getattr(value, key)))
-        return table
+        from .reuse_explanation import with_reuse
+
+        return with_reuse(table, value.reuse_explanation)
 
     emit(report, json=json_, render=render)
 
@@ -438,7 +452,9 @@ def _render_native_candidate(result):
         table.add_row(key, str(getattr(result, key)))
     table.add_row("current configuration", selection_summary(result.selection))
     table.add_row("acquired target", str(result.acquired_target or "unavailable"))
-    return table
+    from .reuse_explanation import with_reuse
+
+    return with_reuse(table, result.reuse_explanation)
 
 
 def _native_candidate_python(upgrade_ops) -> str:
@@ -730,6 +746,10 @@ def native_candidate_(
         ),
     ] = False,
     json_: JsonOpt = False,
+    explain_reuse: Annotated[
+        bool,
+        typer.Option(help="Explain captured generator code reuse.", rich_help_panel="Diagnostics"),
+    ] = False,
 ):
     """Compare/render a managed native candidate with rollback-only maintenance authority."""
     import yaml
@@ -738,19 +758,23 @@ def native_candidate_(
     from corpus_structure.cli.output import state
     from corpus_structure.schema.declarations import ModelError
     from corpus_structure.schema.model_change import NativeIntent, native_intent
+    from corpus_structure.semantic.code_reuse import explain_code_reuse
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.prepared_sql import SQLSyntaxError
     from corpus_structure.semantic.refusals import SemanticRefusal
 
-    with refusal(
-        json_,
-        expected=(
-            NativeAuthoringError,
-            SQLSyntaxError,
-            ResultError,
-            ModelError,
-            yaml.YAMLError,
-            OSError,
+    with (
+        explain_code_reuse(explain_reuse) as explanations,
+        refusal(
+            json_,
+            expected=(
+                NativeAuthoringError,
+                SQLSyntaxError,
+                ResultError,
+                ModelError,
+                yaml.YAMLError,
+                OSError,
+            ),
         ),
     ):
         store = result_store(ctx)
@@ -775,7 +799,12 @@ def native_candidate_(
                 installation = capture_target_installation(get_metadata())
                 comparison = compare_native_programs(installation, expected_predecessor)
                 if comparison is not None and comparison.unchanged:
-                    emit_unchanged_native(result, comparison, json_=json_)
+                    emit_unchanged_native(
+                        result,
+                        comparison,
+                        json_=json_,
+                        explanations=explanations if explain_reuse else None,
+                    )
                     return
             if out is not None and out.exists():
                 raise SemanticRefusal("native authoring delivery requires a new directory")
@@ -791,6 +820,13 @@ def native_candidate_(
             model_stage(result, "publish native candidate")
             report = publish_native_candidate(result, report, products)
             report = report.model_copy(update={"selection": current_selection(ctx, "development")})
+            report = report.model_copy(
+                update={
+                    "reuse_explanation": _retained_reuse(
+                        result, explanations if explain_reuse else None
+                    )
+                }
+            )
             result.settle(predecessor=report.predecessor, target=report.database)
         if out is not None:
             out.parent.mkdir(parents=True, exist_ok=True)

@@ -13,12 +13,23 @@ from rich.table import Table
 from rich.text import Text
 
 from corpus_structure.cli.observations import Bindings, ObservationPage, ObservationSelection
+from corpus_structure.cli.operation_observation import (
+    OperationalObservation,
+    operational_observation,
+)
+from corpus_structure.semantic.code_reuse import ReuseExplanationReport
 
 
 class NextAction(BaseModel):
-    kind: Literal["watch", "inspect", "resume_demand", "recover_result", "native_status"]
+    kind: Literal[
+        "watch", "inspect", "resume_demand", "resume_result", "recover_result", "native_status"
+    ]
     command: str
     owner: Literal["managed_result", "native_demand"]
+    result_id: str | None = None
+    demand_id: str | None = None
+    required_inputs: tuple[str, ...] = ()
+    target_profile: str | None = None
 
 
 class NativeInspection(BaseModel):
@@ -28,6 +39,9 @@ class NativeInspection(BaseModel):
     demand: dict[str, Any] | None = None
     execution_receipts: tuple[dict[str, Any], ...] = ()
     detail_omissions: tuple[str, ...] = ()
+    observed_at: str | None = None
+    configured_selection: dict[str, Any] | None = None
+    expected_target: dict[str, Any] | None = None
 
 
 class ResultInspection(BaseModel):
@@ -42,6 +56,10 @@ class ResultInspection(BaseModel):
     bindings: Bindings
     native: NativeInspection
     observations: ObservationPage
+    activity: OperationalObservation | None = None
+    execution_context: dict[str, Any] | None = None
+    recovery_unavailable_reason: str | None = None
+    reuse_explanation: ReuseExplanationReport | None = None
     next_actions: tuple[NextAction, ...] = ()
     correlation: Literal["recorded_bindings_only"] = "recorded_bindings_only"
     timeline_ordering: Literal[
@@ -72,6 +90,14 @@ def native_inspection(
         return NativeInspection(
             reason="The native storage binding is unavailable; no lookup was inferred."
         )
+    from datetime import UTC, datetime
+
+    from corpus_structure.cli.target import configured_selection
+
+    configured = configured_selection(ctx, state(ctx).settings(), "development").model_dump(
+        mode="json"
+    )
+    observed_at = datetime.now(UTC).isoformat()
     try:
         from corpus_structure.semantic.demand_results import selected_read_snapshot
 
@@ -95,6 +121,9 @@ def native_inspection(
                     )
             return NativeInspection(
                 availability="available",
+                observed_at=observed_at,
+                configured_selection=configured,
+                expected_target=target,
                 demand={
                     key: snapshot[key]
                     for key in (
@@ -123,7 +152,12 @@ def native_inspection(
         SemanticRefusal,
         ValueError,
     ) as error:
-        return NativeInspection(reason="Native reader unavailable: " + type(error).__name__)
+        return NativeInspection(
+            reason="Native reader unavailable: " + type(error).__name__,
+            observed_at=observed_at,
+            configured_selection=configured,
+            expected_target=target,
+        )
 
 
 def inspect_result(
@@ -165,6 +199,22 @@ def inspect_result(
         except ValueError as error:
             raise ResultError("recorded observation bindings are invalid") from error
         native = native_inspection(ctx, manifest, selection)
+        captured = None
+        unavailable_reason = None
+        if "execution_context" in manifest.artifacts:
+            from .execution_context import read_execution_context
+
+            account = read_execution_context(store, result)
+            captured = account.model_dump(mode="json", exclude={"native_request", "source_request"})
+            captured["selection"] = (
+                "demand"
+                if account.demand_id is not None
+                else "source_request"
+                if account.source_request is not None
+                else "native_request"
+            )
+        elif manifest.action in {"run", "run.resume", "ingest", "demands.execute"}:
+            unavailable_reason = "No execution context was captured; exact source root and execution policy are required for direct demand recovery."
         actions = [
             NextAction(
                 kind="inspect",
@@ -178,6 +228,18 @@ def inspect_result(
                     kind="watch", command=f"ci results watch {result}", owner="managed_result"
                 )
             )
+        if captured is not None:
+            actions.append(
+                NextAction(
+                    kind="resume_result",
+                    command=shlex.join(["ci", "run", "resume", "--result", result]),
+                    owner="managed_result",
+                    result_id=result,
+                    demand_id=bindings.demand_id,
+                    required_inputs=() if captured.get("source_root") else ("source_root",),
+                    target_profile=captured["configured_target"]["profile"],
+                )
+            )
         if bindings.demand_id is not None:
             actions.append(
                 NextAction(
@@ -187,7 +249,7 @@ def inspect_result(
                 )
             )
             source_root = manifest.details.get("native_source_root")
-            if isinstance(source_root, str):
+            if isinstance(source_root, str) and captured is None:
                 actions.append(
                     NextAction(
                         kind="resume_demand",
@@ -202,6 +264,8 @@ def inspect_result(
                             ]
                         ),
                         owner="native_demand",
+                        demand_id=bindings.demand_id,
+                        required_inputs=("execution_policy",),
                     )
                 )
             if "native" in manifest.artifacts:
@@ -231,6 +295,11 @@ def inspect_result(
             for index, path in enumerate(all_receipts)
             if index < 16 and sum(len(item.encode()) for item in all_receipts[: index + 1]) <= 4096
         )
+        reuse = None
+        if "reuse_explanation" in manifest.artifacts:
+            reuse = ReuseExplanationReport.model_validate_json(
+                store.read_artifact(result, "reuse_explanation")
+            )
         report = ResultInspection(
             id=result,
             view=view,
@@ -246,6 +315,10 @@ def inspect_result(
             bindings=bindings,
             native=native,
             observations=page,
+            activity=operational_observation(page, native, running=manifest.settled is None),
+            execution_context=captured,
+            recovery_unavailable_reason=unavailable_reason,
+            reuse_explanation=reuse,
             next_actions=tuple(actions),
             provider_receipts=receipts,
             provider_receipts_omitted=len(all_receipts) - len(receipts),
@@ -320,6 +393,26 @@ def render_inspection(report: ResultInspection) -> Group:
             f"collection minimum {report.observations.collection_threshold}"
         ),
     ]
+    if report.reuse_explanation is not None:
+        from .reuse_explanation import render_reuse_explanation
+
+        parts.append(render_reuse_explanation(report.reuse_explanation))
+    if report.activity is not None:
+        phases = Table("Phase", "Standing", "Observed", "Source")
+        for phase in report.activity.phases:
+            phases.add_row(
+                phase.phase,
+                phase.standing,
+                phase.observed_at or "unavailable",
+                phase.source or "unavailable",
+            )
+        parts.append(phases)
+    if report.execution_context is not None:
+        parts.append(
+            Text("Execution policy and source custody captured for exact managed recovery.")
+        )
+    elif report.recovery_unavailable_reason:
+        parts.append(Text(report.recovery_unavailable_reason))
     if report.native.demand is not None:
         parts.append(
             Text(

@@ -1187,6 +1187,22 @@ def show_result(ctx: typer.Context, result: str, json: JsonOpt = False) -> None:
             emit(_status(manifest, diagnostics), json=json)
 
 
+@app.command("stop")
+def stop_result_command(
+    ctx: typer.Context,
+    result: Annotated[str, typer.Argument(help="Exact managed execution result ID.")],
+    reason: Annotated[str, typer.Option(help="Reason for the requested interruption.")],
+    json: JsonOpt = False,
+) -> None:
+    """Ask one local execution to stop admission and drain its owned work."""
+    from corpus_structure.cli.managed_stop import stop_result
+
+    if not reason.strip() or len(reason) > 512:
+        raise typer.BadParameter("stop reason must contain 1 to 512 characters")
+    with result_boundary(json):
+        emit(stop_result(result_store(ctx), result, reason), json=json)
+
+
 @app.command("output")
 def recipe_output_command(
     ctx: typer.Context,
@@ -1341,10 +1357,9 @@ def watch_result(
                         announce=True,
                     )
                 if done:
-                    inspection = None
-                    if latest_page is not None:
-                        from corpus_structure.cli.result_inspection import inspect_result
+                    from corpus_structure.cli.result_inspection import inspect_result
 
+                    if latest_page is not None:
                         latest_page = latest_page.model_copy(
                             update={
                                 "rows": latest_rows,
@@ -1365,9 +1380,9 @@ def watch_result(
                                 else None,
                             }
                         )
-                        inspection = inspect_result(
-                            ctx, store, result, ObservationSelection(), page=latest_page
-                        )
+                    inspection = inspect_result(
+                        ctx, store, result, ObservationSelection(), page=latest_page
+                    )
                     emit(_status(item, diagnostics, inspection), json=json)
                     return
                 time.sleep(0.2)

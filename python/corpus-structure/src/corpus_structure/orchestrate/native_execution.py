@@ -6,7 +6,7 @@ from pathlib import Path
 
 from corpus_structure.semantic.data_operation_service import create_native_demand, read_data_demand
 from corpus_structure.semantic.refusals import SemanticRefusal
-from corpus_structure.semantic.storage_target import acquired_target
+from corpus_structure.semantic.storage_target import StorageTarget, acquired_target, verify_target
 from corpus_structure.settings import AnalyticsSettings
 
 
@@ -27,16 +27,23 @@ def execute_native_intent(
     registered=None,
     completion_draft_root: Path | None = None,
     analytics_settings: AnalyticsSettings | None = None,
+    expected_target: StorageTarget | None = None,
 ):
     """Execute only one explicit intent; optional target restriction also checks resume."""
+    from corpus_structure.core.execution_control import check_execution_active
     from corpus_structure.semantic.data_operation_service import execute_data_demand
 
+    check_execution_active()
     if sum(value is not None for value in (demand, request, source_request)) != 1:
         raise SemanticRefusal("select one source request, native request or retained demand")
     if request is not None and required_targets is not None and request.targets != required_targets:
         raise SemanticRefusal("native request differs from the required explicit targets")
     with engine.begin() as connection:
-        target = acquired_target(connection, purpose="write")
+        target = (
+            verify_target(connection, expected_target, purpose="write")
+            if expected_target is not None
+            else acquired_target(connection, purpose="write")
+        )
         if source_request is not None:
             from corpus_structure.orchestrate.source_operation import prepare_source_demand
             from corpus_structure.semantic.releases import load_release
@@ -46,6 +53,7 @@ def execute_native_intent(
         else:
             prepared = None
         if request is not None:
+            check_execution_active()
             if project is not None and request.project_id != project:
                 raise SemanticRefusal("request belongs to another project")
             receipt = create_native_demand(connection, request, prepared=prepared)
@@ -64,6 +72,7 @@ def execute_native_intent(
             raise SemanticRefusal("retained demand differs from the required explicit targets")
     if registered is not None:
         registered(snapshot, target, request)
+    check_execution_active()
     execute = execute_data_demand
     if visual_actor is not None:
         from functools import partial

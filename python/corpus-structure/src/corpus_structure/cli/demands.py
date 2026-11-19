@@ -200,10 +200,18 @@ def execute_request(
     execution_policy: Path | None = None,
     limit: int = 100,
     max_rounds: int = 100,
+    predecessor_result: str | None = None,
     json: bool = False,
 ) -> DemandActionReport:
     """One managed path for source creation, explicit native requests and exact resume."""
-    from corpus_structure.cli.characterization_options import method_settings
+    from corpus_structure.cli.execution_context import (
+        capture_execution_context,
+        configured_route,
+        execution_methods,
+        read_execution_context,
+        recovery_target,
+        retain_execution_context,
+    )
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
     from corpus_structure.orchestrate.source_reporting import (
         record_native_demand,
@@ -214,17 +222,57 @@ def execute_request(
     if sum(value is not None for value in (demand, request, source_request)) != 1:
         raise typer.BadParameter("select one source request, native request or retained demand")
     settings = state(ctx).settings()
-    methods = method_settings(settings, execution_policy)
+    store = result_store(ctx)
+    inherited = None
+    expected_target = None
+    if predecessor_result is not None:
+        inherited = read_execution_context(store, predecessor_result)
+        predecessor_manifest = store.show(predecessor_result, role="execution_context")
+        expected_target = recovery_target(predecessor_manifest)
+        # Current configured credentials are resolved at acquisition. A retained URL
+        # never becomes connection authority.
+        from corpus_structure.cli.target import configured_selection
+
+        current = configured_selection(ctx, settings, "development")
+        if configured_route(current) != configured_route(inherited.configured_target):
+            from corpus_structure.cli.managed import ResultError
+
+            raise ResultError("configured recovery route differs from the captured target")
+    methods, policy_overrides = execution_methods(settings, execution_policy, inherited=inherited)
+    account = capture_execution_context(
+        ctx,
+        settings=settings,
+        methods=methods,
+        action=action,
+        source_root=source_root,
+        demand=demand,
+        request=request,
+        source_request=source_request,
+        project=project,
+        policy_overrides=policy_overrides,
+        required_targets=required_targets,
+        predecessor=predecessor_result,
+        inherited=inherited,
+        limit=limit,
+        max_rounds=max_rounds,
+    )
     with managed_operation(
-        result_store(ctx),
+        store,
         action,
         json=json,
+        source=("execution_context", predecessor_result)
+        if predecessor_result is not None
+        else None,
         expected=(OperationConflict, OSError),
         scope={"demand_id": demand, "project": project},
     ) as invocation:
+        retain_execution_context(invocation, account)
         if source_root is not None:
             invocation.manifest.details["native_source_root"] = str(source_root.resolve())
+        from corpus_structure.cli.managed_stop import stoppable_invocation
+
         with (
+            stoppable_invocation(invocation),
             ENGINE(settings, purpose="write") as engine,
             ENGINE(settings, purpose="admit") as admitted,
         ):
@@ -233,6 +281,23 @@ def execute_request(
             def registered(snapshot, target, parsed_request):
                 nonlocal demand
                 demand = snapshot["demand_id"]
+                if inherited is not None:
+                    recorded = predecessor_manifest.details.get("observation_bindings", {})
+                    selected_request = inherited.source_request or inherited.native_request
+                    expected_release = recorded.get("release_id") or getattr(
+                        selected_request, "release_id", None
+                    )
+                    expected_runtime = recorded.get("runtime_id") or getattr(
+                        selected_request, "runtime_id", None
+                    )
+                    if (
+                        expected_release is not None and snapshot["release_id"] != expected_release
+                    ) or (
+                        expected_runtime is not None and snapshot["runtime_id"] != expected_runtime
+                    ):
+                        raise OperationConflict(
+                            "recovered demand differs from captured release or runtime"
+                        )
                 if parsed_request is not None:
                     path = invocation.directory / "request.json"
                     path.write_bytes(json_bytes(parsed_request.model_dump(mode="python")))
@@ -256,7 +321,8 @@ def execute_request(
                     required_targets=required_targets,
                     registered=registered,
                     completion_draft_root=settings.paths.data_dir / "completion-drafts",
-                    analytics_settings=settings.analytics,
+                    analytics_settings=account.analytics_settings,
+                    expected_target=expected_target,
                 )
             except NativeDemandExecutionError as error:
                 retain_native_demand_result(invocation, error.result)

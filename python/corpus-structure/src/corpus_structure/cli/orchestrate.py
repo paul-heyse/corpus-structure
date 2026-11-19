@@ -323,27 +323,117 @@ def run_cancel(
     cancel(ctx, demand, reason=reason, json=json)
 
 
-@run_app.command("resume")
-def run_resume(
+@run_app.command("preview")
+def run_preview(
     ctx: typer.Context,
-    demand: Annotated[
-        str, typer.Argument(help="Exact native demand ID; historical run IDs are inspection only.")
-    ],
-    source_root: Annotated[Path, typer.Option(exists=True, file_okay=False)],
+    request: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    demand: Annotated[str | None, typer.Option(help="Exact retained native demand.")] = None,
+    source_root: Annotated[Path | None, typer.Option(exists=True, file_okay=False)] = None,
     project: Annotated[str | None, typer.Option()] = None,
     execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
     json: JsonOpt = False,
 ) -> None:
-    from .demands import execute_request
+    """Inspect typed choices and physical bounds before acquiring native or provider work."""
+    from corpus_structure.orchestrate.source_request import SourceRunRequest
 
-    execute_request(
-        ctx,
-        demand=demand,
-        source_root=source_root,
-        project=project,
-        execution_policy=execution_policy,
-        json=json,
+    from .execution_context import (
+        ExecutionPreview,
+        capture_execution_context,
+        emit_preview,
+        execution_methods,
     )
+
+    if (request is None) == (demand is None):
+        raise typer.BadParameter("select --request or --demand")
+    with _refusals(json):
+        parsed = read_request_model(request, SourceRunRequest) if request is not None else None
+        settings = state(ctx).settings()
+        methods, overrides = execution_methods(settings, execution_policy)
+        account = capture_execution_context(
+            ctx,
+            settings=settings,
+            methods=methods,
+            action="run",
+            source_root=source_root,
+            source_request=parsed,
+            demand=demand,
+            project=project,
+            policy_overrides=overrides,
+        )
+    emit_preview(ExecutionPreview(context=account), json=json)
+
+
+@run_app.command("resume")
+def run_resume(
+    ctx: typer.Context,
+    demand: Annotated[
+        str | None, typer.Argument(help="Exact native demand; select it or --result.")
+    ] = None,
+    result: Annotated[
+        str | None, typer.Option(help="Exact prior managed execution result.")
+    ] = None,
+    source_root: Annotated[Path | None, typer.Option(exists=True, file_okay=False)] = None,
+    project: Annotated[str | None, typer.Option()] = None,
+    execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    json: JsonOpt = False,
+) -> None:
+    """Resume exact native intent or recover a managed invocation's captured choices and bounds."""
+    from .demands import execute_request
+    from .execution_context import read_execution_context
+    from .managed import result_boundary, result_store
+
+    if (demand is None) == (result is None):
+        raise typer.BadParameter("select the native demand argument or --result")
+    if result is None:
+        if source_root is None:
+            raise typer.BadParameter("native demand resume requires --source-root")
+        execute_request(
+            ctx,
+            demand=demand,
+            source_root=source_root,
+            project=project,
+            execution_policy=execution_policy,
+            json=json,
+        )
+        return
+    with result_boundary(json):
+        store = result_store(ctx)
+        account = read_execution_context(store, result)
+        manifest = store.show(result, role="execution_context")
+        if manifest.settled is None:
+            from .managed import ResultError
+
+            raise ResultError(
+                "the predecessor invocation is active; inspect or stop it before recovery"
+            )
+        captured_project = account.project or getattr(
+            account.source_request or account.native_request, "project_id", None
+        )
+        if project is not None and captured_project is not None and project != captured_project:
+            raise typer.BadParameter("project differs from the captured execution selection")
+        source_root = source_root or account.source_root
+        if source_root is None:
+            raise typer.BadParameter("captured source custody is unavailable; supply --source-root")
+        if not source_root.is_dir():
+            raise typer.BadParameter("captured source root is unavailable; supply --source-root")
+        bound_demand = (
+            manifest.details.get("observation_bindings", {}).get("demand_id") or account.demand_id
+        )
+        execute_request(
+            ctx,
+            demand=bound_demand,
+            request=account.native_request if bound_demand is None else None,
+            source_request=account.source_request if bound_demand is None else None,
+            source_root=source_root,
+            project=project or captured_project,
+            required_targets=account.required_targets,
+            execution_policy=execution_policy,
+            predecessor_result=result,
+            action="run.resume",
+            limit=account.limit,
+            max_rounds=account.max_rounds,
+            json=json,
+        )
 
 
 def tasks(

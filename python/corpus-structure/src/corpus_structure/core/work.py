@@ -262,9 +262,12 @@ class _Node:
 
 def drive_prepared_work(plan: Generator[Any, Any, Any], check_active: Callable[[], None]):
     """One parent loop drives standalone and bounded nested invocation plans."""
+    from .execution_control import ExecutionStopped, check_execution_active
+
     root = _Node(plan)
     try:
         while not root.done:
+            check_execution_active()
             check_active()
             if not root.tick():
                 root.flush()
@@ -296,4 +299,8 @@ def drive_prepared_work(plan: Generator[Any, Any, Any], check_active: Callable[[
         except BaseException as cleanup:
             if primary is None:
                 raise
+            if isinstance(primary, ExecutionStopped):
+                raise BaseExceptionGroup(
+                    "stop and execution cleanup failure", [primary, cleanup]
+                ) from None
             primary.add_note("ready-plan cleanup failure: " + str(cleanup))

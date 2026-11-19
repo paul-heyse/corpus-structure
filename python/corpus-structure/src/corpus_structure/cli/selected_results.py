@@ -46,6 +46,12 @@ def query(
     ] = None,
     max_graph_bytes: Annotated[int, typer.Option(min=1024, max=67108864)] = 8388608,
     max_graph_members: Annotated[int, typer.Option(min=1, max=1000000)] = 100000,
+    explain_reuse: Annotated[
+        bool,
+        typer.Option(
+            help="Explain this read's actual code reuse custody.", rich_help_panel="Diagnostics"
+        ),
+    ] = False,
 ) -> None:
     """Read native standing or named knowledge from an explicit accepted product.
 
@@ -60,10 +66,15 @@ def query(
     Common rich options are population=selected|retained and include_suppositions.
     """
     from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.reuse_explanation import emit_selected_result
+    from corpus_structure.semantic.code_reuse import attach_reuse_explanation, explain_code_reuse
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.selected_query_cache import disk_row_cache
 
-    with failure_boundary(json, expected=(ValueError, KeyError)):
+    with (
+        failure_boundary(json, expected=(ValueError, KeyError)),
+        explain_code_reuse(explain_reuse) as explanations,
+    ):
         if without_original_source and original_source is not None:
             raise ValueError(
                 "select either an exact original source or explicit no original source"
@@ -107,7 +118,9 @@ def query(
                 disk_row_cache(),
             ):
                 result = serve_rich_query(connection, rich_request)
-            write_report_text(json_bytes(result).decode() + "\n")
+            if explain_reuse:
+                result = attach_reuse_explanation(result, explanations)
+            emit_selected_result(result, json=json, explain=explain_reuse)
             return
         if parameters is not None:
             raise ValueError("parameters are only supported for a named rich query")
@@ -134,7 +147,9 @@ def query(
             disk_row_cache(),
         ):
             result = serve_demand_query(connection, request)
-    write_report_text(json_bytes(result).decode() + "\n")
+        if explain_reuse:
+            result = attach_reuse_explanation(result, explanations)
+    emit_selected_result(result, json=json, explain=explain_reuse)
 
 
 contributions_app = typer.Typer(
@@ -373,6 +388,9 @@ def contributions(
     max_support_edges: int = 100000,
     max_nested_members: int = 1000,
     json: JsonOpt = False,
+    explain_reuse: Annotated[
+        bool, typer.Option(help="Explain this read's code custody.", rich_help_panel="Diagnostics")
+    ] = False,
 ):
     """Join current contributions with typed interpretation and actual captured judgments.
 
@@ -382,6 +400,8 @@ def contributions(
     from pydantic import ValidationError
 
     from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.cli.reuse_explanation import emit_selected_result
+    from corpus_structure.semantic.code_reuse import attach_reuse_explanation, explain_code_reuse
     from corpus_structure.semantic.demand_results import (
         SelectedGraphBudgetExceeded,
         selected_read_snapshot,
@@ -395,13 +415,16 @@ def contributions(
         serve_contribution_facets,
     )
 
-    with failure_boundary(
-        json,
-        expected=(
-            ValidationError,
-            RichQueryRefused,
-            InvalidContinuation,
-            SelectedGraphBudgetExceeded,
+    with (
+        explain_code_reuse(explain_reuse) as explanations,
+        failure_boundary(
+            json,
+            expected=(
+                ValidationError,
+                RichQueryRefused,
+                InvalidContinuation,
+                SelectedGraphBudgetExceeded,
+            ),
         ),
     ):
         if without_original_source and original_source is not None:
@@ -440,7 +463,9 @@ def contributions(
             disk_row_cache(),
         ):
             report = serve_contribution_facets(connection, request)
-    write_report_text(json_bytes(report).decode() + "\n")
+        if explain_reuse:
+            report = attach_reuse_explanation(report, explanations)
+    emit_selected_result(report, json=json, explain=explain_reuse)
 
 
 def neighborhood(

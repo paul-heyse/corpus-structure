@@ -5,19 +5,20 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import asdict
 from hashlib import sha256
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from uuid import uuid4
 
 if TYPE_CHECKING:
     from .code_identity import CodeIdentity
+    from .code_reuse import CompactReuseReport
 
 
 class ServingImplementation(str):
     complete: bool
-    diagnostics: tuple[dict, ...]
     verify: Callable[[], None] | None
+    code: CodeIdentity
+    compact_report: CompactReuseReport | None
 
     def __new__(cls, identity: str, code: CodeIdentity, verify: Callable[[], None] | None = None):
         # An incomplete observation is useful attribution for this one read.
@@ -25,7 +26,8 @@ class ServingImplementation(str):
         token = identity if code.complete else sha256((identity + uuid4().hex).encode()).hexdigest()
         value = super().__new__(cls, token)
         value.complete = code.complete
-        value.diagnostics = tuple(asdict(item) for item in code.unknowns)
+        value.code = code
+        value.compact_report = None
         value.verify = verify
         return value
 
@@ -35,6 +37,16 @@ _ACTIVE: ContextVar[ServingImplementation | None] = ContextVar("serving_code", d
 
 @contextmanager
 def serving_code(implementation: ServingImplementation):
+    from .code_reuse import record_code_reuse
+
+    record_code_reuse(
+        implementation.code,
+        entry_point=implementation.code.entries[0]
+        if implementation.code.entries
+        else "selected read",
+        tier="selected-result",
+        outcome="unknown" if implementation.complete else "withheld",
+    )
     token = _ACTIVE.set(implementation)
     try:
         yield
@@ -63,10 +75,23 @@ def serving_report(record):
     for field in ("cursor", "continuation", "next_cursor", "resource_handle"):
         if field in result:
             result[field] = None
-    result["reuse"] = {
-        "eligible": False,
-        "reason": "incomplete_code_identity",
-        "unknowns": selected.diagnostics[:1],
-        "omitted": max(0, len(selected.diagnostics) - 1),
-    }
+    from .code_reuse import compact_code_reuse
+
+    if selected.compact_report is None:
+        selected.compact_report = compact_code_reuse(selected.code)
+    projection = selected.compact_report
+    result["reuse"] = {**projection, "unknowns": [fact.copy() for fact in projection["unknowns"]]}
     return result
+
+
+def record_serving_reuse(outcome: Literal["derived", "reused", "withheld", "unknown"]):
+    from .code_reuse import record_code_reuse
+
+    selected = _ACTIVE.get()
+    if selected is not None:
+        record_code_reuse(
+            selected.code,
+            entry_point=selected.code.entries[0] if selected.code.entries else "selected read",
+            tier="selected-result",
+            outcome=outcome,
+        )

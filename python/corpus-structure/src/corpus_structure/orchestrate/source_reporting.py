@@ -31,4 +31,14 @@ def retain_native_demand_result(invocation, result):
     path = invocation.directory / "native.json"
     path.write_bytes(json_bytes(report))
     invocation.publish("native", path)
+    if result.receipt_count:
+        invocation.observe(
+            "native_publication",
+            "native publication receipts retained",
+            assurance="native",
+            operational_phase="publication",
+            receipt_count=result.receipt_count,
+            receipt_unit="publication_receipts",
+            receipts_truncated=result.receipts_truncated,
+        )
     return report

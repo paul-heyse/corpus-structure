@@ -230,9 +230,15 @@ class SelectedQueryCache:
                 self.misses += 1
             else:
                 self.hits += 1
+                from .serving_code import record_serving_reuse
+
+                record_serving_reuse("reused")
             return None if value is None else value[1]
 
     def put(self, key: ServedKey, entry):
+        from .serving_code import record_serving_reuse
+
+        record_serving_reuse("derived")
         if not self._eligible(key):
             return False
         _retain_disk_rows(key, entry)
@@ -285,6 +291,9 @@ class SelectedQueryCache:
         try:
             entry = _disk_rows(key)
             if entry is not None:
+                from .serving_code import record_serving_reuse
+
+                record_serving_reuse("reused")
                 # A decoded hit is already authenticated by the caller's fresh
                 # native acquisition. Retain only this inert value in T4.
                 load.result = entry
