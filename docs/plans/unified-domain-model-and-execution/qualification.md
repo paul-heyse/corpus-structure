@@ -335,6 +335,42 @@ remain opt-in with `CORPUS_RUN_UDM_T14=1` while those prerequisites are open. Re
 T14 identity to the ordinary required final-source selection once it is viable. The opt-in
 setting carries no qualification credit. [Receipts](../../design_review/evidence/2026-11-19_udm-workload-custody/README.md)
 
+**2026-11-19 boundary work.** The D2 acceptance test exercises the installed candidate command
+twice with unavailable endpoints and counts renderer and artifact hydration calls in the
+actual processes. Its strict selection (`CORPUS_RUN_UDM_D2=1`) recorded one render and zero
+hydrations in each process (`dc7ef9b998e94d898dc29fcb6055834a`). Both processes established
+`no_native_change` across 617 N34 objects (`6e4b639078b54a43b20e901380a303ba`,
+`a29477039b5649b7a8d75243683e1577`). The latest strict rerun reproduced the same counts and
+native parity (`2979355692bf407e83e067d70505d8aa`, candidate receipts
+`899834aedbd448d18be78b67fd016418` and `783fc7f564ac4eeba9cfa6b6e0690dab`). The shared custody
+and cache controls passed 128 selected identities, then 133 with prepared correspondence and
+cache-publication controls
+(`72920dbda42e40a09af3355eca8e5267`, `62c7d552a88048769497b046e12c872f`). D2 still needs
+complete determining initialization and library custody. T4 and T14 additionally need an
+authenticated interpretation for the captured model's value codec and each family's cursor
+and page report callback. The direct entity witness calculation is a declared rich workload
+root and the acquired body retains its native tagged encoding into derivation. An eligible hit
+must preserve diagnostics, continuation interpretation and byte accounting.
+
+The authored entity recipe now merges equal captures under canonical logical member names,
+retaining acquired origins separately. The private smoke advanced past the merge and reached
+prepared execution (`fc8658e5d8f144a488f6d6d366509882`). That attempt exposed use of an archive
+member name as a live factory path. Prepared execution now uses the acquired runtime location
+map and verifies the declared required sources at that location. The next attempt reached
+native completion and refused the unapproved rich-admission effect (`a512912cf7b14aca95d379f526e5ae6d`).
+The fixture now admits `rich.admit` through the exact released effect grant. Native publication
+and read passed on the private target (`afbb02c6446445f7bd63aad0704dedb0`). The smoke rerun with
+the exact tagged rich-body boundary also passed (`f41efa461e9a468d9fdeed434e0372cf`). The
+continuation harness covers demand, rich and contribution CLI invocations. It shares the
+subprocess observer with T14. Both strict serving journeys remain `not_run` pending complete
+serving identity.
+
+The focused serving and CLI controls passed 233 selected identities
+(`53e183166ea54effa89e64324c14fcda`). The final tagged-body and custody selection passed 30
+(`26d3c234872c4457b302b1966eb54588`). The catalog privilege regression exercises the full
+`ci release check --native-proof` route required by UDM-12. It passed on private N34, including
+refusal with the altered ACL and successful proof after restoration (`ff6745d56dcd4e3c9ac23ae72f7234c2`).
+
 **Shared negative controls.** Include eager initialization, relative aliases and re-exports,
 rebound import names, runtime guards versus type-only imports, indirect loads, receiver dispatch,
 annotation evaluation, copied provenance and authenticated dynamic operations. Expectations

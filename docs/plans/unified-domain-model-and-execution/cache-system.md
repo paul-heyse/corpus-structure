@@ -1,6 +1,6 @@
 # The cache system: one owner module, six in-process tiers and two on-disk tiers
 
-**Status:** UDM-13 complete for the bounded N34 increment. UDM-14 and UDM-15 have scoped implementation. Actual entry-point reuse awaits complete code custody.
+**Status:** UDM-13 complete for the bounded N34 increment. UDM-14 and UDM-15 have scoped implementation and explicit rendering and read projection boundaries. Entry-point reuse qualification remains open.
 **Created:** 2026-11-19. **Amended:** 2026-11-19 from the code dependency closure review at `1982a20c3`. Production reuse qualification remains open.
 
 This companion owns the designs of **UDM-13** (the cache owner module, cachetools 8.0.1 and the
@@ -603,6 +603,16 @@ list of tiers, which is internal structure.
 
 ### UDM-14 — The two on-disk tiers
 
+**Boundary implementation · 2026-11-19.** Native authoring acquires one generator input value
+before reaching the holder. Rendering compiles from that value and uses its captured model to
+resolve integrity roles and its Docling schema for PDF lowering. Served queries declare shared
+semantic pagination and family projections. The rich route prepares validation and projection
+state from acquired body and reference bytes. Shared contribution readers seal their existing
+request-local support index after acquisition. PostgreSQL JSONB binding is owned by the storage
+adapter. The strict D2 journey recorded one fresh render in each process, with zero hydrations.
+The next reuse work is the remaining determining initialization and library contracts, plus the
+family-specific cursor and diagnostic callbacks retained by the serving entry points.
+
 **Custody implementation · 2026-11-19.** T2 and D2 now consume the same immutable generator
 capture, including model bytes, runtime and exact copied artifact sources. The old package-wide
 T2 source fallback and independent D2 key sweep are removed. Installed readers pass explicit
@@ -794,8 +804,8 @@ Contribution, interpretation, and structural pages consume whole-support project
 exclusion comparison consumes two of those closures. A frontier stamp establishes neither the
 whole support bytes nor their disclosed population. Keep those paths keyed on their exact cuts.
 The additional rich query variants retain their current basis pending a query-specific analysis of
-the derived diagnostics and population semantics. T14 awaits real code identity and native entity
-acquisition.
+the derived diagnostics and population semantics. The private authored fixture published and read
+an entity successfully. T14 awaits real code identity and cross-process reuse qualification.
 
 #### The premise that gates UDM-15
 
@@ -893,4 +903,4 @@ disk model caching unadopted for this increment.
 |---|---|
 | UDM-13 | Complete for the bounded N34 increment. Six process tiers, typed scientific policy projections and owner-scoped CLI and MCP diagnostics passed scoped qualification. Incomplete serving code identity still permits a fresh page. |
 | UDM-14 | Shared generator capture and explicit served-key eligibility integrated. The rich row derivation accepts a typed acquired index. Actual entry-point reuse still awaits complete workload custody. |
-| UDM-15 | Two-cut exclusion basis corrected. Direct entity witness integrated. Real reuse requires the shared code-closure contract and a viable authored native entity fixture. Other query variants retain the cut basis. |
+| UDM-15 | Two-cut exclusion basis corrected. Direct entity witness integrated. The private authored native entity fixture passed. Real reuse requires complete code custody and the strict cross-process run. Other query variants retain the cut basis. |

@@ -744,6 +744,16 @@ roots still lack required initialization and external-operation contracts. Their
 withheld. The supported initializer forms and captured library operations still need to be
 extended against the real workload boundaries below.
 
+**Boundary implementation · 2026-11-19.** The generator and served readers now declare
+rendering or projection entry points independently of their lookup and acquisition wrappers.
+The shared identity retains reached definitions. When a workload completes static closure,
+the existing closed runtime verifier checks its live definitions and consumed bindings under
+executing source custody. Reuse rechecks those premises. The bounded initializer model admits
+literal construction and the supported standard dataclass profile. The installed generator and
+selected readers still reach unadmitted initializers and external imports. The remaining work
+is to close the relevant typed model, cache declaration and library contracts or move their
+effects outside rendering and projection. Incomplete workloads continue to derive afresh.
+
 **Scheduled target · Proposed · 2026-11-19.** Incorporate
 [I01](../../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I01)
 of the code dependency review, published at `1982a20c3` against production baseline `aa128c808`.
