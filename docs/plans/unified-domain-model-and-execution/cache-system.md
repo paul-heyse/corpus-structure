@@ -1,7 +1,7 @@
 # The cache system: one owner module, six in-process tiers and two on-disk tiers
 
 **Status:** UDM-13 complete for the bounded N34 increment. UDM-14 and UDM-15 have scoped implementation. Actual entry-point reuse awaits complete code custody.
-**Created:** 2026-11-19. Writing this plan authorizes no implementation.
+**Created:** 2026-11-19. **Amended:** 2026-11-19 from the code dependency closure review at `1982a20c3`. Production reuse qualification remains open.
 
 This companion owns the designs of **UDM-13** (the cache owner module, cachetools 8.0.1 and the
 six in-process tiers), **UDM-14** (the two on-disk tiers: generated program sets and continuation
@@ -12,6 +12,14 @@ and RC13, which the operator accepted on 2026-11-19, and to audit findings
 [DA-083](../../design_review/audit/execution-fit.md#da-083). Package state, the queue, finding
 dispositions, the shared contracts and the decision records are the
 [coordinator's](../unified-domain-model-and-execution_2026-11-19.md).
+
+The [code dependency closure review](../../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md)
+I02 and I03 supply the remaining D2 and D4 amendments below. I01's authenticated initialization
+and callable contract is owned by [UDM-10's code-closure follow-up](programs-identity-and-revisions.md#udm-10-code-closure).
+The retained N33/N34 observations establish the implemented baseline. The review's probe
+establishes that a syntax scan can both include an uncalled dynamic site and miss an indirect
+load, so that scan alone cannot authorize reuse for an arbitrary workload. Each adopted cache
+consumer needs the determining code and captured-input contract its owner can establish.
 
 **The design of record.** The cache system was designed in the review's supporting document, the
 [cache design](../../design_review/reviews/unified-domain-model-and-execution/cache-design.md)
@@ -78,7 +86,7 @@ program registry's product from UDM-09. From UDM-10
 its first slice delivers with no prerequisite and no revision; the program identity function,
 which needs UDM-09 only; and, once the transition revision exists, the read-closure identity. UDM-08, which takes
 generation off the execution path, so that no execution-path caller needs a program-set holder.
-File custody and query custody ([ADR-0124](../../adr/0124-serving-code-custody.md)) and the
+File custody and query custody ([ADR-0137](../../adr/0137-serving-code-and-model-custody.md)) and the
 process-owned execution host ([ADR-0125](../../adr/0125-process-owned-execution-host.md)), which
 are kept.
 
@@ -153,13 +161,13 @@ owner module, no framework. What has no identity is not cached.
 |---|---|---|---|---|
 | T0 Custody | File and code custody records; the premise check the other tiers rely on | Path and digest | Finite, one per file; unchanged | The existing lock |
 | T1 Compiled model | One compiled model per model-sources identity, with lazily derived projections | Model-sources identity | Count, default 4 | Single-flight; deterministic compile errors held as values |
-| T2 Program set | One generated program set per model identity | Model-sources identity, or explicit candidate sources | Count, default 2 | As T1 |
+| T2 Program set | One generated program artifact and its exact provenance | Shared immutable generator input capture and authenticated determining code | Count, default 2 | As T1 |
 | T3 Releases and archives | Prepared releases, opened archives, PDF boundary releases, prepared lowering sources | Release inputs, or database identity with release id and archive header digest | Retained artifact bytes | Single-flight |
 | T4 Served results | Derived row entries; the shared rich graph index; change-impact comparisons | Query identity, implementation identity, authorization scope, reuse basis | Bytes and an entry count | A future per key that shares failures |
 | T5 CPU runtimes | Loaded CPU pipelines, matchers, compiled packs | Artifact digest, configuration, runtime version | Declared footprint in bytes | Single-flight |
 | T6 Memos | Grammar parsers and parse memos | Normalized call arguments | Count | Built in |
-| D2 Program store | Rendered program bytes, program identities, manifest | Model-sources identity, generator code identity, library versions, format version | Byte budget, oldest pruned first | Single-winner installation |
-| D4 Result pages | Encoded rows of a served result | Semantic served key with the cut as basis, plus cache storage and codec versions | Byte budget, oldest pruned first | Single-winner installation |
+| D2 Program store | Rendered programs, prerequisites, identities, manifest and captured provenance | T2's generator input and code basis, with format and effective runtime versions | Byte budget, oldest pruned first | Single-winner installation |
+| D4 Result pages | Encoded rows of a served result | Semantic served key with its supported cut or content basis, plus cache storage and codec versions | Byte budget, oldest pruned first | Single-winner installation |
 
 T1 to T6 are in-process; D2 and D4 cross processes. The numbering of the disk tiers follows the
 in-process tier each one extends. An on-disk compiled model (the design's optional D1) stays
@@ -402,6 +410,17 @@ retained weights; external allocations are declared estimates, not process RSS. 
 library [`Future`](https://docs.python.org/3.14/library/concurrent.futures.html#future-objects)
 supplies T4's shared failure and result. Neither eviction nor a waiter timeout retires an owner.
 
+For the code-closure amendment, retain `cached(..., condition=Condition(RLock()), info=True)`
+over `LRUCache` for T2. T4 retains `SizedLRU` with its explicit lock, pending futures and timeout.
+Their keys consume the authoritative captured basis and eligibility. Cachetools 8.0.1 supplies
+expendable process retention, with application-owned coordination where T4 needs it.
+D2/D4 persistence remains with the existing disk-store owner. Its version belongs to entry
+compatibility when storage behavior alone changes. Derivation semantics, imported code custody
+and native authorization remain inputs supplied by their owners. The pivotal source-analysis
+APIs and their pinned versions are owned by [UDM-10](programs-identity-and-revisions.md#udm-10-code-closure),
+so this package consumes that captured analysis without introducing another parser or resolver.
+
+
 ## What this supersedes
 
 | Passage | What it says | What replaces it |
@@ -423,8 +442,9 @@ completed entries. Archived releases use the acquired database identity, protect
 boundary runtime. A private PostgreSQL activation control reused an immutable archive while
 observing the new release and generation on the next reader snapshot
 (`5026c6e769704cf5a7b74244179423b5`). Serving uses only typed keys after acquiring native
-authority. The real serving closure still reports 33 unresolved dependencies, matching the N33
-baseline. Reads under that standing return a fresh page with no reuse handles. The complete-code
+authority. The real serving scans still report the same 33 diagnostic sites at four roots, matching the
+N33 baseline. The code-closure follow-up accounts for their root-specific effect and verified
+dynamic contracts before changing production eligibility. Reads under that standing return a fresh page with no reuse handles. The complete-code
 control exercises authorized retained rows, continuation ordering and concurrent requests.
 
 The stage archive working set and CPU preparation determined the three retention defaults. The
@@ -515,10 +535,9 @@ confirms them at the entry commit.
   `serve/rich_queries.py:224`, and the builders in `serve/identity_exclusion_comparison.py`,
   `serve/contribution_facets.py`, `serve/interpretations.py` and `serve/structural_products.py`
   (12 `get` and `put` references in the six files). The key gains the authorization scope, which no key carries today,
-  and the reuse basis. Each served query may declare its basis; a query that declares nothing
-  uses `cut`, and `cut` is the only value this package accepts for the five queries that key by
-  the read instance today. The identity-exclusion comparison keeps the content basis it already
-  uses. Two derived structures that are rebuilt today become entries: the rich graph index, shared
+  and the reuse basis. Queries default to `cut`. The N34 correction keeps exclusion comparison
+  on two exact cuts. UDM-15 qualifies the scoped direct entity content witness. Other variants
+  retain their declared cut while their broader content premise remains open. Two derived structures that are rebuilt today become entries: the rich graph index, shared
   by every query on one selected product (`serve/rich_queries.py:222–262`), and the change-impact
   comparison, rebuilt for every page (`semantic/change_impact.py:506–510, 687–777`). Every caller
   still acquires native authority before it looks anything up; only the derivation is coalesced.
@@ -544,9 +563,10 @@ weak map.
 **Prerequisites.** The owner module, the pin move and tiers T3, T4, T5 and T6 need nothing and
 can start at once. T1 needs UDM-01's compiled model object and its identity, and its scientific
 recipe projection also needs UDM-18. T2 needs UDM-09's registry product. The bounded observation
-needs the stage. The served key takes the implementation identity as an opaque value: it uses
-today's `installed_read_implementation` until UDM-10's code identity replaces what that value is
-computed from, and the key's shape does not change when it does.
+needs the stage. The served key carries the implementation identity from
+`installed_read_implementation`. Eligible T4 and D4 production reuse also requires UDM-10's
+complete authenticated determining-code contract. A typed key alone supplies no such evidence.
+The owner can retain process entries and derive fresh pages while that prerequisite is open.
 
 **Native revision.** None. Nothing installed changes.
 
@@ -591,9 +611,11 @@ checks. D4 reads and writes bounded served rows in the two CLI routes after nati
 The exact Decimal payload uses canonical text inside a typed tag to preserve signed integral zero.
 The graph preparation remains process-local.
 
-**Qualification boundary.** The actual entry scans still have 33 unresolved code references.
-Callable narrowing reaches module initialization and deeper unsupported dispatch, so the shipped
-eligibility checks require the existing complete identity. Controlled complete-identity tests
+**Qualification boundary.** The four actual entry scans share the same 33 diagnostic sites.
+Their module populations overreach into unrelated function bodies, while the retained probe also
+shows an indirect load omitted by syntax discovery. The shared code-closure follow-up must
+establish the actual determining initialization, calls and verified dynamic boundaries for each
+workload. The shipped eligibility checks continue to withhold reuse under their incomplete basis. Controlled complete-identity tests
 exercise the disk hit path. The bounded stage remains on generation 31. The private entity
 journey was blocked at PDF fixture execution and did not reach the cache. [Execution evidence](../../design_review/evidence/2026-11-19_udm14-15-disk-cache/README.md)
 
@@ -621,33 +643,74 @@ beside the process listing. This single-winner protocol avoids replacing a nonem
 which Python refuses. [Python `os.replace`](https://docs.python.org/3.14/library/os.html#os.replace)
 and [`fcntl.flock`](https://docs.python.org/3.14/library/fcntl.html#fcntl.flock).
 
-*D2, the program store.* The key is the model-sources identity, the generator code identity, the
-versions of the distributions the generator closure imports, and the format version. The content
-is each program's rendered bytes, the map of program identities and the manifest. T2 consults D2
-on a miss and writes to it after a build, so a preview, a candidate preparation and a deployment
-preparation, which are separate `ci` commands, generate once between them. If the generator code
-identity is incomplete, D2 is neither read nor written, and generation runs as it does today. The
-key is sound only if generated bytes depend on nothing outside it, so the entry step reads the
-generator closure for reads of ambient state (the environment, the locale, the clock, the working
-directory); one that is found joins the key or is removed from the generator. The package sets
-`program_store_bytes` and `page_store_bytes` from the observed bytes of one stored program set and
-one stored result on the stage, as a small multiple that the evidence record states.
+<a id="udm-14-generator-capture"></a>
 
-*D4, continuation pages.* The key extends the served key with basis `cut` by cache storage and
-codec versions. The process that serves the first page derives the bounded entry and
-writes it with the typed codec, if every row is within the codec's closed set. The process that
-serves a later page acquires native authority for the cut through the existing per-request check,
-then reads the stored rows from the cursor's ordinal, in place of reading support again,
-reopening the release, binding the model and validating the graph. This is sound today: the cut
-pins the frontier, the trust snapshot and visibility, including `public_disclosure` (the read
-row is pinned through `read_id`, `semantic/demand_results.py:72–84`), and a revocation between
-pages still refuses at the authority check. The review asked for the native owner's review of the
-cut's pins; this plan records the question as settled by reading. A field that a read-page
-program consults and that the cut does not pin would reopen it, and D4 would then be withheld for
-the queries that read it. Only command-line entry points pass the store to the
-serving layer; the MCP server holds continuation in T4 and has no use for D4. The files hold rows
-the principal was authorized to read and are readable by the operating-system user that runs the
-agents, which can already read whatever those agents read.
+*D2, the program store.* The authoring owner captures immutable generator inputs before computing
+one basis used by both T2 and D2. The capture includes physical source bytes and LinkML types,
+the effective compiled-model projections consumed by `running_model()`, logical sources,
+action and PDF overrides, extra sources, named package resources such as
+`operation-vocabularies.yaml`, and runtime/distribution identities used by PDF/schema preparation
+and SQL rendering. `include_producer=False` still performs PDF lowering and Arrow schema
+preparation. Explicit physical overrides coexist with the running model in today's builder.
+Record each effective input or remove its ambient acquisition from the renderer before admitting
+the basis. Inspect environment, locale, clock, working-directory and filesystem reads along this
+bounded workload. A required input outside capture keeps D2 ineligible. The exact input capture
+and authenticated generator initialization/callable identity compose the semantic key, with
+D2's artifact format identity added for disk compatibility. [Review I02](../../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I02)
+
+The stored `ProgramSetArtifact` includes rendered programs and prerequisites, their manifest,
+physical identity and exact authoring/native/PDF source artifacts. Python modules copied by
+`_capture_native_authoring_inputs` and `_native_protocol_sources` are determining artifact bytes
+even where their functions never execute during generation. Capture those bytes before keying
+and pass the same immutable capture into rendering. An edit outside SQL rendering may therefore
+move the full artifact identity because it changes recorded provenance. An edit outside both
+execution determinants and copied provenance should preserve reuse. Keep normalized executable
+meaning distinct from exact bytes recorded in the artifact. Splitting rendered output and
+provenance into separately retained products is conditional on recurring source changes making
+that distinction useful enough to warrant a replay-format change.
+
+T2 consults D2 on a miss and writes a validated artifact after a build. Preview, candidate and
+deployment preparation consume that same capture. Hydration verifies physical-model identity,
+manifest/program agreement and retained source correspondence. Preserve ordinary predecessor,
+SQL verification, authorization and authoring checks after hydration. Loaded bytes require the
+shared source-custody guarantee as well as a closed determining identity. A complete module
+population alone establishes neither. [Shared code contract](programs-identity-and-revisions.md#udm-10-code-closure)
+
+If a finite generator capture with enforced code, initialization, resources and ambient-input
+limits can be established before the narrower callable projection, the authoring owner may use
+that broader bounded capture for D2. Document its wider invalidation and exact supported boundary
+at G1 before enabling it. A new completeness flag on the current scan cannot establish this
+contract. A restricted worker is a conditional response to a material acquisition boundary that
+cannot be enforced in-process. Creating a worker by itself supplies no closed input contract.
+The default is typed acquisition followed by identified in-process rendering.
+
+*D4, continuation pages.* The key extends the supported semantic served key with cache storage
+and codec versions. Native acquisition supplies typed authorization, cut, selection and support
+references before any lookup. Complete authenticated code identity covers row derivation and
+its query/profile contract, cursor interpretation, ordering, diagnostics, limits and examined
+inputs. The production route must establish that context explicitly, including when lower-level
+`reusable_serving_code` callers otherwise allow an absent context. A retained entry contains
+bounded derived rows and no acquired native authority. [Review I03](../../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I03)
+
+On a hit, consume the bounded entry at the cursor ordinal after reacquiring current authority.
+On a miss, acquire and confirm the native body under the selected cut and support reference,
+then pass the typed immutable body into derivation. Preserve diagnostic population, whole-support
+requirements and encoded-width bounds when extracting that derivation boundary. Reuse therefore
+avoids reloading whole support and rebuilding the graph only where the selected contract allows
+it. A revocation between pages refuses before the disk entry is consulted. A required field that
+the selected cut or supported content witness does not determine keeps that query ineligible.
+
+Demand, contribution and other rich profiles retain their exact cuts. Exclusion comparisons
+retain two cuts. UDM-15's direct entity witness can supply a content basis after its own premise
+is established. Keep semantic continuation identity separate from storage/codec/cachetools
+compatibility. A storage-only change may discard an entry and derive again under a valid cursor.
+A changed semantic interpretation produces an explicit incompatible-continuation refusal.
+
+The two CLI entry points opt into D4. MCP routes share the derivation and authenticated code
+contract while retaining their existing T4 process lifetime. Move affected CLI/MCP consumers
+and their error/reporting paths together. The files are private to the operating-system user
+that runs the agents. Budget settings continue to use the retained bounded program/page
+observations. This amendment introduces no new retention tier or warming policy.
 
 **Complete consumer scope.** For D2: the T2 holder alone. For D4: the two command-line entry
 points that page served results with a cut-bearing cursor, `ci query NAME` and the contributions
@@ -656,17 +719,21 @@ served key builders of UDM-13. The other paged commands (`cli/demands.py`, `cli/
 `cli/orchestrate.py`, `cli/visual_route.py`, `cli/source.py`) pass a native continuation and are
 not served-result pages; they are outside D4.
 
-**Removes.** Nothing existing. It ends the state in which a later page repeats the first page's
-whole derivation, without removing the code that derives.
+**Removes.** After consumer migration, retire the package-wide T2 source fallback and the
+separate exact-module D2 sweep in favor of the shared input/custody basis. Remove duplicate
+page eligibility and digest paths replaced by the shared serving contract. Keep the ordinary
+derivation path for misses, unavailable storage and unknown determining inputs.
 
 **Prerequisites.** UDM-13 supplies the T2 holder, the typed served key and the settings section.
-D2 also needs UDM-10's code identity slice (the generator code identity and its completeness flag)
-and UDM-10's program identity function over UDM-09's rendered statements; neither needs a native
-revision. D4 needs only UDM-13: its implementation identity is the opaque value UDM-13's served
-key already carries, and the rest of UDM-10 narrows that value without being required for D4 to
-be sound.
+D2 needs the shared generator capture and [UDM-10 code closure](programs-identity-and-revisions.md#udm-10-code-closure),
+plus UDM-09's typed program identities. D4 needs the authenticated serving closure from that
+same follow-up and its typed native acquisition/derivation contract. D2 and D4 can proceed
+independently once their own contracts are closed. UDM-15 additionally needs a query-specific
+content witness and actual native fixture qualification.
 
-**Native revision.** None.
+**Native revision.** None expected for input capture, Python derivation and custody. Compare
+the N34 candidate through the existing offline route. If required native program bytes change,
+route that change through the coordinator's revision decision before claiming qualification.
 
 **What this keeps open.** Reuse on disk is always optional: an incomplete code identity, a row
 outside the codec's closed set, an unreadable entry or a missing cache root each lead to the
@@ -680,18 +747,23 @@ outside it is still served.
   only in scale, an integer, a float and a decimal of equal value, negative zero, and nested
   mappings, decoding the encoding gives a value equal in kind and in content. A row holding a
   bytes value is reported as not storable and nothing is written. Rich tuples round-trip in kind.
-- *A continuation across processes.* Two separate command invocations serve page one and page
-  two of one query. The second performs no support read (a counting spy on the whole-result
-  reader), and its rows are byte-identical to those of the same page served with the store
-  disabled.
+- *A continuation across processes.* Two installed `ci query` invocations in fresh processes
+  serve page one and page two using actual code custody. Include demand and rich entry paths
+  and the contributions command's shared consumer. The second performs no whole-result support
+  read on a hit. Its ordered rows, ordinal and limits agree with independently expected values
+  and the uncached page. Changed selection, support, runtime or implementation rejects stale
+  reuse. A storage-only codec change can miss while a compatible cursor still succeeds.
 - *Authority first.* With a stored entry present, a revocation between the pages makes the second
   page refuse; the entry is not consulted.
 - *Tampering.* A content file altered on disk is detected by its digest, the entry is deleted and
   the page is derived.
-- *The program store.* Two authoring commands over the same model and generators run generation
-  once between them (a counting spy), and the stored program bytes equal the frozen statements of
-  the head revision, which the store did not write. A changed generator module changes the key,
-  and so does a changed value of any ambient input the entry step found and added.
+- *The program store.* Two fresh `ci schema native-candidate` processes with an isolated cache
+  root, unreachable database endpoints and actual identity discovery render once between them.
+  The second rehydrates equivalent validated artifacts and manifests without rendering. Verify
+  rendering-code, effective-model, named-resource, runtime and copied-provenance changes
+  separately. Each material change moves its basis. A demonstrated unrelated edit preserves it.
+  Retain wrong-model, manifest-disagreement and predecessor controls. Compare N34 installed
+  bytes through the existing offline `no_native_change` route.
 - *Permissions.* A cache root writable by group is refused.
 - *Concurrent publication and prune.* Two fresh writers to the same key leave one complete
   verified entry. A reader racing prune reads complete verified content or derives; no operation
@@ -735,12 +807,14 @@ fields of the read row it reads, and that each such field is either in the conte
 determined by it. The registry's record of the model inputs each program reads (UDM-09) supplies
 the enumeration. `public_disclosure` and `access_universes` are shaped by authorization, so for
 most queries they must enter the key together with the authorization scope. The premise is
-settled per query, not once for all; the identity-exclusion comparison, which already keys by
-content, is the first candidate.
+settled per query. The N34 analysis found that exclusion comparison needs two exact cuts,
+including whole-support rows and examined counts. The direct entity request is the scoped
+content candidate described above.
 
 **What is delivered without it.** UDM-13 delivers the declared reuse basis with `cut` as the
-default, and UDM-14 delivers continuation pages keyed by the read cut, in process and across
-command-line processes. Both are sound now. Nothing in them waits on the premise.
+default, and UDM-14 supplies the store and continuation machinery keyed by a supported read
+cut. Their real reuse still requires complete authenticated code identity. Adopting the content
+basis adds the query-specific premise to that shared requirement.
 
 **Implementation vision, once the premise holds for a query.** That query declares the `content`
 basis. Its served key replaces the cut identity by the frontier content stamp, the release and the
@@ -748,26 +822,42 @@ runtime; the rest of the key is unchanged. Two fresh identical requests then sha
 the disk tier accepts the content basis for that query so that separate command invocations share
 it as well. Authority is still acquired per request before any lookup.
 
-**Complete consumer scope.** The queries for which the premise has been shown, one at a time.
-There are five candidates beyond the identity-exclusion comparison; none is assumed.
+**Complete consumer scope.** Qualify the scoped direct entity query through the installed
+selected-result CLI and its shared retained-reader derivation. Demand, contribution, exclusion
+and other rich queries retain their stated cut basis. A further content variant joins scope
+only after the native owner supplies its complete query-specific argument and the coordinator
+records that adoption.
 
-**Prerequisites.** UDM-13 supplies the declared basis. The premise is settled by the native owner
-for the query in question. **Native revision.** None expected. If showing the premise requires a
-read program to stop reading an instance field, that change must land before the identity
-transition revision is frozen and joins whichever planned revision is still open. Otherwise
-UDM-15 waits for that query, with T4 and D4 unchanged for it, unless the coordinator accepts one
-further revision before final source.
+**Prerequisites.** UDM-13 supplies the declared basis, and UDM-10's code-closure follow-up
+supplies complete authenticated derivation identity. The native owner settles the content
+premise for the query. Qualify the authored entity fixture before using it to close T14.
+
+**Native revision.** None expected for the existing scoped entity witness. If settling a further
+premise requires changing a native read program, record it through the coordinator's current
+revision route before enabling that variant. Keep qualification scoped to the native head that
+actually supplied its read and disclosure contracts.
 
 **What this keeps open.** The basis is declared per query and defaults to the safe one, so a query
 whose dependence on the read instance is unknown stays correct without any decision being forced.
 An undetermined premise withholds only the wider reuse.
 
-**Acceptance evidence.** For a query declared `content`: two fresh acquisitions over unchanged
-frontier content share one entry and return equal rows. A change to any field the owner's
-argument lists as a determinant (the content stamp, the release, the authorization scope, and
-`public_disclosure` where it is in the key) produces a different key. A query without the
-declaration is unaffected. The list of determinants in the test is copied from the owner's written
-argument, not computed from the key function.
+**Acceptance evidence.** For the adopted direct entity request, two fresh native acquisitions
+of one immutable admission share one derived entry while returning distinct current native pins.
+Use actual code identity and independently expected entity rows. Changing the content witness,
+release, runtime, authorization scope or disclosure premise prevents stale reuse. Refusal of a
+revoked or wrongly scoped request occurs before entry lookup and leaves the hit counter
+unchanged. Author the determinant expectations independently of the key function.
+
+First assess the existing authored-publication fixture in
+`tests/semantic/record_publication_native_support.py` against private N34. It creates typed entity
+and proposition packets and commits through native publication. Extend the selected-reader
+pagination journey in `test_record_publication_native.py` with an entity request, retain its
+published root across two fresh processes, and verify one derivation and fresh per-request
+pins through the installed CLI. This is a source-inspected feasibility lead. Prove its fixture
+viability before using it for acceptance. Its outcome and any missing prerequisite remain
+explicit. The separate upstream PDF fixture failure stays with its existing owner and is not a
+prerequisite for this authored entity case. T14 and the applicable D2/D4 acceptance controls
+join [UDM-22's final-source union](qualification.md#udm-22--the-managed-union-on-final-source).
 
 ## Open premises
 
@@ -778,7 +868,9 @@ argument, not computed from the key function.
 | A1. Whether any served result is independent of authorization | The native owner, per query | Whether a key may drop the authorization scope; the default keeps it |
 | M1. Whether per-command model compilation or worker start is material | The bounded observation of UDM-13 on the stage, before final source | Whether the on-disk model tier is adopted and anything is warmed; the default is that neither happens |
 | S1. Footprints of CPU runtimes, retained bytes of releases, the count of distinct macro tables | The same bounded observation | The defaults `runtime_bytes`, `release_bytes` and `parser_entries` |
-| G1. Generated bytes depend on no ambient state outside the D2 key | The entry step of UDM-14 reads the generator closure | Whether D2 is sound as keyed; a found input joins the key or is removed |
+| G1. Exact generator artifacts depend only on captured input/provenance and authenticated executing code | UDM-14 captures named resources, runtime/model inputs and copied bytes before keying, then closes the bounded rendering workload under UDM-10. Any broader capture must enforce the same complete-input contract | D2 eligibility and the shared T2 basis. A missing input is captured or removed before enabling reuse |
+| C2. The selected reader's determining initialization and call paths are closed | UDM-10's code-closure follow-up, including the review's 33 saved sites and indirect-load counterexample, with root-specific evidence | Actual T4/D4 reuse and the UDM-15 entity route |
+| E1. The authored native entity fixture is viable on N34 | UDM-15 adapts the existing committed authored-publication case and exercises two actual entity acquisitions | T14 production qualification, independently of the upstream PDF fixture failure |
 
 ## State
 
@@ -793,5 +885,5 @@ disk model caching unadopted for this increment.
 | Package | State |
 |---|---|
 | UDM-13 | Complete for the bounded N34 increment. Six process tiers, typed scientific policy projections and owner-scoped CLI and MCP diagnostics passed scoped qualification. Incomplete serving code identity still permits a fresh page. |
-| UDM-14 | Shared disk store and D2/D4 consumers integrated. Actual cross-process entry-point reuse remains open pending authenticated code closure. |
-| UDM-15 | Two-cut exclusion basis corrected. Direct entity content reuse is bounded to its authorized immutable root and complete code identity. Other query variants retain the cut basis. |
+| UDM-14 | Shared disk store and D2/D4 consumers integrated. Shared generator capture, narrower authenticated read derivation and actual entry-point qualification are scheduled by the code-closure amendment. |
+| UDM-15 | Two-cut exclusion basis corrected. Direct entity witness integrated. Real reuse requires the shared code-closure contract and a viable authored native entity fixture. Other query variants retain the cut basis. |

@@ -157,6 +157,36 @@ maintenance do not themselves change native authority or material identity.
 configured bounds, retained weights, and available counters. `inspect_cache` reports the
 long-lived retained-reader MCP process using the same typed shape.
 
+<a id="code-reuse-explanation"></a>
+
+### Local explanation of code reuse
+
+**Planned amendment · 2026-11-19.** Integrate
+[code-closure review I04](../../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I04)
+from commit `1982a20c3` into the existing authoring and selected-read routes. Add the local
+`--explain-reuse` option to `ci schema native-candidate`, the model-change preparation routes,
+`ci query` and `ci contributions list`. This projects the facts already produced by the owning
+operation. The [UDM-10 follow-up](programs-identity-and-revisions.md#udm-10-code-closure)
+owns typed closure facts and unknowns, and UDM-14/15 own actual retention eligibility and
+native authorization. Requesting explanation never bypasses a prerequisite or performs a
+second dependency scan against a later checkout.
+
+The typed bounded explanation names the entry point, affected tier, whether derivation or reuse
+proceeded, the blocking source site and semantic owner, the supported dependency path where
+known, and the next supported action. Preserve distinct standing for proven relationships,
+runtime observations and unresolved edges. A bounded view reports omitted detail explicitly.
+The ordinary public read keeps its compact eligibility report, with source detail exposed only
+through this opt-in local route. Each response's authorization still governs its native facts.
+The JSON and terminal presentations consume one explanation product. A fresh CLI report names
+the actual observed process and never claims another process's counters.
+
+Use the existing managed-result inspection route when a retained authoring result is selected,
+and its retained explanation where available. Missing prior detail is reported as unavailable.
+Do not reconstruct it from current code under the old result's identity. The first-source-site
+and omitted-count formatter in `semantic/serving_code.py` moves to the shared typed report
+when its CLI and MCP consumers migrate. The compact public projection remains a consumer of
+that report. Complete this migration with the new explanation path.
+
 ## Library realization and output contract
 
 The installed pins at the source baseline are **Typer 0.28.0** and **Rich 15.0.0**. The repository's
@@ -194,6 +224,14 @@ the same facts. `typer.testing.CliRunner.invoke` supplies focused command tests 
 another command harness ([0.28.0 testing.py](https://github.com/fastapi/typer/blob/0.28.0/typer/testing.py)).
 Cachetools 8.0.1 API choices and their conditions remain in the [cache companion](cache-system.md);
 this package adds no cache wrapper or monitoring store.
+
+For the local reuse explanation, declare the option through Typer 0.28.0
+`Annotated[bool, typer.Option(..., rich_help_panel=...)]` on the existing commands. Serialize
+its Pydantic 2.14.1 report using `BaseModel.model_dump_json()` through the existing output
+owner. Use Rich 15.0.0 `Table.add_row` for site and status columns and `Tree.add` for a bounded
+dependency path, deriving both from typed facts. A static explanation requires no `Live` scope.
+The API references above supply these contracts. Test option forwarding, omitted-detail
+standing and matching facts in terminal and JSON with `typer.testing.CliRunner.invoke`.
 
 <a id="udm-26"></a>
 
@@ -238,6 +276,8 @@ the early contract.
 **Mature slice.** Once UDM-04, UDM-09–12 and UDM-25 provide their implemented typed products, wire
 compiled-model/program/validity/material-reuse consequences into the existing projection and
 model-change reports. Consume UDM-13/14 statistics and maintenance reports as those packages land.
+The local code-reuse explanation consumes UDM-10's implemented closure facts and UDM-14/15's
+actual eligibility decisions. It can report unresolved custody before real reuse qualifies.
 UDM-21/23 exercise Standard/Integrated observations with actual native/provider owners. Deliver
 the complete package before UDM-22/23's assembled qualification; an early usable report does not
 close its mature integration obligations.
@@ -246,14 +286,17 @@ close its mature integration obligations.
 `cli/demands.py` create/plan/read/execute/cancel, `cli/managed.py` inspect/watch,
 `cli/result_inspection.py`, `cli/observations.py`, `cli/observation_logging.py`,
 `orchestrate/source_reporting.py`, `cli/status.py`, `cli/model.py`, `cli/source_inspection.py`,
-`cli/target.py`, and the output/registration owners where their interfaces change. Source/PDF
+`cli/target.py`, `cli/schema.py`, `cli/selected_results.py`, and the output/registration owners
+where their interfaces change. Include `semantic/serving_code.py`'s compact report consumers.
+Source/PDF
 entry points and MCP callers using the same execution/report services must retain their exact
 bindings and consume the revised contracts. Enumerate the actual call sites at entry; the list
 is migration scope, not permission to duplicate their semantic owners. Coordinate shared edits
 with UDM-04/09–14/25 and UDM-27.
 
 **Removes.** Shell-only partial recovery reconstruction, duplicate status/progress interpretation,
-ambiguous complete-count displays, and stale preview/report consumers when their successor lands.
+ambiguous complete-count displays, the separate first-site code-reuse formatter and stale
+preview/report consumers when their successor lands.
 Keep legitimate native-demand entry points; no permanent adapter to inferred historical defaults
 is required. **Native revision:** none for the presentation/recovery contracts themselves;
 native facts and any installed changes remain with their semantic package.
@@ -278,6 +321,11 @@ native facts and any installed changes remain with their semantic package.
 - Help/completion stays passive. TTY, non-TTY, piped JSON and closed-pipe paths preserve report
   custody and exit behavior. Cancelling watch closes only the watcher. Cache reports do not claim
   remote process counters or native-product invalidation from a local clear/prune.
+- `--explain-reuse` shows the actual authoring or read operation's eligibility and owner-supplied
+  dependency path in bounded terminal and JSON views. An unresolved site, a proven exclusion
+  and a runtime observation keep their distinct standing. Missing prior detail is unavailable.
+  The compact public response keeps its eligibility projection, and an opt-in explanation
+  grants no additional native authority or reusable identity.
 
 Use independently stated expected selections/counts/effects and injected boundaries that fail if
 preview mutates or prepares providers. Do not validate a report by comparing it with another

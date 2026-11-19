@@ -71,6 +71,12 @@ correspondence to its operation, exact input/support binding, logical context, p
 selection, output contract and replicate. An unknown determinant withholds recovery with a
 reason. It does not license guessing that the computation was equivalent.
 
+The [UDM-10 code-closure follow-up](programs-identity-and-revisions.md#udm-10-code-closure)
+owns any change to the producing identity consumed here. Where its authenticated source basis
+changes, verify original attempt and contributor attribution, exact compatible checkpoint reuse,
+and withholding on an unresolved determinant. The selected-read closure alone establishes no
+producer compatibility. Keep the existing attempt-scoped path available under incomplete identity.
+
 UDM-12 supplies current validation and reconfirmation. The applicable family set is computed
 under the current declaration, including a newly applicable or newly ready family. Matching all
 entries in an old seal is insufficient when the current required set is larger. Original

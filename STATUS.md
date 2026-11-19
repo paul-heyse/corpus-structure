@@ -26,8 +26,9 @@ _Updated 2026-11-19. PostgreSQL stage runs N34 and its matching source-native st
 - **Blocked.** Actual UDM-14 and UDM-15 reuse requires complete executing-code closure. The private native entity check also stopped in upstream PDF fixture execution (`e4897ace76444762b38a2ef6ae5dc81a`). [Cache evidence](docs/design_review/evidence/2026-11-19_udm14-15-disk-cache/README.md)
 - **Passed.** `uv run python docs/design_review/evidence/2026-11-19_udm-code-dependency-closure/probe.py` reproduced the four scans and showed where the analyzer over-includes an uncalled function and misses an indirect import in a bounded fixture. [Probe evidence](docs/design_review/evidence/2026-11-19_udm-code-dependency-closure/README.md)
 - **Passed.** `uv run ci docs check` verified the code dependency review and evidence publication (`8d97da28095a472c918246c8dcc68133`).
+- **Passed.** `uv run ci docs check` verified the UDM code-closure plan amendments (`dfd06c9667d04feebeb667cd9a75fb5e`). Production tests were `not_run` for the documentation amendment.
 
 ## Next execution
 
-- Continue the remaining [UDM packages](docs/plans/unified-domain-model-and-execution_2026-11-19.md#queue). The [code dependency review](docs/plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md) proposes how to close generator and selected-read code identity and qualify the real reuse paths. The bounded stage derives fresh results under incomplete identity.
+- Continue the remaining [UDM packages](docs/plans/unified-domain-model-and-execution_2026-11-19.md#queue). The [code dependency closure amendment](docs/plans/unified-domain-model-and-execution_2026-11-19.md#code-closure-dispositions) schedules shared code custody followed by independent generator and serving reuse qualification. The direct entity case also needs a viable private native fixture. The bounded stage derives fresh results under incomplete identity.
 - The [qualification companion](docs/plans/unified-domain-model-and-execution/qualification.md) owns the regional performance reproduction, canonical adoption, the whole-book run and the final qualification union. Chandra OCR remains excluded.

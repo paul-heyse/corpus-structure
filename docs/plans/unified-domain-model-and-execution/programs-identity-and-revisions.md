@@ -1,6 +1,8 @@
 # Programs, identity and revisions: the program registry, the identity layers, revisions by program bytes and carried assurance
 
-**Status:** In progress. The typed registry and transition programs are integrated.
+**Status:** In progress. The typed registry and transition programs are integrated. The
+[UDM-10 code-closure follow-up](#udm-10-code-closure) is scheduled for the generator and selected
+readers, with real reuse qualification still open.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-08** (the execution path generates nothing), **UDM-09**
@@ -290,7 +292,8 @@ full releases, runtime attestations, producer attempts, and generator evidence r
 An orchestration, settlement, authoring or downstream edit which cannot change the result does
 not move its producing identity. Trace the current fixed PDF lowering list from
 `semantic/pdf_lowering.py:31` into the actual operations before dropping any dependency.
-Keep a sound coarse closure where the role cannot be narrowed. An unknown required determinant
+A broader closure can authorize reuse only when its supported execution and material-input
+contract is complete. The module discovery scan alone cannot establish that premise. An unknown required determinant
 withholds reuse with a diagnostic. [Recovery](operation-reuse-and-recovery.md#udm-25) consumes this
 basis for checkpoints and drafts. [CLI](operational-cli.md#udm-26) projects the resulting decisions.
 
@@ -301,44 +304,44 @@ cache entry compatibility. Identify when an older opaque cursor cannot be interp
 new basis and report its explicit transition refusal. A later storage-only version move must
 leave a current semantic continuation usable, even if its cached page needs deriving again.
 
-Python code that determines a result but is not an installed program (PDF lowering, served read
-helpers, opaque construction and formal boundaries, the generators themselves) gets a derived
-identity in two stages.
+Python code that determines a result outside an installed program receives a workload-specific
+identity from one authenticated source capture. The capture supports separate projections for
+import initialization, reached callable behavior, explicit dynamic capabilities and copied
+artifact provenance. A normalized syntax digest names the captured meaning. The executing code
+must also correspond to the admitted bytes through the shared import-custody mechanism.
 
-*Stage one, the module closure,* is always computed and is sound but coarse. A small function that
-uses only the standard library walks every import statement from the declared entry modules,
-function bodies included; resolves relative imports; maps first-party names to files under the
-package root without importing anything; skips the bodies of `if TYPE_CHECKING:` blocks; maps
-third-party top-level names to distributions and their versions; and drops standard-library
-modules, which the interpreter version covers. Each module contributes the digest of its parsed
-syntax, in the manner of the existing module meaning projection
-(`semantic/python_module_projection.py:110–120`), so comments and layout do not count. A
-non-literal `importlib.import_module`, `__import__`, `spec_from_file_location`, or an `exec` or
-`compile` of loaded text inside the closure marks the identity **incomplete** and records the
-location.
+**Implemented baseline · 2026-11-19.** The static module scanner follows import statements,
+including function-local imports and package parents, records recognized dynamic forms, and maps
+external imports through distribution metadata. Its optional closed-source slicing refuses
+uninterpreted initialization. The [closure probe](../../design_review/evidence/2026-11-19_udm-code-dependency-closure/README.md)
+reproduced 33 identical diagnostic sites for four roots and showed both an uncalled import being
+included and an indirect import whose determining helper was missed despite a reported complete
+identity. These observations supersede the earlier premise that the module walk is generally
+sound. A module count or the absence of recognized dynamic syntax cannot establish completeness.
 
-*Stage two, narrowing by the existing slicer,* is used where reuse is costly. The closed-source
-extractor (`semantic/python_operation_sources.py:239`, `implementation_slice` at `:1063`) does not
-discover modules; it is given the stage-one module set and the declared entry callables. When the
-slice has no unknowns, the identity is the reached definitions' normalized nodes, their modules'
-top-level statements and the distributions those reach. When it has unknowns, stage one stands.
-Stage two applies to PDF lowering and to opaque boundaries. Served reads may stay on stage one: a
-miss after an unrelated edit is cheap, and the serving process restarts on drift in any case.
+**Target · Proposed.** The [code-closure follow-up](#udm-10-code-closure) derives reusable identity
+relative to an explicit supported workload. A required unresolved binding, initializer, dispatch
+or external input withholds reuse. A coarser captured execution boundary is viable when its
+material inputs and effects are bounded and verified. Discovery results remain attributable
+evidence and can explain a blocker. Runtime observations can reveal edges for investigation.
+The owner's supported execution contract establishes whether the required edges are complete.
 
-*Custody* is unchanged in mechanism (RC10). Query custody's finder and loader stay and compile
-exactly the hashed bytes; its hand allowlist is replaced by the stage-one module set computed at
-process start for the declared served entry modules. Drift still refuses with a restart
-instruction.
+Query custody's finder and loader compile the admitted bytes and verify loaded module identity.
+The bootstrap itself receives explicit custody. Shared metadata checks continue to detect supported
+file and module drift, which requires restart under [ADR-0137](../../adr/0137-serving-code-and-model-custody.md).
+Preparation retains its immutable source capture and checks the relevant runtime premises when
+that capture is used.
 
-*An incomplete identity withholds reuse and never refuses service.* The result is computed and
-served. It is not cached, not offered as a resumable continuation and not reused as a lowered PDF
-record, and an opaque boundary's recipe carries an unknown determinant so that its request
-identity is not reused. A diagnostic names the dynamic site. This is ADR-0092's existing rule that
-unknown required determinants refuse reusable identity (`docs/adr/0092-ddo-operation-authority.md:27`),
-applied to code.
+An incomplete determining identity permits fresh computation under the existing authorization
+contract. Serving withholds cached rows and resumable cursors, PDF lowering withholds eligible
+record reuse, and opaque operation recipes retain their unknown determinant. The diagnostic
+names the required missing premise. The existing producing path retains its demand-scoped
+execution and original-attempt recovery constraints while its closure is unresolved.
 
-Stage one parses about 450 files once per process or per preparation, and stage two runs in
-preparation, keyed by module digests. Neither runs per request.
+Parse and resolve a captured population once per source/runtime basis, using the existing shared
+parser cache and lock. Repeated use checks the already established runtime premises through
+custody and the relevant authenticator. Acquisition and cache lookup consume the resulting
+identity and report rather than reparsing a checkout on every request.
 
 ### The release id and generator provenance (RC11)
 
@@ -489,8 +492,8 @@ family added later needs no change here.
   [importlib.metadata](https://docs.python.org/3.14/library/importlib.metadata.html).
 - **The closed-source extractor** (`semantic/python_operation_sources.py`) records a
   `SourceUnknown` for an unresolved reference or a missing body (`:1152–1171`) and fails on
-  unsupported dynamic call forms (`:2118`). Premise C1 asks whether it resolves the PDF lowering
-  and served-read entries.
+  unsupported dynamic call forms (`:2118`). The [code-closure follow-up](#udm-10-code-closure)
+  extends its captured-source projections and defines the supported workload contract for C1.
 
 ## What this supersedes
 
@@ -649,12 +652,11 @@ edit.
 
 **Implementation vision.** The package has two slices with different prerequisites.
 
-*The code identity slice* needs no other package and no revision. It adds the stage-one walk and
-the stage-two narrowing, computes the served-read module set at process start in place of the
-allowlists, and gives PDF lowering and the opaque boundaries their derived identities. An
-incomplete identity is a value, not an exception: consumers that hold results ask whether the
-identity is complete before they reuse. Lowered PDF records are computed again once, because their
-identity changes. The cache companion's served key and its program store consume this slice.
+*The initial code identity slice* established derived source capture, conservative incomplete
+identities and bounded slicing on N33. Its broader closure guarantee is revised by the
+[code-closure follow-up](#udm-10-code-closure), which supplies the complete supported workload
+identity needed by UDM-14 and UDM-15. PDF lowering and opaque boundaries consume the same shared
+contract. A changed producing identity selects its normal re-preparation and reuse consequences.
 
 *The native identity slice* begins with the program identity function, a digest over a
 declaration's rendered statements, which needs UDM-09 only and installs nothing; the cache
@@ -702,8 +704,9 @@ authority.
 - The kernel identity computed from the registry equals the one computed from the head frozen
   state file by an independent few-line computation over that file.
 - A docstring or helper edit in a captured authoring module, made in a temporary copy, that
-  changes no rendered byte leaves every identity and the release id unchanged, and seals skip the
-  battery.
+  changes no rendered byte preserves the native program, kernel and family identities. Exact
+  source bytes recorded in the replay artifact still change its provenance basis and D2 key.
+  The existing receipt and release rules determine any other material consequences.
 - A fixture generator variant adds one statement to one family's validator. Only that family's
   validator identity and the kernel identity change; only that family's receipts run the battery
   and record reconfirmation. The expected sets come from a hand-written fixture map from family to
@@ -725,6 +728,109 @@ authority.
 - A change to one family's validator or completion guard leaves the conservative validator's
   identity unchanged, so the derivations of an undetermined operation stay valid; a change to a
   guard alone moves its family's validator identity.
+
+<a id="udm-10-code-closure"></a>
+
+#### UDM-10 code-closure follow-up
+
+**Scheduled target · Proposed · 2026-11-19.** Incorporate
+[I01](../../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I01)
+of the code dependency review, published at `1982a20c3` against production baseline `aa128c808`.
+The native N33 transition evidence below retains its bounded scope. This follow-up supplies
+workload identity to [UDM-14 and UDM-15](cache-system.md#udm-14--the-two-on-disk-tiers), and
+attributed diagnostics to [UDM-26](operational-cli.md#udm-26). The coordinator owns execution
+state and review disposition.
+
+**Resulting behavior.** Capture one immutable source population with its module identities,
+origins and exact bytes. Derive the necessary initialized modules and callable dependencies
+for the selected entry. An import performs initialization, while a local import inside an
+uncalled function requires a separate callable-reachability edge. Model eager decorators,
+defaults, class bodies, bases/metaclasses, supported annotation evaluation, alias rebinding and
+receiver dispatch. Include any relevant module state and external resources in the workload's
+input contract. Each node, edge or unknown retains its source site, operation owner and evidence
+kind. A finite explicit capability may close a dynamic operation when its executing code,
+permitted inputs and runtime binding are verified.
+
+The generator's capture includes code used in rendering and exact source bytes copied into
+`ProgramSetArtifact`. A native-authoring module outside the render call path may still be a
+material copied resource. UDM-14 owns its complete generator input acquisition and T2/D2 key.
+Selected reads consume typed native authorization and cuts before lookup, with body acquisition
+on a miss and deterministic derivation under the supported query/profile contract. UDM-14/15
+own those reader boundaries and their cut/content semantics. Native authority and custody
+checks remain active when the output can be reused.
+
+**The 33-site route.** The
+[review table](../../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#disposition-of-the-33-findings)
+retains each original site and its inspected semantics. Execution carries its evidence into the
+existing identity/report rather than maintaining another findings register. For each generator,
+native-demand, rich and contribution entry, explain any retained material path or demonstrate
+why a site is outside the supported workload. Record newly exposed required unknowns as well.
+
+| Saved sites | Owning closure work and evidence needed |
+|---|---|
+| 01–04, package bootstrap and `_query_custody` | Authenticate the fixed sibling loader, exact compiled/executed bytes, loaded module and bootstrap comparison. Exercise origin replacement, mismatching code and unsupported drift. |
+| 05–06, contextual encoder and GLiNER | Account for version checks and the executed pinned correction wherever reached. Producer-only paths may exit a reader closure after its acquisition/derivation boundary is established. Runtime facts copied into the generator artifact still enter its key. |
+| 07–13, operation consumers | Verify the admitted source population, executing consumer/factory code, imported owner/member and concrete type, including re-export bindings. Retain compile-for-comparison semantics in the verifier's own dependency contract. |
+| 14–16, CPU capsule | Reuse finite captured membership, loaded module/callable provenance and exact source comparison in the CPU authenticator. |
+| 17–30, operation ports | Verify captured construction/import bindings and compile comparisons. Close annotation evaluation over its exact expression and namespace, including any second evaluation of a string. Verify parent-child module bindings as one import capability. |
+| 31 and 33, prepared and sentence products | Associate the source compiled for verification with the executing callable under authenticated byte custody. Prove producer verification is outside a direct retained-row derivation before pruning it. |
+| 32, native candidate verification | Keep execution of a generated candidate in the authoring verifier. Establish its exclusion from generation and reading, while preserving its file bytes as generator provenance wherever captured. |
+
+**Library responsibilities.** Installed versions below are the inspected `1982a20c3` pins.
+The dependency policy governs later changes. A library result retains its evidence kind and
+supported source/runtime scope in the application model.
+
+| Mechanism | Selected use and decisive contract |
+|---|---|
+| Python 3.14 `ast.parse`, `ast.dump(..., include_attributes=False)` | Parse captured bytes and normalize syntax for semantic identity. Add explicit supported initialization/effect handling in the shared model. Syntax normalization alone supplies no binding or runtime completeness guarantee. [AST reference](../../libraries/python_introspection/ast.md) |
+| LibCST 1.9.0 `ScopeProvider`, `QualifiedNameProvider`, `FullyQualifiedNameProvider` | Extend `ClosedPythonSources` metadata to scope-sensitive bindings and absolute relative-import targets. Build `MetadataWrapper(cst.parse_module(captured_bytes), cache={FullyQualifiedNameProvider: ModuleNameAndPackage(module_name, package_name)})` from admitted source and captured module context. `resolve_many` shares provider dependencies. Resolve lazy metadata through the provider/visitor API. The retained probe confirms relative aliases, and an installed-version check confirms captured provider-cache construction. [Metadata reference](../../libraries/python_introspection/libcst.md#52-built-in-metadata-providers), [1.9.0 provider](https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/metadata/name_provider.py), [wrapper cache](https://github.com/Instagram/LibCST/blob/v1.9.0/libcst/metadata/wrapper.py) |
+| Griffe 2.4.1 `griffe.visit`, `GriffeLoader.resolve_aliases(implicit=True, external=False, ...)` | Populate the existing module collection from captured source, retain `search_paths=[]` and `allow_inspection=False`, and resolve effective interfaces/re-exports within that collection. Keep unresolved/circular aliases attributable. Use the existing bounded resolution passes and captured stub distinctions. [Aliases](../../libraries/python_introspection/griffe.md#41-aliases-represent-references-not-copied-declarations), [source collection integration](../../../python/corpus-structure/src/corpus_structure/semantic/python_operation_sources.py) |
+| Astroid 4.3.4 closed manager and `AssignName.assigned_stmts()` | Preserve bounded single-assignment alias refinement over captured modules. Receiver inference can be added only within a declared closed profile that yields a unique admitted target and checks runtime binding. Multiple targets, unsupported constructors, inference failure and `Uninferable` keep required uncertainty visible. [Inference and limits](../../libraries/python_introspection/Astroid.md#3-static-inference-astroids-defining-capability), [closed manager and builder](../../../python/corpus-structure/src/corpus_structure/semantic/python_operation_sources.py) |
+| `OpaqueBoundary` and `AuthenticatedSlice` | Reuse the typed dynamic boundary and runtime premise authenticator for finite captured loads, verification and mutable callable bindings. The owner verifies loaded origins, resources and effective objects. The boundary's digest names the established contract. [Boundary model](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_model.py), [runtime authenticator](../../../python/corpus-structure/src/corpus_structure/semantic/runtime_slice.py) |
+
+Ast-grep-py 0.51.2 `SgRoot(source, "python").root().find_all(...)` supports structural inventory
+and candidate codemods. `ty` 0.0.102 `ty server` definition, implementation and reference LSP
+queries support development investigation. Their results remain discovery evidence, with
+Pyrefly retaining the repository type-checking role. If the existing typed dependency projection
+needs traversal for operator explanations, NetworkX 3.7 `descendants`, `ancestors` and
+`strongly_connected_components` provide reachability and cycle groups. The edge producers own
+binding resolution and completeness. Use that projection when its facts suffice, and retain
+partial/unknown standing when they do not. [ast-grep patterns](../../libraries/python_introspection/ast-grep-py.md#3-structural-pattern-matching),
+[ty public interfaces](../../libraries/python_introspection/ty.md),
+[NetworkX traversal](../../libraries/scientific_compute/networkx.md#3-traversal-paths-reachability-and-connectivity).
+
+**Integration and retirement.** Extend the existing source collection and import-custody owners.
+Migrate generator capture, every `installed_read_implementation` consumer, PDF lowering,
+operation code assets, opaque construction and the UDM-25 checkpoint/draft compatibility reader
+where the shared result changes. Preserve each operation's material parameters and original
+producer attribution. Each workload's completion includes its actual consumer entry and useful
+independent verification. Retire the authoritative module-wide alias heuristic, blanket
+initializer refusal and syntax-list completeness decision for migrated supported workloads.
+Retain useful broad discovery diagnostics under their weaker evidence contract. The cache
+owner removes the obsolete T2 fallback and D2 duplicate sweep with the replacement capture,
+and the CLI owner moves the first-site formatter to the shared typed explanation.
+
+**Prerequisites and choices.** Establish bootstrap custody and typed workload input acquisition
+before dependent reuse. The source collection can be improved alongside these contracts.
+D2 and D4 can then integrate independently. A broader generator envelope is a conditional
+alternative when its finite code, initialization, material files and ambient inputs can be
+bounded and verified. A restricted worker is conditional on an acquisition boundary that the
+in-process contract cannot enforce. Record the settling evidence and dependent work in the
+owning package before selecting either. Preserve ADR-0137's semantics and route any necessary
+rule change through the existing decision owner. The code follow-up requires no native revision
+unless its implementation changes installed bytes under UDM-11's normal comparison.
+
+**Acceptance.** Retain the indirect-import counterexample with independently expected results.
+Add controls for shadowed aliases, relative imports/re-exports, type-only and runtime branches,
+eager decorators/defaults/class initialization, supported receivers, ambiguous dispatch,
+annotation namespaces, copied provenance and verified dynamic loads. Require an unmodeled
+required determinant to remain incomplete. Verify changed determining code/resources change
+identity and proven unrelated edits preserve reuse. Authenticate actual executing bytes and
+exercise drift and origin replacement. UDM-14 owns two fresh authoring/reading process journeys
+with actual identity discovery, and UDM-15 owns the private native entity witness journey.
+[UDM-22](qualification.md#udm-22--the-managed-union-on-final-source) includes the affected final
+source selection. A controlled complete identity exercises a cache consumer but cannot settle
+this follow-up's actual entry-point closure.
 
 ### UDM-11 — A revision only when installed bytes differ
 
@@ -826,7 +932,7 @@ resolved by its exact intent, publication, or recovery authority before addition
 
 | Premise | What settles it | Work it constrains |
 |---|---|---|
-| C1. The slicer resolves the PDF lowering and served-read entry callables without unknowns | Run `implementation_slice` once for each entry inside UDM-10; a bounded check, with an evidence folder only if it fails broadly | Stage two in UDM-10. If it fails, PDF lowering uses the 447-module closure, which is sound and still wider than the 70-file list |
+| C1. The required initialization, callable and dynamic-input boundaries of each supported workload close | The [UDM-10 follow-up](#udm-10-code-closure) establishes root-specific attributed evidence using the retained counterexample and admitted runtime contracts | Generator and selected-reader reuse in UDM-14/15. PDF lowering and operation assets use a complete supported boundary or retain their incomplete identity and fresh execution |
 | W1. A role-granular watermark is sound: every fact that can turn a waiting obligation bindable appears in a watermark component, and removals cannot | The native owner enumerates the relations that binding and population selection read (the model inputs the registry records for the binding closure) and compares them with the components, before the transition revision is frozen | The role-granular step of UDM-12; unsettled at the freeze, it is deferred. Dropping the kernel component does not wait on it |
 | T1. The operator's trust decision for carried release proof | Accepted with RC08 on 2026-11-19; UDM-00 records it in the decision record | UDM-12 |
 | B1. The registry renders byte-identically to the head frozen revision | UDM-09's first acceptance check | Whether UDM-09 lands without a revision; differing objects join the transition revision |
@@ -1022,6 +1128,6 @@ matched the complete post-activation snapshot afterward. [Stage readback and rec
 |---|---|
 | UDM-08 | Acquisition and export use retained identities and the running wire protocol. See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment) for evidence. |
 | UDM-09 | Complete. One typed installation graph, direct grants and family declarations are integrated. The fresh install, frozen ACL correspondence and N29 conversion passed. N32 established stage generation 29. |
-| UDM-10 | Complete for the bounded stage. N33 separates native, validator, Python and material release identities. Unresolved producing code permits fresh execution under demand scope. |
+| UDM-10 | N33 bounded identity transition complete. The [code-closure follow-up](#udm-10-code-closure) is scheduled. Real generator and selected-reader reuse needs complete supported workload custody. Unresolved producing code permits fresh execution under demand scope. |
 | UDM-11 | Complete for the bounded stage. The installed kernel guard and exact program comparison passed. Both equal-byte authoring routes settled offline. |
 | UDM-12 | Complete for the bounded stage. N34 carries admitted binding and population facts and runs explicit archive and catalog proof. The cutover advanced generation 30 to 31. [Stage evidence](../../design_review/evidence/2026-11-19_udm12-carried-assurance/README.md). W1 remains deferred on the prerequisite wake-up premise. |

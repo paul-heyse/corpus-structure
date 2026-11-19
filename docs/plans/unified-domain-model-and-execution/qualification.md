@@ -256,7 +256,7 @@ selection.
 | T1 | An operation whose validity family is undetermined compiles, runs and publishes under **conservative validity**, and the run reports it with the `validity_undetermined` diagnostic. It is never refused for being undetermined. The union shows this with a fixture operation left deliberately undetermined, run on the stage; the book does not exercise it | UDM-06 |
 | T2 | A generator edit that changes no installed program byte produces no native revision: the candidate is not authored | UDM-11 |
 | T3 | Acquisition performs no generation. It compares the installed kernel with the digest the release records, and refuses on a difference | UDM-08 |
-| T4 | A repeated identical read from the command line, in a new process, reuses a continuation page, after authority is rechecked | UDM-14 |
+| T4 | Actual CLI invocations in separate processes reuse an eligible continuation page under complete authenticated serving identity, after native authority is rechecked. Revocation refuses before lookup. Rows, order, ordinals and bounds match independently specified expectations, and a storage-only change preserves a compatible semantic cursor | UDM-10 code-closure follow-up, UDM-14 |
 | T5 | Declaring a validity family on an operation inside a test causes every guard, validator and dispatch to select that operation, with no edit to any program | UDM-05 |
 | T6 | Editing one family's validator program, one of that program's callees or the family's completion guard reconfirms only work sealed under that family; work sealed under other families is not replayed | UDM-10, UDM-12 |
 | T7 | A change confined to the kernel does not move the inputs watermark, so a waiting obligation whose prerequisites are unchanged is still skipped | UDM-12 |
@@ -266,14 +266,14 @@ selection.
 | T11 | Refusal at generation or preparation occurs only for internal inconsistency (a field outside the declaration, a member outside a closed vocabulary, a self-contradictory or unmet family claim, a dangling name) and for omissions in the integrity layer (a grant, guard, role, support-edge kind or privileged-effect owner). An undetermined declaration or an unknown term of an open vocabulary never refuses | UDM-03, UDM-07 |
 | T12 | A long-lived process notices on its next use that the active generation changed, without being told | UDM-13 |
 | T13 | Immutable release content is not hashed again at each acquisition; an explicit verification command detects a tampered archive | UDM-12 |
-| T14 | A fresh request reuses a served result under its declared basis, if the premise of UDM-15 is settled in favour; otherwise this row is recorded as not adopted | UDM-15 |
+| T14 | Two fresh authorized acquisitions of an immutable admitted entity reuse one derivation under the supported content witness and complete authenticated code identity, with equal eligible rows and fresh native pins. Wrong scope or revocation refuses before lookup. Other query variants retain their declared cut basis until their own content premise is settled | UDM-10 code-closure follow-up, UDM-15 |
 | T15 | A source demand under a release uses that release's archived slices after the working tree's copy changes | UDM-18 |
 | T16 | Timestamps in analytical exports are labelled UTC whatever the machine's zone | UDM-16 |
 | T17 | Nothing imports the earlier model, and neither retired migration tree exists | UDM-04, UDM-19 |
 | T18 | Independently expected producer fates for nonmaterial edits, equal-content cutoff, one changed region, material recipe/input/contract changes, a newly applicable or changed validator, revoked support and intentional replicates | UDM-05/07, UDM-10/12, UDM-16/18 |
 | T19 | Pre-retention rollback, crash after acknowledgment and unknown commit each follow their owning recovery route. Exact draft or PDF contributor evidence survives eligible adoption; stale writers, tampering and incompatible bases refuse. Concurrent consumers settle one result | UDM-25 |
 | T20 | Two writers, reader racing prune, and cache storage-only version change preserve read semantics. Prune or process exit leaves acknowledged production work recoverable | UDM-10, UDM-13/14, UDM-25 |
-| T21 | Passive preview and exact managed retry preserve target, effective policy, and original selection. Bounded, attributed progress and typed model impact agree across terminal and JSON. Watch exit has no effect on the run | UDM-26 |
+| T21 | Passive preview and exact managed retry preserve target, effective policy, and original selection. Bounded, attributed progress, typed model impact and opt-in local reuse explanations agree across terminal and JSON. Explanations attribute unknowns and dependency paths to the owning operation. Watch exit has no effect on the run | UDM-26 |
 | T22 | Exact local stop, stale or unverified identity refusal, demand detach with surviving shared interest, nested uncertainty and independently verified retirement | UDM-27 |
 
 The book does not exercise T1. Every operation of the book pipeline (capture, organization,
@@ -283,6 +283,58 @@ the operator chooses to mark an operation undetermined. Whether the conservative
 settlement, whose lock timeout is five seconds and which is the phase where the last book run
 failed, is settled by UDM-06's bounded observation on the stage before revision A is frozen, and
 so before either final run.
+
+<a id="code-closure-qualification"></a>
+
+### Code closure and real reuse qualification
+
+**Planned amendment · 2026-11-19.** This section consumes the
+[code dependency closure review](../../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md)
+at commit `1982a20c3`. The review's fixtures establish bounded analyzer behavior. Actual
+production reuse remains open under the [UDM-10 follow-up](programs-identity-and-revisions.md#udm-10-code-closure)
+and UDM-14/15. The 33 reported source locations are shared by the four captured roots.
+Coverage must follow each supported workload, including newly exposed unknowns, and account for
+every original site through the identity owner's resolution or justified exclusion.
+
+**D2 acceptance.** Run two fresh processes through installed `ci schema native-candidate`
+with one isolated cache root and unavailable database endpoints. Use actual generator input
+capture and custody. Establish one rendering and equal validated artifacts and manifests.
+Independently vary a rendering determinant, effective model input, named resource, runtime
+version and exact source bytes copied into artifact provenance. Each material change must
+prevent a stale hit. An edit outside execution and copied provenance must preserve the basis.
+Keep physical-model, manifest and predecessor checks after hydration. Compare the resulting
+N34 declarations through the existing offline `no_native_change` route. A controlled complete
+identity or an overridden store key establishes only the corresponding consumer control.
+
+**T4 acceptance.** Exercise `ci query` for a native demand view and a rich query, plus
+`ci contributions list`, with the second page requested in a fresh process. The native check
+must precede the disk lookup. A valid hit avoids full support rederivation, while page rows,
+ordering, ordinal position and encoded bounds match independent expectations. Change selection,
+support, implementation, disclosure or runtime and verify that an incompatible page cannot be
+reused. Change storage compatibility alone and verify rederivation under a compatible semantic
+cursor. Exercise the shared MCP derivation and custody path under its actual process cache
+scope. A missing or unknown determining code input remains visible and withholds cache and
+continuation while fresh authorized derivation remains available.
+
+**T14 fixture and acceptance.** First establish that the authored-publication setup in
+`python/corpus-structure/tests/semantic/record_publication_native_support.py` can publish an
+explicit entity through private N34. The existing
+`test_native_selected_reader_pages_and_pins_actual_product_and_support` provides the native
+publication and cursor journey to adapt. Use the same committed native target from two fresh
+processes and independently authorized acquisitions. Verify one derivation, identical eligible
+entity rows and distinct current native pins. A revoked or differently scoped acquisition
+must refuse before a hit counter changes. Fixture viability is source-inspected and remains an
+execution prerequisite. The earlier upstream PDF fixture failure stays with its owner and
+does not establish the entity witness. Keep T14 open for the adopted direct entity variant
+until this journey passes. A later variant whose premise is declined is recorded as not adopted.
+
+**Shared negative controls.** Include eager initialization, relative aliases and re-exports,
+rebound import names, runtime guards versus type-only imports, indirect loads, receiver dispatch,
+annotation evaluation, copied provenance and authenticated dynamic operations. Expectations
+come from authored inputs and independently specified effects. A successful inference alone
+cannot establish imported-code custody. A missing serving context cannot grant production
+reuse. Retain targeted codec, corruption, publication and prune controls alongside these actual
+entry-point journeys. Their final-source identities join UDM-22's existing selection.
 
 ## What this supersedes
 
@@ -691,8 +743,8 @@ passing, and it is designed to produce a useful account whatever it finds.
 
 **What counts as passing.** The package is complete when every identity of the required
 selection has, on final source, either a passing receipt or a recorded failure of the second
-class with a named owner, and no identity is unaccounted for. The target obligations T1 to T17
-(T14 only if UDM-15 adopted it) and every restated obligation must have passing receipts: a
+class with a named owner, and no identity is unaccounted for. The target obligations T1 to T22
+(T14 for the variants UDM-15 adopted) and every restated obligation must have passing receipts: a
 failure among them is by definition of the first class. The closing account states the result per obligation in the repository's four
 words and gives no aggregate figure. Whether open second-class failures prevent the series from
 closing is the coordinator's and the operator's judgment at UDM-24, made with that account in
@@ -712,8 +764,11 @@ prerequisite named.
 series' design packages are part of the selection. The managed result store, the evidence folder
 for retained copies, and stage.
 
-**Prerequisites.** The functional packages UDM-01 to UDM-19 supply final source, with UDM-15
-only for the queries whose premise was settled; T14 is otherwise recorded as not adopted.
+**Prerequisites.** The functional packages UDM-01 to UDM-19 supply final source, including the
+[UDM-10 code-closure follow-up](programs-identity-and-revisions.md#udm-10-code-closure) and the
+[real D2, T4 and T14 journeys](#code-closure-qualification). UDM-15 supplies the supported
+direct entity witness and complete code identity. Additional query variants enter T14 only
+when their premise is settled, and a declined variant is recorded as not adopted.
 UDM-25–27 supply recovery and operational controls. UDM-20
 supplies the knowledge that the native composition path completes, with any repair it made
 confirmed on the stage. The bounded observations of the design packages are complete, UDM-06's
@@ -884,7 +939,7 @@ only when both accounts are on the same commit.
 | Retained sentence and formal-evidence products have eligible exact inputs under the final capture | UDM-23 census and equal-content cutoff | Which downstream work the first final-head demand must execute |
 | The fault lane can have the native host to itself | Arrangement with the operator before UDM-22 | When UDM-22's step 3 runs |
 | One full run can serve both this series and TDM-18 | The test series' own judgment of applicability | Whether the test series repeats the run |
-| The premise of served-result reuse is settled (DA-075) | Decided in UDM-15 | Whether T14 is a union row or recorded as not adopted |
+| A supported content witness exists for a served-result variant (DA-075) | UDM-15 supplies the direct entity witness. Each additional variant needs its own argument | T14 remains required for direct entity reuse. Additional variants join when adopted and are recorded as not adopted only when their premise is declined |
 
 ## State
 
