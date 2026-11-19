@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "id": "udm20.retained-diagnosis",
+  "title": "Preserved book failure boundary and bounded replacement controls",
+  "group": null,
+  "package": "UDM-20",
+  "finalized": "2026-11-18",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What do the original receipts establish about settlement durability, nested uncertainty and discovery, and what still requires live bounded confirmation?",
+  "answers": [
+    "UDM-20",
+    "UDM-25"
+  ],
+  "method": "Read the three held managed manifests and their existing durable artifacts, export the original sealed book journal, verify its digest and summarize it without opening a database. Compare named replacement native controls within their recorded scope. Managed native enrichment reported unavailable, so infer no current intent standing.",
+  "commands": [
+    "uv run ci results show 1dd5d45ded4b4ea38399fb121a44d28c --json",
+    "uv run ci results show 3fed447a2a5649538c80ac05c1ed7c47 --json",
+    "uv run ci results show 82ba77a0731148faa0bd827ead1373cb --json",
+    "uv run ci test failures 3fed447a2a5649538c80ac05c1ed7c47 --json",
+    "uv run ci test failures 82ba77a0731148faa0bd827ead1373cb --json",
+    "uv run ci results inspect 1dd5d45ded4b4ea38399fb121a44d28c --view observations --severity ERROR --limit 100 --max-bytes 1048576 --examined-bytes 1048576 --json",
+    "uv run ci results export 1dd5d45ded4b4ea38399fb121a44d28c --role observations --destination docs/design_review/evidence/2026-11-19_udm20-retained-diagnosis/raw/book-observations.jsonl --json",
+    "uv run python docs/design_review/evidence/2026-11-19_udm20-retained-diagnosis/summarize.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw",
+      "role": "sealed-journal-and-held-managed-manifests",
+      "sha256": "2ab76d9ee89ef8988c0feb2d2ee6bc960da281b9b4d8cbcf012ae1cd3bc8a61f"
+    },
+    {
+      "path": "summarize.py",
+      "role": "deterministic-offline-summary",
+      "sha256": "ed07718bf48171ed301d8c81b6b6eaeb9db18f818c4320d8eea13e5c5aa9feb4"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "summary.json",
+      "role": "bounded-structured-diagnosis",
+      "sha256": "ca371fb56cfe21608fec43d9745331e8bf1386be2f5f49d973f02898e2f61019"
+    },
+    {
+      "path": "README.md",
+      "role": "findings-and-evidence-limits",
+      "sha256": "161e295c1953e516ef9e44c0b425da84df6043845a60142971e807305b2ce707"
+    }
+  ],
+  "depends_on": [
+    "2026-11-18_cli-1dd5d45ded4b4ea38399fb121a44d28c/cli.1dd5d45ded4b4ea38399fb121a44d28c",
+    "2026-11-18_cli-3fed447a2a5649538c80ac05c1ed7c47/cli.3fed447a2a5649538c80ac05c1ed7c47",
+    "2026-11-18_cli-82ba77a0731148faa0bd827ead1373cb/cli.82ba77a0731148faa0bd827ead1373cb",
+    "2026-11-19_cli-949abc3179834a57aea9598b7da470b9/cli.949abc3179834a57aea9598b7da470b9",
+    "2026-11-19_cli-fac1de3a567d40999ee4c0d8e0b2ccdf/cli.fac1de3a567d40999ee4c0d8e0b2ccdf",
+    "2026-11-19_cli-bd79f9aa68bf4915a7df0d1aa9e7b360/cli.bd79f9aa68bf4915a7df0d1aa9e7b360",
+    "2026-11-19_cli-fdd3cb361f0f406690339d723151e630/cli.fdd3cb361f0f406690339d723151e630"
+  ],
+  "results": [
+    {
+      "name": "preserved_original_managed_results",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "sealed_book_journal_records",
+      "value": 44,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "individual_execution_failure_events",
+      "value": 40,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "aggregate_reported_subexceptions",
+      "value": 41,
+      "of": null,
+      "unit": null,
+      "note": "Nested group detail is explicitly omitted; this does not identify the additional nested uncertainty."
+    },
+    {
+      "name": "settlement_statement_timeout_events",
+      "value": 9,
+      "of": null,
+      "unit": null,
+      "note": "SQLSTATE 57014 and server statement-timeout message, not measured per-statement duration."
+    },
+    {
+      "name": "release_reconstruction_refusals",
+      "value": 23,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "runtime_slice_change_refusals",
+      "value": 7,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "positioned_construction_source_refusals",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "last_pinned_native_receipt_acknowledgments",
+      "value": 58,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "last_pinned_committed_intent_inspections",
+      "value": 20,
+      "of": null,
+      "unit": null,
+      "note": "Historical last-pinned observations, not a fresh final-state census or proof that an unresolved intent is absent."
+    },
+    {
+      "name": "stage_reproduction_or_provider_runs_started",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Original failure outcomes and the exact sealed journal are preserved. The nine statement cancellations locate failure during retain-intent digest/seal work before that statement added a committed intake; separate runtime and release failures are also present. Bounded native controls establish durable answer/intent reconciliation and compatible discovery/selection, but do not reproduce unknown network commit, recover the original unresolved intent, establish all nine region sizes, isolate book SQL cost, or qualify final stage/book behavior. Original canonical and bounded stage targets are explicitly distinct.",
+  "consumed_by": [
+    "UDM-20",
+    "UDM-25",
+    "unified-domain-model-and-execution"
+  ]
+}

@@ -1,6 +1,7 @@
 # Qualification: the union restated, the book-run diagnosis, and the final runs
 
-**Status:** Not started. Plan authored 2026-11-19. Writing this plan authorizes no execution.
+**Status:** In progress. Retained diagnosis and bounded native controls are recorded.
+**Created:** 2026-11-19.
 
 This companion owns the designs of **UDM-20** (the book-run diagnosis), **UDM-21** (environments
 at the head), **UDM-22** (the managed union on final source) and **UDM-23** (the whole-book run).
@@ -329,9 +330,12 @@ observation decides. Its product is an evidence record for each failure with one
 conclusions: *explained and repaired* (the cause was observed and the bounded case now completes
 with a margin), *explained and not repaired* (the cause was observed and a change is needed,
 which is named and routed, or a repair is made and awaits the revision that carries it), or *not
-reproduced at bounded scale* (with the largest scale tried). It runs on stage, which is at N29
-and is owned scratch. It does not touch canonical development and does not start a whole-book
-run.
+reproduced at bounded scale* (with the largest scale tried). New bounded reproductions run on
+explicitly acquired owned stage: `18/corpus`, port `5434`, database
+`corpus_structure_ddo_stage`, OID `130661481`, recording its actual accepted native head rather
+than assuming the historical N29 baseline. They do not mutate canonical development or start a
+whole-book run. The original book receipt belongs to canonical OID `131763263`; reading stage
+cannot establish that original intent's standing.
 
 **How the database is observed.** The completions run on the product's worker connections, not
 in the diagnostician's session, so a setting made for one session captures nothing. Statement and
@@ -355,6 +359,85 @@ refers to, by reading the classification that N29 added for nested uncertainty i
 groups; and the state of the one unresolved completion intent. If the records have already
 expired, the package says so and proceeds with the existing scoped evidence and bounded controls.
 
+<a id="retained-book-diagnosis"></a>
+
+### Retained diagnosis and bounded control state — 2026-11-19
+
+**Partial.** Preservation and the historical failure-boundary diagnosis have been executed;
+regional performance reproduction and the remaining transition-head recovery observations remain open. The
+[retained diagnosis](../../design_review/evidence/2026-11-19_udm20-retained-diagnosis/README.md)
+and record `udm20.retained-diagnosis` distinguish recorded facts from unavailable current
+standing. The rest of this package's reproduction and instrumentation protocol remains work to
+perform, not an account of measurements already taken.
+
+The three originals still exist, are held with no expiry, and their retained artifacts match
+the managed bytes: book run `1dd5d45ded4b4ea38399fb121a44d28c` is `failed` with cleanup
+`established`; discovery fixture `3fed447a2a5649538c80ac05c1ed7c47` is `failed`; retry
+`82ba77a0731148faa0bd827ead1373cb` is `interrupted` with its private children settled. Their
+original outcomes are preserved. The sealed book journal is now retained with its exact
+manifest hash, in addition to the already-retained native result.
+
+**Measured from retained operational observations, reread 2026-11-19.** Nine producer attempts
+reported SQLSTATE `57014`, explicitly a statement timeout, while retaining the completion
+intent. Their server contexts name `canonical_json`, `ddo_digest`, the intent insertion and its
+validation seal. A completed serialized answer had reached this call; the failed statement did
+not add a committed intake. This establishes the failure boundary more strongly than the old
+narration, but does not establish that no earlier intent or other durable producer copy existed.
+It supplies neither per-statement duration/cost attribution nor a post-repair margin against
+the recorded 120-second policy. No unknown network commit is proved by a server statement
+cancellation.
+
+The journal also records 23 exact-release reconstruction refusals, seven runtime-slice drift
+refusals and one positioned-construction source refusal. Its 40 individually recorded
+failures do not expose all 41 sub-exceptions named by the aggregate: nested group detail is
+explicitly omitted. The narrated nested physical-join uncertainty therefore remains
+unclassified from these artifacts. The native artifact is explicitly `last-pinned`: it has 58
+receipt acknowledgments, a complete 29-member discovery population and 20 committed intent
+inspections, with no noncommitted inspection. It does not identify the narrated unresolved
+intent or provide a fresh final-state census. Only four of the nine failed region scopes can
+be joined to that snapshot; all nine task/request/obligation identities are preserved in the
+diagnosis, with missing extents, sentence counts and exact payload bytes left unknown.
+
+The original composition fixture failed at discovery closure with `population lacks admitted
+declared discovery output`. Its interrupted retry produced no completed call report, so it
+does not establish successful final fan-in. **Tested** replacement controls establish narrower
+properties:
+
+- The recorded N31 stage observation `949abc3179834a57aea9598b7da470b9` passed its explicit
+  owned-stage OID, port, revision and source-custody assertions and the current-use discovery
+  reuse/refusal controls. Private current-native receipt `fac1de3a567d40999ee4c0d8e0b2ccdf`
+  establishes selective changed-member computation, unchanged child episodes, an actual
+  aggregate of 16, and preservation of historical/current support scope. These close the
+  discovery/selection cases they exercise, not the original full-view compositor or its
+  withheld-region and scaling obligations.
+- Private native recovery `bd79f9aa68bf4915a7df0d1aa9e7b360` establishes ACK survival through
+  explicit retain rollback, generic cross-generation consume/publication with original
+  producer and current adopter, exact replay, and refusal of stale or lease-only takeover.
+  Its genuine PDF contributor transfer is cross-build/later-attempt within one task;
+  cross-generation PDF publication is not established by that case.
+- Private native recovery `fdd3cb361f0f406690339d723151e630` establishes that, after consume
+  commits and private ACK/body are removed, a new claim reconciles the mapped retained intent,
+  refuses replacement computation and publishes the original once. No unknown-network-commit
+  fault was injected, and neither recovery receipt reproduces the original book failures.
+
+These controls establish a durable answer/intent boundary before later settlement failure.
+They do not establish cheaper validation or book-scale completion. Exact retirement proof is
+still required for transfer; a database outage preventing that proof leaves private bytes
+preserved and transfer refused. See the diagnosis for durable receipt links and the
+[recovery owner](operation-reuse-and-recovery.md#udm-25) for implementation and acceptance scope.
+
+**Remaining live observations.** Recover the original canonical intent's exact native
+standing through its recorded target when a valid reader is available, or explicitly record
+that it cannot be recovered; a missing stage row is not evidence of absence. The current
+managed inspector reports `NativeResultViolation` rather than that standing. Stage confirmation
+must independently bind OID `130661481` on `18/corpus:5434` and record its actual head,
+application-principal timeout settings, named statement durations/plans and wait state for
+bounded regional settlement, actual native composition, withheld-region behavior and the
+two/four/eight-input binding comparison. No stage instrumentation was applied in this inquiry.
+Neither the original final fan-in, its performance causes/margins, nor current transition-head
+recovery/discovery confirmation is closed by the preserved receipts. Provider and whole-book
+qualification remain UDM-22/23 work.
+
 **Early diagnosis and later confirmation.** In the regional reproduction record the last durable
 boundary for the timed-out attempts. Inspect the exact native intent and publication standing
 after rollback or acknowledgment loss, and identify the output that existed only in its producer.
@@ -369,7 +452,9 @@ deployed on stage. UDM-21 consumes the early diagnosis; UDM-22/23 consume stage 
 **Reproduction 1: settlement at the 120-second limit.** The smallest scope is one region. The
 package takes the largest of the nine regions that timed out, as an excerpt of the book's
 original registered in the stage project (or by whatever narrower scoping of a demand the product
-offers, chosen at entry), and runs the sentence work for that region alone on N29. For contrast it
+offers, chosen at entry), and runs the sentence work for that region alone on the recorded
+current stage head. Historical N29 comparisons use preserved evidence or an explicitly isolated
+test context, without downgrading stage. For contrast it
 runs the largest region that completed, which had 1,035 sentence occurrences. Observed:
 
 - *Settlement time against the limit.* The wall time of each completion transaction, read from
@@ -805,7 +890,7 @@ only when both accounts are on the same commit.
 
 | Package | State |
 |---|---|
-| UDM-20 | The bounded cross-release discovery reproducer ran during UDM-07. Book failure diagnosis and selected-region work remain open. [Discovery evidence](lowered-operation-facts-and-validity.md#revision-b-execution) |
+| UDM-20 | The retained diagnosis established the failure boundary and recovered the bounded native witnesses. N32 discovery and conservative settlement passed on stage. Regional timing and recovery confirmation remain open. [Diagnosis and evidence](#retained-book-diagnosis) |
 | UDM-21 | Not started |
 | UDM-22 | Not started |
 | UDM-23 | Not started |

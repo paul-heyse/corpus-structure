@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "cli.bd79f9aa68bf4915a7df0d1aa9e7b360",
+  "title": "Retained CLI invocation bd79f9aa68bf4915a7df0d1aa9e7b360",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-18",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What evidence did test.retry produce for UDM-25?",
+  "answers": [],
+  "method": "Copy the selected published artifact under the invocation lease.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "invocation.json",
+      "role": "invocation-provenance",
+      "sha256": "5fd2b1fd316048c966cc8a961a19145beb0cd5d0be812909b3d5d11f5c10734f"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/ordinary",
+      "role": "retained-artifact",
+      "sha256": "6679c94756249bf473104c8b78edde011a027cabd7f366cbabd9c056d8c7167e"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "invocation_outcome",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The retained invocation settled as passed.",
+  "consumed_by": [
+    "UDM-25"
+  ]
+}

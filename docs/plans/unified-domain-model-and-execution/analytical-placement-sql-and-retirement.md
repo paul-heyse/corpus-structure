@@ -1,6 +1,7 @@
 # Analytical placement, the remaining SQL text, and retirement
 
-**Status:** Not started. Plan authored 2026-11-19. Writing this plan authorizes no implementation.
+**Status:** In progress. The release-side authored SQL and publication-port retirements are integrated.
+**Created:** 2026-11-19.
 
 This companion owns the designs of **UDM-16** (DuckDB conditions of use, declared settings, the
 certification folds, the uncalled kernels), **UDM-17** (SQLite stores on typed statements and the

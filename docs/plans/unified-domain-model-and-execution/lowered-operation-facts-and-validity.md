@@ -1,6 +1,6 @@
 # Lowered operation facts and validity: declared families, selection by lowered attribute, the conservative check and one support-edge meaning
 
-**Status:** In progress. Validity source and selected release composition are integrated.
+**Status:** UDM-05 through UDM-07 are integrated and verified for the bounded N32 transition.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-05** (per-operation validity declarations lowered per
@@ -1019,10 +1019,31 @@ installation with detached Parquet export passed all five selected cases
 (`3ecd964f625e4439b14cb5d38feb606f`). Selective scheduling after a changed population member
 and historical PDF ancestry with an equal-value raw substitute remain in the complete matrix.
 
+### Integrated validity and support transition
+
+A privileged native effect requires an independently approved grant bound to its exact release,
+operation definition and contract. The effect declared by an operation is a claim that the
+native authority checks. It cannot convert a caller into an authority. The prepared release
+derives its selected closure before resolving the approved owners. Product validation and the
+independent PDF publication guard still run when validity is undetermined. The registry's
+producer-local declarations now own family validators and completion guards.
+
+The selected-member key identifies the normalized member body. The support proof retains the
+exact parent container locator and publication receipt. Changing one member schedules that
+member and preserves the two unaffected episodes in the three-member discovery witness. The
+test also checks historical and current support after revocation. The two-real-original
+PDF case proves that equal raw value cannot replace the original authorized historical episode.
+[Retained diagnosis and acceptance](qualification.md#retained-book-diagnosis) owns the witnesses.
+
+The installed N32 selection `f2beb4a348664a07a7e9c721754a1180` passed concurrent conservative
+settlement and cross-release discovery with current/historical support and revocation. It used
+isolated projects on the same owned stage. The [cutover record](programs-identity-and-revisions.md#bounded-stage-cutover)
+confirms the activation and preservation of the bounded project.
+
 ## State
 
 | Package | State |
 |---|---|
-| UDM-05 | Claims, lowering, guard dispatch and release closure integrated. Remaining authority, capture and full native parity are open |
-| UDM-06 | Conservative publication and inspection passed on the private successor and the owned N30 stage. Matching application activated at stage generation 27 |
-| UDM-07 | One support vocabulary and cross-release discovery reuse integrated. N31 deployed and activated at stage generation 28. Bounded live acceptance passed. The complete matrix remains open |
+| UDM-05 | Complete. The exact authority and independent PDF guard passed on registered N32 privately. The bounded stage activates the selected statistical-source release |
+| UDM-06 | Complete. Conservative publication and inspection passed on the private successor and the owned N30 and N32 stage |
+| UDM-07 | One support vocabulary and cross-release discovery reuse integrated. Complete. Discovery passed on the owned N31 and N32 stage. Selective-member, historical raw ancestry and protected authority witnesses passed on private PostgreSQL |

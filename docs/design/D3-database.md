@@ -402,6 +402,13 @@ bounded durable draft remains private under its completion custodian until nativ
 Compatible PDF checkpoints can cross a request or release boundary with verified retired writer,
 material premises and original contributor evidence.
 
+
+**Tested on the bounded stage · 2026-11-18.** N32 installs functions, views and triggers from
+the typed registry. Program declarations own access, dependencies and family validation roles.
+Explicit catalog verification authenticates the installed program and physical identities, and
+acquisition uses the carried deployment receipt. The [transition record](../plans/unified-domain-model-and-execution/programs-identity-and-revisions.md#bounded-stage-cutover)
+owns the exact scope and preserved project state.
+
 > Decision: [ADR-0135](../adr/0135-declared-facts-and-typed-database-programs.md), [ADR-0139](../adr/0139-compatible-pdf-checkpoint-custody.md), [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
 
 

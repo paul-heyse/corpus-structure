@@ -1,7 +1,7 @@
 # Operation reuse and recoverable completion
 
-**Status:** Proposed. Not started. Authored 2026-11-18. Plan authoring performs no production,
-database, provider or adoption work.
+**Status:** In progress. Native draft and checkpoint recovery are integrated and tested privately.
+**Created:** 2026-11-18.
 
 This companion owns **UDM-25**, the recoverable completion and compatible PDF checkpoint
 amendment from [review I02 and I03][review]. The [coordinator][coordinator] owns package state,
@@ -357,6 +357,24 @@ architectural decision, installed programs at the planned transition where neede
 acceptance and links to outstanding assembled qualification. It establishes no completed
 UDM-22/23 result by itself. Execution updates the coordinator's single package state and records
 closure evidence there.
+
+### Native transition evidence
+
+**Tested, 2026-11-18.** Exact execution origin is registered before computation. A private draft
+retains its origin, runtime and typed output through a failed retain step. Native consumption
+authenticates the original retirement, producing basis and new claim. A committed consumption
+maps the new claim to its retained intent after the local acknowledgement is lost. Publication
+preserves original producer attribution and records current adoption separately. Compatible
+PDF batches authenticate material determinants and original contributor proofs before reapplying
+the carrier fields.
+
+Private PostgreSQL passed retain rollback, later-generation consumption, repeat publication,
+retirement refusal and actual cross-build PDF contributor adoption. A second case passed
+lost-acknowledgement reconciliation after the persistent mapping committed and the private data
+was removed. The owning receipts are `bd79f9aa68bf4915a7df0d1aa9e7b360` and
+`fdd3cb361f0f406690339d723151e630`. The [qualification account](qualification.md#retained-book-diagnosis)
+owns the original book diagnosis, its evidence limits and the remaining regional and provider
+observations.
 
 [coordinator]: ../unified-domain-model-and-execution_2026-11-19.md
 [review]: ../../plan_improvement_reviews/unified-domain-model-and-execution_2026-11-18.md#I02

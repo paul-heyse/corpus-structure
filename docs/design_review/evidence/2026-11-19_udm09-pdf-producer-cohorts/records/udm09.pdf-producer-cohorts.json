@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "id": "udm09.pdf-producer-cohorts",
+  "title": "Bounded typed PDF producer and reader cohorts",
+  "group": null,
+  "package": "UDM-09",
+  "finalized": "2026-11-18",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which bounded controls accompany typed PDF producer integration, and what does prior installed stage acceptance actually exercise?",
+  "answers": [
+    "UDM-09"
+  ],
+  "method": "Retain the settled owning ordinary artifacts and read their exact invocation selections; inspect the installed stage test and its synthetic fixture without executing it.",
+  "commands": [
+    "uv run ci evidence retain e1b2449ab41d4315aa5a8706b1c78de0 --role ordinary --for UDM-09 --json",
+    "uv run ci evidence retain bc47bd2acb5e416395c9f1b33b427d34 --role ordinary --for UDM-09 --json",
+    "uv run ci evidence retain 2d8d998f7f7b4d76a503424346693106 --role ordinary --for UDM-09 --json",
+    "uv run ci evidence retain b9cd342da2d54d2199109a53eb8576bd --role ordinary --for UDM-09 --json",
+    "uv run ci evidence retain 605cf01540a3493d94347eef693475cf --role ordinary --for UDM-09 --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "README.md",
+      "role": "bounded-evidence-account",
+      "sha256": "ef67cf5178989464b2c342134ce508cdf7ab806d25cbb35f8224e5479d6ad76a"
+    }
+  ],
+  "depends_on": [
+    "2026-11-19_cli-e1b2449ab41d4315aa5a8706b1c78de0/cli.e1b2449ab41d4315aa5a8706b1c78de0",
+    "2026-11-19_cli-bc47bd2acb5e416395c9f1b33b427d34/cli.bc47bd2acb5e416395c9f1b33b427d34",
+    "2026-11-19_cli-2d8d998f7f7b4d76a503424346693106/cli.2d8d998f7f7b4d76a503424346693106",
+    "2026-11-19_cli-b9cd342da2d54d2199109a53eb8576bd/cli.b9cd342da2d54d2199109a53eb8576bd",
+    "2026-11-19_cli-605cf01540a3493d94347eef693475cf/cli.605cf01540a3493d94347eef693475cf",
+    "2026-11-19_cli-949abc3179834a57aea9598b7da470b9/cli.949abc3179834a57aea9598b7da470b9"
+  ],
+  "results": [
+    {
+      "name": "retained_passing_owner_cohorts",
+      "value": 5,
+      "of": null,
+      "unit": null,
+      "note": "Overlapping selections; not a complete final-source union."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The five retained cohorts passed their named controls; prior installed stage acceptance was isolated synthetic-project work. N32 installation and complete final-source qualification are not established here.",
+  "consumed_by": [
+    "UDM-09"
+  ]
+}

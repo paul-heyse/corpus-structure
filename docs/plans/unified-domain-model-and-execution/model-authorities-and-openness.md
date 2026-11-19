@@ -1,6 +1,6 @@
 # Model authorities and openness: the compiled model, the declaration grammar, integrity vocabularies and the earlier model's retirement
 
-**Status:** UDM-01, UDM-02 and UDM-04 are integrated. UDM-03 native qualification and the registry grant join remain open.
+**Status:** UDM-01 through UDM-04 are integrated. N31 qualified the integrity profile, and the complete registry now owns program grants.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-01** (one composer and one held compiled model),

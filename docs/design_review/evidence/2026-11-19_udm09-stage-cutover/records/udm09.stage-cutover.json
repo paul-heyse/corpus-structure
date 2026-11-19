@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "id": "udm09.stage-cutover",
+  "title": "N32 typed program and stage cutover",
+  "group": null,
+  "package": "UDM-09",
+  "finalized": "2026-11-18",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Did the typed native transition install and activate on the owned stage with the planned retirements and retained project identity?",
+  "answers": [
+    "UDM-09"
+  ],
+  "method": "Compare the frozen catalog and rollback candidate, deploy to the exact acquired stage, independently check the release, perform generation-checked activation, run the two isolated stage controls and read back exact retained IDs.",
+  "commands": [
+    "ci model change candidate f7b69ed2019d4eda82da7e0b588609db",
+    "ci model change register 80c15df2f6d04adb9472ba2b351b22c1",
+    "ci model change deploy 80c15df2f6d04adb9472ba2b351b22c1",
+    "ci db check --target deployment --release release:d47b7c9f781e94629646cb49fe0fac073c78d0a09d920922fc91b614b18ca9cc",
+    "ci release check --target deployment --release release:d47b7c9f781e94629646cb49fe0fac073c78d0a09d920922fc91b614b18ca9cc",
+    "ci release activate release:d47b7c9f781e94629646cb49fe0fac073c78d0a09d920922fc91b614b18ca9cc --project ddo-current-pdf-bounded --target deployment --expected-generation 28",
+    "ci release check --target deployment --project ddo-current-pdf-bounded",
+    "ci schema native-candidate --expected-predecessor semantic_ddo_pe_n32",
+    "ci test --workers 2 -- python/corpus-structure/tests/semantic/test_support_edges.py::test_owned_stage_transition_discovery_and_impact python/corpus-structure/tests/semantic/test_udm_validity_native.py::test_deployed_transition_conservative_settlement"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "README.md",
+      "role": "bounded-stage-account",
+      "sha256": "07beff2adafe8c42245406dabe43b13772596099fcf16d549d5aa032c9ac0d42"
+    },
+    {
+      "path": "raw/readback.json",
+      "role": "stage-readback",
+      "sha256": "b7272a9a8a2dcfdf2fc5beb4f0a290446051a9186f3d7ed433a8fea1b7196481"
+    }
+  ],
+  "depends_on": [
+    "2026-11-19_cli-f2beb4a348664a07a7e9c721754a1180/cli.f2beb4a348664a07a7e9c721754a1180",
+    "2026-11-19_udm09-pdf-producer-cohorts/udm09.pdf-producer-cohorts"
+  ],
+  "results": [
+    {
+      "name": "stage_generation",
+      "value": 29,
+      "of": null,
+      "unit": null,
+      "note": "Advanced once from 28."
+    },
+    {
+      "name": "native_objects",
+      "value": 603,
+      "of": null,
+      "unit": null,
+      "note": "N32 frozen inventory."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The stage native and statistical-source application transition is installed and active at generation 29. Required prior project identities are preserved, the two superseded signatures are absent and both installed controls passed.",
+  "consumed_by": [
+    "UDM-09",
+    "UDM-20"
+  ]
+}

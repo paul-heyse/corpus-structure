@@ -1,0 +1,482 @@
+{
+  "observation_date": "2026-11-19",
+  "method": "Read retained bytes and settled managed manifests; no database connection or execution.",
+  "book": {
+    "id": "1dd5d45ded4b4ea38399fb121a44d28c",
+    "outcome": "failed",
+    "cleanup": "established",
+    "target": {
+      "database": "corpus_structure_dev",
+      "database_oid": 131763263,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "write"
+    },
+    "demand_id": "demand:c2dc2750c6917f015cb8e6c712098f7c38a9f5306379bd961f0fd974758b1085",
+    "journal_sha256": "fd567ca2bd49f1d1deb2d26a3fd33930c1885153805226189a4f8905e8c0e1cc",
+    "journal_records": 45,
+    "journal_collection_omitted": 0,
+    "failure_events": 40,
+    "failure_phases": {
+      "settlement": 9,
+      "execution preparation": 23,
+      "computation": 8
+    },
+    "failure_types": {
+      "OperationalError": 9,
+      "ReleaseConflict": 23,
+      "ValueError": 1,
+      "RuntimeError": 7
+    },
+    "aggregate_failure": "native demand demand:c2dc2750c6917f015cb8e6c712098f7c38a9f5306379bd961f0fd974758b1085 has 41 execution failures (41 sub-exceptions)",
+    "aggregate_exception_omissions": [
+      {
+        "kind": "omitted",
+        "path": "$.exception",
+        "reason": "group/chain/note traversal limit; root retained"
+      }
+    ],
+    "timeouts": [
+      {
+        "sequence": 3,
+        "timestamp": "2026-11-18T16:40:45.943562Z",
+        "task_id": 72,
+        "attempt": 1,
+        "request_id": "semantic-request:d4f332fc660130fca3f5cb915b2b828f5d2fb0e387b581e865cdaac3e5c64cf5",
+        "obligation_id": "obligation:2a5ae3240db61ffd43f7b2db3838d9157e44f3ea5fe06e578f2b9d0e7eb1d338",
+        "sqlstate": "57014",
+        "phase": "settlement",
+        "server_context_functions": [
+          "canonical_json",
+          "ddo_digest",
+          "ops.ddo_impl_retain_data_completion_intent",
+          "ops.retain_data_completion_intent"
+        ],
+        "server_context_contains_intent_insert": true,
+        "driver_parameter_repr_omitted_characters": [
+          64820198
+        ],
+        "operation_in_last_pinned_snapshot": null,
+        "analyzed_scope_in_last_pinned_snapshot": null,
+        "selected_intent_in_last_pinned_snapshot": null
+      },
+      {
+        "sequence": 4,
+        "timestamp": "2026-11-18T16:43:02.494947Z",
+        "task_id": 75,
+        "attempt": 1,
+        "request_id": "semantic-request:735a71563c648f488218536aa46c7d2554f5a8a99fcd011b4061bf0c57a6a0a1",
+        "obligation_id": "obligation:438f259965b91e5b48bdbd65fe50fe339866d4786afdf4946120b4fc34e9aad1",
+        "sqlstate": "57014",
+        "phase": "settlement",
+        "server_context_functions": [
+          "canonical_json",
+          "ddo_completion_seal",
+          "ddo_digest",
+          "ops.ddo_impl_retain_data_completion_intent",
+          "ops.retain_data_completion_intent"
+        ],
+        "server_context_contains_intent_insert": true,
+        "driver_parameter_repr_omitted_characters": [
+          55147268
+        ],
+        "operation_in_last_pinned_snapshot": null,
+        "analyzed_scope_in_last_pinned_snapshot": null,
+        "selected_intent_in_last_pinned_snapshot": null
+      },
+      {
+        "sequence": 5,
+        "timestamp": "2026-11-18T16:45:29.071541Z",
+        "task_id": 76,
+        "attempt": 1,
+        "request_id": "semantic-request:688bcf1c8cbbeaccd6a886c3461c64a76ade00d531f9e18868d9e5837f6f89a1",
+        "obligation_id": "obligation:45442df50d14a07d0d86265f4a18d467712cde1fa86c072cbd3a572a0d01cbc2",
+        "sqlstate": "57014",
+        "phase": "settlement",
+        "server_context_functions": [
+          "canonical_json",
+          "ddo_digest",
+          "ops.ddo_impl_retain_data_completion_intent",
+          "ops.retain_data_completion_intent"
+        ],
+        "server_context_contains_intent_insert": true,
+        "driver_parameter_repr_omitted_characters": [
+          92490229
+        ],
+        "operation_in_last_pinned_snapshot": null,
+        "analyzed_scope_in_last_pinned_snapshot": null,
+        "selected_intent_in_last_pinned_snapshot": null
+      },
+      {
+        "sequence": 6,
+        "timestamp": "2026-11-18T16:51:26.310045Z",
+        "task_id": 71,
+        "attempt": 1,
+        "request_id": "semantic-request:52db80d048a576a54cab7b448214c3100c446b6fa161e6989d13cb8c19a8a9b6",
+        "obligation_id": "obligation:25d4e8ccb15dacfde29664ff8aaef48d3ddd040fc00a9c229fc5d0c5d1f49b18",
+        "sqlstate": "57014",
+        "phase": "settlement",
+        "server_context_functions": [
+          "canonical_json",
+          "ddo_digest",
+          "ops.ddo_impl_retain_data_completion_intent",
+          "ops.retain_data_completion_intent"
+        ],
+        "server_context_contains_intent_insert": true,
+        "driver_parameter_repr_omitted_characters": [
+          92609138
+        ],
+        "operation_in_last_pinned_snapshot": null,
+        "analyzed_scope_in_last_pinned_snapshot": null,
+        "selected_intent_in_last_pinned_snapshot": null
+      },
+      {
+        "sequence": 12,
+        "timestamp": "2026-11-18T16:57:50.343787Z",
+        "task_id": 86,
+        "attempt": 1,
+        "request_id": "semantic-request:e7da1b98bd8d18c092cd8c1361aef02ff9b2e82dfd4089ce4867526ff47db24a",
+        "obligation_id": "obligation:8960ee48bffd5952b954e65372616e5ed3229673d11c690a976b9b1963a989c7",
+        "sqlstate": "57014",
+        "phase": "settlement",
+        "server_context_functions": [
+          "canonical_json",
+          "ddo_completion_seal",
+          "ddo_digest",
+          "ops.ddo_impl_retain_data_completion_intent",
+          "ops.retain_data_completion_intent"
+        ],
+        "server_context_contains_intent_insert": true,
+        "driver_parameter_repr_omitted_characters": [
+          58808083
+        ],
+        "operation_in_last_pinned_snapshot": null,
+        "analyzed_scope_in_last_pinned_snapshot": null,
+        "selected_intent_in_last_pinned_snapshot": null
+      },
+      {
+        "sequence": 28,
+        "timestamp": "2026-11-18T17:05:56.636502Z",
+        "task_id": 91,
+        "attempt": 1,
+        "request_id": "semantic-request:b6262782904e7b84f0ebca1addcb501b5658bb1288e55442706493b98d022103",
+        "obligation_id": "obligation:c9900ec88a80cf15a4b91cc31f201c22d1888cd2860df01ecb9db04f6a002682",
+        "sqlstate": "57014",
+        "phase": "settlement",
+        "server_context_functions": [
+          "canonical_json",
+          "ddo_digest",
+          "ops.ddo_impl_retain_data_completion_intent",
+          "ops.retain_data_completion_intent"
+        ],
+        "server_context_contains_intent_insert": true,
+        "driver_parameter_repr_omitted_characters": [
+          63766849
+        ],
+        "operation_in_last_pinned_snapshot": "segment.sentences/source-native",
+        "analyzed_scope_in_last_pinned_snapshot": {
+          "selectors": [
+            {
+              "projection": "ba4612587272697ca93891dcb3bb36de1dd530c51d712dd6e5bec647e5e62990"
+            }
+          ],
+          "source": {
+            "document": "doc:38d5d93379c3320aa88457511d38fc25",
+            "document_subject": "original-document:2acfb9251e9f3da00d6a66a16bac2066ab7d8e868471a27e7fb9a1874ad47456",
+            "membership": "descendants",
+            "projection": "ba4612587272697ca93891dcb3bb36de1dd530c51d712dd6e5bec647e5e62990",
+            "section_pointer": "#/groups/467"
+          }
+        },
+        "selected_intent_in_last_pinned_snapshot": null
+      },
+      {
+        "sequence": 29,
+        "timestamp": "2026-11-18T17:08:25.789140Z",
+        "task_id": 93,
+        "attempt": 1,
+        "request_id": "semantic-request:24a01d214ed1191e0e174f859b64530843688c02550e446dcc7f36b452673596",
+        "obligation_id": "obligation:db54dd9bc69f28244dc4a42973debdb45a299a40a942c27f855bfb5ceee8bb7e",
+        "sqlstate": "57014",
+        "phase": "settlement",
+        "server_context_functions": [
+          "canonical_json",
+          "ddo_digest",
+          "ops.ddo_impl_retain_data_completion_intent",
+          "ops.retain_data_completion_intent"
+        ],
+        "server_context_contains_intent_insert": false,
+        "driver_parameter_repr_omitted_characters": [
+          82475699
+        ],
+        "operation_in_last_pinned_snapshot": "segment.sentences/source-native",
+        "analyzed_scope_in_last_pinned_snapshot": {
+          "selectors": [
+            {
+              "projection": "a66ab7b5b3040392383ccae02652922eba1f574c3db48a92eba364d7eca2e48f"
+            }
+          ],
+          "source": {
+            "document": "doc:38d5d93379c3320aa88457511d38fc25",
+            "document_subject": "original-document:2acfb9251e9f3da00d6a66a16bac2066ab7d8e868471a27e7fb9a1874ad47456",
+            "membership": "descendants",
+            "projection": "a66ab7b5b3040392383ccae02652922eba1f574c3db48a92eba364d7eca2e48f",
+            "section_pointer": "#/groups/447"
+          }
+        },
+        "selected_intent_in_last_pinned_snapshot": null
+      },
+      {
+        "sequence": 30,
+        "timestamp": "2026-11-18T17:10:53.014532Z",
+        "task_id": 94,
+        "attempt": 1,
+        "request_id": "semantic-request:bec0fc449fc8ffbd171825f0cf55e6e3ba5776b4871bca4d46b814460f4ee66b",
+        "obligation_id": "obligation:dcb88f42afaa6fa8de0f38097c18e479f4d3541b8be3c1ff91dbacf522349bb1",
+        "sqlstate": "57014",
+        "phase": "settlement",
+        "server_context_functions": [
+          "canonical_json",
+          "ddo_digest",
+          "ops.ddo_impl_retain_data_completion_intent",
+          "ops.retain_data_completion_intent"
+        ],
+        "server_context_contains_intent_insert": true,
+        "driver_parameter_repr_omitted_characters": [
+          86454730
+        ],
+        "operation_in_last_pinned_snapshot": "segment.sentences/source-native",
+        "analyzed_scope_in_last_pinned_snapshot": {
+          "selectors": [
+            {
+              "projection": "f9a5b0f9d59e32ac69fbad75cc4d466ff546e0f65003f28e3d7f322204d4f5d9"
+            }
+          ],
+          "source": {
+            "document": "doc:38d5d93379c3320aa88457511d38fc25",
+            "document_subject": "original-document:2acfb9251e9f3da00d6a66a16bac2066ab7d8e868471a27e7fb9a1874ad47456",
+            "membership": "descendants",
+            "projection": "f9a5b0f9d59e32ac69fbad75cc4d466ff546e0f65003f28e3d7f322204d4f5d9",
+            "section_pointer": "#/groups/489"
+          }
+        },
+        "selected_intent_in_last_pinned_snapshot": null
+      },
+      {
+        "sequence": 31,
+        "timestamp": "2026-11-18T17:14:40.047328Z",
+        "task_id": 97,
+        "attempt": 1,
+        "request_id": "semantic-request:f57891d891114aff5ffcdbbdec1dfa7b2c92f552f1f1a08aa47806b0b139741a",
+        "obligation_id": "obligation:f726fbc498bc79e7ae4915eba6392da8df9564b9bf0978cde3e7a8bb508a0c99",
+        "sqlstate": "57014",
+        "phase": "settlement",
+        "server_context_functions": [
+          "canonical_json",
+          "ddo_completion_seal",
+          "ddo_digest",
+          "ops.ddo_impl_retain_data_completion_intent",
+          "ops.retain_data_completion_intent"
+        ],
+        "server_context_contains_intent_insert": true,
+        "driver_parameter_repr_omitted_characters": [
+          48654642
+        ],
+        "operation_in_last_pinned_snapshot": "segment.sentences/source-native",
+        "analyzed_scope_in_last_pinned_snapshot": {
+          "selectors": [
+            {
+              "projection": "737b23967bc62e5f3def42692d63b9653bb9d320ef9f2273572bf48ca7e26d19"
+            }
+          ],
+          "source": {
+            "document": "doc:38d5d93379c3320aa88457511d38fc25",
+            "document_subject": "original-document:2acfb9251e9f3da00d6a66a16bac2066ab7d8e868471a27e7fb9a1874ad47456",
+            "membership": "descendants",
+            "projection": "737b23967bc62e5f3def42692d63b9653bb9d320ef9f2273572bf48ca7e26d19",
+            "section_pointer": "#/groups/391"
+          }
+        },
+        "selected_intent_in_last_pinned_snapshot": null
+      }
+    ],
+    "snapshot_standing": "last-pinned",
+    "snapshot_frontier_at": "2026-11-18T12:32:12.552732-05:00",
+    "receipt_acknowledgments": 58,
+    "receipts_truncated": false,
+    "obligations_in_snapshot": 94,
+    "discovery_populations": [
+      {
+        "id": "population:5564047816d4a9f37fcf34ec4f720670a52a3664acaf29ddd31af4f32c65a7c3",
+        "name": "selected-source-views",
+        "complete": true,
+        "members": 29
+      }
+    ],
+    "intent_inspection_states": {
+      "committed": 20
+    },
+    "retained_native_matches_managed": true,
+    "not_established": [
+      "Current final standing or exact identity of the narrated unresolved intent.",
+      "Exact pages, sentence counts and UTF-8 completion sizes of all nine timed-out regions.",
+      "Per-statement timings, lock waits, query plans, dominant cost or post-repair margin.",
+      "The identity or classification of the omitted aggregate exception child.",
+      "Final source/stage or provider/book qualification."
+    ]
+  },
+  "discovery_failure": {
+    "id": "3fed447a2a5649538c80ac05c1ed7c47",
+    "original_outcome": "failed",
+    "reports": [
+      {
+        "nodeid": "python/corpus-structure/tests/semantic/test_captured_composition_native.py::test_two_native_source_members_do_not_invent_composition_sequence_positions",
+        "when": "setup",
+        "outcome": "passed",
+        "duration": 73.61899439600529
+      },
+      {
+        "nodeid": "python/corpus-structure/tests/semantic/test_captured_composition_native.py::test_two_native_source_members_do_not_invent_composition_sequence_positions",
+        "when": "call",
+        "outcome": "failed",
+        "duration": 275.61370479495963
+      },
+      {
+        "nodeid": "python/corpus-structure/tests/semantic/test_captured_composition_native.py::test_two_native_source_members_do_not_invent_composition_sequence_positions",
+        "when": "teardown",
+        "outcome": "passed",
+        "duration": 0.02611729403724894
+      }
+    ],
+    "private_child_settlement": {
+      "owned_groups": {
+        "pytest": 488094
+      },
+      "pending": {},
+      "state": "settled"
+    },
+    "supervisor": {
+      "finished": 1795025146.2250113,
+      "interrupted_at": null,
+      "interruption": null,
+      "pid": 487537,
+      "signals": [],
+      "started": 1795024766.6010654
+    },
+    "pytest_process": {
+      "argv": [
+        "/home/paul/corpus-structure/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "--dist=loadgroup",
+        "-m",
+        "not shared_cluster_fault",
+        "python/corpus-structure/tests/semantic/test_captured_composition_native.py::test_two_native_source_members_do_not_invent_composition_sequence_positions",
+        "--qualification-evidence",
+        "ordinary",
+        "-p",
+        "qualification_plugin",
+        "--report-log",
+        "/home/paul/corpus-structure/build/ci/3fed447a2a5649538c80ac05c1ed7c47/ordinary/reportlog.jsonl",
+        "--junitxml",
+        "/home/paul/corpus-structure/build/ci/3fed447a2a5649538c80ac05c1ed7c47/ordinary/pytest.junit.xml",
+        "-rA",
+        "--hypothesis-profile=ci",
+        "-o",
+        "faulthandler_timeout=900",
+        "-o",
+        "faulthandler_exit_on_timeout=true"
+      ],
+      "cwd": "/tmp/corpus-ddo-book-composition",
+      "finished": 1795025145.8738744,
+      "owned_group_cleanup": {
+        "descendants_after_leader_exit": false,
+        "group": 488094,
+        "group_present_after_cleanup": false,
+        "signals": []
+      },
+      "pid": 488094,
+      "returncode": 1,
+      "started": 1795024769.8256726,
+      "timeout_seconds": 14400
+    },
+    "retained_report_matches_managed": true
+  },
+  "interrupted_fixture": {
+    "id": "82ba77a0731148faa0bd827ead1373cb",
+    "original_outcome": "interrupted",
+    "reports": [
+      {
+        "nodeid": "python/corpus-structure/tests/semantic/test_captured_composition_native.py::test_two_native_source_members_do_not_invent_composition_sequence_positions",
+        "when": "setup",
+        "outcome": "passed",
+        "duration": 71.71257961902302
+      }
+    ],
+    "private_child_settlement": {
+      "owned_groups": {
+        "pytest": 581469
+      },
+      "pending": {},
+      "state": "settled"
+    },
+    "supervisor": {
+      "finished": 1795025477.661307,
+      "interrupted_at": 1795025476.9008648,
+      "interruption": "SIGINT",
+      "pid": 580984,
+      "signals": [
+        "SIGINT",
+        "SIGINT"
+      ],
+      "started": 1795025325.0872774
+    },
+    "pytest_process": {
+      "argv": [
+        "/home/paul/corpus-structure/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-n",
+        "0",
+        "--dist=loadgroup",
+        "-m",
+        "not shared_cluster_fault",
+        "python/corpus-structure/tests/semantic/test_captured_composition_native.py::test_two_native_source_members_do_not_invent_composition_sequence_positions",
+        "--qualification-evidence",
+        "ordinary",
+        "-p",
+        "qualification_plugin",
+        "--report-log",
+        "/home/paul/corpus-structure/build/ci/82ba77a0731148faa0bd827ead1373cb/ordinary/reportlog.jsonl",
+        "--junitxml",
+        "/home/paul/corpus-structure/build/ci/82ba77a0731148faa0bd827ead1373cb/ordinary/pytest.junit.xml",
+        "-rA",
+        "--hypothesis-profile=ci",
+        "-o",
+        "faulthandler_timeout=900",
+        "-o",
+        "faulthandler_exit_on_timeout=true"
+      ],
+      "cancelled": true,
+      "cwd": "/tmp/corpus-ddo-book-composition",
+      "finished": 1795025477.2456486,
+      "interruption": "SIGTERM",
+      "owned_group_cleanup": {
+        "descendants_after_leader_exit": false,
+        "group": 581469,
+        "group_present_after_cleanup": false,
+        "signals": [
+          "SIGTERM"
+        ]
+      },
+      "pid": 581469,
+      "returncode": -15,
+      "started": 1795025328.3311903,
+      "timeout_seconds": 14400
+    },
+    "retained_report_matches_managed": true
+  }
+}

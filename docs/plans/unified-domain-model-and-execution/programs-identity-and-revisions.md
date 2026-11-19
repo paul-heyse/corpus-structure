@@ -1,6 +1,6 @@
 # Programs, identity and revisions: the program registry, the identity layers, revisions by program bytes and carried assurance
 
-**Status:** Not started. Draft for the coordinator's assembly.
+**Status:** In progress. The typed registry and transition programs are integrated.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-08** (the execution path generates nothing), **UDM-09**
@@ -865,12 +865,79 @@ The interim family-program table and the remaining named-script selectors stay u
 UDM-09. The native descriptor includes the authoring capture, so registry source changes
 that affect the descriptor join UDM-10 and UDM-11's identity transition.
 
+### Transition integration
+
+The current installation builds one graph from typed routines, views and triggers. The graph
+collects calls from SQLAlchemy and pglast objects, orders creation dependencies, and derives
+privileges from declared purposes. Calls to overloads use arity and an explicit signature when
+arity is ambiguous. The published PDF readers declare SQL-standard bodies where PostgreSQL must
+bind the underlying objects at creation. The former installed-program scanners and fixed PDF
+provider order are retired. A function inventory still normalizes server-observed catalog facts
+for admission. [Producer controls](../../design_review/evidence/2026-11-19_udm09-pdf-producer-cohorts/README.md)
+record independent SQL and grant comparisons for the conversion cohorts.
+
+The program manifest hashes exact ordered install statements per object, including privileges
+and trigger state. The kernel identity composes those entries. The two generated descriptors
+are checked separately against frozen statements to avoid self-reference. Declared calls derive
+operation, lowering, read and per-family validity identities. The current source captures
+authoring provenance with the frozen revision and reads the installed identities during
+acquisition. Catalog proof and activation use the named verification programs. Ordinary
+execution checks the carried receipt. The readiness watermark omits the kernel component.
+Completion receipts carry applicable validator identities. A write-side replay records
+reconfirmation after the historical episode and current check succeed.
+
+**Tested, 2026-11-18.** The full-registry source passed fresh authoring, rendered replay,
+installation, unchanged-revision comparison, and real grant checks. The same managed selection
+passed the N29 conversion and conservative settlement. Three fixture assertions in the selection
+failed because they expected name-only call references, a kernel-wide call digest, and a
+writer-only claim grant. They were updated to use the declared ABI and actual purposes. The
+original result remains `85b9c42f11444d589790fbd07775283d`.
+
+The stage inventory compared current source against 586 frozen N31 objects. It generated 603
+including the execution descriptor and identified two retirements, the release-side authored-SQL
+admission entry and the superseded rich producer lookup signature. The source-native statistics
+selector prepared 51 operations. Three private cases used the registered N32 head to exercise
+protected authority traversal, the undetermined PDF guard and historical raw ancestry
+(`d9daadb725d24e27a97b9236538a536f`).
+
+#### Bounded stage cutover
+
+**Tested, 2026-11-18.** The source and frozen transition are in `a07122316`. The reviewed
+preview `f7b69ed2019d4eda82da7e0b588609db` bound the N31 predecessor and stage database
+OID 130661481. Rollback authoring `80c15df2f6d04adb9472ba2b351b22c1` produced the one N32
+transition and preserved the complete starting project snapshot. The candidate preserved the
+owner and ACL of all 584 common objects. Registration `20788efec9bf40d5b203a1134cc3319a`
+and deployment `f9e1664161a1413b85d03f45edcc3afc` passed. Deployment committed native
+migration, archive admission and application verification.
+
+Independent `ci db check --target deployment --release` and `ci release check --target
+deployment --release` passed for the new release. The explicit activation of
+`ddo-current-pdf-bounded` advanced its generation from 28 to 29. A repeatable-read comparison
+found the same 16 request IDs, 14 completion-intent IDs and 14 published episode IDs. Live
+readback found eight validator identities and confirmed both retired signatures absent.
+The kernel identity is
+`kernel:5a39fd82bf50220ac7fce542678af078a23399bafcf147d17cf9eff9ce73e0b3`.
+With an unusable database endpoint, `ci schema native-candidate --expected-predecessor
+semantic_ddo_pe_n32` returned `no_native_change` and created no candidate output
+(`303bcab38f6547ef8a4128de3eac9e5f`).
+
+The integrated private selection recorded 51 passed and one failed fixture
+(`afc1886e16e943d2a47ec7bbb719a464`). Its synthetic table omitted the mandatory explicit
+read-role declaration. The corrected exact case passed (`648928406fc644ee82f130610e163ded`).
+Pyrefly and Ruff passed (`3e7c0481e7d0488997b0606707d09302`,
+`3d0e2d2715cb414bb3974694f0912e8b`).
+
+Both installed controls passed (`f2beb4a348664a07a7e9c721754a1180`). They exercised
+cross-release discovery, retained support inspection and concurrent conservative settlement in
+isolated projects. The bounded project's retained identities and generation were independently
+read back after both controls. [Stage evidence](../../design_review/evidence/2026-11-19_udm09-stage-cutover/README.md)
+
 ## State
 
 | Package | State |
 |---|---|
 | UDM-08 | Acquisition and export use retained identities and the running wire protocol. See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment) for evidence. |
-| UDM-09 | Grant declarations and six typed foundation programs integrated. Remaining producers, family claims, manifest and install cutover are open. |
-| UDM-10 | Not started |
-| UDM-11 | Not started |
-| UDM-12 | Not started |
+| UDM-09 | Complete. One typed installation graph, direct grants and family declarations are integrated. The fresh install, frozen ACL correspondence and N29 conversion passed. N32 is deployed and active at stage generation 29. |
+| UDM-10 | Program, kernel, operation, read and family identities are integrated for the transition. The Python producing and serving import closure and the remaining release provenance separation stay with this package. |
+| UDM-11 | The exact no-change comparison passed on the registered private successor. This transition includes the installed kernel guard. |
+| UDM-12 | Receipt-backed acquisition, explicit catalog proof, watermark change and native reconfirmation are integrated for the transition. Wider qualification remains scheduled. |
