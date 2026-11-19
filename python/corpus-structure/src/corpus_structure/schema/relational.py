@@ -472,6 +472,9 @@ def _compile_physical(view: View, *, read_only: bool = False) -> MetaData:
     md = MetaData(naming_convention=dict(NAMING_CONVENTION))
     md.info["physical_schemas"] = tuple(schemas)
     md.info["integrity_policy"] = integrity_policy
+    md.info["schema_read_roles"] = {
+        name: policy["ph:read_roles"] for name, policy in schemas.items()
+    }
     # Trusted physical imports may contribute stored relations. Imported payload
     # classes without a physical subset remain boundary types, never tables.
     physical_classes = dict(view.schema.classes)

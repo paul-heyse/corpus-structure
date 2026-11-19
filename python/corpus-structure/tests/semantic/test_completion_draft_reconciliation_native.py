@@ -32,8 +32,9 @@ def test_consumed_original_reconciles_after_local_ack_loss_without_new_answer(
         engine, capture_target_installation(get_metadata()), tmp_path
     )
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
+    preparation = prepare_kernel(STORAGE, directory=tmp_path / "kernel")
     with engine.begin() as connection:
-        kernel = admit_kernel(connection, STORAGE, preparation=prepare_kernel(STORAGE))
+        kernel = admit_kernel(connection, STORAGE, preparation=preparation)
     writer = principal_engine(native_settings, "write", engine.url.database)
     kernel = replace(kernel, engine=writer)
     try:
@@ -105,11 +106,15 @@ def test_consumed_original_reconciles_after_local_ack_loss_without_new_answer(
                     },
                 )
             )
-        # No private output ACK remains. Recovery must use the native mapped
-        # intent rather than computing or submitting a different current answer.
-        (store.root / (draft.identity + ".ack")).unlink()
-        (store.root / (draft.identity + ".body")).unlink()
-        assert not tuple(store.candidates(original["request_id"], original["generation"]))
+        with writer.begin() as connection:
+            inspect = DataOperationStorage(connection).inspect_data_completion_draft
+            retained = store.retire(draft.identity, project_id="ddo-test", inspect=inspect)
+            assert (retained.state, retained.reason, retained.intent_id) == (
+                "retained",
+                "unpublished",
+                intent["intent_id"],
+            )
+        assert tuple(store.candidates(original["request_id"], original["generation"])) == (draft,)
         with writer.begin() as connection:
             storage = DataOperationStorage(connection)
             failure = storage.release_data_attempt(
@@ -165,6 +170,16 @@ def test_consumed_original_reconciles_after_local_ack_loss_without_new_answer(
             assert adopted["producer_task_id"] == original["task_id"]
             assert adopted["producer_attempt"] == original["attempt"]
         receipt = publish(kernel, fence, intent)
+        with writer.begin() as connection:
+            inspect = DataOperationStorage(connection).inspect_data_completion_draft
+            with pytest.raises(DBAPIError, match="original custody"), connection.begin_nested():
+                store.retire(draft.identity, project_id="wrong-project", inspect=inspect)
+            assert store.open(draft.identity) == draft
+            retired = store.retire(draft.identity, project_id="ddo-test", inspect=inspect)
+            assert retired.state == "retired"
+            assert retired.receipt_id == receipt["receipt_id"]
+            assert retired.failure_id
+        assert not tuple(store.candidates(original["request_id"], original["generation"]))
         assert publish(kernel, fence, intent) == {**receipt, "replayed": True}
         with engine.connect() as connection:
             row = connection.execute(

@@ -58,6 +58,7 @@ def test_provider_residents_follow_frozen_demand_not_all_available_factories():
     scope.cpu = cast(CPUExecutionScope, SimpleNamespace(prepare=lambda: None, preparation_bytes=0))
     scope.native_hosts = cast(NativeHostResidency, SimpleNamespace(declare=declared.append))
     scope._selected_operations = None
+    scope._target_ports = None
     scope.select_operations(("pure-cpu", "selected-provider"))
     scope.select_operations(("selected-provider", "pure-cpu"))
     assert acquired == ["selected-provider"] and declared == [("selected-profile",)]

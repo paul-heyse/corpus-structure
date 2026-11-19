@@ -47,7 +47,9 @@ class PdfScratchSpec:
 
     @property
     def owner(self) -> str:
-        return role_name("publisher")
+        from .alembic_privileges import metadata_integrity
+
+        return metadata_integrity(self.source.metadata).publisher
 
     @property
     def qualified_name(self) -> str:

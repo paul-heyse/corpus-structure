@@ -23,9 +23,6 @@ class NativeDemandUnit:
     def planner(self, model):
         return DemandPlanner(model, self.calls)
 
-    def begin_nested(self):
-        return self.connection.begin_nested()
-
     def hydrate(self, model, selection, **options):
         from corpus_structure.semantic.data_operation_consumers import hydrate_consumer_selection
 

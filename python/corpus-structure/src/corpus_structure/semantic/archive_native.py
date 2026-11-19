@@ -247,6 +247,8 @@ class ArchiveScratchSpec:
         )
 
     def owner_statement(self) -> ast.AlterTableStmt:
+        from .alembic_privileges import metadata_integrity
+
         return ast.AlterTableStmt(
             relation=self.relation(),
             objtype=enums.ObjectType.OBJECT_TABLE,
@@ -255,13 +257,15 @@ class ArchiveScratchSpec:
                     subtype=enums.AlterTableType.AT_ChangeOwner,
                     newowner=ast.RoleSpec(
                         roletype=enums.RoleSpecType.ROLESPEC_CSTRING,
-                        rolename=role_name("publisher"),
+                        rolename=metadata_integrity(self.source.metadata).publisher,
                     ),
                 ),
             ),
         )
 
     def privilege_statement(self, grant: bool) -> ast.GrantStmt:
+        from .alembic_privileges import metadata_integrity
+
         return ast.GrantStmt(
             is_grant=grant,
             targtype=enums.GrantTargetType.ACL_TARGET_OBJECT,
@@ -275,7 +279,9 @@ class ArchiveScratchSpec:
                     roletype=enums.RoleSpecType.ROLESPEC_CSTRING
                     if grant
                     else enums.RoleSpecType.ROLESPEC_PUBLIC,
-                    rolename=role_name("admitter") if grant else None,
+                    rolename=metadata_integrity(self.source.metadata).role_name("admitter")
+                    if grant
+                    else None,
                 ),
             ),
             grant_option=False,

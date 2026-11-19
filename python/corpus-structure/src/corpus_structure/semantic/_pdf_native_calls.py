@@ -4355,7 +4355,7 @@ def register_pdf_spool_contributor(
 
 
 READ_PDF_SPOOL_RECOVERY_CANDIDATES_CONTRACT_DIGEST = (
-    "1e679132279986a62f4ba92ae70065abdf4d8071af35d59975990f7bc52d6123"
+    "92e6970f8c24ce006d1a10e6e6492a811c019b5a857a7f34deb9adb8251f611a"
 )
 
 
@@ -4363,6 +4363,11 @@ class PdfSpoolRecoveryCandidate(NativeRowResult):
     build_id: str
     task_id: int
     producer_id: str
+    attempt: int
+    holder: str
+    writer_device: int
+    writer_inode: int
+    premises_bytes: bytes
 
 
 class _read_pdf_spool_recovery_candidatesRequest(OperationResult):
@@ -4376,6 +4381,7 @@ class _read_pdf_spool_recovery_candidatesRequest(OperationResult):
     ]
     holder: str
     runtime_id: RuntimeId
+    premises_bytes: bytes
 
 
 _read_pdf_spool_recovery_candidates_function = func.ops.read_pdf_spool_recovery_candidates(
@@ -4384,10 +4390,16 @@ _read_pdf_spool_recovery_candidates_function = func.ops.read_pdf_spool_recovery_
     bindparam("attempt", type_=BigInteger()),
     bindparam("holder", type_=Text()),
     bindparam("runtime_id", type_=Text()),
+    bindparam("premises_bytes", type_=BYTEA()),
 ).table_valued(
     column("build_id", Text()),
     column("task_id", BigInteger()),
     column("producer_id", Text()),
+    column("attempt", BigInteger()),
+    column("holder", Text()),
+    column("writer_device", BigInteger()),
+    column("writer_inode", BigInteger()),
+    column("premises_bytes", BYTEA()),
 )
 
 
@@ -4395,6 +4407,11 @@ class _read_pdf_spool_recovery_candidatesColumns(Protocol):
     build_id: Column[str]
     task_id: Column[int]
     producer_id: Column[str]
+    attempt: Column[int]
+    holder: Column[str]
+    writer_device: Column[int]
+    writer_inode: Column[int]
+    premises_bytes: Column[bytes]
 
 
 _read_pdf_spool_recovery_candidates_columns = cast(
@@ -4404,17 +4421,27 @@ _read_pdf_spool_recovery_candidates_statement = select(
     _read_pdf_spool_recovery_candidates_columns.build_id,
     _read_pdf_spool_recovery_candidates_columns.task_id,
     _read_pdf_spool_recovery_candidates_columns.producer_id,
+    _read_pdf_spool_recovery_candidates_columns.attempt,
+    _read_pdf_spool_recovery_candidates_columns.holder,
+    _read_pdf_spool_recovery_candidates_columns.writer_device,
+    _read_pdf_spool_recovery_candidates_columns.writer_inode,
+    _read_pdf_spool_recovery_candidates_columns.premises_bytes,
 )
 
 
 def _read_pdf_spool_recovery_candidates_result(
-    row: tuple[str, int, str],
+    row: tuple[str, int, str, int, str, int, int, bytes],
 ) -> PdfSpoolRecoveryCandidate:
     with native_result_scope("retain_pdf_original", "PdfSpoolRecoveryCandidate"):
         return PdfSpoolRecoveryCandidate(
             build_id=row[0],
             task_id=row[1],
             producer_id=row[2],
+            attempt=row[3],
+            holder=row[4],
+            writer_device=row[5],
+            writer_inode=row[6],
+            premises_bytes=row[7],
         )
 
 
@@ -4425,14 +4452,16 @@ def prepare_read_pdf_spool_recovery_candidates(
     attempt: TaskAttempt,
     holder: str,
     runtime_id: RuntimeId,
+    premises_bytes: bytes,
     projection_context: PreparedRelease | None = None,
-) -> Select[str, int, str]:
+) -> Select[str, int, str, int, str, int, int, bytes]:
     _request = _read_pdf_spool_recovery_candidatesRequest(
         build_id=build_id,
         task_id=task_id,
         attempt=attempt,
         holder=holder,
         runtime_id=runtime_id,
+        premises_bytes=premises_bytes,
     )
     if projection_context is not None:
         require_call_context(
@@ -4448,6 +4477,7 @@ def prepare_read_pdf_spool_recovery_candidates(
             "attempt": _request.attempt,
             "holder": _request.holder,
             "runtime_id": _request.runtime_id,
+            "premises_bytes": _request.premises_bytes,
         }
     )
 
@@ -4463,6 +4493,7 @@ def read_pdf_spool_recovery_candidates(
     attempt: TaskAttempt,
     holder: str,
     runtime_id: RuntimeId,
+    premises_bytes: bytes,
     projection_context: PreparedRelease | None = None,
 ) -> tuple[PdfSpoolRecoveryCandidate, ...]:
     _statement = prepare_read_pdf_spool_recovery_candidates(
@@ -4471,6 +4502,7 @@ def read_pdf_spool_recovery_candidates(
         attempt=attempt,
         holder=holder,
         runtime_id=runtime_id,
+        premises_bytes=premises_bytes,
         projection_context=projection_context,
     )
     _native_result = conn.execute(_statement)
@@ -6323,4 +6355,4 @@ def read_pdf_frozen_rows(
         return tuple(materialize_read_pdf_frozen_rows(row) for row in _native_result)
 
 
-CALL_CONTRACT_DIGEST = "06bb1913b50dae3b41f036422593c4e430896a83fee475e2c6a614d15c8eeaf0"
+CALL_CONTRACT_DIGEST = "637287e6b320fbd61f3c01f5157905ecca3215da7826a71cf9bafc558e30ab2f"

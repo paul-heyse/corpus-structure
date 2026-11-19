@@ -23,7 +23,6 @@ from corpus_structure.semantic.pdf_certification import (
     write_pdf_companion_sets,
 )
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
-from corpus_structure.semantic.pdf_lowering import LOWERING_CONTRACT
 from corpus_structure.semantic.pdf_payloads import prepare_payload_family
 from corpus_structure.semantic.pdf_spool_native import (
     SPOOL_MATERIAL_PREFIX,
@@ -36,9 +35,34 @@ from corpus_structure.semantic.pdf_spool_recertification import (
 
 
 def test_archived_material_ignores_action_transport_and_refuses_schema_or_implementation_change():
-    context = trusted_pdf_context()
-    original = context.domain.source(LOWERING_CONTRACT).content
-    document = json.loads(original)
+    # This projection test authors a closed inventory independently of the live
+    # code capture. It does not claim the production lowering closure is complete.
+    document = {
+        "profile": "pdf-record-lowering-contract-v2",
+        "compiler_policy": "independent-test-policy",
+        "code_identity": {"complete": True},
+        "libraries": {"independent-library": "1.0"},
+        "inputs": [
+            {"name": name, "sha256": "a" * 64}
+            for name in (
+                *(
+                    SPOOL_MATERIAL_PREFIX + suffix
+                    for suffix in (
+                        "code/meaning.json",
+                        "schema/docling-native.json",
+                        "codec/inline-candidates.arrow",
+                    )
+                ),
+                "pdf-domain/native/actions.yaml",
+                "pdf-domain/semantic/_pdf_native_calls.py",
+            )
+        ],
+    }
+    original = json.dumps(document).encode()
+    incomplete = deepcopy(document)
+    incomplete["code_identity"]["complete"] = False
+    with pytest.raises(ValueError, match="no supported original lowering snapshot"):
+        spool_material_document(json.dumps(incomplete).encode())
     action_only = deepcopy(document)
     for item in action_only["inputs"]:
         if item["name"].endswith("native/actions.yaml") or item["name"].endswith(
@@ -49,7 +73,7 @@ def test_archived_material_ignores_action_transport_and_refuses_schema_or_implem
     assert spool_material_document(json.dumps(action_only).encode()) == spool_material_document(
         original
     )
-    for suffix in ("schema/inline_candidate_pages.json", "semantic/pdf_certification.py"):
+    for suffix in ("schema/docling-native.json", "code/meaning.json"):
         changed = deepcopy(document)
         selected = next(
             item for item in changed["inputs"] if item["name"] == SPOOL_MATERIAL_PREFIX + suffix

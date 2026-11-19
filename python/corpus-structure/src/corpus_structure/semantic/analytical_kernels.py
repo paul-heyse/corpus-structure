@@ -6,60 +6,11 @@ They are independent of the retired pool's storage or reference-class vocabulary
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections import defaultdict
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-import pyarrow as pa
-from duckdb import coalesce, col, fn, list_type, lit, sqltype, when
-
-from corpus_structure.analytics import Relation
-
-
-def _schema(name: str, *fields: pa.Field) -> pa.Schema:
-    return pa.schema(fields, metadata={b"cs.relation": name.encode()})
-
-
-VIEW_CLAIMS = _schema(
-    "view_claims",
-    pa.field("claim", pa.string(), nullable=False),
-    pa.field("predicate", pa.string(), nullable=False),
-    pa.field("subject", pa.string(), nullable=False),
-    pa.field("object", pa.string()),
-    pa.field("statement", pa.string()),
-)
-VIEW_ENTITIES = _schema(
-    "view_entities",
-    pa.field("entity", pa.string(), nullable=False),
-    pa.field("key", pa.string()),
-    pa.field("class_id", pa.string(), nullable=False),
-    pa.field("label", pa.string(), nullable=False),
-    pa.field("symbol", pa.string()),
-)
-VIEW_IDENTITY = _schema(
-    "view_identity",
-    pa.field("entity", pa.string(), nullable=False),
-    pa.field("slot", pa.string(), nullable=False),
-    pa.field("value", pa.string(), nullable=False),
-)
-VIEW_ALTERNATIVES = _schema(
-    "view_alternatives",
-    pa.field("group", pa.string(), nullable=False),
-    pa.field("claim", pa.string(), nullable=False),
-)
-VIEW_FACTS = _schema(
-    "view_facts",
-    pa.field("claim", pa.string(), nullable=False),
-    pa.field("view", pa.string(), nullable=False),
-    pa.field("facts", pa.list_(pa.field("item", pa.string(), nullable=False)), nullable=False),
-)
-VIEW_SPECS = pa.schema(
-    [
-        (name, pa.string())
-        for name in ("view", "source", "match_source", "match_claim", "head", "attr", "slot")
-    ]
-)
-VIEW_APPLIES = pa.schema([("view", pa.string()), ("predicate", pa.string())])
 SAME_SLOT, ALTERNATIVE_OF = "same_slot", "alternative_of"
 
 
@@ -125,10 +76,48 @@ class ViewSpec:
         )
 
 
-def operation_view_tables(
+@dataclass(frozen=True, slots=True)
+class ViewClaim:
+    claim: str
+    predicate: str
+    subject: str
+    object: str | None
+    statement: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ViewEntity:
+    entity: str
+    key: str | None
+    class_id: str
+    label: str
+    symbol: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ViewIdentity:
+    entity: str
+    slot: str
+    value: str
+
+
+@dataclass(frozen=True, slots=True)
+class ViewAlternative:
+    group: str
+    claim: str
+
+
+@dataclass(frozen=True, slots=True)
+class ViewFacts:
+    claim: str
+    view: str
+    facts: tuple[str, ...]
+
+
+def checked_view_specs(
     specs: Iterable[ViewSpec], property_ids: Iterable[str]
-) -> tuple[pa.Table, pa.Table]:
-    """Validate actual declared property references and realize the fixed view inputs."""
+) -> tuple[ViewSpec, ...]:
+    """Validate actual declared property references without a transport projection."""
     specs = tuple(specs)
     names = [spec.name for spec in specs]
     if len(set(names)) != len(names) or {SAME_SLOT, ALTERNATIVE_OF} & set(names):
@@ -137,138 +126,81 @@ def operation_view_tables(
     for spec in specs:
         if spec.source not in declared or not spec.applies_to <= declared:
             raise ValueError("view uses a property outside this release")
-    rows = [
-        {
-            "view": spec.name,
-            "source": spec.source,
-            "match_source": spec.match_source,
-            "match_claim": spec.match_claim,
-            "head": spec.head,
-            "attr": spec.attr,
-            "slot": spec.slot,
-        }
-        for spec in specs
-    ]
-    applies = [
-        {"view": spec.name, "predicate": predicate}
-        for spec in specs
-        for predicate in sorted(spec.applies_to)
-    ]
-    return pa.Table.from_pylist(rows, schema=VIEW_SPECS), pa.Table.from_pylist(
-        applies, schema=VIEW_APPLIES
-    )
+    return specs
 
 
-def _facts(value):
-    empty = lit([]).cast(list_type(sqltype("VARCHAR")))
-    return coalesce(fn("list_sort", fn("list_distinct", fn("list", value))), empty)
-
-
-def _prefixed(relation: Relation, prefix: str) -> Relation:
-    return relation.select(
-        *(col(name).alias(prefix + name) for name in relation.columns)
-    ).set_alias(prefix)
+_ENTITY_FIELDS = {
+    "id": "entity",
+    "types": "class_id",
+    "key": "key",
+    "label": "label",
+    "symbol": "symbol",
+}
 
 
 def operation_views(
-    claims: Relation,
-    entities: Relation,
-    identity: Relation,
-    alternatives: Relation,
-    specs: Relation,
-    applies: Relation,
-) -> Relation:
-    c, d = _prefixed(claims, "c_"), _prefixed(claims, "d_")
-    a, b = _prefixed(alternatives, "a_"), _prefixed(alternatives, "b_")
-    s, e, i = _prefixed(specs, "s_"), _prefixed(entities, "e_"), _prefixed(identity, "i_")
-    declared_applies = _prefixed(applies, "a_")
-    null_statements = col("c_statement").is_null() & col("d_statement").is_null()
-    same_slot = (
-        c.join(
-            d,
-            (
-                (col("c_predicate") == col("d_predicate"))
-                & (col("c_subject") == col("d_subject"))
-                & ((col("c_statement") == col("d_statement")) | null_statements)
-                & (col("c_claim") != col("d_claim"))
-            ),
-            how="left",
+    claims: Sequence[ViewClaim],
+    entities: Sequence[ViewEntity],
+    identity: Sequence[ViewIdentity],
+    alternatives: Sequence[ViewAlternative],
+    specs: Sequence[ViewSpec],
+) -> tuple[ViewFacts, ...]:
+    """Realize bounded occurrence views using indexes over their typed domain rows."""
+    unsupported = set(projected_attributes()) - _ENTITY_FIELDS.keys()
+    if unsupported:
+        raise ValueError(
+            "rule-view Entity differs from its typed working shape: "
+            + ", ".join(sorted(unsupported))
         )
-        .aggregate(
-            [
-                col("c_claim").alias("claim"),
-                _facts(col("d_claim")).alias("facts"),
-            ]
+    by_predicate: dict[str, list[ViewClaim]] = defaultdict(list)
+    slots: dict[tuple[str, str, str | None], set[str]] = defaultdict(set)
+    claim_ids = {claim.claim for claim in claims}
+    facts: dict[tuple[str, str], set[str]] = {}
+    for claim in claims:
+        by_predicate[claim.predicate].append(claim)
+        slots[claim.predicate, claim.subject, claim.statement].add(claim.claim)
+        facts.setdefault((claim.claim, SAME_SLOT), set())
+        facts.setdefault((claim.claim, ALTERNATIVE_OF), set())
+    for claim in claims:
+        facts[claim.claim, SAME_SLOT].update(
+            slots[claim.predicate, claim.subject, claim.statement] - {claim.claim}
         )
-        .select(col("claim"), lit(SAME_SLOT).alias("view"), col("facts"))
+    groups: dict[str, set[str]] = defaultdict(set)
+    for member in alternatives:
+        groups[member.group].add(member.claim)
+    for members in groups.values():
+        present = members & claim_ids
+        for claim in present:
+            facts[claim, ALTERNATIVE_OF].update(present - {claim})
+    by_entity: dict[str, list[ViewEntity]] = defaultdict(list)
+    for entity in entities:
+        by_entity[entity.entity].append(entity)
+    identities: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for item in identity:
+        identities[item.entity, item.slot].add(item.value)
+    for spec in specs:
+        projected: dict[str, set[str]] = defaultdict(set)
+        for source in by_predicate.get(spec.source, ()):
+            match = getattr(source, spec.match_source)
+            head = getattr(source, spec.head)
+            # Joins never equate two absent endpoints.
+            if match is None or head is None:
+                continue
+            for entity in by_entity.get(head, ()):
+                if spec.attr == "identity":
+                    assert spec.slot is not None  # Validated by ViewSpec.
+                    projected[match].update(identities.get((entity.entity, spec.slot), ()))
+                else:
+                    value = getattr(entity, _ENTITY_FIELDS[spec.attr])
+                    if value is not None:
+                        projected[match].add(value)
+        for predicate in spec.applies_to:
+            for claim in by_predicate.get(predicate, ()):
+                selected = facts.setdefault((claim.claim, spec.name), set())
+                match = getattr(claim, spec.match_claim)
+                if match is not None:
+                    selected.update(projected.get(match, ()))
+    return tuple(
+        ViewFacts(claim, view, tuple(sorted(values)))
+        for (claim, view), values in sorted(facts.items())
     )
-    pairs = (
-        a.join(b, (col("a_group") == col("b_group")) & (col("a_claim") != col("b_claim")))
-        .join(d, col("b_claim") == col("d_claim"), how="semi")
-        .select(col("a_claim").alias("pair_claim"), col("b_claim").alias("other"))
-        .distinct()
-    )
-    alternative_view = (
-        c.join(pairs, col("c_claim") == col("pair_claim"), how="left")
-        .aggregate(
-            [
-                col("c_claim").alias("claim"),
-                _facts(col("other")).alias("facts"),
-            ]
-        )
-        .select(col("claim"), lit(ALTERNATIVE_OF).alias("view"), col("facts"))
-    )
-    target = (
-        s.join(declared_applies, col("s_view") == col("a_view"))
-        .join(c, col("c_predicate") == col("a_predicate"))
-        .select(
-            col("s_view").alias("target_view"),
-            col("c_claim").alias("claim"),
-            when(col("s_match_claim") == "subject")
-            .then(col("c_subject"))
-            .otherwise(col("c_object"))
-            .alias("target_match"),
-        )
-        .distinct()
-    )
-    projected = (
-        s.join(d, col("d_predicate") == col("s_source"))
-        .join(
-            e,
-            col("e_entity")
-            == when(col("s_head") == "subject").then(col("d_subject")).otherwise(col("d_object")),
-        )
-        .join(
-            i,
-            (col("s_attr") == "identity")
-            & (col("i_entity") == col("e_entity"))
-            & (col("i_slot") == col("s_slot")),
-            how="left",
-        )
-    )
-    value = when(col("s_attr") == "identity").then(col("i_value"))
-    for attr in projected_attributes():
-        field = {"id": "entity", "types": "class_id"}.get(attr, attr)
-        value = value.when(col("s_attr") == attr).then(col("e_" + field))
-    value = value.otherwise(lit(None))
-    projected = projected.select(
-        col("s_view").alias("projected_view"),
-        when(col("s_match_source") == "subject")
-        .then(col("d_subject"))
-        .otherwise(col("d_object"))
-        .alias("projected_match"),
-        value.alias("value"),
-    )
-    declared = target.join(
-        projected,
-        (col("target_view") == col("projected_view"))
-        & (col("target_match") == col("projected_match")),
-        how="left",
-    ).aggregate(
-        [
-            col("claim"),
-            col("target_view").alias("view"),
-            _facts(col("value")).alias("facts"),
-        ]
-    )
-    return same_slot.union_all(alternative_view).union_all(declared).sort(col("claim"), col("view"))

@@ -16,7 +16,6 @@ from sqlalchemy.schema import (
     MetaData,
 )
 
-from corpus_structure.schema.integrity import role_name
 from corpus_structure.schema.relational import physical_expression_sql
 
 from .prepared_sql import PreparedSQL
@@ -320,6 +319,8 @@ def current_authoring_provenance(
 def relation_descriptor(relation) -> dict:
     """Complete named physical row shape; PK/FK vectors retain their declared order."""
 
+    from .alembic_privileges import metadata_integrity
+
     columns = []
     for column in sorted(relation.columns, key=lambda column: column.name):
         kind = column.type.compile(dialect=dialect()).lower()
@@ -364,7 +365,7 @@ def relation_descriptor(relation) -> dict:
     result = dict(
         relation=relation.fullname,
         read_roles=list(relation.info["read_roles"]),
-        owner=role_name("publisher"),
+        owner=metadata_integrity(relation.metadata).publisher,
         columns=columns,
         primary_key=[c.name for c in relation.primary_key.columns],
         foreign_keys=[

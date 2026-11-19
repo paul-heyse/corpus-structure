@@ -6,6 +6,7 @@ from pglast.visitors import Visitor
 from sqlalchemy.dialects.postgresql import dialect
 from sqlalchemy.sql.elements import ClauseElement
 
+from corpus_structure.model.compiled import running_model
 from corpus_structure.semantic.native_admission_principals import (
     principal_catalog_checks,
     restricted_principal_checks,
@@ -121,7 +122,8 @@ def _policy_tree(sql):
     "position,expected", enumerate(_EXPECTED), ids=[row[0] for row in _EXPECTED]
 )
 def test_principal_refusal_preserves_complete_policy_predicate(position, expected):
-    checks = (*principal_catalog_checks(), *restricted_principal_checks())
+    metadata = running_model().physical()
+    checks = (*principal_catalog_checks(metadata), *restricted_principal_checks(metadata))
     check = checks[position]
     message, sqlstate, condition = expected
     assert check.then == (Raise(message, sqlstate),)
@@ -132,7 +134,11 @@ def test_principal_refusal_preserves_complete_policy_predicate(position, expecte
 
 
 def test_principal_program_preserves_pre_and_post_generic_check_split():
-    principal, restricted = principal_catalog_checks(), restricted_principal_checks()
+    metadata = running_model().physical()
+    principal, restricted = (
+        principal_catalog_checks(metadata),
+        restricted_principal_checks(metadata),
+    )
     assert len(principal) == 8
     assert len(restricted) == 2
     sql = function(

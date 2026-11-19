@@ -140,8 +140,11 @@ def test_preparation_that_cannot_hold_one_request_refuses_before_claim(monkeypat
     executor, observed = execution_case(
         monkeypatch, prepared, policy, ("prepared",), {"prepared": port}
     )
-    with pytest.raises(CapacityExceeded, match="preparation and one complete request"):
+    with pytest.raises(data_operations.NativeDemandExecutionError) as caught:
         executor.advance("controlled-demand")
+    (failure,) = caught.value.failures
+    assert isinstance(failure, CapacityExceeded)
+    assert "preparation and one complete request" in str(failure)
     assert not observed.claims and executor.budget.used_bytes == 0
 
 
@@ -305,7 +308,7 @@ def test_measured_batch_boundary_rehydrates_without_reclaiming(monkeypatch, prep
     result = executor.advance("controlled-demand")
     assert result.receipt_count == 3
     assert [identifier for identifier, _ in observed.claims] == ["0", "1", "2"]
-    assert hydrations == ["0", "1", "2", "1", "2", "2"]
+    assert hydrations == ["0", "1", "1", "2", "2"]
     assert batches == [("0",), ("1",), ("2",)]
     assert max(observed.windows) <= executor.policy.max_claims
     assert executor.budget.used_bytes == 0 and not observed.live
@@ -340,7 +343,7 @@ def test_one_frontier_replenishes_multiple_logical_pages(monkeypatch, prepared):
             uses=[],
             populations=[],
             intent={"discovery": []},
-            selection={"operations": [{"operation": "scalar"}]},
+            selection={"version": "data-demand-intent-v2", "operations": [{"operation": "scalar"}]},
             control_page=index,
             continuation=None
             if index == 2
@@ -405,8 +408,7 @@ def test_cold_preparation_defers_to_driver_ticks_without_failing_or_claiming_ear
             raise ExecutionPreparationDeferred("previous physical reply remains owned")
         return prepare_ready(item, authorization)
 
-    # Exercise the frontier's per-item defer protocol; the cached-port inspection
-    # has intentionally run during page selection before any item is claimed.
+    # Exercise the frontier's per-item defer protocol before a claim is acquired.
     executor._prepare_ready = prepare
     result = executor.advance("controlled-demand")
     assert deferred.is_set()
@@ -563,3 +565,178 @@ def test_reservation_formula_has_one_literal_contract(prepared):
     assert executor.reservation == 143360
     with pytest.raises(ValueError, match="exceed owned capacity"):
         executor_case(prepared=prepared, policy=replace(policy, max_owned_bytes=143359))
+
+
+@pytest.mark.parametrize("form", ["scalar", "batch"])
+@pytest.mark.parametrize("mode", ["draft", "native-intent", "uncertain"])
+def test_recovery_precedes_fresh_port_and_hydration(monkeypatch, prepared, form, mode):
+    from corpus_structure.semantic.claim_lifetime import ClaimSettlementUncertain
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("recovery entered fresh computation")
+
+    executor, observed = execution_case(
+        monkeypatch,
+        prepared,
+        policy_for(prepared),
+        (form,) * (2 if form == "batch" else 1),
+        {},
+    )
+    executor._has_draft_path = lambda _: True
+    executor.native_io.calls.replies["register_data_execution_origin"] = {
+        "origin_id": "origin:controlled",
+        "candidates": [],
+    }
+    executor.native_io.hydrate_inputs = executor._port = forbidden
+    recovered = []
+
+    def recover(ready, claim, owner):
+        assert claim.request_id in owner.active
+        assert executor.budget.used_bytes == 0
+        if mode == "native-intent":
+            forbidden()
+        if mode == "uncertain":
+            error = ClaimSettlementUncertain(claim, claim.holder, "exact-intent")
+            owner.uncertain[claim.request_id] = error
+            raise error
+        recovered.append((ready.obligation, "draft"))
+        return "intent:" + claim.request_id
+
+    def publish(claim, intent, owner):
+        owner.active.pop(claim.request_id)
+        observed.live.remove(claim.request_id)
+        executor._receipt_count += 1
+        return intent.encode()
+
+    def reconcile(claim, intent, owner):
+        recovered.append((claim.request_id, "native-intent"))
+        return publish(claim, intent, owner)
+
+    executor._recover_answer, executor._publish, executor._reconcile = recover, publish, reconcile
+    if mode == "native-intent":
+        native_claim = executor.native_io.calls.replies["claim_data_requests"]
+
+        def race(payload):
+            result = native_claim(payload)
+            for item in result["items"]:
+                item["result"].update(action="reconcile", retained_intent_id="intent:native")
+            return result
+
+        executor.native_io.calls.replies["claim_data_requests"] = race
+    if mode == "uncertain":
+        with pytest.raises(data_operations.NativeDemandExecutionError) as caught:
+            executor.advance("controlled-demand")
+        assert all(isinstance(error, ClaimSettlementUncertain) for error in caught.value.failures)
+        assert not recovered and observed.live
+    else:
+        count = 2 if form == "batch" else 1
+        assert executor.advance("controlled-demand").receipt_count == count
+        assert recovered == [(str(index), mode) for index in range(count)]
+        assert not observed.live
+    assert executor.budget.used_bytes == 0
+
+
+def test_mixed_batch_checks_deferred_draft_before_rehydrating(monkeypatch, prepared):
+    from corpus_structure.semantic.data_operation_consumers import HydratedConsumerSelection
+
+    hydrated, computed = [], []
+
+    def batch(members, **_):
+        computed.extend(member.values for member in members)
+        if False:
+            yield
+        return SimpleNamespace(members=tuple((member.member, member.values) for member in members))
+
+    executor, observed = execution_case(
+        monkeypatch,
+        prepared,
+        policy_for(prepared, max_claims=4),
+        ("batch",) * 4,
+        {"batch": SimpleNamespace(native_selections=(), plan_batch_python=batch)},
+    )
+    executor._has_draft_path = lambda _: True
+    executor.native_io.calls.replies["register_data_execution_origin"] = {
+        "origin_id": "origin:controlled",
+        "candidates": [],
+    }
+
+    def hydrate(model, selected, **options):
+        identifier = selected.subject
+        assert identifier not in {"0", "3"}
+        assert identifier not in hydrated, "deferred eligible draft was rehydrated"
+        hydrated.append(identifier)
+        return HydratedConsumerSelection(
+            selected, (), measured_bytes=executor.policy.max_packet_bytes // 2 + 1
+        )
+
+    publish_fresh_or_draft = executor._publish
+
+    def publish(claim, intent, owner):
+        if not intent.startswith("draft:"):
+            return publish_fresh_or_draft(claim, intent, owner)
+        owner.active.pop(claim.request_id)
+        observed.live.remove(claim.request_id)
+        executor._receipt_count += 1
+        return intent.encode()
+
+    def recover(ready, claim, owner):
+        identifier = ready.obligation
+        if identifier in {"0", "3"} or (identifier == "2" and computed):
+            return "draft:" + identifier
+        return None
+
+    executor.native_io.hydrate_inputs = hydrate
+    executor._publish, executor._recover_answer = publish, recover
+    assert executor.advance("controlled-demand").receipt_count == 4
+    assert hydrated == ["1", "2"]
+    assert computed == [1]
+    assert len(observed.claims) == 4 and not observed.live
+
+
+def test_cancelling_submitted_held_claim_waits_for_physical_retirement(monkeypatch, prepared):
+    started, release = Event(), Event()
+
+    def run(value, *, execution_owner, **_):
+        def compute():
+            started.set()
+            assert release.wait(5)
+            return value
+
+        (answer,) = yield (
+            data_operations.PreparedWork(lambda: execution_owner.submit_python(compute)),
+        )
+        return answer
+
+    executor, observed = execution_case(
+        monkeypatch,
+        prepared,
+        policy_for(prepared),
+        ("scalar",),
+        {"scalar": SimpleNamespace(native_selections=(), plan_python=run)},
+    )
+    executor._has_draft_path = lambda _: True
+    executor.native_io.calls.replies["register_data_execution_origin"] = {
+        "origin_id": "origin:controlled",
+        "candidates": [],
+    }
+
+    def cancel_after_submission(plan, _owner):
+        frontier = next(plan)
+        child = frontier.admit()
+        assert child is not None
+        (work,) = next(child)
+        handle = work.try_submit()
+        assert handle is not None and started.wait(5)
+        try:
+            handle.cancel()
+            child.close()
+            plan.close()
+            assert not observed.failures and observed.live == {"0"}
+        finally:
+            release.set()
+
+    monkeypatch.setattr(data_operations, "drive_prepared_work", cancel_after_submission)
+    with pytest.raises(data_operations.NativeDemandExecutionError):
+        executor.advance("controlled-demand")
+    assert observed.failures[0][0] == "0"
+    assert not observed.live and executor.budget.used_bytes == 0

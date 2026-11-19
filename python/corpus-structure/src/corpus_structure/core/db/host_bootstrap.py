@@ -35,7 +35,7 @@ class Principal:
 PEER_MAP = "corpus_semantic"
 
 
-def _principals():
+def integrity_principals():
     policy = integrity()
     result = [Principal("publisher", policy.publisher, login=False)]
     for purpose, name in policy.purposes.items():
@@ -43,9 +43,6 @@ def _principals():
             role = policy.roles[name]
             result.append(Principal(purpose, name, login=role.login, inherit=role.inherit))
     return tuple(result)
-
-
-PRINCIPALS = _principals()
 
 
 def _catalog(name, **columns):
@@ -182,8 +179,9 @@ def _grant_role(name, grantee, *, set_only=False):
 
 
 def semantic_roles(operator: str, *, fitter_only: bool = False) -> str:
+    principals = integrity_principals()
     selected = (
-        tuple(role for role in PRINCIPALS if role.purpose == "fit") if fitter_only else PRINCIPALS
+        tuple(role for role in principals if role.purpose == "fit") if fitter_only else principals
     )
     steps: list[If | Sql] = []
     for role in selected:
@@ -233,7 +231,8 @@ def semantic_roles(operator: str, *, fitter_only: bool = False) -> str:
         steps.append(
             If(memberships, (Raise("semantic principals must not inherit any role", "P0001"),))
         )
-        steps.append(Sql(_grant_role(integrity().publisher, operator, set_only=True)))
+        publisher = next(role.name for role in principals if role.purpose == "publisher")
+        steps.append(Sql(_grant_role(publisher, operator, set_only=True)))
     return Do(Block(tuple(steps)))
 
 
@@ -269,7 +268,9 @@ def base_roles(owner: str) -> str:
 
 def peer_principals(*, fitter_only=False):
     return tuple(
-        role for role in PRINCIPALS if role.login and (not fitter_only or role.purpose == "fit")
+        role
+        for role in integrity_principals()
+        if role.login and (not fitter_only or role.purpose == "fit")
     )
 
 
@@ -412,7 +413,7 @@ def main():
     if len(args.arguments) != arities.get(args.action, 0):
         parser.error("incorrect number of host declaration arguments")
     if args.action == "principals":
-        result = "\n".join(role.purpose + " " + role.name for role in PRINCIPALS)
+        result = "\n".join(role.purpose + " " + role.name for role in integrity_principals())
     elif args.action == "semantic-sql":
         result = semantic_roles(args.arguments[0], fitter_only=args.fitter_only)
     elif args.action == "base-sql":

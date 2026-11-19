@@ -15,11 +15,20 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import uuid4
 
 from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_wire import validate_wire_schema, wire_contracts
+
+if TYPE_CHECKING:
+    from ._data_operation_wire import (
+        WireInspectDataCompletionDraftRequest,
+        WireInspectDataCompletionDraftResult,
+        WireRetainDataCompletionIntentRequest,
+    )
+    from .storage_target import StorageTarget
+
 
 SUPPORTED_OPERATIONS = frozenset({"source.pdf/capture", "segment.sentences/source-native"})
 
@@ -32,9 +41,34 @@ class CompletionDraft:
     basis: bytes
     request: bytes
 
-    def native_request(self) -> dict[str, Any]:
+    def native_request(self) -> WireRetainDataCompletionIntentRequest:
         """Return the exact original native intake request under its captured fence."""
-        return wire_json_loads(self.request)
+        return cast("WireRetainDataCompletionIntentRequest", wire_json_loads(self.request))
+
+
+@dataclass(frozen=True)
+class DraftRetirement:
+    draft_id: str
+    state: Literal["retired", "retained", "unavailable"]
+    reason: str
+    intent_id: str | None = None
+    receipt_id: str | None = None
+    failure_id: str | None = None
+
+
+def completion_draft_store(
+    root: Path, target: StorageTarget, max_bytes: int
+) -> CompletionDraftStore:
+    namespace = sha256(
+        json_bytes(
+            {"system_identifier": target.system_identifier, "database_oid": target.database_oid}
+        )
+    ).hexdigest()
+    return CompletionDraftStore(root / namespace, max_bytes=max_bytes)
+
+
+def _candidate_key(request_id: str, generation: int) -> str:
+    return sha256(json_bytes({"request_id": request_id, "generation": generation})).hexdigest()
 
 
 def _identity(value: str) -> str:
@@ -146,14 +180,12 @@ class CompletionDraftStore:
         identity = sha256(envelope).hexdigest()
         with self._owner():
             check_active()
+            if (self.root / (identity + ".retired")).exists():
+                raise ValueError("completion draft is already retired")
             if (self.root / (identity + ".ack")).exists():
                 return self._open(identity)
             self._atomic(identity + ".body", content)
-            lookup = sha256(
-                json_bytes(
-                    {"request_id": request["request_id"], "generation": request["generation"]}
-                )
-            ).hexdigest()
+            lookup = _candidate_key(request["request_id"], request["generation"])
             self._atomic(lookup + "." + identity + ".candidate", b"")
             check_active()
             self._atomic(identity + ".ack", envelope)
@@ -191,18 +223,132 @@ class CompletionDraftStore:
 
     def candidates(self, request_id: str, generation: int) -> Iterator[CompletionDraft]:
         """Read acknowledged original candidates before native applicability checks."""
-        lookup = sha256(
-            json_bytes({"request_id": request_id, "generation": generation})
-        ).hexdigest()
+        lookup = _candidate_key(request_id, generation)
         with self._owner():
             candidates = tuple(sorted(self.root.glob(lookup + ".*.candidate")))
         for path in candidates:
             with self._owner():
                 identity = _identity(path.name.split(".")[1])
-                if not (self.root / (identity + ".ack")).exists():
+                if (self.root / (identity + ".retired")).exists() or not (
+                    self.root / (identity + ".ack")
+                ).exists():
                     continue
                 draft = self._open(identity)
                 original = draft.native_request()
                 if (original["request_id"], original["generation"]) != (request_id, generation):
                     raise ValueError("completion candidate differs from the selected request")
             yield draft
+
+    def retire(
+        self,
+        identity: str,
+        *,
+        project_id: str,
+        inspect: Callable[
+            [WireInspectDataCompletionDraftRequest], WireInspectDataCompletionDraftResult
+        ],
+        confirmed_publication: tuple[CompletionDraft, str] | None = None,
+    ) -> DraftRetirement:
+        """Delete acknowledged private bytes after exact settled native custody."""
+        identity = _identity(identity)
+        if not project_id:
+            raise ValueError("completion draft retirement requires an exact project")
+        marker_name = identity + ".retired"
+        with self._owner():
+            try:
+                marker = wire_json_loads(_read(self.root / marker_name, max_bytes=self.max_bytes))
+            except FileNotFoundError:
+                try:
+                    draft = self._open(identity)
+                except FileNotFoundError:
+                    standing = (
+                        "retained" if (self.root / (identity + ".body")).exists() else "unavailable"
+                    )
+                    return DraftRetirement(identity, standing, "no-complete-acknowledgment")
+                original = draft.native_request()
+                origin = wire_json_loads(draft.basis).get("execution_origin")
+                if not isinstance(origin, str) or not origin:
+                    return DraftRetirement(identity, "retained", "unattributed")
+                result = inspect(
+                    {
+                        "project_id": project_id,
+                        "origin_id": origin,
+                        "draft_id": identity,
+                        "producer": original,
+                    }
+                )
+                confirmed = (
+                    result["reason"] == "retirement-unconfirmed"
+                    and confirmed_publication is not None
+                    and confirmed_publication == (draft, result["intent_id"])
+                )
+                if result["state"] != "eligible" and not confirmed:
+                    return DraftRetirement(
+                        identity,
+                        "retained",
+                        result["reason"],
+                        result["intent_id"],
+                        result["receipt_id"],
+                        result["failure_id"],
+                    )
+                marker = dict(
+                    format="ddo-completion-draft-retirement-v1",
+                    draft_id=identity,
+                    project_id=project_id,
+                    origin_id=origin,
+                    lookup=_candidate_key(original["request_id"], original["generation"]),
+                    intent_id=result["intent_id"],
+                    receipt_id=result["receipt_id"],
+                    failure_id=result["failure_id"],
+                    retirement="owner-confirmed" if confirmed else "failed-attempt",
+                )
+                self._retirement_paths(marker, identity, project_id)
+                self._atomic(marker_name, json_bytes(marker))
+            for path in self._retirement_paths(marker, identity, project_id):
+                path.unlink(missing_ok=True)
+            _sync_directory(self.root)
+            return DraftRetirement(
+                identity,
+                "retired",
+                "native-publication-and-retirement",
+                marker["intent_id"],
+                marker["receipt_id"],
+                marker["failure_id"],
+            )
+
+    def _retirement_paths(self, marker, identity, project_id):
+        if (
+            marker["format"] != "ddo-completion-draft-retirement-v1"
+            or marker["draft_id"] != identity
+            or marker["project_id"] != project_id
+            or not all(
+                isinstance(marker[key], str) and marker[key]
+                for key in ("origin_id", "intent_id", "receipt_id")
+            )
+            or (
+                (marker["retirement"] != "owner-confirmed" or marker["failure_id"] is not None)
+                and (
+                    marker["retirement"] != "failed-attempt"
+                    or not isinstance(marker["failure_id"], str)
+                    or not marker["failure_id"]
+                )
+            )
+        ):
+            raise ValueError("completion retirement marker differs from its selected custody")
+        lookup = _identity(marker["lookup"])
+        paths = tuple(
+            self.root / name
+            for name in (
+                lookup + "." + identity + ".candidate",
+                identity + ".ack",
+                identity + ".body",
+            )
+        )
+        for path in paths:
+            try:
+                info = path.lstat()
+            except FileNotFoundError:
+                continue
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+                raise ValueError("completion retirement path has foreign file custody")
+        return paths

@@ -148,23 +148,23 @@ def rules(rule_inputs):
 def evaluate(rules, inputs, *, scientific=(), policy=None):
     prepared, model, profile, compiled = rules
     actual = {key: value for key, value in inputs.items() if key != "source_contexts"}
-    with RichRelationKernel(
+    relations = RichRelationKernel(
         property_ids=frozenset(
             prop.iri for definition in prepared.definitions for prop in definition.properties
         ),
         check_active=lambda: None,
-    ) as relations:
-        return evaluate_rich_rules(
-            prepared,
-            model,
-            policy=compiled if policy is None else policy,
-            relations=relations,
-            context_profile=profile,
-            consolidation_policy=rich_policy_value(prepared, model),
-            source_contexts=inputs["source_contexts"],
-            scientific_assessments=scientific,
-            **actual,
-        )
+    )
+    return evaluate_rich_rules(
+        prepared,
+        model,
+        policy=compiled if policy is None else policy,
+        relations=relations,
+        context_profile=profile,
+        consolidation_policy=rich_policy_value(prepared, model),
+        source_contexts=inputs["source_contexts"],
+        scientific_assessments=scientific,
+        **actual,
+    )
 
 
 def source_values(*values):

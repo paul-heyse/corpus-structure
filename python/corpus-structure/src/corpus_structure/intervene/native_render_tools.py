@@ -77,6 +77,7 @@ def execute_native_render(
             limit=selection.limit,
             max_rounds=selection.max_rounds,
             required_targets=(TARGET,),
+            analytics_settings=settings.analytics,
         )
     return NativeRenderResponse(
         demand_id=result.demand_id, exact_json=json_bytes(native_demand_result(result)).decode()

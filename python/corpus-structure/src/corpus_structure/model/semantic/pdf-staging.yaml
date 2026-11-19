@@ -80,6 +80,8 @@ classes:
       writer_device: {range: PdfRecordInteger, required: true}
       writer_inode: {range: PdfRecordInteger, required: true}
       premises_bytes: {range: bytes, required: true}
+      execution_origin_id: {range: string}
+      recovery_key: {range: string}
   PdfSpoolContributor:
     description: Exact selected files from a registered original producer, admitted by a current build fence.
     attributes:
@@ -93,11 +95,16 @@ classes:
       adopter_attempt: {range: PdfRecordInteger, required: true}
       adopter_holder: {required: true}
   PdfSpoolRecoveryCandidate:
-    description: Native authorized prior producer hint; file custody and contributor admission remain separate.
+    description: Native compatible original producer custody; local files must match the exact owner and premises before uptake, and contributor admission remains separate.
     attributes:
       build_id: {required: true}
       task_id: {range: PdfRecordInteger, required: true}
       producer_id: {required: true}
+      attempt: {range: PdfRecordInteger, required: true}
+      holder: {required: true}
+      writer_device: {range: PdfRecordInteger, required: true}
+      writer_inode: {range: PdfRecordInteger, required: true}
+      premises_bytes: {range: bytes, required: true}
   PdfSpoolContributorReceipt:
     attributes:
       producer_id: {required: true}

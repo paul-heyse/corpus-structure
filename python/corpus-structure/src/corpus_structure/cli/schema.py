@@ -612,6 +612,7 @@ def author_native_candidate(
                 raise NativeAuthoringError("single-connection candidate has no upgrade operations")
             from corpus_structure.semantic.alembic_privileges import (
                 PrivilegeTransitionOp,
+                metadata_integrity,
                 operation_record,
             )
 
@@ -626,8 +627,14 @@ def author_native_candidate(
             # physical row types in scope; rebuilding after its savepoint rolls
             # back cannot resolve those types and would author a second answer.
             admission = authored_admission_sql(authoring)
+            purpose_roles = metadata_integrity(installation.metadata).purpose_roles
             verify_rendered_candidate(
-                conn, python_source, authoring, script.privilege_policies, admission
+                conn,
+                python_source,
+                authoring,
+                script.privilege_policies,
+                admission,
+                purpose_roles=purpose_roles,
             )
             products = {
                 "native_candidate.py": python_source.encode(),
@@ -640,6 +647,7 @@ def author_native_candidate(
                         ).descriptor_fields(),
                         "operations": [operation_record(item) for item in native],
                         "privileges": list(script.privilege_policies),
+                        "privilege_purpose_roles": purpose_roles,
                         "desired": [item.payload() for item in authoring.desired],
                     }
                 ),

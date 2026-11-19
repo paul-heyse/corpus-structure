@@ -2,14 +2,10 @@
 
 from sqlalchemy import Text, column, false, func, or_, select, values
 
-from corpus_structure.schema.integrity import physical_schemas, role_name
-
 from . import native_catalog as catalog
+from .alembic_privileges import metadata_integrity
 from .native_program import If, Raise, core_variable
 
-_SOURCE_PRINCIPALS = (role_name("writer"), role_name("reader"))
-_RUNTIME_PRINCIPALS = (*_SOURCE_PRINCIPALS, role_name("admitter"), role_name("evaluator"))
-_APPLICATION_SCHEMAS = tuple(name for name in physical_schemas() if name != "eval")
 _PRIVATE_KERNELS = (
     "data.publish_contract_batch(text,text,text,bytea)",
     "data.validate_state(text,text)",
@@ -26,8 +22,13 @@ def _refuse(condition, message, sqlstate="23514"):
     return If(condition, (Raise(message, sqlstate),))
 
 
-def principal_catalog_checks():
+def principal_catalog_checks(metadata):
     """Check evaluator/source restrictions before the generic native CHECK contract."""
+    role_name = metadata_integrity(metadata).role_name
+    source_principals = (role_name("writer"), role_name("reader"))
+    application_schema_names = tuple(
+        name for name in metadata.info["physical_schemas"] if name != "eval"
+    )
     pg = catalog.pg
     evaluator = role_name("evaluator")
     roles = catalog.roles.alias("r")
@@ -35,9 +36,9 @@ def principal_catalog_checks():
     relation = catalog.relation.alias("c")
     namespace = catalog.namespace.alias("n")
     relations = relation.join(namespace, namespace.c.oid == relation.c.relnamespace)
-    source = _names("roles", _SOURCE_PRINCIPALS)
-    schemas = _names("schemas", (*_APPLICATION_SCHEMAS, "eval"))
-    application_schemas = _names("schemas", _APPLICATION_SCHEMAS)
+    source = _names("roles", source_principals)
+    schemas = _names("schemas", (*application_schema_names, "eval"))
+    application_schemas = _names("schemas", application_schema_names)
     kernels = _names("kernels", _PRIVATE_KERNELS, "signature")
     owner = core_variable("owner_name", Text())
     return (
@@ -83,7 +84,7 @@ def principal_catalog_checks():
             select(1)
             .select_from(relations)
             .where(
-                namespace.c.nspname.in_((*_APPLICATION_SCHEMAS, "eval")),
+                namespace.c.nspname.in_((*application_schema_names, "eval")),
                 relation.c.relkind.in_(("r", "p")),
                 or_(
                     pg.has_table_privilege(
@@ -133,14 +134,14 @@ def principal_catalog_checks():
                 select(1)
                 .select_from(roles)
                 .where(
-                    roles.c.rolname.in_(_SOURCE_PRINCIPALS),
+                    roles.c.rolname.in_(source_principals),
                     or_(roles.c.rolsuper, roles.c.rolcreaterole, roles.c.rolbypassrls),
                 )
                 .exists(),
                 *(
                     pg.pg_has_role(principal, target, "MEMBER")
                     for target in (role_name("publisher"), owner)
-                    for principal in _SOURCE_PRINCIPALS
+                    for principal in source_principals
                 ),
             ),
             "unrestricted application principal",
@@ -192,12 +193,16 @@ def principal_catalog_checks():
     )
 
 
-def restricted_principal_checks():
+def restricted_principal_checks(metadata):
     """Keep admission/reference separation and runtime TEMP/owner restrictions last."""
+    role_name = metadata_integrity(metadata).role_name
+    runtime_principals = tuple(
+        role_name(name) for name in ("writer", "reader", "admitter", "evaluator")
+    )
     pg = catalog.pg
     relation = catalog.relation.alias("c")
     namespace = catalog.namespace.alias("n")
-    principals = _names("principal", _RUNTIME_PRINCIPALS)
+    principals = _names("principal", runtime_principals)
     owner = core_variable("owner_name", Text())
     return (
         _refuse(

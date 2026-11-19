@@ -8,10 +8,10 @@ from typing import Literal, TypedDict
 from alembic.autogenerate import renderers
 from alembic.operations import MigrateOperation, Operations
 from alembic.runtime.plugins import Plugin
-from sqlalchemy import or_, select
+from sqlalchemy import MetaData, or_, select
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.schema.integrity import integrity, schema_read_roles
+from corpus_structure.schema.integrity import IntegrityPolicy, integrity, schema_read_roles
 
 from . import native_catalog as catalog_queries
 from .native_objects import (
@@ -23,8 +23,11 @@ from .native_objects import (
     native_privilege_sql,
 )
 
-PUBLISHER = integrity().publisher
-PURPOSE_ROLES = integrity().purpose_roles
+
+def metadata_integrity(metadata: MetaData) -> IntegrityPolicy:
+    """Read the captured physical policy, including private test metadata."""
+    policy = metadata.info.get("integrity_policy")
+    return integrity() if policy is None else policy
 
 
 class PrivilegePolicy(TypedDict):
@@ -57,8 +60,29 @@ def policy_fact(value) -> PrivilegePolicy:
     }
 
 
-def _deny_purpose_create(connection, schema):
-    for role in PURPOSE_ROLES:
+# Frozen v1 revisions did not carry role policy. These names are part of that
+# historical execution ABI, not a snapshot of the currently selected model.
+_V1_PURPOSE_ROLES = (
+    "corpus_sem_writer",
+    "corpus_sem_reader",
+    "corpus_sem_evaluator",
+    "corpus_sem_fitter",
+    "corpus_sem_admitter",
+)
+_V1_SEM_READ_ROLES = (
+    "corpus_sem_writer",
+    "corpus_sem_reader",
+    "corpus_sem_admitter",
+    "corpus_sem_evaluator",
+)
+
+
+def _purpose_roles(roles):
+    return _V1_PURPOSE_ROLES if roles is None else roles
+
+
+def _deny_purpose_create(connection, schema, purpose_roles=None):
+    for role in _purpose_roles(purpose_roles):
         if connection.scalar(
             select(catalog_queries.pg.has_schema_privilege(role, schema, "CREATE")),
         ):
@@ -70,7 +94,7 @@ def table_policy(relation) -> PrivilegePolicy:
     return {
         "kind": "table",
         "name": relation.fullname,
-        "owner": PUBLISHER,
+        "owner": metadata_integrity(relation.metadata).publisher,
         "acl": [(role, "SELECT", False) for role in sorted(set(roles))],
         "columns": [],
     }
@@ -83,12 +107,13 @@ def desired_policies(metadata, native) -> tuple[PrivilegePolicy, ...]:
 
 
 def declared_policies(metadata, object_grants) -> tuple[PrivilegePolicy, ...]:
+    publisher = metadata_integrity(metadata).publisher
     tables = [table_policy(table) for table in metadata.sorted_tables]
-    usages = {str(table.schema): {PUBLISHER} for table in metadata.sorted_tables}
+    usages = {str(table.schema): {publisher} for table in metadata.sorted_tables}
     for table in tables:
         usages[table["name"].split(".")[0]].update(row[0] for row in table["acl"])
     for schema, grants in object_grants:
-        usages.setdefault(schema, {PUBLISHER}).update(
+        usages.setdefault(schema, {publisher}).update(
             role for role, _, _ in grants if role.startswith("corpus_")
         )
     schemas: list[PrivilegePolicy] = [
@@ -97,7 +122,7 @@ def declared_policies(metadata, object_grants) -> tuple[PrivilegePolicy, ...]:
             "name": schema,
             "owner": None,
             "acl": sorted(
-                [(role, "USAGE", False) for role in roles] + [(PUBLISHER, "CREATE", False)]
+                [(role, "USAGE", False) for role in roles] + [(publisher, "CREATE", False)]
             ),
             "columns": [],
         }
@@ -138,13 +163,13 @@ def observe_policy(connection, policy) -> PrivilegePolicy | None:
     }
 
 
-def _expected(connection, policy):
+def _expected(connection, policy, purpose_roles=None):
     result = policy_fact(policy)
     if policy["kind"] == "schema":
         owner = connection.scalar(
             catalog_queries.namespace_owner(policy["name"]),
         )
-        if owner in PURPOSE_ROLES:
+        if owner in _purpose_roles(purpose_roles):
             raise NativeAuthoringError("purpose principal owns governed schema")
         result["acl"] = [row for row in result["acl"] if row[0] != owner]
     return result
@@ -244,12 +269,13 @@ class PrivilegeTransitionOp(MigrateOperation):
     before: PrivilegePolicy | LegacyPrivilegePolicy | None
     after: PrivilegePolicy | None
 
-    def __init__(self, before, after, *, normalization=False):
+    def __init__(self, before, after, *, normalization=False, purpose_roles=None):
         if after is None and before is None:
             raise NativeAuthoringError("privilege transition has no declared policy")
         self.before = policy_fact(before) if before is not None and "acl" in before else before
         self.after = policy_fact(after) if after is not None else None
         self.normalization = normalization
+        self.purpose_roles = None if purpose_roles is None else tuple(purpose_roles)
         selected = after or before
         if selected["kind"] not in {"table", "schema"}:
             raise NativeAuthoringError("unsupported privilege object")
@@ -258,26 +284,34 @@ class PrivilegeTransitionOp(MigrateOperation):
 
     @classmethod
     def from_payload(cls, payload):
-        if payload.get("version") != 1:
+        if payload.get("version") not in (1, 2):
             raise NativeAuthoringError("unsupported privilege payload")
-        return cls(payload["before"], payload["after"], normalization=payload["normalization"])
+        return cls(
+            payload["before"],
+            payload["after"],
+            normalization=payload["normalization"],
+            purpose_roles=payload["purpose_roles"] if payload["version"] == 2 else None,
+        )
 
     @classmethod
     def privilege_transition(cls, operations, payload):
         return operations.invoke(cls.from_payload(payload))
 
     def payload(self):
-        return {
-            "version": 1,
+        payload = {
+            "version": 1 if self.purpose_roles is None else 2,
             "before": self.before,
             "after": self.after,
             "normalization": self.normalization,
         }
+        if self.purpose_roles is not None:
+            payload["purpose_roles"] = self.purpose_roles
+        return payload
 
     def reverse(self):
         if self.normalization:
             raise NativeAuthoringError("unrecorded initial privilege state cannot be reversed")
-        return PrivilegeTransitionOp(self.after, self.before)
+        return PrivilegeTransitionOp(self.after, self.before, purpose_roles=self.purpose_roles)
 
 
 @Operations.implementation_for(PrivilegeTransitionOp)
@@ -309,6 +343,7 @@ def _execute_privileges(operations, operation, failure_context):
     if operations.migration_context.as_sql:
         raise NativeAuthoringError("privilege operations require a live connection")
     policy = operation.after or operation.before
+    purpose_roles = _purpose_roles(operation.purpose_roles)
     observed = observe_policy(connection, policy)
     if observed is None and policy["kind"] == "schema":
         raise NativeAuthoringError("missing declared schema")
@@ -325,7 +360,8 @@ def _execute_privileges(operations, operation, failure_context):
                 )
             if observed["owner"] != before["owner"]:
                 raise NativeAuthoringError("stale recorded table owner")
-            for role in sorted(set(schema_read_roles("sem")) | set(before["read_roles"])):
+            read_roles = _V1_SEM_READ_ROLES if operation.purpose_roles is None else purpose_roles
+            for role in sorted(set(read_roles) | set(before["read_roles"])):
                 allowed = connection.scalar(
                     select(
                         catalog_queries.pg.has_table_privilege(
@@ -364,7 +400,9 @@ def _execute_privileges(operations, operation, failure_context):
                     raise NativeAuthoringError("stale recorded table read/write privilege")
             if any(row[0] == "PUBLIC" for row in observed["acl"]):
                 raise NativeAuthoringError("stale recorded PUBLIC table privilege")
-    elif observed != (_expected(connection, operation.before) if operation.before else None):
+    elif observed != (
+        _expected(connection, operation.before, purpose_roles) if operation.before else None
+    ):
         raise NativeAuthoringError("stale privilege before-state")
     if operation.after is None:
         return  # Ordinary physical retirement owns object removal.
@@ -380,22 +418,22 @@ def _execute_privileges(operations, operation, failure_context):
             catalog_queries.namespace_owner(policy["name"]),
         )
     )
-    if kind == "SCHEMA" and owner in PURPOSE_ROLES:
+    if kind == "SCHEMA" and owner in purpose_roles:
         raise NativeAuthoringError("purpose principal owns governed schema")
     with native_owner(connection, owner):
         current = observe_policy(connection, policy)
         if current is None:
             raise NativeAuthoringError("missing declared privilege object")
         _revoke_acl_edges(connection, policy, failure_context)
-        for grantee, privilege, grantable in _expected(connection, policy)["acl"]:
+        for grantee, privilege, grantable in _expected(connection, policy, purpose_roles)["acl"]:
             execute_native_sql(
                 connection,
                 native_privilege_sql(identity, grantee, privilege, grant_option=grantable),
             )
         if kind == "SCHEMA":
-            _deny_purpose_create(connection, policy["name"])
+            _deny_purpose_create(connection, policy["name"], purpose_roles)
         actual = observe_policy(connection, policy)
-        expected = _expected(connection, policy)
+        expected = _expected(connection, policy, purpose_roles)
         if actual != expected:
             failure_context["expected_policy"] = expected
             failure_context["observed_policy"] = actual
@@ -415,7 +453,7 @@ def owned_operation(connection, owner):
         yield
 
 
-def privilege_operations(before, desired, legacy_tables):
+def privilege_operations(before, desired, legacy_tables, *, purpose_roles=None):
     old = {(item["kind"], item["name"]): policy_fact(item) for item in before}
     legacy = {item["relation"]: item for item in legacy_tables}
     result = []
@@ -423,7 +461,7 @@ def privilege_operations(before, desired, legacy_tables):
         key = (after["kind"], after["name"])
         if key in old:
             if old[key] != after:
-                result.append(PrivilegeTransitionOp(old[key], after))
+                result.append(PrivilegeTransitionOp(old[key], after, purpose_roles=purpose_roles))
         else:
             prior = legacy.get(after["name"]) if after["kind"] == "table" else None
             known = (
@@ -432,12 +470,14 @@ def privilege_operations(before, desired, legacy_tables):
                 else {
                     "kind": "table",
                     "name": after["name"],
-                    "owner": prior.get("owner", PUBLISHER),
+                    "owner": prior.get("owner", after["owner"]),
                     "read_roles": prior.get("read_roles", list(schema_read_roles("sem"))),
                     "unrecorded": ["acl", "columns"],
                 }
             )
-            result.append(PrivilegeTransitionOp(known, after, normalization=True))
+            result.append(
+                PrivilegeTransitionOp(known, after, normalization=True, purpose_roles=purpose_roles)
+            )
     return result
 
 
@@ -517,11 +557,11 @@ def native_operation_payloads(state):
     return tuple(result)
 
 
-def admit_privileges(connection, policies):
+def admit_privileges(connection, policies, *, purpose_roles=None):
     for policy in policies:
         if policy["kind"] == "schema":
-            _deny_purpose_create(connection, policy["name"])
-        if observe_policy(connection, policy) != _expected(connection, policy):
+            _deny_purpose_create(connection, policy["name"], purpose_roles)
+        if observe_policy(connection, policy) != _expected(connection, policy, purpose_roles):
             raise NativeAuthoringError("frozen privilege admission differs: " + policy["name"])
 
 
@@ -566,7 +606,7 @@ def render_owned_operations(context, operation):
     )
 
 
-def privilege_admission_checks():
+def privilege_admission_checks(metadata):
     """Compare the declared ACL to live role, table, column and schema facts."""
     from sqlalchemy import Boolean, Text, case, cast, column, func, literal, true, values
     from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
@@ -579,7 +619,7 @@ def privilege_admission_checks():
     policy = policies.c.value
     name = policy["name"].astext
     principal = values(column("name", Text()), name="principal").data(
-        [(role,) for role in PURPOSE_ROLES]
+        [(role,) for role in metadata_integrity(metadata).purpose_roles]
     )
     pg = catalog_queries.pg
     empty = cast(literal("[]"), JSONB())
@@ -669,7 +709,10 @@ def compare_table_policy(context, changes, schema, name, reflected, declared):
         ]
         options["compared_privileges"].extend(
             privilege_operations(
-                options["predecessor_privileges"], desired, options["legacy_privilege_tables"]
+                options["predecessor_privileges"],
+                desired,
+                options["legacy_privilege_tables"],
+                purpose_roles=options["privilege_purpose_roles"],
             )
         )
     return PriorityDispatchResult.CONTINUE
@@ -689,7 +732,10 @@ def compare_schema_policy(context, changes, schemas):
     ]
     options["compared_privileges"].extend(
         privilege_operations(
-            options["predecessor_privileges"], desired, options["legacy_privilege_tables"]
+            options["predecessor_privileges"],
+            desired,
+            options["legacy_privilege_tables"],
+            purpose_roles=options["privilege_purpose_roles"],
         )
     )
     return PriorityDispatchResult.CONTINUE

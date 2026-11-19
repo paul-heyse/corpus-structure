@@ -460,3 +460,34 @@ def test_unstarted_stage_a_credit_defers_preparation_without_evicting_cpu(prepar
     finally:
         host.close()
     assert host.budget.used_bytes == 0
+
+
+def test_analytics_snapshot_controls_cpu_recreation_and_resource_reuse(
+    monkeypatch, prepared, tmp_path
+):
+    from orchestrate.executor_support import execution_case, policy_for
+
+    from corpus_structure.settings import AnalyticsSettings
+
+    executor, _ = execution_case(monkeypatch, prepared, policy_for(prepared), (), {})
+    first = AnalyticsSettings(threads=2, memory_limit="128MB", scratch_path=tmp_path / "first")
+    second = first.model_copy(update={"threads": 3, "scratch_path": tmp_path / "second"})
+    host = ProcessExecutionHost()
+    try:
+        executor.analytics_settings = first
+        with host.run(executor.policy) as token, host.execution(executor, token) as physical:
+            original = physical.cpu
+            assert original.analytics_settings is first
+            host.retire_cpu()
+            recreated = physical.cpu
+            assert original._physical_retired
+            assert recreated is not original and recreated.analytics_settings is first
+        with host.run(executor.policy) as token, host.execution(executor, token) as physical:
+            assert physical.cpu is recreated
+        executor.analytics_settings = second
+        with host.run(executor.policy) as token, host.execution(executor, token) as physical:
+            assert recreated._physical_retired
+            assert physical.cpu is not recreated
+            assert physical.cpu.analytics_settings is second
+    finally:
+        host.close()

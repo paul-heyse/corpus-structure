@@ -11,7 +11,6 @@ from .types import SourceArtifact
 
 _ROOT = Path(__file__).parents[1]
 _FILES = (
-    "analytics.py",
     "semantic/input_values.py",
     "methods/rich_knowledge.py",
     "semantic/rich_invocations.py",
@@ -91,7 +90,11 @@ def rich_knowledge_operation_sources():
                 (_ROOT / name).read_bytes(),
                 str((_ROOT / name).resolve()),
             )
-            for name in _FILES
+            for name in (
+                *_FILES,
+                "semantic/data_operation_prepared_call.py",
+                "semantic/data_operation_effects.py",
+            )
         ),
         boundary_contracts=(rich_knowledge_assets(),),
     )

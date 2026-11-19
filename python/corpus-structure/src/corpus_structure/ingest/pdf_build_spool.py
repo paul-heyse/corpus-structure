@@ -58,30 +58,6 @@ class PdfSpoolProducerBasis:
             if re.fullmatch("[0-9a-f]{64}", digest) is None:
                 raise ValueError("PDF producer basis requires exact native/runtime digests")
 
-    def material_basis(self):
-        """Native authorization separately proves archived PDF output-contract identity."""
-        return (
-            self.operation,
-            self.recipe,
-            self.implementation,
-            self.execution_profile,
-        )
-
-    def determining_basis(self):
-        # Runtime IDs/manifests remain each contributor's actual provenance.
-        # The admitted execution profile and implementation establish reuse fit.
-        return (
-            self.request_id,
-            self.generation,
-            self.release_id,
-            self.operation,
-            self.definition,
-            self.recipe,
-            self.implementation,
-            self.execution_profile,
-            self.pdf_domain_digest,
-        )
-
 
 @dataclass(frozen=True, slots=True)
 class PdfSpoolPremises:
@@ -126,23 +102,6 @@ class PdfSpoolPremises:
 
     def to_bytes(self) -> bytes:
         return json.dumps(asdict(self), sort_keys=True, separators=(",", ":")).encode()
-
-    def reusable_with(self, other: PdfSpoolPremises) -> bool:
-        return self.producer.determining_basis() == other.producer.determining_basis() and (
-            self.material_basis() == other.material_basis()
-        )
-
-    def material_basis(self):
-        return (
-            self.producer.material_basis(),
-            self.source_digest,
-            self.native_recipe_digest,
-            self.native_schema_digest,
-            self.payload_schema_digest,
-            self.asset_manifest_digest,
-            self.packages,
-            self.page_range,
-        )
 
 
 class PdfSpoolWriterLease:
@@ -433,22 +392,24 @@ def verify_spool_recovery(
     build_id: str,
     task_id: int,
     before_attempt: int,
-    premises: PdfSpoolPremises,
     check_active: Callable[[], None],
+    authorize_source: Callable[[PdfSpoolOwner, PdfSpoolPremises], bool],
     source_build: tuple[str, int] | None = None,
-    verify_compatibility: Callable[[PdfSpoolOwner, PdfSpoolPremises, PdfSpoolPremises], bool]
-    | None = None,
 ) -> tuple[VerifiedSpoolRecovery, ...]:
     """Acquire every registered prior writer before inspecting immutable entries.
 
     A busy or unregistered same-build writer is a physical custody refusal. It
     never licenses concurrent fresh GPU work. No PID or expired lease inference
     and no reader for a historical manifest protocol enters this path.
+
+    The authority must compare the entire owner (including writer inode) and
+    original premises against the native candidate returned for the current
+    build. Candidate IDs alone never authenticate a local manifest. Material
+    compatibility is exclusively native; contribution rechecks native authority
+    before any selected file is adopted.
     """
     recovered = []
     source_build_id, source_task_id = source_build or (build_id, task_id)
-    if source_build is not None and verify_compatibility is None:
-        raise ValueError("cross-build PDF uptake requires native compatibility authority")
     if (root / source_build_id).resolve().parent != root.resolve():
         raise ValueError("PDF source build escapes its custody root")
     try:
@@ -538,19 +499,7 @@ def verify_spool_recovery(
                     info.st_dev,
                     info.st_ino,
                 )
-                if not prior.reusable_with(premises):
-                    compatible = (
-                        verify_compatibility is not None
-                        and prior.material_basis() == premises.material_basis()
-                        and verify_compatibility(source_owner, prior, premises)
-                    )
-                    if not compatible:
-                        os.close(descriptor)
-                        continue
-                elif source_build is not None and (
-                    verify_compatibility is None
-                    or not verify_compatibility(source_owner, prior, premises)
-                ):
+                if not authorize_source(source_owner, prior):
                     os.close(descriptor)
                     continue
                 entries = []

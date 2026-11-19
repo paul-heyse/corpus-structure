@@ -403,28 +403,28 @@ def consolidate_rich_knowledge(prepared, model, *, inputs, check_active):
         whole_inputs=builder.wholes,
         retained_states=tuple(builder.retained_states),
     )
-    with RichRelationKernel(
+    relations = RichRelationKernel(
         property_ids=frozenset(
             prop.iri for definition in prepared.definitions for prop in definition.properties
         ),
         check_active=check_active,
-    ) as relations:
-        result = evaluate_rich_rules(
-            prepared,
-            model,
-            context=inputs.context,
-            graph=graph,
-            inputs=builder.references,
-            policy=policy,
-            relations=relations,
-            context_profile=builder.profile,
-            consolidation_policy=builder.policy,
-            source_contexts=tuple(builder.source_contexts),
-            scientific_assessments=scientific,
-            whole_inputs=builder.wholes,
-            retained_graphs=builder.retained,
-            _index=index,
-        )
+    )
+    result = evaluate_rich_rules(
+        prepared,
+        model,
+        context=inputs.context,
+        graph=graph,
+        inputs=builder.references,
+        policy=policy,
+        relations=relations,
+        context_profile=builder.profile,
+        consolidation_policy=builder.policy,
+        source_contexts=tuple(builder.source_contexts),
+        scientific_assessments=scientific,
+        whole_inputs=builder.wholes,
+        retained_graphs=builder.retained,
+        _index=index,
+    )
     for assessment in result.assessments:
         builder.add(assessment)
     for decision in result.decisions:

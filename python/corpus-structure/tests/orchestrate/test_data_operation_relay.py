@@ -19,7 +19,7 @@ def request_owner():
     owner.cpu = SimpleNamespace(reservation_retired=lambda _: True)
     owner.reservation = object()
     owner.running = False
-    owner.hydrated_inputs, owner.hydration_error = None, None
+    owner.hydrated_inputs = None
     owner.consumer_inputs, owner.consumer_results, owner.binding_rows, owner.hydrated_sizes = (
         {},
         {},

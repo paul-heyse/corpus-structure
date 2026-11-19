@@ -1314,7 +1314,8 @@ classes:
       ph:frontier_guard: exempt
       ph:immutability: immutable
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
-      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"},{"columns":["task_id"],"target":"ops.task.id"}]}
+      ph:indexes: {tag: 'ph:indexes', value: [[recovery_key, task_id, attempt]]}
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["build_id"],"target":"ops.pdf_stage_build.build_id"},{"columns":["task_id"],"target":"ops.task.id"},{"columns":["execution_origin_id"],"target":"ops.data_execution_origin.id"}]}
       ph:checks: {"tag":"ph:checks","value":[{"name":"ck_pdf_spool_producer_physical_98b7830f53","predicate":{"op":"regex","args":[{"field":"producer_id"},{"value":"^[0-9a-f]{64}$"}]}},{"name":"ck_pdf_spool_producer_physical_0c8a59b69d","predicate":{"op":"gt","args":[{"field":"attempt"},{"value":0}]}},{"name":"ck_pdf_spool_producer_physical_eb1cc2ad4b","predicate":{"op":"ge","args":[{"field":"writer_device"},{"value":0}]}},{"name":"ck_pdf_spool_producer_physical_0f61bc7e70","predicate":{"op":"gt","args":[{"field":"writer_inode"},{"value":0}]}}]}
   pdf_spool_contributor:
     is_a: PdfSpoolContributor

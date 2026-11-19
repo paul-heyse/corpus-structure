@@ -102,6 +102,7 @@ actions:
     - {name: attempt, native_parameter: p_attempt, nullable: false, semantic_type: TaskAttempt, source: 'model:PdfStageBuild.attempt'}
     - {name: holder, native_parameter: p_holder, nullable: false, source: 'model:PdfStageBuild.holder'}
     - {name: runtime_id, native_parameter: p_runtime, nullable: false, semantic_type: RuntimeId, source: 'physical:sem.runtime_binding.runtime_id'}
+    - {name: premises_bytes, native_parameter: p_premises, nullable: false, source: 'model:PdfSpoolProducer.premises_bytes'}
     result_fields: []
     result_mode: table
     result_source: model:PdfSpoolRecoveryCandidate

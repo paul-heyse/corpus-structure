@@ -8,6 +8,7 @@ from pglast import parse_plpgsql, parse_sql
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_admission_tables import (
     reader_catalog_checks,
     table_catalog_checks,
@@ -104,7 +105,7 @@ def table_catalog_control(infrastructure_rollback):
         readers=[dict(relation=_RELATION, roles=["corpus_sem_reader"])],
     )
     for name, statements in (
-        ("require_tables", table_catalog_checks()),
+        ("require_tables", table_catalog_checks(get_metadata())),
         ("require_readers", reader_catalog_checks()),
     ):
         source = function(

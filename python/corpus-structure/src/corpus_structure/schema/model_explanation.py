@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.migration_chain import NativeMigrationBase
 
 
 class NativeOperationExplanation(BaseModel):
@@ -410,30 +413,60 @@ def sql_change(identity: str, before: str | None, after: str | None) -> SQLChang
     )
 
 
+def _sql_identity(identity) -> str:
+    return json.dumps(identity.payload(), sort_keys=True, separators=(",", ":"))
+
+
+def frozen_sql_snapshot(
+    predecessor: str, *, base: NativeMigrationBase | None = None
+) -> dict[str, str]:
+    """Use the registered native evidence bound to the reviewed predecessor."""
+    from corpus_structure.semantic.execution_admission import _revision_expectation
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR
+    from corpus_structure.semantic.native_authoring import load_native_state
+    from corpus_structure.semantic.native_objects import native_sql_script
+    from corpus_structure.semantic.native_program_registry import EXECUTION_DESCRIPTOR
+
+    path, digest = _revision_expectation(ALEMBIC_DIR / "versions", predecessor).state
+    if base is not None and (
+        base.predecessor != predecessor or dict(base.files).get("versions/" + path.name) != digest
+    ):
+        raise ValueError("native SQL explanation differs from the bound predecessor artifact")
+    return {
+        _sql_identity(item.identity): native_sql_script(item.statements)
+        for item in load_native_state(path, digest=digest)
+        # The execution descriptor is observed and explained during candidate
+        # authoring. Its exact relation facts require a PostgreSQL catalog.
+        if item.identity != EXECUTION_DESCRIPTOR
+    }
+
+
 def generated_sql_snapshot(model) -> dict[str, str]:
     """Render native declarations under exactly one captured model."""
     from corpus_structure.model.compiled import model_request_scope
+    from corpus_structure.semantic.native_objects import native_sql_script
     from corpus_structure.semantic.target_installation import capture_target_installation
 
-    def render():
-        with model_request_scope(model):
-            installation = capture_target_installation(model.physical())
-        result = {}
-        for program in (*installation.prerequisites, *installation.programs):
-            identity = program.identity
-            key = json.dumps(identity.payload(), sort_keys=True, separators=(",", ":"))
-            if key in result:
-                raise ValueError("generated SQL snapshot repeats a native identity")
-            result[key] = program.sql
-        return result
-
-    return render()
+    with model_request_scope(model):
+        installation = capture_target_installation(model.physical())
+    result = {}
+    for program in (*installation.prerequisites, *installation.programs):
+        key = _sql_identity(program.identity)
+        if key in result:
+            raise ValueError("generated SQL snapshot repeats a native identity")
+        result[key] = native_sql_script(program.install_sql)
+    return result
 
 
-def capture_sql_changes(before: dict[str, str], after: dict[str, str]) -> ModelChangeExplanation:
+def capture_sql_changes(
+    before: dict[str, str],
+    after: dict[str, str],
+    *,
+    source_basis: str = "generated native SQL from captured baseline and candidate models",
+) -> ModelChangeExplanation:
     """Compare already captured generated SQL by its native object identity."""
     return ModelChangeExplanation(
-        source_basis="generated native SQL from captured baseline and candidate models",
+        source_basis=source_basis,
         changes=tuple(
             sql_change(identity, before.get(identity), after.get(identity))
             for identity in sorted(before.keys() | after.keys())

@@ -23,17 +23,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, OID, aggregate_order_by, array
 
-from corpus_structure.schema.integrity import role_name, schema_read_roles
-
 from . import native_catalog as catalog
+from .alembic_privileges import metadata_integrity
 from .native_program import If, Raise, SelectInto, core_variable
-
-_ACTORS = (
-    role_name("writer"),
-    role_name("reader"),
-    role_name("evaluator"),
-    role_name("admitter"),
-)
 
 
 def _items(value, name):
@@ -91,7 +83,7 @@ def _constraint_columns(constraint, field, relation):
     )
 
 
-def table_catalog_checks():
+def table_catalog_checks(metadata):
     """Compare every declared native row shape and its complete privilege boundary."""
     expected = core_variable("expected", JSONB())
     items = _items(expected["tables"], "item")
@@ -176,12 +168,15 @@ def table_catalog_checks():
         .correlate(relation)
         .scalar_subquery()
     )
-    actors = values(column("name", Text()), name="actors").data([(name,) for name in _ACTORS])
+    role_name = metadata_integrity(metadata).role_name
+    actors = values(column("name", Text()), name="actors").data(
+        [(role_name(name),) for name in ("writer", "reader", "evaluator", "admitter")]
+    )
     # This default is the preexisting archive contract, including its array order.
     read_roles = func.coalesce(
         item["read_roles"],
         cast(
-            literal(json.dumps(schema_read_roles("sem"), separators=(",", ":"))),
+            literal(json.dumps(metadata.info["schema_read_roles"]["sem"], separators=(",", ":"))),
             JSONB(),
         ),
     )

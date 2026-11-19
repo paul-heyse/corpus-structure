@@ -6,7 +6,7 @@ from pglast.stream import RawStream
 
 from corpus_structure.schema.integrity import role_name
 from corpus_structure.semantic.metadata import get_metadata
-from corpus_structure.semantic.migrations import ALEMBIC_DIR
+from corpus_structure.semantic.migrations import ALEMBIC_DIR, head_revision
 from corpus_structure.semantic.native_authoring import load_native_state
 from corpus_structure.semantic.native_objects import NativeAuthoringError
 from corpus_structure.semantic.native_program import NativeRoutine
@@ -17,6 +17,7 @@ from corpus_structure.semantic.pdf_staging_native import stage_native_programs, 
 SPOOL = {
     "register_pdf_spool_producer",
     "pdf_spool_material_identity",
+    "pdf_spool_request_material",
     "read_pdf_spool_recovery_candidates",
     "register_pdf_spool_contributor",
     "pdf_spool_contributors",
@@ -39,6 +40,7 @@ STAGING = {
 }
 INTERNAL = {
     "pdf_spool_material_identity",
+    "pdf_spool_request_material",
     "pdf_spool_contributors",
     "require_pdf_stage_scratch",
     "pdf_task_context",
@@ -58,14 +60,14 @@ def producers():
 
 
 def prerequisites(declarations):
-    frozen = load_native_state(ALEMBIC_DIR / "versions/semantic_ddo_pe_n31_native.json")
+    frozen = load_native_state(ALEMBIC_DIR / "versions" / f"{head_revision()}_native.json")
     return frozenset(item.identity for item in frozen) - {item.identity for item in declarations}
 
 
 def test_pdf_owner_inventory_and_access_are_typed_and_preserve_raw_function_and_acl_contract():
     declarations = producers()
     assert {program.identity.name for program in declarations} == SPOOL | STAGING
-    assert len(declarations) == 19
+    assert len(declarations) == 20
     assert all(
         isinstance(program, ProgramDeclaration)
         and isinstance(program.routine, NativeRoutine)
@@ -120,6 +122,7 @@ def test_pdf_program_dependencies_resolve_against_actual_registered_providers():
     by_name = {item.declaration.identity.name: item for item in rendered}
     assert {item.name for item in by_name["read_pdf_spool_recovery_candidates"].callees} >= {
         "pdf_spool_material_identity",
+        "pdf_spool_request_material",
         "read_pdf_producer_basis",
         "require_pdf_build",
         "require_pdf_operation",

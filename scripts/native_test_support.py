@@ -395,9 +395,9 @@ class SemanticDeployment:
 
 def semantic_principals() -> dict[str, str]:
     """Read the provisioning renderer's typed role owner without shell startup."""
-    from corpus_structure.core.db.host_bootstrap import PRINCIPALS
+    from corpus_structure.core.db.host_bootstrap import integrity_principals
 
-    return {principal.purpose: principal.name for principal in PRINCIPALS}
+    return {principal.purpose: principal.name for principal in integrity_principals()}
 
 
 class PgAdmin:

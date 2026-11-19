@@ -149,28 +149,44 @@ class CurrentPdfSource:
     published_only: bool = False
 
     def publication(self, connection):
-        from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
-        from corpus_structure.serve.source_catalog import SourceCatalogRequest, read_source_catalog
+        from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
+        from corpus_structure.serve.selected_pdf import (
+            SelectedPdfSourceReference,
+            acquire_selected_pdf_source,
+        )
 
-        cursor = None
-        for _ in range(100):
-            page = read_source_catalog(
-                connection,
-                SourceCatalogRequest(
-                    project_id=PROJECT,
-                    demand_id=self.demand_id,
-                    cursor=cursor,
-                    limit=10,
-                    max_bytes=8 * 1024 * 1024,
-                ),
-            )
-            if page.rows:
-                assert len(page.rows) == 1
-                return SelectedPdfSourceReference.model_validate(page.rows[0]["selection"]), page
-            if page.next_cursor is None:
-                raise AssertionError("actual capture produced no selected publication")
-            cursor = page.next_cursor
-        raise AssertionError("bounded current source fixture did not reach its publication")
+        # This fixture owns one known capture. A general catalog's first bounded
+        # page may instead contain discovery, and incomplete serving code cannot
+        # grant the continuation needed to search its later pages. Acquire a new
+        # exact capture/source cut rather than treating that unknown as absence.
+        page = serve_demand_query(
+            connection,
+            DemandQueryRequest(
+                project_id=PROJECT,
+                demand_id=self.demand_id,
+                operation_id="source.pdf/capture",
+                original_source=self.document_key,
+                containers_only=True,
+                limit=1,
+                max_bytes=8 * 1024 * 1024,
+            ),
+        )
+        if len(page["items"]) != 1 or page["items"][0]["member_id"] is not None:
+            raise AssertionError("exact capture/source cut did not select its one publication")
+        row = page["items"][0]
+        reference = SelectedPdfSourceReference(
+            project_id=PROJECT,
+            demand_id=self.demand_id,
+            read_id=page["cut"]["read_id"],
+            use_id=row["use_id"],
+            product_id=row["product_id"],
+            derivation_id=row["derivation_id"],
+        )
+        # The operation filter narrows selection; only the native publication
+        # owner establishes the nominal kind, sealed receipt and exact source.
+        selected = acquire_selected_pdf_source(connection, reference)
+        assert selected.original_source == self.document_key
+        return reference, page
 
     def register(self, connection, target, *, selections=()):
         if self.published_only:

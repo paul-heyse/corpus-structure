@@ -12,8 +12,6 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import MetaData
 
-from corpus_structure.schema.integrity import role_name
-
 from .types import SourceArtifact
 
 if TYPE_CHECKING:
@@ -279,11 +277,12 @@ def target_physical_prerequisites(connection, installation: TargetInstallation):
 
 
 def target_trigger_programs(target: MetaData):
+    from .alembic_privileges import metadata_integrity
     from .data_operation_storage import data_operation_immutable_relations
     from .native_objects import native_before_trigger
     from .native_program_registry import RelationProgramDeclaration
 
-    owner = role_name("publisher")
+    owner = metadata_integrity(target).publisher
 
     def trigger(relation, name, routine, source, events, *, row=False):
         return RelationProgramDeclaration(
@@ -687,8 +686,15 @@ def prepare_target_authoring(
         target_metadata=installation.metadata,
         physical_catalog=_declared_physical_catalog(connection, installation.metadata),
     )
+    from .alembic_privileges import metadata_integrity
+
     rendered = render_programs(
-        (execution_descriptor_program(descriptor),), registry_schemas=frozenset({"data"})
+        (
+            execution_descriptor_program(
+                descriptor, owner=metadata_integrity(installation.metadata).publisher
+            ),
+        ),
+        registry_schemas=frozenset({"data"}),
     )
     complete = (*products, rendered[0].definition(connection))
     with target_authoring_scratch(connection, installation):
@@ -944,7 +950,7 @@ def prepare_target_candidate(
     from sqlalchemy.schema import CreateSchema
 
     from .alembic_native import DatabaseTemporaryPrivilegeOp, NativeTransitionOp
-    from .alembic_privileges import PUBLISHER, PURPOSE_ROLES, table_policy
+    from .alembic_privileges import metadata_integrity, table_policy
     from .native_authoring import _physical_check_contract, compare_declared_candidate
     from .native_objects import (
         NativeAuthoringError,
@@ -958,6 +964,7 @@ def prepare_target_candidate(
     if not owned_authoring:
         raise NativeAuthoringError("fresh target preparation requires owned authoring custody")
     require_empty_target(connection)
+    integrity_policy = metadata_integrity(installation.metadata)
     declared_schemas = {table.schema for table in installation.metadata.tables.values()}
     if None in declared_schemas:
         raise NativeAuthoringError("fresh target tables require explicit schemas")
@@ -967,8 +974,12 @@ def prepare_target_candidate(
         for schema in schemas
         for statement in (
             str(CreateSchema(schema).compile(dialect=connection.dialect)),
-            native_privilege_sql(NativeIdentity("schema", schema, schema), PUBLISHER, "USAGE"),
-            native_privilege_sql(NativeIdentity("schema", schema, schema), PUBLISHER, "CREATE"),
+            native_privilege_sql(
+                NativeIdentity("schema", schema, schema), integrity_policy.publisher, "USAGE"
+            ),
+            native_privilege_sql(
+                NativeIdentity("schema", schema, schema), integrity_policy.publisher, "CREATE"
+            ),
         )
     ]
     scaffolding = connection.begin_nested()
@@ -1023,7 +1034,7 @@ def prepare_target_candidate(
             "fresh target migration lost its physical function prerequisites"
         )
     candidate.upgrade_ops.ops[:] = [
-        DatabaseTemporaryPrivilegeOp(PUBLISHER, PURPOSE_ROLES),
+        DatabaseTemporaryPrivilegeOp(integrity_policy.publisher, integrity_policy.purpose_roles),
         *(ExecuteSQLOp(statement) for statement in schema_sql),
         *early,
         *(item for item in candidate.upgrade_ops.ops if item not in early),

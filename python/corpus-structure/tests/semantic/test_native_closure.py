@@ -71,7 +71,7 @@ def test_restricted_complete_archive_replay_and_immutable_closure(
 
 
 def test_native_acquisition_carries_receipt_and_explicit_proof_rereads_archive(
-    commit_db_engine, commit_admitter_engine, commit_reader_engine, commit_writer_engine
+    commit_db_engine, commit_admitter_engine, commit_reader_engine, commit_writer_engine, tmp_path
 ):
     from corpus_structure.semantic.data_operation_admission import admit_data_operation_release
     from corpus_structure.semantic.execution_admission import (
@@ -81,7 +81,7 @@ def test_native_acquisition_carries_receipt_and_explicit_proof_rereads_archive(
     from corpus_structure.semantic.releases import open_release, verify_release
     from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
 
-    captured = prepare_kernel(STORAGE)
+    captured = prepare_kernel(STORAGE, directory=tmp_path / "kernel")
     prepared = captured.prepared
     release = {"release": prepared.release_id}
     require = text("SELECT data.require_execution_release(:release)")
@@ -132,12 +132,12 @@ def test_native_acquisition_carries_receipt_and_explicit_proof_rereads_archive(
 
 
 def test_restricted_activation_cas_and_deployment_record(
-    commit_db_engine, commit_admitter_engine, commit_application_settings
+    commit_db_engine, commit_admitter_engine, commit_application_settings, tmp_path
 ):
     from corpus_structure.semantic.releases import ActivationConflict, activate_release
     from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
 
-    captured = prepare_kernel(STORAGE)
+    captured = prepare_kernel(STORAGE, directory=tmp_path / "kernel")
     bundle, deps, profile, prepared = (
         captured.bundle,
         captured.dependencies,

@@ -17,6 +17,7 @@ from corpus_structure.semantic._data_operation_wire import (
     WireReadDemandResultResult,
     WireRegisterDataDemandResult,
 )
+from corpus_structure.settings import AnalyticsSettings
 
 from .data_operation_admission import bound_data_operation_model
 from .data_operation_demands import DemandIntent, DemandPlanner
@@ -250,6 +251,7 @@ def execute_data_demand(
     limit: int = 100,
     max_rounds: int = 100,
     completion_draft_root: Path | None = None,
+    analytics_settings: AnalyticsSettings | None = None,
 ):
     """Resume exact retained intent with acquired source/runtime custody.
 
@@ -257,10 +259,12 @@ def execute_data_demand(
     semantic selections remain authenticated by the retained release and runtime.
     No connection survives preparation into provider execution or capacity waits.
     """
+    from corpus_structure.analytics import configured
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
     from corpus_structure.orchestrate.execution_host import execution_host_scope
 
+    selected_analytics = configured() if analytics_settings is None else analytics_settings
     selected_policy = policy or CharacterizationExecutionPolicy()
     with execution_host_scope() as host, host.run(selected_policy) as token:
         if purpose not in {"write", "evaluate"}:
@@ -268,23 +272,13 @@ def execute_data_demand(
         completion_drafts = None
         with engine.begin() as connection:
             if completion_draft_root is not None:
-                from hashlib import sha256
-
-                from .completion_drafts import CompletionDraftStore
+                from .completion_drafts import completion_draft_store
                 from .storage_target import acquired_target
 
-                target = acquired_target(connection, purpose=purpose)
-                namespace = sha256(
-                    json_bytes(
-                        {
-                            "system_identifier": target.system_identifier,
-                            "database_oid": target.database_oid,
-                        }
-                    )
-                ).hexdigest()
-                completion_drafts = CompletionDraftStore(
-                    completion_draft_root / namespace,
-                    max_bytes=selected_policy.max_reply_bytes,
+                completion_drafts = completion_draft_store(
+                    completion_draft_root,
+                    acquired_target(connection, purpose=purpose),
+                    selected_policy.max_reply_bytes,
                 )
             if admission_engine is not None:
                 from .storage_target import acquired_target
@@ -327,6 +321,7 @@ def execute_data_demand(
             host_run=token,
             execution_basis=basis,
             completion_drafts=completion_drafts,
+            analytics_settings=selected_analytics,
         )
         return executor.run(demand_id, limit=limit, max_rounds=max_rounds)
 

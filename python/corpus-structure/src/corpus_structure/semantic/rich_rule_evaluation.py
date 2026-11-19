@@ -12,14 +12,13 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 import networkx as nx
-import pyarrow as pa
 from pydantic import BaseModel
 
 from .analytical_kernels import (
-    VIEW_ALTERNATIVES,
-    VIEW_CLAIMS,
-    VIEW_ENTITIES,
-    VIEW_IDENTITY,
+    ViewAlternative,
+    ViewClaim,
+    ViewEntity,
+    ViewIdentity,
     ViewSpec,
 )
 from .data_operation_identity import canonical_identity
@@ -548,56 +547,38 @@ def evaluate_rich_rules(
         identifier: tuple(sorted(all_symbols - exclusive_symbols.get(identifier, set())))
         for identifier in predicate_occurrences
     }
-    tables = dict(
-        claims=pa.Table.from_pylist(
-            [
-                {
-                    "claim": identifier,
-                    "predicate": terms[identifier][2].iri,
-                    "subject": terms[identifier][0].subject_entity,
-                    "object": terms[identifier][4]
+    view_rows = {
+        (row.claim, row.view): row.facts
+        for row in relations.views(
+            claims=tuple(
+                ViewClaim(
+                    identifier,
+                    terms[identifier][2].iri,
+                    terms[identifier][0].subject_entity,
+                    terms[identifier][4]
                     if isinstance(terms[identifier][4], str) and terms[identifier][4] in entities
                     else None,
-                    "statement": _statement(occurrence.statement),
-                }
+                    _statement(occurrence.statement),
+                )
                 for identifier, occurrence in predicate_occurrences.items()
-            ],
-            schema=VIEW_CLAIMS,
-        ),
-        entities=pa.Table.from_pylist(
-            [
-                {
-                    "entity": entity.id,
-                    "key": entity.key,
-                    "class_id": class_id,
-                    "label": entity.label,
-                    "symbol": entity.symbol,
-                }
+            ),
+            entities=tuple(
+                ViewEntity(entity.id, entity.key, class_id, entity.label, entity.symbol)
                 for entity in entities.values()
                 for class_id in entity.types
-            ],
-            schema=VIEW_ENTITIES,
-        ),
-        identity=pa.Table.from_pylist(
-            [
-                {"entity": entity.id, "slot": slot, "value": value}
+            ),
+            identity=tuple(
+                ViewIdentity(entity.id, slot, value)
                 for entity in entities.values()
                 for slot, value in entity.identity.items()
-            ],
-            schema=VIEW_IDENTITY,
-        ),
-        alternatives=pa.Table.from_pylist(
-            [
-                {"group": identifier, "claim": occurrence.occurrence_id}
+            ),
+            alternatives=tuple(
+                ViewAlternative(identifier, occurrence.occurrence_id)
                 for identifier, alternative in alternatives.items()
                 for occurrence in alternative_occurrences[identifier]
-            ],
-            schema=VIEW_ALTERNATIVES,
-        ),
-    )
-    view_rows = {
-        (row["claim"], row["view"]): tuple(row["facts"])
-        for row in relations.views(**tables, specs=specs).to_pylist()
+            ),
+            specs=specs,
+        )
     }
     by_occurrence = {
         identifier: occurrence.fact_id for identifier, occurrence in predicate_occurrences.items()

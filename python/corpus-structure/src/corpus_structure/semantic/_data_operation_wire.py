@@ -1075,6 +1075,31 @@ class WireInitializeSourceProjectResult(TypedDict):
     release_id: Required[ReleaseId]
 
 
+class WireRetainDataCompletionIntentRequest(TypedDict):
+    attempt: Required[TaskAttempt]
+    completion: Required[WireCompletion]
+    generation: Required[WireGeneration]
+    holder: Required[WireIdentifier]
+    request_id: Required[WireRequestId]
+    runtime_id: Required[RuntimeId]
+    task_id: Required[TaskId]
+
+
+class WireInspectDataCompletionDraftRequest(TypedDict):
+    draft_id: Required[str]
+    origin_id: Required[WireIdentifier]
+    producer: Required[WireRetainDataCompletionIntentRequest]
+    project_id: Required[WireIdentifier]
+
+
+class WireInspectDataCompletionDraftResult(TypedDict):
+    failure_id: Required[str | None]
+    intent_id: Required[str | None]
+    reason: Required[Literal["retired", "unpublished", "retirement-unconfirmed"]]
+    receipt_id: Required[str | None]
+    state: Required[Literal["eligible", "retained"]]
+
+
 class WireInspectDataCompletionRequest(TypedDict):
     demand_id: NotRequired[WireDemandId]
     generation: NotRequired[WireGeneration]
@@ -1941,16 +1966,6 @@ class WireRenewedDataRequestResult(TypedDict):
     trust_snapshot: Required[WireTrustSnapshot]
 
 
-class WireRetainDataCompletionIntentRequest(TypedDict):
-    attempt: Required[TaskAttempt]
-    completion: Required[WireCompletion]
-    generation: Required[WireGeneration]
-    holder: Required[WireIdentifier]
-    request_id: Required[WireRequestId]
-    runtime_id: Required[RuntimeId]
-    task_id: Required[TaskId]
-
-
 class WireRetainDataCompletionIntentResult(TypedDict):
     intent_id: Required[WireCompletionIntentId]
     payload_digest: Required[WireIdentifier]
@@ -2259,6 +2274,14 @@ class DataOperationCalls:
         return cast(
             WireRetainDataCompletionIntentResult,
             self._invoke("consume_data_completion_draft", payload),
+        )
+
+    def inspect_data_completion_draft(
+        self, payload: WireInspectDataCompletionDraftRequest
+    ) -> WireInspectDataCompletionDraftResult:
+        return cast(
+            WireInspectDataCompletionDraftResult,
+            self._invoke("inspect_data_completion_draft", payload),
         )
 
     def retain_data_completion_intent(

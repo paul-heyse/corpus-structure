@@ -5,6 +5,7 @@ from hashlib import sha256
 
 import pytest
 
+from corpus_structure.semantic._data_operation_wire import WireInspectDataCompletionDraftResult
 from corpus_structure.semantic.completion_drafts import CompletionDraftStore
 
 
@@ -27,7 +28,7 @@ def acknowledge(store, **changes):
         changes.pop("request", request()),
         release_id="release:original",
         operation="source.pdf/capture",
-        basis=b'{"recipe":"recipe:one","binding":"binding:one"}',
+        basis=b'{"recipe":"recipe:one","binding":"binding:one","execution_origin":"origin:one"}',
         check_active=changes.pop("check_active", lambda: None),
         **changes,
     )
@@ -174,6 +175,115 @@ def test_executor_acknowledges_before_native_rollback_and_retries_original_reque
     owner = SimpleNamespace(check_claim=lambda _: None, retain=retain)
     with pytest.raises(RuntimeError, match="intent rollback"):
         executor._retain_answer(ready, claim, answer, port, owner)
-    assert executor._retain_answer(ready, claim, answer, port, owner) == "intent:retained"
+    assert executor._retain_answer(ready, claim, answer, port, owner).intent_id == "intent:retained"
     assert attempts == [request(), request()]
     assert len(tuple(tmp_path.glob("*.ack"))) == 1
+
+
+def test_cleanup_retains_unsettled_and_resumes_exact_marker(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    draft = acknowledge(store)
+
+    def unavailable(payload) -> WireInspectDataCompletionDraftResult:
+        assert payload["draft_id"] == draft.identity
+        assert payload["producer"] == request()
+        return {
+            "state": "retained",
+            "reason": "retirement-unconfirmed",
+            "intent_id": "intent:one",
+            "receipt_id": "receipt:one",
+            "failure_id": None,
+        }
+
+    result = store.retire(draft.identity, project_id="project", inspect=unavailable)
+    assert result.state == "retained"
+    assert store.open(draft.identity) == draft
+
+    def eligible(payload) -> WireInspectDataCompletionDraftResult:
+        return {
+            **unavailable(payload),
+            "state": "eligible",
+            "reason": "retired",
+            "failure_id": "failure:one",
+        }
+
+    unlink = Path.unlink
+
+    def interrupted(path, *args, **options):
+        if path.suffix == ".body":
+            raise OSError("interrupted body removal")
+        return unlink(path, *args, **options)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "unlink", interrupted)
+        with pytest.raises(OSError, match="interrupted"):
+            store.retire(draft.identity, project_id="project", inspect=eligible)
+    assert (tmp_path / (draft.identity + ".retired")).is_file()
+    assert (tmp_path / (draft.identity + ".body")).is_file()
+    assert not tuple(store.candidates("request:original", 2))
+
+    def no_new_inspection(_):
+        raise AssertionError("durable retirement marker already authorized exact deletion")
+
+    reopened = CompletionDraftStore(tmp_path, max_bytes=65536)
+    with pytest.raises(ValueError, match="selected custody"):
+        reopened.retire(draft.identity, project_id="other", inspect=no_new_inspection)
+    with ThreadPoolExecutor(max_workers=3) as workers:
+        reports = tuple(
+            workers.map(
+                lambda _: reopened.retire(
+                    draft.identity, project_id="project", inspect=no_new_inspection
+                ),
+                range(3),
+            )
+        )
+    assert {report.state for report in reports} == {"retired"}
+    assert {report.intent_id for report in reports} == {"intent:one"}
+    assert not tuple(tmp_path.glob("*.body"))
+    with pytest.raises(ValueError, match="already retired"):
+        acknowledge(store)
+
+
+def test_inspection_failure_and_foreign_file_leave_draft_unretired(tmp_path):
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    draft = acknowledge(store)
+
+    def unavailable(_):
+        raise OSError("native inspection unavailable")
+
+    with pytest.raises(OSError, match="native inspection unavailable"):
+        store.retire(draft.identity, project_id="project", inspect=unavailable)
+    assert store.open(draft.identity) == draft
+    (candidate,) = tmp_path.glob("*.candidate")
+    candidate.unlink()
+    other = tmp_path / "foreign"
+    other.write_bytes(b"foreign")
+    candidate.symlink_to(other)
+    with pytest.raises(ValueError, match="foreign file custody"):
+        store.retire(
+            draft.identity,
+            project_id="project",
+            inspect=lambda _: {
+                "state": "eligible",
+                "reason": "retired",
+                "intent_id": "intent",
+                "receipt_id": "receipt",
+                "failure_id": "failure",
+            },
+        )
+    assert other.read_bytes() == b"foreign"
+    assert not tuple(tmp_path.glob("*.retired"))
+
+
+def test_cache_pruning_does_not_retire_an_acknowledged_draft(tmp_path):
+    from corpus_structure.cache_store import CacheStore
+
+    store = CompletionDraftStore(tmp_path / "completion-drafts", max_bytes=65536)
+    draft = acknowledge(store)
+    cache = CacheStore(tmp_path / "cache", program_store_bytes=4096, page_store_bytes=4096)
+    assert cache.put("pages", "v1", b"same-target", {"rows.json": b"[]"})
+    CacheStore(cache.root, program_store_bytes=0, page_store_bytes=0).prune()
+    assert store.open(draft.identity) == draft
+    assert tuple(store.candidates("request:original", 2)) == (draft,)

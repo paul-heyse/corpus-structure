@@ -17,15 +17,13 @@ from sqlalchemy import cast, func, literal, select
 from sqlalchemy.dialects.postgresql import JSONB, dialect
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.schema.integrity import role_name
-
 from . import native_catalog as catalog
 from .alembic_checks import plugin as checks_plugin
 from .alembic_defaults import compare_default, compare_type
 from .alembic_defaults import plugin as defaults_plugin
 from .alembic_indexes import plugin as indexes_plugin
 from .alembic_native import plugin as native_plugin
-from .alembic_privileges import PrivilegePolicy, policy_fact, table_policy
+from .alembic_privileges import PrivilegePolicy, metadata_integrity, policy_fact, table_policy
 from .native_objects import (
     NativeAuthoringError,
     NativeIdentity,
@@ -560,6 +558,8 @@ def compare_declared_candidate(
     from .alembic_privileges import plugin as privileges_plugin
     from .native_admission import _admission_descriptor
 
+    integrity_policy = metadata_integrity(target_metadata)
+    role_name = integrity_policy.role_name
     descriptor = _admission_descriptor(authored_admission_sql(authoring))
     before_policies = old_descriptor.get("privileges", ())
     target_policies = descriptor["privileges"]
@@ -591,6 +591,7 @@ def compare_declared_candidate(
                 for table in descriptor["tables"]
             },
             "declared_privileges": target_policies,
+            "privilege_purpose_roles": integrity_policy.purpose_roles,
             "predecessor_privileges": before_policies,
             "legacy_privilege_tables": old_descriptor["tables"],
             "compared_privileges": compared_privileges,
@@ -740,7 +741,9 @@ def verify_frozen_catalog(connection, admission):
         )
 
 
-def verify_rendered_candidate(connection, python_source, authoring, policies, admission):
+def verify_rendered_candidate(
+    connection, python_source, authoring, policies, admission, *, purpose_roles=None
+):
     """Execute the exact generated upgrade and independent admission inside a savepoint."""
     from alembic.operations import Operations
 
@@ -760,7 +763,7 @@ def verify_rendered_candidate(connection, python_source, authoring, policies, ad
         phase = "native_after_admission"
         admit_native(connection, authoring.desired)
         phase = "privilege_after_admission"
-        admit_privileges(connection, policies)
+        admit_privileges(connection, policies, purpose_roles=purpose_roles)
         phase = "frozen_catalog_admission"
         verify_frozen_catalog(connection, admission)
     except DBAPIError as error:

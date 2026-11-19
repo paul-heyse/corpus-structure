@@ -8,10 +8,11 @@ transactions; provider/prepared capabilities use their separately admitted owner
 from __future__ import annotations
 
 import json
+import logging
 from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from contextvars import copy_context
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -38,6 +39,7 @@ from corpus_structure.semantic._data_operation_wire import (
     WireClaimDataRequestsClaimedResult,
     WireClaimDataRequestsRequest,
     WireCompletion,
+    WireRegisterDataExecutionOriginResult,
     WireRetainDataCompletionIntentRequest,
     wire_attempt_fence,
 )
@@ -45,7 +47,11 @@ from corpus_structure.semantic.claim_lifetime import (
     ClaimFenceLost,
     ClaimSettlementUncertain,
 )
-from corpus_structure.semantic.completion_drafts import SUPPORTED_OPERATIONS, CompletionDraftStore
+from corpus_structure.semantic.completion_drafts import (
+    SUPPORTED_OPERATIONS,
+    CompletionDraft,
+    CompletionDraftStore,
+)
 from corpus_structure.semantic.cpu_execution import (
     CapacityExceeded,
     OwnedByteBudget,
@@ -70,6 +76,7 @@ from corpus_structure.semantic.identifiers import RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
 from corpus_structure.semantic.types import PreparedRelease, SourceArtifact, SourceBundle
+from corpus_structure.settings import AnalyticsSettings
 
 
 @dataclass(frozen=True)
@@ -165,7 +172,13 @@ class NativeDemandExecutionError(ExceptionGroup):
 class _ExecutionResult:
     receipts: tuple[bytes, ...] = ()
     failures: tuple[Exception, ...] = ()
-    deferred: tuple[Any, ...] = ()
+    deferred: tuple[_ClaimedReady, ...] = ()
+
+
+@dataclass(frozen=True)
+class _RetainedAnswer:
+    intent_id: str
+    draft: CompletionDraft | None = None
 
 
 @dataclass(frozen=True)
@@ -185,9 +198,8 @@ class _ClaimPreparation:
     ready: ReadyDataRequest
     claim: NativeRequestClaim | None = None
     native: WireClaimDataRequestsClaimedResult | None = None
-    inputs: Any = None
     error: Exception | None = None
-    deferred: bool = False
+    origin: WireRegisterDataExecutionOriginResult | None = None
 
 
 class _OwnedPythonPool:
@@ -304,7 +316,6 @@ class _RequestExecution:
         self.binding_rows = {}
         self.hydrated_sizes = {}
         self.hydrated_inputs = None
-        self.hydration_error = None
         self.uncertain_submission = False
 
     def submit_python(self, callback):
@@ -400,7 +411,6 @@ class _RequestExecution:
         if self.running or not self.retired():
             return False
         self.hydrated_inputs = None
-        self.hydration_error = None
         self.consumer_inputs.clear()
         self.consumer_results.clear()
         self.binding_rows.clear()
@@ -432,7 +442,7 @@ class _RunExecution:
         self.providers = resources.providers
         self.executor = executor
         self._selected_operations = None
-        self._target_ports = ()
+        self._target_ports = None
 
     def __enter__(self):
         self.executor._preparation_bytes = 0
@@ -456,25 +466,27 @@ class _RunExecution:
                 ports.append(port)
         return tuple(ports)
 
-    def declare_target_operations(self, operations):
-        """Keep one frozen target closure; archived bindings cannot expand it."""
+    def freeze_target_operations(self, operations):
+        """Keep one frozen target closure without acquiring its capabilities."""
         selected = tuple(sorted(operations))
-        if self._selected_operations is not None:
-            if selected != self._selected_operations:
-                raise PortRefusal("native demand changed its frozen operation closure")
-            return self._target_ports
-        self._target_ports = self.declare_operations(selected, self.executor._target_context)
+        if self._selected_operations is not None and selected != self._selected_operations:
+            raise PortRefusal("native demand changed its frozen operation closure")
         self._selected_operations = selected
-        return self._target_ports
 
     def select_operations(self, operations, context=None):
         """Prepare the attached basis closure before admitting physical request work."""
+        if context is None:
+            self.freeze_target_operations(operations)
+            context = self.executor._target_context
+        if self._target_ports is None:
+            self._target_ports = self.declare_operations(
+                self._selected_operations or operations, self.executor._target_context
+            )
         ports = (
-            self.declare_target_operations(operations)
-            if context is None
+            self._target_ports
+            if context is self.executor._target_context
             else self.declare_operations(operations, context)
         )
-        context = self.executor._target_context if context is None else context
         self.host.ensure_request_room(self.executor.reservation)
         for port in ports:
             if getattr(port, "requires_prepared_schema", False) and not context.prepared_schema:
@@ -543,6 +555,7 @@ class _RunExecution:
                 lane.closed or lane.broken is not None for lane in self.providers._lanes.values()
             )
             and all(work.retire() for work in self.python_work)
+            and all(request.retired() for request in self.requests)
         )
         if healthy:
             self.physical_retired = True
@@ -650,6 +663,7 @@ class NativeDemandExecutor:
         execution_basis=None,
         native_io=None,
         completion_drafts: CompletionDraftStore | None = None,
+        analytics_settings: AnalyticsSettings | None = None,
     ):
         if runtime.release_id != prepared.release_id:
             raise ValueError("runtime belongs to another release")
@@ -667,6 +681,9 @@ class NativeDemandExecutor:
             execution_host.context(basis) if execution_host is not None else _BasisExecution(basis)
         )
         self._contexts = {basis.key: self._target_context}
+        from corpus_structure.analytics import configured
+
+        self.analytics_settings = configured() if analytics_settings is None else analytics_settings
         self.source_root = source_root
         self.completion_drafts = completion_drafts
         self._draft_origins = {}
@@ -876,28 +893,21 @@ class NativeDemandExecutor:
         ):
             # Native attachment has already validated this exact same-read
             # binding. Preserve its typed roles instead of rebuilding SQL/ASTs.
-            original, operations = ready, (ready.operation,)
+            original = ready
         else:
-            original, operations = self._generation_ready(
+            original, _ = self._generation_ready(
                 ready, native["request_id"], native, context, authorization
             )
-        self._physical.select_operations(operations, context)
         return original
 
-    def _hydrate(
-        self, ready: ReadyDataRequest, execution_owner=None, *, context=None, connection=None
-    ):
+    def _hydrate(self, ready: ReadyDataRequest, execution_owner=None, *, context=None):
         context = self._target_context if context is None else context
         from corpus_structure.semantic.data_operation_consumers import (
             BoundConsumerSelection,
         )
 
         pins = wire_json_loads(ready.resolved.trust_evidence)
-        with (
-            self.native_io.transaction()
-            if connection is None
-            else nullcontext(connection) as connection
-        ):
+        with self.native_io.transaction() as connection:
             selected = connection.hydrate(
                 context.model,
                 BoundConsumerSelection.from_binding(
@@ -1056,6 +1066,7 @@ class NativeDemandExecutor:
             "runtime_id": RuntimeId(claim.runtime_id),
             "completion": cast(WireCompletion, completion),
         }
+        draft = None
         if self.completion_drafts is not None and ready.operation in SUPPORTED_OPERATIONS:
             from dataclasses import asdict
 
@@ -1079,24 +1090,54 @@ class NativeDemandExecutor:
                 ),
                 check_active=lambda: owner.check_claim(claim),
             )
-            request = cast(WireRetainDataCompletionIntentRequest, draft.native_request())
+            request = draft.native_request()
 
         def retain(calls):
             return calls.retain_data_completion_intent(request)
 
-        return owner.retain(claim, retain)["intent_id"]
+        return _RetainedAnswer(owner.retain(claim, retain)["intent_id"], draft)
+
+    def _publish_fresh(self, ready, claim, retained, owner, physical):
+        receipt = self._publish(claim, retained.intent_id, owner)
+        store = self.completion_drafts
+        if retained.draft is not None and store is not None:
+
+            def inspect(request):
+                with self.native_io.transaction() as connection:
+                    return connection.calls.inspect_data_completion_draft(request)
+
+            try:
+                if not physical.retired():
+                    return receipt
+                store.retire(
+                    retained.draft.identity,
+                    project_id=ready.resolved.subject_context.project_id,
+                    inspect=inspect,
+                    confirmed_publication=(retained.draft, retained.intent_id),
+                )
+            except Exception as error:
+                # Publication is already committed. The operator can retry a
+                # durable marker; any unproven draft remains in private custody.
+                logging.getLogger(__name__).warning(
+                    "Completed draft retirement did not finish (%s, %s)",
+                    retained.draft.identity,
+                    type(error).__name__,
+                )
+        return receipt
+
+    def _has_draft_path(self, ready):
+        return self.completion_drafts is not None and ready.operation in SUPPORTED_OPERATIONS
 
     def _recover_answer(self, ready, claim, owner):
         """Native authority selects whether privately acknowledged bytes may be used."""
-        if self.completion_drafts is None or ready.operation not in SUPPORTED_OPERATIONS:
+        drafts = self.completion_drafts
+        if drafts is None or ready.operation not in SUPPORTED_OPERATIONS:
             return None
         from sqlalchemy.exc import DBAPIError
 
         origins = self._draft_origins[(claim.task_id, claim.attempt)]
         for candidate in origins["candidates"]:
-            for draft in self.completion_drafts.candidates(
-                candidate["request_id"], candidate["generation"]
-            ):
+            for draft in drafts.candidates(candidate["request_id"], candidate["generation"]):
                 if wire_json_loads(draft.basis).get("execution_origin") != candidate["origin_id"]:
                     continue
                 original = draft.native_request()
@@ -1150,6 +1191,13 @@ class NativeDemandExecutor:
         )
 
     @staticmethod
+    def _batch_item_limit(port):
+        limit = getattr(port, "batch_max_items", None)
+        if limit is not None and (type(limit) is not int or limit < 1):
+            raise PortRefusal("batch item bound must be a positive integer")
+        return limit
+
+    @staticmethod
     def _batch_inputs_fit(port, members):
         maximum = getattr(port, "batch_max_input_bytes", None)
         measure = getattr(port, "batch_input_bytes", None)
@@ -1162,10 +1210,8 @@ class NativeDemandExecutor:
             raise PortRefusal("batch input size owner returned an invalid byte count")
         return size <= maximum
 
-    def _claim_many(self, ready, owner, *, physical=None, split=False):
+    def _claim_many(self, ready, owner):
         preparations = [_ClaimPreparation(item) for item in ready]
-        packet_bytes, overflow = 0, False
-        packet_members = []
         seen = set()
         with self.native_io.transaction() as connection:
             requested = [wire_json_loads(item.native) for item in ready]
@@ -1185,7 +1231,6 @@ class NativeDemandExecutor:
             if len(result) != len(preparations):
                 raise PortRefusal("native claim set changed its item correspondence")
             for prepared, expected, item in zip(preparations, requested, result, strict=True):
-                member = None
                 if item["state"] == "no-work":
                     continue
                 if item["state"] == "refused":
@@ -1229,80 +1274,30 @@ class NativeDemandExecutor:
                         "native reconciliation claim no longer has a retained intent"
                     )
                     continue
-                if (
-                    self.completion_drafts is not None
-                    and prepared.ready.operation in SUPPORTED_OPERATIONS
-                ):
-                    self._draft_origins[(prepared.claim.task_id, prepared.claim.attempt)] = (
-                        connection.calls.register_data_execution_origin(
-                            {
-                                **prepared.claim.fence,
-                                "runtime_id": RuntimeId(prepared.claim.runtime_id),
-                            }
-                        )
+                if claimed["action"] != "reconcile" and self._has_draft_path(prepared.ready):
+                    prepared.origin = connection.calls.register_data_execution_origin(
+                        {
+                            **prepared.claim.fence,
+                            "runtime_id": RuntimeId(prepared.claim.runtime_id),
+                        }
                     )
-                if physical is None or claimed["action"] == "reconcile":
-                    continue
-                context = self._execution_context(prepared.claim)
-                if context.model.operation(prepared.ready.operation).external is not None:
-                    continue
-                try:
-                    with connection.begin_nested():
-                        prepared.inputs = self._hydrate(
-                            prepared.ready, physical, context=context, connection=connection
-                        )
-                    size = physical.hydrated_sizes[prepared.ready.obligation]
-                    member = (
-                        self._batch_member(prepared.ready, prepared.claim, prepared.inputs)
-                        if split
-                        else None
-                    )
-                    exceeds = overflow or packet_bytes + size > self.policy.max_packet_bytes
-                    if split and not exceeds:
-                        port = self._port(prepared.ready.operation, context)
-                        exceeds = not self._batch_inputs_fit(port, (*packet_members, member))
-                    if split and exceeds:
-                        if not packet_members:
-                            # A capacity refusal is execution failure, not a
-                            # semantic member completion. Keep no traceback
-                            # owning this transaction's hydrated packet bodies.
-                            prepared.error = CapacityExceeded(
-                                "one indivisible batch member exceeds physical input capacity"
-                            )
-                        else:
-                            overflow = True
-                            prepared.deferred = True
-                        prepared.inputs = None
-                        self._drop_hydration(physical, prepared.ready)
-                        member = None
-                    else:
-                        packet_bytes += size
-                        if member is not None:
-                            packet_members.append(member)
-                except Exception as error:
-                    prepared.inputs = None
-                    prepared.error = self._retained_failure(
-                        error, prepared.claim, phase="hydration"
-                    )
-                    self._drop_hydration(physical, prepared.ready)
-        # No renewal or settlement can observe an uncommitted attempt. Every
-        # fresh member's initial hydration used a savepoint in this transaction;
-        # overflow bodies were dropped before the next member was hydrated.
+        # Renewal and settlement only observe committed claims.
         for prepared in preparations:
             if prepared.claim is not None:
                 owner.add_claim(prepared.claim)
+                if prepared.origin is not None:
+                    self._draft_origins[(prepared.claim.task_id, prepared.claim.attempt)] = (
+                        prepared.origin
+                    )
         return tuple(preparations)
 
-    def _claim(self, ready, owner, *, physical=None):
-        (prepared,) = self._claim_many((ready,), owner, physical=physical)
+    def _claim(self, ready, owner):
+        (prepared,) = self._claim_many((ready,), owner)
         if prepared.claim is None:
             if prepared.error is not None:
                 raise prepared.error
             return None, {"state": "no-work"}
-        if physical is not None:
-            physical.hydrated_inputs = prepared.inputs
-            physical.hydration_error = prepared.error
-        elif prepared.error is not None:
+        if prepared.error is not None:
             self._known_failure(
                 prepared.claim, owner, prepared.error, phase="native claim correspondence"
             )
@@ -1321,6 +1316,7 @@ class NativeDemandExecutor:
             )
 
         receipt = canonical_bytes(owner.settle(claim, publish))
+        self._draft_origins.pop((claim.task_id, claim.attempt), None)
         self._receipt_count += 1
         if len(self._receipt_sink) < self._receipt_limit:
             self._receipt_sink.append(receipt)
@@ -1397,7 +1393,10 @@ class NativeDemandExecutor:
 
     def _known_failure(self, claim, owner, error, *, phase):
         """Release only a known-retired computation, never uncertain settlement."""
-        if claim is None or isinstance(error, (ClaimFenceLost, ClaimSettlementUncertain)):
+        if claim is None:
+            return
+        self._draft_origins.pop((claim.task_id, claim.attempt), None)
+        if isinstance(error, (ClaimFenceLost, ClaimSettlementUncertain)):
             return
         try:
             owner.check_claim(claim)
@@ -1431,27 +1430,25 @@ class NativeDemandExecutor:
                 "computation and exact attempt release failed", [error, cleanup]
             ) from cleanup
 
-    def _execute(self, ready, owner, reservation):
+    def _execute(self, queued, owner, reservation):
+        ready = queued.ready if isinstance(queued, _ClaimedReady) else queued
         physical = _RequestExecution(self._physical, reservation)
         claim, phase = None, "claim"
         try:
-            claim, claimed = self._claim(ready, owner, physical=physical)
-            if claim is None:
-                return _ExecutionResult()
+            if isinstance(queued, _ClaimedReady):
+                claim, claimed = queued.claim, queued.native
+            else:
+                claim, claimed = self._claim(ready, owner)
+                if claim is None:
+                    return _ExecutionResult()
             physical.claim = claim
-            if physical.hydration_error is not None:
-                phase = "hydration"
-                raise physical.hydration_error
-            phase = "reconciliation"
-            if claimed["state"] != "claimed":
-                raise ValueError("native claim state differs from active claim")
+            owner.check_claim(claim)
             if claimed["action"] == "reconcile":
-                receipt = self._reconcile(claim, claimed.get("retained_intent_id"), owner)
-            elif (recovered := self._recover_answer(ready, claim, owner)) is not None:
-                receipt = self._publish(claim, recovered, owner)
-            elif (
-                self._execution_context(claim).model.operation(ready.operation).external is not None
-            ):
+                phase = "reconciliation"
+                return _ExecutionResult(
+                    (self._reconcile(claim, claimed.get("retained_intent_id"), owner),)
+                )
+            if self._execution_context(claim).model.operation(ready.operation).external is not None:
                 phase = "external packet custody"
 
                 def retain_packet(calls):
@@ -1472,7 +1469,9 @@ class NativeDemandExecutor:
                 context = self._execution_context(claim)
                 physical.cpu = context.cpu or self._physical.cpu
                 port = self._port(ready.operation, context)
-                inputs = physical.hydrated_inputs
+                phase = "hydration"
+                inputs = self._hydrate(ready, physical, context=context)
+                phase = "computation"
                 reservation.reduce_to(
                     2 * physical.hydrated_sizes[ready.obligation] + 3 * self.policy.max_reply_bytes
                 )
@@ -1486,7 +1485,7 @@ class NativeDemandExecutor:
                 )
                 phase = "settlement"
                 retained = self._retain_answer(ready, claim, answer, port, owner, physical=physical)
-                receipt = self._publish(claim, retained, owner)
+                receipt = self._publish_fresh(ready, claim, retained, owner, physical)
             return _ExecutionResult((receipt,))
         except Exception as error:
             if claim is not None and physical.retired():
@@ -1509,65 +1508,51 @@ class NativeDemandExecutor:
     def _execute_batch(self, ready, owner, reservation, *, retain_claim=lambda item: None):
         physical = _RequestExecution(self._physical, reservation)
         pending, receipts, failures, deferred = [], [], [], []
-        hydrated_bytes = 0
+        hydrated_bytes, overflow = 0, False
         try:
             fresh = not isinstance(ready[0], _ClaimedReady)
-            preparations = (
-                self._claim_many(ready, owner, physical=physical, split=True) if fresh else ()
-            )
+            preparations = self._claim_many(ready, owner) if fresh else ()
             for index, queued in enumerate(ready):
                 item = queued.ready if isinstance(queued, _ClaimedReady) else queued
                 claim, phase = None, "claim"
                 try:
-                    physical.hydrated_inputs, physical.hydration_error = None, None
                     if isinstance(queued, _ClaimedReady):
                         claim, claimed = queued.claim, queued.native
-                        owner.check_claim(claim)
-                        physical.hydrated_inputs = self._hydrate(
-                            item, physical, context=self._execution_context(claim)
-                        )
                     else:
                         prepared = preparations[index]
                         claim, claimed = prepared.claim, prepared.native
-                        physical.hydrated_inputs = prepared.inputs
-                        physical.hydration_error = prepared.error
-                        if prepared.deferred:
-                            if claim is None or claimed is None:
-                                raise RuntimeError(
-                                    "deferred hydration lacks its exact native claim"
-                                )
-                            boundary = _ClaimedReady(item, claim, claimed)
-                            retain_claim(boundary)
-                            deferred.append(boundary)
-                            continue
+                        if prepared.error is not None:
+                            raise prepared.error
                     if claim is None:
-                        if physical.hydration_error is not None:
-                            raise physical.hydration_error
                         continue
                     if claimed is None:
                         raise RuntimeError("native claim lacks its result custody")
-                    if claimed["state"] != "claimed":
-                        raise ValueError("native claim state differs from active claim")
-                    if physical.hydration_error is not None:
-                        phase = "hydration"
-                        raise physical.hydration_error
+                    owner.check_claim(claim)
+                    phase = "reconciliation"
+                    # A concurrent retained intent can win even when attachment
+                    # saw fresh work. No member hydrates in that case.
                     if claimed["action"] == "reconcile":
-                        phase = "reconciliation"
                         receipts.append(
                             self._reconcile(claim, claimed.get("retained_intent_id"), owner)
                         )
-                    elif (recovered := self._recover_answer(item, claim, owner)) is not None:
-                        receipts.append(self._publish(claim, recovered, owner))
                     else:
                         phase = "computation"
                         context = self._execution_context(claim)
                         physical.cpu = context.cpu or self._physical.cpu
                         port = self._port(item.operation, context)
-                        inputs = physical.hydrated_inputs
+                        maximum = self._batch_item_limit(port)
+                        # Do not hydrate an item past the declared count limit.
+                        if overflow or (maximum is not None and len(pending) >= maximum):
+                            boundary = _ClaimedReady(item, claim, claimed)
+                            retain_claim(boundary)
+                            deferred.append(boundary)
+                            continue
+                        phase = "hydration"
+                        inputs = self._hydrate(item, physical, context=context)
                         size = physical.hydrated_sizes[item.obligation]
                         candidate = self._batch_member(item, claim, inputs)
                         exceeds = hydrated_bytes + size > self.policy.max_packet_bytes
-                        if not fresh and not exceeds:
+                        if not exceeds:
                             exceeds = not self._batch_inputs_fit(
                                 port,
                                 (
@@ -1578,27 +1563,18 @@ class NativeDemandExecutor:
                                     candidate,
                                 ),
                             )
-                        if not fresh and exceeds:
+                        if exceeds:
+                            self._drop_hydration(physical, item)
+                            inputs = candidate = None
                             if not pending:
                                 raise CapacityExceeded(
                                     "one indivisible batch member exceeds physical input capacity"
                                 )
-                            # One boundary lookahead fits stage A's second input
-                            # allowance. Drop every hydrated reference before
-                            # reducing this call; keep only its renewed claim and
-                            # same pinned binding for the next physical call.
-                            physical.hydrated_inputs = inputs = candidate = None
-                            for retained in (
-                                physical.consumer_inputs,
-                                physical.consumer_results,
-                                physical.binding_rows,
-                                physical.hydrated_sizes,
-                            ):
-                                retained.pop(item.obligation, None)
                             boundary = _ClaimedReady(item, claim, claimed)
                             retain_claim(boundary)
-                            deferred.extend((boundary, *ready[index + 1 :]))
-                            break
+                            deferred.append(boundary)
+                            overflow = True
+                            continue
                         hydrated_bytes += size
                         member = f"{claim.request_id}:{claim.generation}:{claim.attempt}"
                         if item.obligation in physical.consumer_inputs:
@@ -1704,7 +1680,9 @@ class NativeDemandExecutor:
                             retained = self._retain_answer(
                                 item, claim, result, port, owner, physical=physical
                             )
-                            receipts.append(self._publish(claim, retained, owner))
+                            receipts.append(
+                                self._publish_fresh(item, claim, retained, owner, physical)
+                            )
                         except Exception as error:
                             try:
                                 self._known_failure(claim, owner, error, phase="settlement")
@@ -1754,7 +1732,7 @@ class NativeDemandExecutor:
         def plan():
             nonlocal exhausted
             reservations = set()
-            held_claims = {}
+            held_claims: dict[str, _ClaimedReady] = {}
             active_requests = 0
 
             def execute(batch, items, reservation):
@@ -1762,6 +1740,9 @@ class NativeDemandExecutor:
                 # The child now runs synchronously into its request owner before
                 # its first yield; that owner carries the physical lifetime.
                 self._physical.pending_reservations.discard(reservation)
+                for item in items:
+                    if isinstance(item, _ClaimedReady):
+                        held_claims.pop(item.claim.request_id, None)
                 deferred = ()
                 try:
                     result = yield from (
@@ -1786,20 +1767,7 @@ class NativeDemandExecutor:
                     receipts.extend(result.receipts)
                     failures.extend(result.failures)
                     deferred = result.deferred
-                    for item in items:
-                        if isinstance(item, _ClaimedReady):
-                            held_claims.pop(item.claim.request_id, None)
-                    for item in deferred:
-                        if isinstance(item, _ClaimedReady):
-                            held_claims[item.claim.request_id] = item
-                    pending.extendleft(
-                        reversed(
-                            tuple(
-                                item if isinstance(item, _ClaimedReady) else _PreparedReady(item)
-                                for item in deferred
-                            )
-                        )
-                    )
+                    pending.extendleft(reversed(deferred))
                 finally:
                     active_requests -= len(items) - sum(
                         isinstance(item, _ClaimedReady) for item in deferred
@@ -1836,13 +1804,70 @@ class NativeDemandExecutor:
                     if not isinstance(queued, (_PreparedReady, _ClaimedReady)):
                         queued = _PreparedReady(self._prepare_ready(queued, authorization))
                         pending[index] = queued
-                    else:
-                        ready = queued.ready
-                        if wire_json_loads(ready.native)["action"] != "reconcile":
-                            self._physical.select_operations(
-                                (ready.operation,), self._ready_context(ready)
-                            )
                     return queued
+
+                def failed(item, error, *, claim=None, phase):
+                    if claim is not None:
+                        held_claims.pop(claim.request_id, None)
+                        try:
+                            self._known_failure(claim, owner, error, phase=phase)
+                        except Exception as release_error:
+                            error = release_error
+                    native = wire_json_loads(item.native)
+                    self._failed_requests.add((native["request_id"], native.get("generation")))
+                    error.add_note("native obligation: " + item.obligation)
+                    failures.append(self._retained_failure(error, claim, phase=phase))
+
+                def recover(items):
+                    """Commit first, then reconcile or adopt without acquiring a physical port."""
+                    nonlocal active_requests
+                    if isinstance(items[0], _ClaimedReady):
+                        claimed = tuple(
+                            _ClaimPreparation(item.ready, item.claim, item.native) for item in items
+                        )
+                    else:
+                        try:
+                            claimed = self._claim_many(tuple(item.ready for item in items), owner)
+                        except Exception as error:
+                            for item in items:
+                                pending.popleft()
+                                failed(item.ready, error, phase="claim")
+                            return []
+                        active_requests += sum(item.claim is not None for item in claimed)
+                    for _ in items:
+                        pending.popleft()
+                    compute = []
+                    for prepared in claimed:
+                        ready, claim, native = prepared.ready, prepared.claim, prepared.native
+                        try:
+                            if prepared.error is not None:
+                                raise prepared.error
+                            if claim is None:
+                                continue
+                            if native is None:
+                                raise RuntimeError("native claim lacks its result custody")
+                            owner.check_claim(claim)
+                            if native["action"] == "reconcile":
+                                receipt = self._reconcile(
+                                    claim, native.get("retained_intent_id"), owner
+                                )
+                            elif (
+                                retained := self._recover_answer(ready, claim, owner)
+                            ) is not None:
+                                receipt = self._publish(claim, retained, owner)
+                            else:
+                                boundary = _ClaimedReady(ready, claim, native)
+                                held_claims[claim.request_id] = boundary
+                                compute.append(boundary)
+                                continue
+                            receipts.append(receipt)
+                            held_claims.pop(claim.request_id, None)
+                        except Exception as error:
+                            failed(ready, error, claim=claim, phase="completion recovery")
+                        if claim is not None:
+                            active_requests -= 1
+                    pending.extendleft(reversed(compute))
+                    return compute
 
                 while True:
                     refill()
@@ -1852,52 +1877,51 @@ class NativeDemandExecutor:
                     try:
                         first = prepare(0)
                         ready = first.ready
-                        first_native = wire_json_loads(ready.native)
-                        basis = first_native["release_id"], first_native["runtime_id"]
-                        batch, item_limit = False, None
-                        if first_native["action"] != "reconcile":
-                            context = self._ready_context(ready)
-                            operation = context.model.operation(ready.operation)
-                            batch = operation.external is None and operation.capabilities.forms == (
-                                "batch",
-                            )
+                        native = wire_json_loads(ready.native)
+                        basis = native["release_id"], native["runtime_id"]
+                        reconcile = native["action"] == "reconcile"
+                        context = None if reconcile else self._ready_context(ready)
+                        operation = (
+                            None if context is None else context.model.operation(ready.operation)
+                        )
+                        batch = (
+                            operation is not None
+                            and operation.external is None
+                            and operation.capabilities.forms == ("batch",)
+                        )
+                        recovery = reconcile or self._has_draft_path(ready)
+                        claimed = isinstance(first, _ClaimedReady)
+                        item_limit = self.policy.max_claims if batch else 1
+                        if not recovery and not claimed and operation is not None:
+                            if operation.external is None:
+                                self._physical.select_operations((ready.operation,), context)
                             if batch:
-                                item_limit = getattr(
-                                    self._port(ready.operation, context), "batch_max_items", None
+                                item_limit = (
+                                    self._batch_item_limit(self._port(ready.operation, context))
+                                    or item_limit
                                 )
-                        if item_limit is not None and (
-                            type(item_limit) is not int or item_limit < 1
-                        ):
-                            raise PortRefusal("batch item bound must be a positive integer")
-                        items, fresh = [], 0
-                        for index in range(
-                            min(
-                                len(pending),
-                                self.policy.max_claims,
-                                item_limit or self.policy.max_claims,
-                            )
-                        ):
+                        items = []
+                        for index in range(min(len(pending), self.policy.max_claims, item_limit)):
                             queued = pending[index]
                             item = (
                                 queued.ready
                                 if isinstance(queued, (_PreparedReady, _ClaimedReady))
                                 else queued
                             )
-                            native = wire_json_loads(item.native)
+                            next_native = wire_json_loads(item.native)
                             if items and (
-                                not batch
-                                or item.operation != ready.operation
-                                or native["action"] == "reconcile"
-                                or (native["release_id"], native["runtime_id"]) != basis
+                                item.operation != ready.operation
+                                or next_native["action"] == "reconcile"
+                                or (next_native["release_id"], next_native["runtime_id"]) != basis
+                                or isinstance(queued, _ClaimedReady) != claimed
                             ):
                                 break
-                            is_fresh = not isinstance(queued, _ClaimedReady)
-                            if items and is_fresh != (not isinstance(first, _ClaimedReady)):
-                                break
-                            if active_requests + fresh + is_fresh > self.policy.max_claims:
+                            if (
+                                not claimed
+                                and active_requests + len(items) >= self.policy.max_claims
+                            ):
                                 break
                             items.append(prepare(index))
-                            fresh += is_fresh
                     except ExecutionPreparationDeferred:
                         return None
                     except Exception as error:
@@ -1907,23 +1931,57 @@ class NativeDemandExecutor:
                             if isinstance(queued, (_PreparedReady, _ClaimedReady))
                             else queued
                         )
-                        native = wire_json_loads(item.native)
-                        self._failed_requests.add((native["request_id"], native.get("generation")))
-                        error.add_note("native obligation: " + item.obligation)
-                        failures.append(
-                            self._retained_failure(error, phase="execution preparation")
-                        )
+                        claim = queued.claim if isinstance(queued, _ClaimedReady) else None
+                        failed(item, error, claim=claim, phase="execution preparation")
+                        if claim is not None:
+                            active_requests -= 1
                         del pending[index]
                         continue
                     if not items:
                         return None
-                    # Each physical call, including a batch, has one stage-A charge.
+                    if recovery or claimed:
+                        draft_credit = None
+                        if self.completion_drafts is not None and not reconcile and recovery:
+                            # Native reconciliation and draft intake have no
+                            # input packet, CPU capsule or provider reservation.
+                            needed = 3 * self.policy.max_reply_bytes
+                            self._physical.host.ensure_request_room(needed)
+                            draft_credit = self.budget.try_admit(needed)
+                            if draft_credit is None:
+                                return None
+                        try:
+                            items = recover(items)
+                        finally:
+                            if draft_credit is not None:
+                                draft_credit.release()
+                        if not items:
+                            continue
+                        try:
+                            if operation is not None and operation.external is None:
+                                self._physical.select_operations((ready.operation,), context)
+                            if batch:
+                                limit = self._batch_item_limit(self._port(ready.operation, context))
+                                if limit is not None:
+                                    items = items[:limit]
+                        except ExecutionPreparationDeferred:
+                            return None
+                        except Exception as error:
+                            for item in items:
+                                pending.popleft()
+                                failed(
+                                    item.ready,
+                                    error,
+                                    claim=item.claim,
+                                    phase="execution preparation",
+                                )
+                            active_requests -= len(items)
+                            continue
                     reservation = self.budget.try_admit(self.reservation)
                     if reservation is None:
                         return None
                     reservations.add(reservation)
                     self._physical.pending_reservations.add(reservation)
-                    active_requests += fresh
+                    active_requests += sum(not isinstance(item, _ClaimedReady) for item in items)
                     for _ in items:
                         pending.popleft()
                     return execute(batch, tuple(items), reservation)
@@ -2110,7 +2168,7 @@ class NativeDemandExecutor:
                                 raise ValueError(
                                     "demand execution requires its complete native intent"
                                 )
-                            physical.select_operations(
+                            physical.freeze_target_operations(
                                 item["operation"] for item in intent["operations"]
                             )
                             yield page

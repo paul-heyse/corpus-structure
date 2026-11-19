@@ -55,7 +55,7 @@ def _observed_physical_catalog(descriptor: dict) -> PhysicalCatalogExpectations:
 
 def compare_native_programs(installation, predecessor: str) -> NativeProgramDelta | None:
     """Compare captured declarations with authenticated frozen head statements."""
-    from .alembic_privileges import declared_policies
+    from .alembic_privileges import declared_policies, metadata_integrity
     from .execution_admission import _revision_expectation
     from .migrations import ALEMBIC_DIR, head_revision
     from .native_admission import describe_native_admission, execution_descriptor_program
@@ -114,7 +114,12 @@ def compare_native_programs(installation, predecessor: str) -> NativeProgramDelt
             physical_catalog=_observed_physical_catalog(descriptor),
         )
         (rendered,) = render_programs(
-            (execution_descriptor_program(current),), registry_schemas=frozenset({"data"})
+            (
+                execution_descriptor_program(
+                    current, owner=metadata_integrity(installation.metadata).publisher
+                ),
+            ),
+            registry_schemas=frozenset({"data"}),
         )
         if rendered.declared_definition.install_sql != old.get(EXECUTION_DESCRIPTOR):
             descriptor_changes.append(EXECUTION_DESCRIPTOR.qualified)

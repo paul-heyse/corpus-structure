@@ -176,6 +176,7 @@ def run_private_native_pdf_build(
             from corpus_structure.ingest.pdf import pdf_package_versions
             from corpus_structure.ingest.pdf_build_spool import (
                 PdfBuildSpool,
+                PdfSpoolOwner,
                 PdfSpoolPremises,
                 clone_recovery_entries,
                 selected_replay_bytes,
@@ -200,9 +201,21 @@ def run_private_native_pdf_build(
                     attempt=TaskAttempt(claim.attempt),
                     holder=holder,
                     runtime_id=RuntimeId(claim.runtime_id),
+                    premises_bytes=premises.to_bytes(),
                 )
-            candidates = {(row.build_id, row.task_id, row.producer_id) for row in candidate_rows}
-            selected_builds = sorted({(build_id, task_id) for build_id, task_id, _ in candidates})
+            candidates = {
+                PdfSpoolOwner(
+                    row.build_id,
+                    row.task_id,
+                    row.attempt,
+                    row.holder,
+                    row.producer_id,
+                    row.writer_device,
+                    row.writer_inode,
+                ): row.premises_bytes
+                for row in candidate_rows
+            }
+            selected_builds = sorted({(owner.build_id, owner.task_id) for owner in candidates})
             recovered = tuple(
                 recovery
                 for selected_build in selected_builds
@@ -211,11 +224,10 @@ def run_private_native_pdf_build(
                     build_id=build.build_id,
                     task_id=claim.task_id,
                     before_attempt=claim.attempt,
-                    premises=premises,
                     check_active=check_active,
                     source_build=selected_build,
-                    verify_compatibility=lambda prior, _old, _current: (
-                        (prior.build_id, prior.task_id, prior.producer_id) in candidates
+                    authorize_source=lambda owner, original: (
+                        candidates.get(owner) == original.to_bytes()
                     ),
                 )
             )

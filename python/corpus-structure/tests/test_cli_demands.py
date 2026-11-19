@@ -60,7 +60,15 @@ def test_demand_help_has_no_settings_or_database_effects(cli):
     def refuse():
         raise AssertionError("help must not resolve settings")
 
-    for action in ((), ("create",), ("plan",), ("read",), ("cancel",), ("execute",)):
+    for action in (
+        (),
+        ("create",),
+        ("plan",),
+        ("read",),
+        ("cancel",),
+        ("execute",),
+        ("retire-draft",),
+    ):
         result = cli("demands", *action, "--help", settings=refuse)
         assert result.exit_code == 0, result.output
 
@@ -192,12 +200,15 @@ def test_execute_retains_pending_native_fates_and_exact_resume_target(
 ):
     from corpus_structure.orchestrate.data_operations import DemandAdvance
     from corpus_structure.semantic import data_operation_service
+    from corpus_structure.settings import AnalyticsSettings, Settings
 
+    selected = AnalyticsSettings(threads=3, memory_limit="192MB", scratch_path=tmp_path / "spill")
     seen = []
     snapshot = {"demand_id": "demand:one", "state": "open", "uses": [{"fate": "awaiting-inputs"}]}
 
     def execute(engine, demand, **kwargs):
         seen.append((demand, kwargs["source_root"], kwargs["limit"], kwargs["max_rounds"]))
+        assert kwargs["analytics_settings"] == selected
         return DemandAdvance(demand, json.dumps(snapshot).encode(), (), 0)
 
     monkeypatch.setattr(data_operation_service, "execute_data_demand", execute)
@@ -212,6 +223,7 @@ def test_execute_retains_pending_native_fates_and_exact_resume_target(
         "--max-rounds",
         "2",
         "--json",
+        settings=lambda: Settings(analytics=selected),
         env={"CORPUS_CI_RESULTS": str(tmp_path / "results")},
     )
     assert result.exit_code == 0, result.output
@@ -380,3 +392,74 @@ def test_visual_group_keeps_each_actual_demand_and_managed_receipt_without_run_g
     assert len({report["id"] for report in reports}) == 2
     assert [report["native"]["demand_id"] for report in reports] == seen
     assert all("run_id" not in report["native"] for report in reports)
+
+
+def test_retire_draft_selects_exact_project_target_and_private_namespace(
+    cli, tmp_path, monkeypatch, routing
+):
+    from corpus_structure.semantic import completion_drafts, data_operation_storage
+
+    opened, connection = routing
+    seen = []
+    identity = "a" * 64
+
+    class Storage:
+        def __init__(self, actual):
+            assert actual is connection
+
+        def inspect_data_completion_draft(self, payload):
+            seen.append(payload)
+            return {
+                "state": "eligible",
+                "reason": "retired",
+                "intent_id": "intent:one",
+                "receipt_id": "receipt:one",
+                "failure_id": "failure:one",
+            }
+
+    class Store:
+        def retire(self, draft, *, project_id, inspect):
+            assert (draft, project_id) == (identity, "project:one")
+            result = inspect((draft, project_id))
+            return completion_drafts.DraftRetirement(
+                draft,
+                "retired",
+                "native-publication-and-retirement",
+                result["intent_id"],
+                result["receipt_id"],
+                result["failure_id"],
+            )
+
+    def open_store(root, target, max_bytes):
+        assert root == tmp_path / "data" / "completion-drafts"
+        assert (target.database, target.database_oid, target.purpose) == (
+            "routing-only",
+            1,
+            "write",
+        )
+        assert max_bytes > 0
+        return Store()
+
+    monkeypatch.setattr(data_operation_storage, "DataOperationStorage", Storage)
+    monkeypatch.setattr(completion_drafts, "completion_draft_store", open_store)
+    env = {
+        "CORPUS_CI_RESULTS": str(tmp_path / "results"),
+        "CORPUS_PATHS__DATA_DIR": str(tmp_path / "data"),
+    }
+    result = cli(
+        "demands",
+        "retire-draft",
+        identity,
+        "--project",
+        "project:one",
+        "--target",
+        "development",
+        "--json",
+        env=env,
+    )
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.stdout)
+    assert seen == [(identity, "project:one")] and opened == ["write"]
+    assert report["native"]["receipt_id"] == "receipt:one"
+    manifest = json.loads((tmp_path / "results" / report["id"] / "manifest.json").read_text())
+    assert manifest["operation_account"]["known_effects"] == ["private completion draft retired"]

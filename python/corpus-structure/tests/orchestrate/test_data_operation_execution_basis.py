@@ -180,6 +180,7 @@ def test_batches_never_mix_distinct_execution_bases(monkeypatch, prepared):
                 prepared=prepared,
                 runtime=SimpleNamespace(runtime_id="runtime:" + name),
                 sources=executor.sources,
+                prepared_sources=executor.sources,
             ),
             cpu=None,
             ports={},
@@ -361,9 +362,7 @@ def test_shared_capsule_descriptor_rejects_changed_archive_digest(prepared):
 
 
 @pytest.mark.parametrize("refuse", [False, True])
-def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(
-    monkeypatch, refuse, prepared
-):
+def test_fresh_hydration_uses_its_own_transaction_after_claim_commit(monkeypatch, refuse, prepared):
     from contextlib import contextmanager
 
     from corpus_structure.semantic.data_operation_consumers import HydratedConsumerSelection
@@ -391,17 +390,6 @@ def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(
         yield unit
         events.append("commit claim")
 
-    @contextmanager
-    def savepoint():
-        events.append("savepoint")
-        try:
-            yield
-        except Exception:
-            events.append("rollback hydration")
-            raise
-        else:
-            events.append("release savepoint")
-
     def hydrate(model, selected, **options):
         events.append("hydrate")
         assert selected.subject == "0"
@@ -409,10 +397,9 @@ def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(
             raise ValueError("controlled hydration refusal")
         return HydratedConsumerSelection(selected, (), measured_bytes=10)
 
-    unit.transaction, unit.savepoint, unit.hydrate_inputs = transaction, savepoint, hydrate
+    unit.transaction, unit.hydrate_inputs = transaction, hydrate
     physical = SimpleNamespace(
         hydrated_inputs=None,
-        hydration_error=None,
         hydrated_sizes={},
         consumer_inputs={},
         consumer_results={},
@@ -422,25 +409,18 @@ def test_claim_and_hydration_share_transaction_but_renewal_follows_commit(
     claim, result = executor._claim(
         ready,
         SimpleNamespace(add_claim=lambda _: events.append("renew committed claim")),
-        physical=physical,
     )
     assert claim is not None and result["request_id"] == "0"
-    assert events == [
-        "begin claim",
-        "claim",
-        "savepoint",
-        "hydrate",
-        "rollback hydration" if refuse else "release savepoint",
-        "commit claim",
-        "renew committed claim",
-    ]
+    assert events == ["begin claim", "claim", "commit claim", "renew committed claim"]
     if refuse:
-        assert isinstance(physical.hydration_error, ValueError)
-        assert physical.hydrated_inputs is None
+        with pytest.raises(ValueError, match="controlled hydration refusal"):
+            executor._hydrate(ready, physical, context=executor._execution_context(claim))
+        assert events[-2:] == ["begin claim", "hydrate"]
+        assert physical.hydrated_sizes == {}
     else:
-        assert physical.hydrated_inputs == ()
+        assert executor._hydrate(ready, physical, context=executor._execution_context(claim)) == ()
+        assert events[-3:] == ["begin claim", "hydrate", "commit claim"]
         assert physical.hydrated_sizes == {"0": 10}
-        assert physical.hydration_error is None
 
 
 def test_claim_set_preserves_refusal_siblings_and_owns_repeated_identity_once(monkeypatch):
@@ -494,7 +474,7 @@ def test_public_advance_uses_controlled_native_transactions_without_engine_acces
         populations=[],
         continuation=None,
         intent={"discovery": []},
-        selection={"operations": [{"operation": "scalar"}]},
+        selection={"version": "data-demand-intent-v2", "operations": [{"operation": "scalar"}]},
     )
     reads = []
 

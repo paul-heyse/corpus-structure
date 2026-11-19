@@ -7,6 +7,7 @@ from pathlib import Path
 from corpus_structure.semantic.data_operation_service import create_native_demand, read_data_demand
 from corpus_structure.semantic.refusals import SemanticRefusal
 from corpus_structure.semantic.storage_target import acquired_target
+from corpus_structure.settings import AnalyticsSettings
 
 
 def execute_native_intent(
@@ -25,6 +26,7 @@ def execute_native_intent(
     required_targets=None,
     registered=None,
     completion_draft_root: Path | None = None,
+    analytics_settings: AnalyticsSettings | None = None,
 ):
     """Execute only one explicit intent; optional target restriction also checks resume."""
     from corpus_structure.semantic.data_operation_service import execute_data_demand
@@ -80,4 +82,5 @@ def execute_native_intent(
         nemotron_endpoint=methods.nemotron_endpoint,
         admission_engine=admission_engine,
         completion_draft_root=completion_draft_root,
+        analytics_settings=analytics_settings,
     )

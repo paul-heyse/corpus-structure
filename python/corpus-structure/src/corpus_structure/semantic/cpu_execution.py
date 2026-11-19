@@ -17,6 +17,7 @@ from time import monotonic
 from typing import Any, Literal, cast
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+from corpus_structure.settings import AnalyticsSettings
 
 from .archive_reader import reconstruct_release
 from .archive_wire import encode_products
@@ -263,8 +264,18 @@ def _apply_native_thread_limits() -> None:
     _WORKER_NATIVE_RUNTIME.apply(_WORKER_NATIVE_THREADS)
 
 
-def _initialize(capsule: bytes | None, stop, cancellation=None, native_threads: int = 1) -> None:
+def _initialize(
+    capsule: bytes | None,
+    stop,
+    cancellation=None,
+    native_threads: int = 1,
+    analytics_settings: AnalyticsSettings | None = None,
+) -> None:
     import os
+
+    from corpus_structure.analytics import configure, configured
+
+    configure(configured() if analytics_settings is None else analytics_settings)
 
     # The coordinator owns terminal interruption and signals explicit cancellation.
     # A group SIGINT must not independently interrupt a worker's IPC queue lock.
@@ -692,7 +703,11 @@ class CPUExecutionScope:
         *,
         budget: OwnedByteBudget | None = None,
         retain_schema: bool = True,
+        analytics_settings: AnalyticsSettings | None = None,
     ):
+        from corpus_structure.analytics import configured
+
+        self.analytics_settings = configured() if analytics_settings is None else analytics_settings
         self.prepared = prepared
         self.retain_schema = retain_schema
         self.policy = policy or CharacterizationExecutionPolicy()
@@ -736,6 +751,7 @@ class CPUExecutionScope:
                         self._stop,
                         self._cancellation,
                         self.policy.cpu_native_threads,
+                        self.analytics_settings,
                     ),
                 )
                 self._pool_ownership = _PoolOwnership.capture(self._pool)

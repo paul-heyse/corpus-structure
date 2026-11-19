@@ -689,10 +689,23 @@ def prepare_preview(
     model_comparison = compare_compiled_models(old, new)
     from corpus_structure.schema.model_explanation import (
         capture_sql_changes,
+        frozen_sql_snapshot,
         generated_sql_snapshot,
     )
 
-    if (
+    if request.native_requested and PHYSICAL_ROOT in new.sources:
+        sql_explanation = capture_sql_changes(
+            frozen_sql_snapshot(request.native_predecessor, base=native_base)
+            if request.native_predecessor is not None
+            else {},
+            generated_sql_snapshot(new),
+            source_basis=(
+                "frozen native predecessor and generated SQL from captured candidate model"
+                if request.native_predecessor is not None
+                else "generated SQL from captured fresh target model"
+            ),
+        )
+    elif (
         old.identity != new.identity
         and PHYSICAL_ROOT in old.sources
         and PHYSICAL_ROOT in new.sources

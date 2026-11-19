@@ -52,6 +52,26 @@ class IntegrityPolicy:
     def purpose_roles(self):
         return tuple(dict.fromkeys(role for role in self.purposes.values() if role is not None))
 
+    def role_name(self, key):
+        if key == "publisher":
+            return self.publisher
+        purpose = {
+            "writer": "write",
+            "reader": "read",
+            "evaluator": "evaluate",
+            "admitter": "admit",
+            "fitter": "fit",
+        }.get(key)
+        if purpose is not None:
+            role = self.purpose_role(purpose)
+            if role is None:
+                raise ModelError([f"integrity purpose {purpose} requires a role"])
+            return role
+        for role in self.roles.values():
+            if role.key == key:
+                return role.name
+        raise ModelError([f"unknown integrity role key: {key}"])
+
     def purpose_role(self, purpose):
         if purpose not in self.purposes:
             raise ModelError([f"unknown integrity purpose: {purpose}"])
@@ -126,10 +146,7 @@ def integrity():
 
 
 def role_name(key: str) -> str:
-    for role in integrity().roles.values():
-        if role.key == key:
-            return role.name
-    raise ModelError([f"unknown integrity role key: {key}"])
+    return integrity().role_name(key)
 
 
 def _schema_policies():

@@ -114,7 +114,7 @@ def _privilege_guard(policy):
     expected = canonical_bytes({"privileges": [policy]}).decode()
     return Do(
         Block(
-            privilege_admission_checks(),
+            privilege_admission_checks(MetaData()),
             (Local("expected", pg_type("jsonb"), cast(literal(expected, Text()), JSONB())),),
         )
     )
@@ -505,3 +505,37 @@ def test_rendered_candidate_catalog_failure_keeps_owning_phase(
     }
     assert "withheld diagnostic" not in str(failure.value)
     assert conn.scalar(text("SELECT 1")) == 1
+
+
+def test_new_frozen_privilege_policy_replays_without_the_running_model(
+    infrastructure_rollback, monkeypatch
+):
+    from corpus_structure.semantic import alembic_privileges
+
+    schema = "frozen_roles_" + uuid4().hex[:10]
+    conn = infrastructure_rollback
+    conn.exec_driver_sql(f'CREATE SCHEMA "{schema}"')
+    policy = {"kind": "schema", "name": schema, "owner": None, "acl": [], "columns": []}
+    historical = PrivilegeTransitionOp(None, policy, normalization=True).payload()
+    assert historical == {
+        "version": 1,
+        "before": None,
+        "after": policy,
+        "normalization": True,
+    }
+    assert PrivilegeTransitionOp.from_payload(historical).payload() == historical
+    frozen = PrivilegeTransitionOp(
+        None, policy, normalization=True, purpose_roles=("corpus_sem_reader",)
+    )
+    payload = json.loads(json.dumps(frozen.payload()))
+    assert payload["version"] == 2
+    assert payload["purpose_roles"] == ["corpus_sem_reader"]
+
+    def unexpected_current_model():
+        raise AssertionError("frozen privilege execution must not read the running model")
+
+    monkeypatch.setattr(alembic_privileges, "integrity", unexpected_current_model)
+    operations = Operations(MigrationContext.configure(conn))
+    operations.invoke(PrivilegeTransitionOp.from_payload(payload))
+    admit_privileges(conn, [policy], purpose_roles=payload["purpose_roles"])
+    conn.exec_driver_sql(f'DROP SCHEMA "{schema}"')

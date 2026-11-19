@@ -293,6 +293,7 @@ class ProcessExecutionHost:
         if self.resources is not None and self.resources.resource_key != (
             executor.port_workers,
             executor.nemotron_endpoint,
+            executor.analytics_settings,
         ):
             self.retire_resources()
         if self.resources is None:
@@ -305,10 +306,18 @@ class ProcessExecutionHost:
 
             native = NativeHostResidency(self.policy, executor.nemotron_endpoint)
             self.resources = SimpleNamespace(
-                resource_key=(executor.port_workers, executor.nemotron_endpoint),
+                resource_key=(
+                    executor.port_workers,
+                    executor.nemotron_endpoint,
+                    executor.analytics_settings,
+                ),
                 pool=_OwnedPythonPool(executor.port_workers),
                 cpu=CPUExecutionScope(
-                    executor.prepared, self.policy, budget=self.budget, retain_schema=False
+                    executor.prepared,
+                    self.policy,
+                    budget=self.budget,
+                    retain_schema=False,
+                    analytics_settings=executor.analytics_settings,
                 ),
                 native_hosts=native,
                 providers=ProviderExecution(self.budget, self.policy, native_group=native),
@@ -317,7 +326,11 @@ class ProcessExecutionHost:
             from corpus_structure.semantic.cpu_execution import CPUExecutionScope
 
             self.resources.cpu = CPUExecutionScope(
-                executor.prepared, self.policy, budget=self.budget, retain_schema=False
+                executor.prepared,
+                self.policy,
+                budget=self.budget,
+                retain_schema=False,
+                analytics_settings=executor.analytics_settings,
             )
         try:
             self.resources.native_hosts.begin_run()
@@ -405,7 +418,11 @@ class ProcessExecutionHost:
         if self._execution is not None:
             prepared = self._execution.executor.prepared
             resources.cpu = CPUExecutionScope(
-                prepared, self.policy, budget=self.budget, retain_schema=False
+                prepared,
+                self.policy,
+                budget=self.budget,
+                retain_schema=False,
+                analytics_settings=self._execution.executor.analytics_settings,
             )
             self._execution.cpu = resources.cpu
             for context in self._execution.executor._contexts.values():

@@ -352,7 +352,10 @@ def upgrade():
     admit_native(op.get_bind(), tuple(NativeObject.from_payload(item) for item in state["desired"]))
     if state["version"] == 2:
         from corpus_structure.semantic.alembic_privileges import admit_privileges
-        admit_privileges(op.get_bind(), state["privileges"])
+        admit_privileges(
+            op.get_bind(), state["privileges"],
+            purpose_roles=state.get("privilege_purpose_roles"),
+        )
 
 
 def downgrade():

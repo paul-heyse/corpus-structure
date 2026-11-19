@@ -347,7 +347,7 @@ def native_check_catalog_checks():
 
 def admission_programs(metadata):
     """Declare the fast release guard and the restricted full re-proof."""
-    from .alembic_privileges import PUBLISHER, privilege_admission_checks
+    from .alembic_privileges import metadata_integrity, privilege_admission_checks
     from .native_admission_functions import function_catalog_checks
     from .native_admission_principals import principal_catalog_checks, restricted_principal_checks
     from .native_admission_tables import reader_catalog_checks, table_catalog_checks
@@ -355,6 +355,8 @@ def admission_programs(metadata):
     from .native_objects import NativeProgramAccess
     from .native_program_registry import ProgramDeclaration
 
+    policy = metadata_integrity(metadata)
+    role_name = policy.role_name
     selected = core_variable("r", Text())
     recorded, record = deployment_receipt(metadata)
     expected = Local("expected", pg_type("jsonb"))
@@ -377,7 +379,7 @@ def admission_programs(metadata):
                 body=body,
             ),
             source="target-current:admission.sql",
-            owner=PUBLISHER,
+            owner=policy.publisher,
             access=NativeProgramAccess(purposes=purposes),
         )
 
@@ -391,13 +393,13 @@ def admission_programs(metadata):
                 *physical_catalog_checks(metadata),
                 *function_catalog_checks(),
                 *trigger_catalog_checks(),
-                *table_catalog_checks(),
+                *table_catalog_checks(metadata),
                 *reader_catalog_checks(),
                 *index_catalog_checks(),
-                *privilege_admission_checks(),
-                *principal_catalog_checks(),
+                *privilege_admission_checks(metadata),
+                *principal_catalog_checks(metadata),
                 *native_check_catalog_checks(),
-                *restricted_principal_checks(),
+                *restricted_principal_checks(metadata),
             ),
             (
                 expected,

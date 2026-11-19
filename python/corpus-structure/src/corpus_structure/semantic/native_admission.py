@@ -133,7 +133,7 @@ def frozen_catalog_verification(body: str) -> str:
     return RawStream()(envelope)
 
 
-def execution_descriptor_program(descriptor):
+def execution_descriptor_program(descriptor, *, owner=None):
     from sqlalchemy import Text, cast, literal, select
     from sqlalchemy.dialects.postgresql import JSONB
 
@@ -153,7 +153,7 @@ def execution_descriptor_program(descriptor):
             search_path=("pg_catalog", "pg_temp"),
         ),
         "target-current:admission:execution_contract_descriptor",
-        role_name("publisher"),
+        role_name("publisher") if owner is None else owner,
         NativeProgramAccess(purposes=("admit",)),
     )
 
@@ -354,7 +354,7 @@ def describe_native_admission(
                 elif column["default"] is not None:
                     column["default"] = defaults[column["name"]]
     descriptor["tables"] = sorted(tables.values(), key=lambda item: item["relation"])
-    from .alembic_privileges import desired_policies
+    from .alembic_privileges import desired_policies, metadata_integrity
 
     descriptor["privileges"] = list(desired_policies(target_metadata, native_objects))
     for policy in descriptor["privileges"]:
@@ -370,7 +370,8 @@ def describe_native_admission(
             if reader["relation"].split(".", 1)[0] == policy["name"]:
                 roles.update(reader["roles"])
         policy["acl"] = sorted(
-            [(role, "USAGE", False) for role in roles] + [(role_name("publisher"), "CREATE", False)]
+            [(role, "USAGE", False) for role in roles]
+            + [(metadata_integrity(target_metadata).publisher, "CREATE", False)]
         )
     required = admission_kernel(target_metadata=target_metadata)
     if any("body_profile" in item and "dependencies" not in item for item in functions.values()):
@@ -392,6 +393,7 @@ def describe_native_admission(
 def native_admission_sql(
     sql, inputs, *, base_descriptor, target_metadata, native_objects=(), physical_catalog=None
 ):
+    from .alembic_privileges import metadata_integrity
     from .native_objects import native_role_sql
     from .native_products import admission_kernel
 
@@ -403,7 +405,8 @@ def native_admission_sql(
             target_metadata=target_metadata,
             native_objects=native_objects,
             physical_catalog=physical_catalog,
-        )
+        ),
+        owner=metadata_integrity(target_metadata).publisher,
     )
     return (
         native_role_sql(descriptor.owner)

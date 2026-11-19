@@ -372,3 +372,118 @@ def execution_origin_programs(model, routine, row, rf, obj, reject, lookup):
         ),
         returns="jsonb",
     )
+
+    failures = model.tables["ops.data_attempt_failure"]
+    receipts = model.tables["ops.data_publication_receipt"]
+    derivations = model.tables["ops.data_derivation"]
+    producer = p["producer"]
+    inspection_completion = producer["completion"]
+    inspection_key = literal("intent:").concat(
+        func.ops.ddo_digest(
+            func.jsonb_build_array(
+                *(origin(name) for name in (*fence_fields, "runtime_id")),
+                inspection_completion,
+            )
+        )
+    )
+    receipt_id = core_variable("receipt_id_", Text())
+    failure_id = core_variable("failure_id_", Text())
+
+    def inspection(state, reason, *, intent=None, receipt=None, failure=None):
+        return Return(
+            obj(
+                payload=obj(
+                    state=state,
+                    reason=reason,
+                    intent_id=intent,
+                    receipt_id=receipt,
+                    failure_id=failure,
+                )
+            )
+        )
+
+    routine(
+        "ops",
+        "inspect_data_completion_draft",
+        parameters,
+        (
+            Perform(
+                func.ops.ddo_fields(p, array(["project_id", "origin_id", "draft_id", "producer"]))
+            ),
+            Perform(
+                func.ops.ddo_fields(producer, array([*fence_fields, "runtime_id", "completion"]))
+            ),
+            lookup("origin_", origins, origins.c.id == p["origin_id"].astext),
+            reject(
+                or_(
+                    origin("request_snapshot")["project_id"].astext.is_distinct_from(
+                        p["project_id"].astext
+                    ),
+                    *(
+                        func.to_jsonb(origin(name)).is_distinct_from(producer[name])
+                        for name in (*fence_fields, "runtime_id")
+                    ),
+                    func.coalesce(p["draft_id"].astext, "").bool_op("!~")("^[0-9a-f]{64}$"),
+                ),
+                "completion draft differs from original custody",
+            ),
+            Assign("key_", inspection_key),
+            If(
+                ~select(1).where(intents.c.id == key).exists(),
+                (inspection("retained", "unpublished"),),
+            ),
+            lookup("intent_", intents, intents.c.id == key),
+            reject(
+                or_(
+                    row("intent_", intents, "payload").is_distinct_from(inspection_completion),
+                    row("intent_", intents, "payload_digest").is_distinct_from(
+                        func.ops.ddo_digest(inspection_completion)
+                    ),
+                    select(1)
+                    .where(
+                        consumed.c.origin_id == origin("id"),
+                        or_(
+                            consumed.c.intent_id.is_distinct_from(key),
+                            consumed.c.draft_id.is_distinct_from(p["draft_id"].astext),
+                        ),
+                    )
+                    .exists(),
+                ),
+                "completion draft differs from native retained answer",
+            ),
+            Assign(
+                "receipt_id_",
+                select(receipts.c.id)
+                .join(derivations, derivations.c.id == receipts.c.derivation_id)
+                .where(
+                    receipts.c.intent_id == key,
+                    derivations.c.intent_id == key,
+                    derivations.c.producer_task_id == origin("task_id"),
+                    derivations.c.producer_attempt == origin("attempt"),
+                )
+                .scalar_subquery(),
+            ),
+            If(receipt_id.is_(None), (inspection("retained", "unpublished", intent=key),)),
+            Assign(
+                "failure_id_",
+                select(failures.c.id)
+                .where(*(failures.c[name] == origin(name) for name in fence_fields))
+                .scalar_subquery(),
+            ),
+            If(
+                failure_id.is_(None),
+                (inspection("retained", "retirement-unconfirmed", intent=key, receipt=receipt_id),),
+            ),
+            inspection("eligible", "retired", intent=key, receipt=receipt_id, failure=failure_id),
+        ),
+        (
+            Local("p", pg_type("jsonb"), core_variable("p_payload", JSONB())),
+            Local("origin_", origins),
+            Local("intent_", intents),
+            Local("key_", pg_type("text")),
+            Local("receipt_id_", pg_type("text")),
+            Local("failure_id_", pg_type("text")),
+        ),
+        returns="jsonb",
+        stable=True,
+    )

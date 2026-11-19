@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Generator
 from contextlib import contextmanager
+from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -24,6 +25,7 @@ from corpus_structure.semantic.data_operation_service import (
     read_data_demand,
 )
 from corpus_structure.semantic.storage_target import acquired_target
+from corpus_structure.settings import DeploymentProfile
 
 app = typer.Typer(help="Create, inspect and cancel immutable native demands.", no_args_is_help=True)
 
@@ -254,6 +256,7 @@ def execute_request(
                     required_targets=required_targets,
                     registered=registered,
                     completion_draft_root=settings.paths.data_dir / "completion-drafts",
+                    analytics_settings=settings.analytics,
                 )
             except NativeDemandExecutionError as error:
                 retain_native_demand_result(invocation, error.result)
@@ -264,6 +267,55 @@ def execute_request(
     if deliver:
         _emit_demand(report, json=json)
     return report
+
+
+@app.command("retire-draft")
+def retire_draft(
+    ctx: typer.Context,
+    draft: Annotated[str, typer.Argument(help="Exact acknowledged draft content ID.")],
+    project: Annotated[str, typer.Option(help="Exact project owning the draft.")],
+    target: Annotated[DeploymentProfile, typer.Option(help="Configured PostgreSQL target.")],
+    execution_policy: Annotated[Path | None, typer.Option(exists=True, dir_okay=False)] = None,
+    json: JsonOpt = False,
+) -> None:
+    """Retire an exact private draft after native publication and producer retirement."""
+    from corpus_structure.cli.characterization_options import method_settings
+    from corpus_structure.cli.target import select_target
+    from corpus_structure.semantic.completion_drafts import completion_draft_store
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.storage_target import verify_declared_route
+
+    with managed_operation(
+        result_store(ctx),
+        "demands.retire-draft",
+        json=json,
+        expected=(ValueError, OSError),
+        scope={"draft_id": draft, "project": project, "target": target},
+    ) as invocation:
+        selected, settings = select_target(ctx, target, effect=True)
+        policy = method_settings(settings, execution_policy).execution_policy
+        with ENGINE(settings, purpose="write") as engine, engine.begin() as connection:
+            if selected == "deployment":
+                verify_declared_route(connection, settings)
+            binding = acquired_target(connection, purpose="write")
+            invocation.record_target(binding, None, None, None)
+            store = completion_draft_store(
+                settings.paths.data_dir / "completion-drafts", binding, policy.max_reply_bytes
+            )
+            report = store.retire(
+                draft,
+                project_id=project,
+                inspect=DataOperationStorage(connection).inspect_data_completion_draft,
+            )
+        if report.state == "retired":
+            invocation.record_effect("private completion draft retired")
+        native = asdict(report)
+        path = invocation.directory / "retirement.json"
+        path.write_bytes(json_bytes(native))
+        invocation.publish("retirement", path)
+        invocation.settle("passed", **native)
+        result = DemandActionReport.model_validate({"id": invocation.id, "native": native})
+    _emit_demand(result, json=json)
 
 
 @app.command("plan")

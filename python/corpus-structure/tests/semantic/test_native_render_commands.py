@@ -13,7 +13,7 @@ from corpus_structure.intervene.native_render_tools import (
 from corpus_structure.orchestrate.native_execution import execute_native_intent
 from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.native_requests import TARGET
-from corpus_structure.settings import Settings
+from corpus_structure.settings import AnalyticsSettings, Settings
 
 
 def test_render_selection_refuses_missing_or_ambiguous_intent_and_physical_aliases():
@@ -87,9 +87,11 @@ def test_current_render_uses_shared_executor_and_preserves_exact_native_result(m
         with pytest.raises(ValueError, match="another server"):
             execute_native_render(selection, settings=Settings(), project=project, demand=demand)
     assert not opened
+    selected = AnalyticsSettings(threads=3, memory_limit="192MB")
     response = execute_native_render(
-        selection, settings=Settings(), project="project:one", demand="demand:one"
+        selection, settings=Settings(analytics=selected), project="project:one", demand="demand:one"
     )
+    assert calls[0]["analytics_settings"] == selected
     assert opened == ["write", "admit"]
     assert calls[0]["required_targets"] == (TARGET,) and calls[0]["demand"] == "demand:one"
     assert calls[0]["project"] == "project:one" and calls[0]["request"] is None

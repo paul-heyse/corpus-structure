@@ -14,7 +14,7 @@ from corpus_structure.semantic.native_objects import execute_native_sql
 
 
 def test_host_principals_and_peer_files_correspond_to_declared_capabilities():
-    assert [(role.purpose, role.name) for role in host.PRINCIPALS] == [
+    assert [(role.purpose, role.name) for role in host.integrity_principals()] == [
         ("publisher", "corpus_sem_publisher"),
         ("write", "corpus_sem_writer"),
         ("read", "corpus_sem_reader"),
@@ -69,9 +69,10 @@ def test_generated_purpose_provisioning_is_idempotent_and_fitter_refuses_widened
     infrastructure_rollback, monkeypatch
 ):
     prefix = "host_" + uuid4().hex[:12]
-    principals = tuple(replace(role, name=prefix + "_" + role.purpose) for role in host.PRINCIPALS)
-    monkeypatch.setattr(host, "PRINCIPALS", principals)
-    monkeypatch.setattr(host, "PUBLISHER", principals[0].name)
+    principals = tuple(
+        replace(role, name=prefix + "_" + role.purpose) for role in host.integrity_principals()
+    )
+    monkeypatch.setattr(host, "integrity_principals", lambda: principals)
     connection = infrastructure_rollback
     transaction = connection.begin_nested()
     try:

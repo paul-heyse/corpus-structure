@@ -49,7 +49,7 @@ from corpus_structure.semantic.pdf_staging import (
 )
 from corpus_structure.semantic.product_reference import ProductReference
 from semantic.current_pdf_source_support import ROOT, current_pdf_recipe
-from semantic.data_operation_kernel_support import Kernel, admit_kernel
+from semantic.data_operation_kernel_support import Kernel, admit_kernel, prepare_kernel
 
 _PROJECT = "pdf-staging-controls"
 type PdfFixtureCase = Literal[
@@ -82,7 +82,14 @@ class _PrivatePdfBuildFactory:
         self.original, self.recipe, self.key = original, recipe, key
         self.requests: dict[str, _PdfRequest] = {}
 
-    def __call__(self, *, case: PdfFixtureCase = "default"):
+    def __call__(
+        self,
+        *,
+        case: PdfFixtureCase = "default",
+        strength="value",
+        targets=("source.pdf/capture",),
+        selections: tuple[OperationSelection, ...] = (),
+    ):
         with self.writer.begin() as conn:
             selected = acquire_original_document_selection(
                 conn, project_id=_PROJECT, document_key=self.key
@@ -92,7 +99,8 @@ class _PrivatePdfBuildFactory:
                 freeze_demand(
                     self.kernel.model,
                     roots=(selected.root,),
-                    targets=("source.pdf/capture",),
+                    targets=targets,
+                    selections=selections,
                     original_sources=(selected.selection(),),
                     inference=_POLICIES[case],
                     execution_profile=self.kernel.recipe.execution_profile,
@@ -100,6 +108,7 @@ class _PrivatePdfBuildFactory:
                 project=_PROJECT,
                 release=self.kernel.prepared.release_id,
                 runtime=self.kernel.runtime,
+                strength=strength,
             )
         with self.writer.begin() as conn:
             snapshot = DemandPlanner(self.kernel.model, DataOperationStorage(conn)).resume(
@@ -339,8 +348,9 @@ def _private_build_factory(
     source_kind=None,
 ):
     recipe = current_pdf_recipe(tmp_path) if kernel_recipe is None else kernel_recipe
+    preparation = prepare_kernel(recipe, directory=tmp_path / "kernel-preparation")
     with commit_db_engine.begin() as conn:
-        kernel = admit_kernel(conn, recipe)
+        kernel = admit_kernel(conn, recipe, preparation=preparation)
     captured = read_data_operation_inputs(kernel.preparation.dependencies)
     assert captured is not None and captured[1] is not None
     profile = next(

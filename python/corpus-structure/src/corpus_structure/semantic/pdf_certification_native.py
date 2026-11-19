@@ -135,8 +135,39 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
                 ),
                 Assign("contract_", cast(func.convert_from(content, "UTF8"), JSONB())),
                 If(
-                    contract["profile"].astext.is_distinct_from("pdf-record-lowering-contract-v1"),
+                    or_(
+                        contract["profile"].astext.is_distinct_from(
+                            "pdf-record-lowering-contract-v2"
+                        ),
+                        func.jsonb_typeof(contract["code_identity"]["complete"]).is_distinct_from(
+                            "boolean"
+                        ),
+                        and_(
+                            contract["code_identity"]["complete"] == cast(literal("true"), JSONB()),
+                            func.coalesce(contract["code_identity"]["sha256"].astext, "").bool_op(
+                                "!~"
+                            )("^[0-9a-f]{64}$"),
+                        ),
+                        and_(
+                            contract["code_identity"]["complete"]
+                            == cast(literal("false"), JSONB()),
+                            # The code owner emits no reusable meaning digest
+                            # for incomplete capture. The full retained contract
+                            # and each captured input still authenticate this
+                            # producer's exact attribution below.
+                            contract["code_identity"]["sha256"].is_distinct_from(
+                                cast(literal("null"), JSONB())
+                            ),
+                        ),
+                        func.jsonb_typeof(contract["inputs"]).is_distinct_from("array"),
+                        func.jsonb_typeof(contract["libraries"]).is_distinct_from("object"),
+                        contract["libraries"] == cast(literal("{}"), JSONB()),
+                    ),
                     (Raise("unsupported released PDF lowering contract", "23514"),),
+                ),
+                If(
+                    func.jsonb_array_length(contract["inputs"]) == 0,
+                    (Raise("released PDF lowering has no captured inputs", "23514"),),
                 ),
                 ForQuery(
                     ("item_",),
@@ -339,6 +370,16 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
         .order_by(oracle.c.oracle_receipt_id)
         .limit(1)
     )
+    prior_build = build.alias("prior_build")
+    current_lowering = cast(
+        func.convert_from(
+            func.ops.pdf_contract_input(
+                row("b", build, "release_id"), "implementation/pdf/lowering-contract.json"
+            ),
+            "UTF8",
+        ),
+        JSONB(),
+    )
     prior_oracle = (
         select(oracle.c.oracle_receipt_id)
         .select_from(
@@ -350,7 +391,8 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
                     published.c.logical_digest == oracle.c.logical_digest,
                     published.c.kind == oracle.c.kind,
                 ),
-            ).join(
+            )
+            .join(
                 validation,
                 and_(
                     validation.c.build_id == published.c.build_id,
@@ -359,9 +401,18 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
                     validation.c.oracle_receipt_id == oracle.c.oracle_receipt_id,
                 ),
             )
+            .join(
+                prior_build,
+                prior_build.c.build_id == oracle.c.build_id,
+            )
         )
         .where(
             oracle.c.lowering_identity == c["lowering_identity"],
+            # Exact attribution permits incomplete code capture for this build.
+            # Reusing another producer's oracle requires a complete shared code
+            # basis and authenticated archived inputs for that original release.
+            current_lowering["code_identity"]["complete"] == cast(literal("true"), JSONB()),
+            func.ops.pdf_lowering_identity(prior_build.c.release_id) == c["lowering_identity"],
             oracle.c.kind == c["kind"],
             oracle.c.state == "passed",
         )

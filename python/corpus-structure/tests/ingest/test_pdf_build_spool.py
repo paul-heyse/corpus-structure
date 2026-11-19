@@ -159,6 +159,28 @@ def exact_premises():
     )
 
 
+def source_authority(*writers):
+    """Stand in for exact native candidate rows, captured before local tampering."""
+    from corpus_structure.ingest.pdf_build_spool import PdfSpoolOwner
+
+    admitted = {}
+    for writer in writers:
+        header = json.loads(writer.path.read_bytes().splitlines()[0])
+        owner = PdfSpoolOwner(
+            header["build_id"],
+            header["task_id"],
+            header["attempt"],
+            header["holder"],
+            writer.producer_id,
+            **{
+                "writer_device": writer.writer_lease.identity["device"],
+                "writer_inode": writer.writer_lease.identity["inode"],
+            },
+        )
+        admitted[owner] = writer.premises
+    return lambda owner, original: admitted.get(owner) == original
+
+
 def test_recovery_requires_positive_retirement_and_exact_registered_premises(tmp_path):
     from corpus_structure.core.work import PhysicalRetirementUncertain
     from corpus_structure.ingest.pdf_build_spool import verify_spool_recovery
@@ -171,8 +193,8 @@ def test_recovery_requires_positive_retirement_and_exact_registered_premises(tmp
         build_id="build:one",
         task_id=3,
         before_attempt=2,
-        premises=exact_premises(),
         check_active=lambda: None,
+        authorize_source=source_authority(owner),
     )
     with pytest.raises(PhysicalRetirementUncertain, match="still owns spool"):
         verify_spool_recovery(tmp_path, **arguments)
@@ -199,6 +221,7 @@ def test_recovery_ignores_only_unacknowledged_tail_and_refuses_changed_bytes(tmp
     item = replay(owner)
     owner.append(item)
     acknowledged = owner.path.read_bytes()
+    authorize_source = source_authority(owner)
     owner.close()
     with owner.path.open("ab") as sink:
         sink.write(b'{"replay":')
@@ -206,8 +229,8 @@ def test_recovery_ignores_only_unacknowledged_tail_and_refuses_changed_bytes(tmp
         build_id="build:one",
         task_id=3,
         before_attempt=2,
-        premises=exact_premises(),
         check_active=lambda: None,
+        authorize_source=authorize_source,
     )
     (recovered,) = verify_spool_recovery(tmp_path, **arguments)
     assert recovered.manifest == acknowledged
@@ -309,14 +332,15 @@ def test_complete_spool_clones_exact_records_and_rebinds_only_private_raster_pat
     original.complete(reply)
     with pytest.raises(ValueError, match="immutable"):
         original.append(record)
+    authorize_source = source_authority(original)
     original.close()
     (recovery,) = verify_spool_recovery(
         tmp_path,
         build_id="build:one",
         task_id=3,
         before_attempt=2,
-        premises=exact_premises(),
         check_active=lambda: None,
+        authorize_source=authorize_source,
     )
     with recovery, spool(tmp_path, attempt=2) as current:
         current.declare_premises(exact_premises(), "a" * 64)
@@ -333,16 +357,20 @@ def test_complete_spool_clones_exact_records_and_rebinds_only_private_raster_pat
 def test_recovery_precedence_uses_authenticated_numeric_attempt(tmp_path):
     from corpus_structure.ingest.pdf_build_spool import verify_spool_recovery
 
+    authorities = []
     for attempt in (2, 9, 10):
         with spool(tmp_path, attempt=attempt) as owner:
             owner.declare_premises(exact_premises(), "f" * 64)
+            authorities.append(source_authority(owner))
     capabilities = verify_spool_recovery(
         tmp_path,
         build_id="build:one",
         task_id=3,
         before_attempt=11,
-        premises=exact_premises(),
         check_active=lambda: None,
+        authorize_source=lambda owner, prior: any(
+            authority(owner, prior) for authority in authorities
+        ),
     )
     try:
         assert [capability.owner.attempt for capability in capabilities] == [2, 9, 10]
@@ -351,54 +379,34 @@ def test_recovery_precedence_uses_authenticated_numeric_attempt(tmp_path):
             capability.close()
 
 
-def test_cross_build_uptake_requires_matching_material_and_native_authority(tmp_path):
-    from dataclasses import replace
-
+def test_recovery_requires_exact_native_source_authority_even_for_same_build(tmp_path):
     from corpus_structure.ingest.pdf_build_spool import verify_spool_recovery
 
-    prior = exact_premises()
     with spool(tmp_path) as writer:
-        writer.declare_premises(prior, "f" * 64)
-    target = replace(
-        prior,
-        producer=replace(
-            prior.producer,
-            request_id="request:next",
-            generation=2,
-            release_id="release:next",
-            definition="definition:next",
-            runtime_id="runtime:next",
-        ),
-    )
-    assert not prior.reusable_with(target)
-    assert prior.material_basis() == target.material_basis()
+        writer.declare_premises(exact_premises(), "f" * 64)
+        admitted = source_authority(writer)
     arguments = dict(
         build_id="build:next",
         task_id=9,
         before_attempt=1,
-        premises=target,
         check_active=lambda: None,
         source_build=("build:one", 3),
     )
-    with pytest.raises(ValueError, match="native compatibility"):
-        verify_spool_recovery(tmp_path, **arguments)
-    assert verify_spool_recovery(tmp_path, **arguments, verify_compatibility=lambda *_: False) == ()
-    seen = []
-
-    def admitted(owner, source, destination):
-        seen.append((owner, source, destination))
-        return True
-
-    recovered = verify_spool_recovery(tmp_path, **arguments, verify_compatibility=admitted)
+    assert verify_spool_recovery(tmp_path, **arguments, authorize_source=lambda *_: False) == ()
+    recovered = verify_spool_recovery(tmp_path, **arguments, authorize_source=admitted)
     try:
         assert len(recovered) == 1
-        assert recovered[0].premises == prior
+        assert recovered[0].premises == exact_premises()
         assert recovered[0].owner.build_id == "build:one"
-        assert seen[0][0].producer_id == "f" * 64
     finally:
         for capability in recovered:
             capability.close()
-    seen.clear()
-    arguments["premises"] = replace(target, source_digest="0" * 64)
-    assert verify_spool_recovery(tmp_path, **arguments, verify_compatibility=admitted) == ()
-    assert seen == []
+
+    # A known producer ID alone cannot authenticate a forged local declaration.
+    lines = [json.loads(line) for line in writer.path.read_bytes().splitlines()]
+    lines[1]["premises"]["source_digest"] = "0" * 64
+    writer.path.write_bytes(b"".join(json.dumps(line).encode() + b"\n" for line in lines))
+    assert verify_spool_recovery(tmp_path, **arguments, authorize_source=admitted) == ()
+    same_build = {**arguments, "build_id": "build:one", "task_id": 3, "before_attempt": 2}
+    same_build.pop("source_build")
+    assert verify_spool_recovery(tmp_path, **same_build, authorize_source=admitted) == ()

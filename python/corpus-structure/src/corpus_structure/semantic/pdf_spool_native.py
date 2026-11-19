@@ -4,11 +4,13 @@ import json
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Column,
     MetaData,
     Table,
     Text,
     and_,
+    case,
     cast,
     column,
     exists,
@@ -97,6 +99,9 @@ def pdf_spool_native_programs(
     contributors = model.tables["ops.pdf_spool_contributor"]
     runtime = model.tables["sem.runtime_binding"]
     inputs = model.tables["sem.input"]
+    origins = model.tables["ops.data_execution_origin"]
+    requests = model.tables["ops.data_request"]
+    originals = model.tables["ops.original_source_admission"]
 
     def value(name, field):
         return core_variable(name, field.type)
@@ -120,6 +125,169 @@ def pdf_spool_native_programs(
 
     def refuse(condition, message, state="P0001"):
         return If(condition, (Raise(message, state),))
+
+    def request_material_projection(snapshot):
+        # An admission ID is current authorization custody. Its immutable selected
+        # facts determine the output, after the exact recorded admission is valid.
+        support = snapshot["binding"]["support"]
+        support_rows = (
+            func.jsonb_array_elements(
+                case(
+                    (func.jsonb_typeof(support) == "array", support),
+                    else_=cast(literal("[]"), JSONB()),
+                )
+            )
+            .table_valued(column("value", JSONB()), with_ordinality="ordinal")
+            .render_derived(name="spool_support")
+        )
+        item = support_rows.c.value
+        admission = originals.alias("spool_original")
+        joined = support_rows.outerjoin(admission, admission.c.id == item["admission_id"].astext)
+        is_original = item["kind"].astext == "original-source"
+        valid = func.coalesce(
+            func.ops.ddo_original_admission_valid(
+                admission.table_valued(), literal(None), type_=Boolean()
+            ),
+            False,
+        )
+        invalid_original = (
+            select(1)
+            .select_from(joined)
+            .where(
+                is_original,
+                or_(
+                    admission.c.id.is_(None),
+                    admission.c.reference["kind"].astext.is_distinct_from("original-document"),
+                    admission.c.project_id.is_distinct_from(snapshot["project_id"].astext),
+                    admission.c.source_reference.is_distinct_from(item["source_reference"].astext),
+                    ~valid,
+                ),
+            )
+            .exists()
+        )
+        material = obj(
+            **{
+                name: admission.c[name]
+                for name in (
+                    "project_id",
+                    "source_reference",
+                    "reference",
+                    "selectors",
+                    "product_id",
+                    "subject",
+                    "original_source",
+                    "analyzed_scope",
+                    "evidence",
+                )
+            }
+        )
+        projected = case(
+            (is_original, item.op("-")("admission_id").concat(obj(admission_material=material))),
+            else_=item,
+        )
+        support_material = (
+            select(
+                func.coalesce(
+                    func.jsonb_agg(aggregate_order_by(projected, support_rows.c.ordinal)),
+                    cast(literal("[]"), JSONB()),
+                )
+            )
+            .select_from(joined)
+            .scalar_subquery()
+        )
+        return case(
+            (
+                or_(
+                    snapshot.is_(None),
+                    func.jsonb_typeof(support).is_distinct_from("array"),
+                    invalid_original,
+                ),
+                cast(literal(None), JSONB()),
+            ),
+            else_=obj(
+                **{
+                    name: snapshot[name]
+                    for name in (
+                        "project_id",
+                        "operation_id",
+                        "subject",
+                        "subject_definition",
+                        "original_source",
+                        "analyzed_scope",
+                        "replicate",
+                    )
+                },
+                binding=obj(
+                    **{
+                        name: snapshot["binding"][name]
+                        for name in (
+                            "inputs",
+                            "parameters",
+                            "request_inputs",
+                            "inference",
+                            "execution_profile",
+                            "populations",
+                        )
+                    },
+                    support=support_material,
+                ),
+            ),
+        )
+
+    def request_material(snapshot):
+        return func.ops.pdf_spool_request_material(snapshot, type_=JSONB())
+
+    def matching_requests(prior, current):
+        old, new = request_material(prior), request_material(current)
+        return and_(old.is_not(None), new.is_not(None), old.is_not_distinct_from(new))
+
+    def material_producer(producer):
+        for name in (
+            "runtime_id",
+            "runtime_manifest_digest",
+            "request_id",
+            "generation",
+            "release_id",
+            "definition_identity",
+            "definition",
+            "pdf_domain_digest",
+        ):
+            producer = producer.op("-")(name)
+        return producer
+
+    def recovery_key(snapshot, producer, source, recipe, schema):
+        return json_digest(
+            request_material(snapshot), material_producer(producer), source, recipe, schema
+        )
+
+    def current_request(producer):
+        definitions = model.tables["sem.data_operation_definition"]
+        return (
+            select(
+                func.to_jsonb(requests.table_valued(), type_=JSONB()).concat(
+                    obj(subject_definition=definitions.c.subject_definition)
+                )
+            )
+            .select_from(
+                requests.join(
+                    definitions,
+                    and_(
+                        definitions.c.release_id == requests.c.release_id,
+                        definitions.c.operation_id == requests.c.operation_id,
+                    ),
+                )
+            )
+            .where(requests.c.id == producer["request_id"].astext)
+            .scalar_subquery()
+        )
+
+    def origin_snapshot():
+        return origins.c.request_snapshot.concat(
+            obj(subject_definition=origins.c.definition_snapshot["subject_definition"])
+        )
+
+    def origin_request(origin_id):
+        return select(origin_snapshot()).where(origins.c.id == origin_id).scalar_subquery()
 
     empty_array = cast(literal("[]"), JSONB())
     p_build, p_task, p_attempt, p_holder, p_runtime = (
@@ -168,6 +336,15 @@ def pdf_spool_native_programs(
     require_operation = Perform(
         func.ops.require_pdf_operation(row("b", build, "release_id"), "stage_pdf_producer")
     )
+    material_request = core_variable("p_request", JSONB())
+    routine(
+        "pdf_spool_request_material",
+        (("p_request", requests.c.binding),),
+        (Return(request_material_projection(material_request)),),
+        (),
+        result=pg_type("jsonb"),
+    )
+
     device, inode, premises_bytes = (
         value(name, field)
         for name, field in (
@@ -218,6 +395,26 @@ def pdf_spool_native_programs(
                 "PDF spool producer premises differ from admitted native basis",
                 "23514",
             ),
+            Assign(
+                "origin_id_",
+                func.ops.register_data_execution_origin(
+                    obj(
+                        request_id=premises["producer"]["request_id"].astext,
+                        generation=premises["producer"]["generation"],
+                        task_id=p_task,
+                        attempt=p_attempt,
+                        holder=p_holder,
+                        runtime_id=p_runtime,
+                    ),
+                    type_=JSONB(),
+                )["payload"]["origin_id"].astext,
+            ),
+            Assign("request_snapshot_", origin_request(core_variable("origin_id_", Text()))),
+            refuse(
+                request_material(core_variable("request_snapshot_", JSONB())).is_(None),
+                "PDF spool producer lacks valid original support material",
+                "23514",
+            ),
             Assign("id_", json_digest(p_build, p_task, p_attempt, p_holder, device, inode)),
             Sql(
                 insert(producers)
@@ -230,6 +427,14 @@ def pdf_spool_native_programs(
                     writer_device=device,
                     writer_inode=inode,
                     premises_bytes=premises_bytes,
+                    execution_origin_id=core_variable("origin_id_", Text()),
+                    recovery_key=recovery_key(
+                        core_variable("request_snapshot_", JSONB()),
+                        premises["producer"],
+                        premises["source_digest"],
+                        premises["native_recipe_digest"],
+                        premises["native_schema_digest"],
+                    ),
                 )
                 .on_conflict_do_nothing()
             ),
@@ -250,6 +455,8 @@ def pdf_spool_native_programs(
             Local("basis_", pg_type("record")),
             Local("premises_", pg_type("jsonb")),
             Local("id_", column_type(producers.c.producer_id)),
+            Local("origin_id_", pg_type("text")),
+            Local("request_snapshot_", pg_type("jsonb")),
             Local("prior", producers),
         ),
     )
@@ -310,20 +517,6 @@ def pdf_spool_native_programs(
         .table_valued(column("value", JSONB()))
         .render_derived(name="inventory_member")
     )
-
-    def material_producer(producer):
-        for name in (
-            "runtime_id",
-            "runtime_manifest_digest",
-            "request_id",
-            "generation",
-            "release_id",
-            "definition_identity",
-            "definition",
-            "pdf_domain_digest",
-        ):
-            producer = producer.op("-")(name)
-        return producer
 
     def material_domain_projection(release, domain_digest, name):
         lower, domain = inputs.alias(name + "_lowering"), inputs.alias(name + "_domain")
@@ -455,23 +648,74 @@ def pdf_spool_native_programs(
         ("build_id", producers.c.build_id),
         ("task_id", producers.c.task_id),
         ("producer_id", producers.c.producer_id),
+        ("attempt", producers.c.attempt),
+        ("holder", producers.c.holder),
+        ("writer_device", producers.c.writer_device),
+        ("writer_inode", producers.c.writer_inode),
+        ("premises_bytes", producers.c.premises_bytes),
     )
     candidate_result = pg_type("record")
     candidate_result.setof = True
     routine(
         "read_pdf_spool_recovery_candidates",
-        (*fence_fields, runtime_field),
+        (*fence_fields, runtime_field, ("p_premises", producers.c.premises_bytes)),
         (
             require_build,
             require_operation,
             SelectInto(select(basis_row).select_from(basis), ("basis_",), strict=True),
             Assign("candidate_basis_", func.to_jsonb(core_variable("basis_", JSONB()))),
+            Assign("candidate_premises_", json_bytes(premises_bytes)),
+            Assign("request_snapshot_", current_request(current_producer)),
+            refuse(
+                request_material(core_variable("request_snapshot_", JSONB())).is_(None),
+                "PDF recovery lacks valid original support material",
+                "23514",
+            ),
+            refuse(
+                or_(
+                    core_variable("candidate_premises_", JSONB())["producer"].is_distinct_from(
+                        current_producer
+                    ),
+                    *(
+                        core_variable("candidate_premises_", JSONB())[name].astext.is_distinct_from(
+                            row("b", build, field)
+                        )
+                        for name, field in (
+                            ("source_digest", "source_digest"),
+                            ("native_recipe_digest", "recipe_digest"),
+                            ("native_schema_digest", "schema_digest"),
+                        )
+                    ),
+                ),
+                "PDF recovery premises differ from current native basis",
+                "23514",
+            ),
+            Assign(
+                "candidate_recovery_key_",
+                recovery_key(
+                    core_variable("request_snapshot_", JSONB()),
+                    current_producer,
+                    func.to_jsonb(row("b", build, "source_digest")),
+                    func.to_jsonb(row("b", build, "recipe_digest")),
+                    func.to_jsonb(row("b", build, "schema_digest")),
+                ),
+            ),
             ReturnQuery(
                 select(*(field for _, field in candidate_output))
+                .select_from(
+                    producers.join(origins, origins.c.id == producers.c.execution_origin_id)
+                )
                 .where(
                     candidate_retired,
-                    candidate_premises["producer"]["request_id"].astext
-                    == current_producer["request_id"].astext,
+                    candidate_premises.op("-")("producer").is_not_distinct_from(
+                        core_variable("candidate_premises_", JSONB()).op("-")("producer")
+                    ),
+                    producers.c.recovery_key
+                    == value("candidate_recovery_key_", producers.c.recovery_key),
+                    producers.c.execution_origin_id.is_not(None),
+                    matching_requests(
+                        origin_snapshot(), core_variable("request_snapshot_", JSONB())
+                    ),
                     material_producer(candidate_premises["producer"]).is_not_distinct_from(
                         material_producer(current_producer)
                     ),
@@ -492,6 +736,9 @@ def pdf_spool_native_programs(
             Local("b", build),
             Local("basis_", pg_type("record")),
             Local("candidate_basis_", pg_type("jsonb")),
+            Local("candidate_premises_", pg_type("jsonb")),
+            Local("request_snapshot_", pg_type("jsonb")),
+            Local("candidate_recovery_key_", column_type(producers.c.recovery_key)),
         ),
         result=candidate_result,
         output=candidate_output,
@@ -529,21 +776,41 @@ def pdf_spool_native_programs(
                 ("current_premises_",),
                 strict=True,
             ),
+            Assign(
+                "original_request_",
+                origin_request(row("producer_", producers, "execution_origin_id")),
+            ),
+            Assign("current_request_", current_request(current_premises["producer"])),
+            refuse(
+                request_material(core_variable("current_request_", JSONB())).is_(None),
+                "PDF contribution lacks valid original support material",
+                "23514",
+            ),
             refuse(
                 or_(
                     ~or_(
                         and_(
+                            row("producer_", producers, "build_id") == p_build,
                             row("producer_", producers, "task_id") == p_task,
                             row("producer_", producers, "attempt") == p_attempt,
                             row("producer_", producers, "holder") == p_holder,
+                            original.is_not_distinct_from(current_premises),
                         ),
-                        retired_producer("producer_", original),
+                        and_(
+                            retired_producer("producer_", original),
+                            row("producer_", producers, "execution_origin_id").is_not(None),
+                            matching_requests(
+                                core_variable("original_request_", JSONB()),
+                                core_variable("current_request_", JSONB()),
+                            ),
+                            material_producer(original["producer"]).is_not_distinct_from(
+                                current_basis
+                            ),
+                            material_domains_match(
+                                original["producer"], current_premises["producer"]
+                            ),
+                        ),
                     ),
-                    original["producer"]["request_id"].astext.is_distinct_from(
-                        current_premises["producer"]["request_id"].astext
-                    ),
-                    material_producer(original["producer"]).is_distinct_from(current_basis),
-                    ~material_domains_match(original["producer"], current_premises["producer"]),
                     original["source_digest"].astext.is_distinct_from(
                         row("b", build, "source_digest")
                     ),
@@ -714,6 +981,8 @@ def pdf_spool_native_programs(
                     "original_",
                     "current_basis_",
                     "current_premises_",
+                    "original_request_",
+                    "current_request_",
                     "header_",
                     "declaration_",
                     "entry_",
@@ -825,7 +1094,12 @@ def pdf_spool_native_programs(
             owner=role_name("publisher"),
             access=(
                 INTERNAL_PROGRAM
-                if routine.name in {"pdf_spool_contributors", "pdf_spool_material_identity"}
+                if routine.name
+                in {
+                    "pdf_spool_contributors",
+                    "pdf_spool_material_identity",
+                    "pdf_spool_request_material",
+                }
                 else NativeProgramAccess(purposes=("write",))
             ),
         )

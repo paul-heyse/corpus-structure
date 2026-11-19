@@ -46,6 +46,23 @@ def test_oracle_reuse_requires_passed_published_validated_matching_producer(
     )
 
     prior = create_private_build()
+    # This is independent retained input data, not the native reuse predicate.
+    # An incomplete capture can attest its own exact output; it cannot qualify
+    # a different producer by borrowing this producer's oracle.
+    import json
+
+    with commit_db_engine.connect() as connection:
+        lowering = json.loads(
+            connection.scalar(
+                text(
+                    "SELECT content FROM sem.input WHERE release_id=:release "
+                    "AND input_name='pdf-domain/implementation/pdf/lowering-contract.json'"
+                ),
+                {"release": prior.release_id},
+            )
+        )
+    complete = lowering["code_identity"]["complete"]
+    assert type(complete) is bool
     directory = tmp_path / "prior-certified"
     directory.mkdir()
     with create_private_build.maintained(prior):
@@ -120,7 +137,7 @@ def test_oracle_reuse_requires_passed_published_validated_matching_producer(
                     frozen_digest=frozen.frozen_digest,
                 )
             assert requirement.oracle_receipt_id == (
-                receipt if prior_state in {"hit", "forced"} else None
+                receipt if complete and prior_state in {"hit", "forced"} else None
             )
             assert requirement.certification_basis == "producer-certified"
             validate_pdf_build(commit_writer_engine, frozen, force_oracle=prior_state == "forced")
@@ -138,9 +155,10 @@ def test_oracle_reuse_requires_passed_published_validated_matching_producer(
                         {"build": current.build_id},
                     )
                 )
-            assert states == ([] if prior_state == "hit" else ["passed"])
+            reused = complete and prior_state == "hit"
+            assert states == ([] if reused else ["passed"])
             assert execution.certification.basis == (
-                "producer-certified" if prior_state == "hit" else "round-trip-verified"
+                "producer-certified" if reused else "round-trip-verified"
             )
 
 
