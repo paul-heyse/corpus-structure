@@ -377,7 +377,7 @@ def test_compiled_policies_project_exact_and_substitutable_support_and_witnesses
         substitutable, resolved_binding(substitutable, episodes=("episode-b",))
     )
     assert key_a.identity == key_b.identity and admission_a.identity != admission_b.identity
-    key_c, _ = project_operation_binding(
+    key_c, admission_c = project_operation_binding(
         substitutable,
         resolved_binding(
             substitutable,
@@ -391,7 +391,10 @@ def test_compiled_policies_project_exact_and_substitutable_support_and_witnesses
             ),
         ),
     )
-    assert key_c.identity != key_a.identity
+    # This scan consumes the selected member. An incidental population receipt
+    # changes admission evidence without changing what the operation computes.
+    assert key_c.identity == key_a.identity
+    assert admission_c.identity != admission_a.identity
     trusted = replace(
         resolved_binding(substitutable), trust_evidence=canonical_bytes({"trust": "different"})
     )
@@ -966,7 +969,13 @@ def test_imported_builtin_alias_callback_arguments_remain_unsupported(reexport, 
 
 
 def test_population_receipt_and_trust_do_not_salt_value_substitutable_request_identity():
-    value = contract()
+    binding = {
+        "operator": "forall",
+        "roles": ["source"],
+        "population": "all-members",
+        "children": [{"operator": "scan", "roles": ["source"]}],
+    }
+    value = contract(binding=binding)
     value["roles"][0]["support"]["provenance"] = "value_substitution"
     value["roles"][0]["support"]["identity_requirements"] = []
     model = compile_data_operations(declarations=declarations(value))
@@ -1001,7 +1010,12 @@ def test_population_receipt_and_trust_do_not_salt_value_substitutable_request_id
         "complete": True,
         "members": ("one",),
     }
-    exact = compile_data_operations(declarations=declarations(contract()))
+    changed, _ = project_operation_binding(
+        model,
+        resolved_binding(model, witness=canonical_bytes({**witness, "members": ["one", "two"]})),
+    )
+    assert changed.identity != first.identity
+    exact = compile_data_operations(declarations=declarations(contract(binding=binding)))
     exact_first, _ = project_operation_binding(
         exact, resolved_binding(exact, witness=canonical_bytes(witness))
     )
