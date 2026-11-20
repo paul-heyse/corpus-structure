@@ -102,7 +102,9 @@ def native_semantic_value(value: Any, *, decimal_fixed_point_digits: int) -> Any
         if value.state == "present":
             return [
                 "present",
-                native_semantic_value(value.value, decimal_fixed_point_digits=decimal_fixed_point_digits),
+                native_semantic_value(
+                    value.value, decimal_fixed_point_digits=decimal_fixed_point_digits
+                ),
             ]
         if value.state not in {"known-absent", "unavailable", "unknown"}:
             raise ValueError(f"unsupported optional state {value.state!r}")
@@ -115,7 +117,12 @@ def native_semantic_value(value: Any, *, decimal_fixed_point_digits: int) -> Any
         return [
             "mapping",
             [
-                [key, native_semantic_value(item, decimal_fixed_point_digits=decimal_fixed_point_digits)]
+                [
+                    key,
+                    native_semantic_value(
+                        item, decimal_fixed_point_digits=decimal_fixed_point_digits
+                    ),
+                ]
                 for key, item in sorted(value.items())
             ],
         ]

@@ -492,7 +492,9 @@ def authenticate_workload(root: Path, identity: CodeIdentity, *, closed: bool = 
     proof = None
     if identity.complete and identity.determining_definitions:
         proof = _runtime_workload_slice(
-            root.resolve(), identity.determining_modules, identity.determining_definitions,
+            root.resolve(),
+            identity.determining_modules,
+            identity.determining_definitions,
             identity.external_runtime,
         )
 

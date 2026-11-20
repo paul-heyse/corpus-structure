@@ -2250,9 +2250,7 @@ def _verify_consumed_globals(
     for module_name, name, members in attribute_uses:
         value = resolve(module_name, name)
         for member in members:
-            reference = (
-                value.__name__ + "." + member if isinstance(value, ModuleType) else None
-            )
+            reference = value.__name__ + "." + member if isinstance(value, ModuleType) else None
             if reference in standard_references:
                 actual = inspect.getattr_static(value, member)
                 if actual is not standard_references[reference]:

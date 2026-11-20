@@ -14,7 +14,7 @@ from hashlib import sha256
 from pathlib import Path
 from types import ModuleType
 
-from .file_custody import FileCustody, verified_file
+from .file_custody import FileCustody, observed_file
 
 
 @dataclass(frozen=True)
@@ -47,8 +47,8 @@ class ExternalRuntime:
 
 
 # Native classes are immutable CPython types. Their Python wrappers are captured
-# separately and must export those same original types. Python implementations of
-# json/base64 and abstract collection types need their own closed source proof.
+# separately and must export those same original types. The Python Base64
+# profile verifies its complete finite helper group separately.
 _PROFILES = (
     ("math", "math", ("isfinite",), ()),
     (
@@ -85,7 +85,9 @@ def acquire_codec_runtime() -> tuple[ExternalRuntime, ...]:
         for name in names:
             value = getattr(native, name)
             if getattr(public, name) is not value:
-                raise ValueError("external codec wrapper binding differs: " + public_name + "." + name)
+                raise ValueError(
+                    "external codec wrapper binding differs: " + public_name + "." + name
+                )
             if inspect.isbuiltin(value):
                 if value.__self__ is not native or value.__name__ != name:
                     raise ValueError("external codec native callable differs: " + name)
@@ -100,16 +102,14 @@ def acquire_codec_runtime() -> tuple[ExternalRuntime, ...]:
             if type(value) is not int or value != expected:
                 raise ValueError("external codec constant differs: " + name)
             captured.append((public_name + "." + name, value))
-        files = tuple(
-            verified_file(path, sha256(path.read_bytes()).hexdigest()) for path in sorted(paths)
-        )
+        files = tuple(observed_file(path) for path in sorted(paths))
         payload = dict(
             profile="native-codec-api-v1",
             module=public_name,
             symbols=[name for name, _ in captured],
             constants=constants,
             python=sys.version,
-            files=[(str(path), file.digest) for path, file in zip(sorted(paths), files, strict=True)],
+            files=[(str(file.path), file.digest) for file in files],
         )
         digest = sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
         capability = ExternalRuntime(
@@ -158,9 +158,18 @@ def _verify_base64(module, native):
             if global_name in references:
                 expected = references[global_name]
                 actual = vars(module).get(global_name)
-                if actual is not expected and (
-                    type(actual) is not type(expected) or actual != expected
-                ):
+                if global_name == "bytes_types":
+                    same = (
+                        type(actual) is tuple
+                        and len(actual) == 2
+                        and actual[0] is bytes
+                        and actual[1] is bytearray
+                    )
+                elif global_name == "_urlsafe_encode_translation":
+                    same = type(actual) is bytes and actual == expected
+                else:
+                    same = actual is expected
+                if not same:
                     raise ValueError("standard Base64 global differs: " + global_name)
             elif global_name in vars(builtins):
                 if (
@@ -180,8 +189,10 @@ def _base64_runtime():
     module = importlib.import_module("base64")
     native = importlib.import_module("binascii")
     if (
-        module.__file__ is None or module.__spec__ is None
-        or module.__spec__.origin is None or native.__spec__ is None
+        module.__file__ is None
+        or module.__spec__ is None
+        or module.__spec__.origin is None
+        or native.__spec__ is None
     ):
         raise ValueError("standard Base64 runtime has no original module origin")
     if Path(module.__spec__.origin).resolve() != Path(module.__file__).resolve():
@@ -190,17 +201,25 @@ def _base64_runtime():
     symbols = tuple(
         ("base64." + name, getattr(module, name))
         for name in ("urlsafe_b64encode", "b64encode", "b64decode", "_bytes_from_decode_data")
-    ) + tuple(
-        ("binascii." + name, getattr(native, name)) for name in ("b2a_base64", "a2b_base64")
-    )
-    paths = {Path(sys.executable).resolve(), Path(module.__file__).resolve(), Path(__file__).resolve()}
+    ) + tuple(("binascii." + name, getattr(native, name)) for name in ("b2a_base64", "a2b_base64"))
+    paths = {
+        Path(sys.executable).resolve(),
+        Path(module.__file__).resolve(),
+        Path(__file__).resolve(),
+    }
     if native.__spec__.origin != "built-in":
         if native.__file__ is None:
             raise ValueError("standard Base64 primitive has no original file")
         paths.add(Path(native.__file__).resolve())
-    files = tuple(verified_file(path, sha256(path.read_bytes()).hexdigest()) for path in sorted(paths))
-    digest = sha256(json.dumps([(file.path.name, file.digest) for file in files]).encode()).hexdigest()
+    files = tuple(observed_file(path) for path in sorted(paths))
+    digest = sha256(
+        json.dumps([(file.path.name, file.digest) for file in files]).encode()
+    ).hexdigest()
     return ExternalRuntime(
-        "base64", "standard-base64-v1", digest, symbols,
-        (("base64", module), ("binascii", native)), files,
+        "base64",
+        "standard-base64-v1",
+        digest,
+        symbols,
+        (("base64", module), ("binascii", native)),
+        files,
     )
