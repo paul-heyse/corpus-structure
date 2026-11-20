@@ -9,6 +9,15 @@ owns package state, scheduled dispositions and the completion decision. DMO-08 c
 implemented DMO-01–07 contracts. DMO-09 starts after DMO-08 establishes applicable stage and
 provider qualification on the accepted source.
 
+DMO-00 observed N42 stage with verified Standard and Integrated archives and no project selection
+of either release. It observed canonical N29 with the book at generation 5. The current archive
+reader refused N29's historical format. The separate native read established the selection, and a
+version-matched route remains available from the retained first-adoption evidence if inspection
+of historical custody is needed. Final adoption still verifies current originals and uses the
+target's current archive and execution contracts. DMO-00 collected 24 provider identities as
+`d425e078371747689bb112244292fbd7`. Recollect on final source for the qualification selection.
+[Entry baseline](../../design_review/evidence/2026-11-20_dmo00-entry-baseline/README.md)
+
 The [integrated review](../../functional_reviews/udm-operability-and-json_2026-11-20.md) supplies
 the new design. The [causal analysis](../../design_review/evidence/2026-11-20_udm-operability-causality/README.md)
 and the superseded [UDM qualification record](../unified-domain-model-and-execution/qualification.md)

@@ -1,10 +1,10 @@
 # Status
 
-_Updated 2026-11-20 UTC. PostgreSQL stage runs N42 with Standard and Integrated releases admitted from the authoring worktree. Final application preparation belongs on main, where execution encountered a transform custody mismatch. Canonical development runs N29, selected by the book at generation 5. The earlier 518-page capture and regional results remain in retained custody._
+_Updated 2026-11-20 UTC. DMO-00 independently observed stage N42 and canonical development N29. The Standard and Integrated N42 archives verify, and neither is selected by a stage project. The canonical book selects N29 at generation 5. The current reader refused the older archive format. Native readback independently confirmed the book selection._
 
 ## Current owners
 
-- [Domain Model Operability](docs/plans/domain-model-operability_2026-11-20.md) supersedes UDM and owns the successor design and full-system qualification. The plan is published. Product implementation and qualification are `not_run` for this increment.
+- [Domain Model Operability](docs/plans/domain-model-operability_2026-11-20.md) owns the successor design and qualification. [DMO-00 entry evidence](docs/design_review/evidence/2026-11-20_dmo00-entry-baseline/README.md) verifies the target bindings and 24 provider selections through `uv run ci test collect --providers-only --json` (`d425e078371747689bb112244292fbd7`). Provider execution and product qualification are `not_run`.
 - The [integrated functional review](docs/functional_reviews/udm-operability-and-json_2026-11-20.md) and [causal evidence](docs/design_review/evidence/2026-11-20_udm-operability-causality/README.md) record the acquisition, rich, event, M1 and reuse findings. The [predecessor](docs/plans/unified-domain-model-and-execution_2026-11-19.md) preserves earlier evidence and package boundaries.
 - The [DDO handover](docs/plans/declared-data-operations_2026-11-12.md) points to the current qualification owner. [ADR-0141](docs/adr/0141-serving-continuation-and-reuse.md) governs current continuation and cache eligibility.
 - The [test-domain coordinator](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence) owns test-fixture custody and TDM-18. The [test audit refresh](docs/design_review/test-audit/README.md#tdm-refresh-2026-11-18) holds the inspected baseline.
@@ -12,7 +12,7 @@ _Updated 2026-11-20 UTC. PostgreSQL stage runs N42 with Standard and Integrated 
 
 ## Last verified · 2026-11-20 UTC
 
-- **Passed.** `uv run ci docs check` verified publication, links and ADR lint for the successor series (`b00b0e1964364f3f98697c259742d07a`).
+- **DMO-00 evidence passed.** `uv run ci evidence finalize 2026-11-20_dmo00-entry-baseline dmo00.entry-baseline` and `uv run ci evidence index` passed. `uv run ci evidence check` reported five existing DDO errors and no DMO-00 issue (`d6f5f26150c24b268fd46ad1c2ac4f82`).
 - **Passed.** The N36 live withheld region produced only `binding-covers` in 2.51 seconds while its sibling published. Releasing the claim and resuming the exact demand fulfilled all 18 obligations. [Live result and PE-S33 successor](docs/design_review/evidence/2026-11-20_udm20-live-withheld/README.md)
 - **Passed.** The N36 T1 fixture emitted `validity_undetermined`, published under native conservative validity and repeated with zero new receipts. [T1 stage and private receipts](docs/design_review/evidence/2026-11-20_udm06-conservative-validity/README.md)
 - **Passed.** Private `uv run ci test` proved fresh demand, rich and contribution replay, equal entity rows with distinct pins, change-impact and the MCP resource contract (`d7710e99033d44edaf07c985afe1ec2d`, `4f2e3edd46704d0eb6e7839a176129dd`). Two fresh offline renders matched all 620 N38 objects. [Qualification](docs/plans/unified-domain-model-and-execution/qualification.md#continuation-compatibility-amendment)
@@ -54,5 +54,5 @@ _Updated 2026-11-20 UTC. PostgreSQL stage runs N42 with Standard and Integrated 
 
 ## Next execution
 
-- Establish the observed baseline and settle applicable binding choices under [DMO-00](docs/plans/domain-model-operability_2026-11-20.md#dmo-00). Begin selected executable preparation and the independent settings, schema inventory and bounded event investigation slices.
+- [DMO-00](docs/plans/domain-model-operability_2026-11-20.md#dmo-00) is complete. Begin DMO-01 preparation against explicit N42 archives and the independent settings, schema inventory and bounded event investigation slices. Outstanding identity and public wire decisions remain with their dependent packages.
 - After consumer migration and retirement, [DMO-08 and DMO-09](docs/plans/domain-model-operability/qualification-and-adoption.md) own final-source qualification, guarded adoption and the whole-book journey.

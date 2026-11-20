@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "id": "dmo00.entry-baseline",
+  "title": "Live DMO-00 target, rule and provider inventory baseline",
+  "group": null,
+  "package": "DMO-00",
+  "finalized": "2026-11-20",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which current source, target bindings, retained failure boundaries and binding decisions determine successor package readiness?",
+  "answers": [
+    "DMO-00",
+    "DMO-01",
+    "DMO-02",
+    "DMO-04",
+    "DMO-05",
+    "DMO-06",
+    "DMO-07",
+    "DMO-08",
+    "DMO-09"
+  ],
+  "method": "Inspect source and installed versions, acquire deployment and development read-only, verify stage archives and selected project metadata, inspect retained managed results, collect provider test identities without executing tests, and reconcile accepted rule owners.",
+  "commands": [
+    "git rev-parse HEAD",
+    "git status --porcelain | awk '{print substr($0,1,2)}' | sort | uniq -c",
+    "uv run --no-sync python -c 'import sys,importlib.metadata as m; print(sys.version.split()[0]); print({n:m.version(n) for n in (\"linkml\",\"linkml-runtime\",\"pglast\",\"psycopg\",\"sqlalchemy\",\"pydantic\",\"pydantic-settings\",\"jsonschema\",\"referencing\",\"python-rapidjson\",\"typer\",\"rich\",\"pytest\",\"pytest-xdist\")})'",
+    "date -u +%Y-%m-%dT%H:%M:%SZ",
+    "uv run ci context show --target development --json",
+    "uv run ci context show --target deployment --json",
+    "uv run ci db status --target development --json",
+    "uv run ci db status --target development --maintenance --json",
+    "uv run ci db status --target deployment --json",
+    "uv run ci db status --target deployment --maintenance --json",
+    "uv run ci release check --project siegrist-pdf --target development --json",
+    "uv run ci release check --project nce-grinstead-snell-full-book --target development --json",
+    "CORPUS_DEPLOYMENT__URL='postgresql://corpus_sem_writer@/corpus_structure_ddo_stage?host=/var/run/postgresql&port=5434' uv run ci context show --target deployment --json",
+    "CORPUS_DEPLOYMENT__URL='postgresql://corpus_sem_writer@/corpus_structure_ddo_stage?host=/var/run/postgresql&port=5434' uv run ci db status --target deployment --json",
+    "CORPUS_DEPLOYMENT__URL='postgresql://corpus_sem_writer@/corpus_structure_ddo_stage?host=/var/run/postgresql&port=5434' uv run ci db status --target deployment --maintenance --json",
+    "PGOPTIONS='-c default_transaction_read_only=on' psql -X --no-password -h /var/run/postgresql -p 5434 -U corpus_sem_reader -At -v ON_ERROR_STOP=1 -d corpus_structure_dev <<'SQL'\nSELECT json_build_object('database', current_database(), 'database_oid', (SELECT oid FROM pg_database WHERE datname = current_database()), 'system_identifier', (SELECT system_identifier::text FROM pg_control_system()), 'read_only', current_setting('transaction_read_only'), 'projects', COALESCE((SELECT json_agg(p ORDER BY p.project_id) FROM (SELECT project_id, active_release_id, generation FROM data.project WHERE project_id = 'nce-grinstead-snell-full-book') AS p), '[]'::json));\nSQL",
+    "PGOPTIONS='-c default_transaction_read_only=on' psql -X --no-password -h /var/run/postgresql -p 5434 -U corpus_sem_reader -At -v ON_ERROR_STOP=1 -d corpus_structure_ddo_stage <<'SQL'\nSELECT json_build_object('database', current_database(), 'database_oid', (SELECT oid FROM pg_database WHERE datname = current_database()), 'system_identifier', (SELECT system_identifier::text FROM pg_control_system()), 'read_only', current_setting('transaction_read_only'), 'projects', COALESCE((SELECT json_agg(p ORDER BY p.project_id) FROM (SELECT project_id, active_release_id, generation FROM data.project WHERE active_release_id IN ('release:0c8c3c797e70c30ee2c9125642a512feee29f18c7703354d8b4e4fa503374dc1', 'release:c0794593d0037b214ea4060deb6c955f56f0e773c4e839788bf2433ce397c05a') OR project_id = 'udm22-integrated-n42') AS p), '[]'::json));\nSQL",
+    "CORPUS_DEPLOYMENT__URL='postgresql://corpus_sem_writer@/corpus_structure_ddo_stage?host=/var/run/postgresql&port=5434' uv run ci release check --release release:0c8c3c797e70c30ee2c9125642a512feee29f18c7703354d8b4e4fa503374dc1 --target deployment --json",
+    "CORPUS_DEPLOYMENT__URL='postgresql://corpus_sem_writer@/corpus_structure_ddo_stage?host=/var/run/postgresql&port=5434' uv run ci release check --release release:c0794593d0037b214ea4060deb6c955f56f0e773c4e839788bf2433ce397c05a --target deployment --json",
+    "CORPUS_DEPLOYMENT__URL='postgresql://corpus_sem_writer@/corpus_structure_ddo_stage?host=/var/run/postgresql&port=5434' uv run ci release check --project udm22-integrated-n42 --target deployment --json",
+    "uv run ci results inspect 5cb34f8319ca4c71aaa504eccda86df1 --view summary --json",
+    "uv run ci results inspect aa866a00932f49129fb709da4ce09ad1 --view summary --json",
+    "uv run ci results inspect cfbf7d53d411497b85442167f7d2b70e --view observations --severity ERROR --json",
+    "uv run ci test review a145dbfebc9f4fc991ef7c511bb1cba2 --limit 3 --json",
+    "uv run ci test review 8fefb2735f17470aaf9d8df805600379 --limit 3 --json",
+    "uv run ci test review 4fad3ac113214a0e87d4d94cd679da1e --limit 3 --json",
+    "uv run ci results inspect dc348ca3780f4a96ad7dd8378389cc98 --view summary --json",
+    "uv run ci results inspect 5b739336836c439b93d8fc47cd151d2e --view summary --json",
+    "uv run ci test collect --providers-only --json",
+    "uv run ci test review d425e078371747689bb112244292fbd7 --limit 1 --json",
+    "uv run ci test scheduling d425e078371747689bb112244292fbd7 --limit 30 --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/observations.json",
+      "role": "bounded command projections",
+      "sha256": "697060a5afe8f1219ddaf359e1ccafae3f70c9e9895011201b384811b012d2ab"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "stage",
+      "value": "N42, two verified archives, no stage project selects either",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "canonical",
+      "value": "N29 book generation 5, current archive reader refused the historical format",
+      "of": null,
+      "unit": null,
+      "note": "Read-only native project selection verified."
+    },
+    {
+      "name": "provider_identities_collected",
+      "value": 24,
+      "of": null,
+      "unit": null,
+      "note": "Zero workers. Provider execution not_run."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Current source and target bindings are established. Stage preparation uses explicit archive release identities. Canonical archive compatibility and authenticated original verification constrain adoption. Target qualification remains unrun. Current rules were preserved and material transition questions have package owners.",
+  "consumed_by": [
+    "DMO-00",
+    "DMO-01",
+    "DMO-08",
+    "DMO-09"
+  ]
+}

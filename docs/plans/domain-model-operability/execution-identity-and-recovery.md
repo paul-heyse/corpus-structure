@@ -16,6 +16,10 @@ feeds reuse eligibility. The M1 planner was missing from a separately maintained
 These are different failure boundaries even though they currently use overlapping facts.
 [N42 and M1 evidence][cause]
 
+DMO-00 verified both N42 archives on the acquired stage. No stage project selects either release.
+Prepare the two modes using the explicit archived release IDs and actual runtime custody. Report
+archive verification, acquisition and project selection separately. [DMO-00 evidence](../../design_review/evidence/2026-11-20_dmo00-entry-baseline/README.md#current-target-observations)
+
 | Decision | Authority and scope | Consumer |
 | --- | --- | --- |
 | Can this executable run? | Admitted selected operation, exact archive and acquired callable/resource bindings | Application and fixture preparation, then actual port acquisition |

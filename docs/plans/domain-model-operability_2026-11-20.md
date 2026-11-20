@@ -33,7 +33,13 @@ claimed.
 | N36 actual stop/resume and unchanged repeat passed in their scope. N29 remains the recorded canonical head and the book's selected generation is 5. | Recheck actual targets. Keep exact recovery and qualify material adoption on the new basis. |
 | Native request validation and client result validation already exist. The retained Python/PostgreSQL schema comparison shows disagreements, and JSON paths differ in numeric and decoder behavior. | Establish shared meaning before removing residual checks. Migrate consumers with the codec and contract. |
 
-The precedents above are retained, dated evidence. [Current evidence][causal] ·
+The precedents above are retained, dated evidence. DMO-00 independently acquired stage at N42
+and canonical development at N29 from `b233dfb3f` on 2026-11-20 UTC. Both N42 archives verified.
+Neither release is active on stage. `udm22-integrated-n42` has no selected release at generation 0.
+The canonical `nce-grinstead-snell-full-book` selects N29 at generation 5. The current CLI refused
+the historical N29 archive format, so a read-only native projection established the project binding.
+This observed selection supplies no current-source archive verification or qualification credit.
+[DMO-00 observation][entry-baseline] · [Causal evidence][causal] ·
 [Historical qualification][old-qualification] · [Implementation architecture](../design/DESIGN.md)
 
 ## Shared contracts and rule decisions
@@ -55,6 +61,12 @@ The precedents above are retained, dated evidence. [Current evidence][causal] ·
 <a id="dmo-00"></a>
 ### DMO-00 · Establish the current contract and resolve rule impacts
 
+**Complete for the entry boundary · 2026-11-20.** Source and both target bindings were confirmed.
+Read-only stage archive checks and native project observations are recorded separately.
+Provider collection passed for 24 identities, 11 with native requirements, with zero workers.
+Provider readiness and execution were `not_run`. The stage observations used an explicit
+invocation-local deployment route from the retained N42 receipts. [Entry evidence][entry-baseline]
+
 Confirm current source, observed stage/canonical selections and supported entry points when
 execution starts. Read the applicable existing decisions and capture their exact change or
 preservation in the owning package. Schedule only the affected successor ADRs and owning design
@@ -68,16 +80,20 @@ here and in the companions. [Decision and review binding][binding]
 
 | Contract to resolve | Proposed domain or preserved basis | Owner and dependency |
 | --- | --- | --- |
-| D1 keys and analyzed-scope identity | Preserve current D1 keys and authenticated archive bytes. Decide a versioned transition if native numeric scope would merge formerly distinct values. Verify independent Python and SQL vectors. | DMO-02 with DMO-05 domain definition. [ADR-0100](../adr/0100-ddo-contextual-identities.md) |
-| Native wire and agent-facing output | Keep explicit Draft 7 and request-in-SQL/result-in-client placement. State the narrower numeric domain and the D8 implications of changing `exact_json` delivery. Version and migrate affected consumers together if the contract moves. | DMO-05/06, then DMO-07 delivery. [ADR-0128](../adr/0128-wire-contract-boundary-validation.md) · [D8](../design/D8-agent-and-query-interfaces.md) |
-| Runtime custody, recovery and continuation | Preserve exact executable and original producer custody and keep live authority. Narrow enforced correspondence only over proven selected boundaries. Continue to distinguish continuation compatibility from stronger reuse. | DMO-01/02 and DMO-04. [ADR-0137](../adr/0137-serving-code-and-model-custody.md) · [ADR-0139](../adr/0139-compatible-pdf-checkpoint-custody.md) · [ADR-0141](../adr/0141-serving-continuation-and-reuse.md) |
+| D1 keys and analyzed-scope identity | Preserve D1 keys, original archive bytes and ADR-0100's canonical decimal scope equivalence until the proposed domain has independent Python and native vectors. If currently distinct scope keys would converge, record the consequence and require a decision on a versioned identity transition. | DMO-02 with DMO-05's domain definition. [ADR-0100](../adr/0100-ddo-contextual-identities.md) |
+| Native wire and agent-facing output | Preserve Draft 7 and request-in-SQL/result-in-client placement, including result validation for internally committing calls. D8 currently presents `selected-source-search-exact-json-v1` with `exact_json`, cut identity and a byte bound. Settle and version any public-contract change after enumerating consumers. Preserve cut identity and bounded delivery. | DMO-05/06, then DMO-07 delivery. [ADR-0128](../adr/0128-wire-contract-boundary-validation.md) · [D8](../design/D8-agent-and-query-interfaces.md) |
+| Runtime custody, recovery and continuation | Preserve exact executable and original producer custody and keep live authority. Narrow enforced correspondence over proven selected boundaries. ADR-0141 governs continuation separately from stronger reuse and supersedes historical ADR-0137. | DMO-01/02 and DMO-04. [ADR-0139](../adr/0139-compatible-pdf-checkpoint-custody.md) · [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md) · [ADR-0141](../adr/0141-serving-continuation-and-reuse.md) |
+
+DMO-00 preserved current rules. Any identity or agent-output change remains at its dependent
+package until its exact intended consequence and evidence are available. The approved numeric
+direction applies to the transport design. There is no new ADR to publish from this baseline.
 
 ## Execution queue
 
 | Package | Delivered change | Entry and completion boundary |
 | --- | --- | --- |
-| DMO-00 | Current baseline, scoped contracts and rule decisions | Reconcile current environment and owners. Resolve binding changes by the point they are needed. |
-| [DMO-01][p01] | Selected PDF/M1 executable acquisition and early preparation refusal | Current archive and runtime owners. Verify alternate roots, relocation and real binding/resource refusals. |
+| DMO-00 | Current baseline, scoped contracts and rule decisions | Complete. Both targets and the active book binding were observed. Binding changes remain with their dependent packages. [Evidence][entry-baseline] |
+| [DMO-01][p01] | Selected PDF/M1 executable acquisition and early preparation refusal | Ready for the selected preparation slice. Use explicit N42 archives. Verify alternate roots, relocation and real binding/resource refusals. |
 | [DMO-02][p02] | Versioned material identity, explanations and compatible recovery | Selected executable contract and DMO-05 numeric semantics. Consume DMO-06 native wire projection where changed. Verify digest vectors and independent regional uptake. |
 | [DMO-03][p03] | Typed consumer requirements and current/historical authority | Existing admitted role, support and effect owners. Integrate with DMO-01 preparation and confirm the real mixed-family path and refusals. |
 | [DMO-04][p04] | Bounded event diagnosis and scoped support acquisition | Diagnostic can start from the existing fixture. Working integration consumes DMO-03 requirements and the DMO-06 owned snapshot where relevant. Verify scoring, paging and both authority negatives. |
@@ -136,11 +152,14 @@ package statuses, resource limits and proof questions are historical. Report out
 actual scope, retain failed receipts, and leave unavailable required cases open with the missing
 prerequisite. [Qualification and adoption][p08]
 
-**Current state.** Plan authored. Product implementation, guarded adoption and successor
-qualification are `not_run`. First execution is DMO-00 and the ready bounded investigation slices.
+**Current state.** DMO-00 entry baseline complete. Product implementation, guarded adoption and
+successor qualification are `not_run`. DMO-01 selected preparation, DMO-05 settings, DMO-06 schema
+inventory and DMO-04 bounded investigation can start independently. DMO-08/09 still require their
+implemented prerequisites and actual final-source evidence.
 
 [predecessor]: unified-domain-model-and-execution_2026-11-19.md
 [old-qualification]: unified-domain-model-and-execution/qualification.md#retained-fit-custody-and-rich-producer-authority
+[entry-baseline]: ../design_review/evidence/2026-11-20_dmo00-entry-baseline/README.md
 [review]: ../functional_reviews/udm-operability-and-json_2026-11-20.md
 [review-open]: ../functional_reviews/json-boundaries_2026-11-20.md#open-checks
 [causal]: ../design_review/evidence/2026-11-20_udm-operability-causality/README.md

@@ -42,11 +42,15 @@ revocation, publication and detached export checks have their existing enforceme
 
 ### Entry and resulting behavior
 
-DMO-00 records the confirmed numeric direction and identifies the binding decisions that move with
-analyzed-scope identity and agent output. The codec implementation can proceed when those changed
-contracts are settled and its typed consumer inventory is available. The settings slice below can
-proceed independently. The settled numeric contract lets DMO-02 design its identity transition while codec
-consumers migrate.
+DMO-00 confirmed the PostgreSQL-native direction and preserved the existing binding contracts.
+ADR-0100 currently gives analyzed-scope numbers canonical decimal equivalence. D8 currently exposes
+`selected-source-search-exact-json-v1` with `exact_json`, the native cut identity and a byte bound.
+Use independently specified Python/native vectors to find any converging scope keys. Name the
+actual D8 consumers and the field/version change before removing that public field. Preserve the
+established rule in each case until the applicable change is decided. The settings slice and
+typed consumer inventory can proceed independently. The settled numeric domain lets DMO-02 design
+any needed identity transition while codec consumers migrate.
+[Entry contract disposition](../domain-model-operability_2026-11-20.md#dmo-00)
 
 Begin with an inventory of actual numeric and JSON consumers in native request/result transport,
 Psycopg adapters, `NativeRowResult`, execution-evidence leaves, scope values, kind bodies, prepared
