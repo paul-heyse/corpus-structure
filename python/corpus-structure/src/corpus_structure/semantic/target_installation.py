@@ -80,9 +80,9 @@ def target_task_guard_sql(protocol: bytes, *, target_metadata: MetaData) -> str:
 @dataclass(frozen=True)
 class PhysicalTriggerRelation:
     relation: NativeIdentity
-    immutability: str | None
-    intrinsic: bool
+    immutable: bool
     frontier_guarded: bool
+    pending_content: bool
     pending_component: bool
     archived: bool
 
@@ -316,30 +316,36 @@ def capture_trigger_inputs(target: MetaData) -> PhysicalTriggerInputs:
         for table in target.tables.values()
         if table.info.get("immutability") == "pending-content"
     }
-    return PhysicalTriggerInputs(
-        metadata_integrity(target).publisher,
-        identity(target.tables["ops.task"]),
-        tuple(
+    relations = []
+    for table in sorted(target.tables.values(), key=lambda item: item.fullname):
+        immutable = (
+            table in intrinsic
+            or table.info.get("immutability") in {"intrinsic", "immutable", "deployment"}
+            or table.fullname == "sem.physical_contract"
+        )
+        guarded = table.info.get("frontier_guard") == "guarded"
+        pending_content = table in pending
+        archived = table.info.get("archive_role") is not None
+        if not any((immutable, guarded, pending_content, archived)):
+            continue
+        relations.append(
             PhysicalTriggerRelation(
                 identity(table),
-                table.info.get("immutability"),
-                table in intrinsic,
-                table.info.get("frontier_guard") == "guarded",
-                table in pending
+                immutable,
+                guarded,
+                pending_content,
+                pending_content
                 and any(
                     foreign.column.table in pending and foreign.column.table is not table
                     for foreign in table.foreign_keys
                 ),
-                table.info.get("archive_role") is not None,
+                archived,
             )
-            for table in sorted(target.tables.values(), key=lambda item: item.fullname)
-            if table in intrinsic
-            or table.info.get("immutability")
-            in {"intrinsic", "immutable", "deployment", "pending-content"}
-            or table.fullname == "sem.physical_contract"
-            or table.info.get("frontier_guard") == "guarded"
-            or table.info.get("archive_role") is not None
-        ),
+        )
+    return PhysicalTriggerInputs(
+        metadata_integrity(target).publisher,
+        identity(target.tables["ops.task"]),
+        tuple(relations),
     )
 
 
@@ -367,11 +373,7 @@ def target_trigger_programs(inputs: PhysicalTriggerInputs):
     ]
     for selected in inputs.relations:
         relation = selected.relation
-        if (
-            selected.intrinsic
-            or selected.immutability in {"intrinsic", "immutable", "deployment"}
-            or (relation.schema, relation.name) == ("sem", "physical_contract")
-        ):
+        if selected.immutable:
             programs.append(
                 trigger(
                     relation,
@@ -391,7 +393,7 @@ def target_trigger_programs(inputs: PhysicalTriggerInputs):
                     ("insert", "update", "delete", "truncate"),
                 )
             )
-        if selected.immutability == "pending-content":
+        if selected.pending_content:
             for events, row, name in (
                 (
                     ("insert", "update", "delete")
