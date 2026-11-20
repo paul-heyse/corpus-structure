@@ -658,12 +658,19 @@ finished 34.97 seconds inside the unchanged 120-second statement bound.
 Cleanup settled, no leases remained and the diagnostic settings were restored.
 [Member census and settlement timing](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/README.md)
 
-**Remaining live observations.** The exact 66-page producer draft is incompatible
-with the current application under the recorded material and attempt checks. Its
-original result remains in custody. The 66-page digest and the independent
-end-to-end 60-page run now have passing evidence. A deliberately withheld region
-in the actual multi-region stage compositor still needs acceptance evidence.
-Provider and whole-book qualification remain UDM-22 and UDM-23 work.
+**Tested, 2026-11-20 UTC, fresh 66-page repeat on N36.** The operator chose a
+fresh run for the same registered original. The N35 demand was cancelled
+(`f9af833c148a4e14a03c63699bcf1711`). The exact draft retirement check
+returned `retained` with reason `unpublished` (`330a1288ee1d43099a871a9f51548c8e`).
+The replacement uses the same selected original, sentence target and execution
+policy with the corrected N36 release and runtime. The run passed in 801.50
+seconds and a fresh native read confirmed all five publications, including both
+regional sentence products. Managed cleanup was established.
+[Replacement run](../../design_review/evidence/2026-11-20_cli-f00e167923f74c0d837b60f6bd1cc6e0/README.md)
+
+**Remaining live observation.** A deliberately withheld region in the actual
+multi-region stage compositor still needs acceptance evidence. Provider and
+whole-book qualification remain UDM-22 and UDM-23 work.
 
 **Early diagnosis and later confirmation.** In the regional reproduction record the last durable
 boundary for the timed-out attempts. Inspect the exact native intent and publication standing
@@ -1131,7 +1138,7 @@ only when both accounts are on the same commit.
 
 | Package | State |
 |---|---|
-| UDM-20 | Canonical exact intent standing, independent role binding, finite deadlines and scoped recovery verified. The one-page complete-family composition and 60-page regional settlement passed on N36. Exact 66-page draft recovery and the deliberately withheld region in an actual multi-region stage compositor remain open. [Diagnosis and evidence](#retained-book-diagnosis) |
+| UDM-20 | Canonical exact intent standing, independent role binding, finite deadlines and scoped recovery verified. One-page complete-family composition, 60-page regional settlement and a fresh run of the original 66-page case passed on N36. The operator abandoned recovery of the original draft. The deliberately withheld region in an actual multi-region stage compositor remains open. [Diagnosis and evidence](#retained-book-diagnosis) |
 | UDM-21 | Complete. Original custody, exact intent reconciliation and book generation 5 at N29 verified. The actual one-page Integrated provider run and launcher restoration passed on N35. |
 | UDM-22 | `not_run`. Final-source qualification awaits UDM-20 confirmation and complete D2, T4 and T14 workload custody. |
 | UDM-23 | `not_run`. The second canonical adoption and whole-book run await UDM-20 and UDM-22. |

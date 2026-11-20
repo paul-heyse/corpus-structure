@@ -1,0 +1,29 @@
+{
+  "id": "f00e167923f74c0d837b60f6bd1cc6e0",
+  "action": "run",
+  "stage": "demand_registered",
+  "started": 1795141923.409962,
+  "settled": 1795142724.912674,
+  "outcome": "passed",
+  "artifact_role": "native",
+  "custody": "settled",
+  "operation_account": {
+    "version": 1,
+    "outcome": "passed",
+    "cleanup": "established",
+    "failure": null,
+    "known_effects": [],
+    "acquired_target": {
+      "database": "corpus_structure_ddo_stage",
+      "database_oid": 130661481,
+      "system_identifier": "7701811359771751232",
+      "host": "/var/run/postgresql",
+      "port": 5434,
+      "purpose": "write"
+    },
+    "predecessor": null,
+    "reached_revision": null,
+    "release": "release:33f357ab9c2bad4b0a237521c256917656be4eb301fd2682621b23744375b997",
+    "routing": null
+  }
+}
