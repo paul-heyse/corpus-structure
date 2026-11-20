@@ -10,7 +10,7 @@ from corpus_structure.evaluate.characterization_assessment import (
     graph_equal,
     output_key,
 )
-from corpus_structure.semantic.refusals import ReferenceError
+from corpus_structure.semantic.refusal_types import ReferenceError
 
 PIN = {"product_id": "product:characterization-control"}
 EXTENT = dict(projection="c" * 64, native_pointer="#/texts/0", start=0, end=20)

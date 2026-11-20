@@ -10,7 +10,8 @@ import json
 from collections.abc import Mapping
 from types import MappingProxyType
 
-from .refusals import SemanticOperationRefusal, SemanticReason, SemanticRefusal
+from .refusal_types import SemanticRefusal
+from .refusals import SemanticOperationRefusal, SemanticReason
 from .rich_knowledge_sources import RULE_INPUT, VERSION, parse_policy_yaml
 from .types import PreparedRelease
 

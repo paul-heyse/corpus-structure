@@ -16,7 +16,7 @@ from corpus_structure.schema.physical import compile_physical
 from .determinants import projection_analysis_runtime
 from .identity import canonical_bytes
 from .projection_analysis import ProjectionAnalysis, analyze_recipe
-from .refusals import SemanticRefusal
+from .refusal_types import SemanticRefusal
 from .types import (
     SEMANTIC_COMPILER_VERSION,
     PreparationError,

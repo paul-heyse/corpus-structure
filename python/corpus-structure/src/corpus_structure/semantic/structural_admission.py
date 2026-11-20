@@ -11,7 +11,7 @@ from hashlib import sha256
 from typing import Any
 
 from .identity import canonical_bytes
-from .refusals import SemanticRefusal
+from .refusal_types import SemanticRefusal
 from .structural_products import DeclaredStructuralProductReport
 
 POLICIES = {

@@ -36,7 +36,7 @@ from corpus_structure.semantic.record_policy_authority import (
     DdoFittedRecordPolicy,
     DdoRecordPolicyApplicability,
 )
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 
 Partition = Literal["development", "feature_fit", "final_event_calibration", "final_assessment"]
 PROTECTED_NAMESPACE = NAMESPACE + "protected/"

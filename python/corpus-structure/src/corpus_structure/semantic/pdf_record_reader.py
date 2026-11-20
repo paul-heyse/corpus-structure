@@ -49,7 +49,7 @@ class PublishedReadBudget:
     bytes: int = 0
 
     def preflight(self, conn, statement, *, payload_reserved=False):
-        from .refusals import ReadLimit
+        from .refusal_types import ReadLimit
 
         # Only scalar lengths/count cross this first protected read. Data remains on
         # the server until its exact immutable selection has passed admission.
@@ -80,7 +80,7 @@ class PublishedReadBudget:
         self.rows += summary.rows
 
     def reserve_rows(self, count: int) -> None:
-        from .refusals import ReadLimit
+        from .refusal_types import ReadLimit
 
         if count < 0 or self.rows + count > self.max_rows:
             raise ReadLimit("native source row-work budget exhausted", reason="work_limit")
@@ -90,7 +90,7 @@ class PublishedReadBudget:
         from pydantic_core import to_jsonable_python
 
         from .identity import canonical_bytes
-        from .refusals import ReadLimit
+        from .refusal_types import ReadLimit
 
         size = len(canonical_bytes(to_jsonable_python(value)))
         if size > self.max_bytes:
@@ -100,7 +100,7 @@ class PublishedReadBudget:
         self.reserve(size)
 
     def reserve(self, size):
-        from .refusals import ReadLimit
+        from .refusal_types import ReadLimit
 
         if type(size) is not int or size < 0:
             raise ValueError("source byte length must be a nonnegative integer")
@@ -785,7 +785,7 @@ class PublishedPdfReader:
         """Admit exact whole-product detachment before transferring its content."""
         from ._pdf_native_calls import read_pdf_materialization_bound
         from .identifiers import TaskId
-        from .refusals import ReadLimit
+        from .refusal_types import ReadLimit
 
         self._check_active()
         cached = getattr(self, "_materialization_bound", None)

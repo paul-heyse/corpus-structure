@@ -25,9 +25,9 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.original_documents import original_document_subject
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.reading_resolution_products import reading_resolution_inputs
-from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.semantic.refusal_types import InvalidContinuation
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
-from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from corpus_structure.serve import contribution_facets as serving
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code

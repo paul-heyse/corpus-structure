@@ -16,7 +16,7 @@ from corpus_structure.semantic._data_operation_wire import (
 from .data_operation_model import read_effective_data_operations
 from .data_operation_ports import PythonPortIdentity
 from .identity import canonical_bytes
-from .refusals import SemanticRefusal
+from .refusal_types import SemanticRefusal
 
 
 def _source_identity_bytes(identity: PythonPortIdentity) -> bytes:

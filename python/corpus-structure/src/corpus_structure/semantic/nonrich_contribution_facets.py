@@ -9,7 +9,8 @@ from dataclasses import dataclass
 
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_wire import validate_wire_schema
-from .rich_queries import RichQueryRefused, RichQueryRow
+from .refusal_types import RichQueryRefused
+from .rich_queries import RichQueryRow
 from .structural_products import (
     DeclaredArtifactReport,
     DeclaredClauseReport,

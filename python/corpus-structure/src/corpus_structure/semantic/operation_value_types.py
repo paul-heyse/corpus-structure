@@ -123,7 +123,7 @@ def require_call_context(
     from hashlib import sha256
 
     from .identity import canonical_bytes
-    from .refusals import SemanticRefusal
+    from .refusal_types import SemanticRefusal
 
     artifacts = [a for a in prepared.artifacts if a.kind == "operation_call_correspondences.json"]
     if len(artifacts) != 1:

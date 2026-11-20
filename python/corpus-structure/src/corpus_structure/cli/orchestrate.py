@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from rich.table import Table
 
 from corpus_structure.cli.output import JsonOpt, emit, read_request_json, read_request_model, state
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 
 project_app = typer.Typer(
     help="Register a project and immutable original documents.", no_args_is_help=True

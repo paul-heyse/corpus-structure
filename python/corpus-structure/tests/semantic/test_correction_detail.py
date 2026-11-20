@@ -162,7 +162,7 @@ def test_retained_diagnostic_distinguishes_schema_refusal_from_artifact_corrupti
     from corpus_structure.cli.diagnostic_artifacts import publish_diagnostic, read_diagnostic
     from corpus_structure.cli.managed import ResultError, ResultStore
     from corpus_structure.semantic import operation_reporting
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
 
     store = ResultStore(tmp_path / "results")
     error = next(Draft202012Validator({"type": "integer"}).iter_errors("private-token"))

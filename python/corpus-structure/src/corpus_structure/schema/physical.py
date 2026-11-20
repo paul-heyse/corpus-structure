@@ -175,10 +175,4 @@ def compile_physical(
     types_content = linkml_types_source() if linkml_types is None else linkml_types
     model = compiled_model({**captured, _LINKML_TYPES: types_content})
 
-    def project():
-        # Exact explicit-closure admission is a property of these captured bytes,
-        # so repeated access must not parse and prove the same closure again.
-        physical_model_documents(captured, root=root)
-        return model.physical(root, target=target)
-
-    return model.projection(("exact-physical", root, target), project)
+    return model.exact_physical(captured, linkml_types=types_content, root=root, target=target)

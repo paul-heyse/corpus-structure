@@ -11,7 +11,7 @@ from typing import Any
 from .data_operation_admission import bound_data_operation_model
 from .data_operation_identity import execution_attestation, runtime_artifact_identity
 from .identity import canonical_bytes
-from .refusals import SemanticRefusal
+from .refusal_types import SemanticRefusal
 from .types import PreparedRelease, SourceArtifact
 
 

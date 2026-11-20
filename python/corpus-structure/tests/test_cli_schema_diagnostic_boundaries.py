@@ -6,7 +6,7 @@ from contextlib import nullcontext
 import pytest
 
 from corpus_structure.cli.managed import ResultStore
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 
 
 @pytest.fixture(scope="module")

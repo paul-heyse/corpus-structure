@@ -9,7 +9,7 @@ from jsonschema import Draft202012Validator
 from corpus_structure.semantic.contract_inspection import inspect_contract
 from corpus_structure.semantic.operation_reporting import report_schema
 from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.refusals import InvalidContinuation, SemanticRefusal
+from corpus_structure.semantic.refusal_types import InvalidContinuation, SemanticRefusal
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 

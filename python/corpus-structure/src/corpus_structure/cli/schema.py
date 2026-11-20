@@ -262,7 +262,7 @@ def check_(
 ):
     """Check candidate packs or fully verify an archived release without changing it."""
     from corpus_structure.semantic.read_snapshot import read_snapshot
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
 
     if release is None:
         return _compile_packs(
@@ -359,7 +359,7 @@ def derive_(
     json_: JsonOpt = False,
 ):
     """Export composed model artifacts; use native-candidate for native authoring."""
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.semantic.regeneration import prepare_packs
 
     with refusal(json_):
@@ -512,7 +512,7 @@ def author_native_candidate(
     )
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.native_products import current_authoring_provenance
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.storage_target import (
         acquired_target,
@@ -761,7 +761,7 @@ def native_candidate_(
     from corpus_structure.semantic.code_reuse import explain_code_reuse
     from corpus_structure.semantic.native_objects import NativeAuthoringError
     from corpus_structure.semantic.prepared_sql import SQLSyntaxError
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
 
     with (
         explain_code_reuse(explain_reuse) as explanations,
@@ -862,7 +862,7 @@ def explain_operation_(
     from corpus_structure.semantic.demand_queries import DemandQueryRequest
     from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.operation_reporting import explain_operation
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 
@@ -915,7 +915,7 @@ def diff_(
     from corpus_structure.cli.output import state
     from corpus_structure.semantic.operation_reporting import compare_semantic_releases
     from corpus_structure.semantic.read_snapshot import read_snapshot
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
 

@@ -679,7 +679,7 @@ def resolve_native_sections[Key](
     catalog: Mapping[Key, str], selectors: Sequence[str]
 ) -> tuple[Key, ...]:
     """Resolve each title selector to one actual catalog occurrence, never an alias set."""
-    from corpus_structure.semantic.refusals import SourceReadRefused
+    from corpus_structure.semantic.refusal_types import SourceReadRefused
 
     normalized = {key: _native_section_title_parts(title) for key, title in catalog.items()}
     resolved: dict[Key, None] = {}

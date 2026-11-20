@@ -15,7 +15,7 @@ from typing import Any
 from corpus_structure.semantic.data_operation_model import EffectContract, json_context_meaning
 from corpus_structure.semantic.declared_structural_references import DeclaredProductRef
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 
 from .selected_operation_events import (
     DdoOperationEventFit,

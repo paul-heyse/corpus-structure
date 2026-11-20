@@ -9,7 +9,7 @@ from corpus_structure.cache_store import CacheStore
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
-from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.rich_query_projection import RichQueryInput, frontier_content_witness
 from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE, disk_row_cache
 from corpus_structure.serve import rich_queries

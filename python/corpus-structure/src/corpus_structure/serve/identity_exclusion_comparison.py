@@ -14,8 +14,8 @@ from corpus_structure.semantic.identity_exclusion_comparison import (
     constraint_snapshot,
 )
 from corpus_structure.semantic.page_envelope import PageEnvelope
-from corpus_structure.semantic.refusals import InvalidContinuation
-from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.refusal_types import InvalidContinuation
+from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.selected_contribution_input import RICH_NAMESPACE
 from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.serving_code import capture_page_refusal

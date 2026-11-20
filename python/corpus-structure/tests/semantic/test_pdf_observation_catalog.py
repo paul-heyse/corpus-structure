@@ -18,7 +18,7 @@ from corpus_structure.semantic.data_operation_service import (
     execute_data_demand,
 )
 from corpus_structure.semantic.demand_results import selected_read_snapshot
-from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.semantic.refusal_types import InvalidContinuation
 from corpus_structure.serve.pdf_visual_evidence import visual_observation_manifest
 from corpus_structure.serve.source_catalog import SourceCatalogRequest
 from semantic.current_pdf_source_support import PROJECT, ROOT

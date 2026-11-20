@@ -14,7 +14,7 @@ from .data_operation_support import OriginalDocumentRef, OriginalSourceSelection
 from .identifiers import DocumentId
 from .identity import canonical_bytes
 from .metadata import table
-from .refusals import SemanticRefusal
+from .refusal_types import SemanticRefusal
 from .types import PreparedRelease
 
 

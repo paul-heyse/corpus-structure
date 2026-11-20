@@ -129,7 +129,7 @@ def freeze_demand(
     from .data_operation_bindings import effective_binding_parameters
     from .data_operation_model import validate_replicate_selection
     from .data_operation_values import decode_semantic_value, semantic_value
-    from .refusals import SemanticRefusal
+    from .refusal_types import SemanticRefusal
 
     if not targets or not inference or not execution_profile:
         raise SemanticRefusal("demand requires targets, inference and an execution profile")
@@ -614,7 +614,7 @@ class DemandPlanner:
         authorization: bytes,
         excluded_requests: frozenset[tuple[str, int]] = frozenset(),
     ) -> tuple[ReadyDataRequest, ...]:
-        from .refusals import SemanticRefusal
+        from .refusal_types import SemanticRefusal
 
         ready = []
         self.logical_progress = 0

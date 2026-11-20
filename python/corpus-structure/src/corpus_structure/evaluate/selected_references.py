@@ -19,7 +19,7 @@ from corpus_structure.semantic.data_operation_values import decode_semantic_valu
 from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
 from corpus_structure.semantic.native_definition_projection import read_native_definition_projection
 from corpus_structure.semantic.observations import source_python
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 
 
 class SelectedReferenceRefusal(SemanticRefusal):

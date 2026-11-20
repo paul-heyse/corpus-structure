@@ -21,7 +21,7 @@ from corpus_structure.semantic.assessment_graph_contract import (
     ASSESSMENT_RELATION_KINDS,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.refusals import ReferenceError
+from corpus_structure.semantic.refusal_types import ReferenceError
 
 
 class WitnessGraphBudgetExceeded(ReferenceError):

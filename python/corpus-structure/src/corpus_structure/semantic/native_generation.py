@@ -31,36 +31,18 @@ class _GenerationFailure:
     error: Exception
 
 
-def prepare_native_pdf_sources(inputs: NativeGeneratorInputs) -> tuple[SourceArtifact, ...]:
-    """Resolve a supplied cohort or captured actions only after an artifact miss."""
-    from .pdf_domain import PREFIX, pdf_domain_sources
-
-    if inputs.pdf_sources is not None and inputs.pdf_actions is not None:
-        raise ValueError("select PDF action input or an already captured PDF source cohort")
-    if inputs.pdf_sources is not None:
-        return inputs.pdf_sources
-    return pdf_domain_sources(
-        physical_sources=dict(inputs.physical_sources),
-        linkml_types=inputs.linkml_types,
-        actions_source=inputs.pdf_actions
-        or SourceArtifact(
-            PREFIX + "native/actions.yaml", dict(inputs.logical_sources)["pdf-actions.yaml"]
-        ),
-        include_producer=False,
-        model_sources=dict(inputs.model_sources),
-        analysis_versions=inputs.analysis_runtime,
-    )
-
-
 def _render_captured(inputs: NativeGeneratorInputs) -> TargetInstallation:
     """Prepare captured interpretations before entering the deterministic renderer."""
-    from corpus_structure.model.compiled import compiled_model, model_request_scope
-    from corpus_structure.schema.physical import compile_physical
+    from corpus_structure.model.compiled import CompiledModel, model_request_scope
 
     from .native_program_store import capture_generator_custody
+    from .pdf_domain import prepare_native_pdf_sources
 
-    with model_request_scope(compiled_model(dict(inputs.model_sources))):
-        owned = compile_physical(dict(inputs.physical_sources), linkml_types=inputs.linkml_types)
+    model = CompiledModel(inputs.model_sources)
+    with model_request_scope(model):
+        owned = model.exact_physical(
+            dict(inputs.physical_sources), linkml_types=inputs.linkml_types
+        )
         with capture_generator_custody(inputs.code_identity, closed=True):
             pdf_sources = prepare_native_pdf_sources(inputs)
             return render_target_installation(

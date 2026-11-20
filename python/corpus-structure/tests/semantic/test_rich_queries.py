@@ -18,21 +18,8 @@ from corpus_structure.semantic.rich_knowledge_contracts import (
     DdoRichSelectedMember,
     DdoRichSourceReadingAssertion,
 )
-from corpus_structure.semantic.rich_queries import (
-    ClaimsQuery,
-    ConstructionProfileQuery,
-    EntityQuery,
-    EvidenceQuery,
-    FamiliesWhereQuery,
-    FamilyProfileQuery,
-    ParameterMappingQuery,
-    RelationsQuery,
-    RichQueryIndex,
-    RichQueryRefused,
-    SourceReadingsQuery,
-    StatementQuery,
-    query_rows,
-)
+from corpus_structure.semantic.refusal_types import RichQueryRefused
+from corpus_structure.semantic.rich_queries import ClaimsQuery, ConstructionProfileQuery, EntityQuery, EvidenceQuery, FamiliesWhereQuery, FamilyProfileQuery, ParameterMappingQuery, RelationsQuery, RichQueryIndex, SourceReadingsQuery, StatementQuery, query_rows
 from corpus_structure.semantic.rich_statistics_queries import relation_projection
 from semantic.data_operation_declaration_support import contract, declarations
 from semantic.record_contracts_support import release_inputs

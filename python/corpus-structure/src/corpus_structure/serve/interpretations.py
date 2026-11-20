@@ -23,7 +23,7 @@ class InterpretationAnswer(BaseModel):
 
 
 def answer(kind, body, max_bytes=1024**2):
-    from corpus_structure.semantic.refusals import ReadLimit
+    from corpus_structure.semantic.refusal_types import ReadLimit
 
     report = InterpretationAnswer(kind=kind, body=body)
     content = json_bytes(report.model_dump(mode="python"))
@@ -129,7 +129,7 @@ def _group_selected_interpretations(connection, request, implementation):
     from corpus_structure.semantic.grouped_interpretation_projection import (
         grouped_interpretation_rows,
     )
-    from corpus_structure.semantic.refusals import InvalidContinuation, ReadLimit
+    from corpus_structure.semantic.refusal_types import InvalidContinuation, ReadLimit
     from corpus_structure.serve.selected_contributions import selected_contribution_scope
 
     if request.implementation is not None and request.implementation != implementation:

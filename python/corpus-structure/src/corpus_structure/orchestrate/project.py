@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 from sqlalchemy import Connection
 
 from corpus_structure.semantic.data_operation_support import OriginalDocumentRef
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 
 
 class ProjectError(SemanticRefusal):

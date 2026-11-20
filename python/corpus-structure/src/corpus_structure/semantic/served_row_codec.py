@@ -113,7 +113,7 @@ class JsonDerivedRows:
         return decode_value(self.metadata)
 
     def rows(self, start=0):
-        from .refusals import InvalidContinuation
+        from .refusal_types import InvalidContinuation
 
         if type(start) is not int or not 0 <= start <= len(self):
             raise InvalidContinuation(

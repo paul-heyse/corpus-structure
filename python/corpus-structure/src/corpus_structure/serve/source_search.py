@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.semantic.refusal_types import InvalidContinuation
 from corpus_structure.serve.native_source import NativeSourceRequest
 from corpus_structure.serve.selected_pdf import (
     SelectedPdfSourceReference,
@@ -112,7 +112,7 @@ def search_source(connection, request: SourceSearchRequest) -> SourceSearchRespo
         population_identity,
         projection_recipe,
     )
-    from corpus_structure.semantic.refusals import ReadLimit
+    from corpus_structure.semantic.refusal_types import ReadLimit
 
     after = _continuation(request)
     sources, recipes, cut = [], [], None

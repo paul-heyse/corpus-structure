@@ -13,7 +13,8 @@ from typing import TYPE_CHECKING
 from .data_operation_json import json_bytes
 from .data_operation_kind_refinements import input_kind_refinements
 from .observations import source_python
-from .rich_queries import RichQueryRefused, RichQueryRow
+from .refusal_types import RichQueryRefused
+from .rich_queries import RichQueryRow
 
 if TYPE_CHECKING:
     from .types import PreparedRelease

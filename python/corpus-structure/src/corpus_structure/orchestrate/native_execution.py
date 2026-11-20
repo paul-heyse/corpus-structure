@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from corpus_structure.semantic.data_operation_service import create_native_demand, read_data_demand
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.storage_target import StorageTarget, acquired_target, verify_target
 from corpus_structure.settings import AnalyticsSettings
 

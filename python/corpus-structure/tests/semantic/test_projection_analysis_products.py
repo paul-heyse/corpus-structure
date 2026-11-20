@@ -26,7 +26,7 @@ from corpus_structure.semantic.projection_analysis_products import (
     prepare_projection_analysis,
     read_projection_analysis,
 )
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.types import (
     PreparedArtifact,
     ResolvedDependencies,

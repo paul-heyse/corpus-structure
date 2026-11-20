@@ -326,7 +326,7 @@ def test_description_child_cleanup_preserves_iteration_and_consumer_failure(
     from contextlib import contextmanager
     from types import SimpleNamespace
 
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.serve import database_description as description
     from corpus_structure.settings import Settings
 

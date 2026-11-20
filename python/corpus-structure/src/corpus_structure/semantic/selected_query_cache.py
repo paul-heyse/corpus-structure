@@ -18,7 +18,7 @@ from cachetools import LRUCache
 from corpus_structure.caches import register
 
 from .data_operation_json import json_bytes
-from .refusals import InvalidContinuation
+from .refusal_types import InvalidContinuation
 
 ENTRY_BYTES = 8 * 1024 * 1024
 ENTRY_ROWS = 4096

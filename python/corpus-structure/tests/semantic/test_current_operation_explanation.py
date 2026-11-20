@@ -13,7 +13,7 @@ from corpus_structure.semantic.data_operation_storage import data_operation_defi
 from corpus_structure.semantic.demand_queries import DemandQueryRequest
 from corpus_structure.semantic.operation_reporting import explain_operation, report_schema
 from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.types import (
     PreparedArtifact,
     ResolvedDependencies,

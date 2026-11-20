@@ -18,11 +18,8 @@ from pydantic import Field, JsonValue
 from sqlalchemy import Connection, Engine
 
 from corpus_structure.semantic.proposals import ProposalRefused
-from corpus_structure.semantic.refusals import (
-    OperationConflict,
-    located_failure_context,
-    tool_refusals,
-)
+from corpus_structure.semantic.refusal_types import OperationConflict
+from corpus_structure.semantic.refusals import located_failure_context, tool_refusals
 from corpus_structure.serve.native_source import NativeSourceRequest
 from corpus_structure.serve.selected_pdf import SelectedPdfSourceReference
 from corpus_structure.settings import Settings

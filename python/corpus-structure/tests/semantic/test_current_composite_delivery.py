@@ -19,7 +19,7 @@ from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.record_policy_authority import record_policy_kind_declarations
-from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.semantic.refusal_types import InvalidContinuation
 from corpus_structure.semantic.rich_invocations import rich_knowledge_operation_sources
 from corpus_structure.semantic.rich_knowledge_sources import (
     rich_knowledge_declarations,
@@ -233,7 +233,7 @@ def test_current_facet_pages_pin_native_selection_root_and_implementation(
             )
         with pytest.raises(InvalidContinuation):
             facets.serve_contribution_facets(None, request(selected, implementation="0" * 64))
-        from corpus_structure.semantic.rich_queries import RichQueryRefused
+        from corpus_structure.semantic.refusal_types import RichQueryRefused
 
         with pytest.raises(RichQueryRefused, match="member bound"):
             facets.serve_contribution_facets(

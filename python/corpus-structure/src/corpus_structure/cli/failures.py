@@ -12,12 +12,8 @@ from pydantic import ValidationError
 
 from corpus_structure.cli.output import diagnostic, safe_text, write_report_text
 from corpus_structure.semantic.database_failures import DATABASE_ERRORS, database_failure_report
-from corpus_structure.semantic.refusals import (
-    FailureContext,
-    SemanticRefusal,
-    safe_failure_message,
-    semantic_refusal_report,
-)
+from corpus_structure.semantic.refusal_types import SemanticRefusal
+from corpus_structure.semantic.refusals import FailureContext, safe_failure_message, semantic_refusal_report
 
 if TYPE_CHECKING:
     from corpus_structure.cli.managed import Invocation

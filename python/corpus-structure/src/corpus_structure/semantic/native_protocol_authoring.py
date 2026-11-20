@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import replace
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import cast, func
@@ -23,9 +22,6 @@ from .types import SourceArtifact
 
 if TYPE_CHECKING:
     from .data_operation_model import EffectiveDataOperationModel
-
-_ROOT = Path(__file__).resolve().parents[1] / "model" / "semantic"
-
 
 NATIVE_LOGICAL_FILES = (
     "observations.yaml",
@@ -48,10 +44,11 @@ def native_logical_sources(*, model_sources=None) -> dict[str, bytes]:
 def capture_native_package_resource() -> SourceArtifact:
     """Capture the package vocabulary bytes used by native declaration preparation."""
     from hashlib import sha256
+    from pathlib import Path
 
     from .file_custody import observed_file
 
-    path = _ROOT / "operation-vocabularies.yaml"
+    path = Path(__file__).resolve().parents[1] / "model" / "semantic" / "operation-vocabularies.yaml"
     record = observed_file(path)
     content = path.read_bytes()
     record.check()
@@ -60,9 +57,7 @@ def capture_native_package_resource() -> SourceArtifact:
     return SourceArtifact("native/validity-vocabulary.yaml", content)
 
 
-def _captured_module(captured: dict[str, bytes] | None, filename: str) -> bytes:
-    if captured is None:
-        return Path(__file__).with_name(filename).read_bytes()
+def _captured_module(captured: dict[str, bytes], filename: str) -> bytes:
     try:
         return captured["semantic/" + filename]
     except KeyError as error:
@@ -71,9 +66,7 @@ def _captured_module(captured: dict[str, bytes] | None, filename: str) -> bytes:
         ) from error
 
 
-def _captured_source(captured: dict[str, bytes] | None, filename: str) -> bytes:
-    if captured is None:
-        return Path(__file__).resolve().parents[1].joinpath(filename).read_bytes()
+def _captured_source(captured: dict[str, bytes], filename: str) -> bytes:
     try:
         return captured[filename]
     except KeyError as error:
@@ -84,22 +77,16 @@ def _captured_source(captured: dict[str, bytes] | None, filename: str) -> bytes:
 
 def _native_protocol_sources(
     *,
-    physical_sources=None,
-    linkml_types=None,
-    target_metadata=None,
-    pdf_domain=None,
-    logical_sources=None,
-    model_sources=None,
-    captured_module_sources=None,
-    resource_sources=(),
-    native_library_runtime=(),
+    physical_sources: dict[str, bytes],
+    linkml_types: bytes,
+    target_metadata,
+    pdf_domain,
+    logical_sources: dict[str, bytes],
+    model_sources: dict[str, bytes],
+    captured_module_sources: dict[str, bytes],
+    resource_sources: tuple[SourceArtifact, ...],
+    native_library_runtime: tuple[tuple[str, str], ...],
 ) -> tuple[SourceArtifact, ...]:
-    from corpus_structure.schema.physical import (
-        compile_physical,
-        linkml_types_source,
-        physical_source_closure,
-    )
-
     from .artifact_admission_native import artifact_admission_native_sql
     from .authority_leaf import NativeAuthorityLeaf
     from .completion_validation_native import completion_validation_programs
@@ -161,11 +148,6 @@ def _native_protocol_sources(
     from .structural_admission_native import structural_admission_native_sql
     from .support_trust_native import support_scope_sql, support_trust_native_sql
 
-    if physical_sources is None:
-        physical_sources = physical_source_closure(
-            "physical.yaml", lambda name: (_ROOT / name).read_bytes()
-        )
-        linkml_types = linkml_types_source() if linkml_types is None else linkml_types
     if not isinstance(linkml_types, bytes):
         raise ValueError("explicit native physical inputs lack captured LinkML types")
     try:
@@ -173,19 +155,11 @@ def _native_protocol_sources(
         physical = physical_sources["data-operation-physical.yaml"]
     except KeyError as error:
         raise ValueError("explicit native physical closure lacks DDO declarations") from error
-    if target_metadata is None:
-        target_metadata = compile_physical(physical_sources, linkml_types=linkml_types)
     from .data_operation_projections import capture_projection_sources
 
-    logical = (
-        native_logical_sources(model_sources=model_sources)
-        if logical_sources is None
-        else logical_sources
-    )
+    logical = logical_sources
     runtime = dict(native_library_runtime)
     resources = {item.name: item for item in resource_sources}
-    if model_sources is None:
-        raise ValueError("native authoring requires captured model sources")
     programs = (
         ("demand-values", "data_operation_value_native.py", data_operation_value_sql()),
         ("demand-validity", "data_validity_native.py", data_validity_sql(target_metadata)),

@@ -115,7 +115,7 @@ def test_actual_command_failure_classification(cli, monkeypatch, tmp_path, comma
             else SourceRequestError("source selection refused")
         )
     elif kind == "conflict":
-        from corpus_structure.semantic.refusals import OperationConflict
+        from corpus_structure.semantic.refusal_types import OperationConflict
 
         failure = OperationConflict("native fence changed")
     elif kind == "serialization":

@@ -8,7 +8,7 @@ import pytest
 
 from corpus_structure.semantic.pdf_record_identity import byte_root
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
-from corpus_structure.semantic.refusals import ReadLimit
+from corpus_structure.semantic.refusal_types import ReadLimit
 from semantic.pdf_record_reader_support import NativeRows, native
 
 

@@ -161,6 +161,7 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
         pdf_sources=cohort if selection == "supplied" else None,
         logical_sources={} if selection == "supplied" else None,
     )
+    selected.info["unmodeled_shared_state"] = "must not enter rendering"
     observed = []
     phases = []
     actual_custody = native_program_store.capture_generator_custody
@@ -195,7 +196,9 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
         assert phases == ["entered"]
         assert captured is inputs
         assert pdf_sources is cohort
-        assert target_metadata is selected
+        assert target_metadata is not selected
+        assert "unmodeled_shared_state" not in target_metadata.info
+        assert set(target_metadata.tables) == set(selected.tables)
         assert target_metadata.info["physical_sources"] == dict(inputs.physical_sources)
         assert target_metadata.info["physical_linkml_types"] == inputs.linkml_types
         assert dict(running_model().sources) == dict(inputs.model_sources)

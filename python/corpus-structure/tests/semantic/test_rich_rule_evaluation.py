@@ -859,7 +859,7 @@ def test_declared_fact_references_require_the_actual_premise_member(rules, colle
 
 
 def test_eligibility_refuses_missing_actual_consolidation_owner(rules, rule_inputs):
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.semantic.rich_policy_binding import rich_eligibility_policy_digest
 
     prepared, model, _, _ = rules

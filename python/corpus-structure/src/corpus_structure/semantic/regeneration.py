@@ -13,7 +13,7 @@ from typing import Any
 import yaml
 
 from .prepare import prepare_release
-from .refusals import SemanticRefusal
+from .refusal_types import SemanticRefusal
 from .rich_knowledge_sources import rich_policy_inputs
 from .types import (
     PreparationProfile,

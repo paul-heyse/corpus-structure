@@ -2,7 +2,8 @@
 
 import pytest
 
-from corpus_structure.semantic.refusals import SemanticRefusal, tool_refusals
+from corpus_structure.semantic.refusal_types import SemanticRefusal
+from corpus_structure.semantic.refusals import tool_refusals
 
 
 def test_expected_tool_refusal_preserves_signature_and_defects():

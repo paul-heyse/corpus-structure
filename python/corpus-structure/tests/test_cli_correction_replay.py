@@ -15,7 +15,7 @@ from corpus_structure.cli.managed import ResultStore
 from corpus_structure.semantic.correction_detail import capture_json_errors
 from corpus_structure.semantic.diagnostic_selection import select_diagnostic
 from corpus_structure.semantic.operation_reporting import validation_failure_report
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.types import SourceArtifact
 
 

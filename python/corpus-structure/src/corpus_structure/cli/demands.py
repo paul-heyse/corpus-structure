@@ -217,7 +217,7 @@ def execute_request(
         record_native_demand,
         retain_native_demand_result,
     )
-    from corpus_structure.semantic.refusals import OperationConflict
+    from corpus_structure.semantic.refusal_types import OperationConflict
 
     if sum(value is not None for value in (demand, request, source_request)) != 1:
         raise typer.BadParameter("select one source request, native request or retained demand")

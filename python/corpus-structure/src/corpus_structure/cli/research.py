@@ -11,8 +11,8 @@ from pydantic import ValidationError
 from corpus_structure.cli.output import JsonOpt, read_request_json, state, write_report_text
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_results import selected_read_snapshot
-from corpus_structure.semantic.refusals import InvalidContinuation
-from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.refusal_types import InvalidContinuation
+from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.selected_graph_budget import SelectedGraphBudgetExceeded
 
 app = typer.Typer(help="Compare explicitly pinned current research inputs.", no_args_is_help=True)

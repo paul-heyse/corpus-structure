@@ -20,7 +20,7 @@ from corpus_structure.semantic.pdf_domain_native import pdf_domain_native_sql
 from corpus_structure.semantic.pdf_lowering import PRODUCER_IDENTITY_INPUTS
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.prepared_sql import prepare_sql
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.types import PreparationProfile, ResolvedDependencies, SourceArtifact
 from semantic.releases_support import source_bundle
 
@@ -248,7 +248,7 @@ def test_current_call_context_refuses_substitution_without_legacy_catalog_fallba
     from corpus_structure.semantic._pdf_native_calls import RETAIN_PDF_ORIGINAL_CONTRACT_DIGEST
     from corpus_structure.semantic.identity import canonical_bytes
     from corpus_structure.semantic.operation_value_types import require_call_context
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
 
     dependencies = ResolvedDependencies(
         (SourceArtifact("pdf-domain/contract.json", domain.content), *domain.sources)

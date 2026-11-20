@@ -179,7 +179,7 @@ def author(
     from corpus_structure.cli.failures import failure_boundary
     from corpus_structure.semantic.data_operation_service import NativeDemandRequest
     from corpus_structure.semantic.demand_results import selected_read_snapshot
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.serve.interpretation_authoring import author_interpretations

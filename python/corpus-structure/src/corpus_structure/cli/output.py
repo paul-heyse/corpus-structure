@@ -130,7 +130,7 @@ def read_request_bytes(source: str | Path) -> bytes:
         with Path(source).open("rb") as stream:
             data = stream.read(limit + 1)
     if len(data) > limit:
-        from corpus_structure.semantic.refusals import SemanticRefusal
+        from corpus_structure.semantic.refusal_types import SemanticRefusal
 
         raise SemanticRefusal("request input exceeds the 8 MiB limit")
     return data
@@ -141,7 +141,7 @@ def read_request_json(source: str | Path):
     from rapidjson import JSONDecodeError
 
     from corpus_structure.semantic.data_operation_json import json_loads
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
 
     content = read_request_bytes(source)
     try:

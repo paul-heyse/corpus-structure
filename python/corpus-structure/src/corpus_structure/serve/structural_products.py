@@ -5,7 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from corpus_structure.semantic.page_envelope import PageEnvelope
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.selected_structural_projection import (
     STRUCTURAL_QUERY_ROOTS,

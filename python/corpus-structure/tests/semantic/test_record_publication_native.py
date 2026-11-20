@@ -9,12 +9,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichEntity, DdoRichOccurrence
-from corpus_structure.semantic.rich_queries import (
-    ClaimsQuery,
-    EntityQuery,
-    RichQueryRefused,
-    SourceReadingsQuery,
-)
+from corpus_structure.semantic.refusal_types import RichQueryRefused
+from corpus_structure.semantic.rich_queries import ClaimsQuery, EntityQuery, SourceReadingsQuery
 from semantic.record_publication_native_support import (
     authored_propositions,
     publication_recipe,
@@ -283,7 +279,7 @@ def test_native_empty_admission_is_explicit_and_does_not_assert_global_absence(r
 
 
 def test_native_selected_reader_pages_and_pins_actual_product_and_support(rich_publication):
-    from corpus_structure.semantic.refusals import InvalidContinuation
+    from corpus_structure.semantic.refusal_types import InvalidContinuation
     from corpus_structure.serve.rich_queries import RichQueryRequest, serve_rich_query
 
     selected = publish_authored(

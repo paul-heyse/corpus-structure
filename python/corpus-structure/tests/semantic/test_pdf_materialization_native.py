@@ -13,7 +13,7 @@ from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.original_documents import acquire_original_document_selection
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
 from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.refusals import ReadLimit
+from corpus_structure.semantic.refusal_types import ReadLimit
 from semantic.current_pdf_integration_support import ROOT, integrated_pdf_recipe
 from semantic.data_operation_kernel_support import Kernel
 from semantic.data_operation_original_support import OriginalSeedRecipe

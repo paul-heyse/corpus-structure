@@ -188,7 +188,7 @@ def retain_optional_diagnostic(invocation, report=None, *, context, error=None):
 
 def read_diagnostic(store, result_id, *, raw_evidence=False, max_bytes=MAX_ARTIFACT_BYTES):
     from corpus_structure.cli.managed import ResultError
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
 
     if type(max_bytes) is not int or not 1024 <= max_bytes <= MAX_ARTIFACT_BYTES:
         raise ResultError("diagnostic read limit exceeds supported range")
@@ -271,7 +271,7 @@ def diagnostic_scope(
             operation=invocation,
         ):
             from corpus_structure.semantic.correction_detail import _detail_limits
-            from corpus_structure.semantic.refusals import SemanticRefusal
+            from corpus_structure.semantic.refusal_types import SemanticRefusal
 
             try:
                 _detail_limits(max_errors, max_depth, max_bytes)

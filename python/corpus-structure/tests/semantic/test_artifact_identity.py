@@ -294,7 +294,7 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
 
     from corpus_structure.semantic.artifact_products import native_artifact_records
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import (
         DeclaredArtifactIdentityProduct,

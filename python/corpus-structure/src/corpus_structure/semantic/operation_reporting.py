@@ -21,7 +21,8 @@ from corpus_structure.model.compiled import model_projection, model_source
 from corpus_structure.semantic.database_failures import DATABASE_ERRORS
 
 from .identity import canonical_bytes
-from .refusals import SemanticRefusal, trusted_operation_model_id
+from .refusal_types import SemanticRefusal
+from .refusals import trusted_operation_model_id
 from .types import Diagnostic, PreparedRelease
 
 if TYPE_CHECKING:

@@ -8,11 +8,12 @@ from functools import cached_property, lru_cache
 from hashlib import sha256
 from threading import RLock
 from types import MappingProxyType
-from typing import Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
-from pydantic import BaseModel, TypeAdapter
+if TYPE_CHECKING:
+    from pydantic import BaseModel, TypeAdapter
 
-from .refusals import SemanticRefusal
+from .refusal_types import SemanticRefusal
 
 SEMANTIC_COMPILER_VERSION: Literal["25"] = "25"
 SEMANTIC_ARCHIVE_FORMAT = "semantic-release-archive-4"
@@ -211,7 +212,7 @@ class SchemaPreview:
         return _enum_members(self.vocabularies, self.enum_definitions, name, subset)
 
 
-class _AdapterLookup(Mapping[str, TypeAdapter[BaseModel]]):
+class _AdapterLookup(Mapping[str, "TypeAdapter[BaseModel]"]):
     def __init__(self, release: PreparedRelease):
         self._release = release
 
@@ -487,6 +488,8 @@ class PreparedRelease:
         self, class_name: str, property_name: str, *, item: bool = False
     ) -> TypeAdapter[Any]:
         """Strict output boundary derived from the prepared field, including its constraints."""
+        from pydantic import TypeAdapter
+
         key = (class_name, property_name, item)
         with self._adapter_lock:
             if key in self._property_adapters:

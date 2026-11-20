@@ -9,7 +9,7 @@ import pytest
 from pglast import ast, parse_sql
 
 from corpus_structure.semantic.capture_storage import LogicalRows
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.serve.companion_export import (
     CompanionExportManifest,
     FamilyFile,

@@ -78,7 +78,7 @@ def native_inspection(
 
     from corpus_structure.cli import orchestrate
     from corpus_structure.cli.output import state
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.semantic.storage_target import StorageTarget, verify_target
 
     bindings = manifest.details.get("observation_bindings", {})

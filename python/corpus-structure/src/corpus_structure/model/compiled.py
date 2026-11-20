@@ -25,8 +25,6 @@ from linkml_runtime.loaders import yaml_loader
 from linkml_runtime.utils.schemaview import SchemaView
 from linkml_runtime.utils.yamlutils import DupCheckYamlLoader
 
-from corpus_structure.caches import declare
-
 if TYPE_CHECKING:
     from sqlalchemy import MetaData
     from sqlalchemy.types import TypeEngine
@@ -181,6 +179,8 @@ class CompiledModel:
     """One source capture with lazy, independently identified projections."""
 
     def __init__(self, sources: tuple[tuple[str, bytes], ...]):
+        if any(not isinstance(name, str) or not isinstance(body, bytes) for name, body in sources):
+            raise TypeError("model capture requires named bytes")
         self._sources: Mapping[str, bytes] = MappingProxyType(dict(sources))
         digest = sha256(b"corpus-model-sources-1\0")
         for name, content in sources:
@@ -277,6 +277,32 @@ class CompiledModel:
 
         return self.projection(("physical", root, target), build)
 
+    def exact_physical(
+        self,
+        sources: Mapping[str, bytes],
+        *,
+        linkml_types: bytes,
+        root: str = "physical.yaml",
+        target: str = "semantic",
+    ) -> MetaData:
+        """Compile an admitted exact physical closure within this model's lifetime."""
+        from corpus_structure.schema.declarations import ModelError
+        from corpus_structure.schema.physical import physical_model_documents
+
+        captured = dict(sources)
+        if "linkml:types" in captured:
+            raise ModelError(["unexpected sources in the physical declaration closure"])
+        if self.sources.get("linkml:types") != linkml_types or any(
+            self.sources.get(name) != content for name, content in captured.items()
+        ):
+            raise ModelError(["physical declaration differs from its model capture"])
+
+        def project():
+            physical_model_documents(captured, root=root)
+            return self.physical(root, target=target)
+
+        return self.projection(("exact-physical", root, target, tuple(sorted(captured))), project)
+
     def field_kinds(self) -> Mapping[str, FieldKind]:
         def build():
             from corpus_structure.schema.relational import physical_range_type
@@ -324,17 +350,15 @@ class CompiledModel:
         return self.projection(("companion-columns",), build)
 
 
-@declare("compiled-model", "model_entries")
-def _compiled_model(sources: tuple[tuple[str, bytes], ...]) -> CompiledModel:
-    return CompiledModel(sources)
-
-
 def compiled_model(sources: Mapping[str, bytes]) -> CompiledModel:
+    """Acquire the one process-retained interpretation for these exact named bytes."""
+    from .retention import held_compiled_model
+
     if any(
         not isinstance(name, str) or not isinstance(body, bytes) for name, body in sources.items()
     ):
         raise TypeError("model capture requires named bytes")
-    return _compiled_model(tuple(sorted(sources.items())))
+    return held_compiled_model(tuple(sorted(sources.items())))
 
 
 @dataclass

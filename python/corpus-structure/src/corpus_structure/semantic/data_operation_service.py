@@ -24,7 +24,7 @@ from .data_operation_demands import DemandIntent, DemandPlanner
 from .data_operation_json import DdoJsonValue as DdoJsonValue
 from .data_operation_json import json_bytes
 from .data_operation_storage import DataOperationStorage
-from .refusals import SemanticRefusal
+from .refusal_types import SemanticRefusal
 from .releases import load_release
 
 if TYPE_CHECKING:

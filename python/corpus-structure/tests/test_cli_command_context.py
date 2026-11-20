@@ -106,7 +106,7 @@ def test_context_unavailable_deployment_and_sequential_snapshot(cli, tmp_path):
 def test_repeated_pack_names_and_check_custody(cli, monkeypatch, tmp_path):
     from corpus_structure.cli.managed import ResultStore
     from corpus_structure.semantic import regeneration
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
 
     selected = []
 

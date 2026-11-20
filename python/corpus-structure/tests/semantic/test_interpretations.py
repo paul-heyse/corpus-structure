@@ -320,7 +320,7 @@ def test_descriptive_unit_reference_corruption_refuses(statistics_pack_prepared)
 
 
 def test_retained_review_answer_uses_json_context_and_keeps_byte_bound():
-    from corpus_structure.semantic.refusals import ReadLimit
+    from corpus_structure.semantic.refusal_types import ReadLimit
     from corpus_structure.serve.interpretations import answer
 
     # Retained product readers reconstruct tuple populations in Python. Transport

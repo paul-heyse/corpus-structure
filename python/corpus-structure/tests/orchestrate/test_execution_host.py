@@ -8,7 +8,7 @@ from orchestrate.executor_support import prepared as prepared
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.orchestrate.execution_host import ProcessExecutionHost, execution_host_scope
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 
 
 def test_process_scope_shares_one_owner_and_rejects_concurrent_runs():

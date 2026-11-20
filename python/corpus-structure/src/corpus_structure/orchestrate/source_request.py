@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.semantic.data_operation_service import DemandOperationSelection
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 
 
 class SourceRequestError(SemanticRefusal):

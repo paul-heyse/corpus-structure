@@ -11,7 +11,7 @@ from typing import Any, Literal, cast
 from pydantic import BaseModel, ValidationError
 
 from .identity import canonical_bytes
-from .refusals import InvalidContinuation, SemanticRefusal
+from .refusal_types import InvalidContinuation, SemanticRefusal
 from .types import PreparedRelease
 
 MAX_REPORT_BYTES = 1024 * 1024
@@ -366,7 +366,7 @@ def inspect_contract(
                 )
                 if len(canonical_bytes(report.model_dump(mode="json"))) <= MAX_REPORT_BYTES:
                     return report
-        from .refusals import ReadLimit
+        from .refusal_types import ReadLimit
 
         raise ReadLimit(
             "inspection detail exceeds byte budget; select a property or smaller page",

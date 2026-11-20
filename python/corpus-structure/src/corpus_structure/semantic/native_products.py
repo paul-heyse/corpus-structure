@@ -66,20 +66,14 @@ class NativeAuthoringInputs:
         )
 
 
-def _captured_native_module(captured: dict[str, bytes] | None, name: str) -> bytes:
-    if captured is None:
-        return Path(__file__).with_name(name).read_bytes()
+def _captured_native_module(captured: dict[str, bytes], name: str) -> bytes:
     try:
         return captured["semantic/" + name]
     except KeyError as error:
         raise ValueError(f"native authoring provenance source was not captured: {name}") from error
 
 
-def _captured_model_source(model_sources, name: str) -> bytes:
-    if model_sources is None:
-        from corpus_structure.model.compiled import model_source
-
-        return model_source(name)
+def _captured_model_source(model_sources: dict[str, bytes], name: str) -> bytes:
     try:
         return model_sources[name]
     except KeyError as error:
@@ -88,15 +82,14 @@ def _captured_model_source(model_sources, name: str) -> bytes:
 
 def _capture_native_authoring_inputs(
     *,
-    target_metadata: MetaData | None = None,
-    pdf_actions=None,
-    pdf_sources=None,
-    extra_sources=(),
-    logical_sources=None,
-    model_sources=None,
-    captured_module_sources=None,
-    resource_sources=(),
-    native_library_runtime=(),
+    target_metadata: MetaData,
+    pdf_sources: tuple[SourceArtifact, ...],
+    extra_sources: tuple[SourceArtifact, ...],
+    logical_sources: dict[str, bytes],
+    model_sources: dict[str, bytes],
+    captured_module_sources: dict[str, bytes],
+    resource_sources: tuple[SourceArtifact, ...],
+    native_library_runtime: tuple[tuple[str, str], ...],
 ) -> NativeAuthoringInputs:
     """Acquire the native protocol, exact physical closure and real helper assets once.
 
@@ -109,39 +102,18 @@ def _capture_native_authoring_inputs(
     )
     from .data_operation_protocol import data_task_guard_program
     from .native_objects import native_sql_script
-    from .native_protocol_authoring import _native_protocol_sources, native_logical_sources
-    from .pdf_domain import CONTRACT, PREFIX, PdfDomainContract, pdf_domain_sources
+    from .native_protocol_authoring import _native_protocol_sources
+    from .pdf_domain import CONTRACT, PdfDomainContract
     from .runtime_binding_native import runtime_binding_sql
     from .types import SourceArtifact
 
-    if target_metadata is None:
-        from .metadata import get_metadata
-
-        target_metadata = get_metadata()
     selected = target_metadata
     physical = selected.info.get("physical_sources")
     types = selected.info.get("physical_linkml_types")
     if not physical or not isinstance(types, bytes):
         raise ValueError("native authoring requires captured physical sources and LinkML types")
-    if pdf_actions is not None and pdf_sources is not None:
-        raise ValueError("select PDF action input or an already captured PDF source cohort")
-    logical = (
-        native_logical_sources(model_sources=model_sources)
-        if logical_sources is None
-        else logical_sources
-    )
-    if pdf_sources is None and pdf_actions is None:
-        pdf_actions = SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"])
-    pdf = (
-        pdf_domain_sources(
-            physical_sources=physical,
-            linkml_types=types,
-            actions_source=pdf_actions,
-            include_producer=False,
-        )
-        if pdf_sources is None
-        else tuple(pdf_sources)
-    )
+    logical = logical_sources
+    pdf = pdf_sources
     contract = next(source for source in pdf if source.name == CONTRACT)
     domain = PdfDomainContract(
         contract.content, tuple(source for source in pdf if source.name != CONTRACT)

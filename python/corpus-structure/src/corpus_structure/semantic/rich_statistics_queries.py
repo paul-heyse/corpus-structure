@@ -13,17 +13,8 @@ from dataclasses import dataclass
 
 from .data_operation_json import json_bytes
 from .graph_runtime import nx
-from .rich_queries import (
-    ConstructionProfileQuery,
-    FamiliesWhereQuery,
-    FamilyProfileQuery,
-    ParameterMappingQuery,
-    RelationsQuery,
-    RichQueryIndex,
-    RichQueryRefused,
-    RichQueryRow,
-    statement_key,
-)
+from .refusal_types import RichQueryRefused
+from .rich_queries import ConstructionProfileQuery, FamiliesWhereQuery, FamilyProfileQuery, ParameterMappingQuery, RelationsQuery, RichQueryIndex, RichQueryRow, statement_key
 
 
 def _parameters(index: RichQueryIndex, subjects, facts):

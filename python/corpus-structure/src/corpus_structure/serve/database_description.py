@@ -22,7 +22,7 @@ from corpus_structure.core.db.adbc_lifetime import (
     owned_adbc_child,
     owned_adbc_read,
 )
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.runtime import connection_settings, open_runtime_engine
 from corpus_structure.settings import Settings
 

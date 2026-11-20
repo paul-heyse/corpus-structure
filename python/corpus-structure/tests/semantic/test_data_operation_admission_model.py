@@ -9,7 +9,7 @@ from corpus_structure.semantic.data_operation_admission import bound_data_operat
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_model import read_effective_data_operations
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.types import PreparedArtifact, PreparedRelease
 from semantic.test_data_operation_compilation import operation_source, python_inputs
 

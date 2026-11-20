@@ -10,7 +10,7 @@ import typer
 from corpus_structure.cli.managed import managed_operation, result_store
 from corpus_structure.cli.output import JsonOpt, read_request_model, state, write_report_text
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.refusals import OperationConflict
+from corpus_structure.semantic.refusal_types import OperationConflict
 
 reference_app = typer.Typer(
     help="Author independent protected references against exact source selections.",
@@ -196,7 +196,7 @@ def evaluate_records(
             ("record_policy.fit",),
             ("record_policy.fit", "record_policy.authorize"),
         }:
-            from corpus_structure.semantic.refusals import SemanticRefusal
+            from corpus_structure.semantic.refusal_types import SemanticRefusal
 
             raise SemanticRefusal(
                 "record evaluation requires exactly its protected grade or fit target"
@@ -262,7 +262,7 @@ def evaluate_structural(
         execute_data_demand,
     )
     from corpus_structure.semantic.declared_structural_admission import ADMISSION_OPERATION
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.semantic.releases import open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.storage_target import acquired_target

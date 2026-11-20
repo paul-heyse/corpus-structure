@@ -190,7 +190,7 @@ class NativeSourceResponse(BaseModel):
 
 def _source_cursor(request, after):
     from corpus_structure.semantic.identity import canonical_bytes
-    from corpus_structure.semantic.refusals import ReadLimit
+    from corpus_structure.semantic.refusal_types import ReadLimit
 
     token = base64.urlsafe_b64encode(
         canonical_bytes(dict(cursor_version=5, selection=request.selection_digest(), after=after))
@@ -201,7 +201,7 @@ def _source_cursor(request, after):
 
 
 def _source_position(request):
-    from corpus_structure.semantic.refusals import InvalidContinuation
+    from corpus_structure.semantic.refusal_types import InvalidContinuation
 
     try:
         if len(request.cursor.encode("utf-8")) > 8192:
@@ -320,7 +320,7 @@ def inspect_native_source(
     with cancellation.borrow(conn):
         from corpus_structure.semantic.identity import canonical_bytes
         from corpus_structure.semantic.pdf_record_reader import PublishedReadBudget
-        from corpus_structure.semantic.refusals import ReadLimit
+        from corpus_structure.semantic.refusal_types import ReadLimit
 
         budget = PublishedReadBudget(request.max_rows, request.max_bytes)
         response = _inspect_native_source(
@@ -455,7 +455,7 @@ def _inspect_native_source(
     if request.cursor is not None:
         after = _source_position(request)
         if type(after) is not int:
-            from corpus_structure.semantic.refusals import InvalidContinuation
+            from corpus_structure.semantic.refusal_types import InvalidContinuation
 
             raise InvalidContinuation(
                 "invalid native ordinal continuation", reason="invalid_continuation"
@@ -690,7 +690,7 @@ def _inspect_companion(
     if request.cursor is not None:
         after = _source_position(request)
         if not isinstance(after, str):
-            from corpus_structure.semantic.refusals import InvalidContinuation
+            from corpus_structure.semantic.refusal_types import InvalidContinuation
 
             raise InvalidContinuation(
                 "invalid native companion continuation", reason="invalid_continuation"

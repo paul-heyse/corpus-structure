@@ -85,7 +85,7 @@ def require_rich_policy(prepared, model, value):
 def rich_eligibility_policy_digest(checked_policy, model) -> str:
     """Actual checked policy and the selected consolidation implementation recipe."""
     from .data_operation_values import semantic_value
-    from .refusals import SemanticRefusal
+    from .refusal_types import SemanticRefusal
 
     recipes = tuple(
         identity.key

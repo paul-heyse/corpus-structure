@@ -8,8 +8,8 @@ from corpus_structure.semantic.continuation_codec import decode_rich_cursor
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.page_envelope import PageEnvelope
-from corpus_structure.semantic.refusals import InvalidContinuation
-from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.refusal_types import InvalidContinuation
+from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.selected_contribution_projection import contribution_rows
 from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.serving_code import capture_page_refusal

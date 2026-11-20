@@ -9,7 +9,7 @@ from corpus_structure.semantic.identity_exclusion_comparison import (
     ConstraintSnapshot,
     compare_constraint_snapshots,
 )
-from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.refusal_types import RichQueryRefused
 
 
 def entry(local="separate"):

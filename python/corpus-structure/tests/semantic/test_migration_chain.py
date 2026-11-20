@@ -9,7 +9,7 @@ from corpus_structure.semantic.migration_chain import (
     registered_base,
     verify_registered_base,
 )
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 
 
 def _chain(tmp_path):

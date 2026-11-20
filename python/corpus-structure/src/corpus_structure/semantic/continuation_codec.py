@@ -23,7 +23,7 @@ def decode_cursor(value):
 
 
 def decode_rich_cursor(value: str) -> dict:
-    from .refusals import InvalidContinuation
+    from .refusal_types import InvalidContinuation
 
     try:
         parsed = json_loads(base64.b64decode(value, altchars=b"-_", validate=True))

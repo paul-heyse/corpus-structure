@@ -25,7 +25,7 @@ from corpus_structure.core.db.store import (
 )
 from corpus_structure.settings import DatabaseSettings
 
-from .refusals import OperationConflict
+from .refusal_types import OperationConflict
 
 
 class OwnedClaim(Protocol):

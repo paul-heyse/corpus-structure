@@ -10,7 +10,7 @@ from sqlalchemy import literal, select
 
 from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
 from corpus_structure.semantic.product_reference import ProductReference
-from corpus_structure.semantic.refusals import InvalidContinuation, ReadLimit
+from corpus_structure.semantic.refusal_types import InvalidContinuation, ReadLimit
 from corpus_structure.serve import native_source
 
 

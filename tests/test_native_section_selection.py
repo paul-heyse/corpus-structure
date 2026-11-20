@@ -3,7 +3,7 @@
 import pytest
 
 from corpus_structure.ingest.pdf_hierarchy import resolve_native_sections
-from corpus_structure.semantic.refusals import SourceReadRefused
+from corpus_structure.semantic.refusal_types import SourceReadRefused
 
 CATALOG = {
     "#/groups/11": "1.1: Sets",

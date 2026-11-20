@@ -6,7 +6,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
-from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.selected_contribution_input import actual_graph_inputs
 from corpus_structure.semantic.selected_graph_budget import SelectedGraphBudgetExceeded
 from semantic.test_rich_query_delivery import CUT

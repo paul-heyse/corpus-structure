@@ -311,7 +311,7 @@ def test_actual_grade_fit_authorization_and_restricted_fitter_custody(
         PROTECTED_NAMESPACE,
         author_record_policy_inputs,
     )
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
 
     context = project_context(journey, "record_policy.grade")
     for kind, body in (

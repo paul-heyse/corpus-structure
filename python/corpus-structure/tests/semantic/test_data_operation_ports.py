@@ -674,7 +674,7 @@ def test_execution_admission_serializes_capability_meaning_and_checks_exact_iden
         AcquiredPythonExecution,
         _source_identity_bytes,
     )
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
 
     model, sources = actual()
     identity = python_port_identity(model, sources, model.operations[0].semantic_id)

@@ -15,7 +15,8 @@ from .rich_knowledge_contracts import (
     DdoRichSourceReadingAssertion,
 )
 from .rich_proposals import FAMILIES, read_rich_proposals
-from .rich_queries import RichGraphIndex, RichQueryRefused, RichQueryRow
+from .refusal_types import RichQueryRefused
+from .rich_queries import RichGraphIndex, RichQueryRow
 
 PROPOSAL_NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-proposals/"
 LOCATED_KIND = "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoLocatedExternalExtraction"

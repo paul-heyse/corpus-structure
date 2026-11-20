@@ -245,7 +245,7 @@ class VisualEvidenceArtifact(_VisualModel):
         )
 
     def artifact_bytes(self) -> bytes:
-        from corpus_structure.semantic.refusals import ReadLimit
+        from corpus_structure.semantic.refusal_types import ReadLimit
 
         content = self.model_dump_json(exclude_none=True).encode()
         if len(content) > MAX_VISUAL_EVIDENCE_BYTES:

@@ -30,7 +30,7 @@ from corpus_structure.semantic.capture_storage import LogicalRows
 from corpus_structure.semantic.demand_results import CutSelection, selected_read_snapshot
 from corpus_structure.semantic.identifiers import ReleaseId
 from corpus_structure.semantic.pdf_publication import PublishedPdfDocumentRef
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.runtime import connection_settings, open_runtime_engine
 from corpus_structure.serve.selected_pdf import (
     SelectedPdfSourceReference,

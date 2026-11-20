@@ -191,7 +191,7 @@ class ProcessExecutionHost:
         from corpus_structure.semantic.cpu_execution import CapacityExceeded, release_capsule
         from corpus_structure.semantic.data_operation_service import acquire_data_execution_basis
         from corpus_structure.semantic.metadata import table
-        from corpus_structure.semantic.refusals import SemanticRefusal
+        from corpus_structure.semantic.refusal_types import SemanticRefusal
 
         self._require_run(token)
         root = source_root.resolve() if source_root is not None else None

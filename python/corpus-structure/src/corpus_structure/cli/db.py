@@ -293,7 +293,7 @@ def check_contract(
         ExecutionAdmissionError,
     )
     from corpus_structure.semantic.read_snapshot import read_snapshot
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.semantic.releases import ReleaseConflict, open_release
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.storage_target import (

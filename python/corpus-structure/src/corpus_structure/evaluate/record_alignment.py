@@ -24,7 +24,7 @@ from corpus_structure.semantic.record_contracts import (
     bind_record_candidates,
     validate_record_declarations,
 )
-from corpus_structure.semantic.refusals import ReferenceError
+from corpus_structure.semantic.refusal_types import ReferenceError
 from corpus_structure.semantic.types import PreparedRelease
 
 from .semantic_alignment import TierCounts

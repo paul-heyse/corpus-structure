@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 
 from pydantic import BaseModel, ConfigDict
 
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 
 
 class NativeMigrationBase(BaseModel):

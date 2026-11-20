@@ -9,7 +9,7 @@ import pytest
 from corpus_structure.semantic.continuation_codec import encode_cursor
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.page_envelope import PageEnvelope
-from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.semantic.refusal_types import InvalidContinuation
 from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.selected_query_cache import (
     SelectedQueryCache,

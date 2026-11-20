@@ -66,7 +66,7 @@ def test_bad_scratch_refuses_before_connection(tmp_path):
 
 
 def test_export_capture_honors_batch_size_and_resident_bound():
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.serve.companion_export import _capture_batches
 
     table = pa.table({"id": [1, 2, 3]})

@@ -105,10 +105,10 @@ def _analyze_generator_code():
         root,
         ("corpus_structure.semantic.target_installation",),
         callables=(
-            "corpus_structure.model.compiled.compiled_model",
+            "corpus_structure.model.compiled.CompiledModel.__init__",
+            "corpus_structure.model.compiled.CompiledModel.exact_physical",
             "corpus_structure.model.compiled.model_request_scope",
-            "corpus_structure.schema.physical.compile_physical",
-            "corpus_structure.semantic.native_generation.prepare_native_pdf_sources",
+            "corpus_structure.semantic.pdf_domain.prepare_native_pdf_sources",
             "corpus_structure.semantic.pdf_domain.pdf_domain_sources",
             "corpus_structure.semantic.target_installation.render_target_installation",
             "corpus_structure.semantic.target_installation._build_target_installation",

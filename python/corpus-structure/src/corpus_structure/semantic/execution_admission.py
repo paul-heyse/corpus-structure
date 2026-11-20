@@ -13,7 +13,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .refusals import SemanticRefusal
+from .refusal_types import SemanticRefusal
 from .types import PreparedRelease
 
 if TYPE_CHECKING:

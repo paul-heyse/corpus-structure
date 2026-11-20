@@ -9,7 +9,7 @@ from typing import Literal, Protocol
 
 from corpus_structure.core.db.store import DatabaseOperationFailure, operation_failure
 
-from .refusals import SemanticRefusal
+from .refusal_types import SemanticRefusal
 
 
 @dataclass(frozen=True)

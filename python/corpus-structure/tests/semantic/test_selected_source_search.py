@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.semantic.refusal_types import InvalidContinuation
 from corpus_structure.serve.source_search import SourceSearchRequest, _position
 from semantic.selected_source_contract_support import selection
 

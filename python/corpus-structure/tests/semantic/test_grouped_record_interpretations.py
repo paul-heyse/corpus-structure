@@ -314,7 +314,7 @@ def test_group_paging_pins_cut_and_selection_and_never_splits_readings(monkeypat
                 update={"cursor": token, "read_id": "read:foreign", "expected_cut": cut().identity}
             ),
         )
-    from corpus_structure.semantic.refusals import ReadLimit
+    from corpus_structure.semantic.refusal_types import ReadLimit
 
     with pytest.raises(ReadLimit):
         interpretations.group_selected_interpretations(

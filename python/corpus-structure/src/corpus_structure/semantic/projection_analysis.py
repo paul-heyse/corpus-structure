@@ -26,7 +26,7 @@ from .determinants import analysis_runtime
 from .graph_runtime import nx
 from .graph_topology import cyclic_components
 from .identity import canonical_bytes
-from .refusals import SemanticRefusal
+from .refusal_types import SemanticRefusal
 
 
 @dataclass(frozen=True)

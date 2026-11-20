@@ -11,7 +11,7 @@ from corpus_structure.evaluate import declared_record_policy as policy
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 
 
 @pytest.fixture

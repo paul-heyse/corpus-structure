@@ -15,7 +15,8 @@ from corpus_structure.semantic.rich_knowledge_contracts import (
     DdoRichAssessment,
     DdoRichConsolidation,
 )
-from corpus_structure.semantic.rich_queries import RichGraphIndex, RichQueryIndex, RichQueryRefused
+from corpus_structure.semantic.refusal_types import RichQueryRefused
+from corpus_structure.semantic.rich_queries import RichGraphIndex, RichQueryIndex
 from semantic.test_external_rich_extraction import rich_bundle as rich_bundle
 from semantic.test_external_rich_extraction import rich_model as rich_model
 from semantic.test_external_rich_extraction import rich_prepared as rich_prepared

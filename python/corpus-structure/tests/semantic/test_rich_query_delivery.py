@@ -17,8 +17,8 @@ from corpus_structure.semantic.continuation_codec import encode_cursor as _curso
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
-from corpus_structure.semantic.refusals import InvalidContinuation
-from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.refusal_types import InvalidContinuation
+from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.rich_query_projection import RichQueryInput
 from corpus_structure.serve import rich_queries as service
 from corpus_structure.serve.rich_knowledge import SelectedRichKnowledge, SelectedRichReference

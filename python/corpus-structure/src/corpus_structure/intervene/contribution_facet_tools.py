@@ -7,8 +7,9 @@ from pydantic import BaseModel, Field, ValidationError
 
 from corpus_structure.semantic.continuation_codec import decode_rich_cursor
 from corpus_structure.semantic.data_operation_json import json_bytes
-from corpus_structure.semantic.refusals import InvalidContinuation, tool_refusals
-from corpus_structure.semantic.rich_queries import RichQueryRefused
+from corpus_structure.semantic.refusal_types import InvalidContinuation
+from corpus_structure.semantic.refusals import tool_refusals
+from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.selected_graph_budget import SelectedGraphBudgetExceeded
 from corpus_structure.serve.contribution_facets import (
     ContributionFacetsRequest,

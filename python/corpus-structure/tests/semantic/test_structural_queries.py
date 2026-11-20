@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from corpus_structure.semantic.refusals import InvalidContinuation
+from corpus_structure.semantic.refusal_types import InvalidContinuation
 from corpus_structure.serve import structural_products as reader
 
 

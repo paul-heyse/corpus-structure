@@ -17,7 +17,7 @@ from corpus_structure.semantic.data_operation_support import (
     read_original_source_reference,
 )
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
 
 

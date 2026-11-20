@@ -9,15 +9,38 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from corpus_structure.model.compiled import model_source
 
 from .identity import canonical_bytes
 from .types import ResolvedDependencies, SourceArtifact, SourceBundle
 
+if TYPE_CHECKING:
+    from .target_installation import NativeGeneratorInputs
+
 PREFIX = "pdf-domain/"
 CONTRACT = PREFIX + "contract.json"
+
+
+
+def prepare_native_pdf_sources(inputs: NativeGeneratorInputs) -> tuple[SourceArtifact, ...]:
+    """Resolve a supplied cohort or captured actions only after an artifact miss."""
+    if inputs.pdf_sources is not None and inputs.pdf_actions is not None:
+        raise ValueError("select PDF action input or an already captured PDF source cohort")
+    if inputs.pdf_sources is not None:
+        return inputs.pdf_sources
+    return pdf_domain_sources(
+        physical_sources=dict(inputs.physical_sources),
+        linkml_types=inputs.linkml_types,
+        actions_source=inputs.pdf_actions
+        or SourceArtifact(
+            PREFIX + "native/actions.yaml", dict(inputs.logical_sources)["pdf-actions.yaml"]
+        ),
+        include_producer=False,
+        model_sources=dict(inputs.model_sources),
+        analysis_versions=inputs.analysis_runtime,
+    )
 
 
 def _pdf_action(operation: str, owner: str, symbol: str) -> bool:
@@ -413,7 +436,7 @@ def require_pdf_prepared_action(prepared, operation: str):
 
 
 def require_pdf_call_context(prepared, operation: str, variant: str, contract_digest: str) -> None:
-    from .refusals import SemanticRefusal
+    from .refusal_types import SemanticRefusal
 
     action = require_pdf_prepared_action(prepared, operation)
     calls = [call for call in action["contract"]["calls"] if call["id"] == variant]

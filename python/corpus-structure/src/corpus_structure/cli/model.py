@@ -2254,7 +2254,7 @@ def deploy(
     from corpus_structure.schema.preparation import writer_lock
     from corpus_structure.semantic.execution_admission import ExecutionAdmissionError
     from corpus_structure.semantic.migrations import MigrationPredecessorError
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
     from corpus_structure.semantic.releases import ReleaseConflict
 
     expected = (

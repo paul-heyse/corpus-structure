@@ -314,7 +314,7 @@ def test_native_source_text_authentication_and_exact_observation_refusal():
 
 def test_record_policy_boundary_owns_refusals_and_preserves_unexpected_value_error(monkeypatch):
     import corpus_structure.evaluate.declared_record_policy as owner
-    from corpus_structure.semantic.refusals import SemanticRefusal
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
 
     grade = training_grade()
     selected = selection(grade)

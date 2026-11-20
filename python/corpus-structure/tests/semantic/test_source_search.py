@@ -125,7 +125,7 @@ def test_cached_native_search_preserves_english_rank_ties_and_exact_cursor(
 
     from corpus_structure.semantic.metadata import table
     from corpus_structure.semantic.pdf_source_search import search_source_snapshot
-    from corpus_structure.semantic.refusals import InvalidContinuation
+    from corpus_structure.semantic.refusal_types import InvalidContinuation
 
     with current_pdf_source_factory(
         (
@@ -248,7 +248,7 @@ def test_publication_fill_is_separately_bounded_replays_exact_set_and_authentica
         projection_recipe,
         search_source_snapshot,
     )
-    from corpus_structure.semantic.refusals import ReadLimit
+    from corpus_structure.semantic.refusal_types import ReadLimit
     from corpus_structure.serve.selected_pdf import acquire_selected_pdf_source
 
     case = published_pdf_source

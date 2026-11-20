@@ -18,7 +18,7 @@ from corpus_structure.semantic.operation_reporting import (
 )
 from corpus_structure.semantic.operation_value_types import NativeResultViolation
 from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.refusals import SemanticRefusal
+from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.types import (
     Diagnostic,
 )
