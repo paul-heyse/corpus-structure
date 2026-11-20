@@ -101,7 +101,7 @@ def test_actual_parser_demand_preserves_three_families_and_exact_resume(
         result = execute_data_demand(
             kernel.purpose("write"),
             registered["demand_id"],
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=kernel.purpose("admit"),
             database_capacity=6,
         )
@@ -140,7 +140,7 @@ def test_actual_parser_demand_preserves_three_families_and_exact_resume(
         resumed = execute_data_demand(
             kernel.purpose("write"),
             result.demand_id,
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=kernel.purpose("admit"),
             database_capacity=6,
         )

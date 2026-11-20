@@ -97,7 +97,7 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
     result = execute_data_demand(
         kernel.purpose("write"),
         registered["demand_id"],
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=kernel.purpose("admit"),
         database_capacity=6,
     )
@@ -164,7 +164,7 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
     resumed = execute_data_demand(
         kernel.purpose("write"),
         result.demand_id,
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         policy=replace(methods.execution_policy, workers=1, max_regions=1),
         admission_engine=kernel.purpose("admit"),
         database_capacity=6,
@@ -243,7 +243,7 @@ def test_empty_selected_source_population_closes_without_invented_language_produ
     result = execute_data_demand(
         kernel.purpose("write"),
         snapshot["demand_id"],
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=kernel.purpose("admit"),
         database_capacity=6,
     )

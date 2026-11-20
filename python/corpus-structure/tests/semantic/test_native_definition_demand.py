@@ -104,7 +104,7 @@ def test_actual_definition_demand_retains_provider_pair_and_exact_component_sour
         result = execute_data_demand(
             kernel.purpose("write"),
             registered["demand_id"],
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=kernel.purpose("admit"),
             database_capacity=6,
         )
@@ -241,7 +241,7 @@ def test_actual_definition_demand_retains_provider_pair_and_exact_component_sour
         resumed = execute_data_demand(
             kernel.purpose("write"),
             result.demand_id,
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=kernel.purpose("admit"),
             database_capacity=6,
         )

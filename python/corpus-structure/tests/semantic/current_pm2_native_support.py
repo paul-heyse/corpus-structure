@@ -1,6 +1,9 @@
 """Current selected PM2 setup; expectations remain independent in the tests."""
 
 from contextlib import contextmanager
+from dataclasses import replace
+from importlib import import_module
+from pathlib import Path
 
 import pytest
 
@@ -11,12 +14,11 @@ from corpus_structure.semantic.data_operation_service import (
     DemandRoot,
     NativeDemandRequest,
     create_native_demand,
-    execute_data_demand,
 )
 from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 from corpus_structure.semantic.demand_results import read_demand_result
 from corpus_structure.semantic.source_products import FrozenNativeSource
-from semantic.current_pdf_source_support import PROJECT, ROOT, current_pdf_recipe, source_entry
+from semantic.current_pdf_source_support import PROJECT, current_pdf_recipe, source_entry
 from semantic.current_pm2_projection_fixture import OPERATION, operation_sources
 from semantic.data_operation_kernel_support import (
     CapturedKernelInputs,
@@ -102,14 +104,42 @@ def register(kernel, request):
 
 
 def execute(kernel, demand, *, rounds=100):
-    return execute_data_demand(
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
+    from corpus_structure.semantic.composed import (
+        read_data_operation_inputs,
+        runtime_transport_inputs,
+    )
+
+    captured = read_data_operation_inputs(kernel.preparation.dependencies)
+    assert captured is not None and captured[1] is not None
+    declarations, sources = captured
+    sources = replace(
+        sources,
+        boundary_contracts=(
+            *sources.boundary_contracts,
+            *runtime_transport_inputs(kernel.preparation.runtime),
+        ),
+    )
+    locations = {}
+    for source in sources.sources:
+        loaded = import_module(source.module)
+        assert loaded.__file__ is not None
+        location = Path(loaded.__file__).resolve()
+        assert location.read_bytes() == source.content, source.module
+        locations[source.module] = location
+    executor = NativeDemandExecutor(
         kernel.purpose("write"),
-        demand,
-        source_root=ROOT,
+        kernel.prepared,
+        kernel.preparation.runtime,
+        sources,
+        runtime_locations=locations,
+        schema=kernel.preparation.bundle,
+        declarations=declarations,
+        captured_contracts=kernel.preparation.dependencies.artifacts,
         admission_engine=kernel.purpose("admit"),
         database_capacity=6,
-        max_rounds=rounds,
     )
+    return executor.run(demand, max_rounds=rounds)
 
 
 def page(kernel, demand, *, purpose="read"):
