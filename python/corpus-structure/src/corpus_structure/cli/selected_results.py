@@ -403,8 +403,7 @@ def contributions(
     from corpus_structure.cli.reuse_explanation import emit_selected_result
     from corpus_structure.semantic.code_reuse import attach_reuse_explanation, explain_code_reuse
     from corpus_structure.semantic.demand_results import selected_read_snapshot
-    from corpus_structure.semantic.refusal_types import InvalidContinuation
-    from corpus_structure.semantic.refusal_types import RichQueryRefused
+    from corpus_structure.semantic.refusal_types import InvalidContinuation, RichQueryRefused
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.selected_graph_budget import SelectedGraphBudgetExceeded
     from corpus_structure.semantic.selected_query_cache import disk_row_cache

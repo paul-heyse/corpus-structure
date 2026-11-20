@@ -12,7 +12,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 
 class SourceDocument(BaseModel):
@@ -96,11 +96,11 @@ class NavigationResult(BaseModel):
     tool: str
     operation: str
     standing: Literal["complete", "partial", "unavailable"]
-    items: tuple[dict, ...] = ()
+    items: tuple[dict[str, JsonValue], ...] = ()
     reason: str | None = None
 
 
-def lsp_position(content: str, byte_offset: int) -> dict:
+def lsp_position(content: str, byte_offset: int) -> dict[str, int]:
     raw = content.encode()
     if byte_offset > len(raw):
         raise ValueError("source position exceeds captured bytes")
@@ -111,7 +111,7 @@ def lsp_position(content: str, byte_offset: int) -> dict:
     }
 
 
-def _byte_position(content: str, position: dict) -> int:
+def _byte_position(content: str, position: dict[str, int]) -> int:
     lines = content.splitlines(keepends=True)
     line, character = position["line"], position["character"]
     if line == len(lines) and character == 0:

@@ -12,6 +12,7 @@ from .data_operation_json import json_bytes
 from .data_operation_model import SubjectContext
 from .data_operation_support import ComputationalSupportReference, read_support_references
 from .data_operation_values import decode_semantic_value
+from .refusal_types import RichQueryRefused
 from .rich_graph_validation import (
     RichGraphState,
     RichWholeInput,
@@ -24,7 +25,6 @@ from .rich_knowledge_contracts import (
     DdoRichSelectedMember,
     rich_reference_key,
 )
-from .refusal_types import RichQueryRefused
 from .selected_graph_budget import SelectedGraphBudgetExceeded
 
 if TYPE_CHECKING:

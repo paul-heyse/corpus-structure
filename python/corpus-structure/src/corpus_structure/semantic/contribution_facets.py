@@ -4,6 +4,7 @@ from collections import defaultdict
 from collections.abc import Iterator
 
 from .data_operation_values import semantic_value
+from .refusal_types import RichQueryRefused
 from .rich_decisions import DdoRichOccurrenceDecision
 from .rich_knowledge_contracts import (
     DdoRichAdmission,
@@ -16,7 +17,6 @@ from .rich_knowledge_contracts import (
     DdoRichSourceReadingAssertion,
 )
 from .rich_proposals import FAMILIES, read_rich_proposals
-from .refusal_types import RichQueryRefused
 from .rich_queries import RichGraphIndex, RichQueryRow
 
 PROPOSAL_NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-proposals/"

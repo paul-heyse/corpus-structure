@@ -14,8 +14,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.page_envelope import PageEnvelope, PageObservations
-from corpus_structure.semantic.refusal_types import InvalidContinuation
-from corpus_structure.semantic.refusal_types import RichQueryRefused
+from corpus_structure.semantic.refusal_types import InvalidContinuation, RichQueryRefused
 from corpus_structure.semantic.rich_queries import EntityQuery, RichQuery
 from corpus_structure.semantic.rich_query_projection import (
     derive_rich_query_rows,

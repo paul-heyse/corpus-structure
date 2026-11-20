@@ -8,8 +8,7 @@ from corpus_structure.semantic.continuation_codec import decode_rich_cursor
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.page_envelope import PageEnvelope
-from corpus_structure.semantic.refusal_types import InvalidContinuation
-from corpus_structure.semantic.refusal_types import RichQueryRefused
+from corpus_structure.semantic.refusal_types import InvalidContinuation, RichQueryRefused
 from corpus_structure.semantic.selected_contribution_projection import (
     ContributionProjectionSelection,
     contribution_rows,
@@ -171,10 +170,7 @@ def _serve(connection, request, implementation):
         if entry is None:
             scope = stack.enter_context(selected_contribution_scope(connection, pinned))
             metadata = dict(records=scope.index.retained_records)
-            source = (
-                row.value
-                for row in contribution_rows(scope, request.projection())
-            )
+            source = (row.value for row in contribution_rows(scope, request.projection()))
             entry, remaining = bounded_rows(source, metadata)
             if entry is not None:
                 SELECTED_QUERY_CACHE.put(key, entry)

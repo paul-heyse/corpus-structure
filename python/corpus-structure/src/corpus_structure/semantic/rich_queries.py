@@ -36,8 +36,8 @@ from .rich_knowledge_contracts import (
     DdoRichOccurrence,
     DdoRichQualificationMeaning,
     DdoRichRecordValue,
-    DdoRichSourceReadingAssertion,
     DdoRichScientificRepresentative,
+    DdoRichSourceReadingAssertion,
 )
 
 
@@ -221,22 +221,26 @@ class RichGraphIndex:
         if len(state.members) > max_members or max_members < 1 or max_nested_members < 1:
             raise RichQueryRefused("rich query graph exceeds the admitted member capacity")
         self.state, self.max_nested_members = state, max_nested_members
-        self.entities = MappingProxyType({
-            key: value for key, value in state.members.items() if isinstance(value, DdoRichEntity)
-        })
-        self.facts = MappingProxyType({
-            key: value for key, value in state.members.items() if isinstance(value, DdoRichFact)
-        })
-        self.occurrences = MappingProxyType({
-            key: value
-            for key, value in state.members.items()
-            if isinstance(value, DdoRichOccurrence)
-        })
-        self.readings = MappingProxyType({
-            key: value
-            for key, value in state.members.items()
-            if isinstance(value, DdoRichSourceReadingAssertion)
-        })
+        self.entities = MappingProxyType(
+            {key: value for key, value in state.members.items() if isinstance(value, DdoRichEntity)}
+        )
+        self.facts = MappingProxyType(
+            {key: value for key, value in state.members.items() if isinstance(value, DdoRichFact)}
+        )
+        self.occurrences = MappingProxyType(
+            {
+                key: value
+                for key, value in state.members.items()
+                if isinstance(value, DdoRichOccurrence)
+            }
+        )
+        self.readings = MappingProxyType(
+            {
+                key: value
+                for key, value in state.members.items()
+                if isinstance(value, DdoRichSourceReadingAssertion)
+            }
+        )
         self.selected_facts = frozenset(selection.selected_fact_ids)
         self.selected_occurrences = frozenset(selection.selected_occurrence_ids)
         self.selected_readings = (
@@ -244,9 +248,9 @@ class RichGraphIndex:
             if isinstance(state.graph, DdoRichAdmission)
             else frozenset()
         )
-        self.scientific_representatives = MappingProxyType({
-            row.fact_id: row for row in selection.scientific_representatives
-        })
+        self.scientific_representatives = MappingProxyType(
+            {row.fact_id: row for row in selection.scientific_representatives}
+        )
         if (
             not self.selected_facts <= self.facts.keys()
             or not self.selected_occurrences <= self.occurrences.keys()
@@ -278,11 +282,13 @@ class RichGraphIndex:
         )
         self.definiens = MappingProxyType({key: tuple(value) for key, value in definiens.items()})
         self.normalize = label_normalizer(state.prepared)
-        self.class_metadata = MappingProxyType({
-            row.name: json.loads(row.body)
-            for row in state.prepared.registry_rows
-            if row.kind == "operation_class"
-        })
+        self.class_metadata = MappingProxyType(
+            {
+                row.name: json.loads(row.body)
+                for row in state.prepared.registry_rows
+                if row.kind == "operation_class"
+            }
+        )
         self._objects = {}
         self._qualifications = {}
         self.unknowns: dict[str, dict] = {}
@@ -486,9 +492,7 @@ class PreparedRichQueryIndex:
     byte_size: int
 
     @classmethod
-    def build(
-        cls, state: RichGraphState, *, max_members: int
-    ) -> PreparedRichQueryIndex:
+    def build(cls, state: RichGraphState, *, max_members: int) -> PreparedRichQueryIndex:
         index = RichQueryIndex(state, max_members=max_members)
         weight = len(json_bytes(state.graph.model_dump(mode="python"))) * 3
         weight += len(state.model.content) + len(state.prepared.manifest)

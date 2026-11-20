@@ -15,16 +15,6 @@ if TYPE_CHECKING:
     from .types import PreparedRelease, SourceArtifact
 
 
-
-
-
-
-
-
-
-
-
-
 SemanticReasonCode = Literal[
     "missing_operands", "unsupported_interpretation", "incompatible_bindings", "preparation_failed"
 ]

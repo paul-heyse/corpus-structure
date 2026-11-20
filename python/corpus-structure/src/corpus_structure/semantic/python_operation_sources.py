@@ -1485,6 +1485,7 @@ class ClosedPythonSources:
                     "is_integer": "builtins.bool",
                     "as_integer_ratio": "builtins.tuple",
                 },
+                "decimal.Decimal": {"is_finite": "builtins.bool"},
                 "builtins.tuple": {"count": "builtins.int", "index": "builtins.int"},
                 "builtins.list": {
                     "count": "builtins.int",
@@ -1806,7 +1807,16 @@ class ClosedPythonSources:
                         and isinstance(test.comparisons[0].operator, operator)
                     ):
                         return "unknown", ()
-                    return annotated_value(test.comparisons[0].comparator)
+                    comparator = test.comparisons[0].comparator
+                    names = module.qualified_names(comparator)
+                    if (
+                        len(names) == 1
+                        and next(iter(names)).name == "decimal.Decimal"
+                        and (runtime := boundary_for("decimal.Decimal")) is not None
+                        and runtime.role == "native-decimal-type"
+                    ):
+                        return "value", ("decimal.Decimal",)
+                    return annotated_value(comparator)
 
                 class WritesGuardedName(cst.CSTVisitor):
                     found = False
@@ -1944,6 +1954,9 @@ class ClosedPythonSources:
                             if boundary.role == "native-integer-value":
                                 kinds.add("value")
                                 targets.append("builtins.int")
+                            elif boundary.role == "native-decimal-type":
+                                kinds.add("class")
+                                targets.append(target)
                             elif boundary.role in {"native-json-callable", "native-bytes-encoder"}:
                                 kinds.add(boundary.role)
                                 targets.append(target)
@@ -2037,6 +2050,8 @@ class ClosedPythonSources:
                             if boundary := boundary_for(member):
                                 if boundary.role == "native-integer-value":
                                     return "value", ("builtins.int",)
+                                if boundary.role == "native-decimal-type":
+                                    return "class", (member,)
                                 if boundary.role in {
                                     "native-json-callable",
                                     "native-bytes-encoder",

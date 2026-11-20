@@ -26,9 +26,8 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.original_documents import original_document_subject
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.reading_resolution_products import reading_resolution_inputs
-from corpus_structure.semantic.refusal_types import InvalidContinuation
+from corpus_structure.semantic.refusal_types import InvalidContinuation, RichQueryRefused
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
-from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.selected_contribution_input import SelectedContributionScope
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from corpus_structure.serve import contribution_facets as serving
@@ -466,7 +465,12 @@ def test_current_delivery_dispatches_real_candidates_and_pins_pagination_and_byt
             break
     else:
         pytest.fail("candidate continuation did not exhaust its actual finite row population")
-    assert pages == [item.value for item in serving.contribution_rows(cast(SelectedContributionScope, scope), request.projection())]
+    assert pages == [
+        item.value
+        for item in serving.contribution_rows(
+            cast(SelectedContributionScope, scope), request.projection()
+        )
+    ]
     assert any(item["row"]["reference"]["member_id"] == "member:B" for item in pages)
     first = serving.serve_contribution_facets(None, request)
     with pytest.raises(InvalidContinuation):

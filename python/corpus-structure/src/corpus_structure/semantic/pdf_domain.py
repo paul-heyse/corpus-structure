@@ -23,7 +23,6 @@ PREFIX = "pdf-domain/"
 CONTRACT = PREFIX + "contract.json"
 
 
-
 def prepare_native_pdf_sources(inputs: NativeGeneratorInputs) -> tuple[SourceArtifact, ...]:
     """Resolve a supplied cohort or captured actions only after an artifact miss."""
     if inputs.pdf_sources is not None and inputs.pdf_actions is not None:

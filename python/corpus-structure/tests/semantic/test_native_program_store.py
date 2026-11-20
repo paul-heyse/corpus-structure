@@ -218,7 +218,12 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
 
 
 def test_program_artifact_hit_never_enters_pdf_preparation(program_capture, monkeypatch):
-    from corpus_structure.semantic import native_generation, native_program_store, native_rendering, pdf_domain
+    from corpus_structure.semantic import (
+        native_generation,
+        native_program_store,
+        native_rendering,
+        pdf_domain,
+    )
     from corpus_structure.semantic.metadata import get_metadata
 
     inputs = native_generation.capture_generator_inputs(get_metadata())

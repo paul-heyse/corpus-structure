@@ -156,7 +156,10 @@ def selected_query_rows(inputs: DemandQueryProjectionInputs):
     selection = own_json_value(inputs.selection)
     if type(native) is not dict or type(selection) is not dict:
         raise TypeError("native projection requires owned record inputs")
-    if json_bytes(native) != inputs.native_witness or json_bytes(selection) != inputs.selection_witness:
+    if (
+        json_bytes(native) != inputs.native_witness
+        or json_bytes(selection) != inputs.selection_witness
+    ):
         raise ValueError("native projection inputs changed after their keyed acquisition")
     decimal_fixed_point_digits = inputs.decimal_fixed_point_digits
     if (

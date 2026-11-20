@@ -9,13 +9,22 @@ from functools import lru_cache
 
 from pydantic import TypeAdapter
 
-from ._data_operation_wire import WireReadDemandResultResult
+from ._data_operation_wire import WireDemandReadScope, WireReadDemandResultResult
 from .data_operation_json import json_bytes, wire_json_loads
 
 
 @lru_cache(maxsize=1)
 def _demand_result_adapter() -> TypeAdapter[WireReadDemandResultResult]:
     return TypeAdapter(WireReadDemandResultResult)
+
+
+@lru_cache(maxsize=1)
+def _demand_scope_adapter() -> TypeAdapter[WireDemandReadScope]:
+    return TypeAdapter(WireDemandReadScope)
+
+
+def validate_wire_demand_scope(value: object) -> WireDemandReadScope:
+    return _demand_scope_adapter().validate_python(value, strict=True, extra="forbid")
 
 
 def _same_json_types(source, result) -> bool:

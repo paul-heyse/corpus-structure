@@ -48,7 +48,9 @@ def capture_native_package_resource() -> SourceArtifact:
 
     from .file_custody import observed_file
 
-    path = Path(__file__).resolve().parents[1] / "model" / "semantic" / "operation-vocabularies.yaml"
+    path = (
+        Path(__file__).resolve().parents[1] / "model" / "semantic" / "operation-vocabularies.yaml"
+    )
     record = observed_file(path)
     content = path.read_bytes()
     record.check()

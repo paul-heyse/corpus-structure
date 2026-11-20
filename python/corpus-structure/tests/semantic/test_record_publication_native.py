@@ -8,8 +8,8 @@ from evaluate.declared_record_native_support import PROJECT, ROOT
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.rich_knowledge_contracts import DdoRichEntity, DdoRichOccurrence
 from corpus_structure.semantic.refusal_types import RichQueryRefused
+from corpus_structure.semantic.rich_knowledge_contracts import DdoRichEntity, DdoRichOccurrence
 from corpus_structure.semantic.rich_queries import ClaimsQuery, EntityQuery, SourceReadingsQuery
 from semantic.record_publication_native_support import (
     authored_propositions,

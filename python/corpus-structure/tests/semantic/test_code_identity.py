@@ -443,6 +443,27 @@ def test_native_base64_output_is_owned_only_after_exact_bytes_admission(tmp_path
     assert any("requires exact bytes" in item.reason for item in unchecked.unknowns)
 
 
+def test_native_decimal_method_requires_exact_type_guard(tmp_path):
+    from corpus_structure.semantic.external_runtime import acquire_codec_runtime
+
+    root = package(tmp_path)
+    entry = root / "entry.py"
+    source = (
+        "from decimal import Decimal\ndef result(value):\n"
+        " if type(value) is Decimal:\n  return value.is_finite()\n return False\n"
+    )
+    runtime = tuple(item for item in acquire_codec_runtime() if item.reference == "decimal")
+    for guard, expected in (
+        ("type(value) is Decimal", True),
+        ("isinstance(value, Decimal)", False),
+    ):
+        entry.write_text(source.replace("type(value) is Decimal", guard))
+        captured = capture_code_identity(
+            root, ("example.entry",), callables=("example.entry.result",), external_runtime=runtime
+        )
+        assert captured.complete is expected, captured.unknowns
+
+
 def test_revoked_workload_proof_cannot_publish_a_derived_entry():
     from corpus_structure._query_custody import SourceCustodyError
     from corpus_structure.semantic.code_identity import CodeIdentity

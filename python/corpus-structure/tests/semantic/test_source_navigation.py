@@ -56,7 +56,10 @@ def test_actual_ty_navigation_does_not_import_target(operation):
         assert hover["path"] == "example.py"
         assert hover["source_digest"] == sha256(source.encode()).hexdigest()
         assert hover["utf8_bytes"] == {"start": start, "end": start + len("twice")}
-        assert "twice(x: int) -> int" in hover["contents"]["value"]
+        contents = hover["contents"]
+        assert isinstance(contents, dict)
+        signature = contents["value"]
+        assert isinstance(signature, str) and "twice(x: int) -> int" in signature
 
 
 def test_wrong_snapshot_refused_before_starting_tool():

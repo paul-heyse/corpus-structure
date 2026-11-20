@@ -2,6 +2,13 @@
 
 from contextlib import contextmanager
 
+from corpus_structure.semantic._data_operation_wire import (
+    WireDemandReadScope,
+    WireOperationId,
+    WireOriginalSourceId,
+    WireProductId,
+    WireSubjectId,
+)
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.demand_results import selected_record_index
 from corpus_structure.semantic.releases import open_release
@@ -10,7 +17,7 @@ from corpus_structure.semantic.selected_contribution_input import (
 )
 
 
-def selected_contribution_selection(request, *, product_ids=None):
+def selected_contribution_selection(request, *, product_ids=None) -> WireDemandReadScope:
     if product_ids is None:
         product_ids = None if request.product_id is None else [request.product_id]
     else:
@@ -19,17 +26,16 @@ def selected_contribution_selection(request, *, product_ids=None):
             request.product_id is not None and product_ids != [request.product_id]
         ):
             raise ValueError("selected product roots differ from the requested product scope")
-    scope = {
-        name: value
-        for name, value in dict(
-            operation_id=request.operation_id,
-            subject=request.subject,
-            product_ids=product_ids,
-        ).items()
-        if value is not None
-    }
+    scope: WireDemandReadScope = {}
+    if request.operation_id is not None:
+        scope["operation_id"] = WireOperationId(request.operation_id)
+    if request.subject is not None:
+        scope["subject"] = WireSubjectId(request.subject)
+    if product_ids is not None:
+        scope["product_ids"] = [WireProductId(product) for product in product_ids]
     if "original_source" in request.model_fields_set:
-        scope["original_source"] = request.original_source
+        source = request.original_source
+        scope["original_source"] = None if source is None else WireOriginalSourceId(source)
     return scope
 
 

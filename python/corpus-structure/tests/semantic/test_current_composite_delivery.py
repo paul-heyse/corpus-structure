@@ -159,8 +159,15 @@ def scope(tmp_path, source, *, side="one", left="A"):
             universe="ordinary",
         ),
     )
+    from corpus_structure.semantic._data_operation_wire import WireProductId
+
     return SelectedContributionScope(
-        cut, native, source[0], source[1], {"product_ids": [selected.reference.product_id]}, 100000
+        cut,
+        native,
+        source[0],
+        source[1],
+        {"product_ids": [WireProductId(selected.reference.product_id)]},
+        100000,
     )
 
 

@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 from .data_operation_values import semantic_value
 from .identity import canonical_bytes
-from .rich_knowledge_contracts import DdoRichAdmission, DdoRichEntity, DdoRichIdentityExclusion
 from .refusal_types import RichQueryRefused
+from .rich_knowledge_contracts import DdoRichAdmission, DdoRichEntity, DdoRichIdentityExclusion
 from .rich_queries import RichQueryRow
 
 

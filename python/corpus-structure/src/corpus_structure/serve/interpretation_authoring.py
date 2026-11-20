@@ -137,6 +137,7 @@ def authenticate_judgment_source(connection, prepared, nominal, body, *, expecte
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
     from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.demand_results import selected_record_index
+    from corpus_structure.semantic.demand_wire import validate_wire_demand_scope
     from corpus_structure.semantic.grouped_record_interpretations import (
         GroupedInterpretationRequest,
         InterpretationRoot,
@@ -149,9 +150,7 @@ def authenticate_judgment_source(connection, prepared, nominal, body, *, expecte
     source = body["source_record"]
     if expected_project is not None and source["project_id"] != expected_project:
         raise ValueError("authored judgment source belongs to another selected project")
-    scope = json_loads(source["read_scope_json"])
-    if not isinstance(scope, dict):
-        raise ValueError("authored judgment source read requires its exact object scope")
+    scope = validate_wire_demand_scope(json_loads(source["read_scope_json"]))
     request = GroupedInterpretationRequest(
         project_id=source["project_id"],
         demand_id=source["demand_id"],

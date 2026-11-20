@@ -78,7 +78,13 @@ def test_owned_json_copy_detaches_nested_values_and_preserves_exact_scalar_types
     assert copied == original
     assert copied is not original and copied["values"] is not original["values"]
     assert [type(value) for value in copied["values"]] == [
-        type(None), bool, int, float, Decimal, str, dict,
+        type(None),
+        bool,
+        int,
+        float,
+        Decimal,
+        str,
+        dict,
     ]
     copied["values"][-1]["nested"].append("new")
     assert nested["nested"] == []
@@ -125,7 +131,9 @@ def test_projection_snapshot_refuses_changed_values_and_arbitrary_objects():
     def prepared():
         return prepare_demand_projection_inputs(
             json_bytes(demand_result_page()),
-            json_bytes(DemandQueryRequest(demand_id="demand:A", project_id="project:A").selection()),
+            json_bytes(
+                DemandQueryRequest(demand_id="demand:A", project_id="project:A").selection()
+            ),
             decimal_fixed_point_digits=100,
         )
 
@@ -148,7 +156,8 @@ def test_member_meaning_retains_the_original_tagged_subtree_and_decimal_fidelity
     assert type(rows[1]["body"]["amount"]) is Decimal
     assert str(rows[1]["body"]["amount"]) == "12.34"
     assert rows[2]["meaning_body"] == [
-        "mapping", [["direction", ["string", "outgoing"]], ["target", ["string", "first"]]],
+        "mapping",
+        [["direction", ["string", "outgoing"]], ["target", ["string", "first"]]],
     ]
     selected = DemandResult(json_bytes(demand_result_page(member_id="second"))).members()
     assert selected[0]["meaning_body"] == rows[2]["meaning_body"]
@@ -157,15 +166,20 @@ def test_member_meaning_retains_the_original_tagged_subtree_and_decimal_fidelity
     assert json_bytes(rows[0]["meaning_body"]) == original_container
 
 
-@pytest.mark.parametrize("malformation", ["noncanonical-decimal", "missing-body", "non-record-packet"])
+@pytest.mark.parametrize(
+    "malformation", ["noncanonical-decimal", "missing-body", "non-record-packet"]
+)
 def test_member_original_pairing_refuses_malformed_source(malformation):
     from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.demand_results import DemandResult
 
     source = demand_result_page()
     packet = dict(
-        member_id="first", kind_contract="kind:first",
-        context=dict(subject="one", subject_definition="document", original_source=None, analyzed_scope={}),
+        member_id="first",
+        kind_contract="kind:first",
+        context=dict(
+            subject="one", subject_definition="document", original_source=None, analyzed_scope={}
+        ),
         body={"amount": Decimal("12.34")},
     )
     if malformation == "missing-body":

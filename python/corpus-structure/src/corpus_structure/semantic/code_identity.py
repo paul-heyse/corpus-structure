@@ -372,6 +372,8 @@ def capture_code_identity(
                 if reference in {"rapidjson.loads", "rapidjson.dumps"}
                 else "native-bytes-encoder"
                 if reference == "base64.urlsafe_b64encode"
+                else "native-decimal-type"
+                if reference == "decimal.Decimal"
                 else "native-codec",
                 item.digest,
             )

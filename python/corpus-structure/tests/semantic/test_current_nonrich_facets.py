@@ -8,8 +8,8 @@ import pytest
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.nonrich_contribution_facets import nonrich_facets, read_nonrich_root
-from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
 from corpus_structure.semantic.refusal_types import RichQueryRefused
+from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
 from semantic.test_declared_structural_calls import compiled
 from semantic.test_dossier_products import _predecessor
 
