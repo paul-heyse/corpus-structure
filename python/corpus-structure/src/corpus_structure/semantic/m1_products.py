@@ -125,6 +125,7 @@ def m1_operation_sources(
     root = Path(__file__).parents[1]
     paths = (
         "methods/m1_declared.py",
+        "methods/m1_source.py",
         "semantic/m1_products.py",
         "semantic/declared_candidate_products.py",
         "semantic/data_operation_prepared_call.py",
