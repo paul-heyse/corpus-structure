@@ -26,7 +26,12 @@ from corpus_structure.semantic.operation_policy import (
     OperationEventParameters,
     score_operation_event,
 )
-from semantic.current_pdf_source_support import PROJECT, admit_current_target
+from semantic.current_pdf_source_support import (
+    PROJECT,
+    admit_current_target,
+    selected_current_sources,
+    source_entry,
+)
 from semantic.current_pdf_source_support import (
     published_pdf_source_factory as published_pdf_source_factory,
 )
@@ -61,7 +66,23 @@ def operation_event_journey(published_pdf_source_factory, tmp_path_factory):
         tuple(("text", text, text, None) for text in literals)
     ) as source:
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
-        retained, _, products, _ = produce_source_reports(source, kernel, NAMED, text=literals[0])
+        selected_sources = tuple(
+            (row, body)
+            for row, body in selected_current_sources(source)
+            if body["source"]["section_pointer"] in {"#/groups/0", "#/groups/1"}
+            and body["source"]["membership"] == "descendants"
+        )
+        assert len(selected_sources) == 2
+        assert {
+            (body["source"]["section_pointer"], body["text"]) for _, body in selected_sources
+        } == {("#/groups/0", literals[0]), ("#/groups/1", literals[1])}
+        retained, _, products, _ = produce_source_reports(
+            source,
+            kernel,
+            NAMED,
+            text=literals[0],
+            discovered_entries=tuple(source_entry(row) for row, _ in selected_sources),
+        )
         original_kind = kernel.identities[
             "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource",
             "kind",
@@ -212,7 +233,10 @@ def operation_event_journey(published_pdf_source_factory, tmp_path_factory):
         framed, execution = execute(kernel, pending, authored=True)
         assert execution.receipt_count == 1
         _frame_page, (frame_product,) = selected(
-            kernel, framed["demand_id"], NAMESPACE + "DdoOperationEventFrame"
+            kernel,
+            framed["demand_id"],
+            NAMESPACE + "DdoOperationEventFrame",
+            scope={"operation_id": "operation_event.frame"},
         )
         frame = DdoOperationEventFrame.model_validate_json(json_bytes(frame_product.body))
         spec = DdoOperationEventFitSpecification(
@@ -246,7 +270,10 @@ def operation_event_journey(published_pdf_source_factory, tmp_path_factory):
         fitted, execution = execute(kernel, pending, authored=True)
         assert execution.receipt_count == 2
         fit_page, (fit_product,) = selected(
-            kernel, fitted["demand_id"], NAMESPACE + "DdoOperationEventFit"
+            kernel,
+            fitted["demand_id"],
+            NAMESPACE + "DdoOperationEventFit",
+            scope={"operation_id": "operation_event.fit"},
         )
         fit = DdoOperationEventFit.model_validate_json(json_bytes(fit_product.body))
         yield dict(
@@ -273,6 +300,7 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
         case["fitted"]["demand_id"],
         "urn:corpus:kind:operation-event:parameters",
         purpose="evaluate",
+        scope={"operation_id": "operation_event.authorize"},
     )
     _page, (public,) = selected(
         kernel,

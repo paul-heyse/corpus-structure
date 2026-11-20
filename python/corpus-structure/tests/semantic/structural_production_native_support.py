@@ -91,13 +91,15 @@ def recipe(directory):
     )
 
 
-def produce_source_reports(source, kernel, target, *, text):
+def produce_source_reports(source, kernel, target, *, text, discovered_entries=None):
     """One source-discovery demand owns genuine source and primary producer uses."""
     from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.semantic.selected_support import SelectedReadReference
     from semantic.current_pdf_source_support import current_consumer_request
 
-    pending = current_consumer_request(source, kernel, (target,), discover=True)
+    pending = current_consumer_request(
+        source, kernel, (target,), discover=True, discovered_entries=discovered_entries
+    )
     retained, execution = execute(kernel, pending)
     assert execution.receipt_count > 0
     with kernel.purpose("read").begin() as connection:

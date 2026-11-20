@@ -603,7 +603,7 @@ def source_entry(row):
     return row["_selected_entry"]
 
 
-def current_consumer_request(source, kernel, targets, *, discover=False):
+def current_consumer_request(source, kernel, targets, *, discover=False, discovered_entries=None):
     """Build explicit current intent over actual admitted computational contexts."""
     from corpus_structure.orchestrate.source_operation import _default_profile_selections
     from corpus_structure.semantic.data_operation_json import json_loads
@@ -617,6 +617,8 @@ def current_consumer_request(source, kernel, targets, *, discover=False):
     from corpus_structure.semantic.data_operation_source_discovery import source_discovery_relations
     from corpus_structure.semantic.original_documents import acquire_original_document_selection
 
+    if discovered_entries is not None and not discover:
+        raise ValueError("preselected discovered entries require source discovery")
     selections = _default_profile_selections(kernel.model, targets, {})
     original_sources, discovery, source_sets = {}, (), {}
     if discover:
@@ -635,7 +637,9 @@ def current_consumer_request(source, kernel, targets, *, discover=False):
             (
                 FrozenSourceSet.from_selected(
                     "selected-source-views",
-                    tuple(source_entry(row) for row, _ in selected_current_sources(source)),
+                    tuple(source_entry(row) for row, _ in selected_current_sources(source))
+                    if discovered_entries is None
+                    else tuple(discovered_entries),
                 ),
             )
         )
