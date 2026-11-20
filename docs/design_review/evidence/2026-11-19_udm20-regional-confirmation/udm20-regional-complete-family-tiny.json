@@ -1,0 +1,20 @@
+{
+  "project_id": "udm20-regional-complete-family-prose",
+  "release_id": "release:33f357ab9c2bad4b0a237521c256917656be4eb301fd2682621b23744375b997",
+  "runtime_id": "runtime:88739590561ee967add3e16757b0486e255231688e15aced83acb4ee6e11ca4b",
+  "domain": null,
+  "selection": {
+    "kind": "whole_document"
+  },
+  "workflow": "phase0",
+  "membership": "descendants",
+  "pdf_mode": "standard",
+  "documents": [
+    "doc:28247f88c86b1a22dc896094481a5642"
+  ],
+  "targets": [
+    "text.compose_view/organized-captured-full-native"
+  ],
+  "execution_profile": "source-native",
+  "inference": "udm20-genuine-complete-family-prose"
+}

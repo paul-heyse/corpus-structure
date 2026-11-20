@@ -1,0 +1,20 @@
+{
+  "project_id": "udm20-regional-largest-failed-pages",
+  "release_id": "release:0f6352f5c897c798c8f9cb83da59bd07906f04b7edcf6eafb71865bc50046b51",
+  "runtime_id": "runtime:7e33fb14dd9b44b5c15205effce01928d92de4864f6eb253503542e60e436f80",
+  "domain": null,
+  "selection": {
+    "kind": "whole_document"
+  },
+  "workflow": "phase0",
+  "membership": "descendants",
+  "pdf_mode": "standard",
+  "documents": [
+    "doc:6cc4b8a9814bc8ac4e2249e8e8d8d365"
+  ],
+  "targets": [
+    "segment.sentences/source-native"
+  ],
+  "execution_profile": "source-native",
+  "inference": "udm20-exact-regional-excerpt"
+}

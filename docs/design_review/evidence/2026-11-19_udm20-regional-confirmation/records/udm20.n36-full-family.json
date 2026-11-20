@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "id": "udm20.n36-full-family",
+  "title": "Actual bounded N36 complete-family composition",
+  "group": null,
+  "package": "UDM-20",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does an actual current Standard release publish the complete organized characterization family on a bounded real source, while refusing interim incomplete coverage?",
+  "answers": [
+    "UDM-20",
+    "UDM-23"
+  ],
+  "method": "Run the current admitted immutable N36 Standard application against an independently authored one-page PDF using actual Docling, spaCy and HanLP, through native settlement and organized full-family composition. Read the exact native fates and composed product. The coordinator separately retains live interim binding-covers observations.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-19_udm20-regional-confirmation/run_regional.py complete-family-tiny",
+    "build/udm20-regional/ci-stage-frozen-n36 results show bc94c35adc3e438b8e4eb771d4ccb155 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/originals/complete-family-prose.pdf",
+      "role": "independently-authored-real-pdf",
+      "sha256": "337a5a47b3f391d362aa96fef6f941880038feb16e33a4184099004122290b76"
+    },
+    {
+      "path": "udm20-regional-complete-family-tiny.json",
+      "role": "exact-source-request",
+      "sha256": "856983eb0ab9bc71ad7053aeac068265bbda24e4584fc833f701f46a3dc23e4e"
+    },
+    {
+      "path": "regional-execution-policy.json",
+      "role": "bounded-execution-policy",
+      "sha256": "b4f14e7b515df96f1de4a2e4c114fc48a1f72df7a8fff9633c4a4d6f77e6ecf1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/complete-family-tiny-observation.json",
+      "role": "actual-managed-attempt-and-restoration",
+      "sha256": "b1e07db78d0ce1ddd56aafff7995f7c0929b8f6d8300882d6ccdf177467c052b"
+    },
+    {
+      "path": "raw/complete-family-tiny-postgresql.log",
+      "role": "native-settlement-observations",
+      "sha256": "0dfd3b1ad42f0b22d295963afdc99952a3fdd36a4f4a8d218447fac2d4407efa"
+    },
+    {
+      "path": "raw/n36-full-family-fates.json",
+      "role": "eleven-fulfilled-native-obligations",
+      "sha256": "65271790ddb18b646029d4361685a74b560efd0c01f844c30344ec01558216e3"
+    },
+    {
+      "path": "raw/n36-full-family-view.json",
+      "role": "native-composed-full-characterization-view",
+      "sha256": "a5acbc635f8d023b270c80f21e67d2b3c754cdf503a9fa24704554f8a0a58efc"
+    },
+    {
+      "path": "raw/n36-corrected-frozen-runtime.json",
+      "role": "immutable-source-inventory",
+      "sha256": "361930fa097626137bc331058a6e0d7b61eeb63025abc42c61693d11c96ba0fc"
+    }
+  ],
+  "depends_on": [
+    "udm20.canonical-source-subset",
+    "udm20.hanlp-source-subset"
+  ],
+  "results": [
+    {
+      "name": "actual_managed_wall_seconds",
+      "value": 381.87538288900396,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "fulfilled_obligations",
+      "value": 11,
+      "of": 11,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "composed_sources",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "characterization_product_references",
+      "value": 7,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "On 2026-11-19, actual managed result bc94c35adc3e438b8e4eb771d4ccb155 passed on the dedicated N36 stage. All eleven obligations fulfilled, including actual providers, canonical projection, analytical families and organized full composition. The native full_characterization view retains one source and seven characterization product references. Cleanup was established, diagnostic role overrides were removed, and no project activation occurred. This establishes one bounded real source, not a whole-book result or an independently isolated multi-region withheld-family case.",
+  "consumed_by": [
+    "UDM-20",
+    "UDM-23",
+    "unified-domain-model-and-execution"
+  ]
+}

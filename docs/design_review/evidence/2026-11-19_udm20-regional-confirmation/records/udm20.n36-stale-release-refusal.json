@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "id": "udm20.n36-stale-release-refusal",
+  "title": "Exact old application refused after N36 cut",
+  "group": null,
+  "package": "UDM-20",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the exact old 66-page intent execute after the N36 native contract change without re-preparing its immutable application?",
+  "answers": [
+    "UDM-20",
+    "UDM-23"
+  ],
+  "method": "Add only the exact four generated native contract files as a separate physical metadata overlay and invoke managed recovery with the original release/runtime and private answer held. Observe the native authority refusal before any producer claim or inference, then compare the actual producing definition snapshot with the fresh admitted N36 definition.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-19_udm20-regional-confirmation/run_regional.py largest-failed-pages 0bb1f7e9a9b245b8b7ec4b15c8933096",
+    "ci results show 8c64955052214e73b71827fa48132f78 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/native-n36-contract-overlay.json",
+      "role": "exact-new-contract-source-custody",
+      "sha256": "6fea340ffbd361ebcd5bc19c09c7778a8767da5991c151d555bbe8a75fbc864a"
+    },
+    {
+      "path": "raw/largest-failed-private-draft.json",
+      "role": "unchanged-retained-answer",
+      "sha256": "04f37ed65d9944e648d3493e5a36a2f651d3fbf04c9c391ad82363dae97c85ee"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/largest-failed-pages-observation.json",
+      "role": "valid-compatibility-refusal-and-restoration",
+      "sha256": "a280a2745cc3030f5764d542e8ecf5960e8ed4ec7d6517c49023966f95d0bab9"
+    },
+    {
+      "path": "raw/largest-failed-pages-postgresql.log",
+      "role": "native-re-lowering-refusal",
+      "sha256": "b30e80e64f91eeb78c7912ae8206a68eedc8254bc807b1d9ac168560c22560dd"
+    },
+    {
+      "path": "raw/n36-old-draft-material-comparison.json",
+      "role": "actual-old-versus-current-producing-material",
+      "sha256": "0e61c7d5d9040e3c6132751bcb12d7c16822e60fb06af9f7a329013741498fea"
+    }
+  ],
+  "depends_on": [
+    "2026-11-19_udm20-regional-confirmation/udm20.regional-largest-n35"
+  ],
+  "results": [
+    {
+      "name": "provider_runs_in_refused_retry",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "same_implementation_revision",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "same_support_contract",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "old_reuse_eligible",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "fresh_reuse_eligible",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "blocked",
+  "conclusion": "N36 correctly refused the N35 application with SQLSTATE 23514 and release facts require current authenticated re-lowering. The accepted plan requires a newly prepared application. That fresh definition changes implementation_revision and support_contract, and both definitions remain reuse-ineligible. The original 92MB answer is preserved; no application authority was rewritten and no 66-page provider rerun was attempted. Carrying this answer remains blocked by exact producing-material and attempt-only guards.",
+  "consumed_by": [
+    "UDM-20",
+    "UDM-23",
+    "unified-domain-model-and-execution"
+  ]
+}

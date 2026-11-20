@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "id": "udm20.regional-largest-n35",
+  "title": "Actual 66-page N35 intake cancellation",
+  "group": null,
+  "package": "UDM-20",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the exact largest historical failed physical region settle with actual providers under the unchanged N35 completion bound?",
+  "answers": [
+    "UDM-20",
+    "UDM-23"
+  ],
+  "method": "Authenticate the retained original book, copy physical pages 413–478, register a distinct stage original, and execute the declared Standard capture/organized-discovery/spaCy sentence path. Scope nested PostgreSQL diagnostics to the writer role and restore them in finally. Preserve the acknowledged private answer and independently read request/task/intent standing after failure.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-19_udm20-regional-confirmation/run_regional.py largest-failed-pages",
+    "ci results inspect 0bb1f7e9a9b245b8b7ec4b15c8933096 --view observations"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "excerpt-descriptors.json",
+      "role": "authenticated-exact-region-descriptor",
+      "sha256": "9ac84103d02a3f8cd7b7169896d8b656aef0ffe7bb481edeedd24d4441324256"
+    },
+    {
+      "path": "raw/originals/largest-failed-pages.pdf",
+      "role": "exact-bounded-original",
+      "sha256": "772a7eb4149e43128f1d0c49d24eafd669f20ef65fb049a5801c3cc78c0d60e0"
+    },
+    {
+      "path": "regional-execution-policy.json",
+      "role": "explicit-bounds",
+      "sha256": "b4f14e7b515df96f1de4a2e4c114fc48a1f72df7a8fff9633c4a4d6f77e6ecf1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/n35-failed-largest-failed-pages-observation.json",
+      "role": "failed-managed-scope-and-restoration",
+      "sha256": "7a33cb88a11d47fed9eb8bb8a64f7579b6b1e41f536c0c7cb2c13417ef8a3e86"
+    },
+    {
+      "path": "raw/n35-failed-largest-failed-pages-postgresql.log",
+      "role": "actual-nested-SQL-cancellation",
+      "sha256": "e79515a5976ddc644f84cf81d92779d5391e684d729bc4fcff536f6d7414a5a6"
+    },
+    {
+      "path": "raw/largest-failed-private-draft.json",
+      "role": "acknowledged-answer-and-independent-native-standing",
+      "sha256": "04f37ed65d9944e648d3493e5a36a2f651d3fbf04c9c391ad82363dae97c85ee"
+    },
+    {
+      "path": "README.md",
+      "role": "failure-interpretation-and-limits",
+      "sha256": "9f65ae96d32ab852bd1d1b74b2875d7e839f1826be8688f388e74a690bdebfcd"
+    }
+  ],
+  "depends_on": [
+    "2026-11-19_udm20-retained-diagnosis/udm20.retained-diagnosis"
+  ],
+  "results": [
+    {
+      "name": "original_physical_pages",
+      "value": 66,
+      "of": null,
+      "unit": "pages",
+      "note": null
+    },
+    {
+      "name": "journey_seconds",
+      "value": 729.633820438,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "completion_statement_bound",
+      "value": 120,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "acknowledged_request_bytes",
+      "value": 92292593,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "native_intents_after_failure",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "native_draft_consumptions_after_failure",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "On 2026-11-19 managed result 0bb1f7e9a9b245b8b7ec4b15c8933096 reproduced SQLSTATE 57014 in canonical_json/ddo_digest during retain_data_completion_intent at the unchanged 120-second bound, after genuine capture and spaCy execution. Cleanup and diagnostic restoration are established. The 92,292,593-byte acknowledged answer remains held; a fresh read found zero native intents and zero draft consumptions for its request generation. No whole-book run, stage activation or canonical mutation occurred.",
+  "consumed_by": [
+    "UDM-20",
+    "UDM-23",
+    "unified-domain-model-and-execution"
+  ]
+}

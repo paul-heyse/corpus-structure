@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "id": "udm20.n36-retained-digest",
+  "title": "Installed N36 digest of the original 66-page completion request",
+  "group": null,
+  "package": "UDM-20",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the installed N36 canonicalizer compute the exact retained request digest within the original statement deadline?",
+  "answers": [
+    "UDM-20",
+    "UDM-23"
+  ],
+  "method": "Authenticate the acknowledged completion from private draft custody and run the original seven-field digest expression on the exact N36 stage target in a read-only transaction.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-19_udm20-regional-confirmation/check_retained_intake_digest.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "check_retained_intake_digest.py",
+      "role": "read-only-probe",
+      "sha256": "34a0237b54e0098c0bf7b74d2b6d7996add6e079d489f66f16c8a944039d978a"
+    },
+    {
+      "path": "raw/largest-failed-private-draft.json",
+      "role": "acknowledged-draft-identity",
+      "sha256": "04f37ed65d9944e648d3493e5a36a2f651d3fbf04c9c391ad82363dae97c85ee"
+    },
+    {
+      "path": "raw/n36-stage-readback.json",
+      "role": "installed-target-proof",
+      "sha256": "2d2c5097ccfa8bf60ce0d7866709c80245a12ac84e3079ed9a5f99eaf6b27aab"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/n36-retained-intake-digest.json",
+      "role": "exact-digest-and-statement-duration",
+      "sha256": "bd7385a6f97c6650099811c59d51ddb3a285bfb02eefb863da6649f32881e6a0"
+    }
+  ],
+  "depends_on": [
+    "udm20.regional-largest-n35",
+    "udm20.canonical-json-parity"
+  ],
+  "results": [
+    {
+      "name": "retained_request_bytes",
+      "value": 92292593,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "digest_statement_seconds",
+      "value": 15.256107508961577,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "statement_deadline_seconds",
+      "value": 120,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Installed N36 computed the digest at the N35 cancellation site in 15.26 seconds. This verifies the digest step. The original acknowledged draft remains in private custody and complete intake and publication timing remains a separate observation.",
+  "consumed_by": [
+    "UDM-20",
+    "UDM-23"
+  ]
+}

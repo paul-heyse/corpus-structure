@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "id": "udm20.n36-regional-contrast",
+  "title": "Actual 60-page N36 regional settlement contrast",
+  "group": null,
+  "package": "UDM-20",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the current N36 application settle the exact original largest-by-selected-records failed region under the unchanged native deadlines?",
+  "answers": [
+    "UDM-20",
+    "UDM-23"
+  ],
+  "method": "Authenticate and extract physical pages 233–292 from the retained original probability book, then execute the admitted immutable N36 Standard capture, organization, discovery and spaCy sentence route. Retain managed receipts, stage-scoped nested PostgreSQL observations, typed product member counts and cleanup/restoration reads.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-19_udm20-regional-confirmation/run_regional.py failed-records-contrast",
+    "uv run --no-sync python docs/design_review/evidence/2026-11-19_udm20-regional-confirmation/collect_settled_contrast.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/originals/failed-records-contrast.pdf",
+      "role": "exact-60-page-excerpt",
+      "sha256": "b969c6ff5218c018d01d16d4a094b4e0c9ad73e0a762b383b38cdee333aeb68c"
+    },
+    {
+      "path": "excerpt-descriptors.json",
+      "role": "original-hash-and-region-custody",
+      "sha256": "9ac84103d02a3f8cd7b7169896d8b656aef0ffe7bb481edeedd24d4441324256"
+    },
+    {
+      "path": "udm20-regional-failed-records-contrast.json",
+      "role": "exact-source-request",
+      "sha256": "b78069f00fcfd2101660bcfba6d93c5c72941cae3247ffbbe8f1fb89a40b7f6a"
+    },
+    {
+      "path": "regional-execution-policy.json",
+      "role": "unchanged-bounded-policy",
+      "sha256": "b4f14e7b515df96f1de4a2e4c114fc48a1f72df7a8fff9633c4a4d6f77e6ecf1"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/failed-records-contrast-observation.json",
+      "role": "managed-attempt-cleanup-and-restoration",
+      "sha256": "afc7995ecb2c0f13234951e347f979e6606ca35c9defe79fd08adabae967343a"
+    },
+    {
+      "path": "raw/failed-records-contrast-postgresql.log",
+      "role": "native-database-phase-observations",
+      "sha256": "84f2149cd7dafb68f680cce8cff737cad7b816f173b537151c5e52573ac3a048"
+    },
+    {
+      "path": "raw/n36-contrast-fates.json",
+      "role": "five-fulfilled-obligations",
+      "sha256": "91d29624d37334cdd133300f1421e6947e32bb62cd954f72c1aa0aa9cf9ef812"
+    },
+    {
+      "path": "raw/n36-contrast-member-counts.json",
+      "role": "typed-members-and-intent-extents",
+      "sha256": "930165a3b6622254f88a203dad3eed70d6a2b67bc6f805d7df9070c5672905b2"
+    },
+    {
+      "path": "raw/n36-contrast-sql-phases.json",
+      "role": "observed-native-call-durations",
+      "sha256": "9c9de0fad6707e0dafe5cdd4c184f8eeb7c0054c21d06060d58584643fe10c0c"
+    },
+    {
+      "path": "raw/final-stage-restoration.json",
+      "role": "project-activation-and-role-restoration",
+      "sha256": "ca311e06f9230fa3fbddea3c0c4d7cafff5072c575017b329c223b686cf16a22"
+    }
+  ],
+  "depends_on": [
+    "udm20.n36-retained-digest",
+    "udm20.n36-full-family"
+  ],
+  "results": [
+    {
+      "name": "original_physical_pages",
+      "value": 60,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "managed_wall_seconds",
+      "value": 755.9590433079866,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "fulfilled_obligations",
+      "value": 5,
+      "of": 5,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "native_sentences",
+      "value": 1924,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "native_tokens",
+      "value": 23013,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "largest_intent_jsonb_text_bytes",
+      "value": 91103526,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "observed_large_intake_ms",
+      "value": 60616.467,
+      "of": null,
+      "unit": "milliseconds",
+      "note": null
+    },
+    {
+      "name": "observed_large_publication_ms",
+      "value": 85033.43,
+      "of": null,
+      "unit": "milliseconds",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "On 2026-11-19 managed result f3bb4c777c2d42aa8acc0b8567e8b44b passed on stage N36 in 755.959 seconds. All five native obligations fulfilled, with two sentence products containing 1,924 sentences, 23,013 tokens, 1,128 blocks and two annotation manifests. The largest retained sentence intent is 91,103,526 bytes as JSONB text; observed direct intake took 60.616 seconds and publication took 85.033 seconds, within the unchanged 120-second statement bound. Cleanup was established, no live leases or diagnostic overrides remained, and regional projects stayed unactivated at generation zero. This is an independent contrast rather than adoption or recomputation of the held 66-page N35 answer.",
+  "consumed_by": [
+    "UDM-20",
+    "UDM-23",
+    "unified-domain-model-and-execution"
+  ]
+}

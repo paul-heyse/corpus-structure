@@ -1,0 +1,21 @@
+{
+  "documents": 1,
+  "distinct_paths": 1,
+  "descriptors": [
+    {
+      "project_id": "udm20-regional-complete-family-tiny",
+      "key": "doc:2747a0553bcdf659f100d76cfdab9055",
+      "source_uri": "udm20-complete-family-tiny.pdf",
+      "content_hash": "6a45a3fabd96297cbec3bf7716e0f67813f05820964d0228726b98f14669048d",
+      "original_path": "/home/paul/corpus-structure/build/udm20-regional/excerpts/complete-family-tiny.pdf",
+      "mime": "application/pdf",
+      "title": "UDM-20 genuine complete family tiny page 479",
+      "metadata": {
+        "source_document": "doc:38d5d93379c3320aa88457511d38fc25",
+        "original_first_page": 479,
+        "original_last_page": 479,
+        "historical_section": "#/groups/653"
+      }
+    }
+  ]
+}

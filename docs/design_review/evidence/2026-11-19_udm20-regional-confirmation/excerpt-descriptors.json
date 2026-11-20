@@ -1,0 +1,54 @@
+{
+  "documents": 3,
+  "distinct_paths": 3,
+  "descriptors": [
+    {
+      "project_id": "udm20-regional-largest-failed-pages",
+      "key": "doc:6cc4b8a9814bc8ac4e2249e8e8d8d365",
+      "source_uri": "udm20-largest-failed-pages.pdf",
+      "content_hash": "772a7eb4149e43128f1d0c49d24eafd669f20ef65fb049a5801c3cc78c0d60e0",
+      "original_path": "/home/paul/corpus-structure/build/udm20-regional/excerpts/largest-failed-pages.pdf",
+      "mime": "application/pdf",
+      "title": "UDM-20 pages 413\u2013478",
+      "metadata": {
+        "source_document": "doc:38d5d93379c3320aa88457511d38fc25",
+        "source_hash": "763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e",
+        "original_first_page": 413,
+        "original_last_page": 478,
+        "historical_section": "#/groups/614"
+      }
+    },
+    {
+      "project_id": "udm20-regional-failed-records-contrast",
+      "key": "doc:0b9cadb418ba39a31c7b8d14083bb4ed",
+      "source_uri": "udm20-failed-records-contrast.pdf",
+      "content_hash": "b969c6ff5218c018d01d16d4a094b4e0c9ad73e0a762b383b38cdee333aeb68c",
+      "original_path": "/home/paul/corpus-structure/build/udm20-regional/excerpts/failed-records-contrast.pdf",
+      "mime": "application/pdf",
+      "title": "UDM-20 pages 233\u2013292",
+      "metadata": {
+        "source_document": "doc:38d5d93379c3320aa88457511d38fc25",
+        "source_hash": "763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e",
+        "original_first_page": 233,
+        "original_last_page": 292,
+        "historical_section": "#/groups/489"
+      }
+    },
+    {
+      "project_id": "udm20-regional-successful-control",
+      "key": "doc:efd09945f482fa17286e68c178147ef9",
+      "source_uri": "udm20-successful-control.pdf",
+      "content_hash": "8b7c18f7129ae169e2c852e5b34b7db59b80b20d4636a1614c06e9614776ba15",
+      "original_path": "/home/paul/corpus-structure/build/udm20-regional/excerpts/successful-control.pdf",
+      "mime": "application/pdf",
+      "title": "UDM-20 pages 479\u2013506",
+      "metadata": {
+        "source_document": "doc:38d5d93379c3320aa88457511d38fc25",
+        "source_hash": "763eab9894983ddfd6cd7f84685548d1515a9326a2d9fd015474534460551a5e",
+        "original_first_page": 479,
+        "original_last_page": 506,
+        "historical_section": "#/groups/653"
+      }
+    }
+  ]
+}

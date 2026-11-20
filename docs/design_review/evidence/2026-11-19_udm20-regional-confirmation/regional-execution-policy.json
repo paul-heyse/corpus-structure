@@ -1,0 +1,19 @@
+{
+  "workers": 1,
+  "max_submissions": 1,
+  "max_regions": 1,
+  "max_claims": 8,
+  "provider_threads": 4,
+  "provider_interop_threads": 1,
+  "cpu_native_threads": 1,
+  "max_provider_jobs": 1,
+  "max_owned_bytes": 17179869184,
+  "max_packet_bytes": 603979776,
+  "max_reply_bytes": 201326592,
+  "max_source_read_rows": 1000000,
+  "max_native_request_bytes": 8388608,
+  "max_native_reply_bytes": 8388608,
+  "max_idle_capsule_bytes": 268435456,
+  "max_idle_capsules": 2,
+  "native_keep_warm_seconds": 0
+}

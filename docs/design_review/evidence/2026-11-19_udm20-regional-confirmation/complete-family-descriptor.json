@@ -1,0 +1,23 @@
+{
+  "documents": 1,
+  "distinct_paths": 1,
+  "descriptors": [
+    {
+      "project_id": "udm20-regional-complete-family-prose",
+      "key": "doc:28247f88c86b1a22dc896094481a5642",
+      "source_uri": "udm20-complete-family-prose.pdf",
+      "content_hash": "337a5a47b3f391d362aa96fef6f941880038feb16e33a4184099004122290b76",
+      "original_path": "/home/paul/corpus-structure/build/udm20-regional/excerpts/complete-family-prose.pdf",
+      "mime": "application/pdf",
+      "title": "UDM-20 authored two-sentence complete family control",
+      "metadata": {
+        "source_kind": "independently authored text PDF",
+        "sentences": [
+          "The sample contains five observations.",
+          "The mean describes the sample."
+        ],
+        "purpose": "genuine full-family inference and composition with no formulas or large corpus"
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "project_id": "udm20-regional-complete-family-tiny",
+  "release_id": "release:576a117f26837572232f86aab382db45670d5ea6dcb99a5a804aaf5c68f3107d",
+  "runtime_id": "runtime:57224db5bb05fb7811a83263e114a91fa13ed91adbe7b25f5d2df7dca8ffd6e9",
+  "domain": null,
+  "selection": {
+    "kind": "whole_document"
+  },
+  "workflow": "phase0",
+  "membership": "descendants",
+  "pdf_mode": "standard",
+  "documents": [
+    "doc:2747a0553bcdf659f100d76cfdab9055"
+  ],
+  "targets": [
+    "text.compose_view/organized-captured-full-native"
+  ],
+  "execution_profile": "source-native",
+  "inference": "udm20-genuine-complete-family-tiny"
+}

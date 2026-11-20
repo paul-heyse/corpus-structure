@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "id": "udm20.canonical-source-subset",
+  "title": "Required canonical callable source subset refusal",
+  "group": null,
+  "package": "UDM-20",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the admitted full-family application acquire the actual segment.sentences/canonical-projection capability with every required callable owner?",
+  "answers": [
+    "UDM-20",
+    "UDM-23"
+  ],
+  "method": "Acquire the selected prepared capabilities through their actual admitted runtime and admission principal, without claiming work or declaring native GPU hosts. Preserve the earlier managed one-page failure and the independent all-selected-port baseline.",
+  "commands": [
+    "frozen-n36-runtime/.venv/bin/python -I preflight_selected_ports.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/n36-before-callable-owner-repairs-release.json",
+      "role": "exact-pre-repair-application",
+      "sha256": "e699193c9266592e68028d9dbfceb23c5d3b962ee32c32e93098b864c70aa1cc"
+    },
+    {
+      "path": "preflight_selected_ports.py",
+      "role": "actual-prepared-capability-acquisition",
+      "sha256": "fd91f8716a76e12518863135accc7fb2ba43575b9390284db5b0643104bbecf9"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/n36-before-callable-owner-repairs-preflight.json",
+      "role": "attributed-port-results",
+      "sha256": "ca0b035b06175270638cf5ccfcb2f83e7fbe1c12a9de4161f386b707c6bf96d8"
+    },
+    {
+      "path": "raw/n36-before-callable-owner-repairs-one-page-observation.json",
+      "role": "preserved-earlier-managed-attempt",
+      "sha256": "e570d31bfc953c79de1b56303c2ac762a7a8a16b60cfa9dce53d49749af99f2a"
+    },
+    {
+      "path": "raw/n36-callable-owner-source-freeze.json",
+      "role": "separately-frozen-owner-repair",
+      "sha256": "c77a1e08eb38823c3eb70ff278086a7a0f1b97ee4dbf19d06194e7a96cc9a7c4"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "baseline_selected_ports",
+      "value": 11,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "baseline_acquired_ports",
+      "value": 9,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "baseline_refused_ports",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "On 2026-11-19 nine selected ports acquired, while segment.sentences/canonical-projection refused because required helper callables were outside its captured source collection. The guard remained intact. The coordinator added the exact callable source owners and verified focused contracts; a separate fresh application and operational preflight own the subsequent qualification. This record preserves the failed baseline and makes no provider success claim.",
+  "consumed_by": [
+    "UDM-20",
+    "UDM-23",
+    "unified-domain-model-and-execution"
+  ]
+}

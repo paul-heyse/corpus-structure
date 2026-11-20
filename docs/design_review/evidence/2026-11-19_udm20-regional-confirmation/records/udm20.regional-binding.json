@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "id": "udm20.regional-binding",
+  "title": "Bounded independent-role binding and restored deadlines",
+  "group": null,
+  "package": "UDM-20",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the production binder retain independent required-role populations without a Cartesian fan-in and preserve caller transaction bounds?",
+  "answers": [
+    "UDM-20",
+    "UDM-23"
+  ],
+  "method": "Run the production binding compiler on stage N35 over independently authored two/four/eight-row role fixtures in rollback-only transactions. Compare retained before/after SQL/plans. Exercise actual statement cancellation and subsequent transaction usability through focused native tests.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-19_udm20-regional-confirmation/binding_probe.py",
+    "uv run ci test -- python/corpus-structure/tests/semantic/test_binding_deadlines.py python/corpus-structure/tests/semantic/test_data_operation_bindings.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "binding_probe.py",
+      "role": "bounded-native-probe",
+      "sha256": "32bc0cb0ce820e22a753f5129b1de938f11ca70f510f849a3a3e6fc44bfe0268"
+    },
+    {
+      "path": "raw/role-binding-before.json",
+      "role": "retained-bounded-failure",
+      "sha256": "72476c3e34eac1a2ae43d4c966f98b129d55e267fc207c6856556aa89e10358f"
+    },
+    {
+      "path": "raw/role-binding-before-8.sql",
+      "role": "original-eight-role-statement",
+      "sha256": "8af2c0d071529e5cee77e1e6a44e69f63be485cb3796bc21016db2dc49b5abe3"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/role-binding.json",
+      "role": "repaired-native-plans-and-results",
+      "sha256": "d559c36aa9e07f424b52251a8489556be559b2917a45514134b769d13dd53b92"
+    },
+    {
+      "path": "raw/worktree-managed-receipts.json",
+      "role": "preserved-test-and-type-receipt-identities",
+      "sha256": "2c41f2cd57139b7ba54863109ef07a0c8a784281a158a327c21638880cb8cbc9"
+    },
+    {
+      "path": "README.md",
+      "role": "interpretation-and-scope",
+      "sha256": "9f65ae96d32ab852bd1d1b74b2875d7e839f1826be8688f388e74a690bdebfcd"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "before_two_row_execution_ms",
+      "value": 5.063,
+      "of": null,
+      "unit": "milliseconds",
+      "note": null
+    },
+    {
+      "name": "before_four_row_execution_ms",
+      "value": 982.714,
+      "of": null,
+      "unit": "milliseconds",
+      "note": null
+    },
+    {
+      "name": "before_eight_row_statement_bound",
+      "value": 30,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "after_eight_row_execution_ms",
+      "value": 0.518,
+      "of": null,
+      "unit": "milliseconds",
+      "note": null
+    },
+    {
+      "name": "targeted_tests_passed",
+      "value": 84,
+      "of": 84,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "On 2026-11-19 the authored independent-role case reproduced a 30-second SQLSTATE 57014 at eight rows per role. The repaired compiler produced the expected 16/32/64 selected member facts without that cross-product, preserved explicit missing-role standing, and the targeted suite passed 84 tests. Actual cancellation tests preserve stricter caller settings and leave the outer transaction usable. This is binder evidence over authored rows, not a whole-book or provider result.",
+  "consumed_by": [
+    "UDM-20",
+    "UDM-23",
+    "unified-domain-model-and-execution"
+  ]
+}

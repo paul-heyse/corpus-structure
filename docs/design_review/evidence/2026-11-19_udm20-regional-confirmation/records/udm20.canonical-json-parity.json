@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "udm20.canonical-json-parity",
+  "title": "Actual object-free body canonical-byte parity",
+  "group": null,
+  "package": "UDM-20",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can object-free native body JSON avoid recursive canonicalization while preserving the existing canonical bytes?",
+  "answers": [
+    "UDM-20",
+    "UDM-23"
+  ],
+  "method": "Within a rollback-only stage read, compare the current native function and quoted-string-preserving whitespace compaction on the actual retained successful-control body. Check independent escaped/Unicode/scalar/array controls and retain object-bearing fallback cases. Compare lengths and SHA-256 digests without returning body text.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-19_udm20-regional-confirmation/canonical_json_probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "canonical_json_probe.py",
+      "role": "bounded-parity-probe",
+      "sha256": "f5c08248b918c8d090440d22d92a97b84404175b6648e6b646e4759c362bfb81"
+    },
+    {
+      "path": "raw/active-control-intents.json",
+      "role": "exact-retained-native-body-identity",
+      "sha256": "6849adaed91829061433cee6c1f42616725d7267682d307bc1ece45291478ba9"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/canonical-json-parity.json",
+      "role": "controls-and-actual-body-comparison",
+      "sha256": "06238ddc2a98d90973ee5f231a357f4acbe5adbbe0167c90b2db945c45974bcc"
+    },
+    {
+      "path": "raw/successful-control-sql-phases.json",
+      "role": "separate-direct-call-timings",
+      "sha256": "de2a56a5d3ed7abf2fdd633910e879f1f6325b633fcc300e090d1e4f27068718"
+    },
+    {
+      "path": "README.md",
+      "role": "measured-scope-and-limits",
+      "sha256": "9f65ae96d32ab852bd1d1b74b2875d7e839f1826be8688f388e74a690bdebfcd"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "body_jsonb_text_bytes",
+      "value": 23241498,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "canonical_bytes",
+      "value": 21875525,
+      "of": null,
+      "unit": "bytes",
+      "note": null
+    },
+    {
+      "name": "current_paired_projection_seconds",
+      "value": 32.95779532601591,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "compacted_paired_projection_seconds",
+      "value": 2.1977587540168315,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "On 2026-11-19 the actual 23,241,498-byte JSONB body contained no objects. Both paths produced 21,875,525 canonical bytes with SHA-256 136bafe6391ec099e94a357da17ac44e745f5ef3cfffa48bc64538966817b629. Independent controls preserved quoted whitespace, escaped quotes/backslashes and Unicode. The paired length/digest projection took 32.958 seconds through recursion and 2.198 seconds through compaction during another capture. This supported the coordinator’s separately authored N36 repair; this probe changed no installed function or workload deadline.",
+  "consumed_by": [
+    "UDM-20",
+    "UDM-23",
+    "unified-domain-model-and-execution"
+  ]
+}

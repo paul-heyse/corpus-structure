@@ -1,0 +1,20 @@
+{
+  "project_id": "udm20-regional-successful-control",
+  "release_id": "release:0f6352f5c897c798c8f9cb83da59bd07906f04b7edcf6eafb71865bc50046b51",
+  "runtime_id": "runtime:7e33fb14dd9b44b5c15205effce01928d92de4864f6eb253503542e60e436f80",
+  "domain": null,
+  "selection": {
+    "kind": "whole_document"
+  },
+  "workflow": "phase0",
+  "membership": "descendants",
+  "pdf_mode": "standard",
+  "documents": [
+    "doc:efd09945f482fa17286e68c178147ef9"
+  ],
+  "targets": [
+    "segment.sentences/source-native"
+  ],
+  "execution_profile": "source-native",
+  "inference": "udm20-exact-regional-excerpt"
+}
