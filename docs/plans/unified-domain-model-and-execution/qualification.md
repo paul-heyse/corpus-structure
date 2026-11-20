@@ -227,7 +227,7 @@ receipt on final source, accounted by test identity; the quoted receipts are con
 | 13 | Generality: an independently specified context that is not statistics runs through the same machinery | `ci test` | Carried. It doubles as the observation that a pack-extensible vocabulary accepts a second pack's members | UDM-22 |
 | 14 | PDF product equivalence, tamper detection, resume and failure classification; the round-trip oracle on each kind of PDF publication | `ci test`; `ci run resume` | Carried. The 13 failures of the N13 attempt stay held as recorded | UDM-22 |
 | 15 | Set-wise validity: revocation, supersession, protected closure; pinned reads; share locks; set form | `ci test`, native | Restated: every existing operation now states its claim. The 27 classified today name their families and every other existing operation declares `none`, which is what its absent family meant, so its behaviour is unchanged. Only an operation added without a claim is undetermined and receives **conservative validity** (RC05, RC14) | UDM-22 |
-| 16 | The 29 originals are registered and read back byte for byte through the normal reader from canonical development | `ci db check`; `ci release check`; readback against the inventory digest | Carried. Readback after N29 is recorded as pending. It is part of the re-adoption check | UDM-21, repeated on the final head at UDM-23 |
+| 16 | The 29 originals are registered and read back byte for byte through the normal reader from canonical development | `ci db check`; `ci release check`; readback against the inventory digest | Carried. N29 readback passed in UDM-21; repeat on the final head as part of re-adoption | UDM-21, repeated on the final head at UDM-23 |
 | 17 | The whole book runs to completion: 518 pages, 29 regions, a fate for every demanded family in every region, and the whole-view composition | `ci run` on the book under the stated memory policy | Restated: the run is on the series' final release, from the original, with a new demand; its pass criteria are those of UDM-23 | UDM-23, after UDM-20 |
 | 18 | One demand is interrupted under control, resumed, and then repeated unchanged with no work done | `ci run`; `ci run resume` | Carried for interruption and resume, which were demonstrated on N18 and N21 and not since capture's recipe changed. Restated for the repeat, which has never been demonstrated: with the kernel component removed from the watermark (UDM-12), "no work" is judged against the new watermark | UDM-23 |
 | 19 | The construction produced regionally in production agrees with the retained whole-book construction (the comparison the DDO plan names PE-S33) | `compare_retained_book_construction.py` in the evidence folder `2026-11-16_ddo-current-native` | Carried. The script requires the exact retained demand and a complete admitted population, and refuses while products are pending; UDM-23 states how it is pointed at the new demand and which disagreements the recorded recipe change predicts | UDM-23 |
@@ -367,7 +367,9 @@ reconstruction. [Installed workload diagnostics](../../design_review/evidence/20
 The strict D2 check now derives the predecessor and independent object count
 from the frozen state. On N36 both offline processes returned
 `no_native_change` for 620 objects. Both rendered and neither hydrated
-(`937bc65220fc4409ad917fdb58d9d29e`). D2 remains open.
+(`937bc65220fc4409ad917fdb58d9d29e`). The actual N37 repetition also matched
+620 objects while both invocations rendered and neither hydrated
+(`b5b7e6980a13441fac4861000fb5c456`). D2 remains open.
 
 The direct entity witness calculation is a declared rich workload root and the acquired
 body retains its native tagged encoding into derivation. An eligible hit must preserve
@@ -382,9 +384,13 @@ native completion and refused the unapproved rich-admission effect (`a512912cf7b
 The fixture now admits `rich.admit` through the exact released effect grant. Native publication
 and read passed on the private target (`afbb02c6446445f7bd63aad0704dedb0`). The smoke rerun with
 the exact tagged rich-body boundary also passed (`f41efa461e9a468d9fdeed434e0372cf`). The
-continuation harness covers demand, rich and contribution CLI invocations. It shares the
-subprocess observer with T14. Both strict serving journeys remain `not_run` pending complete
-serving identity.
+continuation harness covers demand, rich and contribution CLI invocations and shares the
+subprocess observer with T14. The private N37 strict run
+(`22e9264223d5421a926100019a598578`) returned a fresh native-demand page with
+`incomplete_code_identity` and no continuation. The authored-entity case derived again
+in its second fresh process. Those two cases failed their reuse assertions. Strict rich
+and contribution continuations remain `not_run` for this increment.
+[Readiness evidence](../../design_review/evidence/2026-11-20_udm-closure-provider-readiness/README.md)
 
 The focused serving and CLI controls passed 233 selected identities
 (`53e183166ea54effa89e64324c14fcda`). The final tagged-body and custody selection passed 30
@@ -927,6 +933,28 @@ registered stage and the new Standard application passed native checks.
 All three actual E5 context cases then passed native publication and
 retrieval on private N37 (`313d571742cd47b9920c6e430421c980`).
 [Native repair and provider evidence](../../design_review/evidence/2026-11-20_udm22-contextual-frozen-producers/README.md)
+
+**Scoped readiness, 2026-11-20 UTC.** Private native selections exercised real
+PDF spool resume, the D1 refusal, literal and limitation cases, concurrent
+six-provider publication, and DiPO stale-holder reclaim. All six identities
+have passing observations across the original selection and its two exact
+retries. Those attempts preserve their own source and context. Final-source
+provider qualification remains in this package.
+The actual two-language source-discovery case reached native publication and
+failed composition on the eight sequence inputs (`efd614f9181e419c9afa7cc5f8fc00fd`).
+It reproduced the ordinal refusal with both regions available. Full
+composition now declares sets for independently published regional inputs.
+It shares deterministic source-coordinate presentation and execution with
+captured composition. Focused input, binding and N37 native parity checks
+passed. The first retry fulfilled both regions and repeated the same demand
+with zero new receipts, then failed a stale observation of the publication
+receipt (`632bd4dae1e44cfabcf3e12bc1c86662`). Its successor checks execution
+evidence on the actual native intents that published both HanLP episodes.
+The exact real successor passed on `6e24b62af`
+(`d15eaeb9de574888b7cbd42e5ae13fa2`). It fulfilled both regions and full
+composition, retained two real HanLP host executions, left PDF capture
+counts equal and repeated the same demand with zero new receipts.
+[Readiness receipts](../../design_review/evidence/2026-11-20_udm-closure-provider-readiness/README.md)
 
 The Lark grammar, formal product and construction selection accounted for
 295 passed identities across its original run and exact retry

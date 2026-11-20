@@ -814,6 +814,48 @@ and value-operation contract across retained and fresh rows. Rich and
 contribution still require eager custody for model, validation and graph inputs.
 [Receipts and attributed facts](../../design_review/evidence/2026-11-20_udm10-workload-custody/README.md)
 
+**Interface-checked and scoped Tested, 2026-11-20 UTC.** The source slicer builds
+its binding collection from initialized modules and expands it through imports
+in reached callables. It admits exact builtin container construction, guarded
+nominal fields and direct local functions with captured bodies. File observations
+and runtime correspondence remain separate from byte-keyed discovery reuse. The
+finite native SHA-256 capability verifies the original OpenSSL symbol and its
+effective binding. Rich and contribution imports no longer bring in acquisition
+through type annotations or the selected-graph budget refusal. Guarded reads
+of the original builtin `type` retain exact nominal identity. Shadowed `type`
+remains a required unknown. Direct undecorated calls can carry exact constructed
+return values through captured, uniquely bound assignments and actual arguments.
+The page renderer's two envelope dictionaries now retain that provenance.
+The production JSON decoder passed authentication of the exact RapidJSON
+options and original runtime binding. The serializer still requires owned
+recursive values, and downstream decoding still needs those value facts.
+
+Native demand now reaches 89 required callable facts. Close the exact fresh and
+retained row sources, recursive wire/tagged value operations and finite envelope
+policies before enabling reuse. Rich and contribution retain 320 and 478 eager
+facts. The renderer's model and physical interpretation now precede rendering,
+and their compiler roots remain determining. The 181 eager facts include those
+roots. Existing relation descriptors omit annotations consumed by trigger
+generation and the behavior of SQLAlchemy expressions. The trigger renderer
+now consumes captured relation identities and effective policy flags as
+immutable key inputs. Its independent controls and N37 parity passed. Other
+renderer groups need complete inputs before the model and physical compiler
+roots can leave the generator closure.
+[Current workload and control evidence](../../design_review/evidence/2026-11-20_udm-closure-provider-readiness/README.md)
+
+**Interface-checked, 2026-11-20 UTC.** The PDF preparation still resolves
+action calls through YAML, cattrs and LinkML field bindings, then prepares
+release and Arrow schema material. The miss path now acquires the complete
+PDF cohort before rendering, inside verified custody. Its selection and
+preparation roots remain in the input basis. A controlled artifact hit
+skipped that preparation, and N37 parity held. D2 still needs determining
+custody for preparation and the remaining native routines, including
+SQLAlchemy expression semantics, pglast rendering and NetworkX dependency
+ordering. Exact copied provenance remains part of the artifact basis.
+A constrained generator worker would require enforcement over filesystem,
+environment, network, clock and subprocess inputs before its envelope
+could establish equivalent custody.
+
 **Resulting behavior.** Capture one immutable source population with its module identities,
 origins and exact bytes. Derive the necessary initialized modules and callable dependencies
 for the selected entry. An import performs initialization, while a local import inside an
@@ -1202,6 +1244,6 @@ matched the complete post-activation snapshot afterward. [Stage readback and rec
 |---|---|
 | UDM-08 | Acquisition and export use retained identities and the running wire protocol. See the [entry increment](../unified-domain-model-and-execution_2026-11-19.md#entry-increment) for evidence. |
 | UDM-09 | Complete. One typed installation graph, direct grants and family declarations are integrated. The fresh install, frozen ACL correspondence and N29 conversion passed. N32 established stage generation 29. |
-| UDM-10 | N33 bounded identity transition complete. The [code-closure follow-up](#udm-10-code-closure) is scheduled. Real generator and selected-reader reuse needs complete supported workload custody. Unresolved producing code selects demand-scoped fresh execution. The [N34 PDF contributor refusal](operation-reuse-and-recovery.md#fresh-pdf-contribution-on-n34) prevents fresh PDF publication in the observed case. |
+| UDM-10 | N33 bounded identity transition complete. The [code-closure follow-up](#udm-10-code-closure) is in progress. Real generator and selected-reader reuse needs complete supported workload custody. Unresolved producing code selects demand-scoped fresh execution. The repaired [fresh PDF publication](operation-reuse-and-recovery.md#fresh-pdf-qualification-on-n35) passed on N35. |
 | UDM-11 | Complete for the bounded stage. The installed kernel guard and exact program comparison passed. Both equal-byte authoring routes settled offline. |
 | UDM-12 | Complete for the bounded stage. N34 carries admitted binding and population facts and runs explicit archive and catalog proof. The cutover advanced generation 30 to 31. [Stage evidence](../../design_review/evidence/2026-11-19_udm12-carried-assurance/README.md). W1 remains deferred on the prerequisite wake-up premise. |

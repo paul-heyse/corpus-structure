@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "id": "udm10.closure-readiness",
+  "title": "Remaining attributed generator and reader workload facts",
+  "group": null,
+  "package": "UDM-10",
+  "finalized": "2026-11-20",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which required workload facts remain after source discovery, finite runtime and reader acquisition changes?",
+  "answers": [
+    "UDM-10",
+    "UDM-14",
+    "UDM-15"
+  ],
+  "method": "Capture the current generator and the installed reader root shapes under the finite codec profile at 7ec836b20.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-20_udm-closure-provider-readiness/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "diagnostic source",
+      "sha256": "8a54d032500a914059f763c15b81f362548dbb5ce98f6af0775c1265b0e61e5d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/workload-facts.json",
+      "role": "attributed required facts",
+      "sha256": "22146cdf321a45c5cdb5d2c9f29a9129ffe8fe638d10d3ee78e6479d97e3ca84"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "generator_required_facts",
+      "value": 181,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "native_demand_required_facts",
+      "value": 89,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "rich_required_facts",
+      "value": 320,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "contribution_required_facts",
+      "value": 478,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The production JSON decoder passed authenticated code custody. Native demand retains required callable facts. Rich, contributions and the generator retain required eager premises. All four enclosing workloads retain incomplete identity.",
+  "consumed_by": [
+    "UDM-10",
+    "UDM-14",
+    "UDM-15",
+    "UDM-22"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "udm22.provider-readiness",
+  "title": "Actual provider readiness and exact retry account",
+  "group": null,
+  "package": "UDM-22",
+  "finalized": "2026-11-20",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can selected actual providers exercise spool resume, literal and refusal outcomes, concurrent streams, stale-holder reclaim, and two-language composition with exact resume?",
+  "answers": [
+    "UDM-22"
+  ],
+  "method": "Run selected actual providers on managed private native targets. Compare exact retries after stabilizing source, correcting attribution observers and repairing the full composition role contract.",
+  "commands": [
+    "uv run ci test coverage 3af9cea74e0d4d1fb15fc9eb6c18048f 1b92bbdf39b24f87b7301ff39bf9750a 9799eb8f59824fa583350dfdc347601a --view unresolved --json",
+    "uv run ci test coverage efd614f9181e419c9afa7cc5f8fc00fd 632bd4dae1e44cfabcf3e12bc1c86662 d15eaeb9de574888b7cbd42e5ae13fa2 --view unresolved --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/provider-coverage.json",
+      "role": "managed provider coverage",
+      "sha256": "181d3935dcb75f08b06750dfa677b73b01ffa03908ab873ed883f387fb6ad07e"
+    },
+    {
+      "path": "raw/two-language-coverage.json",
+      "role": "actual two-language composition and resume coverage",
+      "sha256": "86668bb7ed1208eab7cf0fb89cd6bdbedca2147fcf86dcca63ac95279d1adf33"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "observed_test_identities",
+      "value": 6,
+      "of": 6,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "observed_two_language_test_identity",
+      "value": 1,
+      "of": 1,
+      "unit": null,
+      "note": "Latest exact retry passed after the composition and native HanLP receipt corrections."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "All seven scoped identities have passing observations. Original failures and differing source and private native contexts remain attributable. The final provider union remains due.",
+  "consumed_by": [
+    "UDM-22"
+  ]
+}
