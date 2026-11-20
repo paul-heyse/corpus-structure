@@ -743,6 +743,13 @@ even when the entry module does not import them. The 292 codec and reader contro
 runtime correspondence controls passed (`6dc85d72a8864eb6b5013c37148d90fa`,
 `fd7ea68602fc49fab8ad1e3f39eb3180`).
 
+The same six consumers capture the bounded reuse refusal before pagination. The page
+projection no longer reads the active serving context. Incremental width calculation
+renders envelope fields without repeatedly building and sorting all accepted output arrays.
+An independent response expectation checks hidden handles, refusal metadata and the exact
+byte boundary after the serving context exits. The 63 serving and CLI controls and the
+exact-bound check passed (`0921dee964b04149adfcb4b0f302cdce`, `183e45cfdd864fcebabdc97dcbefde4c`).
+
 Native protocol authoring and the archived model version now have owners outside runtime
 storage. The renderer probe reduced required eager premises from 426 to 115 on its measured
 baseline. Offline comparison of all 620 N35 objects returned `no_native_change` on the
@@ -754,11 +761,20 @@ canonicalization repair, the offline N36 comparison also returned `no_native_cha
 for all 620 objects (`af411378c9384cefb4ae180702ff436a`).
 
 Strict D2 is still blocked by determining renderer contracts. Native demand serving has ten
-remaining eager library premises on its measured probe. Rich and contribution preparation
-still acquire broader model and runtime context. Exact stage capture invoked under two runtime
+remaining eager premises on its captured workload. They require external initialization
+contracts for `base64`, `collections`, `datetime`, `decimal`, `json`, `math`, and `rapidjson`.
+Those contracts alone cannot authorize execution. The existing runtime verifier checks a
+finite set of standard references and must authenticate the determining external callables,
+including the bound JSON and number operations, before this workload can authorize reuse.
+Rich and contribution preparation still acquire broader model and runtime context.
+Exact stage capture invoked under two runtime
 bindings used separate demand-scoped producer requests because its PDF lowering asset has
 incomplete determining identity. These obligations remain in the
 [qualification companion](qualification.md#code-closure-and-real-reuse-qualification).
+
+The final offline N36 comparison with `--explain-reuse` on 2026-11-19 reproduced all 620
+objects. The installed CLI attributed 99 unresolved generator premises, showing 16 and
+reporting 83 omitted (`1349b8e34b84493fa3322634ffb83536`).
 
 **Partial implementation · 2026-11-19.** The bootstrap checks the executing package body and
 the exact sibling loader bytes. Package startup no longer scans the reader module population.

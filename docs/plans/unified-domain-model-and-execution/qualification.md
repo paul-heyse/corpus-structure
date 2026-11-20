@@ -346,11 +346,17 @@ native parity (`2979355692bf407e83e067d70505d8aa`, candidate receipts
 and cache controls passed 128 selected identities, then 133 with prepared correspondence and
 cache-publication controls
 (`72920dbda42e40a09af3355eca8e5267`, `62c7d552a88048769497b046e12c872f`). D2 still needs
-complete determining initialization and library custody. T4 and T14 additionally need an
-authenticated interpretation for the captured model's value codec and each family's cursor
-and page report callback. The direct entity witness calculation is a declared rich workload
-root and the acquired body retains its native tagged encoding into derivation. An eligible hit
-must preserve diagnostics, continuation interpretation and byte accounting.
+complete determining initialization and library custody. Serving now passes the captured
+model's Decimal bound into the pure value codec and uses finite cursor and page envelope
+policies. These changes passed 292 targeted controls (`6dc85d72a8864eb6b5013c37148d90fa`).
+The six page consumers now pass an immutable refusal projection from acquisition into
+pagination. The refusal and hidden handles remain part of exact byte accounting. An
+independent exact-bound control passed (`183e45cfdd864fcebabdc97dcbefde4c`).
+The native demand projection still reaches unresolved eager library premises. Rich and
+contribution paths additionally reach broader model preparation and runtime contracts.
+The direct entity witness calculation is a declared rich workload root and the acquired
+body retains its native tagged encoding into derivation. An eligible hit must preserve
+diagnostics, continuation interpretation and byte accounting.
 
 The authored entity recipe now merges equal captures under canonical logical member names,
 retaining acquired origins separately. The private smoke advanced past the merge and reached
@@ -539,15 +545,125 @@ before checking cardinality and coverage. The actual stage probe for eight indep
 with 2, 4 and 8 rows per role took 5.063 ms, 982.714 ms and more than 30 s before the change.
 Afterward the plans executed in 0.840 ms, 0.737 ms and 0.754 ms and retained all 16, 32 and 64
 role occurrences. Withholding one role preserved the seven peers and reported the missing
-cardinality. These measurements describe the bounded binding shape. The 88 native binding,
+cardinality. The experiment used required roles. The organized compositor uses optional
+alternatives and has its own workload acceptance. The 88 native binding,
 deadline and claim controls passed together (`d661ac29d9b049288ca16ced6f671936`), including
 exact epoch custody, revocation fencing and lost acknowledgment recovery. [Stage evidence](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/README.md)
 
-**Remaining live observations.** Bounded regional settlement and the actual complete-family
-compositor still need their positive and withheld-input observations on the repaired stage.
-The first provider preparation attempts recorded source-root and stale-factory custody refusals.
-Their diagnostic role settings were restored. Provider and whole-book qualification remain
-UDM-22 and UDM-23 work.
+**Tested and Measured, 2026-11-19, regional workload.** The 28-page successful control
+completed with actual Docling and spaCy on the frozen N35 Standard application
+(`4933fc555e14453394770dbdbccf4007`). Its two manifests retained 676 sentences and
+8,918 tokens. Its larger sentence completion payload was
+35,127,356 bytes as JSONB text. One publication took 66.266 seconds with no lock wait.
+Nested plans recorded normalization and body identity work. Earlier attempts preserved
+their committed capture, organization and discovery, and refused mismatched source or
+runtime custody. The later spaCy transport refresh preserved the release and inference
+identity. Capture still received a separate producer request under the refreshed runtime
+because the incomplete PDF lowering identity requires demand-scoped execution.
+
+**Tested and Measured, 2026-11-19, canonicalization candidate.** A generated temporary
+routine on N35 produced the same 21,875,525 output bytes and SHA-256 for the exact retained
+23,241,498-byte JSONB body. The paired size-and-digest projection took 2.67 seconds with the
+generated routine and 32.96 seconds with the installed recursive routine in the preceding
+probe. The routines' native escaped-text, Unicode, numeric and nested-object controls passed
+(`c5ee75b900da4bf09ff7cc8cf475b551`). Object-free arrays use JSONB scalar formatting and
+quote-preserving whitespace compaction. Object-bearing values retain ordered key traversal.
+The typed generator uses PostgreSQL `jsonb_path_exists` in strict mode and
+`regexp_replace` to preserve complete quoted strings.
+[SQL/JSON paths](https://www.postgresql.org/docs/18/functions-json.html)
+· [POSIX replacement](https://www.postgresql.org/docs/18/functions-matching.html)
+
+The offline delta changes `data.canonical_json(jsonb)` and its generated descriptors.
+[Emitted routine readback](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/raw/candidate-canonical-json.json)
+
+The 66-page control reproduced SQLSTATE `57014` at the original 120-second retention
+bound after actual capture and spaCy. The cancellation occurred while assigning the intent
+digest in `retain_data_completion_intent`. Cleanup settled and the exact 92,292,593-byte
+completion draft remains acknowledged. N36's guarded deployment on stage passed
+(`ee47785f8326495ba80c5e5e7a391311`). The candidate changed one routine and two descriptors.
+[Deployment readback](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/raw/n36-stage-readback.json)
+
+The first exact `ci run resume --result` on N36 (`8c64955052214e73b71827fa48132f78`)
+reached the original demand and refused its stale release facts before claiming work.
+The same draft bytes remain in custody. The accepted kernel boundary requires preparation
+of an application for N36, followed by current input and material-compatibility checks
+before consuming the original draft.
+
+**Measured, 2026-11-19, actual N36 intake digest.** The installed routine computed
+the digest at the N35 cancellation site in 15.26 seconds on the exact acknowledged
+92,292,593-byte request. The read-only probe used the retained producer fence and
+completion and establishes the time of the digest step. The new application has
+different material definition facts and the original answer is attempt-scoped.
+The native draft admission guard requires the original task, attempt and claim for
+that basis. The acknowledged draft remains held.
+[Intake timing](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/raw/n36-retained-intake-digest.json)
+· [Material comparison](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/raw/n36-old-draft-material-comparison.json)
+
+**Tested, 2026-11-19, prepared source correspondence.** A fresh N36 full-family
+request (`e081ef271b3942b983586e220fbc34d1`) failed before capture or inference.
+During eager port acquisition, the canonical sentence port checked the loaded
+`project_product_members` callable against its original source subset. The
+canonical execution-custody artifact retained its bytes, but the explicit subset
+omitted the callable's module. The canonical source collection now includes the
+module and authenticates the original callable through the existing guard.
+All 18 sentence and prepared product correspondence controls passed on the
+repaired source, including shared CPU execution and actual CUDA spaCy
+(`297b66ec2c2345df93c79fdfbb3d3e2e`).
+Offline candidate comparison reproduced all 620 installed N36 objects
+(`a6711853e6024c48bb55da8b8ff24348`).
+
+A read-only preflight acquired each of the 11 selected ports individually from
+the first N36 application. Nine passed. Canonical sentence projection and HanLP
+failed their original source-subset checks. HanLP's subset now includes the
+declaring modules for its native-head selector, dependency graph and constituency
+projection. The 19 HanLP and primary-operation controls passed, including actual
+CUDA inference and the independent native-head expectations
+(`fdfe4d14f4334393b86492bae8cae3ae`). The offline comparison still reported
+no change across all 620 installed objects (`6354c2b504c945c6950005120b70a6ee`).
+The repaired frozen N36 application admitted all 11 prepared ports in the
+same read-only preflight on 2026-11-19.
+[Selected-port readback](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/raw/n36-selected-port-preflight.json)
+
+**Tested, 2026-11-19, complete-family composition.** The one-page Standard
+application on N36 passed through `ci run` (`bc94c35adc3e438b8e4eb771d4ccb155`).
+A fresh native readback found all 11 obligations fulfilled, including canonical
+sentences, HanLP, contextual evaluation and the organized full-family compositor.
+The bounded run took 381.88 seconds across startup, inference and settlement.
+The live `ci results watch` over the exact stage observed the active demand
+and exited while execution continued. Its interim snapshot recorded
+`not-applicable` for the compositor with five `binding-covers` reasons while
+upstream families were pending. The compositor fulfilled once they were available.
+Diagnostic role settings were restored.
+[Live CLI readback](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/raw/n36-full-family-live-watch.json)
+
+The private PostgreSQL two-region control now publishes capture and discovery
+inside one demand and stops after the two source sweeps. It carries the exact
+capture runtime custody while the analytical families remain pending. Its
+selected population contains two regions, and native composition records
+`not-applicable` with `binding-covers` reasons only. The exact
+`ci test retry` passed (`93ea314121b5436c8820d0856460020f`). The original path,
+runtime custody and duplicate fixture artifact failures remain in the managed
+chain (`6344becd690648acb612ffcf7e2543e3`, `62ea8781ecf64203bddb7a749e4660c8`,
+`d40a868e77104636ba747359600af638`). The private fixture establishes native
+binding against independently authored regions.
+
+**Tested, 2026-11-19, 60-page regional contrast.** A separate excerpt from the
+historical failed region with the most source records passed on the corrected N36
+application (`f3bb4c777c2d42aa8acc0b8567e8b44b`). All five native obligations fulfilled,
+including two regional sentence products. The complete demand took 755.96 seconds.
+Its two manifests retain 1,924 sentences, 23,013 tokens and 1,128 annotation blocks.
+The largest completion intent was 91,103,526 bytes as JSONB text. PostgreSQL logged
+60.62 seconds for the large intake and 85.03 seconds for publication. Publication
+finished 34.97 seconds inside the unchanged 120-second statement bound.
+Cleanup settled, no leases remained and the diagnostic settings were restored.
+[Member census and settlement timing](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/README.md)
+
+**Remaining live observations.** The exact 66-page producer draft is incompatible
+with the current application under the recorded material and attempt checks. Its
+original result remains in custody. The 66-page digest and the independent
+end-to-end 60-page run now have passing evidence. A deliberately withheld region
+in the actual multi-region stage compositor still needs acceptance evidence.
+Provider and whole-book qualification remain UDM-22 and UDM-23 work.
 
 **Early diagnosis and later confirmation.** In the regional reproduction record the last durable
 boundary for the timed-out attempts. Inspect the exact native intent and publication standing
@@ -1015,7 +1131,7 @@ only when both accounts are on the same commit.
 
 | Package | State |
 |---|---|
-| UDM-20 | Canonical exact intent standing, independent role binding, finite deadlines and scoped recovery controls verified. The measured stage binding shape is improved. Regional settlement and complete-family composition remain open. [Diagnosis and evidence](#retained-book-diagnosis) |
+| UDM-20 | Canonical exact intent standing, independent role binding, finite deadlines and scoped recovery verified. The one-page complete-family composition and 60-page regional settlement passed on N36. Exact 66-page draft recovery and the deliberately withheld region in an actual multi-region stage compositor remain open. [Diagnosis and evidence](#retained-book-diagnosis) |
 | UDM-21 | Complete. Original custody, exact intent reconciliation and book generation 5 at N29 verified. The actual one-page Integrated provider run and launcher restoration passed on N35. |
 | UDM-22 | `not_run`. Final-source qualification awaits UDM-20 confirmation and complete D2, T4 and T14 workload custody. |
 | UDM-23 | `not_run`. The second canonical adoption and whole-book run await UDM-20 and UDM-22. |

@@ -406,6 +406,16 @@ subsequently refused stale runtime custody. While that invocation was active, th
 This closed a live watch defect that tried to read a recovery artifact before settlement.
 The integrated CLI and reader controls passed all 61 selections after that repair
 (`859248a2e468424baa6546ceeab22d5e`).
+On 2026-11-19, a passive watch of the corrected N36 one-page Standard invocation
+(`bc94c35adc3e438b8e4eb771d4ccb155`) returned an active demand on the acquired stage.
+The invocation continued after the watcher exited and published all 11 receipts.
+[Live readback](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/raw/n36-full-family-live-watch.json)
+
+An exact managed repeat from the completed result (`815c8161fe4a446892c127d195ec67d6`)
+retained the same native demand, frozen selection, execution policy, source root and limits.
+The fresh read matched all obligations, producer requests, intents and derivations and
+reported zero new publication receipts.
+[Exact repeat](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/raw/n36-full-family-exact-repeat.json)
 
 The [D8 interface](../../design/D8-agent-and-query-interfaces.md#shared-policy-settings-status-and-characterization-resume)
 records the installed preview, managed resume and cooperative stop routes. Capturing a fractional
