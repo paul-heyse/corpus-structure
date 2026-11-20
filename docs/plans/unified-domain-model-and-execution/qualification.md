@@ -1125,14 +1125,43 @@ The rollback-only candidate `5191bfad6b504224a099ae05b63cd560` and guarded Stand
 Two fresh renders matched all 624 frozen objects.
 
 All 18 rich native controls passed (`f1e49e25216340e0a46fb638f9ecc9fb`). The controlled
-definitions now carry current validity and parameter fields, and the unrelated-command case
-uses an admitted operation with no rich effect.
+definitions now carry current validity and parameter fields. The actual rich-admission
+journey also passed on N42 (`a145dbfebc9f4fc991ef7c511bb1cba2`), including the refused
+mutations, the ordinary readback and the independent policy authority.
 
 The M1 retry then reached a missing producer dependency in the admitted source subset
 (`42a03041b83a404a838264f3104835a0`). The candidate planner is now captured as an original
 source alongside its governing producer, preserving the existing callable verification.
-Main reproduced the exact N42 native programs after this correction. The real GLiNER
-retry and the cold Integrated check are in progress.
+Main reproduced the exact N42 native programs after this correction. The real GLiNER retry
+published the native M1 result and reached the bounded readback. The test requested the
+products of the whole upstream demand and exceeded its 8 MiB limit
+(`8fefb2735f17470aaf9d8df805600379`). The readback now selects the M1 operation within
+the same limit. Its final provider receipt is pending.
+
+**Tested, 2026-11-20 UTC.** The event retry spent at least 835 seconds preparing the
+sources, structural products and disclosure controls, then hit the existing 900-second
+watchdog while reading support for the event frame (`8f33fea76bfa47ca9c1ca874ea151412`).
+Frame preparation now shares one authenticated support index across identical cuts in one
+transaction and still runs both role checks. The fixture limits discovery to its two exact
+descendant sections before generating structural products, and scopes its individual result
+reads to their producing operations. The bounded retry
+`4fad3ac113214a0e87d4d94cd679da1e` published both structural reports and all three native
+event stages for frame, fit and authorization. It entered scorer assertions after approximately
+838 seconds of fixture setup. The same watchdog expired during scorer request attachment.
+The two following cases were unrun. Scorer attachment and the remaining authority assertions
+stay open. The test supervisor and its private database exited.
+
+**Tested, 2026-11-20 UTC.** Integrated deployment `aa866a00932f49129fb709da4ce09ad1`
+and its independent native release check passed on stage N42. The one-page cold demand
+`cfbf7d53d411497b85442167f7d2b70e` refused the Integrated transform during port
+acquisition, before inference. The captured transform asset matched its authoring checkout.
+Main reproduced its parameters, execution files and reuse status, and produced a different
+observed-code fingerprint. Main also produced a different observed-code fingerprint for the
+worktree-built Standard organization asset. Prepare and admit both applications from the
+main checkout used for execution. Confirm their exact asset custody, run the cold
+Integrated check, and use the resulting Standard release and runtime for canonical
+re-adoption. The failed demand and the cold excerpt remain available. The local provider
+launcher exited and released its GPU allocation.
 
 **Bounded provider evidence, 2026-11-20 UTC.** The actual CUDA GLiNER
 production pack tests and the actual HanLP, Maverick and DiPO native
