@@ -1036,8 +1036,47 @@ checks for regeneration, math, PDF, in-transaction source acquisition, admitted 
 predicate selectors, GLiNER loader binding, PM2 restart behavior, and inline input
 correspondence. The historic local-semantic pgTAP family calls `data.local_semantic_case_matches`,
 retired by DDO at `d6ee43480`. Its 19 cases move together when accounting for the failed campaign.
-The older M1 PDF preflight depends on retired `ops.run` storage. These mechanism-specific failures
-retain their original receipts while the current declared-source paths receive qualification.
+The older M1 PDF preflight depends on retired `ops.run` storage. The superseded SQL test family
+and uncalled PDF preflight are retired along with their mechanism-specific fixtures. Their failed
+receipts remain available. Current independent source ownership and wrong-original controls cover
+the declared-source route.
+
+### Historical authorization and stage provider readback
+
+**Tested, 2026-11-20 UTC.** `ci ingest --source-root "$PWD/python/corpus-structure/src"`
+ran a new physical-page excerpt on the N39 stage. Nemotron completed two actual requests,
+five native receipts published, and the generation document and launcher sleep state matched
+before and after (`29e657d7566648dfac3e2e795ded68bf`). The first invocation used the repository
+root, refused source acquisition before inference, and restored the launcher
+(`8df1fc11db1d4f3788fca7e751a0b392`). Stage release
+`release:ceae8abb899786942fe1e47dcf08e380d5a95671564fe723d135646d8c74dab2` passed `ci db check`
+and `ci release check --native-proof` on OID 130661481 after deployment
+`4329fc1c4b804c32a757af2d84d89272`.
+
+The N39 private retries passed the generated event family and empty-carrier cases. The grade and
+fit journey passed after its fixture admitted the exact independent policy effect. Rich admission
+as a writer then exposed historical revalidation requiring the original evaluator's purpose from
+the current consumer (`e70832fe6a474a19a7862445c924d0d8`, recovered). The generated correction uses
+the admitted release grant and actual receipt linkage for material correspondence. Live retain,
+draft adoption, publication and publication replay still enforce current effect authority.
+
+The three operation-event cases repeated native source production in parallel and reached the
+15-minute watchdog in SQL claim, read or retain calls (`4b6cff104db5461dbc50c51b89691e10`). They
+now share one module-scoped preparation, with a distinct source and report for the counterfeit
+test. The watchdog stays at its existing bound. Native event qualification remains open until
+the shared setup and its independent assertions settle.
+
+**Tested, 2026-11-20 UTC.** The private generated-program selection passed three controls
+(`ea7f512a0c744fcfb7c1dc60367e7b24`). Historical grant verification accepted the reader and
+rejected a substituted definition or effect contract. The same reader was refused by live
+authorization. The combined preview `b0479b94f1e549cab38f097203f86779` identified 622 native
+objects with no physical or existing privilege changes. The rollback-only candidate
+`0192328720894bad89979b7d9fbb1a18` passed. Registration `4df076ebc9c14f799f6adb577becf2c2` froze
+N40. Guarded deployment `816636325a2648c481a12157b0baf290` migrated stage OID 130661481 from
+N39 to N40 and admitted Standard release
+`release:5dd3a504a1b0fd91f822d1e194c3be00252a0175bc395e4f53aa380d9933660d`.
+`ci db check --target deployment` and `ci release check --target deployment --native-proof`
+independently accepted that release on the same stage database.
 
 **Bounded provider evidence, 2026-11-20 UTC.** The actual CUDA GLiNER
 production pack tests and the actual HanLP, Maverick and DiPO native
@@ -1347,5 +1386,5 @@ only when both accounts are on the same commit.
 |---|---|
 | UDM-20 | Complete for the bounded stage. N36 passed 60- and 66-page regional settlement, complete-family composition, and actual two-region withholding and refill. The cancelled N35 demand and unpublished draft retain their recorded custody. [Diagnosis and evidence](#retained-book-diagnosis) |
 | UDM-21 | Complete. Original custody, exact intent reconciliation and book generation 5 at N29 verified. The actual one-page Integrated provider run and launcher restoration passed on N35. |
-| UDM-22 | `not_run` for the final union. Bounded stage confirmation and actual CUDA stop passed. Final qualification awaits the revised continuation/authoring acceptance and the remaining exact provider receipts. |
+| UDM-22 | In progress. Continuation, bounded stage confirmation and actual CUDA stop passed. N40 is installed on stage. Native journey retries and the final-source union remain open. |
 | UDM-23 | `not_run`. The second canonical adoption and whole-book run await UDM-22. |

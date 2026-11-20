@@ -8,6 +8,7 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.effect_policy import effect_programs, privileged_effects
 from corpus_structure.semantic.metadata import get_metadata
+from corpus_structure.semantic.support_trust_native import support_trust_native_programs
 
 
 def test_privileged_effect_requires_owning_purpose():
@@ -46,6 +47,13 @@ def test_actual_effect_grant_binds_definition_and_principal(semantic_bare_engine
         Column("contract", JSONB(), nullable=False),
         schema="sem",
     )
+    requests = Table(
+        "data_request",
+        model,
+        Column("release_id", Text(), primary_key=True),
+        Column("operation_id", Text(), primary_key=True),
+        schema="ops",
+    )
     policy = next(effect for effect in privileged_effects() if effect.purposes == ("evaluate",))
     row = dict(
         release_id="release:test",
@@ -59,18 +67,36 @@ def test_actual_effect_grant_binds_definition_and_principal(semantic_bare_engine
     sql = text(
         "SELECT ops.ddo_privileged_effect_authorized(d, :effect) FROM sem.data_operation_definition d WHERE d.operation_id=:operation"
     )
+    admitted_sql = text(
+        "SELECT ops.ddo_privileged_effect_admitted(d, :effect) FROM sem.data_operation_definition d WHERE d.operation_id=:operation"
+    )
+    live_sql = text(
+        "SELECT ops.ddo_require_completion_effect_authority(r) FROM ops.data_request r WHERE r.operation_id=:operation"
+    )
     with semantic_bare_engine.begin() as connection:
         connection.exec_driver_sql("CREATE SCHEMA sem")
         connection.exec_driver_sql("CREATE SCHEMA ops")
         model.create_all(connection)
+        authorize = next(
+            program.routine
+            for program in support_trust_native_programs(source)
+            if program.routine.name == "ddo_authorize"
+        )
+        connection.exec_driver_sql(authorize.render(), execution_options={"no_parameters": True})
         for program in effect_programs(model):
             connection.exec_driver_sql(program, execution_options={"no_parameters": True})
         connection.execute(insert(definition), row)
         connection.execute(insert(definition), dict(row, operation_id="copied-owner"))
+        connection.execute(
+            insert(requests),
+            {name: row[name] for name in ("release_id", "operation_id")},
+        )
         pins = {"effect": policy.name, "operation": row["operation_id"]}
         copied_pins = dict(pins, operation="copied-owner")
         assert connection.scalar(sql, pins) is False
         assert connection.scalar(sql, copied_pins) is False
+        assert connection.scalar(admitted_sql, pins) is False
+        assert connection.scalar(admitted_sql, copied_pins) is False
         assert connection.scalar(select(func.count()).select_from(grants)) == 0
         approval = dict(
             release_id=row["release_id"],
@@ -92,6 +118,9 @@ def test_actual_effect_grant_binds_definition_and_principal(semantic_bare_engine
         assert admitted == row["release_id"]
         assert connection.scalar(sql, pins) is True
         assert connection.scalar(sql, copied_pins) is False
+        assert connection.scalar(admitted_sql, pins) is True
+        assert connection.scalar(admitted_sql, copied_pins) is False
+        connection.execute(live_sql, pins)
         for bad_approval in (
             dict(approval, grants=approval["grants"] * 2),
             dict(approval, grants=[dict(approval["grants"][0], definition_identity="foreign")]),
@@ -120,8 +149,20 @@ def test_actual_effect_grant_binds_definition_and_principal(semantic_bare_engine
         connection.exec_driver_sql(
             "GRANT SELECT ON sem.data_operation_definition TO corpus_sem_reader"
         )
+        connection.exec_driver_sql("GRANT SELECT ON ops.data_request TO corpus_sem_reader")
         connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_reader")
+        # A reader can authenticate historical material without acquiring its issuer purpose.
+        assert connection.scalar(admitted_sql, pins) is True
         assert connection.scalar(sql, pins) is False
+        with (
+            pytest.raises(
+                DBAPIError, match="completion effect lacks its current native purpose"
+            ) as live_denied,
+            connection.begin_nested(),
+        ):
+            connection.execute(live_sql, pins)
+        assert isinstance(live_denied.value.orig, PgError)
+        assert live_denied.value.orig.sqlstate == "42501"
         with pytest.raises(DBAPIError) as denied, connection.begin_nested():
             connection.scalar(
                 select(
@@ -133,6 +174,7 @@ def test_actual_effect_grant_binds_definition_and_principal(semantic_bare_engine
         assert denied.value.orig.sqlstate == "42501"
         connection.exec_driver_sql("RESET ROLE")
         connection.execute(definition.update().values(definition_identity="definition:two"))
+        assert connection.scalar(admitted_sql, pins) is False
         assert connection.scalar(sql, pins) is False
         connection.execute(
             definition.update().values(
@@ -143,4 +185,5 @@ def test_actual_effect_grant_binds_definition_and_principal(semantic_bare_engine
                 ),
             )
         )
+        assert connection.scalar(admitted_sql, pins) is False
         assert connection.scalar(sql, pins) is False

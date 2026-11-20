@@ -1109,7 +1109,7 @@ def _completion(p):
     payload = fit_intent("payload")
     authorization = (
         _reject(
-            ~func.ops.ddo_privileged_effect_authorized(
+            ~func.ops.ddo_privileged_effect_admitted(
                 definition(), "native-evaluator-operation-event-authorization"
             ),
             "operation event authorization lacks its independent release effect grant",

@@ -566,19 +566,6 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
             )
         )
     ]
-    authorized_effects = (
-        select(definition.c.operation_id)
-        .where(
-            definition.c.release_id == rf("release_id"),
-            definition.c.operation_id == rf("operation_id"),
-            func.jsonb_path_exists(
-                definition.c.support_contract["effects"],
-                '$[*].authorization[*] ? (@ == "native-purpose:evaluate")',
-            ),
-        )
-        .exists()
-    )
-    checks.append(If(authorized_effects, (Perform(func.ops.ddo_authorize("evaluator")),)))
     for name in guards:
         invocation = Perform(
             getattr(func.ops, name)(completion, r, producer_task, producer_attempt, producer_holder)
@@ -827,6 +814,7 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
         (("r", "ops.data_request"), ("completion", "jsonb")),
         (
             Perform(func.ops.ddo_authorize_request(r)),
+            Perform(func.ops.ddo_require_completion_effect_authority(r)),
             Perform(func.ops.ddo_binding_body_access(rf("binding"), rf("project_id"))),
             ForQuery(
                 ("output_",),

@@ -189,6 +189,7 @@ def _publish_derivation(model: MetaData) -> NativeRoutine:
                 or_(intent("generation") == generation, consumed_draft),
             ),
             (
+                Perform(func.ops.ddo_require_completion_effect_authority(composite)),
                 Perform(func.ops.ddo_reconfirm_completion_validity(receipt("id"))),
                 Return(
                     _record(

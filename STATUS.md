@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-20 UTC. PostgreSQL stage runs N39 with the generated operation-event scope repair. The bounded project's last activation is N35 at generation 32. Canonical development runs N29, selected by the book at generation 5. The earlier 518-page capture and regional results remain in retained custody._
+_Updated 2026-11-20 UTC. PostgreSQL stage runs N40 with separate historical grant verification and live effect authorization. The bounded project's last activation is N35 at generation 32. Canonical development runs N29, selected by the book at generation 5. The earlier 518-page capture and regional results remain in retained custody._
 
 ## Current owners
 
@@ -51,10 +51,10 @@ _Updated 2026-11-20 UTC. PostgreSQL stage runs N39 with the generated operation-
 - **Passed.** `uv run python docs/design_review/evidence/2026-11-19_udm-code-dependency-closure/probe.py` reproduced the four scans and showed where the analyzer over-includes an uncalled function and misses an indirect import in a bounded fixture. [Probe evidence](docs/design_review/evidence/2026-11-19_udm-code-dependency-closure/README.md)
 - **Passed.** The PDF-backed authored publication fixture verified native entity qualifications and zero-receipt replay on N38 after resolving mixed source locations and the exact `rich.admit` grant (`1319925a435841b48ead42d88c2dbeb6`). The smaller private entity smoke retains its earlier receipt (`f41efa461e9a468d9fdeed434e0372cf`).
 - **Passed.** The focused custody, generator and cache selection passed 133 controls (`62c7d552a88048769497b046e12c872f`). The focused serving selection passed 233 (`53e183166ea54effa89e64324c14fcda`). The private exact JSON/JSONB selection passed seven (`1fe83f7f90c8444dbb65a96b7b63e568`).
-- **Passed, 2026-11-20 UTC.** `uv run ci check --view steps --json` passed Pyrefly, Ruff, docs, ADR lint, dependency checks and Clippy following the N39 source and fixture changes (`e45afacfaf314ddabe0588afcdc2dba1`).
+- **Passed, 2026-11-20 UTC.** `uv run ci check --view steps --json` passed Pyrefly, Ruff, docs, ADR lint, dependency checks and Clippy on the N40 changes (`1d0d96e3861d44b79f8b45e217603ca7`).
 - **Passed, 2026-11-20 UTC.** `uv run ci model change deploy` verified the guarded N38 stage successor (`1d6f3af29dc042ec95331f058392f2e5`). The Standard release passed `ci db check` and `ci release check --native-proof`. `uv run ci test` passed 223 integrated controls with strict D2 skipped in that selection (`6f1dda237eb8477d9c639d0c20acebba`) and 31 composite and facet controls (`2448fbe2d80c4ef184f7a18ee94c942a`). [N38 evidence](docs/design_review/evidence/2026-11-20_udm-closure-provider-readiness/README.md#typed-boundaries-and-source-navigation)
 
 ## Next execution
 
-- Finish the N39 native journey retries and stage application proof. Run the cold Integrated Nemotron observation and reconcile the ordinary, fault and provider selections on the exact final source. [UDM-22](docs/plans/unified-domain-model-and-execution/qualification.md#udm-22--the-managed-union-on-final-source)
+- Finish the N40 native journey retries and reconcile the ordinary, fault and provider selections on the exact final source. The cold N39 Integrated Nemotron observation passed. [UDM-22](docs/plans/unified-domain-model-and-execution/qualification.md#udm-22--the-managed-union-on-final-source)
 - After UDM-22, verify originals during guarded canonical re-adoption and qualify the recorded whole-book demand under UDM-23. Chandra OCR remains excluded. [UDM-23](docs/plans/unified-domain-model-and-execution/qualification.md#udm-23--the-whole-book-run)

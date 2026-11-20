@@ -569,7 +569,9 @@ def test_native_rich_function_population_has_explicit_independent_expectation():
 def test_rich_consumes_exact_sealed_policy_authority_without_reentering_issuance():
     from pglast import parse_sql
 
+    from corpus_structure.semantic.effect_policy import effect_programs
     from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.native_objects import native_sql_script
     from corpus_structure.semantic.native_products import function_bodies
     from corpus_structure.semantic.record_policy_completion_native import (
         record_policy_completion_native_sql,
@@ -642,8 +644,17 @@ def test_rich_consumes_exact_sealed_policy_authority_without_reentering_issuance
     issuer = function_bodies(record_policy_completion_native_sql(get_metadata()))[
         "ops.ddo_require_policy_authorization_completion"
     ]
-    assert "policy authorization requires native evaluator purpose" in issuer
-    assert "corpus_sem_evaluator" in issuer and "ERRCODE = '42501'" in issuer
+    assert "ops.ddo_privileged_effect_admitted" in issuer
+    assert "ops.ddo_privileged_effect_authorized" not in issuer
+    assert "pg_has_role" not in issuer and "corpus_sem_evaluator" not in issuer
+    assert "policy authorization lacks its independent release effect grant" in issuer
+    assert "ERRCODE = '42501'" in issuer
+    live_authority = function_bodies(native_sql_script(effect_programs(get_metadata())))[
+        "ops.ddo_require_completion_effect_authority"
+    ]
+    assert "ops.ddo_privileged_effect_authorized" in live_authority
+    assert "ops.ddo_authorize('evaluator')" in live_authority
+    assert "ERRCODE = '42501'" in live_authority
 
 
 def test_generated_rich_producer_authority_binds_actual_native_model(native_rollback):

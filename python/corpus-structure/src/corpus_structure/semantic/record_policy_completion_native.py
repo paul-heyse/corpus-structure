@@ -475,21 +475,10 @@ def _authorization_completion(p):
                 ),
             ),
             _reject(
-                ~func.ops.ddo_privileged_effect_authorized(
+                ~func.ops.ddo_privileged_effect_admitted(
                     definition(), "native-evaluator-policy-authorization"
                 ),
                 "policy authorization lacks its independent release effect grant",
-                "42501",
-            ),
-            _reject(
-                ~func.pg_has_role(
-                    func.coalesce(
-                        func.nullif(func.current_setting("role"), "none"), func.session_user()
-                    ),
-                    role_name("evaluator"),
-                    "MEMBER",
-                ),
-                "policy authorization requires native evaluator purpose",
                 "42501",
             ),
             _reject(

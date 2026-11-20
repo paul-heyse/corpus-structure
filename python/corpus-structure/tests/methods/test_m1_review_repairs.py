@@ -1,15 +1,13 @@
-"""Independent review regressions: native hierarchy and exact retained document selection."""
+"""Independent review regressions for native hierarchy and configured pack policy."""
 
 import json
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 
 from corpus_structure.methods.m1_source import M1Config, _structural_groups
 from corpus_structure.semantic.identity import canonical_bytes
-from corpus_structure.semantic.product_reference import ProductReference
 
 ROOT = Path(__file__).resolve().parents[4]
 
@@ -65,113 +63,6 @@ def test_only_nested_nonoverlapping_native_header_paths_are_readings(
     )
     key = "header_paths" if axis == "column" else "row_paths"
     assert captured[key].get(2, ()) == ((0, 1) if expected == "present" else ())
-
-
-@pytest.fixture
-def retained_input(monkeypatch):
-    from corpus_structure.semantic import pdf_record_reader, pdf_storage
-
-    pin = ProductReference(23, "integrated", "a" * 64)
-    revision = dict(
-        task_id=23,
-        product_key="integrated",
-        logical_digest="a" * 64,
-        build_id="published-build",
-        release_id="producer-release",
-        source_digest="b" * 64,
-        kind="integrated",
-    )
-    reader = MagicMock(reference=pin, revision=revision)
-    reader.iter_companions.return_value = [
-        dict(source_scope="whole_document", conversion="success")
-    ]
-    reader.sections.return_value = [dict(pointer="#/groups/1")]
-    monkeypatch.setattr(pdf_record_reader, "published_record_reader", lambda *a, **kw: reader)
-    identity = dict(kind="integrated")
-    monkeypatch.setattr(pdf_storage, "_record_product_identity", lambda *a, **kw: identity)
-    row = dict(
-        unit_type="document",
-        id=2,
-        key="other-book",
-        content_hash="b" * 64,
-        source_uri="other_book/Full.pdf",
-        mime="application/pdf",
-        document_project="project",
-        producer_project="project",
-    )
-    conn = MagicMock()
-    conn.execute.return_value.mappings.return_value.one_or_none.side_effect = lambda: row
-    documents = [dict(id=2, key="other-book", content_hash="b" * 64)]
-    return SimpleNamespace(
-        pin=pin, reader=reader, identity=identity, row=row, conn=conn, documents=documents
-    )
-
-
-@pytest.mark.parametrize(
-    "failure,match",
-    [
-        ("wrong_corpus", "outside the selected corpus"),
-        ("wrong_project", "another project"),
-        ("wrong_original", "original differs"),
-        ("wrong_pin", "placement differs"),
-        ("wrong_kind", "not an integrated"),
-        ("unsupported_schema", "unsupported schema"),
-        ("partial_source", "successful whole PDF"),
-        ("missing_publication", "absent or unpublished"),
-        ("missing_document", "producing document binding"),
-        ("wrong_document_unit", "producing document binding"),
-    ],
-)
-def test_exact_product_preflight_refuses_mismatched_custody(
-    retained_input, monkeypatch, failure, match
-):
-    from corpus_structure.semantic.retained_pdf_documents import (
-        retained_pdf_document as retained_document,
-    )
-
-    f = retained_input
-    if failure == "wrong_corpus":
-        f.documents = []
-    elif failure == "wrong_project":
-        f.row["producer_project"] = "another-project"
-    elif failure == "wrong_original":
-        f.row["content_hash"] = "c" * 64
-    elif failure == "wrong_pin":
-        f.reader.revision["logical_digest"] = "c" * 64
-    elif failure == "wrong_kind":
-        f.identity["kind"] = "native"
-    elif failure == "unsupported_schema":
-        f.reader._native_schema_mapping.side_effect = ValueError("unsupported schema")
-    elif failure == "partial_source":
-        f.reader.iter_companions.return_value = [
-            dict(source_scope="page_range", conversion="success")
-        ]
-    elif failure == "missing_publication":
-        from corpus_structure.semantic import pdf_record_reader
-
-        monkeypatch.setattr(pdf_record_reader, "published_record_reader", lambda *a, **kw: None)
-    elif failure == "missing_document":
-        f.conn.execute.return_value.mappings.return_value.one_or_none.side_effect = lambda: None
-    elif failure == "wrong_document_unit":
-        f.row["unit_type"] = "source_view"
-    with pytest.raises(ValueError, match=match):
-        retained_document(
-            f.conn, f.pin, prepared=object(), project_id="project", documents=f.documents
-        )
-
-
-def test_nondefault_original_is_bound_and_selected_exactly(retained_input):
-    from corpus_structure.semantic.retained_pdf_documents import (
-        retained_pdf_document as retained_document,
-    )
-
-    f = retained_input
-    document = retained_document(
-        f.conn, f.pin, prepared=object(), project_id="project", documents=f.documents
-    )
-    assert document.id == 2 and document.key == "other-book"
-    assert document.content_hash == "b" * 64
-    assert document.source_uri == "other_book/Full.pdf"
 
 
 def test_configured_descriptions_change_pack_conditioning_without_changing_released_roles():

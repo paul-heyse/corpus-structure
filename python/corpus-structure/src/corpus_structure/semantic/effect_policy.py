@@ -83,7 +83,20 @@ def _json(value):
 
 
 def effect_native_programs(model) -> tuple[ProgramDeclaration, ...]:
-    from .native_program import NativeRoutine, Parameter, core_variable, pg_type
+    from .native_program import (
+        Block,
+        ForQuery,
+        If,
+        Local,
+        NativeRoutine,
+        Parameter,
+        Perform,
+        Raise,
+        SelectInto,
+        core_relation_row,
+        core_variable,
+        pg_type,
+    )
 
     definitions = model.tables["sem.data_operation_definition"]
     grants = model.tables["sem.data_operation_effect_grant"]
@@ -154,7 +167,7 @@ def effect_native_programs(model) -> tuple[ProgramDeclaration, ...]:
             for policy in policies
         )
     )
-    authorized = (
+    admitted = (
         select(1)
         .select_from(grants.join(rows, grants.c.contract == rows.c.value))
         .where(
@@ -165,9 +178,9 @@ def effect_native_programs(model) -> tuple[ProgramDeclaration, ...]:
         )
         .exists()
     )
-    authorized_program = NativeRoutine(
+    admitted_program = NativeRoutine(
         "ops",
-        "ddo_privileged_effect_authorized",
+        "ddo_privileged_effect_admitted",
         parameters=parameters,
         returns=pg_type("bool"),
         body=select(
@@ -175,9 +188,90 @@ def effect_native_programs(model) -> tuple[ProgramDeclaration, ...]:
                 func.ops.ddo_privileged_effect_eligible(
                     core_variable("definition", JSONB()), effect
                 ),
-                authorized,
+                admitted,
+            )
+        ),
+        volatility="stable",
+        strict=True,
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+    )
+    authorized_program = NativeRoutine(
+        "ops",
+        "ddo_privileged_effect_authorized",
+        parameters=parameters,
+        returns=pg_type("bool"),
+        body=select(
+            and_(
+                func.ops.ddo_privileged_effect_admitted(
+                    core_variable("definition", JSONB()), effect
+                ),
                 authorized_principal,
             )
+        ),
+        volatility="stable",
+        strict=True,
+        security_definer=True,
+        search_path=("pg_catalog", "pg_temp"),
+    )
+    material = core_variable("material", JSONB())
+    material_contract = core_variable("material", JSONB(), "support_contract")
+    effect_contract = core_variable("effect_contract", JSONB())
+    declared_effects = (
+        func.jsonb_array_elements(material_contract["effects"])
+        .table_valued(column("value", JSONB()))
+        .render_derived(name="declared_effect")
+    )
+    live_authority = NativeRoutine(
+        "ops",
+        "ddo_require_completion_effect_authority",
+        parameters=(Parameter("r", pg_type("ops", "data_request")),),
+        returns=pg_type("void"),
+        body=Block(
+            (
+                SelectInto(
+                    select(core_relation_row(definitions))
+                    .select_from(definitions)
+                    .where(
+                        definitions.c.release_id == core_variable("r", Text(), "release_id"),
+                        definitions.c.operation_id == core_variable("r", Text(), "operation_id"),
+                    ),
+                    ("material",),
+                    strict=True,
+                ),
+                ForQuery(
+                    ("effect_contract",),
+                    select(declared_effects.c.value).where(
+                        declared_effects.c.value["name"].astext.in_(
+                            tuple(policy.name for policy in policies)
+                        )
+                    ),
+                    (
+                        If(
+                            ~func.coalesce(
+                                func.ops.ddo_privileged_effect_authorized(
+                                    material, effect_contract["name"].astext
+                                ),
+                                False,
+                            ),
+                            (
+                                Raise(
+                                    "completion effect lacks its current native purpose and admitted release grant",
+                                    "42501",
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+                If(
+                    func.jsonb_path_exists(
+                        material_contract["effects"],
+                        '$[*].authorization[*] ? (@ == "native-purpose:evaluate")',
+                    ),
+                    (Perform(func.ops.ddo_authorize("evaluator")),),
+                ),
+            ),
+            (Local("material", definitions), Local("effect_contract", pg_type("jsonb"))),
         ),
         volatility="stable",
         strict=True,
@@ -192,7 +286,7 @@ def effect_native_programs(model) -> tuple[ProgramDeclaration, ...]:
                 owner=role_name("publisher"),
                 access=INTERNAL_PROGRAM,
             )
-            for routine in (eligible, authorized_program)
+            for routine in (eligible, admitted_program, authorized_program, live_authority)
         ),
         ProgramDeclaration(
             _effect_grant_admission(model),
@@ -208,8 +302,8 @@ def effect_programs(model) -> tuple[str, ...]:
     return tuple(declaration.routine.render() for declaration in effect_native_programs(model))
 
 
-def require_effect(model, request, name):
-    """Use the separately admitted grant under the actual native caller purpose."""
+def require_admitted_effect(model, request, name):
+    """Authenticate a material grant independently of the current consumer's purpose."""
     definitions = model.tables["sem.data_operation_definition"]
     return (
         select(1)
@@ -217,7 +311,7 @@ def require_effect(model, request, name):
         .where(
             definitions.c.release_id == request("release_id"),
             definitions.c.operation_id == request("operation_id"),
-            func.ops.ddo_privileged_effect_authorized(definitions.table_valued(), name),
+            func.ops.ddo_privileged_effect_admitted(definitions.table_valued(), name),
         )
         .exists()
     )

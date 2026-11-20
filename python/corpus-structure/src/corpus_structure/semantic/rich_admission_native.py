@@ -323,21 +323,8 @@ def _rich_input_programs(p):
         p.row("definition", "sem.data_operation_definition", "support_contract"),
         p.row("intent", "ops.data_completion_intent", "payload"),
     )
-    grants = p.table("sem.data_operation_effect_grant")
-    effect_granted = (
-        select(1)
-        .select_from(grants)
-        .where(
-            grants.c.release_id
-            == p.row("definition", "sem.data_operation_definition", "release_id"),
-            grants.c.operation_id
-            == p.row("definition", "sem.data_operation_definition", "operation_id"),
-            grants.c.definition_identity
-            == p.row("definition", "sem.data_operation_definition", "definition_identity"),
-            grants.c.effect == _value("required_effect", Text()),
-            contract["effects"] == func.jsonb_build_array(grants.c.contract),
-        )
-        .exists()
+    effect_granted = func.ops.ddo_privileged_effect_admitted(
+        core_variable("definition", JSONB()), _value("required_effect", Text())
     )
     p.add(
         "ddo_rich_producing_request",
@@ -1145,9 +1132,9 @@ def _rich_admission_program(p):
                 message,
             )
         )
-    from .effect_policy import require_effect
+    from .effect_policy import require_admitted_effect
 
-    admitted_effect = require_effect(
+    admitted_effect = require_admitted_effect(
         p.model,
         lambda field: p.row("r", "ops.data_request", field),
         "native-rich-knowledge-admission",

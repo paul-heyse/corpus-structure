@@ -44,16 +44,18 @@ from semantic.structural_production_native_support import (
     selected_for_source,
     source_pin,
 )
+from test_preparation import preparation_fixture
 
 
-@pytest.fixture
-def operation_event_journey(published_pdf_source_factory, tmp_path):
+@preparation_fixture("operation-event-native", scope="module")
+def operation_event_journey(published_pdf_source_factory, tmp_path_factory):
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.semantic.native_definition_projection import (
         read_native_definition_projection,
     )
 
+    tmp_path = tmp_path_factory.mktemp("operation-event-journey")
     literals = ("We define variance as spread.", "We define mass as inertia.")
     with published_pdf_source_factory(
         tuple(("text", text, text, None) for text in literals)
@@ -449,7 +451,8 @@ def test_authored_same_kind_parameters_cannot_supply_declared_native_scorer(
     parameter_entry = SourceSetEntry.from_semantic_source(
         DataProductReference(product_id), context=project_context(kernel)
     )
-    report, source = case["reports"][0], case["originals"][0]
+    # Keep this feature episode independent of the successful scorer's inputs.
+    report, source = case["reports"][1], case["originals"][1]
     score_operation = "urn:corpus:operation:score-operation-event"
     pending = request(
         kernel,

@@ -475,7 +475,7 @@ def published_pdf_source(scenario_seeds):
         yield source
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def published_pdf_source_factory(scenario_seeds):
     """Share recipe-described published section captures across post-capture consumers."""
 

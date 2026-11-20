@@ -1480,22 +1480,10 @@ def _structural_issuance_completion(model):
                 ),
             ),
             _completion_refusal(
-                ~func.ops.ddo_privileged_effect_authorized(
+                ~func.ops.ddo_privileged_effect_admitted(
                     core_variable("definition", JSONB()), "native-evaluator-structural-admission"
                 ),
                 "structural admission lacks its independent release effect grant",
-                "42501",
-            ),
-            _completion_refusal(
-                ~func.pg_has_role(
-                    func.coalesce(
-                        func.nullif(func.current_setting("role"), "none"), func.session_user()
-                    ),
-                    role_name("evaluator"),
-                    "MEMBER",
-                    type_=Boolean(),
-                ),
-                "structural admission requires native evaluator purpose",
                 "42501",
             ),
             _completion_refusal(
