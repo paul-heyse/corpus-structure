@@ -145,7 +145,7 @@ def test_authenticated_workload_rechecks_the_definition_and_consumed_binding(pro
 
     name, path, _ = promised
     content = path.read_bytes()
-    source = ModuleSource(name, path.name, content, b"")
+    source = ModuleSource(name, path.name, content, "")
     basis = CodeIdentity(
         (name,),
         (source,),

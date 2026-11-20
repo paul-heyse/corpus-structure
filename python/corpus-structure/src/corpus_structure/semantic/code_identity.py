@@ -15,7 +15,7 @@ import sys
 import typing
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from functools import lru_cache
+from functools import cache, lru_cache
 from hashlib import sha256
 from pathlib import Path
 from textwrap import dedent
@@ -58,11 +58,7 @@ class ModuleSource:
     module: str
     filename: str
     content: bytes
-    meaning: bytes
-
-    @property
-    def digest(self) -> str:
-        return sha256(self.meaning).hexdigest()
+    digest: str
 
 
 @dataclass(frozen=True)
@@ -260,6 +256,77 @@ class _RuntimeSyntax(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+@dataclass(frozen=True)
+class _SourceDiscovery:
+    digest: str
+    imports: tuple[tuple[str, bool], ...]
+    unknowns: tuple[CodeUnknown, ...]
+
+
+@lru_cache(maxsize=1024)
+def _discover_source(name: str, package: str, content: bytes) -> _SourceDiscovery:
+    """Reuse syntax discovery only for the same observed file bytes and import context."""
+    tree = ast.parse(content)
+    aliases = {}
+    dynamic_names = {
+        "importlib",
+        "importlib.import_module",
+        "importlib.util",
+        "importlib.util.spec_from_file_location",
+        "importlib.machinery",
+        "importlib.machinery.SourceFileLoader",
+        "__import__",
+        "exec",
+        "eval",
+        "compile",
+    }
+
+    def remember(alias, target):
+        if aliases.get(alias) not in dynamic_names:
+            aliases[alias] = target
+
+    assignments = []
+    assigned = set()
+    for item in ast.walk(tree):
+        if isinstance(item, ast.Import):
+            for part in item.names:
+                remember(
+                    part.asname or part.name.split(".")[0],
+                    part.name if part.asname else part.name.split(".")[0],
+                )
+        elif isinstance(item, ast.ImportFrom) and item.level == 0 and item.module:
+            for part in item.names:
+                remember(part.asname or part.name, item.module + "." + part.name)
+        elif isinstance(item, ast.Assign):
+            assignments.append(item)
+        elif isinstance(item, ast.Name) and isinstance(item.ctx, ast.Store):
+            assigned.add(item.id)
+
+    def qualified(node):
+        if isinstance(node, ast.Name):
+            return aliases.get(node.id, node.id)
+        if isinstance(node, ast.Attribute):
+            return qualified(node.value) + "." + node.attr
+        return ""
+
+    for item in assignments:
+        target_name = qualified(item.value)
+        if target_name in dynamic_names:
+            for target in item.targets:
+                if isinstance(target, ast.Name):
+                    remember(target.id, target_name)
+    walker = _RuntimeSyntax(name, package, aliases, assigned)
+    walker.visit(tree)
+    digest = sha256(_bytes({"syntax": ast.dump(tree, include_attributes=False)})).hexdigest()
+    return _SourceDiscovery(
+        digest,
+        tuple(
+            (imported, imported in walker.required_modules) for imported in sorted(walker.imports)
+        ),
+        tuple(walker.unknowns),
+    )
+
+
 def capture_code_identity(
     package_root: Path,
     entries: tuple[str, ...],
@@ -303,7 +370,7 @@ def capture_code_identity(
     unknowns: set[CodeUnknown] = set()
     pending = set(entries)
 
-    @lru_cache(maxsize=None)
+    @cache
     def path_for(name: str) -> Path | None:
         if name != package and not name.startswith(package + "."):
             return None
@@ -346,72 +413,21 @@ def capture_code_identity(
             continue
         content = path.read_bytes()
         try:
-            tree = ast.parse(content)
+            discovery = _discover_source(
+                name, name if path.name == "__init__.py" else name.rpartition(".")[0], content
+            )
         except SyntaxError as error:
             unknowns.add(CodeUnknown(name, error.lineno or 0, "source cannot be parsed"))
             continue
         modules[name] = ModuleSource(
-            name,
-            path.relative_to(package_root).as_posix(),
-            content,
-            _bytes({"syntax": ast.dump(tree, include_attributes=False)}),
+            name, path.relative_to(package_root).as_posix(), content, discovery.digest
         )
         parents = name.split(".")
         pending.update(".".join(parents[:index]) for index in range(1, len(parents)))
-        aliases = {}
-        dynamic_names = {
-            "importlib",
-            "importlib.import_module",
-            "importlib.util",
-            "importlib.util.spec_from_file_location",
-            "importlib.machinery",
-            "importlib.machinery.SourceFileLoader",
-            "__import__",
-            "exec",
-            "eval",
-            "compile",
-        }
-
-        def remember(alias, target, aliases=aliases, dynamic_names=dynamic_names):
-            if aliases.get(alias) not in dynamic_names:
-                aliases[alias] = target
-
-        for item in ast.walk(tree):
-            if isinstance(item, ast.Import):
-                for part in item.names:
-                    remember(
-                        part.asname or part.name.split(".")[0],
-                        part.name if part.asname else part.name.split(".")[0],
-                    )
-            elif isinstance(item, ast.ImportFrom) and item.level == 0 and item.module:
-                for part in item.names:
-                    remember(part.asname or part.name, item.module + "." + part.name)
-
-        def qualified(node, aliases=aliases):
-            if isinstance(node, ast.Name):
-                return aliases.get(node.id, node.id)
-            if isinstance(node, ast.Attribute):
-                return qualified(node.value) + "." + node.attr
-            return ""
-
-        for item in ast.walk(tree):
-            if isinstance(item, ast.Assign) and qualified(item.value) in dynamic_names:
-                for target in item.targets:
-                    if isinstance(target, ast.Name):
-                        remember(target.id, qualified(item.value))
-        assigned = {
-            item.id
-            for item in ast.walk(tree)
-            if isinstance(item, ast.Name) and isinstance(item.ctx, ast.Store)
-        }
-        walker = _RuntimeSyntax(
-            name, name if path.name == "__init__.py" else name.rpartition(".")[0], aliases, assigned
-        )
-        walker.visit(tree)
-        unknowns.update(walker.unknowns)
-        for imported in walker.imports:
+        unknowns.update(discovery.unknowns)
+        for imported, required in discovery.imports:
             if imported.startswith(package + ".") and path_for(imported) is None:
-                if imported in walker.required_modules:
+                if required:
                     unknowns.add(
                         CodeUnknown(name, 0, "first-party source module is absent: " + imported)
                     )

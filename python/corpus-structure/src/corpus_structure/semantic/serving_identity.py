@@ -8,6 +8,12 @@ from pathlib import Path
 
 from .data_operation_json import json_bytes, json_loads
 
+_FINITE_CODEC_WORKLOADS = (
+    "corpus_structure.semantic.demand_query_projection",
+    "corpus_structure.semantic.rich_query_projection",
+    "corpus_structure.semantic.selected_contribution_projection",
+)
+
 
 @lru_cache(maxsize=64)
 def _installed_read_basis(contract, entry, profile, model_identity, *, callables):
@@ -19,9 +25,7 @@ def _installed_read_basis(contract, entry, profile, model_identity, *, callables
         root,
         (entry,),
         callables=callables,
-        external_runtime=acquire_codec_runtime()
-        if entry == "corpus_structure.semantic.demand_query_projection"
-        else (),
+        external_runtime=acquire_codec_runtime() if entry in _FINITE_CODEC_WORKLOADS else (),
     )
     meaning = json_loads(basis.meaning)
     identity = sha256(
