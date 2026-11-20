@@ -107,9 +107,6 @@ class PathSettings(_Section):
 class CacheSettings(_Section):
     """Process-local retention budgets for derived work."""
 
-    root: Path = Path("build/cache")
-    program_store_bytes: int = Field(default=67 * 1024**2, ge=0)
-    page_store_bytes: int = Field(default=1024**2, ge=0)
     model_entries: int = Field(default=4, gt=0)
     program_sets: int = Field(default=2, gt=0)
     release_bytes: int = Field(default=256 * 1024**2, gt=0)

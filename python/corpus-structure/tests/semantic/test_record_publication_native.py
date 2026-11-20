@@ -113,10 +113,6 @@ def test_native_authored_publication_keeps_entity_qualification_and_origin(rich_
     assert replay.receipt_count == 0
 
 
-@pytest.mark.skipif(
-    os.environ.get("CORPUS_RUN_UDM_T14") != "1",
-    reason="private entity qualification requires resolving the captured publication model",
-)
 def test_minimal_native_authored_entity_publication_and_read(authored_publication):
     """Exercise native rich publication without unrelated PDF extraction setup."""
     selected = publish_authored(
@@ -139,11 +135,7 @@ def test_minimal_native_authored_entity_publication_and_read(authored_publicatio
     assert report["cut"]["read_id"]
 
 
-@pytest.mark.skipif(
-    os.environ.get("CORPUS_RUN_UDM_T14") != "1",
-    reason="T14 cross-process acceptance is opt-in until authenticated serving identity closes",
-)
-def test_minimal_native_entity_query_reuses_across_fresh_cli_processes(
+def test_minimal_native_entity_query_replays_across_fresh_cli_processes(
     authored_publication, native_settings, tmp_path
 ):
     """Run the installed selected-result CLI twice against one retained native admission."""
@@ -166,16 +158,12 @@ def test_minimal_native_entity_query_reuses_across_fresh_cli_processes(
     assert database_name is not None
     settings = settings_for_native_clone(native_settings, database_name)
     database = settings.database
-    cache_root = tmp_path / "served-pages"
     environment = os.environ | {
         "CORPUS_DATABASE__URL": database.url,
         "CORPUS_DATABASE__MAINTENANCE_URL": database.maintenance_url,
         "CORPUS_DATABASE__READER_URL": database.reader_url or "",
         "CORPUS_DATABASE__EVALUATOR_URL": database.evaluator_url or "",
         "CORPUS_DATABASE__ADMISSION_URL": database.admission_url or "",
-        "CORPUS_CACHE__ROOT": str(cache_root),
-        "CORPUS_CACHE__PROGRAM_STORE_BYTES": "0",
-        "CORPUS_CACHE__PAGE_STORE_BYTES": str(8 * 1024**2),
         "CORPUS_RUNTIME__DEFAULT_PROJECT": PROJECT,
     }
     command = [
@@ -211,9 +199,8 @@ def test_minimal_native_entity_query_reuses_across_fresh_cli_processes(
     assert first is not None and second is not None
     assert first_observations["derived"] == 1
     assert first_observations["prepared"] == 1
-    assert second_observations["derived"] == 0
-    assert second_observations["prepared"] == 0
-    assert second_observations["page_hits"] == 1
+    assert second_observations["derived"] == 1
+    assert second_observations["prepared"] == 1
     assert first["rows"] == second["rows"]
     assert {row["entity"]["entity_id"] for row in first["rows"]} == {
         "authored:one",
@@ -235,9 +222,7 @@ def test_minimal_native_entity_query_reuses_across_fresh_cli_processes(
         ({"project": "another-project"}, {"product": "unselected:product"}), start=3
     ):
         _, refused = invoke(ordinal, accepted=False, **scope)
-        assert all(
-            refused[name] == 0 for name in ("derived", "prepared", "page_lookups", "page_hits")
-        )
+        assert all(refused[name] == 0 for name in ("derived", "prepared"))
 
     from typing import cast
 
@@ -253,12 +238,12 @@ def test_minimal_native_entity_query_reuses_across_fresh_cli_processes(
                     "original_source": None,
                     "selector_kind": "product",
                     "selector": selected.product["id"],
-                    "reason": "qualify entity cache refusal after actual support withdrawal",
+                    "reason": "qualify entity refusal after actual support withdrawal",
                 },
             )
         )
     _, revoked = invoke(5, accepted=False)
-    assert all(revoked[name] == 0 for name in ("derived", "prepared", "page_lookups", "page_hits"))
+    assert all(revoked[name] == 0 for name in ("derived", "prepared"))
 
 
 def test_native_empty_admission_is_explicit_and_does_not_assert_global_absence(rich_publication):

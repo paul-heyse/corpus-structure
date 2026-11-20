@@ -65,9 +65,6 @@ def apply_page_reuse_refusal(record: dict, refusal: PageReuseRefusal | None) -> 
     ):
         raise TypeError("page refusal requires its finite code-custody fields")
     result = dict(record)
-    for field in ("cursor", "continuation", "next_cursor", "resource_handle"):
-        if field in result:
-            result[field] = None
     result["reuse"] = dict(
         eligible=False,
         reason="incomplete_code_identity",

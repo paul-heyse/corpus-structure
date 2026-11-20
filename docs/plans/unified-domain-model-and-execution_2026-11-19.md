@@ -47,6 +47,16 @@ the evidence needed for closure. This refines the existing RC10 and RC13 guarant
 [ADR-0137](../adr/0137-serving-code-and-model-custody.md). N33 and N34 receipts retain their
 original scope.
 
+**Approved continuation amendment · 2026-11-20.** The operator accepted
+[ADR-0141](../adr/0141-serving-continuation-and-reuse.md). The
+[qualification amendment](unified-domain-model-and-execution/qualification.md#continuation-compatibility-amendment)
+restores stable installation-compatible continuation while cache eligibility keeps its stronger
+proof. D2/D4 persistence and cross-request entity hit targets are deferred and their unused
+mechanisms are retired. T4 requires fresh-process replay with current native authority. T14
+requires equal entity rows and distinct native pins. Producer identity, exact original custody,
+acknowledged PDF and completion-draft recovery, and whole-book no-new-provider-work remain required.
+Earlier diagnostic and test records retain their original acceptance basis.
+
 **Authoring baseline.** `main` `cb4e09667`, 2026-11-19. Its production source is identical to
 the review's baseline. Four investigations made for this plan are published as
 [authoring evidence](../design_review/evidence/2026-11-19_udm-plan-authoring/README.md); where
@@ -71,8 +81,8 @@ package that owns the decision and settled before final source:
   entries) from releases prepared on the stage, the model files of the loaded runtimes and
   UDM-20's bounded reproductions. The same run settles whether the on-disk model tier is
   adopted; the default is that it is not.
-- UDM-14 sets the two on-disk store budgets from the bytes of one stored program set and one
-  stored result.
+- UDM-14 retires the deferred program/page stores and validates fresh continuation replay.
+  Disk budgeting has no current qualification obligation.
 - UDM-16 observes the per-invocation input sizes of the rich-rule views. It settles whether
   they stay in DuckDB or return to plain Python.
 
@@ -121,7 +131,7 @@ the passage it replaces.
 | Preparation refuses unsupported required semantics (ADR-0024) | Preparation distinguishes refusing diagnostics from non-refusing ones; an undetermined declaration or an unknown term of an open vocabulary is reported and not refused | UDM-02, UDM-06 |
 | Two operation authoring routes whose Python route is validated by a hand grammar (ADR-0092) | Both routes kept; the Python route's grammar and vocabularies declared in LinkML | UDM-02 |
 | Role constants and default read roles in code | Role and purpose vocabularies and read roles declared in the model | UDM-03 |
-| The process-local query cache keyed by the read cut | A cache system with declared tiers and an on-disk tier for command-line continuation | UDM-13, UDM-14 |
+| The process-local query cache keyed by the read cut | Declared process tiers and safe command-line continuation through bounded rederivation; persistent tiers deferred under ADR-0141 | UDM-13, UDM-14 |
 
 When the series is placed, the DDO coordinator receives one dated status line pointing here.
 Reconciling the DDO documents in detail is left for the operator's later pass
@@ -153,7 +163,7 @@ vocabularies; and deletion of the two retired migration trees.
 | RC10 | Serving identity is a derived import closure under the same custody mechanism | Same record as RC09 | UDM-10 |
 | RC11 | The release identity covers generated artifacts and the model capture; generator provenance is recorded beside it | Recorded here and in the owning design section | UDM-10 |
 | RC12 | Role and purpose vocabularies in the model; explicit read roles with declared defaults | Recorded here and in the owning design section | UDM-03 |
-| RC13 | A declared reuse basis for served results and an on-disk tier for command-line continuation | Recorded here | UDM-14, UDM-15 |
+| RC13 | Declared reuse eligibility separated from safe continuation; persistent tiers and cross-request entity hits deferred under ADR-0141 | Recorded here and ADR-0141 | UDM-14, UDM-15 |
 | RC14 | No promotion boundary: an undetermined operation compiles, runs and publishes under conservative validity, with a diagnostic | A record for the rule ADR-0024 states (see [UDM-00](#udm-00)) | UDM-02, UDM-06 |
 | RC15 | A native revision is authored when the set of installed program identities differs, and only then | Recorded here and in the model-change design section | UDM-11 |
 
@@ -353,12 +363,12 @@ package is not automatically one worker's assignment.
 | UDM-08 | The execution path generates nothing | — | R06, F01, DA-083 | Complete. Private PostgreSQL acquisition and export verified |
 | UDM-09 | Typed program registry from generation to installation, declaring each program's purposes and the families it validates | —; it reads the compiled model of UDM-01 where that has landed | R04, DA-081, DA-074 (part) | Complete. One typed installation graph owns the inventory, declared grants and family validators. Fresh installation, N29 conversion and N32 stage cutover passed. [Transition evidence](unified-domain-model-and-execution/programs-identity-and-revisions.md#transition-integration) |
 | UDM-10 | Identity layers in two slices: code identity, with no revision; program, kernel and per-family validator identity, with the identity transition revision | Code-identity slice: none. Program, kernel and validator slice: UDM-09 and UDM-05 | R05, RC06, RC10, RC11, DA-068, DA-069, DA-076, DA-082 | Complete for the bounded stage. Derived code custody, selective validation and material release identity landed with N33. Incomplete producing identities select demand-scoped execution. [Fresh PDF publication](unified-domain-model-and-execution/operation-reuse-and-recovery.md#fresh-pdf-qualification-on-n35) passed on N35. [Identity evidence](unified-domain-model-and-execution/programs-identity-and-revisions.md#identity-successor) |
-| [UDM-10 code-closure follow-up](unified-domain-model-and-execution/programs-identity-and-revisions.md#udm-10-code-closure) | Authenticated bootstrap and workload-specific determining closure for generation and selected reads, with affected producer consumers migrated | Existing UDM-10 custody, captured source analysis and typed workload inputs | RC10, DA-069, DA-076, DA-082, [closure review I01](../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I01) | Partial. The demand decoder now executes a captured native validator, and serving identity includes its exact schema. Generated validator acquisition still reaches unmodeled initialization from the serving roots. Rich graph validation and renderer compiler custody remain open. [Qualification](unified-domain-model-and-execution/qualification.md#code-closure-qualification) |
+| [UDM-10 code-closure follow-up](unified-domain-model-and-execution/programs-identity-and-revisions.md#udm-10-code-closure) | Conservative serving continuation compatibility and preserved producer identity | Existing UDM-10 custody, captured source/model inputs and native read authority | RC10, DA-069, DA-076, DA-082, closure I01, ADR-0141 | In progress. Serving migrates to the managed-installation contract. Stronger producer/reuse proofs retain their existing standing. Revised native continuation qualification remains open. |
 | UDM-11 | A revision only when installed bytes differ. Its installed part, the explicit kernel predicate in the generated guard, joins the identity transition revision; the model-change commands change outside any revision | UDM-10 | RC15, DA-068 (part) | Complete for the bounded stage. N38 froze two changed helper-source guards and their descriptors. Stage deployment and Standard application proof passed. Both offline D2 invocations established parity with 620 frozen N38 objects. [N38 evidence](../design_review/evidence/2026-11-20_udm-closure-provider-readiness/README.md#typed-boundaries-and-source-navigation) |
 | UDM-12 | Carried assurance, admitted binding facts, and the kernel-independent watermark | UDM-08, UDM-10 | R11, R10, RC07, RC08, DA-033, DA-078 | Complete for the bounded stage. N34 activated at generation 31 and was superseded by N35 at generation 32. Role granularity remains deferred under W1. [Stage evidence](../design_review/evidence/2026-11-19_udm12-carried-assurance/README.md) |
 | UDM-13 | Cache owner module, cachetools 8.0.1, six in-process tiers, with the three size defaults fixed from bounded observations | UDM-01, UDM-09, UDM-10, UDM-12 stage cutover, and UDM-18's typed scientific policy slice | R09, RC09, F02, DA-083 (part), I04 | Six process retention mechanisms implemented on N34. Scoped holder and diagnostic controls passed. Generator and serving reuse remain subject to complete workload custody. [Cache results](unified-domain-model-and-execution/cache-system.md#udm-13--the-owner-module-cachetools-801-and-the-six-in-process-tiers) |
-| UDM-14 | Generated program sets with one captured T2/D2 input basis, and disk continuation pages with authorization before D4 lookup | UDM-13 and the relevant UDM-10 closure. D2 also uses UDM-09's typed programs and the UDM-10 program identities | R09, RC13, DA-075 (part), [closure review I02–I03](#code-closure-dispositions) | Renderer and read projection boundaries integrated. D2 and T4 remain open on complete workload custody. [Qualification](unified-domain-model-and-execution/qualification.md#code-closure-and-real-reuse-qualification) |
-| UDM-15 | Served-result reuse across fresh requests under a supported query-specific content witness | UDM-13, UDM-14 serving closure and private native acquisition for the selected query | R10, RC13, DA-075, [closure review I03](#code-closure-dispositions) | Exclusion uses two exact cuts. Private authored entity publication and read passed. The direct entity witness is integrated. T14 awaits complete serving identity and cross-process qualification. Other variants keep their cut basis. |
+| UDM-14 | Stable continuation compatibility with bounded fresh derivation; retire persistent program/page tiers | UDM-10 continuation amendment, UDM-13 and native-authoring parity | R09, RC13, DA-075 (part), closure I02–I03 | Implemented under ADR-0141. Fresh native demand replay and offline N38 parity passed. Remaining T4 coverage is owned by the [qualification companion](unified-domain-model-and-execution/qualification.md#continuation-compatibility-amendment). |
+| UDM-15 | Two authorized entity reads with equal rows and fresh native pins | UDM-14 continuation contract and private native publication | R10, RC13, DA-075, closure I03 | Revised T14 qualification remains open. Cross-request entity cache reuse deferred. Exclusion keeps two cuts. |
 | UDM-16 | DuckDB owner, expression-only relations, settings and unused-kernel retirement. Certification stays on SQLite. | — | R12, RC02, F03, DA-020, DA-080 (part) | Connection conversion, local controls and [spawned-worker settings](unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#effective-analytics-settings-in-spawned-workers) passed. [D1](unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#d1-bounded-rich-placement) selected typed Python and passed the final admitted cohort. [Evidence](unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#execution-evidence) |
 | UDM-17 | Five SQLite stores use typed statements. The forward TEMP policy binds to its applying database. | — | R07, RC02, F04, DA-084 | Scratch, default-model fresh root and native demand export controls passed. [Candidate TEMP inputs](unified-domain-model-and-execution/model-authorities-and-openness.md#integrity-projection-across-model-captures) passed on the private changed-policy target. Fresh selected-source and companion exports passed privately on registered N35. [Evidence](unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#execution-evidence) |
 | UDM-18 | Archived slices, declared scientific policy, qualifier partition and decimal bound. | — | R17, R14, DA-028, DA-077, DA-040, DA-001 | Complete for the bounded increment. Private N34 T15 and scientific admission/proof passed. Decimal bound landed in N30. [Evidence](unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#execution-evidence) |
@@ -368,7 +378,7 @@ package is not automatically one worker's assignment.
 | [UDM-25](unified-domain-model-and-execution/operation-reuse-and-recovery.md#udm-25) | Recoverable completion drafts and compatible PDF checkpoint adoption | Early UDM-20 diagnosis; UDM-10 producing identity and UDM-12 current validity contracts; confirmed custody decisions | I02, I03 | Complete for the bounded increment. [Recovery ordering, draft retirement, and changed-request uptake](unified-domain-model-and-execution/operation-reuse-and-recovery.md#remaining-recovery-implementation) passed. [N35 cutover](../design_review/evidence/2026-11-19_udm-audit-closure/README.md#bounded-stage-activation) verified installed proof and retained project readback at generation 32. Regional workload confirmation belongs to UDM-20. |
 | [UDM-26](unified-domain-model-and-execution/operational-cli.md#udm-26) | Passive preview, managed run recovery, attributed progress, model impact and bounded local reuse explanations | Initial slice uses existing managed and native records. Reuse explanations consume typed UDM-10/14/15 outcomes where applicable | I04, I06–I08, [closure review I04](#code-closure-dispositions) | Implemented and scoped CLI controls passed. Live watch and exact managed repeat passed on the N36 full-family demand. Assembled final-source acceptance remains open. |
 | [UDM-27](unified-domain-model-and-execution/operational-cli.md#udm-27) | Exact managed invocation stop with observed drain or retirement | UDM-26 managed binding; confirmed local host-control contract | I07 | Scoped controls and repaired actual N36 CUDA stop passed. Independent readback confirmed physical retirement and native lease release. Whole-book interruption and resume remain with UDM-23. |
-| UDM-22 | The managed union on final source, including native authoring and selected-read entry-point reuse | UDM-01 to UDM-19 including the UDM-10 follow-up. UDM-15 supplies the direct entity case and any other query whose premise is subsequently settled. UDM-25–27 and UDM-20 stage confirmation | Taken-over validation, I01–I08, [closure review I01–I04](#code-closure-dispositions) | `not_run` for the final union. Bounded stage, CUDA stop and actual two-language composition and exact resume passed. Complete determining custody and the final-source provider union remain open. [Provider evidence](../design_review/evidence/2026-11-20_udm-closure-provider-readiness/README.md) |
+| UDM-22 | Managed final-source union, native-authoring parity and safe selected-read continuation | Revised UDM-10/14/15 acceptance, UDM-25–27 and stage confirmation | Taken-over validation, I01–I08 | `not_run` for the final union. Run after revised continuation acceptance and final-source freeze. |
 | UDM-23 | The re-adoption check at the final head, then the whole-book run with interruption, resume, repeat and comparison | UDM-21, UDM-22; UDM-20 stage confirmation | Taken-over validation, I01–I08 | `not_run`. Full run awaits UDM-22. |
 | <a id="udm-24"></a>UDM-24 | Closing | All | — | Not started |
 
@@ -396,11 +406,10 @@ Caches follow what they hold: the model and program tiers need the compiled mode
 program registry to exist as things worth holding, and the on-disk program tier needs code
 and program identity.
 
-In the closure follow-up, establish authenticated bootstrap and the shared workload evidence
-first. D2 generator capture and D4 serving qualification can proceed independently as each
-closure is ready. The direct entity journey uses the D4 serving boundary and separately verifies
-its native content witness. UDM-26 can author the presentation against owner-supplied reuse
-reasons and exercise it end to end when the actual entry points produce them.
+In the closure follow-up, preserve producer identity and recovery proofs while introducing the
+independent managed-installation continuation fingerprint. Retire the deferred disk paths,
+verify fresh authoring parity, and exercise revised T4 replay and T14 independent reads.
+UDM-26 presents owner-supplied continuation and reuse reasons without conflating their standing.
 
 Preserve evidence and diagnose retention and discovery early in UDM-20. Those results inform
 the UDM-25 mechanism and UDM-05/07 discovery proof before their revision allocations freeze.
@@ -614,8 +623,8 @@ review. "Closure evidence" is what must be observed, not a claim that it has bee
 | [DA-072](../design_review/audit/semantic-model-and-authority.md#da-072) two models | UDM-04 | No importer of the earlier model remains | Earlier loaders, generated types, and declarations removed. Real pack preparation covers released openness |
 | [DA-073](../design_review/audit/semantic-model-and-authority.md#da-073) release composition by flags | UDM-05 | Composition follows the closure of requested operations | Explicit requests and workflows select source collections and provider acquisition by closure. The unselected manifest deliberately acquires its configured full profile |
 | [DA-074](../design_review/audit/native-integrity.md#da-074) roles and guards as code lists | UDM-03, UDM-09 | An undeclared role refuses at generation; grants follow program declarations and equal the frozen privileges | Default catalog correspondence verified. [Candidate isolation](unified-domain-model-and-execution/model-authorities-and-openness.md#integrity-projection-across-model-captures) passed with the changed publisher and captured TEMP policy. |
-| [DA-075](../design_review/audit/execution-fit.md#da-075) query cache keys | UDM-14, UDM-15, with the UDM-10 closure prerequisite | T4 observes authorized cross-process continuation reuse. T14 observes two fresh authorized acquisitions sharing the scoped entity rows | Disk implementation and entity witness integrated. The private authored fixture passed. T4 and T14 remain open on executing-code custody. Exclusion comparison uses two exact cuts. |
-| [DA-076](../design_review/audit/served-claims.md#da-076) served-read identity allowlist | UDM-10 | A module added to an entry point's closure moves the identity with no list edit | Derived serving custody and incomplete-result handling passed the targeted tests |
+| [DA-075](../design_review/audit/execution-fit.md#da-075) query cache keys | UDM-14/15 | Revised T4 verifies authorized page replay and T14 verifies equal entity rows with fresh pins | Persistent program/page reuse and cross-request entity hit efficiency deferred under ADR-0141. Reopen when repeated preparation obstructs an actual operator workflow. |
+| [DA-076](../design_review/audit/served-claims.md#da-076) served-read identity allowlist | UDM-10 | Application source/resource inventory changes invalidate continuation compatibility without a list edit | Conservative installation compatibility implemented under ADR-0141. Inventory-drift controls and native demand replay passed. Remaining native coverage follows T4. |
 | [DA-077](../design_review/audit/served-claims.md#da-077) scientific policy describes the kernel | UDM-18 | Changing a declared parameter changes both the policy and the kernel's behaviour | Typed release policy and altered sampling verified in the scoped UDM-18 slice. Private admission and explicit proof passed on N34 |
 | [DA-078](../design_review/audit/execution-fit.md#da-078) coarse readiness watermark | UDM-12 | The watermark does not advance on a kernel-only change | Kernel component removed. A dependent operation without a source-set pin still needs the operation-granular component. W1 owns the role-scope deferral |
 | [DA-079](../design_review/audit/boundaries-and-composition.md#da-079) unclassified concurrent-run refusal | — | — | Retained by the review with its reason |
@@ -666,8 +675,8 @@ owns the evidence needed to resolve those sites per workload. Package status rem
 | Source | Owning packages | Closure evidence |
 |---|---|---|
 | [Closure I01](../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I01) | UDM-10 follow-up, with dependent producer and serving consumers | Authenticated initialization, reached code and dynamic boundaries establish the supported workload. Required unknowns stay visible and ineligible for reuse |
-| [Closure I02](../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I02) | UDM-14 D2 and its UDM-13 T2 holder | Fresh authoring processes reuse one validated artifact under exact captured inputs. Material changes move the basis and equal installed bytes settle offline |
-| [Closure I03](../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I03) | UDM-14 D4 and UDM-15 | T4 verifies authorized continuation reuse and refusal before lookup. T14 verifies one entity derivation across two genuinely authorized acquisitions |
+| [Closure I02](../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I02) | UDM-14 | D2 persistent reuse deferred under ADR-0141. Fresh authoring must retain exact captured inputs, frozen program parity and guarded deployment. |
+| [Closure I03](../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I03) | UDM-14/15 | Revised T4 verifies safe continuation replay and revocation. T14 verifies equal entity rows with distinct authorized pins. Persistent/cross-request hit counts deferred. |
 | [Closure I04](../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I04) | UDM-26 | Terminal and JSON show the same bounded owner-supplied explanation for eligibility, blocker, and fresh derivation |
 
 ## Design choices made in authoring
@@ -705,9 +714,10 @@ is a plan revision and does not reopen the review.
 
 **Deferred with a trigger.**
 
-- *Additional content-based served-result variants (UDM-15).* Trigger: the native owner
-  establishes a sound content witness for the particular query. The adopted direct entity
-  variant remains in scope for T14. Other variants continue to use their declared cut basis.
+- *Persistent programs/pages and cross-request entity reuse (UDM-14/15).* Trigger: repeated
+  preparation materially obstructs an actual operator workflow, with a bounded trustworthy
+  reuse basis available. Revised T4/T14 qualify safe fresh reads and continuation. Additional
+  content variants need a query-specific native witness if deliberately reintroduced.
 - *Role granularity for the readiness watermark.* Role-granular watermarking joins the
   identity transition revision only if its soundness premise is settled before that revision
   is frozen; otherwise it is deferred, with the settling of that premise as its trigger, and
@@ -771,9 +781,9 @@ owner decides. The owning companion states each in full.
 | Supported generator and selected-read workloads close over actual initialization, bindings, dynamic effects and authenticated code | Resolve the review's sites per workload and challenge the boundary with independent controls. Apply the same proof where PDF lowering or other producer reuse consumes it | UDM-10 code-closure follow-up and dependent reuse |
 | No consumer needs releases prepared before the identity transition | The operator's confirmation | UDM-10 |
 | What the binding programs read, for watermark role granularity | Reading those program bodies before the transition is frozen | UDM-12 |
-| Which value kinds occur in served rows | Reading the served row types | UDM-14 |
-| The exact generator artifact depends only on captured inputs and authenticated rendering code | Trace reads and copied provenance and perturb each material input family. Assess a bounded capture if callable narrowing remains insufficient | UDM-14 D2 and its T2 holder |
-| A content-based key for served results is sound across fresh requests | The native owner's query-specific argument and two real acquisitions. First verify the authored-publication fixture under private N34 | UDM-15. The direct entity witness is scoped and all other variants retain their current basis |
+| Which value kinds occur in served rows | Reading the declared served row types when needed | Deferred persistent codec |
+| The exact generator artifact depends only on captured inputs and authenticated rendering code | Preserve input capture and frozen-output parity; complete proof remains necessary for reuse | T2 reuse and deferred D2; fresh authoring parity remains current |
+| A content-based key for served results is sound across fresh requests | The native owner's query-specific argument | Deferred cross-request entity reuse. Current UDM-15 requires equal rows and independent pins |
 | Certification fold placement | The same SQLite store supplies validation and reconstruction reads | Settled in UDM-16 and UDM-17. Typed SQLite preserves binary-fold ordering |
 | DA-001 qualifier partition | Declared context and compared-qualifier controls | Connected in UDM-18 |
 | Evaluation and golden modules | Operator authorized full retirement | Retired in UDM-19 |
@@ -821,7 +831,7 @@ also narrows the fresh-execution claim in UDM-10. UDM-25 has bounded private han
 implementation plus open recovery ordering, lifecycle and changed-request obligations. The queue
 and dispositions above carry those corrections.
 
-**Qualification.** The audit read existing evidence and used a read-only model perturbation. It
+**Historical qualification, before ADR-0141.** The audit read existing evidence and used a read-only model perturbation. It
 did not launch product qualification. The retained N34 comparison covers 617 installed objects
 and the bounded cutover used the recorded stage target and generation. Those results remain
 applicable to their original source and context. The UDM-13 mechanisms are present and complete
@@ -846,9 +856,9 @@ Registered N35 passed fresh PDF publication, exact selected-source export and de
 controls. The bounded stage activated at generation 32 with exact retained project readback.
 [Implementation and cutover evidence](../design_review/evidence/2026-11-19_udm-audit-closure/README.md)
 
-The determining-code prerequisites for D2, T4 and T14 remain with UDM-10. UDM-20 still owns
-regional workload reproduction, followed by canonical adoption and series qualification under
-their existing packages.
+The approved continuation amendment replaces the earlier D2/T4/T14 closure prerequisites.
+UDM-10/14 now own stable continuation compatibility and authoring parity. UDM-20 still owns
+regional workload confirmation, followed by canonical adoption and series qualification.
 
 ## Completion
 

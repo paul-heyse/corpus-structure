@@ -74,7 +74,8 @@ def _serve_demand_query(connection, request, implementation):
     selection = request.selection()
     selection_content = json_bytes(selection)
     decimal_fixed_point_digits = decimal_digit_limit()
-    digest = sha256(selection_content).hexdigest()
+    # This limit bounds the native inputs as well as presentation.
+    digest = sha256(json_bytes([selection, request.max_bytes])).hexdigest()
     cursor = None if request.cursor is None else decode_cursor(request.cursor)
     if cursor is not None and (
         not isinstance(cursor, dict)

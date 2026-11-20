@@ -6,7 +6,7 @@ explicit selected whole product; historical source references remain provenance.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_json import json_bytes
@@ -15,11 +15,7 @@ from corpus_structure.semantic.data_operation_support import ComputationalSuppor
 from corpus_structure.semantic.demand_results import CutSelection, read_demand_result
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
-from corpus_structure.semantic.rich_query_projection import (
-    RichQueryInput,
-    frontier_content_witness,
-    prepare_rich_frontier,
-)
+from corpus_structure.semantic.rich_query_projection import RichQueryInput
 from corpus_structure.semantic.value_codec import decimal_digit_limit
 
 
@@ -29,7 +25,6 @@ class SelectedRichReference:
     read_request: bytes
     reference: DdoRichSelectedMember
     context: SubjectContext
-    content_witness: str | None = field(default=None, kw_only=True)
 
 
 @dataclass(frozen=True)
@@ -46,7 +41,6 @@ def read_selected_rich_reference(
     continuation: dict | None = None,
     cut: CutSelection | None = None,
     max_bytes: int = 8 * 1024 * 1024,
-    content_witness: bool = False,
     _bodies: bool = False,
 ) -> SelectedRichReference:
     """Read a whole admitted graph under its genuine producing support and cut.
@@ -116,10 +110,7 @@ def read_selected_rich_reference(
         }
     )
     if not _bodies:
-        witness = None
-        if content_witness:
-            witness = frontier_content_witness(prepare_rich_frontier(page.content))
-        return SelectedRichReference(page.cut, request, reference, context, content_witness=witness)
+        return SelectedRichReference(page.cut, request, reference, context)
     prepared = open_release(connection, native["release_id"])
     model = bound_data_operation_model(prepared)
     inputs = RichQueryInput(

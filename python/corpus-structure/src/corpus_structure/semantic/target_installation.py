@@ -97,13 +97,12 @@ class TargetInstallation:
     pdf_identity: tuple[ProgramDeclaration, ...]
     programs: tuple[NativeDefinition, ...] = ()
     prerequisites: tuple[NativeDefinition, ...] = ()
-    rendered_only: bool = False
     trigger_inputs: PhysicalTriggerInputs | None = None
 
 
 @dataclass(frozen=True)
 class NativeGeneratorInputs:
-    """One immutable input snapshot shared by the process and disk program caches."""
+    """One immutable input snapshot for native preparation."""
 
     physical_sources: tuple[tuple[str, bytes], ...]
     linkml_types: bytes
@@ -415,45 +414,6 @@ def target_trigger_programs(inputs: PhysicalTriggerInputs):
     return tuple(programs)
 
 
-def _declaration_installation(installation: TargetInstallation) -> TargetInstallation:
-    """Build typed generator trees only when a caller explicitly asks for declarations."""
-    from corpus_structure.model.compiled import CompiledModel
-
-    from .archive_projection_native import (
-        execution_projection_check_program,
-        scientific_layout_program,
-    )
-    from .data_operation_protocol import data_task_guard_program
-    from .pdf_binary_identity_native import (
-        pdf_artifact_identity_programs,
-        pdf_binary_identity_programs,
-    )
-    from .pdf_descriptor_native import pdf_descriptor_programs
-    from .value_codec import VALUE_CODEC_SOURCE, decimal_digit_limit
-
-    selected = installation.metadata
-    captured = {source.name: source.content for source in installation.authoring_inputs.sources}
-    codec_model = CompiledModel(((VALUE_CODEC_SOURCE, captured["native/value-codec.yaml"]),))
-    foundation = foundation_programs(selected, decimal_digits=decimal_digit_limit(codec_model))
-    guards = (
-        execution_projection_check_program(selected),
-        scientific_layout_program(selected),
-        data_task_guard_program(
-            selected.info["physical_sources"]["data-operation-native.yaml"],
-            target_metadata=selected,
-        ),
-    )
-    return replace(
-        installation,
-        foundation=foundation,
-        authoring_inputs=replace(installation.authoring_inputs, guard_programs=guards),
-        pdf_descriptor=pdf_descriptor_programs(),
-        pdf_identity=(*pdf_binary_identity_programs(), *pdf_artifact_identity_programs(selected)),
-        trigger_inputs=capture_trigger_inputs(selected),
-        rendered_only=False,
-    )
-
-
 def target_native_declarations(installation: TargetInstallation):
     """Bring every native owner into one program graph before rendering."""
     from .archive_native import archive_native_programs
@@ -487,8 +447,6 @@ def target_native_declarations(installation: TargetInstallation):
     )
 
     selected = installation.metadata
-    if installation.rendered_only:
-        installation = _declaration_installation(installation)
     if installation.trigger_inputs is None:
         raise ValueError("native declarations require acquired physical trigger inputs")
     domain = PdfDomainContract(

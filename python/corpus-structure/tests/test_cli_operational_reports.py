@@ -69,8 +69,9 @@ def test_local_explanation_uses_same_capture_and_compact_projection():
     )
     implementation = ServingImplementation("a" * 64, code)
     with explain_code_reuse() as explanations, serving_code(implementation):
-        result = serving_report({"items": [1], "continuation": "discarded"})
-    assert result["continuation"] is None and result["reuse"]["eligible"] is False
+        result = serving_report({"items": [1], "continuation": "next-page"})
+    assert result["continuation"] == "next-page"
+    assert result["reuse"]["eligible"] is False
     assert result["reuse"]["unknowns"] == [
         {"module": "example.dep", "line": 7, "reason": "opaque call"}
     ]

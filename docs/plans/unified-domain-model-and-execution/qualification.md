@@ -133,6 +133,35 @@ that are not held expire in a day, and failures and interruptions in a week; `ci
 and `ci evidence retain` keep what a plan depends on. All of this paragraph is from the
 validation mapping's reading of `cli/testing.py` and the `ci` skill.
 
+<a id="continuation-compatibility-amendment"></a>
+
+## Approved continuation amendment · 2026-11-20
+
+**Accepted target.** The operator approved
+[ADR-0141](../../adr/0141-serving-continuation-and-reuse.md). This amendment governs the
+remaining qualification. Historical failures and receipts below retain their original scope.
+T4 now requires correct fresh-process continuation and resource replay after current native
+authorization, including empty/evicted caches, independent rows/order/byte bounds and refusal
+of wrong scope, revocation and changed installation. T14 retains two independently authorized
+entity reads, equal rows and distinct native pins. Its one-derivation requirement is deferred.
+D2 and D4 persistent hit targets are deferred, with reopening triggered by repeated rendering
+or bounded page preparation that obstructs the operator's workflow. Their unused mechanisms
+are retired. Authoring still verifies fresh native rendering, manifests, predecessors and exact
+frozen-catalog parity. T20 covers applicable process cache races and acknowledged production
+recovery. Durable PDF/checkpoint/draft reuse and T18–T22 producer recovery remain required.
+An incomplete determining proof remains partial and cannot prevent safe continuation under the
+managed installation contract. Final qualification follows delivery of this amendment.
+
+**Tested, 2026-11-20 UTC.** The installed native demand reader replayed the expected
+second row in a fresh process after current authorization. An incompatible installed
+identity, a foreign project and revoked support each refused before body acquisition
+or row derivation. Private `ci test` demand selector `d7710e99033d44edaf07c985afe1ec2d`.
+The two-process offline native authoring case passed and matched all 620 frozen N38
+objects. Its containing `ci test` selection failed two holder fixtures, which passed
+exact retry `dbc3aa31900a4a4fb4cd561a1ad8e869`; the parity receipt is
+`f3a8718e36414575be68f6414023d2f3`. These observations cover the scoped amendment
+checks before final-source qualification.
+
 ## Rules of this qualification
 
 **Credit follows source.** A receipt establishes behaviour for the source and native context it
@@ -256,7 +285,7 @@ selection.
 | T1 | An operation whose validity family is undetermined compiles, runs and publishes under **conservative validity**, and the run reports it with the `validity_undetermined` diagnostic. It is never refused for being undetermined. The union shows this with a fixture operation left deliberately undetermined, run on the stage; the book does not exercise it | UDM-06 |
 | T2 | A generator edit that changes no installed program byte produces no native revision: the candidate is not authored | UDM-11 |
 | T3 | Acquisition performs no generation. It compares the installed kernel with the digest the release records, and refuses on a difference | UDM-08 |
-| T4 | Actual CLI invocations in separate processes reuse an eligible continuation page under complete authenticated serving identity, after native authority is rechecked. Revocation refuses before lookup. Rows, order, ordinals and bounds match independently specified expectations, and a storage-only change preserves a compatible semantic cursor | UDM-10 code-closure follow-up, UDM-14 |
+| T4 | Actual CLI invocations in separate processes resume compatible pages after current native authorization, including empty or evicted caches. Rows, order, ordinals, diagnostics and encoded bounds match independently specified expectations. Wrong scope, revoked support, changed installation or incompatible cut refuses before data delivery. MCP resources share this contract | UDM-10 continuation amendment, UDM-14 |
 | T5 | Declaring a validity family on an operation inside a test causes every guard, validator and dispatch to select that operation, with no edit to any program | UDM-05 |
 | T6 | Editing one family's validator program, one of that program's callees or the family's completion guard reconfirms only work sealed under that family; work sealed under other families is not replayed | UDM-10, UDM-12 |
 | T7 | A change confined to the kernel does not move the inputs watermark, so a waiting obligation whose prerequisites are unchanged is still skipped | UDM-12 |
@@ -266,13 +295,13 @@ selection.
 | T11 | Refusal at generation or preparation occurs only for internal inconsistency (a field outside the declaration, a member outside a closed vocabulary, a self-contradictory or unmet family claim, a dangling name) and for omissions in the integrity layer (a grant, guard, role, support-edge kind or privileged-effect owner). An undetermined declaration or an unknown term of an open vocabulary never refuses | UDM-03, UDM-07 |
 | T12 | A long-lived process notices on its next use that the active generation changed, without being told | UDM-13 |
 | T13 | Immutable release content is not hashed again at each acquisition; an explicit verification command detects a tampered archive | UDM-12 |
-| T14 | Two fresh authorized acquisitions of an immutable admitted entity reuse one derivation under the supported content witness and complete authenticated code identity, with equal eligible rows and fresh native pins. Wrong scope or revocation refuses before lookup. Other query variants retain their declared cut basis until their own content premise is settled | UDM-10 code-closure follow-up, UDM-15 |
+| T14 | Two fresh authorized acquisitions of an immutable admitted entity return equal eligible rows with distinct current native pins. Wrong scope or revoked support refuses before data delivery. Reusing one derivation across those acquisitions is deferred as an efficiency target | UDM-15 |
 | T15 | A source demand under a release uses that release's archived slices after the working tree's copy changes | UDM-18 |
 | T16 | Timestamps in analytical exports are labelled UTC whatever the machine's zone | UDM-16 |
 | T17 | Nothing imports the earlier model, and neither retired migration tree exists | UDM-04, UDM-19 |
 | T18 | Independently expected producer fates for nonmaterial edits, equal-content cutoff, one changed region, material recipe/input/contract changes, a newly applicable or changed validator, revoked support and intentional replicates | UDM-05/07, UDM-10/12, UDM-16/18 |
 | T19 | Pre-retention rollback, crash after acknowledgment and unknown commit each follow their owning recovery route. Exact draft or PDF contributor evidence survives eligible adoption; stale writers, tampering and incompatible bases refuse. Concurrent consumers settle one result | UDM-25 |
-| T20 | Two writers, reader racing prune, and cache storage-only version change preserve read semantics. Prune or process exit leaves acknowledged production work recoverable | UDM-10, UDM-13/14, UDM-25 |
+| T20 | Applicable process cache races and eviction preserve read semantics. A valid continuation can rederive after eviction. Process exit and pruning leave acknowledged production drafts and PDF checkpoints recoverable | UDM-10, UDM-13, UDM-25 |
 | T21 | Passive preview and exact managed retry preserve target, effective policy, and original selection. Bounded, attributed progress, typed model impact and opt-in local reuse explanations agree across terminal and JSON. Explanations attribute unknowns and dependency paths to the owning operation. Watch exit has no effect on the run | UDM-26 |
 | T22 | Exact local stop, stale or unverified identity refusal, demand detach with surviving shared interest, nested uncertainty and independently verified retirement | UDM-27 |
 
@@ -301,37 +330,30 @@ and UDM-14/15. The 33 reported source locations are shared by the four captured 
 Coverage must follow each supported workload, including newly exposed unknowns, and account for
 every original site through the identity owner's resolution or justified exclusion.
 
-**D2 acceptance.** Run two fresh processes through installed `ci schema native-candidate`
-with one isolated cache root and unavailable database endpoints. Use actual generator input
-capture and custody. Establish one rendering and equal validated artifacts and manifests.
-Independently vary a rendering determinant, effective model input, named resource, runtime
-version and exact source bytes copied into artifact provenance. Each material change must
-prevent a stale hit. An edit outside execution and copied provenance must preserve the basis.
-Keep physical-model, manifest and predecessor checks after hydration. Compare the resulting
-declarations to the frozen native head through the offline `no_native_change` route. A controlled complete
-identity or an overridden store key establishes only the corresponding consumer control.
+**Native authoring acceptance.** D2 hit-count qualification is deferred. Run fresh installed
+`ci schema native-candidate` with unavailable database endpoints, exact captured inputs and the
+frozen predecessor. Require correct program/manifest rendering and frozen-catalog parity through
+`no_native_change`. Preserve wrong-model, manifest, predecessor, SQL verification and ordinary
+authorization controls. A source repair that changes installed bytes follows normal stage revision
+and release proof before final qualification.
 
-**T4 acceptance.** Exercise `ci query` for a native demand view and a rich query, plus
-`ci contributions list`, with the second page requested in a fresh process. The native check
-must precede the disk lookup. A valid hit avoids full support rederivation, while page rows,
-ordering, ordinal position and encoded bounds match independent expectations. Change selection,
-support, implementation, disclosure or runtime and verify that an incompatible page cannot be
-reused. Change storage compatibility alone and verify rederivation under a compatible semantic
-cursor. Exercise the shared MCP derivation and custody path under its actual process cache
-scope. A missing or unknown determining code input remains visible and withholds cache and
-continuation while fresh authorized derivation remains available.
+**T4 acceptance.** Exercise installed `ci query` demand/rich commands and `ci contributions list`,
+with the next page in a fresh process and an empty cache. Require current native authorization,
+the exact cut/support/root/selection, independently expected ordered rows, valid ordinal and
+encoded bounds. Repeat after process cache eviction. Wrong scope, revoked support, changed
+installation, changed model or incompatible cut refuses before data delivery. Exercise shared
+MCP resources and change-impact through their actual entry points. A partial code analysis can
+withhold cache eligibility while the conservative installation contract permits continuation.
+Rebuilding bounded row populations is valid. Persistent page hit counts are deferred.
 
-**T14 fixture and acceptance.** First establish that the authored-publication setup in
-`python/corpus-structure/tests/semantic/record_publication_native_support.py` can publish an
-explicit entity against a private installation of the frozen native head. The existing
-`test_native_selected_reader_pages_and_pins_actual_product_and_support` provides the native
-publication and cursor journey to adapt. Use the same committed native target from two fresh
-processes and independently authorized acquisitions. Verify one derivation, identical eligible
-entity rows and distinct current native pins. A revoked or differently scoped acquisition
-must refuse before a hit counter changes. Fixture viability is source-inspected and remains an
-execution prerequisite. The earlier upstream PDF fixture failure stays with its owner and
-does not establish the entity witness. Keep T14 open for the adopted direct entity variant
-until this journey passes. A later variant whose premise is declined is recorded as not adopted.
+**T14 fixture and acceptance.** Keep the committed authored-publication setup and two fresh
+independently authorized reads of an immutable admitted entity. Require equal eligible rows and
+distinct current native pins. Wrong scope or revoked support refuses before data delivery. The
+one-derivation assertion is deferred. All earlier strict reuse failures remain in their original
+receipts and are historical evidence for the superseded acceptance.
+
+**Historical strict reuse evidence under the earlier contract, 2026-11-19 onward.**
+These observations retain their original scope. The continuation amendment above owns current acceptance.
 
 **2026-11-19 implementation evidence.** The authored fixture reached native release admission
 in one attempt and refused unchecked required semantics. The existing publication recipe route
@@ -1112,10 +1134,9 @@ series' design packages are part of the selection. The managed result store, the
 for retained copies, and stage.
 
 **Prerequisites.** The functional packages UDM-01 to UDM-19 supply final source, including the
-[UDM-10 code-closure follow-up](programs-identity-and-revisions.md#udm-10-code-closure) and the
-[real D2, T4 and T14 journeys](#code-closure-qualification). UDM-15 supplies the supported
-direct entity witness and complete code identity. Additional query variants enter T14 only
-when their premise is settled, and a declined variant is recorded as not adopted.
+[continuation amendment](#continuation-compatibility-amendment), native authoring parity, and
+the revised T4/T14 journeys. UDM-15 supplies entity reading correctness under fresh authority.
+Persistent generator/page reuse and cross-request entity hit counts are deferred.
 UDM-25–27 supply recovery and operational controls. UDM-20
 supplies the knowledge that the native composition path completes, with any repair it made
 confirmed on the stage. The bounded observations of the design packages are complete, UDM-06's
@@ -1294,5 +1315,5 @@ only when both accounts are on the same commit.
 |---|---|
 | UDM-20 | Complete for the bounded stage. N36 passed 60- and 66-page regional settlement, complete-family composition, and actual two-region withholding and refill. The cancelled N35 demand and unpublished draft retain their recorded custody. [Diagnosis and evidence](#retained-book-diagnosis) |
 | UDM-21 | Complete. Original custody, exact intent reconciliation and book generation 5 at N29 verified. The actual one-page Integrated provider run and launcher restoration passed on N35. |
-| UDM-22 | `not_run` for the final union. Bounded stage confirmation and actual CUDA stop passed. Final qualification awaits complete D2, T4 and T14 workload custody and the remaining exact provider receipts. |
+| UDM-22 | `not_run` for the final union. Bounded stage confirmation and actual CUDA stop passed. Final qualification awaits the revised continuation/authoring acceptance and the remaining exact provider receipts. |
 | UDM-23 | `not_run`. The second canonical adoption and whole-book run await UDM-22. |

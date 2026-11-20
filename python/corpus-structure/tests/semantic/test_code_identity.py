@@ -130,8 +130,9 @@ def test_package_location_does_not_determine_code_identity(tmp_path):
     )
 
 
-def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
+def test_incomplete_reuse_proof_preserves_fresh_continuation():
     from corpus_structure.semantic.code_identity import CodeIdentity, CodeUnknown
+    from corpus_structure.semantic.continuation_codec import encode_cursor
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.page_envelope import PageEnvelope
     from corpus_structure.semantic.selected_pages import byte_bounded_page
@@ -151,7 +152,7 @@ def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
     )
     implementation = ServingImplementation("a" * 64, basis)
     cache = SelectedQueryCache()
-    key = ServedKey("test", b"selection", "implementation", ("reader",), "cut", b"current")
+    key = ServedKey("test", b"selection", implementation, ("reader",), b"current")
     entry, _ = bounded_rows((7,), {})
     assert entry is not None
     with serving_code(implementation):
@@ -164,9 +165,9 @@ def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
             reuse_refusal=capture_page_refusal(),
         )
     expected = dict(
-        resource_handle=None,
+        resource_handle="held",
         items=[7],
-        cursor=None,
+        cursor=encode_cursor({"ordinal": 1}),
         page_complete=False,
         reuse=dict(
             eligible=False,
@@ -199,7 +200,7 @@ def test_absent_serving_context_cannot_grant_cache_eligibility():
 
     assert not reusable_serving_code()
     cache = SelectedQueryCache()
-    key = ServedKey("test", b"selection", "implementation", ("reader",), "cut", b"current")
+    key = ServedKey("test", b"selection", "implementation", ("reader",), b"current")
     entry, _ = bounded_rows((7,), {})
     assert entry is not None
     assert not cache.put(key, entry)
@@ -217,7 +218,7 @@ def test_serving_context_cannot_authorize_another_implementation():
     from corpus_structure.semantic.serving_code import ServingImplementation, serving_code
 
     complete = CodeIdentity(("control",), (), (), (), b"{}")
-    key = ServedKey("test", b"selection", "another", ("reader",), "cut", b"current")
+    key = ServedKey("test", b"selection", "another", ("reader",), b"current")
     entry, _ = bounded_rows((7,), {})
     assert entry is not None
     with serving_code(ServingImplementation("current", complete)):
@@ -479,7 +480,7 @@ def test_revoked_workload_proof_cannot_publish_a_derived_entry():
 
     basis = CodeIdentity(("control",), (), (), (), b"{}")
     cache = SelectedQueryCache()
-    key = ServedKey("test", b"selection", "current", ("reader",), "cut", b"cut")
+    key = ServedKey("test", b"selection", "current", ("reader",), b"cut")
     entry, _ = bounded_rows((7,), {})
     assert entry is not None
     with (

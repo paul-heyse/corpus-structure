@@ -5,9 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import contextmanager
 from contextvars import ContextVar
-from hashlib import sha256
 from typing import TYPE_CHECKING, Literal
-from uuid import uuid4
 
 if TYPE_CHECKING:
     from .code_identity import CodeIdentity
@@ -19,13 +17,19 @@ class ServingImplementation(str):
     verify: Callable[[], None] | None
     code: CodeIdentity
     page_refusal: PageReuseRefusal | None
+    reuse_identity: str | None
 
-    def __new__(cls, identity: str, code: CodeIdentity, verify: Callable[[], None] | None = None):
-        # An incomplete observation is useful attribution for this one read.
-        # Its nonce prevents a guessed repeat from acquiring continuation rights.
-        token = identity if code.complete else sha256((identity + uuid4().hex).encode()).hexdigest()
-        value = super().__new__(cls, token)
+    def __new__(
+        cls,
+        identity: str,
+        code: CodeIdentity,
+        verify: Callable[[], None] | None = None,
+        *,
+        reuse_identity: str | None = None,
+    ):
+        value = super().__new__(cls, identity)
         value.complete = code.complete
+        value.reuse_identity = (reuse_identity or identity) if code.complete else None
         value.code = code
         value.page_refusal = None
         value.verify = verify
@@ -58,13 +62,21 @@ def reusable_serving_code(implementation: str | None = None) -> bool:
     selected = _ACTIVE.get()
     if (
         selected is None
-        or not selected.complete
-        or (implementation is not None and implementation != selected)
+        or selected.reuse_identity is None
+        or (implementation is not None and implementation != selected.reuse_identity)
     ):
         return False
     if selected.verify is not None:
         selected.verify()
     return True
+
+
+def reuse_implementation_key(implementation: str) -> str:
+    """Select a cache key under the stronger proof of this active read."""
+    selected = _ACTIVE.get()
+    if selected is not None and selected == implementation and selected.reuse_identity is not None:
+        return selected.reuse_identity
+    return implementation
 
 
 def capture_page_refusal() -> PageReuseRefusal | None:

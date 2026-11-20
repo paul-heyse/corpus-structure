@@ -1,7 +1,7 @@
 """Installed semantic workloads and their authenticated serving interpretation."""
 
 import unicodedata
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from dataclasses import replace
 from functools import lru_cache
 from hashlib import sha256
@@ -71,38 +71,67 @@ def _installed_read_basis(contract, entry, profile, model_identity, *, callables
 
 @contextmanager
 def installed_read_implementation(contract, *, entry, profile, callables):
-    """Authenticate determining source and carry explicit reusable-code standing."""
-    from corpus_structure._query_custody import SourceCustodyError
+    """Bind replay to the installation and retain stronger proof for cache hits."""
+    from corpus_structure._query_custody import SourceCustodyError, query_sources
     from corpus_structure.model.compiled import running_model
     from corpus_structure.semantic.serving_code import ServingImplementation, serving_code
 
     from .code_identity import authenticate_workload
+    from .serving_installation import serving_installation
 
-    validator = _read_wire_validator(entry)
-    if validator is not None:
-        validator.check()
-    identity, basis = _installed_read_basis(
-        contract,
-        entry,
-        profile,
-        running_model().identity,
-        callables=callables,
-        wire_digest=validator.digest if validator is not None else None,
-    )
-    root = Path(__file__).resolve().parents[1]
-    with authenticate_workload(root, basis) as verify_code:
+    installation = serving_installation()
+    installation.check()
+    with query_sources(installation.sources, closed=True):
+        validator = _read_wire_validator(entry)
+        if validator is not None:
+            validator.check()
+        wire_digest = validator.digest if validator is not None else None
+        model_identity = running_model().identity
+        reuse_identity, basis = _installed_read_basis(
+            contract,
+            entry,
+            profile,
+            model_identity,
+            callables=callables,
+            wire_digest=wire_digest,
+        )
+        identity = _continuation_identity(
+            installation.digest, contract, entry, profile, model_identity, wire_digest
+        )
+        custody = (
+            authenticate_workload(installation.root, basis) if basis.complete else nullcontext()
+        )
+        with custody as verify_code:
 
-        def verify():
-            verify_code()
-            if validator is not None:
-                if _read_wire_validator(entry) is not validator:
-                    raise SourceCustodyError("generated wire validator changed during serving")
-                validator.check()
-
-        implementation = ServingImplementation(identity, basis, verify)
-        with serving_code(implementation):
-            try:
-                yield implementation
-            finally:
+            def verify():
+                if verify_code is not None:
+                    verify_code()
                 if validator is not None:
+                    if _read_wire_validator(entry) is not validator:
+                        raise SourceCustodyError("generated wire validator changed during serving")
                     validator.check()
+
+            implementation = ServingImplementation(
+                identity, basis, verify, reuse_identity=reuse_identity
+            )
+            with serving_code(implementation):
+                yield implementation
+                verify()
+                installation.check()
+
+
+@lru_cache(maxsize=64)
+def _continuation_identity(installation, contract, entry, profile, model, wire):
+    return sha256(
+        json_bytes(
+            [
+                installation,
+                entry,
+                profile,
+                model,
+                contract.model_json_schema(),
+                wire,
+                unicodedata.unidata_version,
+            ]
+        )
+    ).hexdigest()

@@ -2,7 +2,15 @@
 
 **Status:** In progress. The typed registry and transition programs are integrated. The
 [UDM-10 code-closure follow-up](#udm-10-code-closure) is scheduled for the generator and selected
-readers, with real reuse qualification still open.
+readers under the approved continuation amendment, with revised acceptance still open.
+**Approved amendment · 2026-11-20.** [ADR-0141](../../adr/0141-serving-continuation-and-reuse.md)
+replaces complete determining-closure proof as the prerequisite for serving continuation.
+Current delivery uses conservative managed-installation compatibility and native-authorized
+bounded replay. D2/D4 persistence and cross-request entity hit efficiency are deferred. Producer
+code identity and draft/PDF recovery retain their original conservative contracts. The
+[qualification amendment](qualification.md#continuation-compatibility-amendment) governs current
+acceptance; earlier closure designs and observations below retain their original scope.
+
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-08** (the execution path generates nothing), **UDM-09**

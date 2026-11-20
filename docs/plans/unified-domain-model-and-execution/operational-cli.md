@@ -161,6 +161,13 @@ long-lived retained-reader MCP process using the same typed shape.
 
 ### Local explanation of code reuse
 
+**Approved amendment · 2026-11-20.** Continuation compatibility and cache eligibility have
+separate standing under [ADR-0141](../../adr/0141-serving-continuation-and-reuse.md). CLI and MCP
+explanations may report reuse withheld while compatible native-authorized continuation remains
+available. Report rederivation truthfully. Remove disk-only cache commands/settings with the
+retired D2/D4 consumers. Managed results, durable production reuse, provider work and exact stop
+retain their own owners and observed states.
+
 **Planned amendment · 2026-11-19.** Integrate
 [code-closure review I04](../../plan_improvement_reviews/unified-domain-model-code-dependency-closure_2026-11-19.md#I04)
 from commit `1982a20c3` into the existing authoring and selected-read routes. Add the local

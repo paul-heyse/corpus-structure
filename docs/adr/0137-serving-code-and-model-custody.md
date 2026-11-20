@@ -1,10 +1,10 @@
 ---
 id: ADR-0137
 title: Separate serving code custody from model source identity
-status: accepted
+status: superseded
 date: 2026-11-18
 supersedes: [ADR-0124]
-superseded-by: null
+superseded-by: ADR-0141
 design: [§B3]
 evidence: Proposed
 revisit: A supported serving loader or filesystem cannot establish imported-code custody and conservative metadata-based invalidation.

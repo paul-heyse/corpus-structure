@@ -92,10 +92,10 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0134](0134-native-test-scenario-bindings.md) | Bind scenario recipes at acquisition and seal eligible captures | 2026-11-18 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0102](0102-reusable-native-scenario-seeds.md) |
 | [ADR-0135](0135-declared-facts-and-typed-database-programs.md) | Generate database programs from declared facts and typed authoring | 2026-11-18 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0131](0131-model-owned-postgresql-programs.md) |
 | [ADR-0136](0136-linkml-operation-declaration-contract.md) | Validate operation authoring through the LinkML declaration contract | 2026-11-18 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0092](0092-ddo-operation-authority.md) |
-| [ADR-0137](0137-serving-code-and-model-custody.md) | Separate serving code custody from model source identity | 2026-11-18 | [§B3](../design/DESIGN.md#section-b3) | Proposed | [ADR-0124](0124-serving-code-custody.md) |
 | [ADR-0138](0138-pure-release-preparation-and-declared-openness.md) | Prepare immutable semantic releases with declared openness | 2026-11-18 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0024](0024-semantic-release-preparation.md) |
 | [ADR-0139](0139-compatible-pdf-checkpoint-custody.md) | Adopt compatible PDF checkpoints with original contributor custody | 2026-11-18 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0127, ADR-0099 |
 | [ADR-0140](0140-durable-recovery-and-exact-stop.md) | Recover acknowledged work and stop an exact managed invocation | 2026-11-18 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
+| [ADR-0141](0141-serving-continuation-and-reuse.md) | Separate continuation compatibility from cache reuse | 2026-11-20 | [§B3](../design/DESIGN.md#section-b3) | Proposed | [ADR-0137](0137-serving-code-and-model-custody.md) |
 
 ## Superseded, still in the tree
 
@@ -136,5 +136,6 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0102](0102-reusable-native-scenario-seeds.md) | Reuse eligible committed scenarios through worker-local sealed seeds | 2026-11-13 | [§B4](../design/DESIGN.md#section-b4) | Proposed | [ADR-0048](0048-populated-native-scenarios.md) |
 | [ADR-0124](0124-serving-code-custody.md) | Serving identity names imported code and refuses detected drift | 2026-11-17 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
 | [ADR-0131](0131-model-owned-postgresql-programs.md) | Generate maintained PostgreSQL SQL from LinkML and typed programs | 2026-11-17 | [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
+| [ADR-0137](0137-serving-code-and-model-custody.md) | Separate serving code custody from model source identity | 2026-11-18 | [§B3](../design/DESIGN.md#section-b3) | Proposed | [ADR-0124](0124-serving-code-custody.md) |
 
 Unlinked identifiers under *Replaces* are retired records. Their surviving meaning is in the records above; recover the text from Git ([historical recovery](../README.md#historical-recovery)).

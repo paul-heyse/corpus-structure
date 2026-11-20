@@ -69,7 +69,6 @@ def query(
     from corpus_structure.cli.reuse_explanation import emit_selected_result
     from corpus_structure.semantic.code_reuse import attach_reuse_explanation, explain_code_reuse
     from corpus_structure.semantic.runtime import open_runtime_engine
-    from corpus_structure.semantic.selected_query_cache import disk_row_cache
 
     with (
         failure_boundary(json, expected=(ValueError, KeyError)),
@@ -115,7 +114,6 @@ def query(
                     state(ctx).settings(), "ci-rich-query", purpose="read"
                 ) as engine,
                 engine.begin() as connection,
-                disk_row_cache(),
             ):
                 result = serve_rich_query(connection, rich_request)
             if explain_reuse:
@@ -144,7 +142,6 @@ def query(
                 state(ctx).settings(), "ci-selected-result", purpose="read"
             ) as engine,
             engine.begin() as connection,
-            disk_row_cache(),
         ):
             result = serve_demand_query(connection, request)
         if explain_reuse:
@@ -406,7 +403,6 @@ def contributions(
     from corpus_structure.semantic.refusal_types import InvalidContinuation, RichQueryRefused
     from corpus_structure.semantic.runtime import open_runtime_engine
     from corpus_structure.semantic.selected_graph_budget import SelectedGraphBudgetExceeded
-    from corpus_structure.semantic.selected_query_cache import disk_row_cache
     from corpus_structure.serve.contribution_facets import (
         ContributionFacetsRequest,
         serve_contribution_facets,
@@ -457,7 +453,6 @@ def contributions(
                 state(ctx).settings(), "ci-contribution-facets", purpose="read"
             ) as engine,
             selected_read_snapshot(engine) as connection,
-            disk_row_cache(),
         ):
             report = serve_contribution_facets(connection, request)
         if explain_reuse:

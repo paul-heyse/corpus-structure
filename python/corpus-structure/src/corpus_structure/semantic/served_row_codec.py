@@ -2,17 +2,14 @@
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from itertools import pairwise
 from math import isfinite
 from struct import unpack_from
 
 from .data_operation_json import json_bytes, json_loads
 
-VERSION = "served-json-lines-1"
-
 
 class UnstorableValue(ValueError):
-    """The value is outside the disk codec's finite supported vocabulary."""
+    """The value is outside the row codec's finite supported vocabulary."""
 
 
 def _encode(value, depth=0):
@@ -38,7 +35,7 @@ def _encode(value, depth=0):
         return ["tuple", [_encode(item, depth + 1) for item in value]]
     if type(value) is dict and all(type(key) is str for key in value):
         return ["map", [[key, _encode(value[key], depth + 1)] for key in sorted(value)]]
-    raise UnstorableValue("served value is outside the disk codec vocabulary")
+    raise UnstorableValue("served value is outside the row codec vocabulary")
 
 
 def _decode(value, depth=0):
@@ -128,40 +125,3 @@ class JsonDerivedRows:
         for ordinal in range(start, len(self)):
             begin, end = unpack_from("!QQ", self.offsets, ordinal * 8)
             yield decode_value(self.content[begin : end - 1])
-
-
-def encode_rows(entry) -> dict[str, bytes]:
-    from .selected_query_cache import ENTRY_BYTES
-
-    if type(entry) is not JsonDerivedRows:
-        raise TypeError("served row publication requires its immutable encoded population")
-    files = {
-        "metadata.json": entry.metadata,
-        "rows.jsonl": entry.content,
-        "offsets.bin": entry.offsets,
-    }
-    if sum(map(len, files.values())) > ENTRY_BYTES:
-        raise UnstorableValue("encoded served rows exceed the admitted disk entry bound")
-    return files
-
-
-def decode_rows(files: dict[str, bytes]):
-    from .selected_query_cache import ENTRY_BYTES, ENTRY_ROWS
-
-    if set(files) != {"metadata.json", "rows.jsonl", "offsets.bin"}:
-        raise ValueError("served row files differ")
-    if sum(map(len, files.values())) > ENTRY_BYTES:
-        raise ValueError("stored served rows exceed the admitted entry bound")
-    packed = files["offsets.bin"]
-    if len(packed) < 8 or len(packed) % 8 or len(packed) > 8 * (ENTRY_ROWS + 1):
-        raise ValueError("invalid served row offsets")
-    offsets = tuple(unpack_from("!Q", packed, index)[0] for index in range(0, len(packed), 8))
-    content = files["rows.jsonl"]
-    if offsets[0] != 0 or offsets[-1] != len(content):
-        raise ValueError("served row offsets differ from content")
-    for begin, end in pairwise(offsets):
-        if begin >= end or content[end - 1 : end] != b"\n":
-            raise ValueError("invalid served row boundary")
-        decode_value(content[begin : end - 1])
-    decode_value(files["metadata.json"])
-    return JsonDerivedRows(files["metadata.json"], content, packed)

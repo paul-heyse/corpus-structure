@@ -29,7 +29,7 @@ def cache_contract_context(monkeypatch):
 
 
 def cut_key(cut: bytes) -> ServedKey:
-    return ServedKey("test", b"selection", "implementation", ("reader",), "cut", cut)
+    return ServedKey("test", b"selection", "implementation", ("reader",), cut)
 
 
 def entry(value):
@@ -251,16 +251,12 @@ def test_single_flight_shares_owner_failure_and_retries_next_request(failure_typ
 def test_served_keys_keep_authorization_and_cut_scopes_distinct():
     cache = SelectedQueryCache(4096)
     value = entry("authorized")
-    reader = ServedKey(
-        "query", b"selection", "implementation", ("database", "reader"), "cut", b"one"
-    )
+    reader = ServedKey("query", b"selection", "implementation", ("database", "reader"), b"one")
     evaluator = ServedKey(
-        "query", b"selection", "implementation", ("database", "evaluator"), "cut", b"one"
+        "query", b"selection", "implementation", ("database", "evaluator"), b"one"
     )
-    other_cut = ServedKey(
-        "query", b"selection", "implementation", ("database", "reader"), "cut", b"two"
-    )
-    unavailable = ServedKey("query", b"selection", "implementation", None, "cut", b"one")
+    other_cut = ServedKey("query", b"selection", "implementation", ("database", "reader"), b"two")
+    unavailable = ServedKey("query", b"selection", "implementation", None, b"one")
     assert cache.put(reader, value)
     assert cache.get(reader) is value
     assert cache.get(evaluator) is None

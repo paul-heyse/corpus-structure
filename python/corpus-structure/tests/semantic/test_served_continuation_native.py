@@ -1,4 +1,4 @@
-"""Actual installed CLI continuation reuse after fresh native authorization."""
+"""Actual installed CLI continuation replay after fresh native authorization."""
 
 import os
 from decimal import Decimal
@@ -14,12 +14,8 @@ from semantic.record_publication_native_support import (
 )
 
 
-@pytest.mark.skipif(
-    os.environ.get("CORPUS_RUN_UDM_T14") != "1",
-    reason="native continuation qualification requires viable publication and complete code custody",
-)
 @pytest.mark.parametrize("variant", ("demand", "rich", "contributions"))
-def test_installed_cli_continuation_reuses_authorized_rows_across_processes(
+def test_installed_cli_continuation_replays_authorized_rows_across_processes(
     variant, authored_publication, native_settings, tmp_path
 ):
     from typing import cast
@@ -46,21 +42,16 @@ def test_installed_cli_continuation_reuses_authorized_rows_across_processes(
         "CORPUS_DATABASE__READER_URL": settings.database.reader_url or "",
         "CORPUS_DATABASE__EVALUATOR_URL": settings.database.evaluator_url or "",
         "CORPUS_DATABASE__ADMISSION_URL": settings.database.admission_url or "",
-        "CORPUS_CACHE__ROOT": str(tmp_path / "pages"),
-        "CORPUS_CACHE__PROGRAM_STORE_BYTES": "0",
-        "CORPUS_CACHE__PAGE_STORE_BYTES": str(8 * 1024**2),
         "CORPUS_RUNTIME__DEFAULT_PROJECT": PROJECT,
     }
     if variant == "rich":
         command = ["query", "entity"]
         rows_field, cursor_field = "rows", "cursor"
         miss_counters = ("derived", "prepared")
-        projection_counter = "prepared"
     elif variant == "demand":
         command = ["query", "members", "--kind-contract", entity_kind]
         rows_field, cursor_field = "items", "continuation"
         miss_counters = ("demand_bodies", "demand_rows")
-        projection_counter = "demand_rows"
     else:
         command = [
             "contributions",
@@ -73,7 +64,6 @@ def test_installed_cli_continuation_reuses_authorized_rows_across_processes(
         ]
         rows_field, cursor_field = "items", "cursor"
         miss_counters = ("contribution_scopes", "contribution_rows")
-        projection_counter = "contribution_rows"
     command += [
         "--demand",
         selected.demand_id,
@@ -86,15 +76,13 @@ def test_installed_cli_continuation_reuses_authorized_rows_across_processes(
         "--json",
     ]
 
-    def invoke(name, *, cursor=None, project=PROJECT, cached=True):
+    def invoke(name, *, cursor=None, project=PROJECT):
         arguments = [*command, "--project", project]
         if cursor is not None:
             arguments += ["--cursor", cursor]
         reply, observations = run_observed_cli(
             arguments,
-            environment=environment
-            if cached
-            else environment | {"CORPUS_CACHE__PAGE_STORE_BYTES": "0"},
+            environment=environment,
             observations=tmp_path / (name + ".json"),
         )
         return reply, observations
@@ -109,8 +97,7 @@ def test_installed_cli_continuation_reuses_authorized_rows_across_processes(
     reply, second_observations = invoke("second", cursor=cursor)
     assert reply.returncode == 0, reply.stdout + reply.stderr
     second = json_loads(reply.stdout)
-    assert second_observations["page_hits"] == 1
-    assert all(second_observations[name] == 0 for name in miss_counters)
+    assert all(second_observations[name] > 0 for name in miss_counters)
     assert first["cut_id"] == second["cut_id"]
     assert len(first[rows_field]) == len(second[rows_field]) == 1
     assert second[cursor_field] is None
@@ -129,21 +116,27 @@ def test_installed_cli_continuation_reuses_authorized_rows_across_processes(
     ]
     assert len(json_bytes(first)) <= 1048576 and len(json_bytes(second)) <= 1048576
 
-    reply, uncached_observations = invoke("uncached", cursor=cursor, cached=False)
+    reply, repeated_observations = invoke("repeated", cursor=cursor)
     assert reply.returncode == 0, reply.stdout + reply.stderr
-    uncached = json_loads(reply.stdout)
-    assert second[rows_field] == uncached[rows_field]
-    assert second["cut_id"] == uncached["cut_id"]
+    repeated = json_loads(reply.stdout)
+    assert second[rows_field] == repeated[rows_field]
+    assert second["cut_id"] == repeated["cut_id"]
     for field in ("unknowns", "examination", "scope", "populations"):
         if field in second:
-            assert second[field] == uncached[field]
-    assert all(uncached_observations[name] > 0 for name in miss_counters)
+            assert second[field] == repeated[field]
+    assert all(repeated_observations[name] > 0 for name in miss_counters)
+
+    from corpus_structure.semantic.continuation_codec import decode_cursor, encode_cursor
+
+    incompatible = decode_cursor(cursor)
+    incompatible["implementation"] = "0" * 64
+    refused, incompatible_observations = invoke("incompatible", cursor=encode_cursor(incompatible))
+    assert refused.returncode != 0
+    assert all(incompatible_observations[name] == 0 for name in miss_counters)
 
     refused, refused_observations = invoke("wrong-project", cursor=cursor, project="foreign")
     assert refused.returncode != 0
-    assert refused_observations["page_lookups"] == 0
-
-    assert refused_observations[projection_counter] == 0
+    assert all(refused_observations[name] == 0 for name in miss_counters)
 
     with authored_publication.kernel.purpose("write").begin() as connection:
         DataOperationStorage(connection).revoke_data_support(
@@ -160,5 +153,4 @@ def test_installed_cli_continuation_reuses_authorized_rows_across_processes(
         )
     revoked, revoked_observations = invoke("revoked", cursor=cursor)
     assert revoked.returncode != 0
-    assert revoked_observations["page_lookups"] == 0
-    assert revoked_observations[projection_counter] == 0
+    assert all(revoked_observations[name] == 0 for name in miss_counters)

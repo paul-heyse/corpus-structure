@@ -490,13 +490,16 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B3 Agents work the semantic queue through supervised or interactive MCP sessions
 
-**Accepted target; implementation/qualification Proposed · 2026-11-17.** D8 serving identities
-derive from declared entry points, authenticated imported code and material query/profile
-determinants. Shared file custody confirms observable Python drift and requires restart on
-unsupported code changes. Changed model bytes select a new immutable compiled capture on next
-observation. Query semantics and storage compatibility have separate identities.
+**Accepted target; implementation/qualification Proposed · 2026-11-20.** D8 separates
+continuation compatibility from cache eligibility. A stable managed-installation fingerprint
+binds source and resource content, model, query/profile and runtime/dependency inventory.
+Imported first-party source custody and observable drift checks require restart on unsupported
+changes. Continued reads reacquire native authority and may rebuild bounded rows. Stronger
+code-closure proof governs eligible cache reuse. Model content selects its immutable compiled
+capture on next observation. Persistent program/page reuse and cross-request entity hit targets
+are deferred under the UDM plan.
 
-> Decision: [ADR-0137](../adr/0137-serving-code-and-model-custody.md)
+> Decision: [ADR-0141](../adr/0141-serving-continuation-and-reuse.md)
 
 **Implemented, 2026-10-30; full SP-09/SP-10 qualification remains separately owned.** A supervisor
 may invoke the configured model in a fresh run-bound stdio MCP session. PostgreSQL owns the

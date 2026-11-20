@@ -48,7 +48,7 @@ from pathlib import Path
 
 observations = dict(
     derived=0, prepared=0, demand_bodies=0, demand_rows=0,
-    contribution_scopes=0, contribution_rows=0, page_lookups=0, page_hits=0,
+    contribution_scopes=0, contribution_rows=0,
 )
 def observe(frame, event, arg):
     if event not in ("call", "return"):
@@ -89,15 +89,6 @@ def observe(frame, event, arg):
             and name == "contribution_rows"
         ):
             observations["contribution_rows"] += 1
-    if (
-        frame.f_code.co_name == "get"
-        and frame.f_globals.get("__name__") == "corpus_structure.cache_store"
-        and frame.f_locals.get("tier") == "pages"
-    ):
-        if event == "call":
-            observations["page_lookups"] += 1
-        elif event == "return" and arg is not None:
-            observations["page_hits"] += 1
     return observe
 
 try:

@@ -10,8 +10,11 @@ from corpus_structure.semantic.types import SourceArtifact
 @pytest.fixture
 def uncached_generation(monkeypatch):
     from corpus_structure.model import compiled
-    from corpus_structure.schema import physical
-    from corpus_structure.semantic import native_program_store, native_protocol_authoring
+    from corpus_structure.semantic import (
+        native_generation,
+        native_program_store,
+        native_protocol_authoring,
+    )
     from corpus_structure.semantic.code_identity import CodeIdentity, CodeUnknown
     from corpus_structure.semantic.types import SourceArtifact
 
@@ -27,6 +30,14 @@ def uncached_generation(monkeypatch):
         ),
     )
     monkeypatch.setattr(native_program_store, "capture_generator_sources", lambda identity: ())
+    from corpus_structure.semantic.native_objects import NativeIdentity
+
+    trigger_inputs = installation.PhysicalTriggerInputs(
+        "controlled_publisher", NativeIdentity("table", "ops", "task"), ()
+    )
+    monkeypatch.setattr(
+        native_generation, "capture_trigger_inputs", lambda selected: trigger_inputs
+    )
     monkeypatch.setattr(
         native_protocol_authoring,
         "native_logical_sources",
@@ -39,14 +50,13 @@ def uncached_generation(monkeypatch):
     )
     model = compiled.compiled_model({"cache-control.yaml": b"id: urn:cache\nname: cache\n"})
     monkeypatch.setattr(compiled, "running_model", lambda: model)
-    monkeypatch.setattr(physical, "compile_physical", lambda sources, **options: sources)
     calls = []
 
-    def build(selected, inputs):
-        calls.append((selected, inputs))
+    def render(inputs):
+        calls.append(inputs)
         return object()
 
-    monkeypatch.setattr(installation, "_build_target_installation", build)
+    monkeypatch.setattr(native_generation, "_render_captured", render)
     return calls
 
 
@@ -56,7 +66,7 @@ def metadata(source=b"original"):
     return value
 
 
-def test_incomplete_identity_disables_both_holders_and_renders_fresh(uncached_generation):
+def test_incomplete_identity_bypasses_process_holder_and_renders_fresh(uncached_generation):
     logical = {"logical": b"initial"}
     installation.capture_target_installation(metadata(), logical_sources=logical)
     installation.capture_target_installation(metadata(), logical_sources=dict(logical))
@@ -65,17 +75,19 @@ def test_incomplete_identity_disables_both_holders_and_renders_fresh(uncached_ge
     pdf = SourceArtifact("pdf/action", b"candidate")
     installation.capture_target_installation(metadata(), logical_sources=logical, pdf_actions=pdf)
     assert len(uncached_generation) == 5
-    assert uncached_generation[0][1].physical_sources != uncached_generation[2][1].physical_sources
+    assert uncached_generation[0].physical_sources != uncached_generation[2].physical_sources
 
 
 def test_incomplete_identity_does_not_retain_generation_failure(uncached_generation, monkeypatch):
+    from corpus_structure.semantic import native_generation
+
     calls = []
 
     def fail(*args, **kwargs):
         calls.append(1)
         raise ValueError("invalid candidate declaration")
 
-    monkeypatch.setattr(installation, "_build_target_installation", fail)
+    monkeypatch.setattr(native_generation, "_render_captured", fail)
     for _ in range(2):
         with pytest.raises(ValueError, match="invalid candidate declaration"):
             installation.capture_target_installation(metadata(), logical_sources={})

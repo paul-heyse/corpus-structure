@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
-from .data_operation_json import json_bytes, json_loads
+from .data_operation_json import json_loads
 from .data_operation_value_codec import decode_semantic_value
-from .owned_json import FrozenObject, freeze_json, thaw_json
 from .rich_graph_validation import RichWholeInput, read_retained_rich_graph
 from .rich_knowledge_contracts import DdoRichSelectedMember
 from .rich_queries import PreparedRichQueryIndex, query_rows
@@ -34,49 +32,6 @@ class RichQueryInput:
     reference: bytes
     body: bytes
     decimal_fixed_point_digits: int = field(kw_only=True)
-
-
-@dataclass(frozen=True)
-class RichFrontierInput:
-    """Detached immutable native frontier admitted by generated decoding."""
-
-    page: FrozenObject
-
-
-def prepare_rich_frontier(native: bytes) -> RichFrontierInput:
-    from .demand_wire import decode_wire_demand_result
-
-    page = freeze_json(decode_wire_demand_result(native))
-    if type(page) is not FrozenObject:
-        raise TypeError("rich frontier requires an admitted native record")
-    return RichFrontierInput(page)
-
-
-def frontier_content_witness(inputs: RichFrontierInput) -> str | None:
-    """Retain native content and receipt widths after fresh authority admission.
-
-    The three varying receipt strings contribute their encoded lengths because
-    PostgreSQL enforces the byte limit on the complete product envelope.
-    """
-    if type(inputs) is not RichFrontierInput or type(inputs.page) is not FrozenObject:
-        raise TypeError("rich frontier projection requires its owned acquired input")
-    projection = thaw_json(inputs.page)
-    if type(projection) is not dict:
-        raise TypeError("rich frontier projection requires an owned record")
-    if projection["view"] != "frontier" or projection.get("support_page") is not None:
-        return None
-    following = projection.get("continuation")
-    for name in ("read_id", "read_snapshot", "frontier_at"):
-        value = projection.get(name)
-        if type(value) is not str or not value or not value.isascii():
-            return None
-        size = len(json_bytes(value))
-        projection[name] = size
-        if following is not None:
-            if type(following) is not dict or following.get(name) != value:
-                return None
-            following[name] = size
-    return sha256(json_bytes(projection)).hexdigest()
 
 
 def prepare_rich_query(inputs: RichQueryInput, *, max_members: int) -> PreparedRichQueryIndex:

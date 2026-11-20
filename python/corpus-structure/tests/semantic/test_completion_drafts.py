@@ -275,15 +275,3 @@ def test_inspection_failure_and_foreign_file_leave_draft_unretired(tmp_path):
         )
     assert other.read_bytes() == b"foreign"
     assert not tuple(tmp_path.glob("*.retired"))
-
-
-def test_cache_pruning_does_not_retire_an_acknowledged_draft(tmp_path):
-    from corpus_structure.cache_store import CacheStore
-
-    store = CompletionDraftStore(tmp_path / "completion-drafts", max_bytes=65536)
-    draft = acknowledge(store)
-    cache = CacheStore(tmp_path / "cache", program_store_bytes=4096, page_store_bytes=4096)
-    assert cache.put("pages", "v1", b"same-target", {"rows.json": b"[]"})
-    CacheStore(cache.root, program_store_bytes=0, page_store_bytes=0).prune()
-    assert store.open(draft.identity) == draft
-    assert tuple(store.candidates("request:original", 2)) == (draft,)

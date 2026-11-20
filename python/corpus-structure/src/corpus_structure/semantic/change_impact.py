@@ -547,6 +547,26 @@ def inspect_change_impact(
     connection, request: ChangeImpactRequest, *, target_prepared, before_model=None
 ) -> ChangeImpactPage:
     """Same-transaction native reads; no writes beyond existing protected acquisition."""
+    from .serving_identity import installed_read_implementation
+
+    with installed_read_implementation(
+        ChangeImpactRequest,
+        entry="corpus_structure.semantic.change_impact",
+        profile="change-impact-1",
+        callables=("corpus_structure.semantic.change_impact.classify_change_impact",),
+    ) as implementation:
+        return _inspect_change_impact(
+            connection,
+            request,
+            target_prepared=target_prepared,
+            before_model=before_model,
+            implementation=implementation,
+        )
+
+
+def _inspect_change_impact(
+    connection, request, *, target_prepared, before_model, implementation
+) -> ChangeImpactPage:
     request_identity = sha256(
         json_bytes(
             request.model_dump(
@@ -624,16 +644,6 @@ def inspect_change_impact(
         )
         if target_cut.record["release_id"] != request.target_release_id:
             raise ValueError("target selection belongs to another release")
-    from corpus_structure.model.compiled import running_model
-    from corpus_structure.semantic.serving_identity import _installed_read_basis
-
-    implementation, code_basis = _installed_read_basis(
-        ChangeImpactRequest,
-        "corpus_structure.semantic.change_impact",
-        "change-impact-1",
-        running_model().identity,
-        callables=("corpus_structure.semantic.change_impact.classify_change_impact",),
-    )
     fingerprint = dict(
         implementation=implementation,
         request=request.model_dump(
@@ -675,29 +685,13 @@ def inspect_change_impact(
     from .selected_query_cache import SELECTED_QUERY_CACHE, bounded_rows, served_key
 
     key = served_key(
-        connection if code_basis.complete else None,
+        connection,
         "change-impact",
         implementation=implementation,
         selection=fingerprint,
         basis=[before_cut.identity, None if target_cut is None else target_cut.identity],
     )
-    from contextlib import nullcontext
-    from pathlib import Path
-
-    from corpus_structure._query_custody import capture_workload_sources, query_sources
-
-    custody = (
-        query_sources(capture_workload_sources(Path(__file__).resolve().parents[1], code_basis))
-        if code_basis.complete
-        else nullcontext()
-    )
-    from .serving_code import ServingImplementation, serving_code
-
-    with (
-        custody,
-        serving_code(ServingImplementation(implementation, code_basis)),
-        SELECTED_QUERY_CACHE.loading(key) as entry,
-    ):
+    with SELECTED_QUERY_CACHE.loading(key) as entry:
         if entry is None:
             rows = classify_change_impact(
                 before_model,

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from itertools import chain
 from struct import pack
 from threading import RLock
-from typing import Any, Literal
+from typing import Any
 
 from cachetools import LRUCache
 
@@ -30,7 +30,6 @@ class ServedKey:
     selection: bytes
     implementation: str
     authorization: tuple[str, ...] | None
-    basis_kind: Literal["cut", "content"]
     basis: bytes
 
     @property
@@ -41,7 +40,6 @@ class ServedKey:
                 self.selection.hex(),
                 self.implementation,
                 self.authorization,
-                self.basis_kind,
                 self.basis.hex(),
             ]
         )
@@ -58,16 +56,16 @@ def served_key(
     implementation,
     selection,
     basis,
-    basis_kind: Literal["cut", "content"] = "cut",
 ):
     """Scope derivation to the principal and database of the already authorized connection."""
     authorization = _authorization_scope(connection)
+    from .serving_code import reuse_implementation_key
+
     return ServedKey(
         query,
         json_bytes(selection),
-        str(implementation),
+        reuse_implementation_key(implementation),
         authorization,
-        basis_kind,
         json_bytes(basis),
     )
 
@@ -117,47 +115,6 @@ class _Load:
 
 
 _LOADING: ContextVar[tuple[_Load, ...]] = ContextVar("served_cache_load", default=())
-_DISK_STORE: ContextVar[Any] = ContextVar("served_disk_store", default=None)
-
-
-@contextmanager
-def disk_row_cache(store=None):
-    """Opt a command invocation into inert derived-row storage after native acquisition."""
-    if store is None:
-        from corpus_structure.cache_store import configured_store
-
-        store = configured_store()
-    token = _DISK_STORE.set(store)
-    try:
-        yield
-    finally:
-        _DISK_STORE.reset(token)
-
-
-def _disk_rows(key: ServedKey):
-    from .served_row_codec import VERSION, decode_rows
-
-    store = _DISK_STORE.get()
-    if store is None or key.query == "rich-index":
-        return None
-    try:
-        files = store.get("pages", VERSION, key.content)
-        return None if files is None else decode_rows(files)
-    except OSError, ValueError, TypeError, OverflowError, RecursionError:
-        return None
-
-
-def _retain_disk_rows(key: ServedKey, entry):
-    from .served_row_codec import VERSION, encode_rows
-
-    store = _DISK_STORE.get()
-    if store is None or key.query == "rich-index" or type(entry) is not JsonDerivedRows:
-        return
-    try:
-        files = encode_rows(entry)
-        store.put("pages", VERSION, key.content, files)
-    except OSError, ValueError, TypeError, OverflowError, RecursionError:
-        return
 
 
 class SelectedQueryCache:
@@ -207,7 +164,6 @@ class SelectedQueryCache:
         record_serving_reuse("derived")
         if not self._eligible(key):
             return False
-        _retain_disk_rows(key, entry)
         for load in reversed(_LOADING.get()):
             if load.key == key:
                 load.result = entry
@@ -255,19 +211,7 @@ class SelectedQueryCache:
         load = _Load(key)
         token = _LOADING.set((*_LOADING.get(), load))
         try:
-            entry = _disk_rows(key)
-            if entry is not None:
-                from .serving_code import record_serving_reuse
-
-                record_serving_reuse("reused")
-                # A decoded hit is already authenticated by the caller's fresh
-                # native acquisition. Retain only this inert value in T4.
-                load.result = entry
-                with self._lock:
-                    rows = self._storage()
-                    if key.byte_size + entry.byte_size <= rows.maxsize:
-                        rows[key] = (key.byte_size, entry)
-            yield entry
+            yield None
         except BaseException as error:
             future.set_exception(error)
             raise

@@ -19,7 +19,7 @@ def _installation_key(inputs: NativeGeneratorInputs) -> bytes:
 
     if not inputs.complete:
         raise ValueError("native generator identity is incomplete")
-    key = input_key(inputs, include_format=False)
+    key = input_key(inputs)
     if key is None:
         raise ValueError("native generator identity did not produce an input key")
     return key
@@ -44,33 +44,7 @@ def _held_target_installation(inputs: NativeGeneratorInputs):
     from .code_reuse import record_code_reuse
 
     try:
-        from .native_program_store import (
-            input_key,
-            load_installation,
-            save_installation,
-        )
-
-        key = input_key(inputs, include_format=True)
-        retained = (
-            None
-            if key is None
-            else load_installation(
-                key,
-                physical_sources=inputs.physical_sources,
-                linkml_types=inputs.linkml_types,
-            )
-        )
-        if retained is not None:
-            record_code_reuse(
-                inputs.code_identity,
-                entry_point="corpus_structure.semantic.target_installation.render_target_installation",
-                tier="native-programs",
-                outcome="reused",
-            )
-            return retained
         result = _render_captured(inputs)
-        if key is not None:
-            save_installation(key, result)
         record_code_reuse(
             inputs.code_identity,
             entry_point="corpus_structure.semantic.target_installation.render_target_installation",

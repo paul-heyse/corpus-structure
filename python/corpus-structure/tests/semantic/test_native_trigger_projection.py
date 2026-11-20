@@ -246,7 +246,7 @@ def test_changed_trigger_projection_moves_the_program_input_key(physical_target)
         code_identity=CodeIdentity((), (), (), (), b"controlled identity"),
         trigger_inputs=capture_trigger_inputs(physical_target),
     )
-    before = input_key(inputs, include_format=True)
+    before = input_key(inputs)
     changed = replace(inputs.trigger_inputs, publisher="other_publisher")
-    assert input_key(replace(inputs, trigger_inputs=changed), include_format=True) != before
-    assert input_key(inputs, include_format=True) == before
+    assert input_key(replace(inputs, trigger_inputs=changed)) != before
+    assert input_key(inputs) == before

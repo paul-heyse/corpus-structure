@@ -14,7 +14,7 @@ from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.page_envelope import PageEnvelope, PageObservations
 from corpus_structure.semantic.refusal_types import InvalidContinuation, RichQueryRefused
-from corpus_structure.semantic.rich_queries import EntityQuery, RichQuery
+from corpus_structure.semantic.rich_queries import RichQuery
 from corpus_structure.semantic.rich_query_projection import (
     derive_rich_query_rows,
     prepare_rich_query,
@@ -42,8 +42,6 @@ def rich_query_implementation(query):
         entry="corpus_structure.semantic.rich_query_projection",
         profile=VERSION,
         callables=(
-            "corpus_structure.semantic.rich_query_projection.prepare_rich_frontier",
-            "corpus_structure.semantic.rich_query_projection.frontier_content_witness",
             "corpus_structure.semantic.rich_query_projection.prepare_rich_query",
             "corpus_structure.semantic.rich_query_projection.derive_rich_query_rows",
             "corpus_structure.semantic.rich_query_projection.rich_query_metadata",
@@ -135,7 +133,6 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
         continuation=continuation,
         cut=cut,
         max_bytes=request.max_graph_bytes,
-        content_witness=isinstance(request.query, EntityQuery),
     )
     if request.expected_cut is not None and selected.cut.identity != request.expected_cut:
         raise InvalidContinuation(
@@ -153,8 +150,7 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
         connection,
         "rich",
         implementation=implementation,
-        basis=selected.content_witness or selected.cut.identity,
-        basis_kind="content" if selected.content_witness is not None else "cut",
+        basis=selected.cut.identity,
         selection=[reference, selection],
     )
     with SELECTED_QUERY_CACHE.loading(key) as entry:

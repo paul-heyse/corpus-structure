@@ -1278,18 +1278,21 @@ publication/schema fidelity controls; final assembled qualification belongs to U
 
 ## Runtime initialization
 
-**Accepted target; implementation/qualification Proposed · 2026-11-17.** Serving identity names
-authenticated imported source digests, first-use library versions, the query contract and profile.
-Each request checks module identity and shared file custody; changed/racily clean metadata causes
-content confirmation. Equal bytes refresh custody. Changed bytes, unknown import custody or a
-conflicting pin require restart. This detects drift through observable filesystem metadata,
-rather than promising a full disk-content comparison on every request. PE-S06 owns implementation.
+**Accepted target; implementation/qualification Proposed · 2026-11-20.** A stable
+continuation identity binds the managed installation's source/resource content, selected model,
+query/profile and runtime/dependency inventory. First-party imported source correspondence and
+metadata-confirmed file checks detect observable drift. File-set additions or removals change
+the basis. Unsupported changed code requires restart. Each continued read reacquires current
+native authority and verifies its cut, root support, selection, ordinal and bounds before
+rebuilding rows. Cache eligibility remains a separate stronger contract and incomplete proof
+cannot suppress a compatible continuation. Deployment assumes deliberately managed dependencies
+and ordinary supported import paths. Changed model content selects a new immutable capture.
 
-> Decision: [ADR-0137](../adr/0137-serving-code-and-model-custody.md)
+> Decision: [ADR-0141](../adr/0141-serving-continuation-and-reuse.md)
 
 **Accepted UDM target.** A served result declares the scope under which reuse is admissible.
-A command-line continuation may carry cached pages across invocations while the reader
-reacquires current authority. Managed stop authenticates an exact local invocation and reports
+A command-line continuation may rederive bounded pages across invocations after the reader
+reacquires current authority. Persistent result reuse is deferred by the UDM plan. Managed stop authenticates an exact local invocation and reports
 request, drain and physical retirement as distinct facts.
 
 > Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
