@@ -1,10 +1,12 @@
-"""Exact JSON numbers at DDO context boundaries, independent of typed values.
+"""Finite JSON interchange and the archived DDO context-number profile.
 
 RapidJSON's NM_DECIMAL parses fractional literals as Decimal and emits Decimal
 as JSON numbers: https://python-rapidjson.readthedocs.io/en/latest/loads.html
 and https://python-rapidjson.readthedocs.io/en/latest/dumps.html .
 """
 
+import json
+import math
 from decimal import Decimal
 from typing import Any
 
@@ -15,6 +17,76 @@ import rapidjson
 type DdoJsonValue = (
     bool | int | float | Decimal | str | list[DdoJsonValue] | dict[str, DdoJsonValue] | None
 )
+
+
+class JsonBoundaryError(ValueError):
+    """A value cannot cross the supported finite JSON boundary."""
+
+
+def _json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise JsonBoundaryError("JSON contains a repeated object key")
+        result[key] = value
+    return result
+
+
+def _json_constant(value):
+    raise JsonBoundaryError("JSON requires finite numbers")
+
+
+def _json_float(value):
+    result = float(value)
+    if not math.isfinite(result):
+        raise JsonBoundaryError("JSON number exceeds the finite floating-point domain")
+    return result
+
+
+def finite_json_loads(content: str | bytes) -> Any:
+    """Read ordinary PostgreSQL-compatible JSON without implicit key or number coercion."""
+    try:
+        return _own_finite_json(
+            json.loads(
+                content,
+                object_pairs_hook=_json_object,
+                parse_constant=_json_constant,
+                parse_float=_json_float,
+            )
+        )
+    except (ValueError, RecursionError) as error:
+        raise JsonBoundaryError("invalid finite JSON document") from error
+
+
+def finite_json_bytes(value: Any) -> bytes:
+    """Encode owned finite JSON; identity and retained original bytes have separate owners."""
+    try:
+        return json.dumps(
+            _own_finite_json(value),
+            allow_nan=False,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    except (TypeError, ValueError, RecursionError) as error:
+        raise JsonBoundaryError("unsupported finite JSON value") from error
+
+
+def _own_finite_json(value):
+    if value is None or type(value) in (bool, int):
+        return value
+    if type(value) is str:
+        if "\x00" in value:
+            raise JsonBoundaryError("PostgreSQL JSON strings cannot contain zero characters")
+        value.encode("utf-8")
+        return value
+    if type(value) is float and math.isfinite(value):
+        return value
+    if type(value) is list:
+        return [_own_finite_json(item) for item in value]
+    if type(value) is dict and all(type(key) is str for key in value):
+        return {_own_finite_json(key): _own_finite_json(item) for key, item in value.items()}
+    raise JsonBoundaryError("finite JSON requires owned inert values")
 
 
 def json_loads(content: str | bytes) -> Any:

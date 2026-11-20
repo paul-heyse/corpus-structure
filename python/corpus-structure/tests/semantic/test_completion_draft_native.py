@@ -1,11 +1,13 @@
 """Actual private current-target original execution and adopter correspondence."""
 
+from copy import deepcopy
 from dataclasses import replace
 from hashlib import sha256
 from typing import Any, cast
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import literal, select, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.completion_drafts import CompletionDraftStore
@@ -202,6 +204,10 @@ def test_private_native_origin_recovery_preserves_original_and_refuses_unretired
         current = claim(kernel, pending, holder="current")
         with writer.begin() as connection:
             storage = DataOperationStorage(connection)
+            current_origin = storage.register_data_execution_origin(
+                cast(Any, {**current, "runtime_id": kernel.runtime})
+            )
+            assert current_origin["candidates"] == []
             with (
                 pytest.raises(DBAPIError, match="original producer retirement"),
                 connection.begin_nested(),
@@ -785,3 +791,96 @@ def _assert_pdf_support_projection(engine, original_build, current_build, curren
                         premises_bytes=premises,
                     )
             transaction.rollback()
+
+
+@pytest.mark.db
+@pytest.mark.parametrize(
+    ("change", "expected"),
+    [
+        ("unchanged", True),
+        ("key", True),
+        ("transport", True),
+        ("project", False),
+        ("operation", False),
+        ("recipe", False),
+        ("source", False),
+        ("scope", False),
+        ("replicate", False),
+        ("support", False),
+        ("parameters", False),
+        ("implementation", False),
+        ("output", False),
+        ("unknown-key", False),
+        ("missing-eligibility-key", False),
+    ],
+)
+def test_native_draft_material_compares_the_producer_basis(native_read, change, expected):
+    from corpus_structure.semantic.execution_origin_native import completion_material_matches
+
+    original: dict[str, Any] = {
+        "request_key": "request:original",
+        "project_id": "project:one",
+        "operation_id": "operation:one",
+        "recipe": "recipe:one",
+        "subject": "subject:one",
+        "original_source": "source:one",
+        "analyzed_scope": {"page": 1},
+        "replicate": None,
+        "binding": {
+            "inputs": [],
+            "support": [],
+            "parameters": {},
+            "request_inputs": {},
+            "inference": "inference:one",
+            "execution_profile": "profile:one",
+            "populations": [],
+        },
+    }
+    definition: dict[str, Any] = {
+        "implementation_revision": "implementation:one",
+        "profile": "profile:one",
+        "output_roles": [{"name": "result"}],
+        "support_contract": {"reuse_eligible": True},
+    }
+    current = deepcopy(original)
+    current_definition = deepcopy(definition)
+    if change == "key":
+        current["request_key"] = "request:other"
+    elif change == "transport":
+        current.update(runtime_id="runtime:other", generation=2, release_id="release:other")
+    elif change in {"project", "operation", "recipe", "source", "replicate"}:
+        field = {
+            "project": "project_id",
+            "operation": "operation_id",
+            "source": "original_source",
+        }.get(change, change)
+        current[field] = change + ":other"
+    elif change == "scope":
+        current["analyzed_scope"] = {"page": 2}
+    elif change in {"support", "parameters"}:
+        current["binding"][change] = {"changed": True}
+    elif change == "implementation":
+        current_definition["implementation_revision"] = "implementation:other"
+    elif change == "output":
+        current_definition["output_roles"] = [{"name": "other"}]
+    elif change == "unknown-key":
+        definition["support_contract"]["reuse_eligible"] = False
+        current_definition["support_contract"]["reuse_eligible"] = False
+        current["request_key"] = "request:other"
+    elif change == "missing-eligibility-key":
+        definition["support_contract"] = {}
+        current_definition["support_contract"] = {}
+        current["request_key"] = "request:other"
+    inputs = select(
+        literal(original, type_=JSONB()).label("prior_request"),
+        literal(definition, type_=JSONB()).label("prior_definition"),
+        literal(current, type_=JSONB()).label("current_request"),
+        literal(current_definition, type_=JSONB()).label("current_definition"),
+    ).subquery("material_inputs")
+    matches = completion_material_matches(
+        inputs.c.prior_request,
+        inputs.c.prior_definition,
+        inputs.c.current_request,
+        inputs.c.current_definition,
+    )
+    assert native_read.scalar(select(matches)) is expected

@@ -207,6 +207,7 @@ classes:
       primary_key: {unique_key_slots: [id]}
       unique_0: {unique_key_slots: [request_key]}
     annotations:
+      ph:indexes: {"tag":"ph:indexes","value":[["project_id","operation_id","recipe"]]}
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["release_id","operation_id"],"target":"sem.data_operation_definition.release_id,operation_id"}]}
       ph:checks: {"tag":"ph:checks","value":[{"name":"ck_data_request_physical_665a5d17f1","predicate":{"op":"gt","args":[{"field":"generation"},{"value":0}]}}]}

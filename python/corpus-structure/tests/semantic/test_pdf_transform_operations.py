@@ -220,9 +220,8 @@ def test_pdf_mode_captures_only_its_explicit_profile_and_exact_discovery(
     other = "source.pdf_integrated/reconcile" if mode == "enriched" else "source.pdf_math/enrich"
     assert other not in {item.semantic_id for item in model.operations}
     assert (
-        model.operation(composition)
-        .callable_surfaces[0]
-        .declaration.endswith("ComposeCapturedDocumentFamily.run")
+        model.operation(composition).callable_surfaces[0].declaration
+        == "corpus_structure.methods.full_document_composition.ComposeFullDocumentOperation.run"
     )
 
 

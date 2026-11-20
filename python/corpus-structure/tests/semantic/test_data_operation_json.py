@@ -7,6 +7,9 @@ from sqlalchemy import bindparam, cast, select, text
 
 from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
 from corpus_structure.semantic.data_operation_json import (
+    JsonBoundaryError,
+    finite_json_bytes,
+    finite_json_loads,
     json_bytes,
     json_loads,
     wire_json_loads,
@@ -17,6 +20,41 @@ from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_operation_wire import validate_native_wire
 
 PRECISE = b'{"coordinate":0.12345678901234567890123456789,"page":1}'
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        b'{"key":1,"key":2}',
+        b'{"nested":{"key":1,"key":2}}',
+        b"NaN",
+        b"Infinity",
+        b"1e9999",
+        b"{}\x00ignored",
+        b'"\\u0000"',
+        b'"\\ud800"',
+        b'"\xff"',
+        b"[" * 2000 + b"]" * 2000,
+    ],
+)
+def test_finite_json_ingress_refuses_ambiguous_or_unrepresentable_values(content):
+    with pytest.raises(JsonBoundaryError):
+        finite_json_loads(content)
+
+
+def test_finite_interchange_owns_numbers_without_changing_scope_identity():
+    expected = {"whole": 9007199254740993, "fraction": 1.25, "flag": True, "empty": None}
+    assert finite_json_loads(finite_json_bytes(expected)) == expected
+    assert finite_json_loads(b"1e2") == 100.0
+    assert type(finite_json_loads(b"1")) is int
+    assert type(finite_json_loads(b"1.0")) is float
+    assert json_bytes(json_loads(PRECISE)) == PRECISE
+
+
+@pytest.mark.parametrize("value", [float("inf"), Decimal("1.25"), {1: "one"}, (1, 2)])
+def test_finite_json_egress_requires_the_declared_inert_domain(value):
+    with pytest.raises(JsonBoundaryError):
+        finite_json_bytes(value)
 
 
 def test_scope_json_keeps_fractional_digits_through_context_and_frozen_demand():

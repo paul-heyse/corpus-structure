@@ -2,23 +2,23 @@
 
 from __future__ import annotations
 
-import json
 from functools import cache
 from hashlib import sha256
 from typing import Annotated, Literal
 
-from jsonschema import Draft7Validator
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from corpus_structure.methods.characterization_resources import ProviderExecutionReceipt
 from corpus_structure.methods.native_host import NativeExecutionReceipt
 
 from .cpu_receipts import CPUExecutionReceipt
+from .data_operation_json import finite_json_bytes, finite_json_loads
 from .established_validity import ProductValidation
 from .external_receipts import ExternalExecutionReceipt
 from .identity import canonical_bytes
 from .pdf_observations import PdfObservationExecutionReceipt
 from .pdf_publication import PdfExecutionReceipt
+from .schema_validation import prepared_schema_validator
 
 SOURCE = "native/data-operation-execution-evidence.schema.json"
 _Identifier = Annotated[str, Field(strict=True, min_length=1)]
@@ -66,8 +66,11 @@ def execution_evidence_schema() -> bytes:
 
     close(schema)
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    Draft7Validator.check_schema(schema)
-    return canonical_bytes(schema)
+    from .data_operation_wire import generated_json_schema
+
+    result = canonical_bytes(generated_json_schema(schema))
+    prepared_schema_validator(result)
+    return result
 
 
 def bind_execution_evidence(
@@ -88,21 +91,25 @@ def bind_execution_evidence(
         "version": "native-execution-evidence-v1",
         **fence,
         "runtime_id": runtime_id,
-        "host_receipts": json.loads(content) if content is not None else [],
-        "cpu_receipts": [json.loads(cpu_content)] if cpu_content is not None else [],
+        "host_receipts": finite_json_loads(content) if content is not None else [],
+        "cpu_receipts": [finite_json_loads(cpu_content)] if cpu_content is not None else [],
         "cpu_replies": [cpu_reply_content.decode("utf-8")] if cpu_reply_content is not None else [],
-        "product_validations": [json.loads(product_validation_content)]
+        "product_validations": [finite_json_loads(product_validation_content)]
         if product_validation_content is not None
         else [],
-        "pdf_receipts": [json.loads(pdf_content)] if pdf_content is not None else [],
-        "pdf_observation_receipts": [json.loads(pdf_observation_content)]
+        "pdf_receipts": [finite_json_loads(pdf_content)] if pdf_content is not None else [],
+        "pdf_observation_receipts": [finite_json_loads(pdf_observation_content)]
         if pdf_observation_content is not None
         else [],
-        "provider_receipts": json.loads(provider_content) if provider_content is not None else [],
-        "external_receipts": json.loads(external_content) if external_content is not None else [],
+        "provider_receipts": finite_json_loads(provider_content)
+        if provider_content is not None
+        else [],
+        "external_receipts": finite_json_loads(external_content)
+        if external_content is not None
+        else [],
     }
-    Draft7Validator(json.loads(execution_evidence_schema())).validate(value)
-    checked = NativeExecutionEvidence.model_validate_json(canonical_bytes(value))
+    prepared_schema_validator(execution_evidence_schema()).validate(value)
+    checked = NativeExecutionEvidence.model_validate_json(finite_json_bytes(value))
     if checked.cpu_replies and (
         len(checked.cpu_replies) != len(checked.cpu_receipts)
         or any(

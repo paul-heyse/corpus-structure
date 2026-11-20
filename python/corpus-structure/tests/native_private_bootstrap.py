@@ -12,10 +12,11 @@ from pathlib import Path
 
 import psycopg
 from psycopg import sql
+from pydantic_settings.sources import EnvSettingsSource
 from sqlalchemy.engine import URL
 
 from corpus_structure.core.db.extensions import expected_extensions
-from corpus_structure.settings import DatabaseSettings, Settings
+from corpus_structure.settings import DatabaseSettings, Settings, known_env_names
 from native_test_support import semantic_principals
 from test_receipts import (
     _cancelled,
@@ -141,9 +142,14 @@ def provision(request, control):
 
 def configure_children(settings, execution_path):
     # Creation credentials and libpq defaults must not leak into purpose acquisition.
+    source = EnvSettingsSource(Settings)
+    profile_roots = known_env_names(source) & {
+        f"{source.env_prefix}{section}".casefold() for section in ("database", "deployment")
+    }
     for name in list(os.environ):
-        if name in {"CORPUS_DATABASE", "CORPUS_DEPLOYMENT_DATABASE"} or name.startswith(
-            ("PG", "_PG_", "CORPUS_DATABASE__", "CORPUS_DEPLOYMENT_DATABASE__")
+        if (
+            name.startswith(("PG", "_PG_"))
+            or name.casefold().split(source.env_nested_delimiter, maxsplit=1)[0] in profile_roots
         ):
             os.environ.pop(name)
     for name, value in settings.database.model_dump(mode="json").items():

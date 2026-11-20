@@ -7,6 +7,50 @@ from sqlalchemy.types import NullType
 from .native_program import Assign, If, Local, Perform, Return, Sql, core_variable, pg_type
 
 
+def completion_material_matches(
+    prior_request, prior_definition, current_request, current_definition
+):
+    """Compare original production meaning before any current adoption authority checks."""
+    reusable = and_(
+        prior_definition["support_contract"]["reuse_eligible"].astext == "true",
+        current_definition["support_contract"]["reuse_eligible"].astext == "true",
+    ).is_(True)
+    return and_(
+        or_(
+            prior_request["request_key"].is_not_distinct_from(current_request["request_key"]),
+            reusable,
+        ),
+        *(
+            prior_request[name].is_not_distinct_from(current_request[name])
+            for name in (
+                "project_id",
+                "operation_id",
+                "recipe",
+                "subject",
+                "original_source",
+                "analyzed_scope",
+                "replicate",
+            )
+        ),
+        *(
+            prior_request["binding"][name].is_not_distinct_from(current_request["binding"][name])
+            for name in (
+                "inputs",
+                "support",
+                "parameters",
+                "request_inputs",
+                "inference",
+                "execution_profile",
+                "populations",
+            )
+        ),
+        *(
+            prior_definition[name].is_not_distinct_from(current_definition[name])
+            for name in ("implementation_revision", "profile", "output_roles", "support_contract")
+        ),
+    )
+
+
 def execution_origin_programs(model, routine, row, rf, obj, reject, lookup):
     request = model.tables["ops.data_request"]
     task = model.tables["ops.task"]
@@ -38,11 +82,29 @@ def execution_origin_programs(model, routine, row, rf, obj, reject, lookup):
         Local("key_", pg_type("text")),
     )
     fence_fields = ["request_id", "generation", "task_id", "attempt", "holder"]
+    prior_request = request.alias("prior_request")
+    failures = model.tables["ops.data_attempt_failure"]
+    # The request index narrows the population before comparing immutable snapshots.
+    # Filter original retirement before the candidate limit so active writers cannot
+    # hide eligible acknowledged drafts behind the bounded result page.
     candidates = (
         select(origins.c.id, origins.c.request_id, origins.c.generation, origins.c.created_at)
+        .select_from(origins.join(prior_request, prior_request.c.id == origins.c.request_id))
         .where(
-            origins.c.request_id == rf("id"),
+            prior_request.c.project_id == rf("project_id"),
+            prior_request.c.operation_id == rf("operation_id"),
+            prior_request.c.recipe == rf("recipe"),
             origins.c.id != key,
+            completion_material_matches(
+                origins.c.request_snapshot,
+                origins.c.definition_snapshot,
+                func.to_jsonb(rf(), type_=JSONB()),
+                func.to_jsonb(local_definition(), type_=JSONB()),
+            ),
+            select(1)
+            .select_from(failures)
+            .where(*(failures.c[name] == origins.c[name] for name in fence_fields))
+            .exists(),
         )
         .order_by(origins.c.created_at.desc(), origins.c.id)
         .limit(64)
@@ -126,42 +188,11 @@ def execution_origin_programs(model, routine, row, rf, obj, reject, lookup):
         (*common_locals, Local("definition_", definitions), Local("origin_", origins)),
         returns="jsonb",
     )
-    # The semantic request key covers recipe, logical context, parameters and replicate.
-    # Retain every admitted input and support binding until a narrower proof exists.
-    same_material = and_(
-        *(
-            origin("request_snapshot")[name].is_not_distinct_from(
-                func.to_jsonb(rf(), type_=JSONB())[name]
-            )
-            for name in (
-                "request_key",
-                "project_id",
-                "operation_id",
-                "recipe",
-                "subject",
-                "original_source",
-                "analyzed_scope",
-                "replicate",
-            )
-        ),
-        *(
-            origin("request_snapshot")["binding"][name].is_not_distinct_from(rf("binding")[name])
-            for name in (
-                "inputs",
-                "support",
-                "parameters",
-                "request_inputs",
-                "inference",
-                "execution_profile",
-                "populations",
-            )
-        ),
-        *(
-            origin("definition_snapshot")[name].is_not_distinct_from(
-                func.to_jsonb(local_definition(), type_=JSONB())[name]
-            )
-            for name in ("implementation_revision", "profile", "output_roles", "support_contract")
-        ),
+    same_material = completion_material_matches(
+        origin("request_snapshot"),
+        origin("definition_snapshot"),
+        func.to_jsonb(rf(), type_=JSONB()),
+        func.to_jsonb(local_definition(), type_=JSONB()),
     )
     from .validity_programs import family_programs, selected_family
 

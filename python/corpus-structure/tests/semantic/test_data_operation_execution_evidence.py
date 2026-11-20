@@ -7,7 +7,7 @@ from typing import Any
 from typing import cast as typing_cast
 
 import pytest
-from jsonschema import ValidationError
+from jsonschema import Draft7Validator, ValidationError
 
 from corpus_structure.methods.native_host import NativeExecutionReceipt
 from corpus_structure.semantic._data_operation_wire import (
@@ -30,6 +30,28 @@ def receipt():
     return NativeExecutionReceipt(
         "host-generation", "host-request", "spacy", "profile", "observed-runtime", "input", "output"
     )
+
+
+def test_provider_work_member_tuple_schema_checks_each_position():
+    schema = json.loads(execution_evidence_schema())
+    member = schema["definitions"]["ProviderExecutionReceipt"]["properties"]["work_members"][
+        "items"
+    ]
+    assert "prefixItems" not in member
+    assert Draft7Validator(member).is_valid(["work", 0, 1])
+    assert not Draft7Validator(member).is_valid([1, "x", None])
+    assert not Draft7Validator(member).is_valid(["work", 0, 1, "extra"])
+
+
+def test_receipt_ingress_refuses_duplicate_keys_before_typed_validation():
+    from corpus_structure.semantic.data_operation_json import JsonBoundaryError
+
+    with pytest.raises(JsonBoundaryError):
+        bind_execution_evidence(
+            b'[{"request_id":"first","request_id":"second"}]',
+            fence=dict(request_id="r", generation=1, task_id=1, attempt=1, holder="h"),
+            runtime_id="runtime",
+        )
 
 
 @pytest.mark.parametrize(
@@ -211,7 +233,7 @@ def test_pdf_receipt_keeps_original_sealed_publisher_separate_from_admitting_att
         fence=dict(request_id="r", generation=1, task_id=3, attempt=2, holder="current-owner"),
     )
     assert value["holder"] == "current-owner" and value["attempt"] == 2
-    assert value["pdf_receipts"] == [asdict(original)]
+    assert value["pdf_receipts"] == [{**asdict(original), "contributors": []}]
     assert value["pdf_receipts"][0]["publisher_attempt"] == 1
     assert value["host_receipts"] == [] and value["cpu_receipts"] == []
     with pytest.raises(TypeError, match="immutable bytes"):

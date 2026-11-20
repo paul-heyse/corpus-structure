@@ -14,9 +14,20 @@ from typing import Literal
 import griffe
 from pydantic import BaseModel, ConfigDict, JsonValue
 
+from .data_operation_identity import (
+    first_material_path,
+    implementation_slice_fingerprint,
+    recipe_fingerprint,
+)
 from .data_operation_model import operation_role_record
 from .identity import canonical_bytes
 from .source_interfaces import SourceInterfaceProjection
+
+
+class MaterialChange(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    source: Literal["compiled-recipe", "captured-implementation", "unavailable"]
+    path: tuple[str | int, ...] | None = None
 
 
 class EffectiveChange(BaseModel):
@@ -36,6 +47,7 @@ class EffectiveChange(BaseModel):
     before: JsonValue = None
     after: JsonValue = None
     reason: str
+    material: MaterialChange | None = None
 
 
 class SourceCompatibilityBreakage(BaseModel):
@@ -85,6 +97,66 @@ def _interfaces(model, supplied):
     return projection
 
 
+def _implementation_identity(model, operation):
+    implementation = next(
+        (
+            item
+            for item in model.implementation_slices
+            if item.root == operation.implementation_root
+        ),
+        None,
+    )
+    if implementation is None or not implementation.complete:
+        return None
+    return implementation_slice_fingerprint(implementation.semantic_records(), implementation.root)
+
+
+def _recipe_identity(model, operation, keys):
+    from .data_operation_compilation import operation_recipe_input
+
+    implementation = _implementation_identity(model, operation)
+    if operation.implementation_root is not None and implementation is None:
+        return None
+    subject = model.subject_definition(operation.subject)
+    binding = next(
+        item.expression for item in model.bindings if item.semantic_id == operation.binding
+    )
+    return recipe_fingerprint(
+        operation_recipe_input(
+            operation,
+            subject,
+            keys[subject.identifier_kind, "kind"],
+            {role.name: keys[role.kind, "kind"] for role in operation.roles},
+            {
+                name: keys[parameter["kind"], "kind"]
+                for name, parameter in json.loads(operation.parameters).items()
+                if isinstance(parameter, dict) and "kind" in parameter
+            },
+            binding,
+        ),
+        implementation_slices=() if implementation is None else (implementation,),
+    )
+
+
+def _material_change(facet, before, after, prior, proposed, old_ids, new_ids, old_key, new_key):
+    if old_key is None or new_key is None:
+        return MaterialChange(source="unavailable")
+    try:
+        if facet == "recipe":
+            old = _recipe_identity(before, prior, old_ids)
+            new = _recipe_identity(after, proposed, new_ids)
+            source = "compiled-recipe"
+        else:
+            old = _implementation_identity(before, prior)
+            new = _implementation_identity(after, proposed)
+            source = "captured-implementation"
+    except KeyError, StopIteration, ValueError, TypeError:
+        return MaterialChange(source="unavailable")
+    if old is None or new is None or (old.key, new.key) != (old_key, new_key):
+        return MaterialChange(source="unavailable")
+    return MaterialChange(source=source, path=first_material_path(old, new))
+
+
 def _callable_container(operation):
     container = griffe.Module("operation")
     for surface in operation.callable_surfaces:
@@ -130,7 +202,9 @@ def compare_data_operation_models(
     new_ids = {(item.owner, item.domain): item.key for item in after.identities}
     changes, breakages, unknowns = [], [], []
 
-    def append(owner, facet, prior, proposed, *, old_present=True, new_present=True, reason):
+    def append(
+        owner, facet, prior, proposed, *, old_present=True, new_present=True, reason, material=None
+    ):
         if old_present and new_present and prior == proposed:
             return
         changes.append(
@@ -141,6 +215,7 @@ def compare_data_operation_models(
                 before=_json(prior),
                 after=_json(proposed),
                 reason=reason,
+                material=material,
             )
         )
 
@@ -252,6 +327,21 @@ def compare_data_operation_models(
                 reason="Admitted "
                 + facet
                 + " identity changed; changed output is not established.",
+                material=(
+                    _material_change(
+                        facet,
+                        before,
+                        after,
+                        prior,
+                        proposed,
+                        old_ids,
+                        new_ids,
+                        prior_identity,
+                        proposed_identity,
+                    )
+                    if facet in {"implementation", "recipe"} and prior_identity != proposed_identity
+                    else None
+                ),
             )
         try:
             for item in griffe.find_breaking_changes(

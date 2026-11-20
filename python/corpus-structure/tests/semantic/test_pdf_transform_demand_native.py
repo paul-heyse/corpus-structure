@@ -272,7 +272,6 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
             project_id=original.project_id,
             release_id=kernel.prepared.release_id,
             runtime_id=kernel.runtime,
-            domain="toy",
             workflow="capture",
             selection=WholeDocument(),
             documents=(original.document_key,),

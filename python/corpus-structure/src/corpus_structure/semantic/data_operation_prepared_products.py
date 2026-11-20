@@ -4,13 +4,61 @@ from __future__ import annotations
 
 import inspect
 import sys
-from dataclasses import asdict
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
 from types import CodeType
 
 from .data_operation_ports import PortRefusal
 from .identity import canonical_bytes
+
+
+@dataclass(frozen=True)
+class PreparedProductDiagnostic:
+    resource: str
+    expected: str | None
+    actual: str | None
+    prerequisite: str
+
+
+class PreparedProductRefusal(PortRefusal):
+    def __init__(self, message: str, diagnostic: PreparedProductDiagnostic):
+        super().__init__(message)
+        self.diagnostic = diagnostic
+
+
+@dataclass(frozen=True)
+class PreparedProductSpecification:
+    """One selected declaration for captured sources and actual callable checks."""
+
+    functions: tuple[tuple[str, Callable], ...]
+    support_modules: tuple[str, ...] = ()
+
+    def capture(self, package_root: Path, *, boundary_contracts=()):
+        from .python_operation_sources import PythonSource, PythonSourceCollection
+
+        owners = [owner for owner, _ in self.functions]
+        if len(set(owners)) != len(owners):
+            raise PortRefusal("prepared product repeats a required callable owner")
+        paths = {}
+        for owner, supplied in self.functions:
+            _verify_prepared_callable(owner, supplied)
+            function = supplied.__func__ if inspect.ismethod(supplied) else supplied
+            paths[function.__module__] = Path(inspect.getfile(function))
+        for module in self.support_modules:
+            if not module.startswith("corpus_structure."):
+                raise PortRefusal("prepared support module is outside its owning package")
+            paths.setdefault(
+                module, package_root.joinpath(*module.split(".")[1:]).with_suffix(".py")
+            )
+        return PythonSourceCollection(
+            tuple(
+                PythonSource(module, path.read_bytes(), str(path))
+                for module, path in sorted(paths.items())
+            ),
+            boundary_contracts=boundary_contracts,
+        )
 
 
 def verify_prepared_product(
@@ -56,11 +104,37 @@ def verify_prepared_product(
         ),
     )
     expected["assets"] = canonical_bytes(tuple(asdict(boundary) for boundary in boundaries))
-    if any(getattr(identity, name) != value for name, value in expected.items()):
-        raise PortRefusal("prepared product differs from admitted source/definition/recipe")
+    for name, value in expected.items():
+        actual = getattr(identity, name)
+        if actual != value:
+            raise PreparedProductRefusal(
+                "prepared product differs from admitted source/definition/recipe",
+                PreparedProductDiagnostic(
+                    name,
+                    sha256(
+                        value if isinstance(value, bytes) else canonical_bytes(value)
+                    ).hexdigest(),
+                    sha256(
+                        actual if isinstance(actual, bytes) else canonical_bytes(actual)
+                    ).hexdigest(),
+                    "admitted_operation_correspondence",
+                ),
+            )
     acquired = {artifact.name: artifact for artifact in custody}
-    if len(acquired) != len(custody) or any(acquired.get(asset.name) != asset for asset in assets):
+    if len(acquired) != len(custody):
         raise PortRefusal("prepared product resources differ from actual acquired custody")
+    for asset in assets:
+        original = acquired.get(asset.name)
+        if original != asset:
+            raise PreparedProductRefusal(
+                "prepared product resources differ from actual acquired custody",
+                PreparedProductDiagnostic(
+                    asset.name,
+                    original.digest if original is not None else None,
+                    asset.digest,
+                    "acquired_resource_correspondence",
+                ),
+            )
     contracts = {artifact.name: artifact.digest for artifact in sources.boundary_contracts}
     if not operation.assets or any(
         contracts.get(boundary.contract) != boundary.content_digest for boundary in boundaries

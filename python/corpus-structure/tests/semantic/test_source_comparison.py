@@ -42,6 +42,33 @@ def test_same_signature_body_change_is_implementation_and_recipe_not_contract():
     assert facets(compared) == {"implementation", "recipe"}
     assert not compared.breakages
     assert compared.before_digest != compared.after_digest
+    material = {item.facet: item.material for item in compared.changes}
+    implementation, recipe = material["implementation"], material["recipe"]
+    assert implementation is not None and implementation.path is not None
+    assert implementation.source == "captured-implementation"
+    assert implementation.path[0] == "graph"
+    assert recipe is not None and recipe.source == "compiled-recipe"
+    assert recipe.path == ("implementation_slices", 0)
+
+
+def test_historical_key_without_corresponding_fields_stays_unavailable():
+    before = compile_source(operation_source())
+    after = compile_source(operation_source(body="return helper(x) + 1"))
+    historical = replace(
+        before,
+        source_interfaces=None,
+        identities=tuple(
+            replace(identity, key="recipe:" + "a" * 64) if identity.domain == "recipe" else identity
+            for identity in before.identities
+        ),
+    )
+    recipe = next(
+        change
+        for change in compare_data_operation_models(historical, after).changes
+        if change.facet == "recipe"
+    )
+    assert recipe.material is not None and recipe.material.source == "unavailable"
+    assert recipe.material.path is None
 
 
 @pytest.mark.parametrize(

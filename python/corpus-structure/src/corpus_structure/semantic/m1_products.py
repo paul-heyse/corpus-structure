@@ -115,30 +115,39 @@ def m1_execution_custody(configuration):
     )
 
 
+def m1_acquisition_specification():
+    from corpus_structure.methods.m1_declared import M1SourceCandidatesOperation
+
+    from .data_operation_prepared_products import PreparedProductSpecification
+
+    prefix = "corpus_structure.semantic.m1_products."
+    return PreparedProductSpecification(
+        (
+            (
+                "corpus_structure.methods.m1_declared.M1SourceCandidatesOperation.run",
+                M1SourceCandidatesOperation.run,
+            ),
+            (prefix + "M1InvocationPlan.plan", M1InvocationPlan.plan),
+            (prefix + "execute_m1_kernel", execute_m1_kernel),
+            (prefix + "PreparedM1Inputs.run", PreparedM1Inputs.run),
+            (prefix + "candidate_report", candidate_report),
+            (prefix + "complete_m1_inspection", complete_m1_inspection),
+            (prefix + "plan_m1_gliner", plan_m1_gliner),
+            ("corpus_structure.methods.m1_source.plan_candidates", plan_candidates),
+        ),
+        support_modules=(
+            "corpus_structure.semantic.declared_candidate_products",
+            "corpus_structure.semantic.data_operation_prepared_call",
+        ),
+    )
+
+
 def m1_operation_sources(
     configuration, *, record_schemas, include_dependencies=True, sentence_selection=None
 ):
-    from .python_operation_sources import PythonSource, PythonSourceCollection
-
     configuration = M1Config.model_validate(configuration)
-
-    root = Path(__file__).parents[1]
-    paths = (
-        "methods/m1_declared.py",
-        "methods/m1_source.py",
-        "semantic/m1_products.py",
-        "semantic/declared_candidate_products.py",
-        "semantic/data_operation_prepared_call.py",
-    )
-    own = PythonSourceCollection(
-        tuple(
-            PythonSource(
-                "corpus_structure." + name.removesuffix(".py").replace("/", "."),
-                (root / name).read_bytes(),
-                str(root / name),
-            )
-            for name in paths
-        ),
+    own = m1_acquisition_specification().capture(
+        Path(__file__).parents[1],
         boundary_contracts=(
             m1_profile_assets(configuration, record_schemas),
             m1_execution_custody(configuration),
@@ -641,20 +650,8 @@ def resolve_m1_port(prepared, model, operation, *, identity, authorize, custody,
         authorize,
         (m1_profile_assets(configuration, record_schemas), m1_execution_custody(configuration)),
         captured,
-        functions=(
-            ("corpus_structure.semantic.m1_products.execute_m1_kernel", execute_m1_kernel),
-            ("corpus_structure.semantic.m1_products.PreparedM1Inputs.run", PreparedM1Inputs.run),
-            ("corpus_structure.semantic.m1_products.candidate_report", candidate_report),
-            (
-                "corpus_structure.semantic.m1_products.complete_m1_inspection",
-                complete_m1_inspection,
-            ),
-            ("corpus_structure.semantic.m1_products.plan_m1_gliner", plan_m1_gliner),
-            (
-                "corpus_structure.methods.m1_source.plan_candidates",
-                plan_candidates,
-            ),
-        ),
+        # The common port supplies the first two bindings from its original and physical plan.
+        functions=m1_acquisition_specification().functions[2:],
         native_selections=(selection,),
         requires_prepared_schema=True,
         completion_type=dict,

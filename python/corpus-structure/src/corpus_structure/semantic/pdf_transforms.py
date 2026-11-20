@@ -217,6 +217,59 @@ def pdf_transform_custody(
     )
 
 
+def pdf_transform_specification(mode):
+    from .data_operation_prepared_products import PreparedProductSpecification
+
+    endpoint = _endpoint(mode)
+    executor_name, executor, methods = {
+        "organized": (
+            "execute_pdf_organization",
+            execute_pdf_organization,
+            ("transform", "_organize"),
+        ),
+        "enriched": ("execute_pdf_enrichment", execute_pdf_enrichment, ("transform", "_enrich")),
+        "integrated": (
+            "execute_pdf_integration",
+            execute_pdf_integration,
+            ("transform", "_integrate"),
+        ),
+        "recognized": ("execute_pdf_observation", execute_pdf_observation, ("recognize",)),
+    }[mode]
+    helpers = (
+        ("_read_selected_pdf", _read_selected_pdf),
+        ("_selected_pdf_execution", _selected_pdf_execution),
+    )
+    if mode == "integrated":
+        helpers += (
+            ("_read_selected_observations", _read_selected_observations),
+            ("integration_draft", integration_draft),
+        )
+    if mode == "recognized":
+        helpers += (
+            ("recognition_page_selection", recognition_page_selection),
+            ("prepare_recognition_page_products", prepare_recognition_page_products),
+            ("prepare_recognition_report", prepare_recognition_report),
+        )
+    prefix = "corpus_structure.semantic.pdf_transforms."
+    return PreparedProductSpecification(
+        (
+            (endpoint.__module__ + "." + endpoint.__qualname__ + ".run", endpoint.run),
+            (prefix + executor_name, executor),
+            *(
+                (prefix + "PreparedPdfTransform." + name, getattr(PreparedPdfTransform, name))
+                for name in (*methods, "recipe_bytes")
+            ),
+            *((prefix + name, function) for name, function in helpers),
+        ),
+        support_modules=(
+            "corpus_structure.semantic.input_values",
+            "corpus_structure.semantic.data_operation_pdf_effect",
+            "corpus_structure.semantic.pdf_effect_contract",
+            "corpus_structure.semantic.data_operation_effects",
+        ),
+    )
+
+
 def pdf_transform_assets(record):
     from .operation_code_assets import code_asset
 
@@ -232,14 +285,7 @@ def pdf_transform_assets(record):
         )
     return code_asset(
         "pdf-" + mode + "/profile-assets",
-        (
-            PreparedPdfTransform.transform,
-            PreparedPdfTransform.recognize,
-            execute_pdf_organization,
-            execute_pdf_enrichment,
-            execute_pdf_integration,
-            execute_pdf_observation,
-        ),
+        tuple(function for _, function in pdf_transform_specification(mode).functions),
         parameters=material,
     )
 
@@ -295,37 +341,8 @@ def pdf_transform_operation_sources(mode, **profile):
             input_operation="source.pdf/capture",
         )
     custody = pdf_transform_custody(mode, **profile)
-    module = {
-        "organized": "pdf_organization_operation",
-        "enriched": "pdf_enrichment_operation",
-        "integrated": "pdf_integration_operation",
-        "recognized": "pdf_observation_operation",
-    }[mode]
-    path = _root() / "ingest" / (module + ".py")
-    own = PythonSourceCollection(
-        tuple(
-            PythonSource(name, source.read_bytes(), str(source))
-            for name, source in (
-                (
-                    "corpus_structure.semantic.input_values",
-                    Path(__file__).with_name("input_values.py"),
-                ),
-                ("corpus_structure.ingest." + module, path),
-                ("corpus_structure.semantic.pdf_transforms", Path(__file__)),
-                (
-                    "corpus_structure.semantic.data_operation_pdf_effect",
-                    Path(__file__).with_name("data_operation_pdf_effect.py"),
-                ),
-                (
-                    "corpus_structure.semantic.pdf_effect_contract",
-                    Path(__file__).with_name("pdf_effect_contract.py"),
-                ),
-                (
-                    "corpus_structure.semantic.data_operation_effects",
-                    Path(__file__).with_name("data_operation_effects.py"),
-                ),
-            )
-        ),
+    own = pdf_transform_specification(mode).capture(
+        _root(),
         boundary_contracts=(
             custody,
             pdf_transform_assets(json.loads(custody.content)),
@@ -1415,6 +1432,11 @@ class PreparedPdfTransformPort:
         from .data_operation_prepared_products import verify_prepared_product
 
         record = self.profile.record
+        specification = pdf_transform_specification(self.profile.mode)
+        if specification.functions[0][0] != self.operation.callable_surfaces[0].declaration:
+            from .data_operation_ports import PortRefusal
+
+            raise PortRefusal("PDF selected endpoint differs from its admitted declaration")
         if any(
             (_root() / name).read_bytes() != bytes.fromhex(content)
             for name, content in record["files"]
@@ -1425,16 +1447,9 @@ class PreparedPdfTransformPort:
             or _file_hash(record["resources"]["python"]) != record["interpreter_digest"]
         ):
             raise ValueError("recognition worker/interpreter changed after acquisition")
-        endpoint = _endpoint(self.profile.mode)
         capture_role = next(role for role in self.operation.roles if role.direction == "input")
         if self.profile.mode != "organized" and capture_role.selected != record["input_operation"]:
             raise ValueError("PDF transformation input differs from its frozen exact producer")
-        implementation = {
-            "organized": execute_pdf_organization,
-            "enriched": execute_pdf_enrichment,
-            "integrated": execute_pdf_integration,
-            "recognized": execute_pdf_observation,
-        }[self.profile.mode]
         asset = next(
             item
             for item in self.custody
@@ -1455,51 +1470,9 @@ class PreparedPdfTransformPort:
                 pdf_transform_assets(record),
                 *((recognition_policy_asset(record),) if self.profile.mode == "recognized" else ()),
             ),
-            functions=(
-                (self.operation.callable_surfaces[0].declaration, endpoint.run),
-                (
-                    "corpus_structure.semantic.pdf_transforms." + implementation.__name__,
-                    implementation,
-                ),
-                *(
-                    (
-                        "corpus_structure.semantic.pdf_transforms.PreparedPdfTransform." + name,
-                        getattr(PreparedPdfTransform, name),
-                    )
-                    for name in (
-                        "transform",
-                        "recognize",
-                        "_organize",
-                        "_enrich",
-                        "_integrate",
-                        "recipe_bytes",
-                    )
-                ),
-                ("corpus_structure.semantic.pdf_transforms._read_selected_pdf", _read_selected_pdf),
-                (
-                    "corpus_structure.semantic.pdf_transforms._read_selected_observations",
-                    _read_selected_observations,
-                ),
-                (
-                    "corpus_structure.semantic.pdf_transforms._selected_pdf_execution",
-                    _selected_pdf_execution,
-                ),
-                ("corpus_structure.semantic.pdf_transforms.integration_draft", integration_draft),
-                (
-                    "corpus_structure.semantic.pdf_transforms.recognition_page_selection",
-                    recognition_page_selection,
-                ),
-                (
-                    "corpus_structure.semantic.pdf_transforms.prepare_recognition_page_products",
-                    prepare_recognition_page_products,
-                ),
-                (
-                    "corpus_structure.semantic.pdf_transforms.prepare_recognition_report",
-                    prepare_recognition_report,
-                ),
-            ),
+            functions=specification.functions,
             authorize=self.authorize,
-            required_sources=self.sources,
+            required_sources=specification.capture(_root()),
         )
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):

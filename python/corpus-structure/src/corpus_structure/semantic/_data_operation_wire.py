@@ -224,7 +224,7 @@ class WireProviderExecutionReceipt(TypedDict):
     member_offset: Required[int]
     native_member_digests: Required[list[str]]
     physical: Required[list[WireNativeExecutionReceipt]]
-    work_members: Required[list[list[WireExactJSONValue]]]
+    work_members: Required[list[list[str | int]]]
 
 
 class WireAuthoredFactSelector(TypedDict):

@@ -104,6 +104,21 @@ def test_prepared_wire_validator_owns_its_schema_after_caller_mutation_and_evict
         validate("3")
 
 
+def test_prepared_schema_requires_declared_dialect_and_cannot_retrieve_remote_refs():
+    from referencing.exceptions import Unresolvable
+
+    from corpus_structure.semantic.schema_validation import prepared_schema_validator
+
+    with pytest.raises(ValueError, match="explicit supported dialect"):
+        prepared_schema_validator(b'{"type":"integer"}')
+    validator = prepared_schema_validator(
+        b'{"$schema":"https://json-schema.org/draft/2020-12/schema",'
+        b'"$ref":"https://unavailable.invalid/schema"}'
+    )
+    with pytest.raises(Unresolvable):
+        validator.validate(1)
+
+
 def controlled_wire_declaration():
     declaration: dict[str, Any] = contract(
         id="controlled.claim_data_requests",

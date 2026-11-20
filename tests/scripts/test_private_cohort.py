@@ -342,13 +342,30 @@ def test_private_child_restores_project_tools_after_creation(monkeypatch):
 
     from corpus_structure.settings import Settings
 
-    environment = dict(os.environ, PGPORT="5434", PGPASSWORD="bootstrap-only")
+    environment = dict(
+        os.environ,
+        PGPORT="5434",
+        PGPASSWORD="bootstrap-only",
+        CORPUS_DATABASE__MAINTENANCE_URL="postgresql://shared/database",
+        CORPUS_DEPLOYMENT__URL="postgresql://shared/stage",
+        corpus_deployment__reader_url="postgresql://shared/stage",
+        CORPUS_NEMOTRON__ENDPOINT="https://provider.invalid",
+    )
     monkeypatch.setattr(bootstrap.os, "environ", environment)
-    settings = Settings(database={"url": "postgresql://writer:owned@127.0.0.1:45678/postgres"})
+    settings = Settings(
+        database={
+            "url": "postgresql://writer:owned@127.0.0.1:45678/postgres",
+            "maintenance_url": "postgresql://owner:owned@127.0.0.1:45678/postgres",
+        }
+    )
     bootstrap.configure_children(settings, "/selected/project/tools:/usr/bin")
     assert environment["PATH"] == "/selected/project/tools:/usr/bin"
     assert "PGPORT" not in environment and "PGPASSWORD" not in environment
     assert environment["CORPUS_DATABASE__URL"] == settings.database.url
+    assert "CORPUS_DEPLOYMENT__URL" not in environment
+    assert "corpus_deployment__reader_url" not in environment
+    assert environment["CORPUS_DATABASE__MAINTENANCE_URL"] == settings.database.maintenance_url
+    assert environment["CORPUS_NEMOTRON__ENDPOINT"] == "https://provider.invalid"
 
 
 @pytest.fixture

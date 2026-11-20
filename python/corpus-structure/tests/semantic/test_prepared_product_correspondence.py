@@ -1,5 +1,6 @@
 """Independent owner substitutions must not authenticate their own unrelated source."""
 
+from pathlib import Path
 from types import FunctionType
 
 import pytest
@@ -47,3 +48,47 @@ def test_prepared_custody_refuses_callable_omitted_from_required_source_subset()
             ),
             required_sources=sources,
         )
+
+
+def test_selected_capture_refuses_a_substituted_declared_helper():
+    specification = owner.PreparedProductSpecification(
+        ((owner.__name__ + "._verify_prepared_callable", foreign_named_function),)
+    )
+    with pytest.raises(PortRefusal, match="qualified owner"):
+        specification.capture(Path(owner.__file__).parents[1])
+
+
+def test_m1_planner_owner_is_captured_from_its_required_callable():
+    from corpus_structure.semantic.m1_products import m1_acquisition_specification
+
+    specification = m1_acquisition_specification()
+    captured = specification.capture(Path(owner.__file__).parents[1])
+    planner = "corpus_structure.methods.m1_source.plan_candidates"
+    assert planner in dict(specification.functions)
+    source = next(
+        item for item in captured.sources if item.module == "corpus_structure.methods.m1_source"
+    )
+    assert source.content == Path(source.filename).read_bytes()
+
+
+@pytest.mark.parametrize("mode", ["organized", "enriched", "integrated", "recognized"])
+def test_selected_pdf_capture_excludes_unselected_executor_roots(mode):
+    from corpus_structure.semantic.pdf_transforms import pdf_transform_specification
+
+    selected = {
+        "organized": "execute_pdf_organization",
+        "enriched": "execute_pdf_enrichment",
+        "integrated": "execute_pdf_integration",
+        "recognized": "execute_pdf_observation",
+    }
+    specification = pdf_transform_specification(mode)
+    executors = {
+        name.rsplit(".", 1)[-1]
+        for name, _function in specification.functions
+        if ".execute_pdf_" in name
+    }
+    assert executors == {selected[mode]}
+    captured = specification.capture(Path(owner.__file__).parents[1])
+    assert {function.__module__ for _, function in specification.functions}.issubset(
+        {item.module for item in captured.sources}
+    )

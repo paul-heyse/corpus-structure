@@ -65,6 +65,42 @@ def canonical_identity(domain: str, value: Any) -> CanonicalIdentity:
     return CanonicalIdentity(domain, encoded)
 
 
+def first_material_path(
+    before: CanonicalIdentity, after: CanonicalIdentity
+) -> tuple[str | int, ...] | None:
+    """Locate the first changed tagged field without disclosing its value."""
+    if before.canonical_input == after.canonical_input:
+        return None
+    left, right = json.loads(before.canonical_input), json.loads(after.canonical_input)
+    if left[:3] != right[:3]:
+        return ("identity-profile",)
+
+    def first(left_value, right_value, path):
+        if left_value == right_value:
+            return None
+        if left_value[0] != right_value[0] or len(left_value) != len(right_value):
+            return path
+        tag = left_value[0]
+        if tag == "mapping":
+            old, new = dict(left_value[1]), dict(right_value[1])
+            for name in sorted(old.keys() | new.keys()):
+                nested = (*path, name)
+                if name not in old or name not in new:
+                    return nested
+                changed = first(old[name], new[name], nested)
+                if changed is not None:
+                    return changed
+        elif tag in {"sequence", "ordered-bag", "bag", "set"}:
+            for index, (old, new) in enumerate(zip(left_value[1], right_value[1], strict=False)):
+                changed = first(old, new, (*path, index))
+                if changed is not None:
+                    return changed
+            return (*path, min(len(left_value[1]), len(right_value[1])))
+        return path
+
+    return first(left[3], right[3], ())
+
+
 @dataclass(frozen=True)
 class SemanticEdge:
     source: str

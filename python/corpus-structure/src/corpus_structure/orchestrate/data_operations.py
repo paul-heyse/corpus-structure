@@ -750,15 +750,32 @@ class NativeDemandExecutor:
                 if factory is None:
                     raise PortRefusal("declared prepared capability is not acquired")
                 admission = self.native_io.acquire_execution(basis, operation, prepared=True)
-                port = factory(
-                    basis.prepared,
-                    context.model,
-                    operation,
-                    identity=admission.identity,
-                    authorize=admission.authorize,
-                    custody=admission.custody,
-                    sources=prepared_sources,
-                )
+                try:
+                    port = factory(
+                        basis.prepared,
+                        context.model,
+                        operation,
+                        identity=admission.identity,
+                        authorize=admission.authorize,
+                        custody=admission.custody,
+                        sources=prepared_sources,
+                    )
+                except ValueError as error:
+                    from corpus_structure.cli.observation_logging import logger
+                    from corpus_structure.semantic.data_operation_prepared_products import (
+                        PreparedProductRefusal,
+                    )
+
+                    detail = error.diagnostic if isinstance(error, PreparedProductRefusal) else None
+                    logger(__name__).error(
+                        "native_demand.prepared_acquisition_refused",
+                        operation=operation,
+                        resource=detail.resource if detail else None,
+                        expected=detail.expected if detail else None,
+                        actual=detail.actual if detail else None,
+                        prerequisite=detail.prerequisite if detail else "prepared_operation",
+                    )
+                    raise
                 if selected.effects:
                     from corpus_structure.semantic.data_operation_effects import (
                         CapturedEffectPort,

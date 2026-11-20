@@ -2196,6 +2196,25 @@ def native_kind_dependencies(
     return roots, dependencies
 
 
+def operation_recipe_input(
+    operation: EffectiveOperation,
+    subject_definition: SubjectDefinition,
+    subject_kind_contract: str,
+    kind_contracts: dict[str, str],
+    parameter_contracts: dict[str, str],
+    binding: BindingExpression,
+) -> dict:
+    """The same result-determining fields for compilation and comparison."""
+    return {
+        "recipe": json.loads(operation.recipe),
+        "subject_definition": asdict(subject_definition),
+        "subject_identifier_kind_contract": subject_kind_contract,
+        "kind_contracts": kind_contracts,
+        **({"parameter_kind_contracts": parameter_contracts} if parameter_contracts else {}),
+        "binding": _binding_record(binding, result_only=True),
+    }
+
+
 def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveIdentity, ...]:
     """Consume the DDO-02 encoding directly; never issue a reusable unknown recipe."""
     from .data_operation_identity import (
@@ -2297,16 +2316,14 @@ def _compile_identities(model: EffectiveDataOperationModel) -> tuple[EffectiveId
             else (slices[operation.implementation_root],)
         )
         recipe = recipe_fingerprint(
-            {
-                "recipe": json.loads(operation.recipe),
-                "subject_definition": asdict(subject_definition),
-                "subject_identifier_kind_contract": subject_kind_contract,
-                "kind_contracts": kind_contracts,
-                **(
-                    {"parameter_kind_contracts": parameter_contracts} if parameter_contracts else {}
-                ),
-                "binding": _binding_record(binding.expression, result_only=True),
-            },
+            operation_recipe_input(
+                operation,
+                subject_definition,
+                subject_kind_contract,
+                kind_contracts,
+                parameter_contracts,
+                binding.expression,
+            ),
             implementation_slices=implementation_slices,
         )
         identities.append(EffectiveIdentity(operation.semantic_id, recipe.domain, recipe.key))

@@ -22,11 +22,12 @@ from typing import Any, Literal
 import yaml
 from jsonschema import Draft7Validator
 from jsonschema.exceptions import SchemaError, ValidationError
+from jsonschema.protocols import Validator
 from pydantic import TypeAdapter
-from referencing import Registry
 
 from .data_operation_json import json_bytes, wire_json_loads
 from .identity import canonical_bytes
+from .schema_validation import prepared_schema_validator
 from .types import SourceArtifact
 
 DRAFT7 = "http://json-schema.org/draft-07/schema#"
@@ -579,9 +580,9 @@ def wire_contracts(sources: tuple[SourceArtifact, ...] | None = None) -> dict[st
 
 
 @lru_cache(maxsize=256)
-def _validator(content: bytes) -> Draft7Validator:
+def _validator(content: bytes) -> Validator:
     schema = checked_json_schema(json.loads(content))
-    return Draft7Validator(schema, registry=Registry())
+    return prepared_schema_validator(canonical_bytes({"$schema": DRAFT7, **schema}))
 
 
 def validate_wire_schema(schema: dict[str, Any] | bytes, value: Any) -> Any:
@@ -601,7 +602,7 @@ def prepare_wire_schema(schema: dict[str, Any] | bytes) -> Callable[[Any], Any]:
     return validate
 
 
-def _validate_wire_value(validator: Draft7Validator, value: Any) -> Any:
+def _validate_wire_value(validator: Validator, value: Any) -> Any:
     checked = _JSON_VALUE.validate_python(value, strict=True)
     snapshot = json_bytes(checked)  # also excludes non-finite JSON numbers
     result = wire_json_loads(snapshot)
