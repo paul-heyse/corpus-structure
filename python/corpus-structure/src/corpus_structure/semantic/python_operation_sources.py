@@ -11,6 +11,7 @@ import ast
 from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import dataclass, replace
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Never
 
@@ -47,6 +48,11 @@ from .data_operation_model import (
 )
 from .identity import canonical_bytes
 from .types import Diagnostic, PreparationError, SourceArtifact
+
+_EXACT_BUILTIN_CONSTRUCTORS = frozenset(
+    "builtins." + name
+    for name in ("str", "bytes", "int", "float", "bool", "tuple", "list", "dict", "set", "frozenset")
+)
 
 # Deliberately bounded static profile. Callback-taking/reflection/code-loading
 # builtins require an explicit complete opaque model rather than successful inference.
@@ -1578,6 +1584,153 @@ class ClosedPythonSources:
                         return parent.comparisons[0]
                 return None
 
+            def constructed_value_binding(expression, source_module):
+                """Exact construction syntax, independent of parameter annotations."""
+                if isinstance(expression, cst.SimpleString):
+                    return "value", ("builtins." + type(expression.evaluated_value).__name__,)
+                for syntax, typename in (
+                    (cst.Dict, "dict"), (cst.DictComp, "dict"),
+                    (cst.List, "list"), (cst.ListComp, "list"),
+                    (cst.Tuple, "tuple"), (cst.Set, "set"), (cst.SetComp, "set"),
+                    (cst.Integer, "int"), (cst.Float, "float"),
+                ):
+                    if isinstance(expression, syntax):
+                        return "value", ("builtins." + typename,)
+                if isinstance(expression, cst.Call) and isinstance(expression.func, cst.Name):
+                    names = source_module.qualified_names(expression.func)
+                    if len(names) == 1:
+                        name = next(iter(names))
+                        if name.source == QualifiedNameSource.BUILTIN and name.name in _EXACT_BUILTIN_CONSTRUCTORS:
+                            return "value", (name.name,)
+                return "unknown", ()
+
+            @lru_cache(maxsize=128)
+            def returned_value_binding(target, arguments, active):
+                """Prove a returned value from syntax and supplied argument provenance.
+
+                This deliberately ignores return annotations. Every reachable return
+                must produce the same exact builtin value category.
+                """
+                if target in active or target not in extractor.definitions:
+                    return "unknown", ()
+                source, function = extractor.definitions[target]
+                if not isinstance(function, cst.FunctionDef) or function.asynchronous or function.decorators:
+                    return "unknown", ()
+                defining_module = extractor.modules[source]
+                parameters = (*function.params.posonly_params, *function.params.params)
+                if len(arguments) > len(parameters):
+                    return "unknown", ()
+                bound = dict(zip((parameter.name.value for parameter in parameters), arguments, strict=False))
+                assignments = {}
+                returns = []
+                unsupported = []
+
+                def assignment(name, value, node):
+                    statement = defining_module.parent_nodes.get(node)
+                    if (
+                        not isinstance(statement, cst.SimpleStatementLine)
+                        or defining_module.parent_nodes.get(statement) is not function.body
+                    ):
+                        value = None
+                    assignments.setdefault(name, []).append((value, node))
+
+                class ReturnedValues(cst.CSTVisitor):
+                    def visit_FunctionDef(self, node):
+                        unsupported.append(node)
+                        return False
+
+                    def visit_ClassDef(self, node):
+                        unsupported.append(node)
+                        return False
+
+                    def visit_Assign(self, node):
+                        for target in node.targets:
+                            if isinstance(target.target, cst.Name):
+                                assignment(target.target.value, node.value, node)
+
+                    def visit_AnnAssign(self, node):
+                        if isinstance(node.target, cst.Name):
+                            assignment(node.target.value, node.value, node)
+
+                    def visit_Name(self, node):
+                        context = defining_module.contexts.get(node)
+                        if context not in {ExpressionContext.STORE, ExpressionContext.DEL}:
+                            return
+                        parent = defining_module.parent_nodes.get(node)
+                        if not (
+                            (isinstance(parent, cst.AssignTarget) and parent.target is node)
+                            or (isinstance(parent, cst.AnnAssign) and parent.target is node)
+                        ):
+                            assignment(node.value, None, node)
+
+                    def visit_Import(self, node):
+                        unsupported.append(node)
+                        return False
+
+                    def visit_ImportFrom(self, node):
+                        unsupported.append(node)
+                        return False
+
+                    def visit_Match(self, node):
+                        unsupported.append(node)
+                        return False
+
+                    def visit_Global(self, node):
+                        unsupported.append(node)
+
+                    def visit_Nonlocal(self, node):
+                        unsupported.append(node)
+
+                    def visit_Return(self, node):
+                        returns.append(node.value)
+
+                    def visit_Yield(self, node):
+                        unsupported.append(node)
+
+                function.body.visit(ReturnedValues())
+                if unsupported or not returns or not isinstance(function.body, cst.IndentedBlock):
+                    return "unknown", ()
+                final = function.body.body[-1]
+                if not (
+                    isinstance(final, cst.SimpleStatementLine)
+                    and isinstance(final.body[-1], (cst.Return, cst.Raise))
+                ):
+                    return "unknown", ()
+
+                def result(expression, visiting=frozenset()):
+                    if expression is None or id(expression) in visiting:
+                        return "unknown", ()
+                    visiting = visiting | {id(expression)}
+                    constructed = constructed_value_binding(expression, defining_module)
+                    if constructed[0] == "value":
+                        return constructed
+                    if isinstance(expression, cst.Name):
+                        writes = assignments.get(expression.value, ())
+                        if writes:
+                            if expression.value in bound or len(writes) != 1:
+                                return "unknown", ()
+                            value, declaration = writes[0]
+                            before = defining_module.positions[declaration].start
+                            after = defining_module.positions[expression].start
+                            if (before.line, before.column) >= (after.line, after.column):
+                                return "unknown", ()
+                            return result(value, visiting)
+                        return bound.get(expression.value, ("unknown", ()))
+                    if isinstance(expression, cst.Call) and isinstance(expression.func, cst.Name) and not any(
+                        argument.star or argument.keyword is not None for argument in expression.args
+                    ):
+                        names = defining_module.qualified_names(expression.func)
+                        if len(names) != 1:
+                            return "unknown", ()
+                        name = next(iter(names))
+                        called = name.name if name.source == QualifiedNameSource.IMPORT else source + "." + name.name
+                        values = tuple(result(argument.value, visiting) for argument in expression.args)
+                        return returned_value_binding(called, values, active | {target})
+                    return "unknown", ()
+
+                values = [result(expression) for expression in returns]
+                return values[0] if all(value == values[0] for value in values) else ("unknown", ())
+
             def expression_binding(expression, active=frozenset()):
                 """Resolve supported receiver provenance, never arbitrary object inference.
 
@@ -1803,19 +1956,7 @@ class ClosedPythonSources:
                             candidate.name
                             for candidate in candidates
                             if candidate.source == QualifiedNameSource.BUILTIN
-                            and candidate.name
-                            in {
-                                "builtins.str",
-                                "builtins.bytes",
-                                "builtins.int",
-                                "builtins.float",
-                                "builtins.bool",
-                                "builtins.tuple",
-                                "builtins.list",
-                                "builtins.dict",
-                                "builtins.set",
-                                "builtins.frozenset",
-                            }
+                            and candidate.name in _EXACT_BUILTIN_CONSTRUCTORS
                         }
                         if len(constructors) == 1 and len(candidates) == 1:
                             return "value", tuple(constructors)
@@ -1824,11 +1965,23 @@ class ClosedPythonSources:
                     # object. A boundary name nested inside an argument is irrelevant.
                     if kind == "opaque":
                         return "opaque", targets
+                    if kind == "callable" and len(targets) == 1 and isinstance(expression.func, cst.Name) and not any(
+                        argument.star or argument.keyword is not None for argument in expression.args
+                    ):
+                        names = module.qualified_names(expression.func)
+                        declared = {
+                            name.name if name.source == QualifiedNameSource.IMPORT else module_name + "." + name.name
+                            for name in names
+                        }
+                        if declared == set(targets):
+                            arguments = tuple(constructed_value_binding(argument.value, module) for argument in expression.args)
+                            return returned_value_binding(targets[0], arguments, frozenset())
                     return ("value", targets) if kind == "value-callable" else ("unknown", ())
+                if isinstance(expression, cst.SimpleString):
+                    return "value", ("builtins." + type(expression.evaluated_value).__name__,)
                 for syntax, typename in (
                     (cst.Integer, "int"),
                     (cst.Float, "float"),
-                    (cst.SimpleString, "str"),
                     (cst.Tuple, "tuple"),
                     (cst.List, "list"),
                     (cst.ListComp, "list"),
