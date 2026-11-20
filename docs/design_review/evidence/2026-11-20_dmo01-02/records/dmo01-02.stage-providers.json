@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "dmo01-02.stage-providers",
+  "title": "N43 release correspondence and bounded actual providers",
+  "group": null,
+  "package": "DMO-01",
+  "finalized": "2026-11-20",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does matching native N43 support the selected Standard, Integrated and M1 execution?",
+  "answers": [
+    "DMO-01",
+    "DMO-06",
+    "DMO-08"
+  ],
+  "method": "Verify both exact N43 archives, then exercise cold one-page Integrated with the owned Nemotron service and a private actual GLiNER M1 case.",
+  "commands": [
+    "uv run ci model change deploy 3c4cbf203bd64d94ab73bed4be6cd110 --json",
+    "uv run ci model change deploy c07a0dfb92b749d0bc01cf34f9968b64 --json",
+    "uv run ci db status --target deployment --maintenance --json",
+    "uv run ci ingest --source-root python/corpus-structure/src --request build/dmo01-02/n43-integrated-request.json --execution-policy docs/design_review/evidence/2026-11-19_udm20-regional-confirmation/regional-execution-policy.json --json",
+    "uv run ci demands read demand:fcf50a90c74289f159a15a4ddb17ba62ee9c31b649bd7fe9815b7e4e1eceeea6 --view products --limit 10 --max-bytes 16777216 --json",
+    "CORPUS_PM2_NATIVE_TEST_ASSETS=\"$PWD/build/models/pm2\" uv run ci test --providers-only --native-host private --workers 1 -- python/corpus-structure/tests/orchestrate/test_m1_declared_native.py::test_actual_m1_bounded_gliner_questions_publish_candidate_inspection_with_cohort_custody"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/stage-and-providers.json",
+      "role": "acquired stage, provider outcomes and independent native readback",
+      "sha256": "99f947f72f2f7542a2056348b7191856a1373b3382e041faf4c089a3138b0b60"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Integrated native receipts",
+      "value": 5,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "Integrated fulfilled obligations",
+      "value": 5,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unchanged M1 repeat new receipts",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Both N43 archives verified. The cold Integrated page completed actual Nemotron and five native publications, and the private M1 case passed actual GLiNER, scoped readback and zero-receipt repeat. This evidence is bounded to these selected journeys.",
+  "consumed_by": [
+    "DMO-01",
+    "DMO-06",
+    "DMO-08"
+  ]
+}

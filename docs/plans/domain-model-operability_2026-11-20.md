@@ -1,6 +1,6 @@
 # Domain model operability
 
-**Status:** Proposed implementation. Owns the successor design and full-system qualification.
+**Status:** In implementation. Owns the successor design and full-system qualification.
 **Created:** 2026-11-20. The operator directed this series to supersede the entire
 [Unified domain model and execution series][predecessor]. Its files and receipts are historical
 baseline evidence. This series derives its design work from the [integrated functional review][review]
@@ -93,13 +93,13 @@ direction applies to the transport design. There is no new ADR to publish from t
 | Package | Delivered change | Entry and completion boundary |
 | --- | --- | --- |
 | DMO-00 | Current baseline, scoped contracts and rule decisions | Complete. Both targets and the active book binding were observed. Binding changes remain with their dependent packages. [Evidence][entry-baseline] |
-| [DMO-01][p01] | Selected PDF/M1 executable acquisition and early preparation refusal | Ready for the selected preparation slice. Use explicit N42 archives. Verify alternate roots, relocation and real binding/resource refusals. |
-| [DMO-02][p02] | Versioned material identity, explanations and compatible recovery | Selected executable contract and DMO-05 numeric semantics. Consume DMO-06 native wire projection where changed. Verify digest vectors and independent regional uptake. |
+| [DMO-01][p01] | Selected PDF/M1 executable acquisition and early preparation refusal | Selected capture and verification share a specification. Relocation, actual GLiNER M1 readback and cold one-page Integrated publication passed. The event edit still affects the conservative observed digest. [Evidence][acquisition-evidence] |
+| [DMO-02][p02] | Versioned material identity, explanations and compatible recovery | Field-level explanations and common native draft predicate implemented. N43 exact regional recovery fulfilled all 18 obligations and an unchanged repeat emitted zero new receipts. Cross-request production reuse and the broader identity transition remain open. [Evidence][acquisition-evidence] |
 | [DMO-03][p03] | Typed consumer requirements and current/historical authority | Existing admitted role, support and effect owners. Integrate with DMO-01 preparation and confirm the real mixed-family path and refusals. |
 | [DMO-04][p04] | Bounded event diagnosis and scoped support acquisition | Diagnostic can start from the existing fixture. Working integration consumes DMO-03 requirements and the DMO-06 owned snapshot where relevant. Verify scoring, paging and both authority negatives. |
-| [DMO-05][p05] | Numeric roles, interchange and independently deliverable settings | Establish value semantics first. Coordinate codec activation with DMO-06 where the wire moves. Verify real boundary behavior and private environment isolation. |
-| [DMO-06][p06] | Explicit, equivalent schema contracts and residual validation retirement | DMO-05 value contract. Prove agreement on the supported profile before the combined wire cutover and removal of repeated checks. Verify native rollback on off-contract results. |
-| [DMO-07][p07] | Attributed operator diagnostics | Preparation slice can start with DMO-01. Finish with actual recovery, consumer and scope facts from DMO-02–04 and the applicable typed output contract. |
+| [DMO-05][p05] | Numeric roles, interchange and independently deliverable settings | Strict finite JSON landed for execution-evidence receipts. Private provider cohorts scrub both modeled database profiles and preserve the Nemotron endpoint. Exact scope and public D8 delivery retain their current authority. Remaining numeric consumers and settings stay here. |
+| [DMO-06][p06] | Explicit, equivalent schema contracts and residual validation retirement | Shared validator and corrected Draft 7 receipt tuple implemented. Four private native provider-fence cases passed on N43. Broader ownership, parity and duplicate-check migration remain open. |
+| [DMO-07][p07] | Attributed operator diagnostics | Preparation refusal now records the selected operation and available expected/actual resource facts before provider submission. Source comparison reports the first established recipe or implementation difference. Finish with actual recovery, consumer and scope facts from DMO-02–04 and the applicable typed output contract. |
 | [DMO-08][p08] | Final-source stage and functional qualification | Functional and retirement scope complete. Reconcile the managed evidence union against final source and acquired context. |
 | [DMO-09][p09] | Guarded canonical adoption and whole-book qualification | DMO-08 on the selected final release. Verify original custody, complete the book, and independently verify interruption/reuse and zero new work on repeat. |
 
@@ -152,14 +152,16 @@ package statuses, resource limits and proof questions are historical. Report out
 actual scope, retain failed receipts, and leave unavailable required cases open with the missing
 prerequisite. [Qualification and adoption][p08]
 
-**Current state.** DMO-00 entry baseline complete. Product implementation, guarded adoption and
-successor qualification are `not_run`. DMO-01 selected preparation, DMO-05 settings, DMO-06 schema
-inventory and DMO-04 bounded investigation can start independently. DMO-08/09 still require their
-implemented prerequisites and actual final-source evidence.
+**Current state · 2026-11-20 UTC.** DMO-00 entry is complete. DMO-01 and DMO-02 have scoped
+implementation and focused verification. Stage N43 carries the generated wire and physical
+changes and admits both Standard and Integrated applications. DMO-05, DMO-06 and DMO-07 have
+prerequisite slices. Broader readiness and final qualification remain with their owning packages.
+[Implementation evidence][acquisition-evidence]
 
 [predecessor]: unified-domain-model-and-execution_2026-11-19.md
 [old-qualification]: unified-domain-model-and-execution/qualification.md#retained-fit-custody-and-rich-producer-authority
 [entry-baseline]: ../design_review/evidence/2026-11-20_dmo00-entry-baseline/README.md
+[acquisition-evidence]: ../design_review/evidence/2026-11-20_dmo01-02/README.md
 [review]: ../functional_reviews/udm-operability-and-json_2026-11-20.md
 [review-open]: ../functional_reviews/json-boundaries_2026-11-20.md#open-checks
 [causal]: ../design_review/evidence/2026-11-20_udm-operability-causality/README.md

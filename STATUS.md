@@ -1,10 +1,10 @@
 # Status
 
-_Updated 2026-11-20 UTC. DMO-00 independently observed stage N42 and canonical development N29. The Standard and Integrated N42 archives verify, and neither is selected by a stage project. The canonical book selects N29 at generation 5. The current reader refused the older archive format. Native readback independently confirmed the book selection._
+_Updated 2026-11-20 UTC. DMO-01 and DMO-02 have scoped implementation and verification. N43, Standard and Integrated verified on the dedicated stage. The canonical book remains on N29 at generation 5._
 
 ## Current owners
 
-- [Domain Model Operability](docs/plans/domain-model-operability_2026-11-20.md) owns the successor design and qualification. [DMO-00 entry evidence](docs/design_review/evidence/2026-11-20_dmo00-entry-baseline/README.md) verifies the target bindings and 24 provider selections through `uv run ci test collect --providers-only --json` (`d425e078371747689bb112244292fbd7`). Provider execution and product qualification are `not_run`.
+- [Domain Model Operability](docs/plans/domain-model-operability_2026-11-20.md) owns the successor design and qualification. [DMO-00 entry](docs/design_review/evidence/2026-11-20_dmo00-entry-baseline/README.md) records the N42 stage, N29 canonical and provider inventory observations. [DMO-01/02 evidence](docs/design_review/evidence/2026-11-20_dmo01-02/README.md) records the selected preparation, material comparison, recovery and transition outcomes.
 - The [integrated functional review](docs/functional_reviews/udm-operability-and-json_2026-11-20.md) and [causal evidence](docs/design_review/evidence/2026-11-20_udm-operability-causality/README.md) record the acquisition, rich, event, M1 and reuse findings. The [predecessor](docs/plans/unified-domain-model-and-execution_2026-11-19.md) preserves earlier evidence and package boundaries.
 - The [DDO handover](docs/plans/declared-data-operations_2026-11-12.md) points to the current qualification owner. [ADR-0141](docs/adr/0141-serving-continuation-and-reuse.md) governs current continuation and cache eligibility.
 - The [test-domain coordinator](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence) owns test-fixture custody and TDM-18. The [test audit refresh](docs/design_review/test-audit/README.md#tdm-refresh-2026-11-18) holds the inspected baseline.
@@ -12,7 +12,9 @@ _Updated 2026-11-20 UTC. DMO-00 independently observed stage N42 and canonical d
 
 ## Last verified · 2026-11-20 UTC
 
-- **DMO-00 evidence passed.** `uv run ci evidence finalize 2026-11-20_dmo00-entry-baseline dmo00.entry-baseline` and `uv run ci evidence index` passed. `uv run ci evidence check` reported five existing DDO errors and no DMO-00 issue (`d6f5f26150c24b268fd46ad1c2ac4f82`).
+- **Passed.** Focused `uv run ci test` selections proved selected PDF/M1 preparation, material comparison, native draft recovery, Docling spool recovery and actual GLiNER M1 readback. Stage N43 `uv run ci ingest` published five receipts with actual Nemotron (`516b9dc7c3034c6e8dd066dcf8478c39`). [Scoped evidence](docs/design_review/evidence/2026-11-20_dmo01-02/README.md#scoped-verification)
+- **Passed.** The bounded N43 regional driver restored composition after releasing a held region. Independent native readback found all 18 obligations fulfilled. The exact resume published seven receipts and the unchanged repeat published zero. Runtime-only changes between distinct demands still rebuilt capture. [Regional evidence](docs/design_review/evidence/2026-11-20_dmo01-02/README.md#bounded-regional-stage-recovery)
+- **Passed.** DMO-00 and DMO-01/02 evidence finalization and index refresh passed. `uv run ci evidence check` from DMO-00 reported five older DDO errors (`d6f5f26150c24b268fd46ad1c2ac4f82`).
 - **Passed.** The N36 live withheld region produced only `binding-covers` in 2.51 seconds while its sibling published. Releasing the claim and resuming the exact demand fulfilled all 18 obligations. [Live result and PE-S33 successor](docs/design_review/evidence/2026-11-20_udm20-live-withheld/README.md)
 - **Passed.** The N36 T1 fixture emitted `validity_undetermined`, published under native conservative validity and repeated with zero new receipts. [T1 stage and private receipts](docs/design_review/evidence/2026-11-20_udm06-conservative-validity/README.md)
 - **Passed.** Private `uv run ci test` proved fresh demand, rich and contribution replay, equal entity rows with distinct pins, change-impact and the MCP resource contract (`d7710e99033d44edaf07c985afe1ec2d`, `4f2e3edd46704d0eb6e7839a176129dd`). Two fresh offline renders matched all 620 N38 objects. [Qualification](docs/plans/unified-domain-model-and-execution/qualification.md#continuation-compatibility-amendment)
@@ -54,5 +56,5 @@ _Updated 2026-11-20 UTC. DMO-00 independently observed stage N42 and canonical d
 
 ## Next execution
 
-- [DMO-00](docs/plans/domain-model-operability_2026-11-20.md#dmo-00) is complete. Begin DMO-01 preparation against explicit N42 archives and the independent settings, schema inventory and bounded event investigation slices. Outstanding identity and public wire decisions remain with their dependent packages.
+- [DMO-02](docs/plans/domain-model-operability/execution-identity-and-recovery.md#dmo-02) still needs a sufficient material proof for cross-request capture reuse and its named identity profiles. The remaining settings, schema and public wire work is owned by [DMO-05/06](docs/plans/domain-model-operability/json-contracts-and-settings.md).
 - After consumer migration and retirement, [DMO-08 and DMO-09](docs/plans/domain-model-operability/qualification-and-adoption.md) own final-source qualification, guarded adoption and the whole-book journey.

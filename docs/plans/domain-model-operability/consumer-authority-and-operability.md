@@ -1,6 +1,6 @@
 # Consumer authority, support acquisition and operational inspection
 
-**Status:** Proposed · 2026-11-20. The [coordinator](../domain-model-operability_2026-11-20.md)
+**Status:** Partial diagnostics implementation · 2026-11-20. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns readiness and disposition. This companion realizes review [O03][o03], [O04][o04] and the
 selected-support part of [O08][o08]. Its acceptance scenarios are planned.
 
@@ -88,6 +88,12 @@ parameters, protected frame/label refusal, changed epoch, distinct cuts, and key
 
 <a id="dmo-07"></a>
 ## DMO-07 · Explain operator decisions through existing commands
+
+**Scoped implementation · 2026-11-20.** The executor records preparation refusals with the
+operation and available resource/digest prerequisites before provider submission or a work claim.
+`ci model change inspect --view sources` exposes the first changed material field when both
+compared identities can be established. The remaining scope and recovery views are planned.
+[Implementation evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
 
 Consume typed preparation facts from DMO-01, material/recovery decisions from DMO-02 and role and
 scope explanations from DMO-03/04. Start the preparation diagnostic as soon as its owning facts are

@@ -1,8 +1,9 @@
 # Executable acquisition, material identity and recovery
 
-**Status:** Proposed · 2026-11-20. The [coordinator](../domain-model-operability_2026-11-20.md)
+**Status:** Partial implementation · 2026-11-20. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns readiness and disposition. This companion implements the target from review
-[O01][o01], [O02][o02] and [O06][o06]. All acceptance scenarios below are planned.
+[O01][o01], [O02][o02] and [O06][o06]. The [current evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
+records the exercised cases and remaining boundaries.
 
 ## Baseline and boundaries
 
@@ -66,6 +67,30 @@ receipt, and operation-scoped native readback through [DMO-08](qualification-and
 
 <a id="dmo-02"></a>
 ## DMO-02 · Compare material and recover compatible work
+
+**Scoped evidence.** Field-level comparison reconstructs the archived identity inputs and
+identifies the first changed material field only after both keys match their reconstructed inputs.
+Draft discovery and retention now share the native predicate, with original retirement checked
+before limiting candidates. Both definitions need explicit reuse eligibility for a request-key
+change. Current equal material normally implies the same request because the key is unique.
+Spool and completed-result attachment retain their current requirements. [Implementation evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
+
+The bounded N43 regional retry retained the same original and Standard release while reacquiring
+only the provider runtime inventory. It produced a new capture derivation. The current capture
+closure is incomplete and remains demand-scoped. The new draft rule supports eligible material
+correspondence. Production capture reuse across these transports still needs a sound selected
+material proof. [Regional evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md#bounded-regional-stage-recovery)
+
+Within one exact demand, the N43 regional case published the available sibling, released the
+withheld lease, fulfilled all 18 obligations and repeated with zero new receipts. The resumed
+snapshot preserved the sibling derivation. Independent readback verified the reclaimed task's
+completed attempt and the full population.
+The broader named identity transition and production cross-demand reuse remain open.
+
+Independent Python and PostgreSQL vectors preserve distinct neighboring large integers and
+fractions. One example is `1.0000000000000001` versus `1.0000000000000002`. The current D1 scope
+identity distinguishes the two. A finite binary-float conversion can change the identity basis
+at this boundary. The existing analyzed-scope contract stays in force pending a versioned decision.
 
 **Prerequisites.** DMO-01 supplies a selected executable contract. The numeric domains in
 [DMO-05](json-contracts-and-settings.md#dmo-05) supply value meaning. The common schema package

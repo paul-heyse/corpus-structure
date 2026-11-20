@@ -1,6 +1,6 @@
 # JSON contracts and settings
 
-**Status:** Planned. **Created:** 2026-11-20.
+**Status:** Prerequisite slices implemented. **Created:** 2026-11-20.
 
 This companion owns DMO-05 and DMO-06. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns package state, source dispositions, rule decisions and completion. This target is **Proposed**.
@@ -141,6 +141,18 @@ cannot establish execution correspondence.
 <a id="dmo-05-settings"></a>
 ### Independently viable settings slice
 
+**Scoped implementation · 2026-11-20.** Private PostgreSQL workers use the actual
+`EnvSettingsSource` naming policy and `known_env_names` to clear both modeled database profiles
+before installing the acquired private settings. The existing Nemotron environment selection is
+preserved. A regression covers nested and case-insensitive deployment overrides. Full settings
+source and provider factory consolidation remains open.
+
+The N43 Standard regional attempts found stale spaCy and HanLP shared-host inventory despite
+equal provider inference identity. The stage runtime was reacquired through the existing runtime
+owner. Acquire and compare the selected host residents together at preparation so a stale sibling
+cannot surface after PDF publication. Keep inference identity and runtime inventory distinct.
+[Regional observations](../../design_review/evidence/2026-11-20_dmo01-02/README.md#bounded-regional-stage-recovery)
+
 Resolve settings once and pass validated sections to acquisition, workers and provider factories.
 Use the existing `known_env_names` and native environment policy to derive private-cohort scrubbing,
 including nested prefixes. Preserve constructor-over-environment precedence unless a confirmed
@@ -180,6 +192,13 @@ regeneration route.
 
 <a id="dmo-06"></a>
 ## DMO-06 — One schema per authority and deliberate validation placement
+
+**Scoped implementation · 2026-11-20.** Wire and execution evidence use the shared prepared
+validator. Draft 7 lowering now validates the provider receipt member tuple. The global wire
+digest changed. The four cases that refused on N42 passed on matching N43 in a private
+PostgreSQL cohort. N43 was deployed and the Standard archive verified on stage. DMO-05's strict
+finite codec is used for execution-evidence receipts. Current scope normalization and the public
+D8 field retain their established semantics. [Selected evidence and wire digest](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
 
 ### Entry and schema realization
 

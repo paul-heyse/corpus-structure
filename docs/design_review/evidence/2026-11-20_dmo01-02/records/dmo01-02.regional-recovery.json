@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "id": "dmo01-02.regional-recovery",
+  "title": "Actual N43 withheld region, exact recovery and transport invalidation",
+  "group": null,
+  "package": "DMO-02",
+  "finalized": "2026-11-20",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the exact regional demand resume with original sibling attribution, and what happens when its host transport changes?",
+  "answers": [
+    "DMO-02",
+    "DMO-05",
+    "DMO-08"
+  ],
+  "method": "Reuse the authored two-region withheld-claim scenario with guarded N43 stage bindings and reacquired spaCy and HanLP host custody. Independently read task and product facts on the same stage.",
+  "commands": [
+    "uv run python build/dmo01-02/regional-recovery.py",
+    "uv run python build/dmo01-02/retain-regional.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "regional-recovery.py",
+      "role": "retained withheld-region driver",
+      "sha256": "8bdd39a1302b1328b7b3de7e2406a060065c02b174de42e30c06222268ca5527"
+    },
+    {
+      "path": "refresh-host-runtime.py",
+      "role": "guarded provider runtime reacquisition",
+      "sha256": "65fc89130a9004996590abfca1d8e13b91a44ff8748dd27e26ff2e1b09695d32"
+    },
+    {
+      "path": "retain-regional.py",
+      "role": "independent verification route",
+      "sha256": "0452383e79fe65df7295c19edd14951eb1e9dea882952cd137467aae60eaee65"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/regional-recovery.json",
+      "role": "regional demand, provider custody and independently observed native recovery",
+      "sha256": "25289c5d668053d72d306a2e1386ff28e588b28a53ec8ead5e9bfc808a9228c8"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "fulfilled native obligations",
+      "value": 18,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "receipts after exact resume",
+      "value": 7,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "receipts on exact repeat",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The exact demand recovered its held region and composed with all 18 obligations fulfilled. Its repeat produced no new receipts. Provider transport changes under the same release and original still create distinct capture derivations because unresolved material custody withholds cross-demand reuse.",
+  "consumed_by": [
+    "DMO-02",
+    "DMO-05",
+    "DMO-08"
+  ]
+}

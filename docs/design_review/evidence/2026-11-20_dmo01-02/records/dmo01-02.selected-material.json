@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "id": "dmo01-02.selected-material",
+  "title": "Selected executable and material contract implementation evidence",
+  "group": null,
+  "package": "DMO-01",
+  "finalized": "2026-11-20",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which selected acquisition, identity, draft recovery and wire guarantees are established by this change?",
+  "answers": [
+    "DMO-01",
+    "DMO-02",
+    "DMO-05",
+    "DMO-06",
+    "DMO-07"
+  ],
+  "method": "Replay selected Integrated PDF acquisition inputs in copied current source roots, compare reported field differences and PostgreSQL material predicates, and verify focused numeric and wire contracts against captured source.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-20_dmo01-02/selected-executable-probe.py",
+    "uv run ci test --workers 2 -- python/corpus-structure/tests/semantic/test_source_comparison.py python/corpus-structure/tests/semantic/test_model_comparison.py",
+    "uv run ci test --native-host private --workers 2 -- python/corpus-structure/tests/semantic/test_completion_draft_native.py::test_native_draft_material_compares_the_producer_basis",
+    "uv run ci test --native-host private --workers 2 -- python/corpus-structure/tests/semantic/test_data_operation_identity_native.py python/corpus-structure/tests/semantic/test_pdf_spool_recertification.py",
+    "uv run ci check --only types --json",
+    "uv run ci check --only lint --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "selected-executable-probe.py",
+      "role": "isolated-source comparison recipe",
+      "sha256": "ba30ed4001645ea1e92adb9d5987008e3977a5220b3e15379ed5493c713c896d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/selected-executable.json",
+      "role": "selected capture observations and input hashes",
+      "sha256": "9c083d46a317c59a9b8845dae1efe209687212273f155d82e5283153495e26f2"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "relocated selected executable identity",
+      "value": "unchanged",
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "historical event edit observed code basis",
+      "value": "changed",
+      "of": null,
+      "unit": null,
+      "note": "Broad determining closure remains incomplete and reuse stays false."
+    },
+    {
+      "name": "native comparison controls",
+      "value": 15,
+      "of": 15,
+      "unit": null,
+      "note": "Result 659eb009d7464cf3ab7439da2fdc208a."
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The selected specification unifies source and runtime checks. The observed event dependency remains conservative. Material comparison and draft guards pass focused controls. The changed wire digest requires a matching native revision and successor application receipts before wider qualification.",
+  "consumed_by": [
+    "DMO-01",
+    "DMO-02",
+    "DMO-06",
+    "DMO-08"
+  ]
+}

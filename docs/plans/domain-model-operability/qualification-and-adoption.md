@@ -1,6 +1,6 @@
 # Qualification and adoption
 
-**Status:** Proposed. DMO-08 and DMO-09 are `not_run`.
+**Status:** Bounded prerequisite observations available. DMO-08 and DMO-09 campaigns are `not_run`.
 **Created:** 2026-11-20.
 
 This companion owns the qualification of the assembled successor and its adoption in canonical
@@ -41,10 +41,12 @@ Commands report `passed`, `failed`, `blocked` with the missing prerequisite, or 
 stub supplies controlled contract evidence. An actual provider receipt supplies provider evidence.
 Both must retain the assertion and publication scope they established.
 
-All planned checks below are `not_run` at authoring. No product test, database operation or provider
-call was performed to write this plan. Numerical speed targets and exhaustive semantic agreement
-with generated historical outputs are outside the acceptance design. Semantic examples use useful
-independent expectations and reveal the specific distinctions the target must preserve.
+The DMO-01/02 increment exercised actual Docling spool recovery, GLiNER M1 publication with
+operation-scoped native readback, and one-page Integrated Nemotron publication. Those results
+establish their recorded scope for N43 or its preparation source. Reassess them against the final
+system and required selection. Numerical
+speed targets and exhaustive semantic agreement with generated historical outputs are outside
+the acceptance design. [Bounded implementation evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
 
 ## DMO-08 · Qualify the assembled system on final source
 
