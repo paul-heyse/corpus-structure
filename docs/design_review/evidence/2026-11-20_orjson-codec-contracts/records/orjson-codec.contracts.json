@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "id": "orjson-codec.contracts",
+  "title": "orjson and msgspec against the repository JSON recipes",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-20",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do orjson or msgspec write and read the same values as the stdlib identity recipe and the rapidjson exact-decimal recipe?",
+  "answers": [
+    "O01",
+    "O08",
+    "O09"
+  ],
+  "method": "Install orjson 3.13.0, msgspec 0.22.0 and python-rapidjson 1.25 ephemerally and compare encoders over 20,000 generated values per domain, plus fixed encoding and decoding cases.",
+  "commands": [
+    "uv run --no-project --python 3.14.10 --with orjson==3.13.0 --with msgspec==0.22.0 --with python-rapidjson==1.25 --with hypothesis python -I probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "probe source",
+      "sha256": "f41e17f3a10374100505be66d1dbbf327601ae2411830323746683bedda079a9"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/probe.txt",
+      "role": "probe outcome",
+      "sha256": "dc041ddaddc8f00b7dfabc6a783a1c4fd5b10a0a0d46796e579ea73130b3b0ca"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "orjson_identity_mismatches_without_floats",
+      "value": 0,
+      "of": 20000,
+      "unit": "examples",
+      "note": null
+    },
+    {
+      "name": "orjson_float_spelling_identical",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": "Decimal exponents -9 to -5 differ from the stdlib recipe."
+    },
+    {
+      "name": "orjson_decodes_integers_beyond_64_bits_exactly",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": "Returned as float without an error."
+    },
+    {
+      "name": "msgspec_number_mismatches_against_rapidjson",
+      "value": 0,
+      "of": 20000,
+      "unit": "examples",
+      "note": "Integers, finite Decimals and text from U+0020."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "orjson cannot stand behind the identity recipe or serve as a general decoder here: float spelling, refusal behaviour and large-integer decoding differ. msgspec reproduces the exact-decimal recipe on finite values apart from control-character escapes. Which values production code hashes is outside this probe.",
+  "consumed_by": [
+    "orjson-json-codec review opportunities O01, O08 and O09"
+  ]
+}

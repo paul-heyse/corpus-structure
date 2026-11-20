@@ -13,6 +13,12 @@ retains its separate audit prerequisite and review conventions.
 
 ## Outputs and traceability
 
+The [orjson and JSON codec review](orjson-json-codec_2026-11-20.md) recommends against
+adopting orjson and keeps msgspec as a conditional replacement for python-rapidjson. O01–O07
+need no new library: a declared value domain for identity bytes, separate owners for the uses
+of canonical bytes, one response-size measure, `NaN` refusal at the worker boundary and
+jsonschema number alignment. Recommendations remain Proposed.
+
 The [cachetools and diskcache-community review](cachetools-and-diskcache-community_2026-11-20.md)
 proposes bounded served rows as the first use of an unsharded persistent cache. It covers
 generated program artifacts, process and disk composition, and cache diagnostics. Exact
