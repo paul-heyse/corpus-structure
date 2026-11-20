@@ -154,10 +154,13 @@ def capture_target_installation(
 
 
 def render_target_installation(
-    inputs: NativeGeneratorInputs, *, target_metadata: MetaData
+    inputs: NativeGeneratorInputs,
+    *,
+    target_metadata: MetaData,
+    pdf_sources: tuple[SourceArtifact, ...],
 ) -> TargetInstallation:
-    """Render against the physical interpretation acquired from the captured inputs."""
-    return _build_target_installation(target_metadata, inputs)
+    """Render against the acquired physical interpretation and complete PDF cohort."""
+    return _build_target_installation(target_metadata, inputs, pdf_sources=pdf_sources)
 
 
 def captured_source(inputs, filename: str) -> bytes:
@@ -173,7 +176,10 @@ def captured_source(inputs, filename: str) -> bytes:
 
 
 def _build_target_installation(
-    selected: MetaData, inputs: NativeGeneratorInputs
+    selected: MetaData,
+    inputs: NativeGeneratorInputs,
+    *,
+    pdf_sources: tuple[SourceArtifact, ...],
 ) -> TargetInstallation:
     from .data_operation_compiler_native import data_operation_native_descriptor_program
     from .data_operation_wire import wire_operations
@@ -185,23 +191,9 @@ def _build_target_installation(
         pdf_binary_identity_programs,
     )
     from .pdf_descriptor_native import pdf_descriptor_programs
-    from .pdf_domain import PREFIX, pdf_domain_sources
     from .source_record_recognition_native import source_record_recognition_sql
 
     logical = dict(inputs.logical_sources)
-    pdf_sources = inputs.pdf_sources
-    if pdf_sources is not None and inputs.pdf_actions is not None:
-        raise ValueError("select PDF action input or an already captured PDF source cohort")
-    if pdf_sources is None:
-        pdf_sources = pdf_domain_sources(
-            physical_sources=selected.info["physical_sources"],
-            linkml_types=selected.info["physical_linkml_types"],
-            actions_source=inputs.pdf_actions
-            or SourceArtifact(PREFIX + "native/actions.yaml", logical["pdf-actions.yaml"]),
-            include_producer=False,
-            model_sources=dict(inputs.model_sources),
-            analysis_versions=inputs.analysis_runtime,
-        )
     foundation = foundation_programs(selected, value_codec_source=logical["value-codec.yaml"])
     descriptor = pdf_descriptor_programs()
     binary = pdf_binary_identity_programs()

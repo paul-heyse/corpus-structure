@@ -139,10 +139,13 @@ def test_program_store_miss_does_not_compile_physical_inputs(tmp_path, monkeypat
     assert missing is None
 
 
-def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeypatch):
+@pytest.mark.parametrize("selection", ("default", "actions", "supplied"))
+def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeypatch, selection):
+    from contextlib import contextmanager
+
     from corpus_structure.model.compiled import running_model
     from corpus_structure.schema.physical import compile_physical
-    from corpus_structure.semantic import native_generation
+    from corpus_structure.semantic import native_generation, native_program_store, pdf_domain
     from corpus_structure.semantic.metadata import get_metadata
 
     current = get_metadata()
@@ -150,11 +153,48 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
         dict(current.info["physical_sources"]),
         linkml_types=current.info["physical_linkml_types"],
     )
-    inputs = native_generation.capture_generator_inputs(selected)
+    cohort = (SourceArtifact("pdf-domain/controlled-cohort", b"prepared sources"),)
+    action = SourceArtifact("pdf-domain/native/actions.yaml", b"captured actions")
+    inputs = native_generation.capture_generator_inputs(
+        selected,
+        pdf_actions=action if selection == "actions" else None,
+        pdf_sources=cohort if selection == "supplied" else None,
+        logical_sources={} if selection == "supplied" else None,
+    )
     observed = []
+    phases = []
+    actual_custody = native_program_store.capture_generator_custody
 
-    def inspect(captured, *, target_metadata):
+    @contextmanager
+    def custody(identity, *, closed=False):
+        assert closed
+        with actual_custody(identity, closed=closed):
+            phases.append("entered")
+            yield
+            phases.append("verified")
+
+    def prepare(**kwargs):
+        assert phases == ["entered"]
+        assert selection != "supplied", "an explicit cohort must bypass PDF preparation"
+        assert kwargs["physical_sources"] == dict(inputs.physical_sources)
+        assert kwargs["linkml_types"] == inputs.linkml_types
+        assert kwargs["model_sources"] == dict(inputs.model_sources)
+        assert kwargs["analysis_versions"] == inputs.analysis_runtime
+        assert kwargs["include_producer"] is False
+        expected_action = (
+            action
+            if selection == "actions"
+            else SourceArtifact(
+                "pdf-domain/native/actions.yaml", dict(inputs.logical_sources)["pdf-actions.yaml"]
+            )
+        )
+        assert kwargs["actions_source"] == expected_action
+        return cohort
+
+    def inspect(captured, *, target_metadata, pdf_sources):
+        assert phases == ["entered"]
         assert captured is inputs
+        assert pdf_sources is cohort
         assert target_metadata is selected
         assert target_metadata.info["physical_sources"] == dict(inputs.physical_sources)
         assert target_metadata.info["physical_linkml_types"] == inputs.linkml_types
@@ -162,8 +202,30 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
         observed.append(target_metadata)
 
     monkeypatch.setattr(native_generation, "render_target_installation", inspect)
+    monkeypatch.setattr(pdf_domain, "pdf_domain_sources", prepare)
+    monkeypatch.setattr(native_program_store, "capture_generator_custody", custody)
     native_generation._render_captured(inputs)
     assert len(observed) == 1
+    assert phases == ["entered", "verified"]
+
+
+def test_program_artifact_hit_never_enters_pdf_preparation(program_capture, monkeypatch):
+    from corpus_structure.semantic import native_generation, native_program_store, pdf_domain
+    from corpus_structure.semantic.metadata import get_metadata
+
+    inputs = native_generation.capture_generator_inputs(get_metadata())
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("a retained native artifact must bypass PDF preparation and rendering")
+
+    # Controlled consumer fixture; workload eligibility remains independently required.
+    monkeypatch.setattr(native_program_store, "input_key", lambda *args, **kwargs: b"controlled")
+    monkeypatch.setattr(
+        native_program_store, "load_installation", lambda *args, **kwargs: program_capture
+    )
+    monkeypatch.setattr(pdf_domain, "pdf_domain_sources", unexpected)
+    monkeypatch.setattr(native_generation, "render_target_installation", unexpected)
+    assert native_generation._held_target_installation.loader(inputs) is program_capture
 
 
 @pytest.mark.skipif(
