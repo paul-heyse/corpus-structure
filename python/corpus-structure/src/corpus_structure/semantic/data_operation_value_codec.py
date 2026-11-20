@@ -155,3 +155,22 @@ def semantic_value(value: Any, *, decimal_fixed_point_digits: int) -> Any:
         return item
 
     return native_semantic_value(own(value), decimal_fixed_point_digits=decimal_fixed_point_digits)
+
+
+def tagged_mapping_field(value, name: str):
+    """Read a field from an already canonically decoded tagged mapping.
+
+    This retains the original exact member meaning instead of reconstructing it
+    from a presentation value. Full semantic validation stays with the decoder.
+    """
+    if type(value) is not list or len(value) != 2 or value[0] != "mapping":
+        raise ValueError("selected member requires its original tagged mapping")
+    pairs = value[1]
+    if type(pairs) is not list:
+        raise ValueError("selected member requires original tagged mapping fields")
+    for pair in pairs:
+        if type(pair) is not list or len(pair) != 2 or type(pair[0]) is not str:
+            raise ValueError("selected member requires original tagged mapping fields")
+        if pair[0] == name:
+            return pair[1]
+    raise KeyError(name)

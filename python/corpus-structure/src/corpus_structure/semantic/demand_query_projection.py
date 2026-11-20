@@ -6,8 +6,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from .data_operation_json import json_bytes, json_loads, own_json_value
-from .data_operation_value_codec import decode_semantic_value
-from .data_operation_value_codec import native_semantic_value as semantic_value
+from .data_operation_value_codec import decode_semantic_value, tagged_mapping_field
 
 if TYPE_CHECKING:
     from ._data_operation_wire import WireReadDemandResultResult
@@ -84,15 +83,28 @@ def selected_members(page: dict, *, decimal_fixed_point_digits: int) -> tuple[di
                         meaning_body=output["body"],
                     )
                 )
-            packets = body.get("members", ()) if type(body) is dict else ()
+            packets = ()
+            if type(body) is dict:
+                packets = body.get("members", ())
+            original_packets = ()
+            if packets:
+                original_members = tagged_mapping_field(output["body"], "members")
+                if (
+                    type(original_members) is not list
+                    or len(original_members) != 2
+                    or original_members[0] != "sequence"
+                    or type(original_members[1]) is not list
+                ):
+                    raise ValueError("selected member collection requires its original sequence")
+                original_packets = original_members[1]
             projected = [
-                packet
-                for packet in packets
+                (packet, original)
+                for packet, original in zip(packets, original_packets, strict=True)
                 if output["member_id"] is None or packet["member_id"] == output["member_id"]
             ]
             if output["member_id"] is not None and len(projected) != 1:
                 raise ValueError("selected output member is absent from its canonical product")
-            for packet in projected:
+            for packet, original in projected:
                 if type(packet) is not dict:
                     raise TypeError("selected member packets require owned records")
                 context = packet["context"]
@@ -108,12 +120,31 @@ def selected_members(page: dict, *, decimal_fixed_point_digits: int) -> tuple[di
                         original_source=context["original_source"],
                         analyzed_scope=context["analyzed_scope"],
                         body=packet["body"],
-                        meaning_body=semantic_value(
-                            packet["body"], decimal_fixed_point_digits=decimal_fixed_point_digits
-                        ),
+                        meaning_body=own_json_value(tagged_mapping_field(original, "body")),
                     )
                 )
     return tuple(occurrences)
+
+
+def selected_coverage(page: dict, *, decimal_fixed_point_digits: int):
+    """Stream coverage rows without expanding a product's complete coverage array."""
+    for row in selected_members(page, decimal_fixed_point_digits=decimal_fixed_point_digits):
+        if type(row) is not dict:
+            raise TypeError("coverage projection requires an owned row")
+        body = row["body"]
+        if row["member_id"] is not None:
+            continue
+        if type(body) is dict:
+            if "source" not in body:
+                continue
+            for coverage in body.get("coverage", ()):
+                yield dict(
+                    product_id=row["product_id"],
+                    use_id=row["use_id"],
+                    derivation_id=row["derivation_id"],
+                    source=body["source"],
+                    coverage=coverage,
+                )
 
 
 def selected_query_rows(inputs: DemandQueryProjectionInputs):
@@ -152,39 +183,24 @@ def selected_query_rows(inputs: DemandQueryProjectionInputs):
             if selection["view"] == "support" or row["relation"] == "ops.original_source_admission"
         )
     elif selection["view"] == "coverage":
-        rows = (
-            dict(
-                product_id=row["product_id"],
-                use_id=row["use_id"],
-                derivation_id=row["derivation_id"],
-                source=row["body"]["source"],
-                coverage=coverage,
-            )
-            for row in selected_members(
-                native, decimal_fixed_point_digits=decimal_fixed_point_digits
-            )
-            if row["member_id"] is None
-            and type(row["body"]) is dict
-            and "source" in row["body"]
-            for coverage in row["body"].get("coverage", ())
-        )
+        rows = selected_coverage(native, decimal_fixed_point_digits=decimal_fixed_point_digits)
     else:
         rows = selected_members(native, decimal_fixed_point_digits=decimal_fixed_point_digits)
     filters = dict(kind_contract=selection["kind_contract"], member_id=selection["member_id"])
     if selection["view"] in {"members", "coverage"}:
         filters["product_id"] = selection["product_id"]
     for row in rows:
+        if type(row) is not dict:
+            raise TypeError("selected projection requires an owned row")
         body = row.get("body", row.get("coverage"))
+        record_type, family = None, None
+        if type(body) is dict:
+            record_type = body.get("record_type")
+            family = body.get("family")
         if (
             (not selection["containers_only"] or row.get("member_id") is None)
-            and (
-                selection["record_type"] is None
-                or (type(body) is dict and body.get("record_type") == selection["record_type"])
-            )
-            and (
-                selection["family"] is None
-                or (type(body) is dict and body.get("family") == selection["family"])
-            )
+            and (selection["record_type"] is None or record_type == selection["record_type"])
+            and (selection["family"] is None or family == selection["family"])
             and all(value is None or row.get(key) == value for key, value in filters.items())
         ):
             yield row

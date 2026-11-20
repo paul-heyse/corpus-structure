@@ -137,3 +137,43 @@ def test_projection_snapshot_refuses_changed_values_and_arbitrary_objects():
         list(selected_query_rows(replace(prepared(), page=cast(Any, object()))))
     with pytest.raises(TypeError, match="immutable material witnesses"):
         list(selected_query_rows(replace(prepared(), native_witness=cast(Any, bytearray(b"{}")))))
+
+
+def test_member_meaning_retains_the_original_tagged_subtree_and_decimal_fidelity():
+    from corpus_structure.semantic.demand_results import DemandResult
+
+    content = json_bytes(demand_result_page())
+    rows = DemandResult(content).members()
+    assert rows[1]["meaning_body"] == ["mapping", [["amount", ["decimal", "12.34"]]]]
+    assert type(rows[1]["body"]["amount"]) is Decimal
+    assert str(rows[1]["body"]["amount"]) == "12.34"
+    assert rows[2]["meaning_body"] == [
+        "mapping", [["direction", ["string", "outgoing"]], ["target", ["string", "first"]]],
+    ]
+    selected = DemandResult(json_bytes(demand_result_page(member_id="second"))).members()
+    assert selected[0]["meaning_body"] == rows[2]["meaning_body"]
+    original_container = json_bytes(rows[0]["meaning_body"])
+    rows[1]["meaning_body"][1].clear()
+    assert json_bytes(rows[0]["meaning_body"]) == original_container
+
+
+@pytest.mark.parametrize("malformation", ["noncanonical-decimal", "missing-body", "non-record-packet"])
+def test_member_original_pairing_refuses_malformed_source(malformation):
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.demand_results import DemandResult
+
+    source = demand_result_page()
+    packet = dict(
+        member_id="first", kind_contract="kind:first",
+        context=dict(subject="one", subject_definition="document", original_source=None, analyzed_scope={}),
+        body={"amount": Decimal("12.34")},
+    )
+    if malformation == "missing-body":
+        packet.pop("body")
+    body = dict(members=[7] if malformation == "non-record-packet" else [packet])
+    source["uses"][0]["products"][0]["body"] = semantic_value(body)
+    content = json_bytes(source)
+    if malformation == "noncanonical-decimal":
+        content = content.replace(b'"12.34"', b'"12.340"')
+    with pytest.raises((ValueError, TypeError, KeyError)):
+        DemandResult(content).members()
