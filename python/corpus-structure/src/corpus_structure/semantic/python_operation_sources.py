@@ -1172,7 +1172,9 @@ class ClosedPythonSources:
             ]
             return max(matches, key=lambda b: len(b.reference)) if matches else None
 
-        def reference(path: str, target: str, relation: str, location: str) -> None:
+        def reference(
+            path: str, target: str, relation: str, location: str, *, passive_annotation=False
+        ) -> None:
             if "unpack-typeddict-runtime" in self.inputs.generated_interfaces and target in {
                 "typing.TypedDict",
                 "typing.Unpack",
@@ -1182,6 +1184,15 @@ class ClosedPythonSources:
                 return
             boundary = boundary_for(target)
             if boundary is not None:
+                if boundary.role == "passive-any-annotation" and not (
+                    target == "typing.Any" and relation == "type_reference" and passive_annotation
+                ):
+                    unknowns.add(
+                        SourceUnknown(
+                            path, location, "standard Any requires a bare verified annotation use"
+                        )
+                    )
+                    return
                 if not boundary.contract or not boundary.role:
                     _fail(
                         location,
@@ -1873,8 +1884,18 @@ class ClosedPythonSources:
                                 kinds.add("unknown")
                             continue
                         if boundary := boundary_for(target):
-                            kinds.add("module" if boundary.role == "native-namespace" else "opaque")
-                            targets.append(target)
+                            if boundary.role == "native-integer-value":
+                                kinds.add("value")
+                                targets.append("builtins.int")
+                            elif boundary.role == "native-json-callable":
+                                kinds.add("native-json-callable")
+                                targets.append(target)
+                                continue
+                            else:
+                                kinds.add(
+                                    "module" if boundary.role == "native-namespace" else "opaque"
+                                )
+                                targets.append(target)
                             continue
                         if target in self.modules:
                             kinds.add("module")
@@ -1914,6 +1935,10 @@ class ClosedPythonSources:
                     kind, targets = expression_binding(expression.value, active)
                     if kind == "opaque":
                         return kind, targets
+                    if kind == "native-json-string":
+                        if targets == ("rapidjson.dumps",) and expression.attr.value == "encode":
+                            return "native-json-utf8", ("builtins.bytes",)
+                        return "unknown", ()
                     if kind == "instance":
                         nominal_results: list[tuple[str, tuple[str, ...]]] = []
                         for target in targets:
@@ -1952,7 +1977,11 @@ class ClosedPythonSources:
                         results = []
                         for target in targets:
                             member = target + "." + expression.attr.value
-                            if boundary_for(member):
+                            if boundary := boundary_for(member):
+                                if boundary.role == "native-integer-value":
+                                    return "value", ("builtins.int",)
+                                if boundary.role == "native-json-callable":
+                                    return "native-json-callable", (member,)
                                 return "opaque", (member,)
                             try:
                                 obj = self.resolve(member)
@@ -2001,6 +2030,15 @@ class ClosedPythonSources:
                     # object. A boundary name nested inside an argument is irrelevant.
                     if kind == "opaque":
                         return "opaque", targets
+                    if kind == "native-json-callable":
+                        return (
+                            ("native-json-string", targets)
+                            if targets == ("rapidjson.dumps",)
+                            else ("unknown", ())
+                        )
+                    if kind == "native-json-utf8":
+                        # The finite codec proves encoding, not downstream byte methods.
+                        return "unknown", ()
                     if (
                         kind == "callable"
                         and len(targets) == 1
@@ -2128,6 +2166,8 @@ class ClosedPythonSources:
                                 "class",
                                 "module",
                                 "opaque",
+                                "native-json-callable",
+                                "native-json-utf8",
                                 "receiver",
                                 "value-callable",
                             }
@@ -2177,7 +2217,14 @@ class ClosedPythonSources:
                             target = module_name + "." + target
                         if ".<locals>." in target or target == path:
                             continue
-                        reference(path, target, relation, location)
+                        reference(
+                            path,
+                            target,
+                            relation,
+                            location,
+                            passive_annotation=isinstance(parent, cst.Annotation)
+                            and parent.annotation is node,
+                        )
 
                 def visit_Attribute(self, node: cst.Attribute) -> None:
                     position = module.positions[node].start
@@ -2290,6 +2337,110 @@ class ClosedPythonSources:
                             )
                         )
                     callee_kind, callee_targets = expression_binding(expression)
+                    if callee_kind == "native-json-utf8" and node.args:
+                        unknowns.add(
+                            SourceUnknown(
+                                path,
+                                location,
+                                "native JSON UTF-8 encoding requires no dynamic arguments",
+                            )
+                        )
+                    if (
+                        callee_kind == "native-json-callable"
+                        and len(callee_targets) == 1
+                        and callee_targets[0] in {"rapidjson.loads", "rapidjson.dumps"}
+                        and (
+                            isinstance(expression, cst.Name)
+                            or (
+                                isinstance(expression, cst.Attribute)
+                                and not isinstance(expression.value, cst.Call)
+                            )
+                        )
+                    ):
+                        json_target = callee_targets[0]
+                        expected = {
+                            "number_mode": ("rapidjson.NM_DECIMAL", 2),
+                            "allow_nan": False,
+                        }
+                        if json_target == "rapidjson.dumps":
+                            expected.update(
+                                sort_keys=True,
+                                ensure_ascii=False,
+                                bytes_mode=("rapidjson.BM_NONE", 0),
+                            )
+                        positional = [arg for arg in node.args if arg.keyword is None]
+                        keywords = {
+                            arg.keyword.value: arg.value
+                            for arg in node.args
+                            if arg.keyword is not None
+                        }
+
+                        def matches(value, expected):
+                            if isinstance(expected, bool):
+                                return isinstance(value, cst.Name) and value.value == str(expected)
+                            reference, integer = expected
+                            if isinstance(value, cst.Integer):
+                                return value.evaluated_value == integer
+                            names = module.qualified_names(value)
+                            selected = boundary_for(reference)
+                            return (
+                                len(names) == 1
+                                and next(iter(names)).name == reference
+                                and selected is not None
+                                and selected.role == "native-integer-value"
+                                and (callee := boundary_for(json_target)) is not None
+                                and selected.contract == callee.contract
+                                and selected.content_digest == callee.content_digest
+                            )
+
+                        def owned_json_literal(value):
+                            if isinstance(value, cst.SimpleString):
+                                return type(value.evaluated_value) is str
+                            if isinstance(value, (cst.Integer, cst.Float)):
+                                return True
+                            if isinstance(value, cst.Name):
+                                return value.value in {"True", "False", "None"}
+                            if isinstance(value, (cst.List, cst.Tuple)):
+                                return all(
+                                    isinstance(item, cst.Element) and owned_json_literal(item.value)
+                                    for item in value.elements
+                                )
+                            if isinstance(value, cst.Dict):
+                                return all(
+                                    isinstance(item, cst.DictElement)
+                                    and isinstance(item.key, cst.SimpleString)
+                                    and type(item.key.evaluated_value) is str
+                                    and owned_json_literal(item.value)
+                                    for item in value.elements
+                                )
+                            return False
+
+                        if json_target == "rapidjson.dumps" and (
+                            len(positional) != 1 or not owned_json_literal(positional[0].value)
+                        ):
+                            unknowns.add(
+                                SourceUnknown(
+                                    path,
+                                    location,
+                                    "native JSON encoding requires proven owned recursive input values",
+                                )
+                            )
+                        if (
+                            len(positional) != 1
+                            or any(arg.star for arg in node.args)
+                            or len(keywords) != len(node.args) - len(positional)
+                            or set(keywords) != set(expected)
+                            or not all(
+                                matches(keywords[name], value) for name, value in expected.items()
+                            )
+                        ):
+                            unknowns.add(
+                                SourceUnknown(
+                                    path,
+                                    location,
+                                    "native JSON call requires the exact finite codec configuration",
+                                )
+                            )
                     type_identity = exact_type_comparison(node) is not None
 
                     def admitted_nominal_argument(kind, targets):
@@ -2332,6 +2483,8 @@ class ClosedPythonSources:
                                 "class",
                                 "module",
                                 "opaque",
+                                "native-json-callable",
+                                "native-json-utf8",
                                 "receiver",
                                 "value-callable",
                                 "instance",
@@ -2362,6 +2515,8 @@ class ClosedPythonSources:
                                 "class",
                                 "module",
                                 "opaque",
+                                "native-json-callable",
+                                "native-json-utf8",
                                 "receiver",
                                 "value-callable",
                                 "instance",
@@ -2473,7 +2628,13 @@ class ClosedPythonSources:
                                 reference(path, candidate.name, "possible_call", location)
                         elif first not in {"self", "cls"} and first not in bound_inputs:
                             kind, targets = expression_binding(expression)
-                            if kind not in {"opaque", "callable", "value-callable"}:
+                            if kind not in {
+                                "opaque",
+                                "native-json-callable",
+                                "native-json-utf8",
+                                "callable",
+                                "value-callable",
+                            }:
                                 unknowns.add(
                                     SourceUnknown(
                                         path, location, "unsupported member dispatch " + text
