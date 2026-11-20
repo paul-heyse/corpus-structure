@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "id": "udm22.operability-causality",
+  "title": "Causal evidence for UDM startup, change propagation and recovery",
+  "group": null,
+  "package": "UDM-22",
+  "finalized": "2026-11-20",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which enforcing decisions account for the late failures and repeated work in the UDM qualification path?",
+  "answers": [
+    "UDM-22",
+    "UDM-23"
+  ],
+  "method": "Trace retained managed incidents and authoritative source. Replay the actual N42 PDF asset constructor in isolated archived-source copies with the same installed interpreter and retained Integrated parameters. Run targeted change-impact, validator and PDF command-class controls on a private test host.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-20_udm-operability-causality/probe.py",
+    "uv run ci results inspect cfbf7d53d411497b85442167f7d2b70e --view observations --severity ERROR --json",
+    "uv run ci test --workers 2 --native-host private --json -- python/corpus-structure/tests/semantic/test_change_impact.py::test_real_changed_helper_recipe_preserves_downstream_recipe python/corpus-structure/tests/semantic/test_change_impact.py::test_native_target_admission_and_equal_value_establish_cutoff_without_same_episode python/corpus-structure/tests/semantic/test_change_impact.py::test_unavailable_producer_cannot_be_rehabilitated_by_equal_bytes_or_same_episode python/corpus-structure/tests/semantic/test_completion_validator_reconfirmation.py::test_independent_family_guard_edit_changes_only_its_closure python/corpus-structure/tests/semantic/test_completion_validator_reconfirmation.py::test_consuming_family_is_checked_under_current_request python/corpus-structure/tests/semantic/test_source_capture_native.py::test_pdf_capture_receipt_requires_exact_selected_sealed_proof"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "probe.py",
+      "role": "isolated-source-counterfactual",
+      "sha256": "6566e783f21e3237d3e27a8e1056327ffd1ec873c64f6709178c9cfa0882bf86"
+    },
+    {
+      "path": "raw/pdf-transform-identity.json",
+      "role": "exact-asset-and-causal-module-comparison",
+      "sha256": "5c1d02f37cf04c29592a66db5076df0fe031e1cee7a9e6b6d943dc721f2c54ee"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "identical_source_relocation_matches_archive",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "isolated_intervening_edits_reproduce_main_mismatch",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "focused_controls_passed",
+      "value": 14,
+      "of": 14,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "bounded_event_fixture_setup",
+      "value": 838.178,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The two intervening source edits reproduce the exact Integrated transform asset mismatch through the broad observed graph. Relocation alone preserves the archived asset. Rich admission and the native row-mutation control show that existing domain facts can already drive the required decisions. Material reachability of the changed modules, nested scorer cost, and the per-operation historical recipe determinants remain unresolved.",
+  "consumed_by": [
+    "UDM-22",
+    "UDM-23"
+  ]
+}

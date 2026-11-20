@@ -1080,6 +1080,11 @@ independently accepted that release on the same stage database.
 
 ### Retained fit custody and rich producer authority
 
+The [operability causal analysis](../../design_review/evidence/2026-11-20_udm-operability-causality/README.md)
+traces the N42 transform refusal, rich and M1 acquisition, event cost and book
+recovery. It records the isolated fingerprint comparison and the proposed
+structural corrections with their acceptance checks.
+
 **Tested, 2026-11-20 UTC.** The N40 grouped operation-event cases again reached the
 15-minute watchdog, during PostgreSQL retention of the fit (`84d6a55459bf4757b84e7c0608ce2ab5`).
 Source inspection found duplicate authentication of the same episode during same-release
