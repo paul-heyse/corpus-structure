@@ -2,26 +2,23 @@
 
 from __future__ import annotations
 
-import json
-from collections.abc import Mapping
 from typing import Any
 
+from .data_operation_json import json_bytes
 from .data_operation_values import CollectionValue, OptionalValue
 from .value_codec_core import value_meaning
 
 
 def tagged_bytes(value) -> bytes:
     """Canonical JSON for the owned tag language, whose numbers are text payloads."""
-    return json.dumps(
-        value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
-    ).encode()
+    return json_bytes(value)
 
 
 def decode_semantic_value(value: Any, *, decimal_fixed_point_digits: int) -> Any:
     """Decode the owned tagged value format, refusing noncanonical alternatives."""
     result = _decode_semantic_value(value)
     if tagged_bytes(
-        semantic_value(result, decimal_fixed_point_digits=decimal_fixed_point_digits)
+        native_semantic_value(result, decimal_fixed_point_digits=decimal_fixed_point_digits)
     ) != tagged_bytes(value):
         raise ValueError("noncanonical semantic value")
     return result
@@ -78,13 +75,13 @@ def _decode_semantic_value(value: Any) -> Any:
     return result
 
 
-def semantic_value(value: Any, *, decimal_fixed_point_digits: int) -> Any:
+def native_semantic_value(value: Any, *, decimal_fixed_point_digits: int) -> Any:
     """Extend the shared exact primitive codec with declared collection/state forms."""
     if isinstance(value, CollectionValue):
         if value.kind not in {"ordered-bag", "bag", "set"}:
             raise ValueError(f"unsupported collection kind {value.kind!r}")
         members = [
-            semantic_value(member, decimal_fixed_point_digits=decimal_fixed_point_digits)
+            native_semantic_value(member, decimal_fixed_point_digits=decimal_fixed_point_digits)
             for member in value.members
         ]
         if value.kind != "ordered-bag":
@@ -105,20 +102,20 @@ def semantic_value(value: Any, *, decimal_fixed_point_digits: int) -> Any:
         if value.state == "present":
             return [
                 "present",
-                semantic_value(value.value, decimal_fixed_point_digits=decimal_fixed_point_digits),
+                native_semantic_value(value.value, decimal_fixed_point_digits=decimal_fixed_point_digits),
             ]
         if value.state not in {"known-absent", "unavailable", "unknown"}:
             raise ValueError(f"unsupported optional state {value.state!r}")
         if value.value is not None:
             raise ValueError(f"{value.state} cannot carry a present value")
         return [value.state]
-    if isinstance(value, Mapping):
+    if isinstance(value, dict):
         if any(not isinstance(key, str) for key in value):
             raise TypeError("semantic mapping keys must be strings")
         return [
             "mapping",
             [
-                [key, semantic_value(item, decimal_fixed_point_digits=decimal_fixed_point_digits)]
+                [key, native_semantic_value(item, decimal_fixed_point_digits=decimal_fixed_point_digits)]
                 for key, item in sorted(value.items())
             ],
         ]
@@ -126,8 +123,28 @@ def semantic_value(value: Any, *, decimal_fixed_point_digits: int) -> Any:
         return [
             "sequence",
             [
-                semantic_value(item, decimal_fixed_point_digits=decimal_fixed_point_digits)
+                native_semantic_value(item, decimal_fixed_point_digits=decimal_fixed_point_digits)
                 for item in value
             ],
         ]
     return value_meaning(value, decimal_fixed_point_digits=decimal_fixed_point_digits)
+
+
+def semantic_value(value: Any, *, decimal_fixed_point_digits: int) -> Any:
+    """Normalize generic mapping inputs before the owned tagged-value algorithm."""
+    from collections.abc import Mapping
+
+    def own(item):
+        if isinstance(item, CollectionValue):
+            return CollectionValue(item.kind, tuple(own(member) for member in item.members))
+        if isinstance(item, OptionalValue):
+            return OptionalValue(item.state, own(item.value))
+        if isinstance(item, Mapping):
+            if any(not isinstance(key, str) for key in item):
+                raise TypeError("semantic mapping keys must be strings")
+            return {key: own(member) for key, member in item.items()}
+        if isinstance(item, (list, tuple)):
+            return [own(member) for member in item]
+        return item
+
+    return native_semantic_value(own(value), decimal_fixed_point_digits=decimal_fixed_point_digits)

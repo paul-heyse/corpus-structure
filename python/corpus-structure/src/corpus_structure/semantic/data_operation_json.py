@@ -5,7 +5,6 @@ as JSON numbers: https://python-rapidjson.readthedocs.io/en/latest/loads.html
 and https://python-rapidjson.readthedocs.io/en/latest/dumps.html .
 """
 
-import json
 from decimal import Decimal
 from typing import Any
 
@@ -35,6 +34,8 @@ def json_bytes(value: Any) -> bytes:
 
 def scope_identity(value: Any) -> Any:
     """JSONB numeric equality, including equal integral/fractional spellings."""
+    import json
+
     return json.loads(json_bytes(value), parse_int=Decimal, parse_float=Decimal)
 
 

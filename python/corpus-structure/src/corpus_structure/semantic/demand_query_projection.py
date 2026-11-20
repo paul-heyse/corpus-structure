@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 
 from .data_operation_json import json_loads, wire_json_loads
-from .data_operation_value_codec import decode_semantic_value, semantic_value
+from .data_operation_value_codec import decode_semantic_value
+from .data_operation_value_codec import native_semantic_value as semantic_value
 
 
 @dataclass(frozen=True)
@@ -137,13 +137,13 @@ def selected_query_rows(inputs: DemandQueryProjectionInputs):
             and (
                 selection["record_type"] is None
                 or (
-                    isinstance(body, Mapping)
+                    isinstance(body, dict)
                     and body.get("record_type") == selection["record_type"]
                 )
             )
             and (
                 selection["family"] is None
-                or (isinstance(body, Mapping) and body.get("family") == selection["family"])
+                or (isinstance(body, dict) and body.get("family") == selection["family"])
             )
             and all(value is None or row.get(key) == value for key, value in filters.items())
         ):

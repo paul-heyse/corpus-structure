@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import ast
+import builtins
+import dis
 import importlib
 import inspect
 import json
@@ -39,6 +42,8 @@ class ExternalRuntime:
             module, _, member = name.rpartition(".")
             if vars(sys.modules[module]).get(member) is not expected:
                 raise ValueError("external codec symbol was replaced: " + name)
+        if self.reference == "base64":
+            _verify_base64(dict(self.modules)["base64"], dict(self.modules)["binascii"])
 
 
 # Native classes are immutable CPython types. Their Python wrappers are captured
@@ -112,4 +117,90 @@ def acquire_codec_runtime() -> tuple[ExternalRuntime, ...]:
         )
         capability.check()
         result.append(capability)
+    result.append(_base64_runtime())
     return tuple(result)
+
+
+def _verify_base64(module, native):
+    """Verify the small standard Base64 implementation and every consumed global."""
+    path = Path(module.__file__)
+    tree = ast.parse(path.read_bytes())
+    code = compile(
+        path.read_bytes(), module.urlsafe_b64encode.__code__.co_filename, "exec", dont_inherit=True
+    )
+    codes = {item.co_name: item for item in code.co_consts if isinstance(item, type(code))}
+    references = {
+        "b64encode": module.b64encode,
+        "_bytes_from_decode_data": module._bytes_from_decode_data,
+        "binascii": native,
+        "_urlsafe_encode_translation": bytes.maketrans(b"+/", b"-_"),
+        "bytes_types": (bytes, bytearray),
+    }
+    names = ("b64encode", "b64decode", "urlsafe_b64encode", "_bytes_from_decode_data")
+    for name in names:
+        value = getattr(module, name)
+        node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name)
+        defaults = tuple(ast.literal_eval(n) for n in node.args.defaults) or None
+        if (
+            not inspect.isfunction(value)
+            or value.__code__ != codes[name]
+            or value.__globals__ is not module.__dict__
+            or value.__defaults__ != defaults
+            or value.__kwdefaults__ is not None
+            or value.__closure__ is not None
+        ):
+            raise ValueError("standard Base64 callable differs from its original source: " + name)
+        # These four leaf functions have no nested functions or comprehensions.
+        for instruction in dis.get_instructions(value):
+            if instruction.opname != "LOAD_GLOBAL":
+                continue
+            global_name = instruction.argval
+            if global_name in references:
+                expected = references[global_name]
+                actual = vars(module).get(global_name)
+                if actual is not expected and (
+                    type(actual) is not type(expected) or actual != expected
+                ):
+                    raise ValueError("standard Base64 global differs: " + global_name)
+            elif global_name in vars(builtins):
+                if (
+                    vars(module).get(global_name, value.__builtins__.get(global_name))
+                    is not vars(builtins)[global_name]
+                ):
+                    raise ValueError("standard Base64 builtin differs: " + global_name)
+            else:
+                raise ValueError("standard Base64 global lacks a contract: " + global_name)
+    for name in ("b2a_base64", "a2b_base64"):
+        value = getattr(native, name)
+        if not inspect.isbuiltin(value) or value.__self__ is not native or value.__name__ != name:
+            raise ValueError("standard Base64 native primitive differs: " + name)
+
+
+def _base64_runtime():
+    module = importlib.import_module("base64")
+    native = importlib.import_module("binascii")
+    if (
+        module.__file__ is None or module.__spec__ is None
+        or module.__spec__.origin is None or native.__spec__ is None
+    ):
+        raise ValueError("standard Base64 runtime has no original module origin")
+    if Path(module.__spec__.origin).resolve() != Path(module.__file__).resolve():
+        raise ValueError("standard Base64 runtime source origin differs")
+    _verify_base64(module, native)
+    symbols = tuple(
+        ("base64." + name, getattr(module, name))
+        for name in ("urlsafe_b64encode", "b64encode", "b64decode", "_bytes_from_decode_data")
+    ) + tuple(
+        ("binascii." + name, getattr(native, name)) for name in ("b2a_base64", "a2b_base64")
+    )
+    paths = {Path(sys.executable).resolve(), Path(module.__file__).resolve(), Path(__file__).resolve()}
+    if native.__spec__.origin != "built-in":
+        if native.__file__ is None:
+            raise ValueError("standard Base64 primitive has no original file")
+        paths.add(Path(native.__file__).resolve())
+    files = tuple(verified_file(path, sha256(path.read_bytes()).hexdigest()) for path in sorted(paths))
+    digest = sha256(json.dumps([(file.path.name, file.digest) for file in files]).encode()).hexdigest()
+    return ExternalRuntime(
+        "base64", "standard-base64-v1", digest, symbols,
+        (("base64", module), ("binascii", native)), files,
+    )
