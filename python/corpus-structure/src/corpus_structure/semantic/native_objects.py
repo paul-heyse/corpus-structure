@@ -23,7 +23,6 @@ from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.schema.integrity import role_name
 
-from . import native_catalog as catalog_queries
 from .prepared_sql import prepare_sql
 
 
@@ -209,6 +208,8 @@ def execute_native_trigger(connection: Connection, sql: str) -> None:
     if len(tree) != 1 or not isinstance(tree[0].stmt, ast.CreateTrigStmt):
         execute_native_sql(connection, sql)
         return
+    from . import native_catalog as catalog_queries
+
     statement = tree[0].stmt
     if not statement.funcname:
         raise NativeAuthoringError("native trigger function name is absent")
@@ -469,6 +470,8 @@ def definition_from_sql(
             kind = RawStream()(parameter.argType)
             canonical = kind
             if connection is not None:
+                from . import native_catalog as catalog_queries
+
                 type_oid = connection.scalar(select(cast(catalog_queries.pg.to_regtype(kind), OID)))
                 from .native_sql_body import catalog_path
 
@@ -514,6 +517,8 @@ def observe_native(
     connection: Connection, identity: NativeIdentity, *, catalog_version: int | None = 1
 ) -> dict | None:
     """Read selected properties independently from catalog fields; NULL ACL uses acldefault."""
+    from . import native_catalog as catalog_queries
+
     if catalog_version not in {None, 1, 2}:
         raise NativeAuthoringError("unsupported native catalog comparison profile")
     if identity.kind == "function":
@@ -594,6 +599,8 @@ def observe_native(
 
 
 def semantic_namespace_owner(connection: Connection) -> str:
+    from . import native_catalog as catalog_queries
+
     owner = connection.scalar(catalog_queries.namespace_owner())
     if owner is None:
         raise NativeAuthoringError("migration-owner binding requires the semantic namespace owner")
@@ -616,6 +623,8 @@ def set_native_acl(
 
 
 def _declared_acl(connection: Connection, definition: NativeDefinition):
+    from . import native_catalog as catalog_queries
+
     # acldefault is the built-in owner baseline, unlike ALTER DEFAULT PRIVILEGES,
     # which may contain ambient grants unrelated to this explicit desired scope.
     owner = definition.owner
@@ -793,6 +802,8 @@ def native_dependency_graph(connection: Connection, identities):
     graph.add_nodes_from(identities)
     if not identities:
         return graph
+    from . import native_catalog as catalog_queries
+
     records = [
         (
             position,
@@ -889,6 +900,8 @@ def _check_plpgsql_authoring(
     """
     if not definitions:
         return
+    from . import native_catalog as catalog_queries
+
     contexts = {}
     for trigger in triggers if trigger_contexts else ():
         context = (
@@ -1034,6 +1047,8 @@ def prepare_native_authoring(
     normalization refuses ordinary runtime principals. Predecessor meaning comes from supplied
     source, never adoption of live catalog state. No implicit CASCADE is used.
     """
+    from . import native_catalog as catalog_queries
+
     _require_owned_authoring(connection, owned_authoring)
     functions = {item.identity for item in definitions if item.identity.kind == "function"}
     if check_plpgsql - functions:
