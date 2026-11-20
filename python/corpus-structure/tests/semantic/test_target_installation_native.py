@@ -364,6 +364,11 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
         item.identity: item
         for item in load_native_state(ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n31_native.json")
     }
+    n36_canonical_json = next(
+        item
+        for item in load_native_state(ALEMBIC_DIR / "versions" / "semantic_ddo_pe_n36_native.json")
+        if item.identity.schema == "data" and item.identity.name == "canonical_json"
+    )
     desired = {item.identity: item for item in authoring.desired}
     from corpus_structure.semantic.native_products import literal_json_descriptor
 
@@ -382,6 +387,8 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
             assert "semantic-release-archive-4" in archive_check
             assert "archive generated products differ from release identity" in archive_check
             assert "products_digest" in archive_check
+        elif key == n36_canonical_json.identity:
+            assert desired[key].statements == n36_canonical_json.statements
         else:
             assert desired[key].statements == frozen_n31[key].statements
         assert current_acl[key] == (
