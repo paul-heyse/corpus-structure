@@ -41,6 +41,12 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Domain Model Operability after N43](domain-model-operability_2026-11-20.md).
+  Reviews selected host readiness, cross-demand capture reuse, prospective generated source,
+  cut-scoped support and authority, recovery, operator diagnostics, qualification and JSON
+  migration. A bounded probe shows that removing the explicit Integrated roots leaves the
+  current PDF lowering analysis incomplete. Recommendations are proposals for the DMO plan.
+
 - [Unified domain model code dependency closure](unified-domain-model-code-dependency-closure_2026-11-19.md).
   Disposes the 33 shared diagnostic sites and proposes scoped generator and reader custody,
   targeted Python analysis and a reuse explanation for the owning CLI operations.

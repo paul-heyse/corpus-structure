@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "dmo-review.pdf-lowering-roots",
+  "title": "Current PDF lowering analyzer after explicit Integrated root removal",
+  "group": null,
+  "package": "DMO-02",
+  "finalized": "2026-11-20",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does removing the explicit Integrated roots close the existing analysis?",
+  "answers": [
+    "DMO-02"
+  ],
+  "method": "Run the same analyzer over the declared lowering roots and over the roots with Integrated entries excluded on the same checkout.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-20_dmo-plan-review/pdf-lowering-roots.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "pdf-lowering-roots.py",
+      "role": "controlled analyzer inputs",
+      "sha256": "3de2332de8aa06ca766164bea4d7e974a8491a14267bb0658713341f72dc980d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/pdf-lowering-roots.json",
+      "role": "attributed scope and closure observations",
+      "sha256": "24c11c0443a5f713bafda84178eb82a6800933c3ab7eafcaa686f655b66c88f5"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "unknowns with current roots",
+      "value": 328,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unknowns with Integrated roots omitted",
+      "value": 208,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Removing the explicit Integrated roots leaves the analyzer incomplete and the Integrated module in the import discovery. This settles the root-removal question without establishing a complete Standard producer boundary.",
+  "consumed_by": [
+    "DMO-02"
+  ]
+}
