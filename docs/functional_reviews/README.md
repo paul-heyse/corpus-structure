@@ -13,6 +13,12 @@ retains its separate audit prerequisite and review conventions.
 
 ## Outputs and traceability
 
+The [UDM operability and JSON review](udm-operability-and-json_2026-11-20.md) integrates the
+causal analysis with the JSON opportunities. It proposes selected executable acquisition,
+typed consumer requirements, recoverable material identity, PostgreSQL-native numbers and
+shared schema and validation boundaries. It records the consumer changes and legacy paths
+to retire, with final qualification owned by UDM-22 and UDM-23. Recommendations remain Proposed.
+
 The [JSON boundaries review](json-boundaries_2026-11-20.md) proposes one owner and a declared
 value domain for each JSON role, and one meaning for each schema across Python and PostgreSQL.
 O01–O11 cover the exact codec, identity bytes, a validator factory, a schema generator,
