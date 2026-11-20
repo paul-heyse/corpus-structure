@@ -13,6 +13,13 @@ retains its separate audit prerequisite and review conventions.
 
 ## Outputs and traceability
 
+The [JSON boundaries review](json-boundaries_2026-11-20.md) proposes one owner and a declared
+value domain for each JSON role, and one meaning for each schema across Python and PostgreSQL.
+O01–O11 cover the exact codec, identity bytes, a validator factory, a schema generator,
+validating once, pydantic's scalar policy and configuration. It lists eleven confirmed defects
+separately and states how the orjson review's opportunities carry forward. Recommendations
+remain Proposed.
+
 The [orjson and JSON codec review](orjson-json-codec_2026-11-20.md) recommends against
 adopting orjson and keeps msgspec as a conditional replacement for python-rapidjson. O01–O07
 need no new library: a declared value domain for identity bytes, separate owners for the uses

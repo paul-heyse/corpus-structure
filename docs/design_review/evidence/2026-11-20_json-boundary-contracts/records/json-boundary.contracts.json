@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "id": "json-boundary.contracts",
+  "title": "Library contracts at the repository JSON boundaries",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-20",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "How do python-rapidjson, jsonschema, pg_jsonschema, pydantic and pydantic-settings behave at the points where the JSON design depends on them?",
+  "answers": [
+    "O02",
+    "O03",
+    "O04",
+    "O05",
+    "O06",
+    "O08",
+    "O10"
+  ],
+  "method": "Run eight probes against the project environment on CPython 3.14.10: fixed cases and a generated differential for python-rapidjson 1.25, the native validator against the assembled wire contracts, a 56-case schema differential between jsonschema 4.26.0 and pg_jsonschema 0.3.4 using read-only SELECT statements, validation-mode and decimal cases for pydantic 2.14.1, and source and layering cases for pydantic-settings 2.16.1.",
+  "commands": [
+    "uv run python -I docs/design_review/evidence/2026-11-20_json-boundary-contracts/rapidjson_probe.py",
+    "uv run python -I docs/design_review/evidence/2026-11-20_json-boundary-contracts/rapidjson_limits_probe.py",
+    "uv run python -I docs/design_review/evidence/2026-11-20_json-boundary-contracts/rapidjson_validator_probe.py",
+    "uv run python -I docs/design_review/evidence/2026-11-20_json-boundary-contracts/rapidjson_psycopg_probe.py",
+    "uv run python docs/design_review/evidence/2026-11-20_json-boundary-contracts/schema_models_jsonschema_probe.py",
+    "uv run python docs/design_review/evidence/2026-11-20_json-boundary-contracts/schema_models_pg_probe.py",
+    "uv run python docs/design_review/evidence/2026-11-20_json-boundary-contracts/schema_models_pydantic_probe.py",
+    "uv run python docs/design_review/evidence/2026-11-20_json-boundary-contracts/schema_models_settings_probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "rapidjson_probe.py",
+      "role": "probe source",
+      "sha256": "360e3e5f3f7942495ab027a1e2d89de84cfc7394d151b936d29fd77c5c8c052d"
+    },
+    {
+      "path": "rapidjson_limits_probe.py",
+      "role": "probe source",
+      "sha256": "7a4557891b7ffbc2dfb55c9d0765bcbaffcbe29808e52a5210202a7a29eb3a9f"
+    },
+    {
+      "path": "rapidjson_validator_probe.py",
+      "role": "probe source",
+      "sha256": "5b0c03f581eb652821caa2cd46bcb804316e1333f208de3540603f33b42e35c0"
+    },
+    {
+      "path": "rapidjson_psycopg_probe.py",
+      "role": "probe source",
+      "sha256": "98eff09d747cb7fbaf210cd065fffd2e38723749e38f83a5eb703965bbb32a95"
+    },
+    {
+      "path": "schema_models_jsonschema_probe.py",
+      "role": "probe source",
+      "sha256": "02e5021de847c780c5902f0a8af760c08e3732c1f8d08a4b44c8d86bdb8a1f95"
+    },
+    {
+      "path": "schema_models_pg_probe.py",
+      "role": "probe source",
+      "sha256": "07d8516e9ac70f404b01bcdf1f795faeb917dd20b30c0941c0d95a34c48de208"
+    },
+    {
+      "path": "schema_models_pydantic_probe.py",
+      "role": "probe source",
+      "sha256": "243c92c753569f83bb0536f012534cf46e05c484868c27ccd341e985ac049ee4"
+    },
+    {
+      "path": "schema_models_settings_probe.py",
+      "role": "probe source",
+      "sha256": "bfe604dd2118b1a8e5a55f63250e0b46beb5a85570185589bf2e82662a3b62a5"
+    },
+    {
+      "path": "schema_models_pg.sql",
+      "role": "statements run by the PostgreSQL probe",
+      "sha256": "75a5bf2297685b16ef9a82eccc3a92352733529c994af301c88c350c80a8f658"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/rapidjson_probe.txt",
+      "role": "probe outcome",
+      "sha256": "72d62ae10a4cfd543f1a08a0fdd67c29c443c431259378038f3119563413e145"
+    },
+    {
+      "path": "raw/rapidjson_limits_probe.txt",
+      "role": "probe outcome",
+      "sha256": "fec26b960b9e58f3aa4c504e5a311752ea828de9e4cd3d08ddd6e7c1976b8a2d"
+    },
+    {
+      "path": "raw/rapidjson_validator_probe.txt",
+      "role": "probe outcome",
+      "sha256": "42c9aac624626aa09811060aafd5d823d4e078d2cb7de198857b8545f7e2bd96"
+    },
+    {
+      "path": "raw/rapidjson_psycopg_probe.txt",
+      "role": "probe outcome",
+      "sha256": "033c87d53d86bb1a7d4adf0515b2faf7deb6064d783651965aeacac501386513"
+    },
+    {
+      "path": "raw/schema_models_jsonschema_probe.txt",
+      "role": "probe outcome",
+      "sha256": "c79faf08eb5850ea09d5c3776ff145067503136561f7a4d53607cbb325251264"
+    },
+    {
+      "path": "raw/schema_models_pg_probe.txt",
+      "role": "probe outcome",
+      "sha256": "c0f887bd7e591b40eb1acba7d7cf0f00f5b33f85216705a07e72819b6241ced9"
+    },
+    {
+      "path": "raw/schema_models_pydantic_probe.txt",
+      "role": "probe outcome",
+      "sha256": "87d37fae2ed8466a5b7f9660ff4beb57890ec1453f10a65fc9427e94bee80d10"
+    },
+    {
+      "path": "raw/schema_models_settings_probe.txt",
+      "role": "probe outcome",
+      "sha256": "879f0a2579a128f6a3956e98f8489af276843f68b20d83945a9a8322a63592b8"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "rapidjson_decoder_subclass_refuses_duplicate_keys",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "At any depth, with NM_DECIMAL kept; plain loads keeps the last key."
+    },
+    {
+      "name": "rapidjson_accepts_trailing_data_after_nul",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "Version 1.25; the 1.26 changelog reports a fix, not run here."
+    },
+    {
+      "name": "rapidjson_validator_valid_wire_instances_rejected",
+      "value": 13,
+      "of": 91,
+      "unit": "instances",
+      "note": "Integers of 2^64 or more; every mutated const value was accepted."
+    },
+    {
+      "name": "python_postgresql_schema_cases_disagreeing",
+      "value": 27,
+      "of": 56,
+      "unit": "cases",
+      "note": "Decimal instances, regex, format and default dialect."
+    },
+    {
+      "name": "pydantic_validate_json_keeps_decimal_number_exact",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": "1.10 becomes Decimal('1.1'); a JSON string stays exact."
+    },
+    {
+      "name": "generate_json_schema_subclass_matches_hand_lowering",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": "On one sample model."
+    },
+    {
+      "name": "settings_section_built_alone_reads_environment",
+      "value": false,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The exact codec can refuse duplicate keys through a Decoder subclass and needs its trailing-data, depth and error-type behaviour contained at one owner. The native rapidjson validator cannot check the Draft 7 wire contracts. Python and PostgreSQL read the same schemas differently unless the schemas name their dialect and avoid the listed constructs. pydantic's JSON parser loses decimal scale and digits for JSON numbers. Which values production paths carry is outside these probes.",
+  "consumed_by": [
+    "json-boundaries review opportunities O02 to O06, O08 and O10"
+  ]
+}
