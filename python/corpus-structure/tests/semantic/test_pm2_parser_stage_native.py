@@ -171,9 +171,13 @@ def test_actual_dipo_reclaim_refuses_stale_holder_before_current_publication(
         observed = []
 
         def retain(executor, ready, claim, answer, port, owner, *, physical):
-            intent = original(executor, ready, claim, answer, port, owner, physical=physical)
+            retained_answer = original(
+                executor, ready, claim, answer, port, owner, physical=physical
+            )
             if ready.operation == DIPO and claim.request_id == old["request_id"]:
                 assert claim.task_id == old["task_id"] and claim.attempt > old["attempt"]
+                intent = retained_answer.intent_id
+                assert intent is not None
                 # The actual provider computation and retained new intent exist.
                 # Before its publication, the stale holder has no publish effect.
                 with (
@@ -185,7 +189,7 @@ def test_actual_dipo_reclaim_refuses_stale_holder_before_current_publication(
                         cast(WirePublishDataDerivationRequest, {**old, "intent_id": intent})
                     )
                 observed.append((claim, intent))
-            return intent
+            return retained_answer
 
         with monkeypatch.context() as patch:
             patch.setattr(NativeDemandExecutor, "_retain_answer", retain)
