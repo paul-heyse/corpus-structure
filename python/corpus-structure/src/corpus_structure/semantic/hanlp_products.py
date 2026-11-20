@@ -632,7 +632,10 @@ def hanlp_execution_custody(selection=None):
 def hanlp_operation_sources(selection, *, sentence_configuration=None, include_dependencies=True):
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
-    path = Path(__file__).parents[1] / "methods/hanlp_evidence.py"
+    methods = Path(__file__).parents[1] / "methods"
+    path = methods / "hanlp_evidence.py"
+    heads = methods / "native_evidence.py"
+    products = methods / "pm2_hanlp_products.py"
     own = PythonSourceCollection(
         (
             PythonSource(
@@ -646,6 +649,12 @@ def hanlp_operation_sources(selection, *, sentence_configuration=None, include_d
                 str(Path(__file__)),
             ),
             PythonSource("corpus_structure.methods.hanlp_evidence", path.read_bytes(), str(path)),
+            PythonSource(
+                "corpus_structure.methods.native_evidence", heads.read_bytes(), str(heads)
+            ),
+            PythonSource(
+                "corpus_structure.methods.pm2_hanlp_products", products.read_bytes(), str(products)
+            ),
         ),
         boundary_contracts=(
             hanlp_profile_assets(selection),
