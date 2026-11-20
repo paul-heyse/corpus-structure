@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 from collections import OrderedDict
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import cache
+from importlib import import_module
 from pathlib import Path
 from tempfile import TemporaryDirectory, mkdtemp
 from threading import RLock
@@ -344,6 +345,52 @@ def admit_kernel(
     return Kernel(
         engine if engine is not None else connection.engine, preparation, identities, recipe
     )
+
+
+def execute_captured_kernel_demand(
+    kernel: Kernel, demand: str, *, purpose="write", fit=False, rounds=100
+):
+    """Execute a fixture mixing captured production and test Python modules."""
+    from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
+    from corpus_structure.semantic.composed import (
+        read_data_operation_inputs,
+        runtime_transport_inputs,
+    )
+
+    preparation = kernel.preparation
+    captured = read_data_operation_inputs(preparation.dependencies)
+    assert captured is not None
+    declarations, sources = captured
+    assert sources is not None
+    sources = replace(
+        sources,
+        boundary_contracts=(
+            *sources.boundary_contracts,
+            *runtime_transport_inputs(preparation.runtime),
+        ),
+    )
+    locations = {}
+    for source in sources.sources:
+        module_file = import_module(source.module).__file__
+        assert module_file is not None
+        location = Path(module_file).resolve()
+        assert location.read_bytes() == source.content, source.module
+        locations[source.module] = location
+    executor = NativeDemandExecutor(
+        kernel.purpose(purpose),
+        kernel.prepared,
+        preparation.runtime,
+        sources,
+        runtime_locations=locations,
+        source_root=Path(__file__).resolve().parents[2] / "src",
+        schema=preparation.bundle,
+        declarations=declarations,
+        captured_contracts=preparation.dependencies.artifacts,
+        admission_engine=kernel.purpose("admit"),
+        fitter_engine=kernel.purpose("fit") if fit else None,
+        database_capacity=6,
+    )
+    return executor.run(demand, max_rounds=rounds)
 
 
 @dataclass(frozen=True)

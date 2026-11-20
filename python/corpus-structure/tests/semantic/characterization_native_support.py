@@ -190,7 +190,7 @@ class CurrentCharacterization:
         result = execute_data_demand(
             self.factory.writer,
             demand,
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=self.factory.admitter,
             project_id=self.factory.project_id,
             database_capacity=6,

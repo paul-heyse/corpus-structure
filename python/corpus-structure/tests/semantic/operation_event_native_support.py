@@ -9,8 +9,11 @@ from dataclasses import replace
 from typing import Any, Literal
 
 from corpus_structure.semantic.data_operation_model import SubjectContext
-from semantic.current_pdf_source_support import PROJECT, ROOT
-from semantic.data_operation_kernel_support import split_captured_operations
+from semantic.current_pdf_source_support import PROJECT
+from semantic.data_operation_kernel_support import (
+    execute_captured_kernel_demand,
+    split_captured_operations,
+)
 from semantic.structural_admission_native_support import Product
 from semantic.structural_production_native_support import recipe as structural_recipe
 
@@ -64,10 +67,7 @@ def project_context(kernel):
 def execute(
     kernel, pending, *, authored=False, purpose: Literal["write", "evaluate"] = "evaluate"
 ) -> tuple[dict[str, Any], Any]:
-    from corpus_structure.semantic.data_operation_service import (
-        create_native_demand,
-        execute_data_demand,
-    )
+    from corpus_structure.semantic.data_operation_service import create_native_demand
     from corpus_structure.serve.interpretation_authoring import author_interpretations
 
     retained: dict[str, Any]
@@ -80,16 +80,7 @@ def execute(
             retained = dict(create_native_demand(connection, pending, prepared=kernel.prepared))
     demand_id = retained["demand_id"]
     assert isinstance(demand_id, str)
-    execution = execute_data_demand(
-        kernel.purpose(purpose),
-        demand_id,
-        source_root=ROOT,
-        purpose=purpose,
-        admission_engine=kernel.purpose("admit"),
-        fitter_engine=kernel.purpose("fit"),
-        project_id=PROJECT,
-        database_capacity=6,
-    )
+    execution = execute_captured_kernel_demand(kernel, demand_id, purpose=purpose, fit=True)
     return retained, execution
 
 

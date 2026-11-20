@@ -629,7 +629,7 @@ def test_prepared_formal_refuses_monkeypatched_loaded_original_endpoint(profile,
 
     port = admitted_port(profile)
     monkeypatch.setattr(FormalEvidenceOperation, "run", lambda self, source: "invented result")
-    with pytest.raises(PortRefusal, match=r"callable owner|loaded|qualified"):
+    with pytest.raises(PortRefusal, match="callable is outside its required source subset"):
         port._verify()
 
 

@@ -1,9 +1,6 @@
 """Current selected PM2 setup; expectations remain independent in the tests."""
 
 from contextlib import contextmanager
-from dataclasses import replace
-from importlib import import_module
-from pathlib import Path
 
 import pytest
 
@@ -23,6 +20,7 @@ from semantic.current_pm2_projection_fixture import OPERATION, operation_sources
 from semantic.data_operation_kernel_support import (
     CapturedKernelInputs,
     KernelRecipe,
+    execute_captured_kernel_demand,
     prepare_kernel,
     split_captured_operations,
 )
@@ -104,42 +102,7 @@ def register(kernel, request):
 
 
 def execute(kernel, demand, *, rounds=100):
-    from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
-    from corpus_structure.semantic.composed import (
-        read_data_operation_inputs,
-        runtime_transport_inputs,
-    )
-
-    captured = read_data_operation_inputs(kernel.preparation.dependencies)
-    assert captured is not None and captured[1] is not None
-    declarations, sources = captured
-    sources = replace(
-        sources,
-        boundary_contracts=(
-            *sources.boundary_contracts,
-            *runtime_transport_inputs(kernel.preparation.runtime),
-        ),
-    )
-    locations = {}
-    for source in sources.sources:
-        loaded = import_module(source.module)
-        assert loaded.__file__ is not None
-        location = Path(loaded.__file__).resolve()
-        assert location.read_bytes() == source.content, source.module
-        locations[source.module] = location
-    executor = NativeDemandExecutor(
-        kernel.purpose("write"),
-        kernel.prepared,
-        kernel.preparation.runtime,
-        sources,
-        runtime_locations=locations,
-        schema=kernel.preparation.bundle,
-        declarations=declarations,
-        captured_contracts=kernel.preparation.dependencies.artifacts,
-        admission_engine=kernel.purpose("admit"),
-        database_capacity=6,
-    )
-    return executor.run(demand, max_rounds=rounds)
+    return execute_captured_kernel_demand(kernel, demand, rounds=rounds)
 
 
 def page(kernel, demand, *, purpose="read"):

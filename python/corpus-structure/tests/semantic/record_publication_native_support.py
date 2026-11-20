@@ -598,7 +598,7 @@ def publish_readings(
     result = execute_data_demand(
         journey.kernel.purpose("write"),
         retained["demand_id"],
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=journey.kernel.purpose("admit"),
         project_id=PROJECT,
         database_capacity=6,

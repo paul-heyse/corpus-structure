@@ -7,7 +7,10 @@ captured assets, tokenizer and owned CPU execution; it is not provider evidence.
 from hashlib import sha256
 
 from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
-from semantic.data_operation_kernel_support import split_captured_operations
+from semantic.data_operation_kernel_support import (
+    execute_captured_kernel_demand,
+    split_captured_operations,
+)
 
 
 def controlled_encoder(directory):
@@ -207,22 +210,14 @@ def contextual_workflow_recipe(directory, selection):
 
 def run_intent(kernel, intent):
     from corpus_structure.semantic.data_operation_demands import DemandPlanner
-    from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
-    from semantic.current_pdf_source_support import PROJECT, ROOT
+    from semantic.current_pdf_source_support import PROJECT
 
     with kernel.purpose("write").begin() as connection:
         demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
             intent, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
         )["demand_id"]
-    result = execute_data_demand(
-        kernel.purpose("write"),
-        demand,
-        source_root=ROOT,
-        project_id=PROJECT,
-        admission_engine=kernel.purpose("admit"),
-        database_capacity=6,
-    )
+    result = execute_captured_kernel_demand(kernel, demand)
     return demand, result
 
 

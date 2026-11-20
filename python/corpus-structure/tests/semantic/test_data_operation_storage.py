@@ -119,6 +119,50 @@ def test_native_atomic_publication_and_exact_receipt_replay(ddo_kernel):
         assert connection.scalar(text("SELECT count(*) FROM ops.data_publication_receipt")) == 1
 
 
+def _undetermined_storage_recipe():
+    assert STORAGE.declaration_content is not None
+    declaration = json.loads(STORAGE.declaration_content)
+    (source,) = [
+        operation
+        for operation in declaration["operations"]
+        if operation["id"] == "urn:ddo-test:source"
+    ]
+    source["validity_family"] = ["undetermined"]
+    return replace(
+        STORAGE, name="undetermined-storage", declaration_content=json.dumps(declaration).encode()
+    )
+
+
+@pytest.mark.parametrize(
+    "ddo_kernel", [_undetermined_storage_recipe()], indirect=True, ids=["undetermined"]
+)
+def test_native_undetermined_source_publishes_with_conservative_validity(ddo_kernel):
+    from corpus_structure.semantic.data_operation_admission import inspect_data_operation_release
+
+    operation = "urn:ddo-test:source"
+    prepared = ddo_kernel["prepared"]
+    assert any(
+        diagnostic.code == "validity_undetermined"
+        and diagnostic.location == operation
+        and diagnostic.outcome == "advisory"
+        for diagnostic in prepared.diagnostics
+    )
+    demand, _, _, attached = attach(ddo_kernel, operation=operation)
+    fence = claim(ddo_kernel, attached)
+    intent = retain(ddo_kernel, fence, outputs=(17,))
+    receipt = publish(ddo_kernel, fence, intent)
+    with ddo_kernel["engine"].connect() as connection:
+        _, admission = inspect_data_operation_release(connection, prepared, validity_only=True)
+        result = DataOperationStorage(connection).read_demand_result(
+            typing_cast(WireReadDemandResultRequest, {**demand, "view": "products"})
+        )
+    assert operation in admission["conservative_operations"]
+    (use,) = result["uses"]
+    assert use["fate"] == "fulfilled"
+    assert use["derivation_id"] == receipt["derivation_id"]
+    assert [product["body"] for product in use["products"]] == [["integer", "17"]]
+
+
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
 def test_native_zero_output_has_authentic_fulfillment(ddo_kernel):
     demand, _, _, attached = attach(ddo_kernel)

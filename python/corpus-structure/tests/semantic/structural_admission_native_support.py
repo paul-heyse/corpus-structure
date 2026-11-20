@@ -10,10 +10,11 @@ from corpus_structure.semantic.declared_structural_references import (
 )
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.selected_support import SelectedReadReference
-from semantic.current_pdf_source_support import PROJECT, ROOT, current_pdf_recipe
+from semantic.current_pdf_source_support import PROJECT, current_pdf_recipe
 from semantic.data_operation_kernel_support import (
     CapturedKernelInputs,
     KernelRecipe,
+    execute_captured_kernel_demand,
     split_captured_operations,
 )
 from semantic.structural_native_fixture import OPERATION, TEXT, operation_sources
@@ -202,10 +203,7 @@ def request(
 def execute(
     kernel, pending, *, purpose: Literal["write", "evaluate"] = "write", author=False
 ) -> tuple[dict[str, Any], Any]:
-    from corpus_structure.semantic.data_operation_service import (
-        create_native_demand,
-        execute_data_demand,
-    )
+    from corpus_structure.semantic.data_operation_service import create_native_demand
     from corpus_structure.serve.interpretation_authoring import author_interpretations
 
     retained: dict[str, Any]
@@ -216,15 +214,7 @@ def execute(
     else:
         with kernel.purpose(purpose).begin() as connection:
             retained = dict(create_native_demand(connection, pending, prepared=kernel.prepared))
-    result = execute_data_demand(
-        kernel.purpose(purpose),
-        retained["demand_id"],
-        source_root=ROOT,
-        purpose=purpose,
-        admission_engine=kernel.purpose("admit"),
-        project_id=PROJECT,
-        database_capacity=6,
-    )
+    result = execute_captured_kernel_demand(kernel, retained["demand_id"], purpose=purpose)
     return retained, result
 
 
