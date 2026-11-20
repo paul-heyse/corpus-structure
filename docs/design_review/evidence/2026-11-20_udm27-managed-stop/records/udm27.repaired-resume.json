@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "id": "udm27.repaired-resume",
+  "title": "Repaired N36 capture resumes exact demand immediately after retirement",
+  "group": null,
+  "package": "UDM-27",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the repaired managed stop make the exact demand ready for resume before lease expiry?",
+  "answers": [
+    "T22"
+  ],
+  "method": "Resume the managed interrupted result after native readback verified no lease. Inspect same-demand receipts and exact task standing. Repeat the completed demand under its original policy.",
+  "commands": [
+    "ci run resume --result ddaaf6e8c03946b3bca4cf5b9970300e --json",
+    "ci run resume --result dc348ca3780f4a96ad7dd8378389cc98 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/repaired/native-after-stop.json",
+      "role": "exact-task-custody-before-resume",
+      "sha256": "89ae09dc1cc69243adea01f6aba3f954d927a57d60066af6e036cfa3bba33eaa"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/repaired/resume.json",
+      "role": "exact-managed-resume",
+      "sha256": "7bf09368d563906704917f57f2fe6da438fe5c738223237f7e19929d91bf3378"
+    },
+    {
+      "path": "raw/repaired/resume-task-readback.json",
+      "role": "independent-native-task-and-lease-readback",
+      "sha256": "9cfc208b68f217c4be4c0de8dbad6cf7b1171df6b50b24eca769580a9e9256a3"
+    },
+    {
+      "path": "raw/repaired/repeat.json",
+      "role": "unchanged-managed-repeat",
+      "sha256": "6c2a017c15f30669c3af51e44efbfb16fbbb1d56fa4e3e736e7a0b50b9f8b22e"
+    }
+  ],
+  "depends_on": [
+    "2026-11-20_udm27-managed-stop/udm27.repaired-actual-stop"
+  ],
+  "results": [
+    {
+      "name": "resumed_receipts",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "live_leases_after_resume",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unchanged_repeat_receipts",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The repaired stop allowed immediate exact-demand resume. Capture, organization and discovery fulfilled, task 125 completed at attempt two, and the repeat produced zero new receipts.",
+  "consumed_by": [
+    "UDM-27",
+    "UDM-22",
+    "UDM-23"
+  ]
+}

@@ -922,8 +922,11 @@ They require the admitted frozen-source role contract while local producer
 checks and common publication proof remain enforced.
 The typed guard repair passed 19 focused PostgreSQL controls
 (`38a3cef5842f4840bd7a90c60b2f1d2e`), including exact named-source refusal,
-generated routine checks and no-encoder composition. Actual E5 retrieval
-still requires the installed successor and fresh provider receipts.
+generated routine checks and no-encoder composition. N37 installed on the
+registered stage and the new Standard application passed native checks.
+All three actual E5 context cases then passed native publication and
+retrieval on private N37 (`313d571742cd47b9920c6e430421c980`).
+[Native repair and provider evidence](../../design_review/evidence/2026-11-20_udm22-contextual-frozen-producers/README.md)
 
 The Lark grammar, formal product and construction selection accounted for
 295 passed identities across its original run and exact retry

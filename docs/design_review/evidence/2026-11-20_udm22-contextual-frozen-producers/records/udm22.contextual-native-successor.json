@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "udm22.contextual-native-successor",
+  "title": "Contextual producer authority successor on registered N37 stage",
+  "group": null,
+  "package": "UDM-22",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the exact contextual guard repair be authored and installed with the expected native delta?",
+  "answers": [
+    "UDM-22"
+  ],
+  "method": "Verify the generated guard in PostgreSQL, author a rollback-only candidate under the bound preview, register its generated artifacts, check offline parity and deploy from the exact N36 predecessor. Read stage and canonical revisions independently.",
+  "commands": [
+    "uv run ci test review 38a3cef5842f4840bd7a90c60b2f1d2e",
+    "uv run ci model change candidate 67b4e061a6cf451796ba03df4fd4be18 --json",
+    "uv run ci model change register 8281579fcb4643a9b51a85a5221b7f9a --json",
+    "uv run ci schema native-candidate --expected-predecessor semantic_ddo_pe_n37 --json",
+    "uv run ci model change deploy 8281579fcb4643a9b51a85a5221b7f9a --json"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw/native-candidate-scope.json",
+      "role": "exact-rollback-only-native-delta",
+      "sha256": "2c4c42edab2374334eeefe5b7e51d4722d9817815b7362ff21bb9ff429e858ce"
+    },
+    {
+      "path": "raw/n37-contextual-register.json",
+      "role": "managed-registration-readback",
+      "sha256": "db3bebe1055f1efccff735e31e8f36dfcfb21711a156d4366f44ba90329b5dab"
+    },
+    {
+      "path": "raw/n37-contextual-parity.json",
+      "role": "offline-frozen-native-parity",
+      "sha256": "9ee2acfd3777bdf2bac89990eb904fe3626b2a616c63fa311b55a9615d96ca11"
+    },
+    {
+      "path": "raw/n37-contextual-deploy.json",
+      "role": "guarded-stage-deployment",
+      "sha256": "4e9184d68dfa75fe9e28018004e4ebc43f5c4584187d12e953413c6db5c48f14"
+    },
+    {
+      "path": "raw/n37-stage-db-status.json",
+      "role": "stage-native-head-readback",
+      "sha256": "d44c576bcc07e02893c51039788464495189c0f4435efa2fa6db6ce4f662766f"
+    },
+    {
+      "path": "raw/canonical-after-stage-n37.json",
+      "role": "canonical-native-head-readback",
+      "sha256": "0d25da85039e341d4e3a89a52dda79a1a4fcfdb4f18a747164c0035246359700"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "changed_native_functions",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "updated_generated_descriptors",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "parity_object_count",
+      "value": 620,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The generated repair changed only the contextual input guard and its two descriptors. Registered N37 passed offline parity and deployed on the exact N36 stage. Canonical development remained N29.",
+  "consumed_by": [
+    "UDM-22",
+    "UDM-23"
+  ]
+}

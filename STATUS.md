@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-20 UTC. PostgreSQL stage runs N36 and UDM-20's bounded stage qualification passed. The bounded project's last activation is N35 at generation 32. Canonical development runs N29, selected by the book at generation 5. The earlier 518-page capture and regional results remain in retained custody._
+_Updated 2026-11-20 UTC. PostgreSQL stage runs N37. UDM-20's bounded qualification passed on N36. The bounded project's last activation is N35 at generation 32. Canonical development runs N29, selected by the book at generation 5. The earlier 518-page capture and regional results remain in retained custody._
 
 ## Current owners
 
@@ -20,7 +20,8 @@ _Updated 2026-11-20 UTC. PostgreSQL stage runs N36 and UDM-20's bounded stage qu
 - **Failed.** Strict D2 reproduced offline parity across 620 N36 objects. Each process rendered, and neither hydrated (`937bc65220fc4409ad917fdb58d9d29e`). T4 and T14 await complete determining custody.
 - **Passed.** Scoped actual GLiNER, HanLP, Maverick and DiPO cases passed after the definition test retried its corrected native ownership assertion. The Lark grammar selection passed across its original attempt and exact retry. [Provider receipts and boundaries](docs/plans/unified-domain-model-and-execution/qualification.md#udm-22--the-managed-union-on-final-source)
 - **Failed, then exact resume passed.** Real CUDA stop exposed unresolved transport retirement and a live native lease. After expiry, the same demand published three receipts, cleared the leases and repeated with zero new receipts. [Managed stop and recovery](docs/design_review/evidence/2026-11-20_udm27-managed-stop/README.md)
-- **Passed.** The repaired managed CUDA stop confirmed retirement. Independent readback found no worker, GPU allocation or lease before retry. [Repaired stop](docs/design_review/evidence/2026-11-20_udm27-managed-stop/README.md)
+- **Passed.** The repaired managed CUDA stop cleared the worker, GPU allocation and lease before retry. The exact resume published three receipts and unchanged repeat published zero. [Repaired stop](docs/design_review/evidence/2026-11-20_udm27-managed-stop/README.md)
+- **Passed.** N37 passed offline parity, guarded stage deployment and both exact stage application checks. All three actual E5 native publication and retrieval cases passed on private N37. [N37 and E5 evidence](docs/design_review/evidence/2026-11-20_udm22-contextual-frozen-producers/README.md)
 
 ## Earlier verified evidence
 
@@ -37,7 +38,6 @@ _Updated 2026-11-20 UTC. PostgreSQL stage runs N36 and UDM-20's bounded stage qu
 - **Passed.** `uv run ci test` selected 66 preview, generated SQL explanation and deployment-key controls (`86e7a22f1c3e435b9d85da4cc74e05b5`). It verified a decimal bound edit in emitted SQL. The 43 detached witness and execution-evidence checks passed (`521420f70fd8424898fc14e55c705eb7`).
 
 - **Passed.** Private `uv run ci test` verified the archived source request frontdoor after removing its working pack (T15, `c56552f73b1e451cac37ef9867137d46`) and scientific policy admission and proof (node in `92253899f52648819c9f1688e175e2bf`).
-- **Passed.** Four native JSONL and Parquet demand exports passed in `6c22c15dd71141a390ce8733dcee242c`.
 - **Passed.** Registered N35 fresh selected-source export and exact native proof passed (`6723ccd93ed3411d86463c50d6887877`). Companion export and cancellation passed (`74cd2cf771164dddaf5c7b79eff480d9`). The [bounded evidence](docs/design_review/evidence/2026-11-19_udm-audit-closure/README.md) retains the earlier failures.
 - **Passed.** The private D1 authored Weibull cohort completed native `rich.consolidate` and retained 26 selected facts (`36e9c262ed5e42f487a26cd5cd8eccd9`). The final typed Python run retained the same 26 facts (`b69239be4386487dba0a2c15276677b6`).
 
@@ -47,12 +47,12 @@ _Updated 2026-11-20 UTC. PostgreSQL stage runs N36 and UDM-20's bounded stage qu
 - **Observed.** Eight stage archives retained 187,696,277 declared bytes with eight cache hits on immediate repetition. The original serving-code observation identified 33 source sites. Selected readers derive a fresh page while withholding continuation and cached rows under incomplete identity. [Cache observations](docs/design_review/evidence/2026-11-19_udm13-cache-bounds/README.md)
 - **Failed, then source repaired.** One-page N36 `ci run` refused the canonical port's incomplete source subset before inference (`e081ef271b3942b983586e220fbc34d1`). Isolated preflight also found two omitted HanLP callable modules. Both repairs passed targeted `ci test` selections with real CUDA spaCy and HanLP (`297b66ec2c2345df93c79fdfbb3d3e2e`, `fdfe4d14f4334393b86492bae8cae3ae`). [Diagnosis](docs/plans/unified-domain-model-and-execution/qualification.md#retained-book-diagnosis)
 - **Passed.** Corrected N36 `ci run` fulfilled all 11 obligations for one-page full-family composition (`bc94c35adc3e438b8e4eb771d4ccb155`) and all five for 60-page regional settlement (`f3bb4c777c2d42aa8acc0b8567e8b44b`). `ci run resume --result` repeated the first demand with the same producers and zero new receipts (`815c8161fe4a446892c127d195ec67d6`).
-- **Failed.** `uv run ci evidence check --json` still reports five errors in earlier DDO records (`bfb17a6f773a4ec18871bcfdf3a6fc63`). The finalized UDM evidence has no errors in that check.
+- **Failed, 2026-11-20 UTC.** `uv run ci evidence check --json` reports the same five earlier DDO record errors (`6d9245f95b2b463dbb4cfbe44a7e86ef`). The finalized UDM evidence has no errors in that check.
 - **Passed.** `uv run python docs/design_review/evidence/2026-11-19_udm-code-dependency-closure/probe.py` reproduced the four scans and showed where the analyzer over-includes an uncalled function and misses an indirect import in a bounded fixture. [Probe evidence](docs/design_review/evidence/2026-11-19_udm-code-dependency-closure/README.md)
 - **Passed.** The private authored entity smoke published and read the entity after fixing the live source locations and admitting the released `rich.admit` effect (`f41efa461e9a468d9fdeed434e0372cf` on the final rich-read source). Strict T4 and T14 await complete serving identity.
 - **Passed.** The focused custody, generator and cache selection passed 133 controls (`62c7d552a88048769497b046e12c872f`). The focused serving selection passed 233 (`53e183166ea54effa89e64324c14fcda`). The private exact JSON/JSONB selection passed seven (`1fe83f7f90c8444dbb65a96b7b63e568`).
 
-- **Passed.** `uv run ci check --only types` (`e3be9d3705bd40ac893c82f72a5d65cd`), `uv run ci check --only lint` (`a82d224bd1ae477da47a91447a8b51c0`) and `uv run ci docs check` (`1ea0c1ecb3cf4ca0bca5171ddd183b65`).
+- **Passed, 2026-11-20 UTC.** `uv run ci check --only types` (`38fbffb830cc417dbf06edbc7cd47960`), `uv run ci check --only lint` (`0ee9f8cafbb84616a1ac5b676c31c643`) and `uv run ci docs check` (`3abf6b8db6724c2db5506ad9b29b2f0f`).
 
 ## Next execution
 

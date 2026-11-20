@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "udm22.actual-e5-n37",
+  "title": "Actual E5 native publication and retrieval on N37",
+  "group": null,
+  "package": "UDM-22",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do all selected E5 context variants publish and retrieve under the corrected N37 native guard?",
+  "answers": [
+    "UDM-22"
+  ],
+  "method": "Run the three managed actual E5 cases on a private PostgreSQL installation of frozen N37. Separately verify a newly prepared and admitted Standard application on the registered N37 stage.",
+  "commands": [
+    "uv run ci test --providers-only --native-host private --workers 1 -- python/corpus-structure/tests/semantic/test_actual_e5_selected_context_native.py",
+    "uv run ci test review 313d571742cd47b9920c6e430421c980 --json",
+    "uv run ci db check --target deployment --release RELEASE --json",
+    "uv run ci release check --target deployment --release RELEASE --native-proof --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/n37-standard-stage-release.json",
+      "role": "registered-stage-application-and-runtime",
+      "sha256": "71f5426eb7e375fd02801667b3e4097ea645780df0237c109c0e7a400b6dcc60"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/e5-review.json",
+      "role": "three-actual-provider-native-cases",
+      "sha256": "aa241f0f3d555af8dc0db738a5b571af777ed7bb61b0c7ec0c9a18be627b8696"
+    },
+    {
+      "path": "raw/n37-stage-db-check.json",
+      "role": "native-correspondence-on-stage",
+      "sha256": "6ef3bda1a580c6760a0376c27a49b5935a9edfef4370d343a1b70642defcf509"
+    },
+    {
+      "path": "raw/n37-stage-release-check.json",
+      "role": "exact-stage-release-native-proof",
+      "sha256": "c6c971a493cfaae219620fe06342743aa02d6b7b027f9e2d7a774e7c2a339ea8"
+    }
+  ],
+  "depends_on": [
+    "2026-11-20_udm22-contextual-frozen-producers/udm22.contextual-native-successor"
+  ],
+  "results": [
+    {
+      "name": "actual_e5_native_cases_passed",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The frame, referent and discourse-neighbor E5 cases passed native publication and retrieval on private N37. The exact newly admitted Standard release also passed both N37 stage checks.",
+  "consumed_by": [
+    "UDM-22"
+  ]
+}

@@ -136,10 +136,7 @@ def selected_query_rows(inputs: DemandQueryProjectionInputs):
             (not selection["containers_only"] or row.get("member_id") is None)
             and (
                 selection["record_type"] is None
-                or (
-                    isinstance(body, dict)
-                    and body.get("record_type") == selection["record_type"]
-                )
+                or (isinstance(body, dict) and body.get("record_type") == selection["record_type"])
             )
             and (
                 selection["family"] is None

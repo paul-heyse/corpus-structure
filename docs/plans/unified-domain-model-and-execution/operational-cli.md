@@ -412,6 +412,9 @@ capture stopped while its owned CUDA worker was active. The exact result
 `confirmed_retirement`. The worker, GPU allocation and native task lease
 were clear at independent readback. The shared native interest control also
 passed under the existing exact request identity.
+Managed resume `dc348ca3780f4a96ad7dd8378389cc98` then published three source
+receipts on the same demand. Its unchanged repeat
+`5b739336836c439b93d8fc47cd151d2e` returned zero new receipts.
 
 An actual stage invocation used `ci run resume --result` and reacquired the original demand after
 its Docling capture had already published (`a725a0505d5a455a8fd7f78386805186`). The organizer
