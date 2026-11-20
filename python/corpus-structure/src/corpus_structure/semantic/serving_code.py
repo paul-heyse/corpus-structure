@@ -71,13 +71,13 @@ def capture_page_refusal() -> PageReuseRefusal | None:
     selected = _ACTIVE.get()
     if selected is None or selected.complete:
         return None
+    from .code_reuse import code_reuse_facts
     from .page_envelope import PageReuseRefusal
 
     if selected.page_refusal is None:
-        first = selected.code.unknowns[0]
-        selected.page_refusal = PageReuseRefusal(
-            first.module, first.line, first.reason, len(selected.code.unknowns) - 1
-        )
+        (first,), omitted = code_reuse_facts(selected.code, 1)
+        assert first.line is not None
+        selected.page_refusal = PageReuseRefusal(first.module, first.line, first.reason, omitted)
     return selected.page_refusal
 
 

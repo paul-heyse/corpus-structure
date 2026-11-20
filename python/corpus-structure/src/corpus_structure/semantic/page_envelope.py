@@ -55,25 +55,27 @@ def row_array(row, source: str | None, value_field: str | None):
 def apply_page_reuse_refusal(record: dict, refusal: PageReuseRefusal | None) -> dict:
     if refusal is None:
         return record
-    result = dict(record)
-    for field in ("cursor", "continuation", "next_cursor", "resource_handle"):
-        if field in result:
-            result[field] = None
-    result["reuse"] = dict(
-        eligible=False,
-        reason="incomplete_code_identity",
-        unknowns=[dict(module=refusal.module, line=refusal.line, reason=refusal.reason)],
-        omitted=refusal.omitted,
-    )
-    return result
+    if type(refusal) is PageReuseRefusal:
+        result = dict(record)
+        for field in ("cursor", "continuation", "next_cursor", "resource_handle"):
+            if field in result:
+                result[field] = None
+        result["reuse"] = dict(
+            eligible=False,
+            reason="incomplete_code_identity",
+            unknowns=[dict(module=refusal.module, line=refusal.line, reason=refusal.reason)],
+            omitted=refusal.omitted,
+        )
+        return result
+    raise TypeError("page refusal must use the selected code-custody explanation")
 
 
 def render_envelope(envelope: PageEnvelope, end: int, has_rows: bool, more: bool) -> dict:
-    continuation = (
-        encode_cursor(dict(envelope.cursor_basis, **{envelope.position_field: end}))
-        if more
-        else envelope.following_cursor
-    )
+    continuation = envelope.following_cursor
+    if more:
+        cursor = dict(envelope.cursor_basis)
+        cursor[envelope.position_field] = end
+        continuation = encode_cursor(cursor)
     result = dict(envelope.header)
     result.update({name: [] for name, _, _, _ in envelope.arrays})
     result[envelope.cursor_field] = continuation
@@ -81,8 +83,11 @@ def render_envelope(envelope: PageEnvelope, end: int, has_rows: bool, more: bool
         result["knowledge"] = "observed" if has_rows else "unknown"
     if envelope.include_page_complete:
         result["page_complete"] = continuation is None
-    if envelope.observations is not None:
-        result["unknowns"] = envelope.observations.unknowns
+    observations = envelope.observations
+    if type(observations) is PageObservations:
+        result["unknowns"] = observations.unknowns
+    elif observations is not None:
+        raise TypeError("page observations must use their selected row stream")
     return apply_page_reuse_refusal(result, envelope.reuse_refusal)
 
 

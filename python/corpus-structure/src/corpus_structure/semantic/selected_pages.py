@@ -24,7 +24,9 @@ def byte_bounded_page(rows, *, offset, limit, max_bytes, presentation: PageEnvel
     initial = render_envelope(presentation, offset, False, True)
     static = {key: value for key, value in initial.items() if key not in dynamic_names}
     static_width = len(json_bytes(static))
-    values, widths, counts = [], dict.fromkeys(fields, 0), dict.fromkeys(fields, 0)
+    values = []
+    widths = {name: 0 for name in fields}
+    counts = widths.copy()
     more = False
     for row in rows:
         if len(values) == limit:

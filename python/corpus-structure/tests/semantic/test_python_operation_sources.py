@@ -263,6 +263,20 @@ def test_assignment_within_type_guard_invalidates_receiver_provenance():
     assert not result.complete
 
 
+def test_exact_type_refusal_dominates_following_local_access():
+    guard = "    if type(value) is not dict:\n        raise TypeError('mapping required')\n"
+    tail = "    return value.get('name')\n"
+    source = "def run(value, replacement):\n" + guard
+    checked = implementation(source + tail, inputs=())
+    assert checked.complete, checked.unknowns
+    for invalid in (
+        source + "    value = replacement\n" + tail,
+        source.replace("raise TypeError('mapping required')", "pass") + tail,
+        source.replace("def run(value, replacement):", "def run(value, replacement, type):") + tail,
+    ):
+        assert not implementation(invalid, inputs=()).complete
+
+
 def test_direct_nested_function_calls_retain_the_captured_body():
     code = (
         "def run(value: int):\n"

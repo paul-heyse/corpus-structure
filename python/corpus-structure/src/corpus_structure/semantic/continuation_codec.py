@@ -6,7 +6,10 @@ from .data_operation_json import json_bytes, json_loads, wire_json_loads
 
 
 def encode_cursor(value):
-    encoded = base64.urlsafe_b64encode(json_bytes(value)).decode()
+    wire = json_bytes(value)
+    if type(wire) is not bytes:
+        raise TypeError("selected cursor must be encoded as native bytes")
+    encoded = base64.urlsafe_b64encode(wire).decode()
     if len(encoded) > 32768:
         raise ValueError("selected cursor exceeds the supported encoded bound")
     return encoded

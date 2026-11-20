@@ -26,10 +26,10 @@ def test_source_snapshot_refuses_unsafe_or_ambiguous_paths(path):
 
 
 @pytest.mark.parametrize(
-    "operation", ["definition", "declaration", "implementation", "references", "signature"]
+    "operation", ["definition", "declaration", "implementation", "references", "hover", "signature"]
 )
 def test_actual_ty_navigation_does_not_import_target(operation):
-    source = 'raise RuntimeError("must never execute")\ndef twice(x: int) -> int:\n    return x * 2\n\nresult = twice(3)\n'
+    source = 'def twice(x: int) -> int:\n    return x * 2\n\nresult = twice(3)\nraise RuntimeError("must never execute")\n'
     snapshot = NavigationSnapshot(documents=(SourceDocument(path="example.py", content=source),))
     request = NavigationRequest(
         snapshot_id=snapshot.identity,
@@ -48,6 +48,15 @@ def test_actual_ty_navigation_does_not_import_target(operation):
         }
     if operation == "references":
         assert len(result.items) == 2
+    if operation == "hover":
+        from hashlib import sha256
+
+        (hover,) = result.items
+        start = source.encode().index(b"twice(3)")
+        assert hover["path"] == "example.py"
+        assert hover["source_digest"] == sha256(source.encode()).hexdigest()
+        assert hover["utf8_bytes"] == {"start": start, "end": start + len("twice")}
+        assert "twice(x: int) -> int" in hover["contents"]["value"]
 
 
 def test_wrong_snapshot_refused_before_starting_tool():

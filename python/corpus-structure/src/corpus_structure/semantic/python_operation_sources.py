@@ -1193,6 +1193,17 @@ class ClosedPythonSources:
                         )
                     )
                     return
+                if boundary.role == "passive-literal-annotation" and not (
+                    target == "typing.Literal"
+                    and relation == "type_reference"
+                    and passive_annotation
+                ):
+                    unknowns.add(
+                        SourceUnknown(
+                            path, location, "standard Literal requires finite annotation values"
+                        )
+                    )
+                    return
                 if not boundary.contract or not boundary.role:
                     _fail(
                         location,
@@ -1778,6 +1789,78 @@ class ClosedPythonSources:
                 values = [result(expression) for expression in returns]
                 return values[0] if all(value == values[0] for value in values) else ("unknown", ())
 
+            def guarded_value_binding(expression, candidates):
+                if len(candidates) != 1:
+                    return "unknown", ()
+                binding = next(iter(candidates))
+                if binding.source != QualifiedNameSource.LOCAL or ".<locals>." not in binding.name:
+                    return "unknown", ()
+
+                def exact_guard(test, operator):
+                    if not (
+                        isinstance(test, cst.Comparison)
+                        and isinstance(test.left, cst.Call)
+                        and exact_type_comparison(test.left) is not None
+                        and isinstance(test.left.args[0].value, cst.Name)
+                        and module.qualified_names(test.left.args[0].value) == candidates
+                        and isinstance(test.comparisons[0].operator, operator)
+                    ):
+                        return "unknown", ()
+                    return annotated_value(test.comparisons[0].comparator)
+
+                class WritesGuardedName(cst.CSTVisitor):
+                    found = False
+
+                    def visit_Name(self, node):
+                        if node.value == expression.value and module.contexts.get(node) in {
+                            ExpressionContext.STORE,
+                            ExpressionContext.DEL,
+                        }:
+                            self.found = True
+
+                def checked(test, operator, statements):
+                    narrowed = exact_guard(test, operator)
+                    if narrowed[0] != "unknown":
+                        writes = WritesGuardedName()
+                        for statement in statements:
+                            statement.visit(writes)
+                        if not writes.found:
+                            return narrowed
+                    return "unknown", ()
+
+                def immediately_exits(guard):
+                    if (
+                        not isinstance(guard, cst.If)
+                        or guard.orelse is not None
+                        or not isinstance(guard.body, cst.IndentedBlock)
+                        or len(guard.body.body) != 1
+                    ):
+                        return False
+                    terminal = guard.body.body[0]
+                    return (
+                        isinstance(terminal, cst.SimpleStatementLine)
+                        and len(terminal.body) == 1
+                        and isinstance(terminal.body[0], (cst.Raise, cst.Return))
+                    )
+
+                child = expression
+                parent = module.parent_nodes.get(child)
+                while parent is not None and not isinstance(parent, cst.FunctionDef):
+                    if isinstance(parent, cst.If) and child is parent.body:
+                        narrowed = checked(parent.test, cst.Is, (parent.body,))
+                        if narrowed[0] != "unknown":
+                            return narrowed
+                    if isinstance(parent, cst.IndentedBlock):
+                        for index, guard in enumerate(parent.body):
+                            if guard is child:
+                                break
+                            if isinstance(guard, cst.If) and immediately_exits(guard):
+                                narrowed = checked(guard.test, cst.IsNot, parent.body[index + 1 :])
+                                if narrowed[0] != "unknown":
+                                    return narrowed
+                    child, parent = parent, module.parent_nodes.get(parent)
+                return "unknown", ()
+
             def expression_binding(expression, active=frozenset()):
                 """Resolve supported receiver provenance, never arbitrary object inference.
 
@@ -1788,36 +1871,10 @@ class ClosedPythonSources:
                     return "unknown", ()
                 active = active | {id(expression)}
                 if isinstance(expression, cst.Name):
-                    child = expression
-                    parent = module.parent_nodes.get(child)
-                    while parent is not None and not isinstance(parent, cst.FunctionDef):
-                        if isinstance(parent, cst.If) and child is parent.body:
-                            test = parent.test
-                            if (
-                                isinstance(test, cst.Comparison)
-                                and isinstance(test.left, cst.Call)
-                                and exact_type_comparison(test.left) is not None
-                                and isinstance(test.left.args[0].value, cst.Name)
-                                and test.left.args[0].value.value == expression.value
-                                and isinstance(test.comparisons[0].operator, cst.Is)
-                            ):
-                                assignments = []
-
-                                class Stores(cst.CSTVisitor):
-                                    def visit_Name(self, node, assignments=assignments):
-                                        if (
-                                            node.value == expression.value
-                                            and module.contexts.get(node) == ExpressionContext.STORE
-                                        ):
-                                            assignments.append(node)
-
-                                parent.body.visit(Stores())
-                                if not assignments:
-                                    narrowed = annotated_value(test.comparisons[0].comparator)
-                                    if narrowed[0] != "unknown":
-                                        return narrowed
-                        child, parent = parent, module.parent_nodes.get(parent)
                     candidates = module.qualified_names(expression)
+                    guarded = guarded_value_binding(expression, candidates)
+                    if guarded[0] != "unknown":
+                        return guarded
                     targets = []
                     kinds = set()
                     for candidate in candidates:
@@ -1887,8 +1944,8 @@ class ClosedPythonSources:
                             if boundary.role == "native-integer-value":
                                 kinds.add("value")
                                 targets.append("builtins.int")
-                            elif boundary.role == "native-json-callable":
-                                kinds.add("native-json-callable")
+                            elif boundary.role in {"native-json-callable", "native-bytes-encoder"}:
+                                kinds.add(boundary.role)
                                 targets.append(target)
                                 continue
                             else:
@@ -1980,8 +2037,11 @@ class ClosedPythonSources:
                             if boundary := boundary_for(member):
                                 if boundary.role == "native-integer-value":
                                     return "value", ("builtins.int",)
-                                if boundary.role == "native-json-callable":
-                                    return "native-json-callable", (member,)
+                                if boundary.role in {
+                                    "native-json-callable",
+                                    "native-bytes-encoder",
+                                }:
+                                    return boundary.role, (member,)
                                 return "opaque", (member,)
                             try:
                                 obj = self.resolve(member)
@@ -2031,14 +2091,19 @@ class ClosedPythonSources:
                     if kind == "opaque":
                         return "opaque", targets
                     if kind == "native-json-callable":
+                        if targets == ("rapidjson.dumps",):
+                            return "native-json-string", targets
+                        if targets == ("rapidjson.loads",):
+                            return "native-json-value", ()
+                        return "unknown", ()
+                    if kind == "native-json-utf8":
                         return (
-                            ("native-json-string", targets)
-                            if targets == ("rapidjson.dumps",)
+                            ("value", ("builtins.bytes",))
+                            if not expression.args
                             else ("unknown", ())
                         )
-                    if kind == "native-json-utf8":
-                        # The finite codec proves encoding, not downstream byte methods.
-                        return "unknown", ()
+                    if kind == "native-bytes-encoder" and finite_bytes_encoding(expression):
+                        return "value", ("builtins.bytes",)
                     if (
                         kind == "callable"
                         and len(targets) == 1
@@ -2078,6 +2143,16 @@ class ClosedPythonSources:
                     if isinstance(expression, syntax):
                         return "value", ("builtins." + typename,)
                 return "unknown", ()
+
+            def finite_bytes_encoding(call):
+                if len(call.args) != 1 or call.args[0].star or call.args[0].keyword is not None:
+                    return False
+                value = call.args[0].value
+                if isinstance(value, cst.SimpleString):
+                    return type(value.evaluated_value) is bytes
+                return isinstance(value, cst.Name) and guarded_value_binding(
+                    value, module.qualified_names(value)
+                ) == ("value", ("builtins.bytes",))
 
             extractor = self
 
@@ -2168,6 +2243,7 @@ class ClosedPythonSources:
                                 "opaque",
                                 "native-json-callable",
                                 "native-json-utf8",
+                                "native-bytes-encoder",
                                 "receiver",
                                 "value-callable",
                             }
@@ -2217,13 +2293,37 @@ class ClosedPythonSources:
                             target = module_name + "." + target
                         if ".<locals>." in target or target == path:
                             continue
+                        passive = (
+                            target == "typing.Any"
+                            and isinstance(parent, cst.Annotation)
+                            and parent.annotation is node
+                        )
+                        if (
+                            target == "typing.Literal"
+                            and relation == "type_reference"
+                            and isinstance(parent, cst.Subscript)
+                            and parent.value is node
+                        ):
+                            try:
+                                passive = all(
+                                    isinstance(item.slice, cst.Index)
+                                    and not item.slice.star
+                                    and type(
+                                        ast.literal_eval(
+                                            module.wrapper.module.code_for_node(item.slice.value)
+                                        )
+                                    )
+                                    in {str, int, bool, type(None)}
+                                    for item in parent.slice
+                                )
+                            except ValueError, SyntaxError:
+                                passive = False
                         reference(
                             path,
                             target,
                             relation,
                             location,
-                            passive_annotation=isinstance(parent, cst.Annotation)
-                            and parent.annotation is node,
+                            passive_annotation=passive,
                         )
 
                 def visit_Attribute(self, node: cst.Attribute) -> None:
@@ -2337,6 +2437,12 @@ class ClosedPythonSources:
                             )
                         )
                     callee_kind, callee_targets = expression_binding(expression)
+                    if callee_kind == "native-bytes-encoder" and not finite_bytes_encoding(node):
+                        unknowns.add(
+                            SourceUnknown(
+                                path, location, "native Base64 encoding requires exact bytes"
+                            )
+                        )
                     if callee_kind == "native-json-utf8" and node.args:
                         unknowns.add(
                             SourceUnknown(
@@ -2413,7 +2519,7 @@ class ClosedPythonSources:
                                     and owned_json_literal(item.value)
                                     for item in value.elements
                                 )
-                            return False
+                            return expression_binding(value)[0] == "native-json-value"
 
                         if json_target == "rapidjson.dumps" and (
                             len(positional) != 1 or not owned_json_literal(positional[0].value)
@@ -2485,6 +2591,7 @@ class ClosedPythonSources:
                                 "opaque",
                                 "native-json-callable",
                                 "native-json-utf8",
+                                "native-bytes-encoder",
                                 "receiver",
                                 "value-callable",
                                 "instance",
@@ -2517,6 +2624,7 @@ class ClosedPythonSources:
                                 "opaque",
                                 "native-json-callable",
                                 "native-json-utf8",
+                                "native-bytes-encoder",
                                 "receiver",
                                 "value-callable",
                                 "instance",

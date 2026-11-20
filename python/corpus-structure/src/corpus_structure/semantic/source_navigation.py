@@ -68,6 +68,7 @@ class NavigationRequest(BaseModel):
         "declaration",
         "implementation",
         "references",
+        "hover",
         "signature",
         "call_hierarchy",
         "type_hierarchy",
@@ -261,7 +262,9 @@ def inspect_source_navigation(
                     {
                         "processId": os.getpid(),
                         "rootUri": root.as_uri(),
-                        "capabilities": {},
+                        "capabilities": {
+                            "textDocument": {"hover": {"contentFormat": ["plaintext"]}}
+                        },
                         "initializationOptions": {
                             "diagnosticMode": "off",
                             "experimental": {"useUv": "off"},
@@ -274,6 +277,7 @@ def inspect_source_navigation(
                     "declaration": ("declarationProvider", "textDocument/declaration"),
                     "implementation": ("implementationProvider", "textDocument/implementation"),
                     "references": ("referencesProvider", "textDocument/references"),
+                    "hover": ("hoverProvider", "textDocument/hover"),
                     "signature": ("signatureHelpProvider", "textDocument/signatureHelp"),
                     "call_hierarchy": (
                         "callHierarchyProvider",
@@ -335,6 +339,9 @@ def inspect_source_navigation(
                         if key not in {"uri", "targetUri"}
                     }
                     uri = value.get("targetUri", value.get("uri"))
+                    if request.operation == "hover" and value is rows[0]:
+                        # A Hover range is relative to the queried document and has no URI.
+                        uri = (root / request.path).as_uri()
                     if uri is not None:
                         parsed_uri = urlparse(uri)
                         path = Path(unquote(parsed_uri.path))

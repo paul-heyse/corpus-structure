@@ -5,9 +5,12 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict
+
+if TYPE_CHECKING:
+    from .code_identity import CodeIdentity
 
 
 class CodeReuseFact(BaseModel):
@@ -53,14 +56,7 @@ def explain_code_reuse(enabled=True):
         _COLLECTOR.reset(token)
 
 
-def code_reuse_report(
-    code,
-    *,
-    entry_point: str,
-    tier: str,
-    outcome: Literal["derived", "reused", "withheld", "unknown"] = "unknown",
-    limit=16,
-):
+def code_reuse_facts(code: CodeIdentity, limit: int) -> tuple[tuple[CodeReuseFact, ...], int]:
     selected = tuple(
         CodeReuseFact(
             standing="unresolved",
@@ -70,6 +66,18 @@ def code_reuse_report(
         )
         for item in code.unknowns[:limit]
     )
+    return selected, max(0, len(code.unknowns) - len(selected))
+
+
+def code_reuse_report(
+    code: CodeIdentity,
+    *,
+    entry_point: str,
+    tier: str,
+    outcome: Literal["derived", "reused", "withheld", "unknown"] = "unknown",
+    limit: int = 16,
+) -> CodeReuseExplanation:
+    selected, omitted = code_reuse_facts(code, limit)
     return CodeReuseExplanation(
         entry_point=entry_point,
         tier=tier,
@@ -79,7 +87,7 @@ def code_reuse_report(
         code_identity=code.digest,
         observed_identity=code.observed_digest,
         facts=selected,
-        omitted=max(0, len(code.unknowns) - len(selected)),
+        omitted=omitted,
         next_action="Resolve the attributed dependency with its semantic owner before reusing this tier."
         if not code.complete
         else None,

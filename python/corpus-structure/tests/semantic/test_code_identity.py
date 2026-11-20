@@ -384,6 +384,65 @@ def test_finite_typing_annotations_close_initialization_without_a_namespace_waiv
     assert any("initializer" in item.reason for item in eager.unknowns)
 
 
+def test_literal_type_reference_is_only_admitted_in_finite_annotation(tmp_path):
+    root = package(tmp_path)
+    entry = root / "entry.py"
+    entry.write_text(
+        "from typing import Literal\ndef result() -> Literal['ready']:\n return 'ready'\n"
+    )
+    roots = ("example.entry.result",)
+    assert capture_code_identity(root, ("example.entry",), callables=roots).complete
+    entry.write_text("from typing import Literal\ndef result():\n return Literal['ready']\n")
+    dynamic = capture_code_identity(root, ("example.entry",), callables=roots)
+    assert any("finite annotation values" in item.reason for item in dynamic.unknowns)
+
+
+def test_plain_refusal_class_headers_close_without_allowing_class_hooks(tmp_path):
+    root = package(tmp_path)
+    entry = root / "entry.py"
+    declarations = (
+        "class Refusal(ValueError):\n reason = 'invalid'\n"
+        " def __init__(self, message, *, reason=None):\n  super().__init__(message)\n"
+    )
+    child = "class WrongBinding(Refusal):\n reason = 'wrong_query'\n"
+    function = "def result():\n return 7\n"
+    roots = ("example.entry.result",)
+    entry.write_text(declarations + child + function)
+    assert capture_code_identity(root, ("example.entry",), callables=roots).complete
+    for changed in (
+        declarations + " def __init_subclass__(cls):\n  raise RuntimeError()\n" + child,
+        declarations + "Refusal = object\n" + child,
+        "ValueError = object\n" + declarations + child,
+    ):
+        entry.write_text(changed + function)
+        assert not capture_code_identity(root, ("example.entry",), callables=roots).complete
+
+
+def test_native_base64_output_is_owned_only_after_exact_bytes_admission(tmp_path):
+    from corpus_structure.semantic.external_runtime import acquire_codec_runtime
+
+    root = package(tmp_path)
+    entry = root / "entry.py"
+    guard = " if type(wire) is not bytes:\n  raise TypeError('bytes required')\n"
+    source = "import base64\ndef result(wire: bytes):\n" + guard
+    encode = " return base64.urlsafe_b64encode(wire).decode()\n"
+    capabilities = tuple(item for item in acquire_codec_runtime() if item.reference == "base64")
+
+    def capture(code):
+        entry.write_text(code)
+        return capture_code_identity(
+            root,
+            ("example.entry",),
+            callables=("example.entry.result",),
+            external_runtime=capabilities,
+        )
+
+    checked = capture(source + encode)
+    assert checked.complete, checked.unknowns
+    unchecked = capture(source.replace(guard, "") + encode)
+    assert any("requires exact bytes" in item.reason for item in unchecked.unknowns)
+
+
 def test_revoked_workload_proof_cannot_publish_a_derived_entry():
     from corpus_structure._query_custody import SourceCustodyError
     from corpus_structure.semantic.code_identity import CodeIdentity

@@ -347,6 +347,12 @@ def capture_code_identity(
             "passive-any-annotation",
             sha256(_bytes({"name": "typing.Any", "python": sys.version})).hexdigest(),
         ),
+        CodeBoundary(
+            "typing.Literal",
+            "standard-literal-annotation-v1",
+            "passive-literal-annotation",
+            sha256(_bytes({"name": "typing.Literal", "python": sys.version})).hexdigest(),
+        ),
         *(
             CodeBoundary(item.reference, item.contract, "initialization", item.digest)
             for item in external_runtime
@@ -364,6 +370,8 @@ def capture_code_identity(
                 if type(value) is int
                 else "native-json-callable"
                 if reference in {"rapidjson.loads", "rapidjson.dumps"}
+                else "native-bytes-encoder"
+                if reference == "base64.urlsafe_b64encode"
                 else "native-codec",
                 item.digest,
             )
@@ -817,6 +825,18 @@ def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSynt
         "set",
         "frozenset",
     }
+    exception_bases = {"ValueError"} - scanner.assigned - scanner.package_names.keys()
+    bindings: dict[str, int] = {}
+    for node in ast.walk(tree):
+        binding = None
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            binding = node.name
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            binding = node.id
+        elif isinstance(node, ast.alias):
+            binding = node.asname or node.name.partition(".")[0]
+        if binding is not None:
+            bindings[binding] = bindings.get(binding, 0) + 1
 
     def annotation(expression):
         # Under the selected future-annotations mode the standard dataclass
@@ -928,6 +948,34 @@ def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSynt
             for item in statement.body
         )
 
+    def exception_class(statement):
+        # Native ValueError's class creation admits no user hook. Each admitted
+        # descendant keeps that premise and installs only a constructor and
+        # literal public attributes in its own class namespace.
+        if (
+            len(statement.bases) != 1
+            or not isinstance(statement.bases[0], ast.Name)
+            or statement.bases[0].id not in exception_bases
+            or statement.keywords
+            or statement.decorator_list
+        ):
+            return False
+        return all(
+            (isinstance(item, ast.FunctionDef) and item.name == "__init__" and supported(item))
+            or (
+                isinstance(item, ast.Assign)
+                and all(
+                    isinstance(target, ast.Name) and not target.id.startswith("_")
+                    for target in item.targets
+                )
+                and not isinstance(item.value, ast.Name)
+                and literal(item.value)
+            )
+            or isinstance(item, ast.Pass)
+            or (isinstance(item, ast.Expr) and isinstance(item.value, ast.Constant))
+            for item in statement.body
+        )
+
     def supported(statement):
         if isinstance(statement, ast.If) and scanner.type_checking_guard(statement):
             return all(supported(item) for item in statement.orelse)
@@ -958,6 +1006,10 @@ def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSynt
         return False
 
     for statement in tree.body:
+        if isinstance(statement, ast.ClassDef) and exception_class(statement):
+            if bindings[statement.name] == 1:
+                exception_bases.add(statement.name)
+            continue
         if not supported(statement):
             yield CodeUnknown(
                 name, statement.lineno, "initializer effect lacks an execution contract"
