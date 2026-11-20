@@ -5,13 +5,18 @@ finite reports remain fields of their actual whole product, never new members.
 These projections neither run inference nor confer knowledge admission.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from .data_operation_json import json_bytes
 from .data_operation_kind_refinements import input_kind_refinements
 from .observations import source_python
 from .rich_queries import RichQueryRefused, RichQueryRow
-from .types import PreparedRelease
+
+if TYPE_CHECKING:
+    from .types import PreparedRelease
 
 CANDIDATE_NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/"
 READING_KIND = "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport"

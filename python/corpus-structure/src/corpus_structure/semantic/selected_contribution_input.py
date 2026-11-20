@@ -1,16 +1,16 @@
 """Typed selected support inputs and deterministic native-record interpretation."""
 
+from __future__ import annotations
+
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .authority_leaf import NativeAuthorityLeaf
 from .data_operation_json import json_bytes
-from .data_operation_model import EffectiveDataOperationModel, SubjectContext
-from .data_operation_read_index import SelectedRecordIndex
+from .data_operation_model import SubjectContext
 from .data_operation_support import ComputationalSupportReference, read_support_references
 from .data_operation_values import decode_semantic_value
-from .demand_results import CutSelection, SelectedGraphBudgetExceeded
 from .rich_graph_validation import RichWholeInput, read_retained_rich_graph, read_rich_graph
 from .rich_knowledge_contracts import (
     DdoRichAdmission,
@@ -19,7 +19,13 @@ from .rich_knowledge_contracts import (
     rich_reference_key,
 )
 from .rich_queries import RichQueryRefused
-from .types import PreparedRelease
+from .selected_graph_budget import SelectedGraphBudgetExceeded
+
+if TYPE_CHECKING:
+    from .data_operation_model import EffectiveDataOperationModel
+    from .data_operation_read_index import SelectedRecordIndex
+    from .demand_results import CutSelection
+    from .types import PreparedRelease
 
 RICH_NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
 

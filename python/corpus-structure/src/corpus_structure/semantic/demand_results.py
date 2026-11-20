@@ -19,6 +19,7 @@ from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_json import json_bytes, wire_json_loads
 from .data_operation_model import SubjectContext, validate_replicate_selection
 from .data_operation_values import decode_semantic_value
+from .selected_graph_budget import SelectedGraphBudgetExceeded
 
 if TYPE_CHECKING:
     from ._data_operation_wire import WireReadDemandResultRequest
@@ -335,14 +336,6 @@ def stream_selected_support(
         if not support["after"] or support["after"] == request.get("support_after"):
             raise ValueError("native support cursor did not advance")
         request["support_after"] = support["after"]
-
-
-class SelectedGraphBudgetExceeded(ValueError):
-    """The authenticated closure exceeds the caller's whole-examination budget."""
-
-    def __init__(self, message, *, cut):
-        super().__init__(message)
-        self.cut = cut
 
 
 @contextmanager

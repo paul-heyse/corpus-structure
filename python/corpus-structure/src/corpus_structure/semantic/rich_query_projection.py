@@ -1,15 +1,21 @@
 """Deterministic named rich-query preparation and rows over acquired native inputs."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from hashlib import sha256
+from typing import TYPE_CHECKING
 
 from .data_operation_json import json_bytes, json_loads
-from .data_operation_model import EffectiveDataOperationModel, SubjectContext
 from .data_operation_values import decode_semantic_value
 from .rich_graph_validation import RichWholeInput, read_retained_rich_graph
 from .rich_knowledge_contracts import DdoRichSelectedMember
-from .rich_queries import PreparedRichQueryIndex, RichQuery, RichQueryIndex, query_rows
-from .types import PreparedRelease
+from .rich_queries import PreparedRichQueryIndex, query_rows
+
+if TYPE_CHECKING:
+    from .data_operation_model import EffectiveDataOperationModel, SubjectContext
+    from .rich_queries import RichQuery, RichQueryIndex
+    from .types import PreparedRelease
 
 
 @dataclass(frozen=True)

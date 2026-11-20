@@ -13,6 +13,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.demand_results import CutSelection, DemandResult
+from corpus_structure.semantic.selected_graph_budget import SelectedGraphBudgetExceeded
 from semantic.demand_result_support import demand_result_page
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
 
@@ -637,9 +638,7 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
         assert cut.identity == CutSelection.from_native(demand_result_page()).identity
     selected = pages()
     with (
-        pytest.raises(
-            owner.SelectedGraphBudgetExceeded, match="closure exceeds record bound"
-        ) as captured,
+        pytest.raises(SelectedGraphBudgetExceeded, match="closure exceeds record bound") as captured,
         owner.selected_record_index(
             None,
             "demand:A",

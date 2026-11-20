@@ -461,8 +461,9 @@ def read_graph_inspection(reader, request: GraphInspectionRequest):
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError("invalid selected graph continuation") from error
     from .data_operation_admission import bound_data_operation_model
-    from .demand_results import SelectedGraphBudgetExceeded, selected_record_index
+    from .demand_results import selected_record_index
     from .selected_graph import selected_graph_budget_snapshot, selected_graph_snapshot
+    from .selected_graph_budget import SelectedGraphBudgetExceeded
 
     # The index owns only its temporary SQLite witness store after acquisition.
     # Keep it alive past reader exit, so construction and NetworkX never hold the

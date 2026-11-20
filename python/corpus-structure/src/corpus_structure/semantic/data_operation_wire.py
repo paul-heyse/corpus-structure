@@ -25,8 +25,6 @@ from jsonschema.exceptions import SchemaError, ValidationError
 from pydantic import TypeAdapter
 from referencing import Registry
 
-from corpus_structure.model.compiled import model_projection, model_source
-
 from .data_operation_json import json_bytes, wire_json_loads
 from .identity import canonical_bytes
 from .types import SourceArtifact
@@ -42,14 +40,10 @@ _JSON_VALUE = TypeAdapter(ExactJSONValue)
 
 def _protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
     if sources is None:
-        return _ambient_protocol_content()
+        from .native_protocol_model import ambient_protocol_content
+
+        return ambient_protocol_content()
     return _prepare_protocol_content(sources)
-
-
-@model_projection
-def _ambient_protocol_content() -> bytes:
-    """Bind ambient protocol preparation to the code imported by this process."""
-    return _prepare_protocol_content(None)
 
 
 def _prepare_protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
@@ -80,6 +74,8 @@ def _captured_protocol_content(sources: tuple[SourceArtifact, ...]) -> bytes:
 
 def _build_protocol_content(sources: tuple[SourceArtifact, ...] | None) -> bytes:
     if sources is None:
+        from corpus_structure.model.compiled import model_source
+
         content = model_source("data-operation-native.yaml")
     else:
         selected = [s.content for s in sources if s.name == PROTOCOL_SOURCE]
@@ -552,17 +548,12 @@ def _prepared_protocol(content: bytes) -> _PreparedProtocol:
     )
 
 
-@model_projection
-def _ambient_protocol() -> _PreparedProtocol:
-    # Retain this separately from captured-protocol LRUs: archived inspection
-    # cannot evict the running process's authoritative protocol preparation.
-    return _prepared_protocol(_ambient_protocol_content())
-
-
 def _protocol_state(sources: tuple[SourceArtifact, ...] | None) -> _PreparedProtocol:
-    return (
-        _ambient_protocol() if sources is None else _prepared_protocol(_protocol_content(sources))
-    )
+    if sources is None:
+        from .native_protocol_model import ambient_protocol
+
+        return ambient_protocol()
+    return _prepared_protocol(_protocol_content(sources))
 
 
 def wire_operations(
