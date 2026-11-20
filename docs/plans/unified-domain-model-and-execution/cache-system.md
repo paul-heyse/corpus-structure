@@ -723,6 +723,14 @@ is established. Keep semantic continuation identity separate from storage/codec/
 compatibility. A storage-only change may discard an entry and derive again under a valid cursor.
 A changed semantic interpretation produces an explicit incompatible-continuation refusal.
 
+**Implemented and scoped Tested, 2026-11-20 UTC.** The process and disk tiers now share
+lossless tagged row buffers and ordinal offsets. Process-local pickle and a second disk
+encoding pass were removed. Unsupported values and oversized populations keep their
+streaming path. Rich diagnostics are captured as data from that stream. The scoped
+demand, cache, rich and contribution selection passed 111 identities
+(`efe68e8e0b834a2b8f66fe6d92dacf22`). Cross-process reuse still depends on UDM-10's
+determining closure.
+
 The two CLI entry points opt into D4. MCP routes share the derivation and authenticated code
 contract while retaining their existing T4 process lifetime. Move affected CLI/MCP consumers
 and their error/reporting paths together. The files are private to the operating-system user

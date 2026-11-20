@@ -428,6 +428,28 @@ The private N38 publication control then passed (`1319925a435841b48ead42d88c2dbe
 It verified the authored entity qualifications and replay with zero new receipts. Cross-process
 serving reuse remains open under T4 and T14.
 
+**Implemented and scoped Tested, 2026-11-20 UTC.** Native demand and rich frontier
+consume recursively detached snapshots. The renderer now authenticates its finite native
+codec profiles. Strict D2 still rendered in both processes with zero hydrations and
+verified parity across all 620 frozen N38 objects (`b825ca9e4cb64f1f8489146c7a8b19bd`).
+Private strict T4 again withheld all three continuations, and T14 derived the second
+entity acquisition (`9e29dff341a04b8ab1d3143a482ac59e`).
+The working source subsequently added the snapshot preparers to their installed
+workload roots. The current native-demand scan reaches the actual generated TypedDict
+and Pydantic validator initialization. These are determining effects alongside the
+recursive codec and pagination work. The current demand adapter inspection found finite
+Pydantic core schema nodes and 69 generated TypedDict class references. Authentication
+of the compiled validator and its actual bindings is still required.
+Rich and contribution still require graph and validator custody.
+Offline `ci schema native-candidate` on `b3c4256e3` returned `no_native_change`
+for all 620 N38 objects (`ecb1a9a1842b43a985d5c79c75abd323`).
+Real provider inventory collection selected 24 identities
+(`5c35b6bdb4b949f0b075bb8e0cf6256e`), with functional outcome `not_run`.
+The updated identity, decoder, row storage and reader selection passed all 237
+controls (`580ce7aab0754bc89f9ef165591a738f`). Pyrefly and Ruff passed through
+`ci check` (`2b80e8c80cba4f28af28e607e6bd0506` and
+`89290ab123cd45cfbb09599f78016d25`).
+
 The focused serving and CLI controls passed 233 selected identities
 (`53e183166ea54effa89e64324c14fcda`). The final tagged-body and custody selection passed 30
 (`26d3c234872c4457b302b1966eb54588`). The catalog privilege regression exercises the full

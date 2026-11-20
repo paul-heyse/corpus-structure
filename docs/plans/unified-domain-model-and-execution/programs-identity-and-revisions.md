@@ -856,6 +856,16 @@ A constrained generator worker would require enforcement over filesystem,
 environment, network, clock and subprocess inputs before its envelope
 could establish equivalent custody.
 
+**Implemented and scoped Tested, 2026-11-20 UTC.** Native-demand and rich frontier
+projections now consume private immutable snapshots of generated native data. Rich,
+contribution and their structural consumers pass the captured decimal limit into
+tagged body decoding. The generator supplies the verified native codec profiles
+to its analysis and checks their live bindings at custody acquisition. Strict
+offline D2 still rendered twice, hydrated zero entries and matched all 620 N38
+objects (`b825ca9e4cb64f1f8489146c7a8b19bd`). The model, graph, Pydantic and
+SQL compiler effects remain required determinants. The proof for each workload
+must close before the entry point can authorize reuse.
+
 **Resulting behavior.** Capture one immutable source population with its module identities,
 origins and exact bytes. Derive the necessary initialized modules and callable dependencies
 for the selected entry. An import performs initialization, while a local import inside an
