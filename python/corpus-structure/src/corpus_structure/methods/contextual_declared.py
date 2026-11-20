@@ -152,6 +152,7 @@ class ContextualRetrievalOperation:
         },
         "replicate_policy": "retained-observation-single-result",
         "dependencies": ["retrieve.contextual_scores/declared"],
+        "potential_dependencies": ["retrieve.contextual_vectors/selection"],
         "effects": [],
         "capabilities": {
             "cpu_receipts": 1,

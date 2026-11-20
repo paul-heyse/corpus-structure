@@ -281,7 +281,7 @@ def test_generated_contextual_guards_bind_captured_rows_and_keep_private_custody
             is False
         )
         with (
-            pytest.raises(DBAPIError, match="finite declared producers") as refused,
+            pytest.raises(DBAPIError) as refused,
             connection.begin_nested(),
         ):
             connection.scalar(
@@ -291,4 +291,4 @@ def test_generated_contextual_guards_bind_captured_rows_and_keep_private_custody
                     )
                 )
             )
-        assert getattr(refused.value.orig, "sqlstate", None) == "23514"
+        assert getattr(refused.value.orig, "sqlstate", None) == "P0002"

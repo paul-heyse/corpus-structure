@@ -79,6 +79,30 @@ def _reject(condition, message):
     return If(condition, (Raise(message, "23514"),))
 
 
+def _contextual_producer_allowed(input_roles, dependencies, role, producer):
+    """Separate authenticated frozen input permission from local executable dependencies."""
+    roles = _items(input_roles, "contextual_input_role")
+    declared = roles.c.value
+    frozen = (
+        select(1)
+        .select_from(roles)
+        .where(
+            declared["name"].astext == role,
+            declared["direction"].astext == "input",
+            declared["support"]["source"].astext == "frozen-source-set",
+            func.nullif(declared["support"]["source_set"].astext, "").is_not(None),
+        )
+        .exists()
+    )
+    # Common binding admission authenticates the named set and its exact producer
+    # proof. Retained inputs do not require reacquiring their producer's code.
+    return or_(
+        frozen,
+        dependencies["required"].contains(func.jsonb_build_array(producer)),
+        dependencies["potential"].contains(func.jsonb_build_array(producer)),
+    )
+
+
 class _ContextualPrograms:
     """Shared typed framing and captured row lookups for the contextual guards."""
 
@@ -341,21 +365,11 @@ def contextual_admission_native_programs(*, target_metadata=None) -> tuple[Progr
                     ),
                     _reject(
                         or_(
-                            ~or_(
-                                operation_field(p.model, release, op, "dependencies")[
-                                    "required"
-                                ].contains(
-                                    func.jsonb_build_array(
-                                        p.row("producing", "ops.data_request", "operation_id")
-                                    )
-                                ),
-                                operation_field(p.model, release, op, "dependencies")[
-                                    "potential"
-                                ].contains(
-                                    func.jsonb_build_array(
-                                        p.row("producing", "ops.data_request", "operation_id")
-                                    )
-                                ),
+                            ~_contextual_producer_allowed(
+                                operation_field(p.model, release, op, "input_roles"),
+                                operation_field(p.model, release, op, "dependencies"),
+                                role,
+                                p.row("producing", "ops.data_request", "operation_id"),
                             ),
                             ~func.ops.ddo_contextual_dependencies_valid(
                                 p.row("episode", "ops.data_derivation", "id")

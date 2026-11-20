@@ -399,6 +399,7 @@ class ContextualWitnessedRetrievalOperation:
             "retrieve.contextual_scores/declared",
             "retrieve.contextual_witnesses/declared",
         ],
+        "potential_dependencies": ["retrieve.contextual_vectors/selection"],
         "effects": [],
         "capabilities": {
             "cpu_receipts": 1,
