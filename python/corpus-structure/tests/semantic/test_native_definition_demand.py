@@ -205,7 +205,8 @@ def test_actual_definition_demand_retains_provider_pair_and_exact_component_sour
                         intents.c.payload,
                         intents.c.producer_task_id,
                         intents.c.producer_attempt,
-                        tasks.c.run_id,
+                        tasks.c.data_request_id,
+                        tasks.c.data_generation,
                     )
                     .select_from(intents)
                     .join(derivations, derivations.c.intent_id == intents.c.id)
@@ -215,10 +216,11 @@ def test_actual_definition_demand_retains_provider_pair_and_exact_component_sour
                 .mappings()
                 .one()
             )
-        assert physical["run_id"] is None
         evidence = physical["payload"]["execution_evidence"]
         assert evidence["task_id"] == physical["producer_task_id"]
         assert evidence["attempt"] == physical["producer_attempt"]
+        assert evidence["request_id"] == physical["data_request_id"]
+        assert evidence["generation"] == physical["data_generation"]
         assert evidence["runtime_id"] == kernel.runtime
         provider_receipts = evidence["provider_receipts"]
         assert provider_receipts
