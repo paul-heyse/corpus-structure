@@ -7,6 +7,7 @@ from corpus_structure.semantic.characterization_ports import execute_view_profil
 from corpus_structure.semantic.enriched_document_products import (
     EnrichedDocumentProduct,
     RetainedCharacterizationProduct,
+    ordered_composition_inputs,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource
 
@@ -32,7 +33,7 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "sources",
                 "support": {
@@ -52,7 +53,7 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "annotations",
                 "support": {
@@ -72,7 +73,7 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "canonical",
                 "support": {
@@ -92,7 +93,7 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "hanlp",
                 "support": {
@@ -112,7 +113,7 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "formal",
                 "support": {
@@ -132,7 +133,7 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "constructions",
                 "support": {
@@ -152,7 +153,7 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "declaration_syntax",
                 "support": {
@@ -172,7 +173,7 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "alternative",
                 "parameter": "contextual",
                 "support": {
@@ -226,18 +227,18 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
         "binding": {
             "operator": "all",
             "children": [
-                {"operator": "collection", "roles": ["sources"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["annotations"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["canonical"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["hanlp"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["formal"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["constructions"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["sources"], "collection": "set"},
+                {"operator": "collection", "roles": ["annotations"], "collection": "set"},
+                {"operator": "collection", "roles": ["canonical"], "collection": "set"},
+                {"operator": "collection", "roles": ["hanlp"], "collection": "set"},
+                {"operator": "collection", "roles": ["formal"], "collection": "set"},
+                {"operator": "collection", "roles": ["constructions"], "collection": "set"},
                 {
                     "operator": "collection",
                     "roles": ["declaration_syntax"],
-                    "collection": "sequence",
+                    "collection": "set",
                 },
-                {"operator": "collection", "roles": ["contextual"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["contextual"], "collection": "set"},
                 {
                     "operator": "membership",
                     "operands": [
@@ -621,6 +622,11 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
         },
         "opaque": [
             {
+                "reference": "corpus_structure.semantic.enriched_document_products.ordered_composition_inputs",
+                "contract": "characterization/view-assets",
+                "role": "source-coordinate-ordering",
+            },
+            {
                 "reference": "corpus_structure.semantic.characterization_ports.execute_view_profile",
                 "contract": "characterization/view-assets",
                 "role": "prepared-view-resources",
@@ -696,4 +702,5 @@ class ComposeFullDocumentOperation(PreparedCompositionReceiver):
             *declaration_syntax,
             *contextual,
         )
+        sources, products = ordered_composition_inputs(sources, products)
         return execute_view_profile(self, sources, products, products, profile)

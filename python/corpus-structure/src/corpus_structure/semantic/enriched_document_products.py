@@ -171,7 +171,7 @@ def _covers(source, examined, requested):
     return found or requested in examined
 
 
-def ordered_captured_composition_inputs(sources, products):
+def ordered_composition_inputs(sources, products):
     """Present sets by authenticated source coordinate, without asserting reading order.
 
     Source and manifest roots originate in independent derivations: their scalar

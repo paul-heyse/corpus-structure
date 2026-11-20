@@ -3,13 +3,6 @@
 from typing import ClassVar
 
 from corpus_structure.methods.full_document_composition import ComposeFullDocumentOperation
-from corpus_structure.semantic.characterization_ports import execute_view_profile
-from corpus_structure.semantic.enriched_document_products import (
-    EnrichedDocumentProduct,
-    RetainedCharacterizationProduct,
-    ordered_captured_composition_inputs,
-)
-from corpus_structure.semantic.source_products import FrozenNativeSource
 
 
 class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
@@ -623,7 +616,7 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
         },
         "opaque": [
             {
-                "reference": "corpus_structure.semantic.enriched_document_products.ordered_captured_composition_inputs",
+                "reference": "corpus_structure.semantic.enriched_document_products.ordered_composition_inputs",
                 "contract": "characterization/view-assets",
                 "role": "captured-source-coordinate-ordering",
             },
@@ -682,31 +675,6 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
             sources=sources,
         )
 
-    def run(
-        self,
-        sources: tuple[FrozenNativeSource, ...],
-        annotations: tuple[RetainedCharacterizationProduct, ...],
-        canonical: tuple[RetainedCharacterizationProduct, ...],
-        hanlp: tuple[RetainedCharacterizationProduct, ...],
-        formal: tuple[RetainedCharacterizationProduct, ...],
-        constructions: tuple[RetainedCharacterizationProduct, ...],
-        declaration_syntax: tuple[RetainedCharacterizationProduct, ...],
-        contextual: tuple[RetainedCharacterizationProduct, ...],
-        profile: str = "full_characterization",
-    ) -> EnrichedDocumentProduct | None:
-        if not sources:
-            return None
-        products = (
-            *annotations,
-            *canonical,
-            *hanlp,
-            *formal,
-            *constructions,
-            *declaration_syntax,
-            *contextual,
-        )
-        sources, products = ordered_captured_composition_inputs(sources, products)
-        return execute_view_profile(self, sources, products, products, profile)
 
 
 class ComposeCapturedDocumentOperation(ComposeCapturedDocumentFamily):

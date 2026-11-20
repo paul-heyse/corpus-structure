@@ -5,6 +5,8 @@ from dataclasses import replace
 from hashlib import sha256
 from typing import cast
 
+import pytest
+
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection, pm2_selection
 from corpus_structure.semantic._data_operation_wire import WireReasonSelection
@@ -36,13 +38,18 @@ from semantic.current_pdf_source_support import (
 from semantic.data_operation_kernel_support import CapturedKernelInputs, split_captured_operations
 
 
-def test_captured_composition_closes_its_coordinate_ordering_dependency():
+@pytest.mark.parametrize("captured", (False, True))
+def test_composition_closes_its_coordinate_ordering_dependency(captured):
     from corpus_structure.semantic.characterization_ports import (
         captured_document_view_operation_sources,
+        full_document_view_operation_sources,
     )
     from corpus_structure.semantic.python_operation_sources import ClosedPythonSources
 
-    sources = captured_document_view_operation_sources(include_dependencies=False)
+    source_factory = (
+        captured_document_view_operation_sources if captured else full_document_view_operation_sources
+    )
+    sources = source_factory(include_dependencies=False)
     assert any(
         source.module == "corpus_structure.semantic.enriched_document_products"
         for source in sources.sources
@@ -50,15 +57,48 @@ def test_captured_composition_closes_its_coordinate_ordering_dependency():
     (composition,) = (
         operation
         for operation in ClosedPythonSources(sources).operations()
-        if json.loads(operation.metadata).get("id") == "text.compose_view/captured-full-native"
+        if json.loads(operation.metadata).get("id")
+        == ("text.compose_view/captured-full-native" if captured else "text.compose_view/full-native")
     )
     assert composition.implementation.complete, composition.implementation.unknowns
+    assert all(
+        role["collection"] == "set"
+        for role in json.loads(composition.metadata)["roles"]
+        if role["direction"] == "input"
+    )
     assert any(
         boundary.reference
-        == "corpus_structure.semantic.enriched_document_products.ordered_captured_composition_inputs"
+        == "corpus_structure.semantic.enriched_document_products.ordered_composition_inputs"
         and boundary.contract == "characterization/view-assets"
         for boundary in composition.implementation.boundaries
     )
+
+
+@pytest.mark.parametrize("captured", (False, True))
+def test_composition_presents_sets_by_source_coordinate(captured, monkeypatch):
+    from types import SimpleNamespace
+
+    from corpus_structure.methods import full_document_composition
+    from corpus_structure.methods.captured_document_composition import ComposeCapturedDocumentFamily
+
+    first = SimpleNamespace(value={"source": {"section_pointer": "a"}})
+    second = SimpleNamespace(value={"source": {"section_pointer": "b"}})
+    early = SimpleNamespace(content=b'{"source":{"section_pointer":"a"}}', semantic_id="a")
+    late = SimpleNamespace(content=b'{"source":{"section_pointer":"a"}}', semantic_id="z")
+    last = SimpleNamespace(content=b'{"source":{"section_pointer":"b"}}', semantic_id="b")
+    observed = []
+
+    def execute(receiver, sources, products, active, profile):
+        observed.append((sources, products, active, profile))
+
+    monkeypatch.setattr(full_document_composition, "execute_view_profile", execute)
+    owner = (
+        ComposeCapturedDocumentFamily
+        if captured
+        else full_document_composition.ComposeFullDocumentOperation
+    )
+    owner.run(object.__new__(owner), (second, first), (last, late, early), (), (), (), (), (), ())
+    assert observed == [((first, second), (early, late, last), (early, late, last), "full_characterization")]
 
 
 def captured_recipe(directory):

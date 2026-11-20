@@ -35,7 +35,7 @@ from .enriched_document_products import (
     RetainedCharacterizationProduct,
     compose_enriched_document,
     compose_enriched_document_values,
-    ordered_captured_composition_inputs,
+    ordered_composition_inputs,
 )
 from .formal_products import FormalEvidenceProduct, retained_formal_product
 from .identity import canonical_bytes
@@ -622,7 +622,7 @@ class PreparedCharacterizationPort(ABC):
                 products, active = retained, retained
                 source_role = next(role for role in self.operation.roles if role.name == "sources")
                 if source_role.collection == "set":
-                    sources, products = ordered_captured_composition_inputs(sources, products)
+                    sources, products = ordered_composition_inputs(sources, products)
                     active = products
             else:
                 products = self._retained(roles["products"], binding, "products")
@@ -965,6 +965,18 @@ def full_document_view_operation_sources(
     *, sentence_configuration=None, hanlp_selection=None, include_dependencies=True
 ):
     own = _operation_sources("full_document_composition", "view")
+    composition = Path(__file__).with_name("enriched_document_products.py")
+    own = replace(
+        own,
+        sources=(
+            *own.sources,
+            PythonSource(
+                "corpus_structure.semantic.enriched_document_products",
+                composition.read_bytes(),
+                str(composition),
+            ),
+        ),
+    )
     from .primary_operations import combine_primary_sources
 
     base = document_view_operation_sources(include_dependencies=False)
@@ -1018,18 +1030,6 @@ def captured_document_view_operation_sources(
     from .primary_operations import combine_primary_sources
 
     own = _operation_sources("captured_document_composition", "view")
-    composition = Path(__file__).with_name("enriched_document_products.py")
-    own = replace(
-        own,
-        sources=(
-            *own.sources,
-            PythonSource(
-                "corpus_structure.semantic.enriched_document_products",
-                composition.read_bytes(),
-                str(composition),
-            ),
-        ),
-    )
     base = full_document_view_operation_sources(include_dependencies=False)
     if not include_dependencies:
         return combine_primary_sources(base, own)
