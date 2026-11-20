@@ -2160,6 +2160,11 @@ def _verify_consumed_globals(
     checked: dict[tuple[str, str], Any] = {}
 
     def module_value(name: str):
+        if name in standard_references and isinstance(standard_references[name], ModuleType):
+            expected = standard_references[name]
+            if importlib.import_module(name) is not expected:
+                raise PortRefusal("runtime external module was replaced: " + name)
+            return expected
         if name not in modules and not any(key.startswith(name + ".") for key in modules):
             raise PortRefusal("runtime import is outside the captured closure: " + name)
         value = importlib.import_module(name)
@@ -2245,6 +2250,15 @@ def _verify_consumed_globals(
     for module_name, name, members in attribute_uses:
         value = resolve(module_name, name)
         for member in members:
+            reference = (
+                value.__name__ + "." + member if isinstance(value, ModuleType) else None
+            )
+            if reference in standard_references:
+                actual = inspect.getattr_static(value, member)
+                if actual is not standard_references[reference]:
+                    raise PortRefusal("runtime external symbol was replaced: " + reference)
+                value = actual
+                continue
             if not isinstance(value, ModuleType) or value.__name__ not in modules:
                 raise PortRefusal(
                     "runtime attribute needs an explicit acquired correspondence: "

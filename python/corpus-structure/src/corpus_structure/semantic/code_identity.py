@@ -21,6 +21,9 @@ from pathlib import Path
 from textwrap import dedent
 from threading import RLock
 
+if typing.TYPE_CHECKING:
+    from .external_runtime import ExternalRuntime
+
 
 def _bytes(value) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
@@ -73,6 +76,7 @@ class CodeIdentity:
     determining_modules: tuple[ModuleSource, ...] = ()
     discovery_unknowns: tuple[CodeUnknown, ...] = ()
     determining_definitions: tuple[str, ...] = ()
+    external_runtime: tuple[ExternalRuntime, ...] = ()
 
     @property
     def complete(self) -> bool:
@@ -109,6 +113,9 @@ class CodeIdentity:
             "narrowing_unknowns": self.narrowing_unknowns,
             "determining_modules": [item.module for item in self.determining_modules],
             "determining_definitions": self.determining_definitions,
+            "external_runtime": [
+                (item.reference, item.contract, item.digest) for item in self.external_runtime
+            ],
             "discovery_unknowns": [asdict(item) for item in self.discovery_unknowns],
             "complete": self.complete,
             "code_identity": self.digest,
@@ -259,9 +266,29 @@ def capture_code_identity(
     *,
     callables: tuple[str, ...] = (),
     boundaries: tuple[CodeBoundary, ...] = (),
+    external_runtime: tuple[ExternalRuntime, ...] = (),
 ) -> CodeIdentity:
     """Read the full import closure; narrow only when the existing slicer closes it."""
 
+    for capability in external_runtime:
+        capability.check()
+    boundaries = (
+        *boundaries,
+        *(
+            CodeBoundary(item.reference, item.contract, "initialization", item.digest)
+            for item in external_runtime
+        ),
+        *(
+            CodeBoundary(name, item.contract, "native-namespace", item.digest)
+            for item in external_runtime
+            for name, _ in item.modules
+        ),
+        *(
+            CodeBoundary(reference, item.contract, "native-codec", item.digest)
+            for item in external_runtime
+            for reference, _ in item.symbols
+        ),
+    )
     package = entries[0].split(".")[0] if entries else ""
     if (
         not package.isidentifier()
@@ -448,6 +475,7 @@ def capture_code_identity(
         determining,
         discovery_unknowns,
         definitions,
+        external_runtime,
     )
 
 
@@ -464,10 +492,13 @@ def authenticate_workload(root: Path, identity: CodeIdentity, *, closed: bool = 
     proof = None
     if identity.complete and identity.determining_definitions:
         proof = _runtime_workload_slice(
-            root.resolve(), identity.determining_modules, identity.determining_definitions
+            root.resolve(), identity.determining_modules, identity.determining_definitions,
+            identity.external_runtime,
         )
 
     def verify():
+        for capability in identity.external_runtime:
+            capability.check()
         if proof is not None:
             try:
                 proof.check()
@@ -481,7 +512,7 @@ def authenticate_workload(root: Path, identity: CodeIdentity, *, closed: bool = 
 
 
 @lru_cache(maxsize=32)
-def _runtime_workload_slice(root, determining, definitions):
+def _runtime_workload_slice(root, determining, definitions, external_runtime=()):
     from corpus_structure._query_custody import (
         SourceCustodyError,
         bootstrap_sources,
@@ -507,6 +538,11 @@ def _runtime_workload_slice(root, determining, definitions):
         generated_interfaces=_GENERATED_INTERFACES,
     )
     try:
+        references = dict(_STANDARD_REFERENCES)
+        for capability in external_runtime:
+            capability.check()
+            references.update(capability.modules)
+            references.update(capability.symbols)
         with query_sources(expected, closed=True):
             modules = {
                 source.module: importlib.import_module(source.module) for source in sources.sources
@@ -517,10 +553,10 @@ def _runtime_workload_slice(root, determining, definitions):
             raise SourceCustodyError("workload source differs from executing source")
         nodes = set(definitions)
         _verify_closed_runtime_sources(
-            sources, modules, paths, nodes, standard_references=_STANDARD_REFERENCES
+            sources, modules, paths, nodes, standard_references=references
         )
         return _authenticated_closed_slice(
-            sources, modules, paths, nodes, standard_references=_STANDARD_REFERENCES
+            sources, modules, paths, nodes, standard_references=references
         )
     except (ImportError, AttributeError, ValueError) as error:
         raise SourceCustodyError(f"workload runtime binding differs: {error}") from error

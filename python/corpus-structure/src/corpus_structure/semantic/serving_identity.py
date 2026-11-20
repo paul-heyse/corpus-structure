@@ -12,9 +12,14 @@ from .data_operation_json import json_bytes, json_loads
 @lru_cache(maxsize=64)
 def _installed_read_basis(contract, entry, profile, model_identity, *, callables):
     from corpus_structure.semantic.code_identity import capture_code_identity
+    from corpus_structure.semantic.external_runtime import acquire_codec_runtime
 
     root = Path(__file__).resolve().parents[1]
-    basis = capture_code_identity(root, (entry,), callables=callables)
+    basis = capture_code_identity(
+        root, (entry,), callables=callables,
+        external_runtime=acquire_codec_runtime()
+        if entry == "corpus_structure.semantic.demand_query_projection" else (),
+    )
     meaning = json_loads(basis.meaning)
     identity = sha256(
         json_bytes(

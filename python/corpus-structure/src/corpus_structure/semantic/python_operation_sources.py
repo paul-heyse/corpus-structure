@@ -1150,7 +1150,8 @@ class ClosedPythonSources:
             matches = [
                 b
                 for b in boundaries
-                if reference == b.reference or reference.startswith(b.reference + ".")
+                if reference == b.reference
+                or (b.role != "native-namespace" and reference.startswith(b.reference + "."))
             ]
             return max(matches, key=lambda b: len(b.reference)) if matches else None
 
@@ -1592,8 +1593,8 @@ class ClosedPythonSources:
                             else:
                                 kinds.add("unknown")
                             continue
-                        if boundary_for(target):
-                            kinds.add("opaque")
+                        if boundary := boundary_for(target):
+                            kinds.add("module" if boundary.role == "native-namespace" else "opaque")
                             targets.append(target)
                             continue
                         if target in self.modules:
