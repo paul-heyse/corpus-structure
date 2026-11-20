@@ -43,6 +43,40 @@ def test_dynamic_import_reports_incomplete_without_import_or_exception(tmp_path)
     ]
 
 
+def test_reached_local_import_expands_through_reexport_before_completion(tmp_path):
+    root = package(tmp_path)
+    (root / "entry.py").write_text(
+        "def result():\n from .bridge import answer\n return answer()\n"
+    )
+    (root / "bridge.py").write_text("from .value import answer\n")
+    (root / "value.py").write_text("def answer():\n return 7\n")
+    first = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert first.complete, first.unknowns
+    assert {source.module for source in first.determining_modules} == {
+        "example",
+        "example.entry",
+        "example.bridge",
+        "example.value",
+    }
+    (root / "value.py").write_text("def answer():\n return 8\n")
+    second = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert second.complete and second.digest != first.digest
+
+
+def test_unused_local_import_still_enforces_import_initialization(tmp_path):
+    root = package(tmp_path)
+    (root / "entry.py").write_text("def result():\n from .value import answer\n return 7\n")
+    (root / "value.py").write_text("def answer():\n return 1\n")
+    before = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert before.complete, before.unknowns
+    (root / "value.py").write_text(
+        "raise RuntimeError('initialization effect')\ndef answer():\n return 1\n"
+    )
+    after = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))
+    assert not after.complete
+    assert any(item.module == "example.value" for item in after.unknowns)
+
+
 def test_explicit_callable_owner_is_discovered_without_an_incidental_import(tmp_path):
     root = package(tmp_path)
     (root / "entry.py").write_text("def result():\n return 7\n")

@@ -303,7 +303,8 @@ def capture_code_identity(
     unknowns: set[CodeUnknown] = set()
     pending = set(entries)
 
-    def path_for(name):
+    @lru_cache(maxsize=None)
+    def path_for(name: str) -> Path | None:
         if name != package and not name.startswith(package + "."):
             return None
         relative = (
@@ -697,52 +698,62 @@ def _narrow(modules, callables, distributions, supplied_boundaries, package_root
         for item in supplied_boundaries
         if item.role != "initialization"
     )
-    try:
-        # The shared parser owns mutable library resolution caches.
-        with _SLICER_LOCK:
-            closed = _closed_sources(tuple(modules), sys.version)
-            slices = tuple(
-                closed.implementation_slice(
-                    entry, (CallableSurface(entry, entry, (), None),), boundaries, ()
+    while True:
+        captured_names = frozenset(initialized)
+        try:
+            # Parse only initialized modules. Imports in reached callable bodies
+            # expand this source population below before a slice can be accepted.
+            with _SLICER_LOCK:
+                closed = _closed_sources(
+                    tuple(module_sources[name] for name in sorted(captured_names)), sys.version
                 )
-                for entry in callables
-            )
-    except (PreparationError, ValueError, KeyError, ImportError) as error:
-        unknown = CodeUnknown(callables[0], 0, f"{type(error).__name__}: {error}")
-        return {}, (), (), (unknown,)
-
-    definitions = set()
-    for result in slices:
-        for item in result.unknowns:
-            if item.required:
-                filename, _, location = item.location.partition(":")
-                line = location.partition(":")[0]
-                filename = filename.removeprefix(package_root.name + "/")
-                required.add(
-                    CodeUnknown(
-                        source_names.get(filename, owner(item.source) or item.source),
-                        int(line) if line.isdecimal() else 0,
-                        item.reason,
+                slices = tuple(
+                    closed.implementation_slice(
+                        entry, (CallableSurface(entry, entry, (), None),), boundaries, ()
                     )
+                    for entry in callables
                 )
-        for node in result.nodes:
-            if not node.id.startswith("python:"):
-                continue
-            path = node.id.removeprefix("python:")
-            if name := owner(path.partition("/")[0]):
-                pending.add(name)
-            if path in closed.definitions:
-                definitions.add(path)
-                # A local import also initializes its target when the function
-                # executes and never reads the imported binding.
-                source, definition = closed.definitions[path]
-                definition_module = closed.modules[source]
-                code = definition_module.wrapper.module.code_for_node(definition)
-                line = definition_module.positions[definition].start.line
-                tree = ast.increment_lineno(ast.parse(dedent(code)), line - 1)
-                record_import_effects(module_sources[source], tree)
+        except (PreparationError, ValueError, KeyError, ImportError) as error:
+            unknown = CodeUnknown(callables[0], 0, f"{type(error).__name__}: {error}")
+            return {}, (), (), (unknown,)
 
-    initialize_modules()
+        definitions = set()
+        slice_required = set()
+        for result in slices:
+            for item in result.unknowns:
+                if item.required:
+                    filename, _, location = item.location.partition(":")
+                    line = location.partition(":")[0]
+                    filename = filename.removeprefix(package_root.name + "/")
+                    slice_required.add(
+                        CodeUnknown(
+                            source_names.get(filename, owner(item.source) or item.source),
+                            int(line) if line.isdecimal() else 0,
+                            item.reason,
+                        )
+                    )
+            for node in result.nodes:
+                if not node.id.startswith("python:"):
+                    continue
+                path = node.id.removeprefix("python:")
+                if name := owner(path.partition("/")[0]):
+                    pending.add(name)
+                if path in closed.definitions:
+                    definitions.add(path)
+                    # Even an unused local import initializes its module when
+                    # this reached callable executes. Its header and re-export
+                    # imports must be acquired before retrying resolution.
+                    source, definition = closed.definitions[path]
+                    definition_module = closed.modules[source]
+                    code = definition_module.wrapper.module.code_for_node(definition)
+                    line = definition_module.positions[definition].start.line
+                    tree = ast.increment_lineno(ast.parse(dedent(code)), line - 1)
+                    record_import_effects(module_sources[source], tree)
+
+        initialize_modules()
+        if required or frozenset(initialized) == captured_names:
+            required.update(slice_required)
+            break
     return (
         {
             "entries": callables,
