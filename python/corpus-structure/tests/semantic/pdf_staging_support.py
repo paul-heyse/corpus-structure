@@ -251,7 +251,7 @@ class _PrivatePdfBuildFactory:
         execute_data_demand(
             self.writer,
             demand,
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=self.admitter,
             project_id=_PROJECT,
             database_capacity=6,

@@ -156,7 +156,7 @@ def publish_external_report(journey, source, response_factory, *, inference):
     execute_data_demand(
         journey.kernel.purpose("write"),
         retained["demand_id"],
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=journey.kernel.purpose("admit"),
         project_id=PROJECT,
         database_capacity=6,
@@ -194,7 +194,7 @@ def publish_external_report(journey, source, response_factory, *, inference):
     execute_data_demand(
         journey.kernel.purpose("write"),
         retained["demand_id"],
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=journey.kernel.purpose("admit"),
         project_id=PROJECT,
         database_capacity=6,
@@ -258,7 +258,7 @@ def publish_external_report(journey, source, response_factory, *, inference):
     result = execute_data_demand(
         journey.kernel.purpose("write"),
         final_retained["demand_id"],
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=journey.kernel.purpose("admit"),
         project_id=PROJECT,
         database_capacity=6,

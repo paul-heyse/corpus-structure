@@ -297,7 +297,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
                 engine,
                 request,
                 MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-                source_root=ROOT,
+                source_root=ROOT / "python/corpus-structure/src",
                 admission_engine=kernel.purpose("admit"),
             )
         with clone.admin.connect() as connection:
@@ -491,7 +491,7 @@ def test_native_organization_enrichment_and_integration_keep_real_receipts_and_e
         resumed = execute_data_demand(
             kernel.purpose("write"),
             result.demand_id,
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=kernel.purpose("admit"),
             database_capacity=6,
         )

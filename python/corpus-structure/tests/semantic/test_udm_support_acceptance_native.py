@@ -361,7 +361,7 @@ def test_historical_pdf_raw_lineage_rejects_equal_value_from_another_real_episod
         execution = execute_data_demand(
             case.kernel.purpose("write"),
             retained["demand_id"],
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=case.kernel.purpose("admit"),
             database_capacity=6,
             project_id=case.original.project_id,

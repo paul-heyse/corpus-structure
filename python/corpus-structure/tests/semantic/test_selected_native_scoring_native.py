@@ -195,7 +195,7 @@ def test_native_whole_block_questions_keep_exact_custody_and_missing_populations
             kernel.purpose("evaluate"),
             authored["demand_id"],
             project_id=PROJECT,
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=kernel.purpose("admit"),
             purpose="evaluate",
             database_capacity=4,

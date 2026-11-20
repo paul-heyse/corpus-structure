@@ -85,7 +85,7 @@ def test_exact_pdf_materialization_bound_admits_small_source_and_refuses_before_
         executed = execute_data_demand(
             kernel.purpose("write"),
             demand,
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=kernel.purpose("admit"),
             database_capacity=6,
         )

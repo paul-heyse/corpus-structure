@@ -100,7 +100,7 @@ def test_real_batch_retained_intent_keeps_original_member_after_adoption(
             execute_data_demand(
                 kernel.purpose("write"),
                 demand,
-                source_root=ROOT,
+                source_root=ROOT / "python/corpus-structure/src",
                 project_id="ddo-test",
                 admission_engine=kernel.purpose("admit"),
                 database_capacity=6,

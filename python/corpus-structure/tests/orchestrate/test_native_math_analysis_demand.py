@@ -110,7 +110,7 @@ def test_actual_math_request_retains_source_coordinates_and_resumes_without_new_
         result = execute_data_demand(
             kernel.purpose("write"),
             registered["demand_id"],
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             policy=methods.execution_policy,
             admission_engine=kernel.purpose("admit"),
             database_capacity=6,
@@ -137,7 +137,7 @@ def test_actual_math_request_retains_source_coordinates_and_resumes_without_new_
         resumed = execute_data_demand(
             kernel.purpose("write"),
             result.demand_id,
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             policy=methods.execution_policy,
             admission_engine=kernel.purpose("admit"),
             database_capacity=6,

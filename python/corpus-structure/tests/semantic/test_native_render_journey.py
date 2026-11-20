@@ -33,7 +33,7 @@ def test_current_native_render_retains_real_original_geometry_and_png(current_pd
     result = execute_data_demand(
         case.kernel.purpose("write"),
         demand,
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=case.kernel.purpose("admit"),
         project_id=PROJECT,
         database_capacity=6,

@@ -383,7 +383,7 @@ def _capture_record_policy(kernel, tmp_path, source_count):
     result = execute_data_demand(
         kernel.purpose("write"),
         demand,
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=kernel.purpose("admit"),
         project_id=PROJECT,
         database_capacity=6,
@@ -916,7 +916,7 @@ def run_readings(
     execution = execute_data_demand(
         journey.kernel.purpose("write"),
         retained["demand_id"],
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=journey.kernel.purpose("admit"),
         project_id=PROJECT,
         database_capacity=6,
@@ -1062,7 +1062,7 @@ def run_grade(
     result = execute_data_demand(
         journey.kernel.purpose("evaluate"),
         retained["demand_id"],
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         purpose="evaluate",
         admission_engine=journey.kernel.purpose("admit"),
         project_id=PROJECT,
@@ -1225,7 +1225,7 @@ def complete_policy_fit(journey):
     result = execute_data_demand(
         journey.kernel.purpose("evaluate"),
         retained["demand_id"],
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         purpose="evaluate",
         admission_engine=journey.kernel.purpose("admit"),
         fitter_engine=journey.kernel.purpose("fit"),
@@ -1290,7 +1290,7 @@ def copy_grade(journey, selected_grade):
     executed = execute_data_demand(
         journey.kernel.purpose("evaluate"),
         demand,
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         purpose="evaluate",
         admission_engine=journey.kernel.purpose("admit"),
         project_id=PROJECT,
@@ -1416,7 +1416,7 @@ def refuse_exchanged_fitted_body(fitted, monkeypatch):
             execute_data_demand(
                 journey.kernel.purpose("evaluate"),
                 retained["demand_id"],
-                source_root=ROOT,
+                source_root=ROOT / "python/corpus-structure/src",
                 purpose="evaluate",
                 admission_engine=journey.kernel.purpose("admit"),
                 fitter_engine=journey.kernel.purpose("fit"),

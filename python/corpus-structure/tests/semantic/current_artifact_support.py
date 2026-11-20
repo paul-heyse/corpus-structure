@@ -173,7 +173,7 @@ def companion_source(source, directory, monkeypatch, rows):
         result = execute_data_demand(
             kernel.purpose("write"),
             retained["demand_id"],
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=kernel.purpose("admit"),
             project_id=PROJECT,
             database_capacity=6,

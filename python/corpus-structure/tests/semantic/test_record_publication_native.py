@@ -109,7 +109,7 @@ def test_native_authored_publication_keeps_entity_qualification_and_origin(rich_
     replay = execute_data_demand(
         rich_publication.kernel.purpose("write"),
         selected.demand_id,
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=rich_publication.kernel.purpose("admit"),
         project_id=PROJECT,
         database_capacity=6,

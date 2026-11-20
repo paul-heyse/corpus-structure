@@ -60,7 +60,7 @@ def test_failed_provider_observation_remains_selected_and_inspectable(
     execute_data_demand(
         case.kernel.purpose("write"),
         demand,
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         admission_engine=case.kernel.purpose("admit"),
         project_id=PROJECT,
         database_capacity=6,

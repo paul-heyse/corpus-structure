@@ -155,7 +155,7 @@ def _project(kernel, names):
     execute_data_demand(
         kernel.purpose("write"),
         demand,
-        source_root=ROOT,
+        source_root=ROOT / "python/corpus-structure/src",
         project_id=PROJECT,
         admission_engine=kernel.purpose("admit"),
         database_capacity=6,

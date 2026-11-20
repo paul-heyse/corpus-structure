@@ -197,7 +197,7 @@ def remap_current_integration(case, policy):
             engine,
             request,
             MethodSettings(data_dir=case.directory, model_cache=case.directory),
-            source_root=ROOT,
+            source_root=ROOT / "python/corpus-structure/src",
             admission_engine=kernel.purpose("admit"),
         )
     with case.reader().begin() as connection:
@@ -487,7 +487,7 @@ def current_integration_journey(
                     engine,
                     request,
                     MethodSettings(data_dir=tmp_path, model_cache=tmp_path),
-                    source_root=ROOT,
+                    source_root=ROOT / "python/corpus-structure/src",
                     admission_engine=kernel.purpose("admit"),
                 )
             except NativeDemandExecutionError as error:
@@ -512,7 +512,7 @@ def current_integration_journey(
                     result = execute_data_demand(
                         engine,
                         error.result.demand_id,
-                        source_root=ROOT,
+                        source_root=ROOT / "python/corpus-structure/src",
                         admission_engine=kernel.purpose("admit"),
                         database_capacity=6,
                     )
