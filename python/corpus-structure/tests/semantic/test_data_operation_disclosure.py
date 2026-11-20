@@ -152,3 +152,39 @@ def test_selected_output_authorization_is_inside_exact_reached_public_support():
     feature_source = str(feature.compile(dialect=dialect(), compile_kwargs={"literal_binds": True}))
     assert "ddo_feature_fit_body_access" in feature_source
     assert "ddo_structural_report_support" not in feature_source
+
+
+def test_custody_output_keeps_exact_disclosure_and_pinned_nested_universes():
+    from pglast import ast, parse_sql
+    from sqlalchemy.dialects.postgresql import dialect
+
+    from corpus_structure.semantic.data_operation_projections import selected_support_output
+
+    query = _selected_support_output_rows(get_metadata(), purpose="custody")
+    source = str(query.compile(dialect=dialect(), compile_kwargs={"literal_binds": True}))
+    parsed = parse_sql(source)[0].stmt
+    assert isinstance(parsed, ast.SelectStmt)
+    assert isinstance(parsed.whereClause, ast.CaseExpr)
+    for required in (
+        "boundary.public_disclosure",
+        "boundary.access_universes",
+        "ops.ddo_body_kind_contracts",
+        "ops.ddo_policy_authority_leaf",
+        "ops.ddo_valid_closure",
+        "selected_uses.id = p_use",
+        "kb.data_product.project_id = d.project_id",
+        "ops.data_derivation_output.member_id IS NULL",
+        "support_closure.kind IN ('episode', 'authority')",
+        "coalesce(boundary.access_universes ? sem.data_kind_contract.universe, false)",
+    ):
+        assert required in source
+    assert "ddo_body_access" not in source
+    assert "ddo_kind_access" not in source
+    assert "ddo_feature_fit_body_access" not in source
+    assert {item.name for item in query.selected_columns} == {"derivation_id", "product_id"}
+    selected = selected_support_output(get_metadata(), purpose="custody")
+    selected_source = str(
+        selected.compile(dialect=dialect(), compile_kwargs={"literal_binds": True})
+    )
+    assert "selected_whole_outputs.derivation_id = p_derivation" in selected_source
+    assert "selected_whole_outputs.product_id = p_product" in selected_source

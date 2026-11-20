@@ -1340,16 +1340,13 @@ def _fit_selected_grade(p):
                 reads.c.id == _text(selection, "read_id"),
                 reads.c.demand_id == _text(selection, "demand_id"),
             ),
+            # Exact retained custody needs current ordinary epochs, independently
+            # of the consumer's authority to receive protected grade values.
+            Perform(func.ops.ddo_require_read_epochs(boundary(), r("project_id"), True)),
             If(
                 ~core_variable("authenticate_output", Boolean()),
-                (
-                    # Dependency validity authenticates exact retained custody above
-                    # and needs only current ordinary epochs, never protected values.
-                    Perform(func.ops.ddo_require_read_epochs(boundary(), r("project_id"), True)),
-                    Return(literal(None)),
-                ),
+                (Return(literal(None)),),
             ),
-            Perform(func.ops.ddo_require_read_current(boundary(), r("project_id"), True)),
             p.lookup(
                 "d",
                 "ops.data_demand",
@@ -1357,7 +1354,7 @@ def _fit_selected_grade(p):
                 demands.c.project_id == r("project_id"),
             ),
             Assign("p", _object(scope=boundary("scope"))),
-            SelectInto(selected_support_output(p.model), ("admitted",)),
+            SelectInto(selected_support_output(p.model, purpose="custody"), ("admitted",)),
             _reject(
                 ~func.coalesce(admitted, False),
                 "fit grade is outside exact current native selected support",

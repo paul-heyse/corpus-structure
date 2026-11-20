@@ -435,60 +435,22 @@ def _cut_programs(model):
     outputs = select(
         func.coalesce(func.jsonb_agg(func.to_jsonb(available.table_valued())), _json("[]"))
     ).select_from(available)
-    return (
-        *_grade(
-            "cut_scopes",
-            cut_args,
-            "text",
-            setof=True,
-            body=(
-                *acquire,
-                _refuse(
-                    ~func.coalesce(func.ops.ddo_read_acquisition_present(boundary), False),
-                    "record census requires read reacquisition",
-                ),
-                _refuse(
-                    ~_field("boundary", read, "grade_census_eligible"),
-                    "record census support reaches a protected judgment",
-                ),
-                Assign("p", scope),
-                SelectInto(cut_selection_projection(), ("actual",)),
-                _refuse(
-                    captured.is_distinct_from(actual),
-                    "record grade scope acquisition differs from actual project/cut",
-                ),
-                ReturnQuery(
-                    select(retained.c.scope)
-                    .where(
-                        retained.c.read_id == _field("boundary", read, "id"),
-                        retained.c.ordinary,
-                    )
-                    .order_by(retained.c.scope)
-                ),
-            ),
-            locals_=(*base_locals, Local("p", pg_type("jsonb")), Local("actual", pg_type("jsonb"))),
+    cut_proof = (
+        Perform(func.ops.ddo_record_grade_cut_scopes(project, text)),
+        _refuse(
+            identity.is_distinct_from(literal("cut-selection:").op("||")(_hash(text))),
+            "record grade differs from exact retained native cut",
         ),
-        *_grade(
-            "require_cut",
-            require_args,
-            "void",
-            body=(
-                Perform(func.ops.ddo_record_grade_cut_scopes(project, text)),
-                _refuse(
-                    identity.is_distinct_from(literal("cut-selection:").op("||")(_hash(text))),
-                    "record grade differs from exact retained native cut",
-                ),
-                *acquire,
-                Perform(func.ops.ddo_require_read_current(boundary, project, True)),
-            ),
-            locals_=base_locals,
-        ),
-        *_grade(
-            "acquire_census",
+        *acquire,
+    )
+
+    def census(name, require):
+        return _grade(
+            name,
             require_args,
             "jsonb",
             body=(
-                Perform(func.ops.ddo_record_grade_require_cut(project, text, identity)),
+                Perform(getattr(func.ops, require)(project, text, identity)),
                 *acquire,
                 Assign("p", scope),
                 While(
@@ -527,7 +489,63 @@ def _cut_programs(model):
                 Local("selected_view", pg_type("text"), literal("frontier")),
                 Local("selected_max_bytes", pg_type("int8"), literal(64 * 1024**2)),
             ),
+        )
+
+    return (
+        *_grade(
+            "cut_scopes",
+            cut_args,
+            "text",
+            setof=True,
+            body=(
+                *acquire,
+                _refuse(
+                    ~func.coalesce(func.ops.ddo_read_acquisition_present(boundary), False),
+                    "record census requires read reacquisition",
+                ),
+                _refuse(
+                    ~_field("boundary", read, "grade_census_eligible"),
+                    "record census support reaches a protected judgment",
+                ),
+                Assign("p", scope),
+                SelectInto(cut_selection_projection(), ("actual",)),
+                _refuse(
+                    captured.is_distinct_from(actual),
+                    "record grade scope acquisition differs from actual project/cut",
+                ),
+                ReturnQuery(
+                    select(retained.c.scope)
+                    .where(
+                        retained.c.read_id == _field("boundary", read, "id"),
+                        retained.c.ordinary,
+                    )
+                    .order_by(retained.c.scope)
+                ),
+            ),
+            locals_=(*base_locals, Local("p", pg_type("jsonb")), Local("actual", pg_type("jsonb"))),
         ),
+        *_grade(
+            "require_cut",
+            require_args,
+            "void",
+            body=(
+                *cut_proof,
+                Perform(func.ops.ddo_require_read_current(boundary, project, True)),
+            ),
+            locals_=base_locals,
+        ),
+        *_grade(
+            "require_cut_material",
+            require_args,
+            "void",
+            body=(
+                *cut_proof,
+                Perform(func.ops.ddo_require_read_epochs(boundary, project, True)),
+            ),
+            locals_=base_locals,
+        ),
+        *census("acquire_census", "ddo_record_grade_require_cut"),
+        *census("acquire_census_material", "ddo_record_grade_require_cut_material"),
     )
 
 
@@ -747,7 +765,9 @@ def _request_cut_programs(model):
                             select(cuts),
                             (
                                 Perform(
-                                    func.ops.ddo_record_grade_require_cut(project, cut_text, cut_id)
+                                    func.ops.ddo_record_grade_require_cut_material(
+                                        project, cut_text, cut_id
+                                    )
                                 ),
                             ),
                         ),
@@ -1416,7 +1436,9 @@ def _frame_program(model: MetaData):
                         cuts.op("||")(
                             func.jsonb_build_object(
                                 cut_id,
-                                func.ops.ddo_record_grade_acquire_census(project, cut_text, cut_id),
+                                func.ops.ddo_record_grade_acquire_census_material(
+                                    project, cut_text, cut_id
+                                ),
                             )
                         ),
                     ),

@@ -125,6 +125,30 @@ def _disclosed_body_access(metadata, kind, body):
     )
 
 
+def _custody_body_eligible(metadata, kind, body):
+    """Authenticate identity-only material within the original acquisition's universes."""
+    kinds = metadata.tables["sem.data_kind_contract"]
+    nested = (
+        func.ops.ddo_body_kind_contracts(kind, body)
+        .table_valued(column("kind_contract", Text))
+        .render_derived(name="custody_body_kind")
+    )
+    outside_acquisition = exists(
+        select(1)
+        .select_from(nested.outerjoin(kinds, kinds.c.kind_contract == nested.c.kind_contract))
+        .where(
+            or_(
+                kinds.c.kind_contract.is_(None),
+                ~func.coalesce(
+                    _var("boundary.access_universes", JSONB).bool_op("?")(kinds.c.universe),
+                    False,
+                ),
+            )
+        )
+    )
+    return and_(_kind_disclosed(metadata, kind), ~outside_acquisition)
+
+
 def _visible(table):
     return func.ops.ddo_read_visible(
         table.c.created_at, table.c.created_xid, core_reference("boundary", type_=NullType())
@@ -1617,7 +1641,7 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
         )
         .cte("selected_output_seed")
     )
-    nodes = _support_walk(metadata, seed, public=purpose == "read")
+    nodes = _support_walk(metadata, seed, public=purpose in {"read", "custody"})
     outputs = metadata.tables["ops.data_derivation_output"]
     episodes = metadata.tables["ops.data_derivation"]
     products = metadata.tables["kb.data_product"]
@@ -1628,6 +1652,10 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
     elif purpose == "feature-fit":
         access = func.ops.ddo_feature_fit_body_access(
             products.c.kind_contract, products.c.canonical_body
+        )
+    elif purpose == "custody":
+        access = _custody_body_eligible(
+            metadata, products.c.kind_contract, products.c.canonical_body
         )
     else:
         raise ValueError("unknown selected output purpose")
@@ -1689,7 +1717,7 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
 
 
 def selected_support_output(metadata, *, purpose="read"):
-    """Prove one whole output in an explicit selected use's current support closure."""
+    """Prove exact output membership; internal custody returns no body or caller capability."""
     rows = _selected_support_output_rows(metadata, purpose=purpose).cte("selected_whole_outputs")
     return select(
         exists(
