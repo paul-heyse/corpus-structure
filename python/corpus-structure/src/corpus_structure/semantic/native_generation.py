@@ -32,11 +32,8 @@ class _GenerationFailure:
 
 @declare("native-installation", "program_sets", key=_installation_key)
 def _held_target_installation(inputs: NativeGeneratorInputs):
-    from corpus_structure.schema.physical import compile_physical
-
     from .code_reuse import record_code_reuse
 
-    owned = compile_physical(dict(inputs.physical_sources), linkml_types=inputs.linkml_types)
     try:
         from .native_program_store import (
             capture_generator_custody,
@@ -46,7 +43,15 @@ def _held_target_installation(inputs: NativeGeneratorInputs):
         )
 
         key = input_key(inputs, include_format=True)
-        retained = None if key is None else load_installation(key, owned)
+        retained = (
+            None
+            if key is None
+            else load_installation(
+                key,
+                physical_sources=inputs.physical_sources,
+                linkml_types=inputs.linkml_types,
+            )
+        )
         if retained is not None:
             record_code_reuse(
                 inputs.code_identity,

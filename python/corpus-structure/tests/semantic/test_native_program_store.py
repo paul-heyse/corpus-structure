@@ -105,7 +105,11 @@ def test_program_store_reopens_a_program_entry_without_building(tmp_path, monkey
         pytest.fail("the warm disk artifact must bypass the program builder")
 
     monkeypatch.setattr(target_installation, "_build_target_installation", unexpected)
-    opened = native_program_store.load_installation(b"program-set", get_metadata())
+    opened = native_program_store.load_installation(
+        b"program-set",
+        physical_sources=tuple(current.metadata.info["physical_sources"].items()),
+        linkml_types=current.metadata.info["physical_linkml_types"],
+    )
     assert opened is not None
     assert opened is not current
     assert opened.metadata.info["physical_model_id"] == current.metadata.info["physical_model_id"]
@@ -113,6 +117,26 @@ def test_program_store_reopens_a_program_entry_without_building(tmp_path, monkey
     assert opened.prerequisites == current.prerequisites
     assert opened.authoring_inputs.sources == current.authoring_inputs.sources
     assert opened.rendered_only
+
+
+def test_program_store_miss_does_not_compile_physical_inputs(tmp_path, monkeypatch):
+    from corpus_structure import cache_store
+    from corpus_structure.schema import physical
+    from corpus_structure.semantic import native_program_store
+
+    store = cache_store.CacheStore(
+        tmp_path / "cache", program_store_bytes=64 * 1024**2, page_store_bytes=0
+    )
+    monkeypatch.setattr(cache_store, "configured_store", lambda: store)
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("a disk miss must leave physical compilation to the renderer")
+
+    monkeypatch.setattr(physical, "compile_physical", unexpected)
+    missing = native_program_store.load_installation(
+        b"missing", physical_sources=(), linkml_types=b""
+    )
+    assert missing is None
 
 
 @pytest.mark.skipif(
@@ -125,7 +149,16 @@ def test_installed_native_candidate_reuses_programs_in_a_fresh_offline_process(t
     import sys
     from pathlib import Path
 
+    from corpus_structure.semantic.execution_admission import _revision_expectation
+    from corpus_structure.semantic.migrations import ALEMBIC_DIR, head_revision
+    from corpus_structure.semantic.native_authoring import load_native_state
+
     root = Path(__file__).resolve().parents[4]
+    predecessor = head_revision()
+    assert predecessor is not None
+    frozen = _revision_expectation(ALEMBIC_DIR / "versions", predecessor)
+    state_path, state_digest = frozen.state
+    object_count = len(load_native_state(state_path, digest=state_digest))
     cache = tmp_path / "program-cache"
     unavailable = "postgresql+psycopg://paul@127.0.0.1:1/corpus_d2_offline?connect_timeout=1"
     environment = os.environ | {
@@ -174,7 +207,7 @@ finally:
         "schema",
         "native-candidate",
         "--expected-predecessor",
-        "semantic_ddo_pe_n34",
+        predecessor,
         "--json",
     ]
 
@@ -197,8 +230,8 @@ finally:
     second, second_counts = invoke(2)
 
     assert first["outcome"] == second["outcome"] == "no_native_change"
-    assert first["head_revision"] == second["head_revision"] == "semantic_ddo_pe_n34"
-    assert first["object_count"] == second["object_count"] == 617
+    assert first["head_revision"] == second["head_revision"] == predecessor
+    assert first["object_count"] == second["object_count"] == object_count
     assert first["kernel_identity"] == second["kernel_identity"]
     observations = {
         "first": first_counts,

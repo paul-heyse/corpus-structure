@@ -283,8 +283,11 @@ def input_key(inputs, *, include_format: bool) -> bytes | None:
     )
 
 
-def load_installation(key: bytes, metadata: MetaData) -> TargetInstallation | None:
+def load_installation(
+    key: bytes, *, physical_sources: tuple[tuple[str, bytes], ...], linkml_types: bytes
+) -> TargetInstallation | None:
     from corpus_structure.cache_store import configured_store
+    from corpus_structure.schema.physical import compile_physical
 
     files = configured_store().get("programs", FORMAT, key)
     if files is None:
@@ -293,6 +296,10 @@ def load_installation(key: bytes, metadata: MetaData) -> TargetInstallation | No
         if set(files) != {"programs.json"}:
             raise ValueError("stored program file inventory differs")
         artifact = ProgramSetArtifact.model_validate_json(files["programs.json"])
+    except ValueError:
+        return None
+    metadata = compile_physical(dict(physical_sources), linkml_types=linkml_types)
+    try:
         return artifact.hydrate(metadata)
     except ValueError, KeyError, TypeError:
         return None
