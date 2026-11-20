@@ -319,9 +319,15 @@ class EventFramePlan:
                 f"sources: selected={len(sources)}, distinct={len(actual_sources)}, "
                 f"expected={len(expected_sources)}, values_match={actual_sources == expected_sources})"
             )
+        original_selection = question.original_selection
+        prediction_selection = question.prediction_selection
         with execution_owner.engine.begin() as connection:
-            original_prepared = open_release(connection, question.original_selection.release_id)
-            prediction_prepared = open_release(connection, question.prediction_selection.release_id)
+            original_prepared = open_release(connection, original_selection.release_id)
+            prediction_prepared = (
+                original_prepared
+                if prediction_selection.release_id == original_selection.release_id
+                else open_release(connection, prediction_selection.release_id)
+            )
             definitions = {
                 row["operation_id"]: row
                 for row in read_native_definition_projection(prediction_prepared)["operations"]
@@ -329,10 +335,8 @@ class EventFramePlan:
             report_bodies = dict(
                 zip((row.product for row in reports), arguments.arguments["reports"], strict=True)
             )
-            for selection, original in (
-                (question.original_selection, True),
-                (question.prediction_selection, False),
-            ):
+            # Identical pinned selections share one authenticated index in this transaction.
+            for selection in dict.fromkeys((original_selection, prediction_selection)):
                 cut = CutSelection(selection.cut_canonical_json.encode())
                 with selected_record_index(
                     connection,
@@ -343,7 +347,7 @@ class EventFramePlan:
                     expected_cut=selection.cut_id,
                     capture_frontier=True,
                 ) as (_, index):
-                    if original:
+                    if selection == original_selection:
                         for member, body in zip(
                             sources, arguments.arguments["sources"], strict=True
                         ):
@@ -352,6 +356,7 @@ class EventFramePlan:
                                 raise SemanticRefusal(
                                     "event original source differs from actual selected body"
                                 )
+                    if selection != prediction_selection:
                         continue
                     uses = {row["use_id"]: row for row in index.frontier_rows("uses")}
                     episodes = index.mapping("ops.data_derivation", ("id",))
