@@ -434,3 +434,32 @@ def test_bytes_literals_and_constructed_results_keep_bytes_methods(expression):
     )
     assert not result.complete
     assert any("attribute access" in item.reason for item in result.unknowns)
+
+
+@pytest.mark.parametrize("value_type", ["dict", "str"])
+def test_return_proof_does_not_promote_annotated_parameters(value_type):
+    result = implementation(
+        "def same(value):\n    return value\n"
+        "def run(value: " + value_type + "):\n    return same(value).copy()\n", inputs=()
+    )
+    assert not result.complete
+    assert any("same(value).copy" in item.reason for item in result.unknowns)
+
+
+def test_bound_method_does_not_reinterpret_its_implicit_receiver_as_an_argument():
+    result = implementation(
+        "class Item:\n    def make(self, value):\n        return self\n"
+        "def run(item: Item):\n    return item.make({}).get('answer')\n", inputs=()
+    )
+    assert not result.complete
+    assert any("item.make({}).get" in item.reason for item in result.unknowns)
+
+
+def test_decorated_function_cannot_inherit_its_source_body_return_profile():
+    result = implementation(
+        "def alter(function):\n    return function\n"
+        "@alter\ndef make():\n    return {}\n"
+        "def run():\n    return make().get('answer')\n", inputs=()
+    )
+    assert not result.complete
+    assert any("make().get" in item.reason for item in result.unknowns)

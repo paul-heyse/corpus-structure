@@ -49,6 +49,11 @@ from .data_operation_model import (
 from .identity import canonical_bytes
 from .types import Diagnostic, PreparationError, SourceArtifact
 
+_EXACT_BUILTIN_CONSTRUCTORS = frozenset(
+    "builtins." + name
+    for name in ("str", "bytes", "int", "float", "bool", "tuple", "list", "dict", "set", "frozenset")
+)
+
 # Deliberately bounded static profile. Callback-taking/reflection/code-loading
 # builtins require an explicit complete opaque model rather than successful inference.
 _SUPPORTED_BUILTIN_CALLS = frozenset(
@@ -1579,6 +1584,26 @@ class ClosedPythonSources:
                         return parent.comparisons[0]
                 return None
 
+            def constructed_value_binding(expression, source_module):
+                """Exact construction syntax, independent of parameter annotations."""
+                if isinstance(expression, cst.SimpleString):
+                    return "value", ("builtins." + type(expression.evaluated_value).__name__,)
+                for syntax, typename in (
+                    (cst.Dict, "dict"), (cst.DictComp, "dict"),
+                    (cst.List, "list"), (cst.ListComp, "list"),
+                    (cst.Tuple, "tuple"), (cst.Set, "set"), (cst.SetComp, "set"),
+                    (cst.Integer, "int"), (cst.Float, "float"),
+                ):
+                    if isinstance(expression, syntax):
+                        return "value", ("builtins." + typename,)
+                if isinstance(expression, cst.Call) and isinstance(expression.func, cst.Name):
+                    names = source_module.qualified_names(expression.func)
+                    if len(names) == 1:
+                        name = next(iter(names))
+                        if name.source == QualifiedNameSource.BUILTIN and name.name in _EXACT_BUILTIN_CONSTRUCTORS:
+                            return "value", (name.name,)
+                return "unknown", ()
+
             @lru_cache(maxsize=128)
             def returned_value_binding(target, arguments, active):
                 """Prove a returned value from syntax and supplied argument provenance.
@@ -1589,7 +1614,7 @@ class ClosedPythonSources:
                 if target in active or target not in extractor.definitions:
                     return "unknown", ()
                 source, function = extractor.definitions[target]
-                if not isinstance(function, cst.FunctionDef) or function.asynchronous:
+                if not isinstance(function, cst.FunctionDef) or function.asynchronous or function.decorators:
                     return "unknown", ()
                 defining_module = extractor.modules[source]
                 parameters = (*function.params.posonly_params, *function.params.params)
@@ -1676,16 +1701,9 @@ class ClosedPythonSources:
                     if expression is None or id(expression) in visiting:
                         return "unknown", ()
                     visiting = visiting | {id(expression)}
-                    for syntax, typename in (
-                        (cst.Dict, "dict"), (cst.DictComp, "dict"),
-                        (cst.List, "list"), (cst.ListComp, "list"),
-                        (cst.Tuple, "tuple"), (cst.Set, "set"), (cst.SetComp, "set"),
-                        (cst.Integer, "int"), (cst.Float, "float"),
-                    ):
-                        if isinstance(expression, syntax):
-                            return "value", ("builtins." + typename,)
-                    if isinstance(expression, cst.SimpleString):
-                        return "value", ("builtins." + type(expression.evaluated_value).__name__,)
+                    constructed = constructed_value_binding(expression, defining_module)
+                    if constructed[0] == "value":
+                        return constructed
                     if isinstance(expression, cst.Name):
                         writes = assignments.get(expression.value, ())
                         if writes:
@@ -1698,19 +1716,13 @@ class ClosedPythonSources:
                                 return "unknown", ()
                             return result(value, visiting)
                         return bound.get(expression.value, ("unknown", ()))
-                    if isinstance(expression, cst.Call) and not any(
+                    if isinstance(expression, cst.Call) and isinstance(expression.func, cst.Name) and not any(
                         argument.star or argument.keyword is not None for argument in expression.args
                     ):
                         names = defining_module.qualified_names(expression.func)
                         if len(names) != 1:
                             return "unknown", ()
                         name = next(iter(names))
-                        if name.source == QualifiedNameSource.BUILTIN and name.name in {
-                            "builtins.dict", "builtins.list", "builtins.tuple", "builtins.set",
-                            "builtins.frozenset", "builtins.str", "builtins.bytes", "builtins.int",
-                            "builtins.float", "builtins.bool",
-                        }:
-                            return "value", (name.name,)
                         called = name.name if name.source == QualifiedNameSource.IMPORT else source + "." + name.name
                         values = tuple(result(argument.value, visiting) for argument in expression.args)
                         return returned_value_binding(called, values, active | {target})
@@ -1944,19 +1956,7 @@ class ClosedPythonSources:
                             candidate.name
                             for candidate in candidates
                             if candidate.source == QualifiedNameSource.BUILTIN
-                            and candidate.name
-                            in {
-                                "builtins.str",
-                                "builtins.bytes",
-                                "builtins.int",
-                                "builtins.float",
-                                "builtins.bool",
-                                "builtins.tuple",
-                                "builtins.list",
-                                "builtins.dict",
-                                "builtins.set",
-                                "builtins.frozenset",
-                            }
+                            and candidate.name in _EXACT_BUILTIN_CONSTRUCTORS
                         }
                         if len(constructors) == 1 and len(candidates) == 1:
                             return "value", tuple(constructors)
@@ -1965,11 +1965,17 @@ class ClosedPythonSources:
                     # object. A boundary name nested inside an argument is irrelevant.
                     if kind == "opaque":
                         return "opaque", targets
-                    if kind == "callable" and len(targets) == 1 and not any(
+                    if kind == "callable" and len(targets) == 1 and isinstance(expression.func, cst.Name) and not any(
                         argument.star or argument.keyword is not None for argument in expression.args
                     ):
-                        arguments = tuple(expression_binding(argument.value, active) for argument in expression.args)
-                        return returned_value_binding(targets[0], arguments, frozenset())
+                        names = module.qualified_names(expression.func)
+                        declared = {
+                            name.name if name.source == QualifiedNameSource.IMPORT else module_name + "." + name.name
+                            for name in names
+                        }
+                        if declared == set(targets):
+                            arguments = tuple(constructed_value_binding(argument.value, module) for argument in expression.args)
+                            return returned_value_binding(targets[0], arguments, frozenset())
                     return ("value", targets) if kind == "value-callable" else ("unknown", ())
                 if isinstance(expression, cst.SimpleString):
                     return "value", ("builtins." + type(expression.evaluated_value).__name__,)
