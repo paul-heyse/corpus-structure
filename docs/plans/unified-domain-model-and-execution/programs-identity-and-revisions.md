@@ -904,14 +904,25 @@ supported source/runtime scope in the application model.
 | `OpaqueBoundary` and `AuthenticatedSlice` | Reuse the typed dynamic boundary and runtime premise authenticator for finite captured loads, verification and mutable callable bindings. The owner verifies loaded origins, resources and effective objects. The boundary's digest names the established contract. [Boundary model](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_model.py), [runtime authenticator](../../../python/corpus-structure/src/corpus_structure/semantic/runtime_slice.py) |
 
 Ast-grep-py 0.51.2 `SgRoot(source, "python").root().find_all(...)` supports structural inventory
-and candidate codemods. `ty` 0.0.102 `ty server` definition, implementation and reference LSP
-queries support development investigation. Their results remain discovery evidence, with
-Pyrefly retaining the repository type-checking role. If the existing typed dependency projection
+and candidate codemods. The captured-source CLI and MCP route negotiates the pinned `ty` 0.0.102
+LSP's definition, declaration and hover capabilities. Hover displays the inferred type at a
+specific call site with its captured source digest and UTF-8 span. Use implementation and
+references to investigate candidate receivers. The captured route initializes ty as an untrusted
+workspace with uv disabled. For workspace investigations, `uv workspace metadata --locked
+--offline --output-version preview` supplies interpreter and distribution ownership observations.
+`TY_UV=1 UV_OFFLINE=1 uv run --locked --no-sync ty check` uses the installed pin. Select the
+affected files, `analysis.strict-equality-semantics`, and the missing type argument and unsound
+assignment, return and yield rules when narrowing a dynamic boundary. These results are
+development evidence. Production reuse still authenticates executing source, bindings and native
+capabilities. Pyrefly owns the repository type-checking gate. If the existing typed dependency projection
 needs traversal for operator explanations, NetworkX 3.7 `descendants`, `ancestors` and
 `strongly_connected_components` provide reachability and cycle groups. The edge producers own
 binding resolution and completeness. Use that projection when its facts suffice, and retain
 partial/unknown standing when they do not. [ast-grep patterns](../../libraries/python_introspection/ast-grep-py.md#3-structural-pattern-matching),
 [ty public interfaces](../../libraries/python_introspection/ty.md),
+[ty language server](https://docs.astral.sh/ty/features/language-server/),
+[ty workspace settings](https://docs.astral.sh/ty/reference/editor-settings/#experimentaluseuv),
+[uv workspace metadata](https://docs.astral.sh/uv/reference/internals/metadata/),
 [NetworkX traversal](../../libraries/scientific_compute/networkx.md#3-traversal-paths-reachability-and-connectivity).
 
 **Integration and retirement.** Extend the existing source collection and import-custody owners.

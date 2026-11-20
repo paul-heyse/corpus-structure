@@ -154,6 +154,56 @@ preview selected 24 provider identities (`c8aa437f7338461ba68df70c10812506`).
 Collection establishes selection. Final qualification requires actual execution.
 [Qualification owner](../../../plans/unified-domain-model-and-execution/qualification.md)
 
+## Typed boundaries and source navigation
+
+**Implemented and inspected, 2026-11-20 UTC.** The generated demand wire validator preserves
+field presence, exact scalar types and canonical JSON bytes. Demand projections pair decoded
+member bodies with their original tagged values. Rich frontier acquisition retains exact
+immutable material, and graph preparation copies its declared query state explicitly.
+Contribution row selection owns only its determining selectors and bounds. Operation rows
+come from the fresh frontier. The renderer uses the actual captured composition as its code
+root and builds private compiler metadata on a miss. The old ambient acquisition paths and
+the reflection-based query-state copy were removed.
+
+`uv run --locked --no-sync python probe.py` at `89f1fa116` inspected the integrated workload
+roots. Native demand reached callable analysis with 65 required facts across 11 determining
+modules. Renderer, rich and contribution retained 98, 265 and 430 required eager facts.
+These scans are observations of the current analyzer, and all four paths still refuse eligibility.
+The native-demand facts now cluster in the tagged and primitive codecs and pagination. Its
+projection still has two required field and declaration references. Renderer facts cluster in
+compiled and relational model initialization. Rich and contribution still reach rich-validation
+and prepared-model initialization, and contribution also reaches structural result types.
+
+**Tested, 2026-11-20 UTC.** Captured `ty` 0.0.102 hover returned a native Decimal method and
+the narrowed dict receiver at the selected production sites. The results carry immutable
+source digests and UTF-8 offsets through the CLI and MCP contract. An unresolved definition in
+the captured analysis and the `Unknown` intersections remain evidence limits. The separate
+locked offline uv workspace metadata observation found CPython 3.14.10 and one installed
+distribution owner for `rapidjson` (`python-rapidjson==1.25`). Production custody verifies the
+actual code and native symbols through its existing authority. [UDM-10 library contracts](../../../plans/unified-domain-model-and-execution/programs-identity-and-revisions.md#udm-10-code-closure)
+The locked strict ty check passed for source navigation, the generated demand adapter, and the
+selected rich and contribution boundary files. The repository's Pyrefly and Ruff checks also
+passed (`6ddec2267d4546618851a3c33a40b7b3`, `d9b1e7629157439b800505b8ea62d26b`).
+
+**Tested, 2026-11-20 UTC.** The N38 preview and rollback-only candidate
+(`8c8b9fa09e7f4bbe91ee30924d56eadd`, `39d987b1c54446f49314a3353866de00`)
+identified two changed helper-source guards, `ops.ddo_pdf_search_pin(jsonb,jsonb)` and
+`ops.require_source_admission(text)`, and their two descriptors. Inventory remained 620 objects.
+The candidate reported zero added, retired, physical and privilege effects. Registration
+`7fca8ea43663441c821113c5d11ca5df` froze the files. Deployment
+`1d6f3af29dc042ec95331f058392f2e5` migrated stage OID 130661481 from N37 to N38 and verified
+the reached revision. Independent maintenance reads observed stage N38 and canonical N29.
+
+**Passed, 2026-11-20 UTC.** The Standard `source-native` release was prepared, archived and
+admitted on stage N38 (`bbec69589d6a4071ad9a10f31e594705`). `uv run ci db check --target deployment`
+and `uv run ci release check --target deployment --native-proof` passed for release
+`release:5f7fed2c88a6ead2e6ca5c68101d7386c07743e7db5537ddaa9ee97c641f3af2`. The reader and
+admitter both acquired stage OID 130661481. The release has no project generation.
+
+`uv run ci test collect --providers-only` selected 24 provider identities on the N38 tree
+(`2e4edfe51a704320a1058c36295c7f66`). Final provider execution remains open with the qualification
+union. [Strict D2, T4 and T14 observations](../../../plans/unified-domain-model-and-execution/qualification.md#code-closure-qualification)
+
 ## Records
 
 <!-- evidence-index:start -->

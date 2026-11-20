@@ -308,7 +308,7 @@ Independently vary a rendering determinant, effective model input, named resourc
 version and exact source bytes copied into artifact provenance. Each material change must
 prevent a stale hit. An edit outside execution and copied provenance must preserve the basis.
 Keep physical-model, manifest and predecessor checks after hydration. Compare the resulting
-N34 declarations through the existing offline `no_native_change` route. A controlled complete
+declarations to the frozen native head through the offline `no_native_change` route. A controlled complete
 identity or an overridden store key establishes only the corresponding consumer control.
 
 **T4 acceptance.** Exercise `ci query` for a native demand view and a rich query, plus
@@ -323,7 +323,7 @@ continuation while fresh authorized derivation remains available.
 
 **T14 fixture and acceptance.** First establish that the authored-publication setup in
 `python/corpus-structure/tests/semantic/record_publication_native_support.py` can publish an
-explicit entity through private N34. The existing
+explicit entity against a private installation of the frozen native head. The existing
 `test_native_selected_reader_pages_and_pins_actual_product_and_support` provides the native
 publication and cursor journey to adapt. Use the same committed native target from two fresh
 processes and independently authorized acquisitions. Verify one derivation, identical eligible
@@ -391,6 +391,42 @@ subprocess observer with T14. The private N37 strict run
 in its second fresh process. Those two cases failed their reuse assertions. Strict rich
 and contribution continuations remain `not_run` for this increment.
 [Readiness evidence](../../design_review/evidence/2026-11-20_udm-closure-provider-readiness/README.md)
+
+**2026-11-20 typed boundary integration.** The native-demand reader admits the generated demand
+records with strict validation and preserves exact recursive values and original tagged member
+bodies. Rich frontier acquisition uses the same validator, then passes an owned witness to the
+query. The prepared rich indexes copy query-local state explicitly, and contribution derivation
+uses a typed selection. The native renderer builds its physical model privately from captured
+inputs on a miss. The renderer's source bindings cover the actual composition and PDF selection.
+The installed source scan still finds required determinants in all four workloads. The strict
+private demand run against the pre-change N37 kernel stopped during setup because the compiled
+release required the changed kernel (`11124e3760124d2099ec92cbe20b5b3c`). The fixture stopped before
+it could exercise continuation. The successor migration supplies the required kernel.
+
+**Tested, 2026-11-20 UTC.** The guarded stage migration verified N38. Both strict D2 processes
+reported `no_native_change` for all 620 N38 objects with unavailable database endpoints.
+Each rendered once and hydrated zero entries, so D2 still failed (`e3ebe5d11b1b411cb16d5200f0ef7f1e`).
+The stage migration and the strict D2 parity observations establish their respective native
+boundaries. Complete renderer custody remains the prerequisite for persistent reuse.
+
+**Tested, 2026-11-20 UTC.** The three strict T4 variants reached fresh authorized pages on
+private N38. Native demand withheld continuation at recursive JSON encoding ownership.
+Rich and contributions withheld continuation at required initialization facts, first
+attributed to the `json` import in `core.canonical`. All three failed their reuse assertion
+(`8c30e7bd5a7742f4a4e6c6429ef99740`). The strict direct entity T14 read reached both requests and
+the second derived again (`24f0726e0fdf4e22bdb0622b105e1ab8`). The additional PDF-backed fixture
+in the T4 campaign failed setup at its live source root. Its callers now explicitly select
+the package source directory for application-only captures. The mixed publication fixture
+retry exposed a captured evaluator module under the test tree (`91bab099beb649d39af6a8337c0e931e`).
+Those mixed journeys use the existing fixture executor that verifies and maps each captured
+module to its actual source. Both earlier failures remain in their managed receipts.
+The next retry reached native publication and exposed a missing exact `rich.admit` grant in
+the broader fixture (`93f34428c3d24739ba3135173968c61c`). Both publication fixtures now declare
+that grant through their shared recipe. The fixture uses normal release admission and checks
+the released operation definition on clone readback.
+The private N38 publication control then passed (`1319925a435841b48ead42d88c2dbeb6`).
+It verified the authored entity qualifications and replay with zero new receipts. Cross-process
+serving reuse remains open under T4 and T14.
 
 The focused serving and CLI controls passed 233 selected identities
 (`53e183166ea54effa89e64324c14fcda`). The final tagged-body and custody selection passed 30
