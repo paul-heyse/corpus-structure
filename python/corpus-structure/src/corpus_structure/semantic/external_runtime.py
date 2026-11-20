@@ -59,6 +59,7 @@ _PROFILES = (
     ),
     ("decimal", "_decimal", ("Decimal",), ()),
     ("datetime", "_datetime", ("date", "datetime", "UTC"), ()),
+    ("hashlib", "_hashlib", ("sha256",), ()),
 )
 
 
@@ -83,20 +84,25 @@ def acquire_codec_runtime() -> tuple[ExternalRuntime, ...]:
                     raise ValueError("external codec module origin differs: " + name)
                 paths.add(origin)
         for name in names:
-            value = getattr(native, name)
+            native_symbol = "openssl_sha256" if public_name == "hashlib" else name
+            value = getattr(native, native_symbol)
             if getattr(public, name) is not value:
                 raise ValueError(
                     "external codec wrapper binding differs: " + public_name + "." + name
                 )
             if inspect.isbuiltin(value):
-                if value.__self__ is not native or value.__name__ != name:
+                if value.__self__ is not native or value.__name__ != native_symbol:
                     raise ValueError("external codec native callable differs: " + name)
             elif isinstance(value, type):
                 if not value.__flags__ & (1 << 8) or value.__name__ != name:
                     raise ValueError("external codec type is not an immutable native type")
             elif public_name != "datetime" or name != "UTC" or value is not native.timezone.utc:
                 raise ValueError("unsupported external codec symbol: " + name)
-            captured.extend((owner + "." + name, value) for owner, _ in modules)
+            captured.extend(
+                dict(
+                    ((public_name + "." + name, value), (native_name + "." + native_symbol, value))
+                ).items()
+            )
         for name, expected in constants:
             value = getattr(public, name)
             if type(value) is not int or value != expected:

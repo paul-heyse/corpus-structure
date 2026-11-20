@@ -1200,14 +1200,20 @@ class ClosedPythonSources:
                     )
                 )
                 return
-            try:
-                obj = self.resolve(target)
-                target = obj.path
-            except PreparationError:
-                unknowns.add(
-                    SourceUnknown(path, location, "unresolved required reference " + target)
-                )
-                return
+            local_function = self.definitions.get(target)
+            if not (
+                ".<locals>." in target
+                and local_function is not None
+                and isinstance(local_function[1], cst.FunctionDef)
+            ):
+                try:
+                    obj = self.resolve(target)
+                    target = obj.path
+                except PreparationError:
+                    unknowns.add(
+                        SourceUnknown(path, location, "unresolved required reference " + target)
+                    )
+                    return
             if target in self.definitions:
                 todo.append(target)
                 edges.add(SemanticEdge("python:" + path, "python:" + target, relation))
@@ -1620,19 +1626,45 @@ class ClosedPythonSources:
                                 kinds.add("unknown")
                                 continue
                             declaration = next(iter(referents)).node
+                            if (
+                                isinstance(declaration, cst.FunctionDef)
+                                and target in extractor.definitions
+                            ):
+                                kinds.add("callable")
+                                targets.append(target)
+                                continue
                             if isinstance(declaration, cst.Param):
                                 kind, refs = annotated_value(declaration.annotation)
                                 kinds.add(kind)
                                 targets.extend(refs)
                                 continue
+                            positions = []
                             parent = module.parent_nodes.get(declaration)
+                            while isinstance(parent, cst.Element):
+                                sequence = module.parent_nodes.get(parent)
+                                if not isinstance(sequence, (cst.Tuple, cst.List)):
+                                    break
+                                positions.append(tuple(sequence.elements).index(parent))
+                                parent = module.parent_nodes.get(sequence)
                             if isinstance(parent, cst.AssignTarget):
                                 parent = module.parent_nodes.get(parent)
                             if (
                                 isinstance(parent, (cst.Assign, cst.AnnAssign))
                                 and parent.value is not None
                             ):
-                                kind, refs = expression_binding(parent.value, active)
+                                assigned_value = parent.value
+                                for index in reversed(positions):
+                                    if (
+                                        not isinstance(assigned_value, (cst.Tuple, cst.List))
+                                        or index >= len(assigned_value.elements)
+                                        or not isinstance(
+                                            assigned_value.elements[index], cst.Element
+                                        )
+                                    ):
+                                        assigned_value = None
+                                        break
+                                    assigned_value = assigned_value.elements[index].value
+                                kind, refs = expression_binding(assigned_value, active)
                                 kinds.add(kind)
                                 targets.extend(refs)
                             else:
@@ -2162,7 +2194,8 @@ class ClosedPythonSources:
                                     and isinstance(module.parent_nodes.get(node), cst.Comparison)
                                     and len(module.parent_nodes[node].comparisons) == 1
                                     and isinstance(
-                                        module.parent_nodes[node].comparisons[0].operator, cst.Is
+                                        module.parent_nodes[node].comparisons[0].operator,
+                                        (cst.Is, cst.IsNot),
                                     )
                                 )
                             ):

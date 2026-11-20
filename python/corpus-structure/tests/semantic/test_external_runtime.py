@@ -18,6 +18,7 @@ def test_native_codec_profiles_bind_real_library_symbols_and_files():
         "decimal",
         "datetime",
         "base64",
+        "hashlib",
     }
     for item in contracts:
         assert len(item.digest) == 64 and item.files and item.symbols
@@ -29,6 +30,73 @@ def test_native_callable_replacement_before_acquisition_is_refused(monkeypatch):
     monkeypatch.setattr(math, "isfinite", lambda _: True)
     with pytest.raises(ValueError, match="unsupported external codec symbol"):
         acquire_codec_runtime()
+
+
+def test_sha256_public_binding_requires_the_actual_openssl_constructor(monkeypatch):
+    hashlib = importlib.import_module("hashlib")
+    monkeypatch.setattr(hashlib, "sha256", lambda _: None)
+    with pytest.raises(ValueError, match="wrapper binding differs"):
+        acquire_codec_runtime()
+
+
+def test_sha256_original_alias_is_rechecked_after_acquisition(monkeypatch):
+    contract = next(item for item in acquire_codec_runtime() if item.reference == "hashlib")
+    monkeypatch.setattr(importlib.import_module("hashlib"), "sha256", lambda _: None)
+    with pytest.raises(ValueError, match="symbol was replaced"):
+        contract.check()
+
+
+def test_sha256_workload_retains_verified_native_runtime(tmp_path, monkeypatch):
+    root = tmp_path / "hash_example"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    (root / "entry.py").write_text(
+        "import hashlib\ndef digest(value: bytes) -> str:\n"
+        " return hashlib.sha256(value).hexdigest()\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    contract = next(item for item in acquire_codec_runtime() if item.reference == "hashlib")
+    identity = capture_code_identity(
+        root,
+        ("hash_example.entry",),
+        callables=("hash_example.entry.digest",),
+        external_runtime=(contract,),
+    )
+    assert identity.complete, identity.unknowns
+    with authenticate_workload(root, identity) as verify:
+        module = importlib.import_module("hash_example.entry")
+        assert module.digest(b"abc") == (
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        )
+        verify()
+
+
+def test_nested_function_globals_remain_live_authenticated_premises(tmp_path, monkeypatch):
+    from corpus_structure._query_custody import SourceCustodyError
+
+    root = tmp_path / "nested_example"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    (root / "entry.py").write_text(
+        "OFFSET = 7\n"
+        "def result(value: int):\n"
+        " def local(item: int):\n"
+        "  return item + OFFSET\n"
+        " return local(value)\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    identity = capture_code_identity(
+        root, ("nested_example.entry",), callables=("nested_example.entry.result",)
+    )
+    assert identity.complete, identity.unknowns
+    with (
+        pytest.raises(SourceCustodyError, match=r"changed|differs"),
+        authenticate_workload(root, identity) as verify,
+    ):
+        module = importlib.import_module("nested_example.entry")
+        assert module.result(3) == 10
+        monkeypatch.setattr(module, "OFFSET", 9)
+        verify()
 
 
 def test_native_callable_rebinding_after_acquisition_is_refused(monkeypatch):

@@ -263,6 +263,74 @@ def test_assignment_within_type_guard_invalidates_receiver_provenance():
     assert not result.complete
 
 
+def test_direct_nested_function_calls_retain_the_captured_body():
+    code = (
+        "def run(value: int):\n"
+        "    def decrement(item: int):\n"
+        "        return decrement(item - 1) if item else 7\n"
+        "    return decrement(value)\n"
+    )
+    first = implementation(code)
+    second = implementation(code.replace("else 7", "else 8"))
+    assert first.complete, first.unknowns
+    assert second.complete, second.unknowns
+    assert first.semantic_records() != second.semantic_records()
+    assert "python:example.run.<locals>.decrement" in {node.id for node in first.nodes}
+
+
+def test_nested_function_dynamic_dependency_remains_required():
+    result = implementation(
+        "def run(value):\n"
+        "    def invoke(item):\n"
+        "        return item.execute()\n"
+        "    return invoke(value)\n"
+    )
+    assert not result.complete
+    assert any("item.execute" in item.reason for item in result.unknowns)
+
+
+def test_nested_function_cannot_escape_as_a_callback():
+    result = implementation(
+        "def run(receiver):\n"
+        "    def value():\n"
+        "        return 7\n"
+        "    return receiver(value)\n"
+    )
+    assert not result.complete
+    assert any("escape" in item.reason for item in result.unknowns)
+
+
+def test_exact_destructuring_preserves_local_container_provenance():
+    result = implementation(
+        "def run():\n"
+        "    values, (name, count) = [], ('owned', 2)\n"
+        "    values.append(name.strip())\n"
+        "    return values.count('owned') + count\n",
+        inputs=(),
+    )
+    assert result.complete, result.unknowns
+
+
+def test_dynamic_destructuring_does_not_claim_owned_values():
+    result = implementation(
+        "def run(item):\n    values, name = item\n    return values.copy()\n",
+        inputs=(),
+    )
+    assert not result.complete
+
+
+def test_type_identity_refusal_does_not_authorize_dynamic_class_construction():
+    result = implementation(
+        "def run(item):\n"
+        "    if type(item) is not int:\n        raise TypeError('integer required')\n"
+        "    return item\n",
+        inputs=(),
+    )
+    assert result.complete, result.unknowns
+    dynamic = implementation("def run():\n    return type('Created', (), {})\n", inputs=())
+    assert not dynamic.complete
+
+
 @pytest.mark.parametrize(
     ("argument", "nominal", "bridge", "admitted"),
     [
