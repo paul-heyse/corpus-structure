@@ -28,9 +28,10 @@ from semantic.current_pdf_source_support import (
     ROOT,
     admit_current_target,
     current_pdf_recipe,
+    section_content,
 )
 from semantic.current_pdf_source_support import (
-    published_pdf_source_factory as published_pdf_source_factory,
+    current_pdf_source_factory as current_pdf_source_factory,
 )
 from semantic.data_operation_kernel_support import CapturedKernelInputs, split_captured_operations
 
@@ -67,11 +68,17 @@ def captured_recipe(directory):
     recipe = current_pdf_recipe(directory)
     captured = recipe.captured_inputs
     assert captured is not None
-    _, _, sources = split_captured_operations(captured)
+    remaining, _, sources = split_captured_operations(captured)
+    capture_custody = next(
+        artifact
+        for artifact in remaining.artifacts
+        if artifact.name == "runtime-transport/pdf-capture/execution-custody"
+    )
     core = ROOT / "python/corpus-structure/src/corpus_structure/model/semantic/core.yaml"
     sentence_configuration = SentenceConfig(exclude=("ner",))
     inputs = primary_operation_inputs(
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)),
+        dependencies=replace(remaining, artifacts=(capture_custody,)),
         capture_sources=sources,
         sentence_configuration=sentence_configuration,
         sentence_selection=NativeSelection(
@@ -98,19 +105,20 @@ def captured_recipe(directory):
 
 
 def test_two_native_source_members_do_not_invent_composition_sequence_positions(
-    published_pdf_source_factory,
+    current_pdf_source_factory,
     tmp_path,
 ):
+    from pdf_controlled_support import controlled_pdf_converter
+
     from corpus_structure.orchestrate.source_operation import _default_profile_selections
 
     target = "text.compose_view/captured-full-native"
     producer = "source.pdf_views/discovery"
-    with published_pdf_source_factory(
-        (
-            ("text", "First region.", "First region.", None),
-            ("text", "Second region.", "Second region.", None),
-        )
-    ) as source:
+    rows = (
+        ("text", "First region.", "First region.", None),
+        ("text", "Second region.", "Second region.", None),
+    )
+    with current_pdf_source_factory(rows) as source:
         kernel = admit_current_target(
             source, captured_recipe(tmp_path / "recipe"), tmp_path / "consumer"
         )
@@ -139,39 +147,6 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             original = acquire_original_document_selection(
                 connection, project_id=PROJECT, document_key=source.document_key
             )
-            source_intent = freeze_demand(
-                kernel.model,
-                roots=(original.root,),
-                targets=(producer,),
-                selections=(
-                    OperationSelection(
-                        producer,
-                        parameters=json_bytes(selections[producer].parameters),
-                        replicate=selections[producer].replicate,
-                    ),
-                ),
-                original_sources=(original.selection(),),
-                inference="current-source-journey",
-                execution_profile=kernel.recipe.execution_profile,
-            )
-            source_demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
-                source_intent,
-                project=PROJECT,
-                release=kernel.prepared.release_id,
-                runtime=kernel.runtime,
-            )["demand_id"]
-        # Population closure requires an actual discovery in this release.
-        # Direct membership selects the same two leaf sections with a new declared
-        # discovery meaning, while reusing the already published physical capture.
-        execute_data_demand(
-            kernel.purpose("write"),
-            source_demand,
-            source_root=ROOT,
-            admission_engine=kernel.purpose("admit"),
-            project_id=PROJECT,
-            database_capacity=6,
-        )
-        with kernel.purpose("write").begin() as connection:
             frozen = freeze_demand(
                 kernel.model,
                 roots=(original.root,),
@@ -194,18 +169,19 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
                 frozen, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
             )["demand_id"]
-        # Attach established source work without preparing analytical providers.
-        for _ in range(2):
-            with kernel.purpose("write").begin() as connection:
-                snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(
-                    demand
-                )
-            with kernel.purpose("write").begin() as connection:
-                planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-                ready = planner.ready(snapshot, authorization=b"{}")
-                assert not any(
-                    request.operation in {"source.pdf/capture", producer} for request in ready
-                ), tuple((request.operation, request.action) for request in ready)
+        # Capture and discover within this demand's admitted producer scope.
+        # Stop after the two source sweeps so the analytical families remain pending.
+        with controlled_pdf_converter(section_content(rows)):
+            result = execute_data_demand(
+                kernel.purpose("write"),
+                demand,
+                source_root=ROOT / "python/corpus-structure/src",
+                admission_engine=kernel.purpose("admit"),
+                project_id=PROJECT,
+                database_capacity=6,
+                max_rounds=2,
+            )
+        assert result.receipt_count == 2
         with kernel.purpose("write").begin() as connection:
             snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
         obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
