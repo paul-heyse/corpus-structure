@@ -1115,6 +1115,25 @@ and DiPO and D1 custody. One M1 case used a logical archive path as the physical
 module path (`1e0a55beca9b43e3be696f74eb6f422a`). The fixture now uses the shared captured-source
 executor. The exact retry and the final-source campaign are pending.
 
+**Tested, 2026-11-20 UTC.** N42 retired the earlier internal rich producer signature and
+registered the explicit family-aware signature (`b0c6d1035ed34caeb94ec598577840c0`).
+The rollback-only candidate `5191bfad6b504224a099ae05b63cd560` and guarded Standard deployment
+`5cb34f8319ca4c71aaa504eccda86df1` passed. `ci db check --target deployment` and
+`ci release check --target deployment --native-proof` independently verified stage OID
+130661481 and release
+`release:0c8c3c797e70c30ee2c9125642a512feee29f18c7703354d8b4e4fa503374dc1`.
+Two fresh renders matched all 624 frozen objects.
+
+All 18 rich native controls passed (`f1e49e25216340e0a46fb638f9ecc9fb`). The controlled
+definitions now carry current validity and parameter fields, and the unrelated-command case
+uses an admitted operation with no rich effect.
+
+The M1 retry then reached a missing producer dependency in the admitted source subset
+(`42a03041b83a404a838264f3104835a0`). The candidate planner is now captured as an original
+source alongside its governing producer, preserving the existing callable verification.
+Main reproduced the exact N42 native programs after this correction. The real GLiNER
+retry and the cold Integrated check are in progress.
+
 **Bounded provider evidence, 2026-11-20 UTC.** The actual CUDA GLiNER
 production pack tests and the actual HanLP, Maverick and DiPO native
 publication and exact-resume test passed in a ten-case managed selection
@@ -1268,6 +1287,21 @@ sense that matters here: the required selection comes from the original attempt 
 whatever a retry chose to run.
 
 ## UDM-23 — The whole-book run
+
+### Expected adoption before the final run
+
+**Tested, 2026-11-20 UTC.** A read-only census found the original canonical database at
+N29 and book generation 5, with zero live book leases and zero unpublished book intents.
+Every historical book request family had a different recipe from its counterpart in the
+N42 Standard application. The recipe change requires new native request identities.
+PDF spool adoption also requires matching producer recipe and implementation. Expect new
+native capture and regional work on the first head demand, and check acknowledged
+checkpoint reuse within that same demand during the controlled resumes.
+
+For the final retained comparison, expect the current constrained parser and the independent
+regex oracle to agree on the same retained native inputs. The changed recipe identities
+supply no specific semantic disagreement to accept. Any disagreement needs a determination
+against its retained input and production artifact.
 
 **Vision.** On final source, with the series' revisions deployed to canonical development and
 the book activated on the final release, the book is processed from its original PDF under one
