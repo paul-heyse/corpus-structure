@@ -13,6 +13,11 @@ retains its separate audit prerequisite and review conventions.
 
 ## Outputs and traceability
 
+The [cachetools and diskcache-community review](cachetools-and-diskcache-community_2026-11-20.md)
+proposes bounded served rows as the first use of an unsharded persistent cache. It covers
+generated program artifacts, process and disk composition, and cache diagnostics. Exact
+workload custody remains with UDM.
+
 The [agent CLI capabilities review](agent-cli-capabilities_2026-11-16.md) develops O01–O11 for
 `ci` as a coding agent's working tool: pipe-first output, failure digests in the test report,
 finding results without an ID, holds that name their consumer, a per-result table with source

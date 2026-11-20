@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "cache-backend.contracts",
+  "title": "Local diskcache-community storage contracts",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-20",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the candidate persistent storage expose the intended single-winner, latency refusal, and binary-read primitives?",
+  "answers": [
+    "O01",
+    "O02"
+  ],
+  "method": "Import tagged diskcache-community 5.8.5 through PYTHONPATH and run a local synthetic probe with spawned writers and a competing SQLite transaction.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-20_cache-backend-contracts/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "probe source",
+      "sha256": "18750e9747e166c7d283a5572c4c329423a64777273783e583a39e9f11c02446"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/probe.txt",
+      "role": "probe outcome",
+      "sha256": "899ada8568228bb815d5596f54b80badd72c2d3c4b670f3085d6d00dbe46ba75"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "single_winner",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "read_only_reopen",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "established_connection_timeout",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "external_byte_round_trip",
+      "value": true,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The selected primitives worked on local synthetic entries. Cold-open contention and production artifact hydration are separate acceptance scenarios.",
+  "consumed_by": [
+    "cache-extension-review opportunities O01 and O02"
+  ]
+}
