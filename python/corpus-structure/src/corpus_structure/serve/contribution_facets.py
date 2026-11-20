@@ -10,7 +10,10 @@ from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.page_envelope import PageEnvelope
 from corpus_structure.semantic.refusal_types import InvalidContinuation
 from corpus_structure.semantic.refusal_types import RichQueryRefused
-from corpus_structure.semantic.selected_contribution_projection import contribution_rows
+from corpus_structure.semantic.selected_contribution_projection import (
+    ContributionProjectionSelection,
+    contribution_rows,
+)
 from corpus_structure.semantic.selected_pages import byte_bounded_page
 from corpus_structure.semantic.serving_code import capture_page_refusal
 from corpus_structure.semantic.serving_identity import installed_read_implementation
@@ -59,6 +62,17 @@ class ContributionFacetsRequest(BaseModel):
         if "original_source" not in self.model_fields_set:
             value.pop("original_source")
         return value
+
+    def projection(self) -> ContributionProjectionSelection:
+        return ContributionProjectionSelection(
+            product_id=self.product_id,
+            member_id=self.member_id,
+            kind_contract=self.kind_contract,
+            include_interpretation=self.include_interpretation,
+            include_assessment=self.include_assessment,
+            max_members=self.max_members,
+            max_nested_members=self.max_nested_members,
+        )
 
 
 def serve_contribution_facets(connection, request: ContributionFacetsRequest):
@@ -159,9 +173,7 @@ def _serve(connection, request, implementation):
             metadata = dict(records=scope.index.retained_records)
             source = (
                 row.value
-                for row in contribution_rows(
-                    scope, request.model_copy(update={"include_operations": False})
-                )
+                for row in contribution_rows(scope, request.projection())
             )
             entry, remaining = bounded_rows(source, metadata)
             if entry is not None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -11,7 +12,12 @@ from .data_operation_json import json_bytes
 from .data_operation_model import SubjectContext
 from .data_operation_support import ComputationalSupportReference, read_support_references
 from .data_operation_values import decode_semantic_value
-from .rich_graph_validation import RichWholeInput, read_retained_rich_graph, read_rich_graph
+from .rich_graph_validation import (
+    RichGraphState,
+    RichWholeInput,
+    read_retained_rich_graph,
+    read_rich_graph,
+)
 from .rich_knowledge_contracts import (
     DdoRichAdmission,
     DdoRichConsolidation,
@@ -22,6 +28,7 @@ from .refusal_types import RichQueryRefused
 from .selected_graph_budget import SelectedGraphBudgetExceeded
 
 if TYPE_CHECKING:
+    from ._data_operation_wire import WireDemandReadScope
     from .data_operation_model import EffectiveDataOperationModel
     from .data_operation_read_index import SelectedRecordIndex
     from .demand_results import CutSelection
@@ -39,7 +46,7 @@ class SelectedContribution:
     operation_id: str
     use_id: str
     derivation_id: str
-    output: dict
+    output: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -48,10 +55,10 @@ class SelectedContributionScope:
     index: SelectedRecordIndex
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
-    scope: dict
+    scope: WireDemandReadScope
     max_support_edges: int
 
-    def products(self, *, product_id=None):
+    def products(self, *, product_id: str | None = None) -> Iterator[SelectedContribution]:
         products = self.index.mapping("kb.data_product", ("id",))
         members = self.index.mapping("kb.data_product_member", ("product_id", "member_id"))
         episodes = self.index.mapping("ops.data_derivation", ("id",))
@@ -116,7 +123,7 @@ class SelectedContributionScope:
                     output,
                 )
 
-    def graph(self, selected: SelectedContribution):
+    def graph(self, selected: SelectedContribution) -> RichGraphState:
         if selected.nominal == RICH_NAMESPACE + "DdoRichAdmission":
             root = RichWholeInput(
                 selected.reference, DdoRichAdmission.model_validate(selected.body)

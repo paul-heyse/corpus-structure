@@ -7,6 +7,7 @@ These projections neither run inference nor confer knowledge admission.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -132,7 +133,7 @@ def candidate_facets(
     member_id=None,
     max_members=100000,
     max_nested_members=1000,
-):
+) -> Iterator[RichQueryRow]:
     body = selected.body
     family, body = kinds.validate(selected.nominal, selected.reference.kind_contract, body)
     if family in {"record", "source-contribution"}:

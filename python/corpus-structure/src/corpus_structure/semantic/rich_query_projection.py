@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .data_operation_json import json_bytes, json_loads, own_json_value
 from .data_operation_values import decode_semantic_value
@@ -86,7 +86,7 @@ def prepare_rich_query(inputs: RichQueryInput, *, max_members: int) -> PreparedR
     return PreparedRichQueryIndex.build(state, max_members=max_members)
 
 
-def rich_query_metadata(index: RichQueryIndex) -> dict:
+def rich_query_metadata(index: RichQueryIndex) -> dict[str, list[dict[str, Any]]]:
     """Derive diagnostics from the same admitted index that produced the rows."""
     return dict(unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
 

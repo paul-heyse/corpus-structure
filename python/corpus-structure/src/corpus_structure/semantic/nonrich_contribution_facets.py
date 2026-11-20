@@ -5,6 +5,7 @@ family owners supply meaning; this reader neither reruns a producer nor converts
 private readings into accepted scientific assertions.
 """
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 from .data_operation_json import json_bytes, json_loads
@@ -104,7 +105,7 @@ def nonrich_facets(
     member_id=None,
     max_members=100000,
     max_nested_members=1000,
-):
+) -> Iterator[RichQueryRow]:
     root = read_nonrich_root(model, selected)
     if member_id is not None:
         return

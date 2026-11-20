@@ -1,5 +1,11 @@
 """Deterministic contribution rows over bounded acquired selected support."""
 
+from __future__ import annotations
+
+from collections.abc import Iterator
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
 from .candidate_contribution_facets import CandidateFacetKinds, candidate_facets
 from .contribution_facets import LOCATED_KIND, graph_facets, proposal_facets
 from .nonrich_contribution_facets import nonrich_facets, nonrich_family
@@ -7,21 +13,29 @@ from .refusal_types import RichQueryRefused
 from .rich_queries import RichQueryRow
 from .selected_contribution_input import RICH_NAMESPACE
 
+if TYPE_CHECKING:
+    from .selected_contribution_input import SelectedContributionScope
 
-def contribution_rows(scope, request):
+
+@dataclass(frozen=True)
+class ContributionProjectionSelection:
+    """The selectors and limits that determine one contribution row population."""
+
+    product_id: str | None
+    member_id: str | None
+    kind_contract: str | None
+    include_interpretation: bool
+    include_assessment: bool
+    max_members: int
+    max_nested_members: int
+
+
+def contribution_rows(
+    scope: SelectedContributionScope, request: ContributionProjectionSelection
+) -> Iterator[RichQueryRow]:
+    if type(request) is not ContributionProjectionSelection:
+        raise TypeError("contribution projection requires its captured domain selection")
     candidate_kinds = CandidateFacetKinds.from_model(scope.model, scope.prepared)
-    if request.include_operations:
-        uses = {}
-        for use in scope.index.frontier_rows("uses"):
-            uses.setdefault(use["obligation_id"], []).append(use)
-        for obligation in scope.index.frontier_rows("obligations"):
-            row = dict(
-                obligation=obligation,
-                uses=uses.get(obligation["obligation_id"], []),
-                standing="native-selected-operation",
-                output_absence="not-inferred",
-            )
-            yield RichQueryRow(dict(population="operation", row=row))
     for selected in scope.products(product_id=request.product_id):
         if (
             selected.nominal
@@ -89,7 +103,9 @@ def contribution_rows(scope, request):
                 yield row
 
 
-def unsupported_rows(scope, selected, request):
+def unsupported_rows(
+    scope: SelectedContributionScope, selected, request: ContributionProjectionSelection
+) -> Iterator[RichQueryRow]:
     candidates = [
         (
             selected.reference.member_id,

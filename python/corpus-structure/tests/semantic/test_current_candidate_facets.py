@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import pytest
 
@@ -28,6 +29,7 @@ from corpus_structure.semantic.reading_resolution_products import reading_resolu
 from corpus_structure.semantic.refusal_types import InvalidContinuation
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
 from corpus_structure.semantic.refusal_types import RichQueryRefused
+from corpus_structure.semantic.selected_contribution_input import SelectedContributionScope
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from corpus_structure.serve import contribution_facets as serving
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
@@ -464,7 +466,7 @@ def test_current_delivery_dispatches_real_candidates_and_pins_pagination_and_byt
             break
     else:
         pytest.fail("candidate continuation did not exhaust its actual finite row population")
-    assert pages == [item.value for item in serving.contribution_rows(scope, request)]
+    assert pages == [item.value for item in serving.contribution_rows(cast(SelectedContributionScope, scope), request.projection())]
     assert any(item["row"]["reference"]["member_id"] == "member:B" for item in pages)
     first = serving.serve_contribution_facets(None, request)
     with pytest.raises(InvalidContinuation):

@@ -1,6 +1,7 @@
 """Joined current interpretation/assessment facets, without granting new standing."""
 
 from collections import defaultdict
+from collections.abc import Iterator
 
 from .data_operation_values import semantic_value
 from .rich_decisions import DdoRichOccurrenceDecision
@@ -39,7 +40,7 @@ def graph_facets(
     member_id=None,
     max_members=100000,
     max_nested_members=1000,
-):
+) -> Iterator[RichQueryRow]:
     index = RichGraphIndex(state, max_members=max_members, max_nested_members=max_nested_members)
     by_occurrence = defaultdict(list)
     decisions = defaultdict(list)
@@ -204,7 +205,7 @@ def proposal_facets(
     assessment,
     member_id=None,
     max_nested_members=1000,
-):
+) -> Iterator[RichQueryRow]:
     kinds = {item.owner: item.key for item in model.identities if item.domain == "kind"}
     if kinds.get(LOCATED_KIND) != selected.reference.kind_contract:
         raise RichQueryRefused(
