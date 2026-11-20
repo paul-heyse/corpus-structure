@@ -247,6 +247,9 @@ def test_transport_pool_shutdown_is_bounded_and_reports_unproven_work(monkeypatc
     finally:
         stop.set()
         pool.pool.shutdown(wait=True)
+    pool.close()
+    assert pool.drained
+    pool.close()
 
 
 def test_invalid_stream_item_cannot_fulfill_its_valid_prefix(tmp_path, monkeypatch):

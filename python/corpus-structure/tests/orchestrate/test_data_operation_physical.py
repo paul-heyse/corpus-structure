@@ -12,6 +12,91 @@ from corpus_structure.orchestrate.data_operations import _PythonWork, _RunExecut
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope, OwnedByteBudget
 
 
+@pytest.mark.parametrize("batch", [False, True])
+def test_managed_stop_drains_running_transport_before_releasing_its_exact_claim(batch):
+    from threading import Event, RLock
+
+    from corpus_structure.core.execution_control import (
+        ExecutionStopped,
+        ExecutionStopRequest,
+        execution_stop_scope,
+    )
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.orchestrate.data_operations import (
+        _check_batch_active,
+        _check_claim_active,
+        _RequestExecution,
+    )
+    from corpus_structure.orchestrate.execution_host import ProcessExecutionHost
+
+    request = ExecutionStopRequest()
+    running, retired = Event(), Event()
+    claim = SimpleNamespace(task_id=7, attempt=3, holder="actual-owner")
+    key = (claim.task_id, claim.attempt, claim.holder)
+    owner = SimpleNamespace(lock=RLock(), active={key: claim}, uncertain={}, lost={})
+
+    # The batch activity API also checks the shared lease owner itself.
+    class BatchOwner:
+        def __call__(self):
+            pass
+
+        def check_claim(self, candidate):
+            assert owner.active[key] is candidate
+
+    activity = BatchOwner()
+    released = []
+
+    def release(candidate, actual_owner, error, *, phase):
+        assert candidate is claim and actual_owner is owner
+        assert retired.is_set() and work.future.done()
+        released.append(key)
+        del owner.active[key]
+
+    executor = SimpleNamespace(
+        prepared=SimpleNamespace(release_id="test:transport-stop"),
+        policy=CharacterizationExecutionPolicy(workers=1, max_submissions=1),
+        port_workers=1,
+        nemotron_endpoint=None,
+        analytics_settings=None,
+        engine=None,
+        fitter_engine=None,
+        _contexts={},
+        _claim_owner=owner,
+        _known_failure=release,
+        _member_failures=[],
+    )
+
+    def compute():
+        running.set()
+        try:
+            while True:
+                if batch:
+                    _check_batch_active(activity, (claim,))
+                else:
+                    _check_claim_active(activity, claim)
+                request.requested.wait(0.01)
+        finally:
+            retired.set()
+
+    host = ProcessExecutionHost()
+    try:
+        with execution_stop_scope(request), host.run(executor.policy) as token:
+            with host.execution(executor, token) as physical:
+                lease = host.budget.admit(32)
+                transport = _RequestExecution(physical, lease)
+                work = transport.submit_python(compute)
+                lease.release()
+                assert running.wait(2)
+                request.requested.set()
+            assert physical.physical_retired
+            assert released == [key] and not owner.active
+            assert host.budget.used_bytes == 0
+            assert isinstance(work.future.exception(), ExecutionStopped)
+    finally:
+        request.requested.set()
+        host.close()
+
+
 @pytest.mark.parametrize("native", [False, True])
 def test_nlp_drain_cannot_release_an_unproven_pdf_borrower(native):
     budget = OwnedByteBudget(100)

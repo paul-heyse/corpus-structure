@@ -122,8 +122,18 @@ class DemandAdvance:
         return self.receipt_count > len(self.receipts)
 
 
+def _check_claim_active(owner, claim):
+    from corpus_structure.core.execution_control import check_execution_active
+
+    check_execution_active()
+    owner.check_claim(claim)
+
+
 def _check_batch_active(owner, claims):
     """Keep shared physical work useful without hiding individual claim loss."""
+    from corpus_structure.core.execution_control import check_execution_active
+
+    check_execution_active()
     owner()
     failures = []
     for claim in claims:
@@ -212,6 +222,8 @@ class _OwnedPythonPool:
         self.drained = False
         self.closed = False
         self.failed = False
+        self._shutdown_done = Event()
+        self._shutdown_errors = []
 
     def __enter__(self):
         return self
@@ -226,34 +238,32 @@ class _OwnedPythonPool:
             raise
 
     def close(self):
-        if self.closed:
+        if self.drained:
             return
-        self.closed = True
         from corpus_structure.semantic.cpu_execution import (
             _COOPERATIVE_CLOSE_SECONDS,
             _WORKER_EXIT_SECONDS,
         )
 
         deadline = monotonic() + _COOPERATIVE_CLOSE_SECONDS + _WORKER_EXIT_SECONDS
-        stopped = Event()
-        failures = []
 
         def stop():
             try:
                 self.pool.shutdown(wait=False, cancel_futures=True)
             except BaseException as error:
-                failures.append(error)
+                self._shutdown_errors.append(error)
             finally:
-                stopped.set()
+                self._shutdown_done.set()
 
-        stopper = Thread(target=stop, name="demand-python-stop", daemon=True)
-        stopper.start()
-        stopped.wait(max(0, deadline - monotonic()))
+        if not self.closed:
+            self.closed = True
+            Thread(target=stop, name="demand-python-stop", daemon=True).start()
+        self._shutdown_done.wait(max(0, deadline - monotonic()))
         for thread in tuple(self.threads):
             thread.join(max(0, deadline - monotonic()))
         self.drained = (
-            stopped.is_set()
-            and not failures
+            self._shutdown_done.is_set()
+            and not self._shutdown_errors
             and all(not thread.is_alive() for thread in tuple(self.threads))
         )
         if not self.drained:
@@ -1088,7 +1098,7 @@ class NativeDemandExecutor:
                         runtime_archive_sha256=sha256(context.basis.runtime.archive).hexdigest(),
                     )
                 ),
-                check_active=lambda: owner.check_claim(claim),
+                check_active=lambda: _check_claim_active(owner, claim),
             )
             request = draft.native_request()
 
@@ -1479,7 +1489,7 @@ class NativeDemandExecutor:
                     port.plan_python(
                         inputs,
                         binding=ready.binding_result,
-                        check_active=lambda: owner.check_claim(claim),
+                        check_active=lambda: _check_claim_active(owner, claim),
                         execution_owner=physical,
                     )
                 )
