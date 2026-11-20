@@ -54,7 +54,7 @@ def statistics_rows(index: RichQueryIndex, query):
             variables = set()
             for key in facts:
                 if index.facts[key].subject_entity in subjects:
-                    for occurrence in index.by_fact[key]:
+                    for occurrence in index.by_fact.get(key, ()):
                         raw = index.qualification(occurrence).model_dump(
                             mode="python", exclude_unset=True
                         )
@@ -99,11 +99,10 @@ def statistics_rows(index: RichQueryIndex, query):
         for key in facts:
             if (
                 index.facts[key].predicate == family_predicate
-                and index.object_entity(key) in families
+                and (family := index.object_entity(key)) is not None
+                and family in families
             ):
-                by_subject.setdefault(index.facts[key].subject_entity, set()).add(
-                    index.object_entity(key)
-                )
+                by_subject.setdefault(index.facts[key].subject_entity, set()).add(family)
         for key in facts:
             fact = index.facts[key]
             if fact.subject_entity not in by_subject or fact.predicate != index.iri(

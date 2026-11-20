@@ -505,5 +505,12 @@ def test_shared_index_keeps_query_unknowns_and_decode_state_local(query_source):
     first.state.reached_values.add("only-first")
     assert second.unknowns == {} and prepared.index.unknowns == {}
     assert "only-first" not in second.state.reached_values
+    first.state.decoded["query-local"] = "decoded"
+    first.state.qualification_projections["query-local"] = "projection"
+    first.state.qualification_projector.contracts["query-local"] = "contract"
+    assert "query-local" not in second.state.decoded
+    assert "query-local" not in second.state.qualification_projections
+    assert "query-local" not in second.state.qualification_projector.contracts
+    assert "query-local" not in prepared.index.state.decoded
     assert first.entities is second.entities
     assert rows(first, ClaimsQuery(name="claims")) == rows(second, ClaimsQuery(name="claims"))

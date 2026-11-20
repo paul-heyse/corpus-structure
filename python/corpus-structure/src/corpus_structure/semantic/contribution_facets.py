@@ -129,7 +129,7 @@ def graph_facets(
             occurrences = (
                 (identifier,)
                 if isinstance(body, DdoRichOccurrence)
-                else tuple(item.occurrence_id for item in index.by_fact[identifier])
+                else tuple(item.occurrence_id for item in index.by_fact.get(identifier, ()))
                 if isinstance(body, DdoRichFact)
                 else ()
             )

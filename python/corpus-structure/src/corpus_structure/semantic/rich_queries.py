@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from copy import copy
 from dataclasses import dataclass
 from datetime import date as Date
@@ -24,7 +25,7 @@ from .alias_policy import label_normalizer
 from .data_operation_json import DdoJsonValue, json_bytes
 from .data_operation_values import semantic_value
 from .identity import canonical_bytes
-from .refusals import SemanticRefusal
+from .refusal_types import RichQueryRefused
 from .rich_graph_validation import RichGraphState
 from .rich_knowledge_contracts import (
     DdoRichAdmission,
@@ -36,11 +37,8 @@ from .rich_knowledge_contracts import (
     DdoRichQualificationMeaning,
     DdoRichRecordValue,
     DdoRichSourceReadingAssertion,
+    DdoRichScientificRepresentative,
 )
-
-
-class RichQueryRefused(SemanticRefusal):
-    """An exact rich query lacks its declared scope or admitted work/response capacity."""
 
 
 class QueryOptions(BaseModel):
@@ -198,6 +196,16 @@ def statement_key(reference) -> str | None:
 class RichGraphIndex:
     """Bounded indexes over actual accepted or explicitly private rich graph meaning."""
 
+    entities: Mapping[str, DdoRichEntity]
+    facts: Mapping[str, DdoRichFact]
+    occurrences: Mapping[str, DdoRichOccurrence]
+    readings: Mapping[str, DdoRichSourceReadingAssertion]
+    scientific_representatives: Mapping[str, DdoRichScientificRepresentative]
+    class_metadata: Mapping[str, Any]
+    by_fact: Mapping[str, Sequence[DdoRichOccurrence]]
+    selected_by_subject: Mapping[str, Sequence[str]]
+    definiens: Mapping[tuple[str | None, str], Sequence[str]]
+
     def __init__(
         self,
         state: RichGraphState,
@@ -213,22 +221,22 @@ class RichGraphIndex:
         if len(state.members) > max_members or max_members < 1 or max_nested_members < 1:
             raise RichQueryRefused("rich query graph exceeds the admitted member capacity")
         self.state, self.max_nested_members = state, max_nested_members
-        self.entities = {
+        self.entities = MappingProxyType({
             key: value for key, value in state.members.items() if isinstance(value, DdoRichEntity)
-        }
-        self.facts = {
+        })
+        self.facts = MappingProxyType({
             key: value for key, value in state.members.items() if isinstance(value, DdoRichFact)
-        }
-        self.occurrences = {
+        })
+        self.occurrences = MappingProxyType({
             key: value
             for key, value in state.members.items()
             if isinstance(value, DdoRichOccurrence)
-        }
-        self.readings = {
+        })
+        self.readings = MappingProxyType({
             key: value
             for key, value in state.members.items()
             if isinstance(value, DdoRichSourceReadingAssertion)
-        }
+        })
         self.selected_facts = frozenset(selection.selected_fact_ids)
         self.selected_occurrences = frozenset(selection.selected_occurrence_ids)
         self.selected_readings = (
@@ -236,9 +244,9 @@ class RichGraphIndex:
             if isinstance(state.graph, DdoRichAdmission)
             else frozenset()
         )
-        self.scientific_representatives = {
+        self.scientific_representatives = MappingProxyType({
             row.fact_id: row for row in selection.scientific_representatives
-        }
+        })
         if (
             not self.selected_facts <= self.facts.keys()
             or not self.selected_occurrences <= self.occurrences.keys()
@@ -250,26 +258,31 @@ class RichGraphIndex:
             for key in self.selected_occurrences
         ):
             raise RichQueryRefused("selected rich occurrence lacks its actual selected fact")
-        self.by_fact = defaultdict(list)
-        self.selected_by_subject = defaultdict(list)
+        by_fact: dict[str, list[DdoRichOccurrence]] = defaultdict(list)
+        selected_by_subject: dict[str, list[str]] = defaultdict(list)
         for key in sorted(self.selected_facts):
-            self.selected_by_subject[self.facts[key].subject_entity].append(key)
-        self.definiens = defaultdict(set)
+            selected_by_subject[self.facts[key].subject_entity].append(key)
+        definiens: dict[tuple[str | None, str], set[str]] = defaultdict(set)
         for occurrence in sorted(self.occurrences.values(), key=lambda value: value.occurrence_id):
-            self.by_fact[occurrence.fact_id].append(occurrence)
+            by_fact[occurrence.fact_id].append(occurrence)
             if occurrence.statement is not None and occurrence.statement_role == "definiens":
-                self.definiens[
+                definiens[
                     (
                         statement_key(occurrence.statement),
                         self.facts[occurrence.fact_id].subject_entity,
                     )
                 ].add(occurrence.fact_id)
+        self.by_fact = MappingProxyType({key: tuple(value) for key, value in by_fact.items()})
+        self.selected_by_subject = MappingProxyType(
+            {key: tuple(value) for key, value in selected_by_subject.items()}
+        )
+        self.definiens = MappingProxyType({key: tuple(value) for key, value in definiens.items()})
         self.normalize = label_normalizer(state.prepared)
-        self.class_metadata = {
+        self.class_metadata = MappingProxyType({
             row.name: json.loads(row.body)
             for row in state.prepared.registry_rows
             if row.kind == "operation_class"
-        }
+        })
         self._objects = {}
         self._qualifications = {}
         self.unknowns: dict[str, dict] = {}
@@ -453,10 +466,16 @@ class RichGraphIndex:
 class RichQueryIndex(RichGraphIndex):
     """Public named knowledge queries require the actual selected accepted whole."""
 
-    def __init__(self, state: RichGraphState, **limits):
+    def __init__(
+        self,
+        state: RichGraphState,
+        *,
+        max_members: int = 100000,
+        max_nested_members: int = 1000,
+    ):
         if not isinstance(state.graph, DdoRichAdmission):
             raise RichQueryRefused("rich queries require the actual selected accepted whole")
-        super().__init__(state, **limits)
+        super().__init__(state, max_members=max_members, max_nested_members=max_nested_members)
 
 
 @dataclass(frozen=True)
@@ -467,41 +486,18 @@ class PreparedRichQueryIndex:
     byte_size: int
 
     @classmethod
-    def build(cls, state, *, max_members):
+    def build(
+        cls, state: RichGraphState, *, max_members: int
+    ) -> PreparedRichQueryIndex:
         index = RichQueryIndex(state, max_members=max_members)
-        for name in (
-            "entities",
-            "facts",
-            "occurrences",
-            "readings",
-            "scientific_representatives",
-            "class_metadata",
-        ):
-            setattr(index, name, MappingProxyType(dict(getattr(index, name))))
-        for name in ("by_fact", "selected_by_subject", "definiens"):
-            setattr(
-                index,
-                name,
-                MappingProxyType(
-                    {key: tuple(value) for key, value in getattr(index, name).items()}
-                ),
-            )
         weight = len(json_bytes(state.graph.model_dump(mode="python"))) * 3
         weight += len(state.model.content) + len(state.prepared.manifest)
         weight += sum(len(item.content) for item in state.prepared.artifacts)
         return cls(index, max(1, weight))
 
-    def query_index(self):
+    def query_index(self) -> RichQueryIndex:
         index = copy(self.index)
-        state = copy(index.state)
-        for name, value in vars(state).items():
-            if isinstance(value, (dict, set, list)):
-                setattr(state, name, copy(value))
-        state.qualification_projector = copy(state.qualification_projector)
-        for name, value in vars(state.qualification_projector).items():
-            if isinstance(value, (dict, set, list)):
-                setattr(state.qualification_projector, name, copy(value))
-        index.state = state
+        index.state = self.index.state.query_copy()
         index._objects, index._qualifications, index.unknowns = {}, {}, {}
         return index
 
@@ -582,7 +578,7 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                 ): item.statement.model_dump(mode="python")
                 for identifier in claims
                 for item in index.visible_occurrences(identifier, query)
-                if statement_key(item.statement) == key
+                if item.statement is not None and statement_key(item.statement) == key
             }
             yield RichQueryRow(
                 dict(
@@ -595,7 +591,7 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
         for key in index.included(query):
             if query.fact_id is not None and query.fact_id != key:
                 continue
-            for occurrence in index.by_fact[key]:
+            for occurrence in index.by_fact.get(key, ()):
                 if (
                     query.occurrence_id is not None
                     and query.occurrence_id != occurrence.occurrence_id

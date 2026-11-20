@@ -13,9 +13,14 @@ from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.demand_results import CutSelection, read_demand_result
+from corpus_structure.semantic.demand_wire import decode_wire_demand_result
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
-from corpus_structure.semantic.rich_query_projection import RichQueryInput, frontier_content_witness
+from corpus_structure.semantic.rich_query_projection import (
+    RichFrontierInput,
+    RichQueryInput,
+    frontier_content_witness,
+)
 
 
 @dataclass(frozen=True)
@@ -111,7 +116,10 @@ def read_selected_rich_reference(
         }
     )
     if not _bodies:
-        witness = frontier_content_witness(page.content) if content_witness else None
+        witness = None
+        if content_witness:
+            frontier = decode_wire_demand_result(page.content)
+            witness = frontier_content_witness(RichFrontierInput(frontier, json_bytes(frontier)))
         return SelectedRichReference(page.cut, request, reference, context, content_witness=witness)
     prepared = open_release(connection, native["release_id"])
     model = bound_data_operation_model(prepared)

@@ -3,7 +3,8 @@
 from .candidate_contribution_facets import CandidateFacetKinds, candidate_facets
 from .contribution_facets import LOCATED_KIND, graph_facets, proposal_facets
 from .nonrich_contribution_facets import nonrich_facets, nonrich_family
-from .rich_queries import RichQueryRefused, RichQueryRow
+from .refusal_types import RichQueryRefused
+from .rich_queries import RichQueryRow
 from .selected_contribution_input import RICH_NAMESPACE
 
 

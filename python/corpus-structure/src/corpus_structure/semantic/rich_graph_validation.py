@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from copy import copy
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -16,6 +17,7 @@ from .data_operation_identity import canonical_identity
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_model import (
     EffectiveDataOperationModel,
+    EffectiveKind,
     SubjectContext,
     validate_subject_context,
 )
@@ -46,7 +48,7 @@ from .rich_knowledge_contracts import (
     RichGraphAssembly,
     rich_reference_key,
 )
-from .types import PreparedRelease
+from .types import ClassDefinition, PreparedRelease, PropertyDefinition
 from .unicode_identity import identity_casefold
 
 _NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
@@ -120,9 +122,9 @@ def _references(value):
 class RichGraphState:
     def __init__(
         self,
-        prepared,
-        model,
-        context,
+        prepared: PreparedRelease,
+        model: EffectiveDataOperationModel,
+        context: SubjectContext,
         graph,
         inputs,
         whole_inputs,
@@ -242,6 +244,31 @@ class RichGraphState:
                         rich_reference_key(retained.selection.reference)
                     ] = retained.selection.reference
 
+    def query_copy(self) -> RichGraphState:
+        """Copy the declared graph maps and invocation scratch for one query."""
+        state = copy(self)
+        state.kinds = self.kinds.copy()
+        state.kind_facts = self.kind_facts.copy()
+        state.properties = self.properties.copy()
+        state.property_edges = self.property_edges.copy()
+        state.range_edges = self.range_edges.copy()
+        state.ids = self.ids.copy()
+        state.owners = self.owners.copy()
+        state.members = self.members.copy()
+        state.packets = self.packets.copy()
+        state._retained_provenance = self._retained_provenance.copy()
+        state._retained_sources = self._retained_sources.copy()
+        state.decoded = self.decoded.copy()
+        state._value_entity_references = self._value_entity_references.copy()
+        state.active = self.active.copy()
+        state.reached_values = self.reached_values.copy()
+        state.qualification_projector = self.qualification_projector.query_copy()
+        state.qualification_projections = self.qualification_projections.copy()
+        state.inputs = self.inputs.copy()
+        state.whole_members = self.whole_members.copy()
+        state.source_member_contexts = self.source_member_contexts.copy()
+        return state
+
     def retained_sources(self, member_id: str) -> tuple[DdoRichSelectedMember, ...]:
         """Actual current whole roots proving this exact retained packet."""
         sources = self._retained_sources.get(member_id, {})
@@ -286,20 +313,22 @@ class RichGraphState:
             return
         self.external(reference)
 
-    def kind(self, contract):
+    def kind(self, contract: str) -> EffectiveKind:
         owner = self.owners.get(contract)
         if owner is None or not self.kinds[owner].complete:
             raise ValueError("rich reference lacks its actual complete kind contract")
         return self.kinds[owner]
 
-    def definition(self, contract):
+    def definition(self, contract: str) -> ClassDefinition:
         kind = self.kind(contract)
         definition = self.prepared.index.definitions.get(kind.name)
         if kind.category != "class" or definition is None or definition.iri != kind.semantic_id:
             raise ValueError("rich value does not name an actual logical class owner")
         return definition
 
-    def property(self, contract, owner=None):
+    def property(
+        self, contract: str, owner: str | None = None
+    ) -> tuple[ClassDefinition, PropertyDefinition, str]:
         kind = self.kind(contract)
         if kind.category != "property":
             raise ValueError("rich field does not name an actual property contract")

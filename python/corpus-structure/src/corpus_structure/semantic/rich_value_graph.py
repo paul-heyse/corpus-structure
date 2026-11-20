@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from copy import copy
 from typing import Any
 
 from pydantic import BaseModel
@@ -44,6 +45,14 @@ class RichValueGraph:
             item.owner: item.key for item in model.identities if item.domain == "kind"
         }
         self._values: dict[str, RichValue] = {}
+
+    def query_copy(self) -> RichValueGraph:
+        """Keep generated value retention local to one query facade."""
+        graph = copy(self)
+        graph.kinds = self.kinds.copy()
+        graph.contracts = self.contracts.copy()
+        graph._values = self._values.copy()
+        return graph
 
     @property
     def values(self) -> tuple[RichValue, ...]:

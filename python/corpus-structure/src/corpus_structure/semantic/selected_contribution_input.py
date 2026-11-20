@@ -18,7 +18,7 @@ from .rich_knowledge_contracts import (
     DdoRichSelectedMember,
     rich_reference_key,
 )
-from .rich_queries import RichQueryRefused
+from .refusal_types import RichQueryRefused
 from .selected_graph_budget import SelectedGraphBudgetExceeded
 
 if TYPE_CHECKING:
