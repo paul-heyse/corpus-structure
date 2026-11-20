@@ -8,8 +8,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from itertools import chain
-from pickle import dumps, loads
-from struct import pack, unpack_from
+from struct import pack
 from threading import RLock
 from typing import Any, Literal
 
@@ -19,43 +18,10 @@ from corpus_structure.caches import register
 
 from .data_operation_json import json_bytes
 from .refusal_types import InvalidContinuation
+from .served_row_codec import JsonDerivedRows, UnstorableValue, decode_value, encode_value
 
 ENTRY_BYTES = 8 * 1024 * 1024
 ENTRY_ROWS = 4096
-
-
-@dataclass(frozen=True, slots=True)
-class DerivedRows:
-    """Only encoded derived values and offsets; no live cut, reader or generator.
-
-    Buffers are created and consumed only inside this process. Pickle preserves
-    exact Decimal scale and float kinds; the public JSON wire codec deliberately
-    normalizes these and cannot serve as a lossless cache representation.
-    """
-
-    metadata: bytes
-    content: bytes
-    offsets: bytes
-
-    @property
-    def byte_size(self):
-        return len(self.metadata) + len(self.content) + len(self.offsets)
-
-    def __len__(self):
-        return len(self.offsets) // 8 - 1
-
-    def record(self):
-        return loads(self.metadata)
-
-    def rows(self, start=0):
-        if type(start) is not int or not 0 <= start <= len(self):
-            raise InvalidContinuation(
-                "cursor is outside its immutable derived row population",
-                reason="invalid_continuation",
-            )
-        for ordinal in range(start, len(self)):
-            begin, end = unpack_from("!QQ", self.offsets, ordinal * 8)
-            yield loads(self.content[begin:end])
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,7 +151,7 @@ def _retain_disk_rows(key: ServedKey, entry):
     from .served_row_codec import VERSION, encode_rows
 
     store = _DISK_STORE.get()
-    if store is None or not isinstance(entry, DerivedRows):
+    if store is None or key.query == "rich-index" or type(entry) is not JsonDerivedRows:
         return
     try:
         files = encode_rows(entry)
@@ -385,19 +351,24 @@ def bounded_rows(rows: Iterable, metadata, *, max_bytes=ENTRY_BYTES, max_rows=EN
     iterator = iter(rows)
     encoded = []
     offsets = [0]
-    snapshot = metadata if callable(metadata) else lambda: metadata
-    header = dumps(snapshot(), protocol=5)
 
     def remainder(extra=()):
         return _OwnedRows(
-            chain((loads(body) for body in encoded), extra, iterator),
+            chain((decode_value(body[:-1]) for body in encoded), extra, iterator),
             getattr(iterator, "close", None),
         )
 
+    try:
+        header = encode_value(metadata)
+    except UnstorableValue:
+        return None, remainder()
     if len(header) + 8 > max_bytes:
         return None, remainder()
     for value in iterator:
-        body = dumps(value, protocol=5)
+        try:
+            body = encode_value(value) + b"\n"
+        except UnstorableValue:
+            return None, remainder((value,))
         if (
             len(encoded) >= max_rows
             or len(header) + offsets[-1] + len(body) + 8 * (len(offsets) + 1) > max_bytes
@@ -408,8 +379,11 @@ def bounded_rows(rows: Iterable, metadata, *, max_bytes=ENTRY_BYTES, max_rows=EN
     close = getattr(iterator, "close", None)
     if close is not None:
         close()
-    header = dumps(snapshot(), protocol=5)
-    entry = DerivedRows(
+    try:
+        header = encode_value(metadata)
+    except UnstorableValue:
+        return None, remainder()
+    entry = JsonDerivedRows(
         header, b"".join(encoded), b"".join(pack("!Q", offset) for offset in offsets)
     )
     if entry.byte_size > max_bytes:

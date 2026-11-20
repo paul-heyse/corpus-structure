@@ -925,13 +925,17 @@ def _unsupported_initializers(name: str, tree: ast.Module, scanner: _RuntimeSynt
         if isinstance(decorator, ast.Call) and (
             decorator.args
             or any(
-                item.arg not in {"frozen", "kw_only"}
+                item.arg not in {"frozen", "kw_only", "slots"}
                 or not isinstance(item.value, ast.Constant)
                 or type(item.value.value) is not bool
                 for item in decorator.keywords
             )
         ):
             return False
+        if isinstance(decorator, ast.Call):
+            options = {item.arg: ast.literal_eval(item.value) for item in decorator.keywords}
+            if options.get("slots") and not options.get("frozen"):
+                return False
         return all(
             (
                 isinstance(item, ast.AnnAssign)

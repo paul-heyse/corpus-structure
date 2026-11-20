@@ -307,7 +307,9 @@ def test_verified_native_integer_constant_is_data_and_rechecked(tmp_path, monkey
 def test_exact_native_json_codec_configuration_has_authenticated_custody(
     tmp_path, monkeypatch, expression
 ):
-    root = tmp_path / "json_example"
+    package = "json_decode_example" if "loads" in expression else "json_encode_example"
+    entry = package + ".entry"
+    root = tmp_path / package
     root.mkdir()
     (root / "__init__.py").write_text("")
     (root / "entry.py").write_text(
@@ -316,13 +318,13 @@ def test_exact_native_json_codec_configuration_has_authenticated_custody(
     monkeypatch.syspath_prepend(str(tmp_path))
     identity = capture_code_identity(
         root,
-        ("json_example.entry",),
-        callables=("json_example.entry.result",),
+        (entry,),
+        callables=(entry + ".result",),
         external_runtime=acquire_codec_runtime(),
     )
     assert identity.complete, identity.unknowns
     with authenticate_workload(root, identity) as verify:
-        module = importlib.import_module("json_example.entry")
+        module = importlib.import_module(entry)
         if "loads" in expression:
             from decimal import Decimal
 
@@ -388,6 +390,42 @@ def test_json_options_do_not_authorize_opaque_attributes_or_unowned_encoding(tmp
         external_runtime=acquire_codec_runtime(),
     )
     assert not identity.complete
+
+
+def test_frozen_slotted_snapshot_has_checked_runtime_descriptors(tmp_path, monkeypatch):
+    import importlib
+
+    from corpus_structure._query_custody import SourceCustodyError
+    from corpus_structure.semantic.code_identity import (
+        authenticate_workload,
+        capture_code_identity,
+    )
+
+    root = tmp_path / "slotted_example"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    (root / "entry.py").write_text(
+        "from dataclasses import dataclass\n"
+        "@dataclass(frozen=True, slots=True)\n"
+        "class Snapshot:\n    value: str\n"
+        "def result(item):\n"
+        "    if type(item) is not Snapshot:\n        raise TypeError('invalid snapshot')\n"
+        "    return item.value\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    identity = capture_code_identity(
+        root, ("slotted_example.entry",), callables=("slotted_example.entry.result",)
+    )
+    assert identity.complete, identity.unknowns
+    with authenticate_workload(root, identity):
+        module = importlib.import_module("slotted_example.entry")
+        assert module.result(module.Snapshot("owned")) == "owned"
+    monkeypatch.setattr(module.Snapshot, "value", "replaced")
+    with (
+        pytest.raises(SourceCustodyError, match="runtime slice changed"),
+        authenticate_workload(root, identity),
+    ):
+        pass
 
 
 def test_actual_json_decoder_wrapper_has_live_codec_and_annotation_custody():

@@ -43,14 +43,14 @@ def wire_json_loads(content: str | bytes) -> Any:
     """Keep scope JSON exact while retaining existing non-context float values."""
 
     def presentation(value, *, scope=False):
-        if isinstance(value, dict):
+        if type(value) is dict:
             return {
                 name: presentation(item, scope=scope or name == "analyzed_scope")
                 for name, item in value.items()
             }
-        if isinstance(value, list):
+        if type(value) is list:
             return [presentation(item, scope=scope) for item in value]
-        return float(value) if isinstance(value, Decimal) and not scope else value
+        return float(value) if type(value) is Decimal and not scope else value
 
     return presentation(json_loads(content))
 

@@ -46,7 +46,7 @@ class PageEnvelope:
     reuse_refusal: PageReuseRefusal | None = None
 
 
-def row_array(row, source: str | None, value_field: str | None):
+def row_array(row, source: str | None, value_field: str | None) -> tuple:
     """Project one indivisible row for exact output-array width accounting."""
     values = (row,) if source is None else row[source]
     return tuple(values) if value_field is None else tuple(value[value_field] for value in values)
@@ -55,22 +55,31 @@ def row_array(row, source: str | None, value_field: str | None):
 def apply_page_reuse_refusal(record: dict, refusal: PageReuseRefusal | None) -> dict:
     if refusal is None:
         return record
-    if type(refusal) is PageReuseRefusal:
-        result = dict(record)
-        for field in ("cursor", "continuation", "next_cursor", "resource_handle"):
-            if field in result:
-                result[field] = None
-        result["reuse"] = dict(
-            eligible=False,
-            reason="incomplete_code_identity",
-            unknowns=[dict(module=refusal.module, line=refusal.line, reason=refusal.reason)],
-            omitted=refusal.omitted,
-        )
-        return result
-    raise TypeError("page refusal must use the selected code-custody explanation")
+    if type(refusal) is not PageReuseRefusal:
+        raise TypeError("page refusal must use the selected code-custody explanation")
+    if (
+        (refusal.module is not None and type(refusal.module) is not str)
+        or type(refusal.line) is not int
+        or type(refusal.reason) is not str
+        or type(refusal.omitted) is not int
+    ):
+        raise TypeError("page refusal requires its finite code-custody fields")
+    result = dict(record)
+    for field in ("cursor", "continuation", "next_cursor", "resource_handle"):
+        if field in result:
+            result[field] = None
+    result["reuse"] = dict(
+        eligible=False,
+        reason="incomplete_code_identity",
+        unknowns=[dict(module=refusal.module, line=refusal.line, reason=refusal.reason)],
+        omitted=refusal.omitted,
+    )
+    return result
 
 
 def render_envelope(envelope: PageEnvelope, end: int, has_rows: bool, more: bool) -> dict:
+    if type(envelope) is not PageEnvelope:
+        raise TypeError("selected pages require their acquired presentation")
     continuation = envelope.following_cursor
     if more:
         cursor = dict(envelope.cursor_basis)
@@ -92,10 +101,22 @@ def render_envelope(envelope: PageEnvelope, end: int, has_rows: bool, more: bool
 
 
 def render_page(envelope: PageEnvelope, end: int, values: list, more: bool) -> dict:
+    if type(envelope) is not PageEnvelope:
+        raise TypeError("selected pages require their acquired presentation")
+    if type(values) is not list:
+        raise TypeError("selected pages require their owned rows")
     result = render_envelope(envelope, end, bool(values), more)
     for name, source, value_field, order_by in envelope.arrays:
         entries = [entry for row in values for entry in ((row,) if source is None else row[source])]
         if order_by is not None:
-            entries.sort(key=lambda entry: entry[order_by])
+            ranks = []
+            for index, entry in enumerate(entries):
+                if type(entry) is not dict:
+                    raise TypeError("ordered page entries require owned records")
+                rank = entry[order_by]
+                if type(rank) is not int:
+                    raise TypeError("ordered page entries require an exact integer ordinal")
+                ranks.append((rank, index))
+            entries = [entries[index] for _, index in sorted(ranks)]
         result[name] = entries if value_field is None else [entry[value_field] for entry in entries]
     return result

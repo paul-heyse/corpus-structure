@@ -548,12 +548,17 @@ class DdoRichAdmission(RichRecord):
 
 
 def rich_support_records(references: tuple[SupportReference, ...]) -> list[dict]:
-    from .data_operation_values import semantic_value
+    from .data_operation_value_codec import native_semantic_value
     from .identity import canonical_bytes
 
+    records = support_reference_records(references)
+    if any(type(value) is not str for record in records for value in record.values()):
+        raise TypeError("rich support references require exact string fields")
+    # These reference variants contain only strings. The decimal bound cannot
+    # affect their existing tagged meaning and needs no ambient model capture.
     unique = {
-        canonical_bytes(semantic_value(record)): record
-        for record in support_reference_records(references)
+        canonical_bytes(native_semantic_value(record, decimal_fixed_point_digits=1)): record
+        for record in records
     }
     return [unique[key] for key in sorted(unique)]
 

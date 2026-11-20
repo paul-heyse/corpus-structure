@@ -9,6 +9,7 @@ from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.selected_contribution_input import actual_graph_inputs
 from corpus_structure.semantic.selected_graph_budget import SelectedGraphBudgetExceeded
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 from semantic.test_rich_query_delivery import CUT
 
 
@@ -117,7 +118,11 @@ def test_unpositioned_support_population_resolves_only_actual_product_member_edg
                 dict(derivation_id="producer:" + name, product_id=name, member_id=None),
             )
         refs, wholes = actual_graph_inputs(
-            index, "root-episode", cut=CutSelection(json_bytes(CUT)), max_support_edges=100
+            index,
+            "root-episode",
+            cut=CutSelection(json_bytes(CUT)),
+            max_support_edges=100,
+            decimal_fixed_point_digits=decimal_digit_limit(),
         )
         by_product = {item.product_id: item for item in refs}
         assert {item.derivation_id for item in by_product["A"].support_references} == {"producer:A"}
@@ -129,7 +134,11 @@ def test_unpositioned_support_population_resolves_only_actual_product_member_edg
         assert [item.reference.product_id for item in wholes] == ["A"]
         with pytest.raises(SelectedGraphBudgetExceeded, match="examined-edge"):
             actual_graph_inputs(
-                index, "root-episode", cut=CutSelection(json_bytes(CUT)), max_support_edges=1
+                index,
+                "root-episode",
+                cut=CutSelection(json_bytes(CUT)),
+                max_support_edges=1,
+                decimal_fixed_point_digits=decimal_digit_limit(),
             )
     finally:
         index.close()
@@ -163,7 +172,11 @@ def test_authored_policy_keeps_distinct_original_admission_support(tmp_path):
             ),
         )
         refs, _ = actual_graph_inputs(
-            index, "root-episode", cut=CutSelection(json_bytes(CUT)), max_support_edges=100
+            index,
+            "root-episode",
+            cut=CutSelection(json_bytes(CUT)),
+            max_support_edges=100,
+            decimal_fixed_point_digits=decimal_digit_limit(),
         )
         assert refs[0].support_references[0].kind == "authored"
         assert refs[0].support_references[0].admission_id == "admission:policy"
@@ -226,11 +239,19 @@ def test_actual_bounded_authority_leaf_is_not_reconstructed_as_hidden_edges(tmp_
         if defect not in {None, "parallel-valid-use"}:
             with pytest.raises(RichQueryRefused, match="bounded authority"):
                 actual_graph_inputs(
-                    index, "root-episode", cut=CutSelection(json_bytes(CUT)), max_support_edges=100
+                    index,
+                    "root-episode",
+                    cut=CutSelection(json_bytes(CUT)),
+                    max_support_edges=100,
+                    decimal_fixed_point_digits=decimal_digit_limit(),
                 )
         else:
             refs, wholes = actual_graph_inputs(
-                index, "root-episode", cut=CutSelection(json_bytes(CUT)), max_support_edges=100
+                index,
+                "root-episode",
+                cut=CutSelection(json_bytes(CUT)),
+                max_support_edges=100,
+                decimal_fixed_point_digits=decimal_digit_limit(),
             )
             assert (
                 len(refs) == 1

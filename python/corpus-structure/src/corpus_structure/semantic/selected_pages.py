@@ -10,6 +10,8 @@ def byte_bounded_page(rows, *, offset, limit, max_bytes, presentation: PageEnvel
     The presentation data supplies fresh cut/provenance and the ordinal cursor.
     Multiple output arrays can share one indivisible pagination unit (dossiers).
     """
+    if type(presentation) is not PageEnvelope:
+        raise TypeError("selected pages require their acquired presentation")
     separator = len(json_bytes([0, 0])) - 2 * len(json_bytes(0)) - 2
     fields = {name: (source, value) for name, source, value, _ in presentation.arrays}
     dynamic_names = {

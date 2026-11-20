@@ -58,6 +58,13 @@ def test_unsupported_values_have_no_disk_encoding(value):
         encode_value(value)
 
 
+def test_unencodable_value_preserves_the_fresh_row_stream():
+    value = {"text": "\ud800"}
+    entry, remaining = bounded_rows([{"text": "prefix"}, value, {"text": "tail"}], {})
+    assert entry is None and remaining is not None
+    assert list(remaining) == [{"text": "prefix"}, value, {"text": "tail"}]
+
+
 def test_row_offsets_and_complete_metadata_roundtrip():
     entry, remaining = bounded_rows([1, Decimal("1.00"), -0.0], {"unknowns": ["one"]})
     assert entry is not None and remaining is None
@@ -192,3 +199,50 @@ def test_verified_disk_entry_seeks_without_decoding_prior_rows_again(monkeypatch
     monkeypatch.setattr(codec, "decode_value", observe)
     assert list(restored.rows(98)) == [98, 99]
     assert decoded == [encode_value(98), encode_value(99)]
+
+
+def test_process_and_disk_retain_the_same_encoded_buffers(monkeypatch):
+    from corpus_structure.semantic import served_row_codec as codec
+
+    original, remaining = bounded_rows([Decimal("7.00"), -0.0], {"unknowns": []})
+    assert original is not None and remaining is None
+
+    def unexpected_encoding(value):
+        raise AssertionError("publication must reuse the already encoded population")
+
+    monkeypatch.setattr(codec, "encode_value", unexpected_encoding)
+    files = encode_rows(original)
+    assert files["metadata.json"] is original.metadata
+    assert files["rows.jsonl"] is original.content
+    assert files["offsets.bin"] is original.offsets
+    assert original.byte_size == sum(len(content) for content in files.values())
+
+
+def test_unsupported_value_returns_stream_without_invoking_object_protocols():
+    calls = []
+
+    class Unsupported:
+        def __reduce__(self):
+            calls.append("pickle")
+            raise AssertionError("selected rows must never invoke object serialization")
+
+    unsupported = Unsupported()
+    cached, remaining = bounded_rows(iter([Decimal("1.00"), unsupported, 3]), {})
+    assert cached is None and remaining is not None
+    values = list(remaining)
+    assert values[0].as_tuple() == Decimal("1.00").as_tuple()
+    assert values[1] is unsupported and values[2] == 3
+    assert calls == []
+
+
+def test_unsupported_metadata_leaves_the_row_stream_untouched():
+    seen = []
+
+    def rows():
+        seen.append(True)
+        yield {"n": 1}
+
+    cached, remaining = bounded_rows(rows(), {"unsupported": object()})
+    assert cached is None and remaining is not None and seen == []
+    assert list(remaining) == [{"n": 1}]
+    assert seen == [True]

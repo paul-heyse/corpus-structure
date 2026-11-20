@@ -1,10 +1,10 @@
-"""Lossless inert disk representation of complete bounded derived row batches."""
+"""Lossless inert representation shared by process and disk derived-row retention."""
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from itertools import pairwise
 from math import isfinite
-from struct import pack, unpack_from
+from struct import unpack_from
 
 from .data_operation_json import json_bytes, json_loads
 
@@ -84,7 +84,12 @@ def _decode(value, depth=0):
 
 
 def encode_value(value) -> bytes:
-    return json_bytes(_encode(value))
+    try:
+        return json_bytes(_encode(value))
+    except UnstorableValue:
+        raise
+    except (ValueError, OverflowError, RecursionError) as error:
+        raise UnstorableValue("served value cannot be encoded for retention") from error
 
 
 def decode_value(content: bytes):
@@ -96,7 +101,7 @@ def decode_value(content: bytes):
 
 @dataclass(frozen=True, slots=True)
 class JsonDerivedRows:
-    """Validated immutable JSON lines with direct ordinal access for a disk hit."""
+    """Immutable encoded rows with direct ordinal access in either retention tier."""
 
     metadata: bytes
     content: bytes
@@ -128,14 +133,12 @@ class JsonDerivedRows:
 def encode_rows(entry) -> dict[str, bytes]:
     from .selected_query_cache import ENTRY_BYTES
 
-    lines = [encode_value(row) + b"\n" for row in entry.rows()]
-    offsets = [0]
-    for line in lines:
-        offsets.append(offsets[-1] + len(line))
+    if type(entry) is not JsonDerivedRows:
+        raise TypeError("served row publication requires its immutable encoded population")
     files = {
-        "metadata.json": encode_value(entry.record()),
-        "rows.jsonl": b"".join(lines),
-        "offsets.bin": b"".join(pack("!Q", offset) for offset in offsets),
+        "metadata.json": entry.metadata,
+        "rows.jsonl": entry.content,
+        "offsets.bin": entry.offsets,
     }
     if sum(map(len, files.values())) > ENTRY_BYTES:
         raise UnstorableValue("encoded served rows exceed the admitted disk entry bound")

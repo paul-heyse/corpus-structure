@@ -350,3 +350,17 @@ def test_success_completed_at_wait_timeout_is_delivered(monkeypatch):
     with cache.loading(cut_key(b"race")) as observed:
         assert observed is value
     assert len(calls) == 2
+
+
+def test_completed_stream_snapshots_its_final_inert_metadata():
+    metadata = {"unknowns": []}
+
+    def rows():
+        yield {"n": 1}
+        metadata["unknowns"].append("observed while exhausting the query")
+
+    cached, remaining = bounded_rows(rows(), metadata)
+    assert cached is not None and remaining is None
+    metadata["unknowns"].clear()
+    assert cached.record() == {"unknowns": ["observed while exhausting the query"]}
+    assert list(cached.rows()) == [{"n": 1}]

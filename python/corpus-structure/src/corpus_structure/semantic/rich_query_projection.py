@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any
 
-from .data_operation_json import json_bytes, json_loads, own_json_value
-from .data_operation_values import decode_semantic_value
+from .data_operation_json import json_bytes, json_loads
+from .data_operation_value_codec import decode_semantic_value
+from .owned_json import FrozenObject, freeze_json, thaw_json
 from .rich_graph_validation import RichWholeInput, read_retained_rich_graph
 from .rich_knowledge_contracts import DdoRichSelectedMember
 from .rich_queries import PreparedRichQueryIndex, query_rows
 
 if TYPE_CHECKING:
-    from ._data_operation_wire import WireReadDemandResultResult
     from .data_operation_model import EffectiveDataOperationModel, SubjectContext
     from .rich_queries import RichQuery, RichQueryIndex
     from .types import PreparedRelease
@@ -33,14 +33,23 @@ class RichQueryInput:
     context: SubjectContext
     reference: bytes
     body: bytes
+    decimal_fixed_point_digits: int = field(kw_only=True)
 
 
 @dataclass(frozen=True)
 class RichFrontierInput:
-    """Generated native frontier and the exact bytes witnessed at acquisition."""
+    """Detached immutable native frontier admitted by generated decoding."""
 
-    page: WireReadDemandResultResult
-    native_witness: bytes
+    page: FrozenObject
+
+
+def prepare_rich_frontier(native: bytes) -> RichFrontierInput:
+    from .demand_wire import decode_wire_demand_result
+
+    page = freeze_json(decode_wire_demand_result(native))
+    if type(page) is not FrozenObject:
+        raise TypeError("rich frontier requires an admitted native record")
+    return RichFrontierInput(page)
 
 
 def frontier_content_witness(inputs: RichFrontierInput) -> str | None:
@@ -49,13 +58,11 @@ def frontier_content_witness(inputs: RichFrontierInput) -> str | None:
     The three varying receipt strings contribute their encoded lengths because
     PostgreSQL enforces the byte limit on the complete product envelope.
     """
-    if type(inputs) is not RichFrontierInput or type(inputs.native_witness) is not bytes:
+    if type(inputs) is not RichFrontierInput or type(inputs.page) is not FrozenObject:
         raise TypeError("rich frontier projection requires its owned acquired input")
-    projection = own_json_value(inputs.page)
+    projection = thaw_json(inputs.page)
     if type(projection) is not dict:
         raise TypeError("rich frontier projection requires an owned record")
-    if json_bytes(projection) != inputs.native_witness:
-        raise ValueError("rich frontier changed after its native acquisition")
     if projection["view"] != "frontier" or projection.get("support_page") is not None:
         return None
     following = projection.get("continuation")
@@ -74,7 +81,13 @@ def frontier_content_witness(inputs: RichFrontierInput) -> str | None:
 
 def prepare_rich_query(inputs: RichQueryInput, *, max_members: int) -> PreparedRichQueryIndex:
     reference = DdoRichSelectedMember.model_validate(json_loads(inputs.reference))
-    whole = RichWholeInput(reference, decode_semantic_value(json_loads(inputs.body)))
+    whole = RichWholeInput(
+        reference,
+        decode_semantic_value(
+            json_loads(inputs.body),
+            decimal_fixed_point_digits=inputs.decimal_fixed_point_digits,
+        ),
+    )
     state = read_retained_rich_graph(
         inputs.prepared,
         inputs.model,
@@ -91,7 +104,11 @@ def rich_query_metadata(index: RichQueryIndex) -> dict[str, list[dict[str, Any]]
     return dict(unknowns=[index.unknowns[key] for key in sorted(index.unknowns)])
 
 
-def derive_rich_query_rows(index: RichQueryIndex, query: RichQuery):
+def derive_rich_query_rows(
+    index: RichQueryIndex, query: RichQuery, metadata: dict[str, list[dict[str, Any]]]
+):
     """Project rows using only the acquired whole and typed query selection."""
     for row in query_rows(index, query):
-        yield dict(value=row.value, **rich_query_metadata(index))
+        metadata.update(rich_query_metadata(index))
+        yield dict(value=row.value, **metadata)
+    metadata.update(rich_query_metadata(index))

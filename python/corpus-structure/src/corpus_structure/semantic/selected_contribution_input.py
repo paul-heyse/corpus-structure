@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from .authority_leaf import NativeAuthorityLeaf
 from .data_operation_json import json_bytes
 from .data_operation_model import SubjectContext
 from .data_operation_support import ComputationalSupportReference, read_support_references
-from .data_operation_values import decode_semantic_value
+from .data_operation_value_codec import decode_semantic_value
 from .refusal_types import RichQueryRefused
 from .rich_graph_validation import (
     RichGraphState,
@@ -57,6 +57,7 @@ class SelectedContributionScope:
     model: EffectiveDataOperationModel
     scope: WireDemandReadScope
     max_support_edges: int
+    decimal_fixed_point_digits: int = field(kw_only=True)
 
     def products(self, *, product_id: str | None = None) -> Iterator[SelectedContribution]:
         products = self.index.mapping("kb.data_product", ("id",))
@@ -114,7 +115,8 @@ class SelectedContributionScope:
                     reference,
                     context,
                     decode_semantic_value(
-                        product["canonical_body"] if output["member_id"] is None else value["body"]
+                        product["canonical_body"] if output["member_id"] is None else value["body"],
+                        decimal_fixed_point_digits=self.decimal_fixed_point_digits,
                     ),
                     kinds[value["kind_contract"]]["kind"],
                     request["operation_id"],
@@ -144,6 +146,7 @@ class SelectedContributionScope:
             selected.derivation_id,
             cut=self.cut,
             max_support_edges=self.max_support_edges,
+            decimal_fixed_point_digits=self.decimal_fixed_point_digits,
         )
         kinds = self.index.mapping("sem.data_kind_contract", ("kind_contract",))
         retained = tuple(
@@ -163,7 +166,12 @@ class SelectedContributionScope:
 
 
 def actual_graph_inputs(
-    index: SelectedRecordIndex, derivation_id: str, *, cut: CutSelection, max_support_edges: int
+    index: SelectedRecordIndex,
+    derivation_id: str,
+    *,
+    cut: CutSelection,
+    max_support_edges: int,
+    decimal_fixed_point_digits: int,
 ):
     """Resolve frozen role support by actual native output/original edges, once.
 
@@ -265,7 +273,12 @@ def actual_graph_inputs(
                                 "selected graph bounded authority is unavailable or differs from its permitted whole authorization conclusion"
                             )
                         DdoRecordPolicyAuthorization.model_validate_json(
-                            json_bytes(decode_semantic_value(product["canonical_body"]))
+                            json_bytes(
+                                decode_semantic_value(
+                                    product["canonical_body"],
+                                    decimal_fixed_point_digits=decimal_fixed_point_digits,
+                                )
+                            )
                         )
                         matches.append((leaf.product_id, None))
                     fields = ("kind", "derivation_id", "admission_use_id")
@@ -312,7 +325,11 @@ def actual_graph_inputs(
             references[key] = reference
             if member_id is None:
                 wholes[key] = RichWholeInput(
-                    reference, decode_semantic_value(product["canonical_body"])
+                    reference,
+                    decode_semantic_value(
+                        product["canonical_body"],
+                        decimal_fixed_point_digits=decimal_fixed_point_digits,
+                    ),
                 )
     return tuple(references[key] for key in sorted(references)), tuple(
         wholes[key] for key in sorted(wholes)

@@ -19,6 +19,7 @@ from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.refusal_types import InvalidContinuation, RichQueryRefused
 from corpus_structure.semantic.rich_query_projection import RichQueryInput
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 from corpus_structure.serve import rich_queries as service
 from corpus_structure.serve.rich_knowledge import SelectedRichKnowledge, SelectedRichReference
 from semantic.selected_query_cache_support import complete_serving_code as complete_serving_code
@@ -75,10 +76,20 @@ def test_rich_preparation_preserves_native_tagged_values(monkeypatch, statistics
         graph.context,
         json_bytes(graph.root_input.reference.model_dump(mode="python")),
         json_bytes(semantic_value(value)),
+        decimal_fixed_point_digits=decimal_digit_limit(),
     )
 
+    decode = projection.decode_semantic_value
+    limits = []
+
+    def decode_captured(value, *, decimal_fixed_point_digits):
+        limits.append(decimal_fixed_point_digits)
+        return decode(value, decimal_fixed_point_digits=decimal_fixed_point_digits)
+
+    monkeypatch.setattr(projection, "decode_semantic_value", decode_captured)
     projection.prepare_rich_query(inputs, max_members=100)
 
+    assert limits == [inputs.decimal_fixed_point_digits]
     assert seen == [value]
     assert seen[0]["decimal"].as_tuple() == decimal.as_tuple()
     assert seen[0]["measurement"].hex() == (-0.0).hex()
@@ -105,6 +116,7 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
             graph.context,
             json_bytes(graph.root_input.reference.model_dump(mode="python")),
             json_bytes(semantic_value(index.state.graph.model_dump(mode="python"))),
+            decimal_fixed_point_digits=decimal_digit_limit(),
         ),
     )
     seen = []
@@ -197,6 +209,7 @@ def test_exact_cursor_keeps_fractional_parameters_and_refuses_work_and_response_
                 graph.context,
                 json_bytes(graph.root_input.reference.model_dump(mode="python")),
                 json_bytes(semantic_value(index.state.graph.model_dump(mode="python"))),
+                decimal_fixed_point_digits=decimal_digit_limit(),
             ),
         ),
     )

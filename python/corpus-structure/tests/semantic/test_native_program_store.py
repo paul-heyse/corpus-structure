@@ -70,6 +70,29 @@ def test_program_capture_cannot_bind_another_physical_model(program_capture):
         artifact.hydrate(MetaData(info={"physical_model_id": "physical:other"}))
 
 
+def test_generator_identity_carries_checked_native_codec_capabilities():
+    from corpus_structure.semantic.native_program_store import capture_generator_code
+
+    identity = capture_generator_code()
+    profiles = {item.reference: item for item in identity.external_runtime}
+    assert {"rapidjson", "decimal", "hashlib", "datetime"} <= profiles.keys()
+    assert all(item.files and item.symbols for item in profiles.values())
+    for item in profiles.values():
+        item.check()
+
+
+def test_generator_capture_rechecks_cached_runtime_bindings(monkeypatch):
+    import rapidjson
+
+    from corpus_structure.semantic.native_program_store import capture_generator_code
+
+    identity = capture_generator_code()
+    assert any(item.reference == "rapidjson" for item in identity.external_runtime)
+    monkeypatch.setattr(rapidjson, "dumps", lambda *args, **kwargs: "null")
+    with pytest.raises(ValueError, match=r"external codec symbol was replaced: rapidjson\.dumps"):
+        capture_generator_code()
+
+
 def test_current_program_artifact_uses_captured_products_without_rendering(monkeypatch):
     from corpus_structure.semantic import target_installation
     from corpus_structure.semantic.metadata import get_metadata

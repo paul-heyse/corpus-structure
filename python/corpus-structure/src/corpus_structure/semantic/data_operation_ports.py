@@ -22,7 +22,7 @@ from collections.abc import Callable, Generator, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from hashlib import sha256
 from pathlib import Path
-from types import CodeType, MappingProxyType, ModuleType, UnionType
+from types import CodeType, MappingProxyType, MemberDescriptorType, ModuleType, UnionType
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_origin
 
 if TYPE_CHECKING:
@@ -1596,6 +1596,15 @@ def _verify_closed_runtime_sources(
                     "dataclasses-runtime" in sources.generated_interfaces
                     and isinstance(owner, type)
                     and dataclasses.is_dataclass(owner)
+                    and type(value) is MemberDescriptorType
+                    and isinstance(node, ast.AnnAssign)
+                ):
+                    # The generated class check verifies its exact slot owners.
+                    continue
+                if (
+                    "dataclasses-runtime" in sources.generated_interfaces
+                    and isinstance(owner, type)
+                    and dataclasses.is_dataclass(owner)
                     and isinstance(node.value, ast.Call)
                     and _source_reference(node.value.func, module) is dataclasses.field
                 ):
@@ -1754,11 +1763,14 @@ def _verify_generated_dataclass(value, node, module, *, qualname, future_annotat
         if decorator.args:
             raise PortRefusal("dataclass options must be named literals")
         for keyword in decorator.keywords:
-            if keyword.arg not in {"init", "kw_only", "frozen"}:
+            if keyword.arg not in {"init", "kw_only", "frozen", "slots"}:
                 raise PortRefusal("unsupported generated dataclass option")
             options[keyword.arg] = ast.literal_eval(keyword.value)
     if options.get("init", True) is not True:
         raise PortRefusal("generated dataclass requires init=True")
+    slotted = options.get("slots", False)
+    if slotted and (node.bases or not options.get("frozen")):
+        raise PortRefusal("generated slots require a frozen class without bases")
     actual_fields = {field.name: field for field in dataclasses.fields(value)}
     expected_names = dict.fromkeys(
         field.name
@@ -1844,6 +1856,7 @@ def _verify_generated_dataclass(value, node, module, *, qualname, future_annotat
         specification,
         frozen=parameters.frozen,
         kw_only=options.get("kw_only", False),
+        slots=slotted,
     )
     expected_parameters = inspect.getattr_static(expected, "__dataclass_params__")
     if type(parameters) is not type(expected_parameters) or any(
@@ -1873,6 +1886,15 @@ def _verify_generated_dataclass(value, node, module, *, qualname, future_annotat
         if isinstance(declaration, ast.AnnAssign) and isinstance(declaration.target, ast.Name)
     }
     for name, field in actual_fields.items():
+        if slotted:
+            descriptor = vars(value).get(name)
+            if (
+                type(descriptor) is not MemberDescriptorType
+                or descriptor.__objclass__ is not value
+                or descriptor.__name__ != name
+            ):
+                raise PortRefusal("generated dataclass slot correspondence differs")
+            continue
         # Standard transformation removes field()/required declarations without
         # a literal default. An inherited field keeps the captured base owner;
         # adding an own shadow changes class-level reads independently of init.
@@ -1901,6 +1923,8 @@ def _verify_generated_dataclass(value, node, module, *, qualname, future_annotat
         )
     if not keywords_match:
         raise PortRefusal("generated dataclass constructor keyword defaults differ")
+    if slotted and not same_default(vars(value).get("__slots__"), vars(expected)["__slots__"]):
+        raise PortRefusal("generated dataclass slot sequence differs")
     allowed = set(vars(expected)) | {
         "__firstlineno__",
         "__static_attributes__",
@@ -1908,7 +1932,7 @@ def _verify_generated_dataclass(value, node, module, *, qualname, future_annotat
         "__annotations__",
     }
     if "__slotnames__" in vars(value):
-        if vars(value)["__slotnames__"] != []:
+        if vars(value)["__slotnames__"] != (list(expected_names) if slotted else []):
             raise PortRefusal("generated dataclass has unexpected runtime slots")
         allowed.add("__slotnames__")  # copyreg caches the absence of slots during deepcopy.
     allowed.update(

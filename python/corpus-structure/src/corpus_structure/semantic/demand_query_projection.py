@@ -3,23 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
-from .data_operation_json import json_bytes, json_loads, own_json_value
+from .data_operation_json import json_loads, own_json_value
 from .data_operation_value_codec import decode_semantic_value, tagged_mapping_field
-
-if TYPE_CHECKING:
-    from ._data_operation_wire import WireReadDemandResultResult
+from .owned_json import FrozenObject, freeze_json, thaw_json
 
 
 @dataclass(frozen=True)
 class DemandQueryProjectionInputs:
-    """Detached generated values plus immutable witnesses of their keyed material."""
+    """Detached generated values of the material admitted by native acquisition."""
 
-    page: WireReadDemandResultResult
-    selection: dict
-    native_witness: bytes
-    selection_witness: bytes
+    page: FrozenObject
+    selection: FrozenObject
     decimal_fixed_point_digits: int
 
 
@@ -35,15 +30,13 @@ def prepare_demand_projection_inputs(
 
     if type(selection) is not bytes:
         raise TypeError("native projection requires immutable selection bytes")
-    page = decode_wire_demand_result(native)
-    selected = own_json_value(json_loads(selection))
-    if type(selected) is not dict:
-        raise TypeError("native projection selection requires an object")
+    page = freeze_json(decode_wire_demand_result(native))
+    selected = freeze_json(json_loads(selection))
+    if type(page) is not FrozenObject or type(selected) is not FrozenObject:
+        raise TypeError("native projection requires a page and selection object")
     return DemandQueryProjectionInputs(
         page=page,
         selection=selected,
-        native_witness=json_bytes(page),
-        selection_witness=json_bytes(selected),
         decimal_fixed_point_digits=decimal_fixed_point_digits,
     )
 
@@ -147,20 +140,22 @@ def selected_coverage(page: dict, *, decimal_fixed_point_digits: int):
                 )
 
 
+def _record_array(value):
+    if type(value) is not list:
+        raise TypeError("native projection requires an array of records")
+    for record in value:
+        if type(record) is not dict:
+            raise TypeError("native projection requires exact record values")
+        yield record
+
+
 def selected_query_rows(inputs: DemandQueryProjectionInputs):
     if type(inputs) is not DemandQueryProjectionInputs:
         raise TypeError("native projection requires its owned immutable input snapshot")
-    if type(inputs.native_witness) is not bytes or type(inputs.selection_witness) is not bytes:
-        raise TypeError("native projection requires immutable material witnesses")
-    native = own_json_value(inputs.page)
-    selection = own_json_value(inputs.selection)
+    native = thaw_json(inputs.page)
+    selection = thaw_json(inputs.selection)
     if type(native) is not dict or type(selection) is not dict:
         raise TypeError("native projection requires owned record inputs")
-    if (
-        json_bytes(native) != inputs.native_witness
-        or json_bytes(selection) != inputs.selection_witness
-    ):
-        raise ValueError("native projection inputs changed after their keyed acquisition")
     decimal_fixed_point_digits = inputs.decimal_fixed_point_digits
     if (
         type(decimal_fixed_point_digits) is not int
@@ -168,21 +163,21 @@ def selected_query_rows(inputs: DemandQueryProjectionInputs):
     ):
         raise ValueError("native projection requires a positive model-derived decimal limit")
     if selection["view"] == "operations":
+        uses = tuple(_record_array(native["uses"]))
         rows = (
             dict(
                 obligation=obligation,
-                uses=[
-                    use
-                    for use in native["uses"]
-                    if use["obligation_id"] == obligation["obligation_id"]
-                ],
+                uses=[use for use in uses if use["obligation_id"] == obligation["obligation_id"]],
             )
-            for obligation in native["obligations"]
+            for obligation in _record_array(native["obligations"])
         )
     elif selection["view"] in {"sources", "support"}:
+        support = native["support_page"]
+        if type(support) is not dict:
+            raise TypeError("native projection requires an exact support page")
         rows = (
             row
-            for row in native["support_page"]["records"]
+            for row in _record_array(support["records"])
             if selection["view"] == "support" or row["relation"] == "ops.original_source_admission"
         )
     elif selection["view"] == "coverage":

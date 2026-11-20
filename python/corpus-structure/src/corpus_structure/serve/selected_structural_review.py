@@ -10,6 +10,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.selected_structural_projection import STRUCTURAL_QUERY_ROOTS
 from corpus_structure.semantic.serving_identity import installed_read_implementation
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 
 from .demand_export import export_demand_result, verified_demand_export
 from .selected_structural import StructuralScope
@@ -84,6 +85,7 @@ def _replay(root, selection, native_digest):
                 cut.record["scope"],
                 request.max_support_edges,
                 implementation,
+                decimal_fixed_point_digits=decimal_digit_limit(),
             )
             return _project(scope, request)
 

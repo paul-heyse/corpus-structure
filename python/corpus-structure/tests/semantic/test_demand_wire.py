@@ -119,7 +119,7 @@ def test_owned_json_copy_refuses_subclasses_and_protocols_without_calling_them()
             own_json_value(value)
 
 
-def test_projection_snapshot_refuses_changed_values_and_arbitrary_objects():
+def test_projection_snapshot_owns_nested_values_and_refuses_arbitrary_objects():
     from dataclasses import replace
 
     from corpus_structure.semantic.demand_queries import DemandQueryRequest
@@ -127,6 +127,7 @@ def test_projection_snapshot_refuses_changed_values_and_arbitrary_objects():
         prepare_demand_projection_inputs,
         selected_query_rows,
     )
+    from corpus_structure.semantic.owned_json import FrozenObject, freeze_json, thaw_json
 
     def prepared():
         return prepare_demand_projection_inputs(
@@ -137,14 +138,18 @@ def test_projection_snapshot_refuses_changed_values_and_arbitrary_objects():
             decimal_fixed_point_digits=100,
         )
 
-    changed = prepared()
-    changed.page["uses"][0]["products"][0]["multiplicity"] = 99
-    with pytest.raises(ValueError, match="changed after their keyed acquisition"):
-        list(selected_query_rows(changed))
+    original = {"fields": [Decimal("12.340"), -0.0]}
+    frozen = freeze_json(original)
+    original["fields"].clear()
+    assert str(thaw_json(frozen)) == "{'fields': [Decimal('12.340'), -0.0]}"
+    inputs = prepared()
+    rows = list(selected_query_rows(inputs))
+    rows[0]["meaning_body"].clear()
+    assert next(selected_query_rows(inputs))["meaning_body"]
     with pytest.raises(TypeError, match="exact inert"):
-        list(selected_query_rows(replace(prepared(), page=cast(Any, object()))))
-    with pytest.raises(TypeError, match="immutable material witnesses"):
-        list(selected_query_rows(replace(prepared(), native_witness=cast(Any, bytearray(b"{}")))))
+        list(selected_query_rows(replace(inputs, page=cast(Any, object()))))
+    with pytest.raises(TypeError, match="immutable object fields"):
+        list(selected_query_rows(replace(inputs, page=FrozenObject(cast(Any, [])))))
 
 
 def test_member_meaning_retains_the_original_tagged_subtree_and_decimal_fidelity():

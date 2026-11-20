@@ -99,6 +99,7 @@ class ProgramSetArtifact(BaseModel):
 @cache
 def _analyze_generator_code():
     from .code_identity import capture_code_identity
+    from .external_runtime import acquire_codec_runtime
 
     root = Path(__file__).resolve().parents[1]
     return capture_code_identity(
@@ -117,6 +118,7 @@ def _analyze_generator_code():
             "corpus_structure.semantic.native_products._capture_native_authoring_inputs",
             "corpus_structure.semantic.native_protocol_authoring._native_protocol_sources",
         ),
+        external_runtime=acquire_codec_runtime(),
     )
 
 
@@ -125,6 +127,8 @@ def capture_generator_code():
 
     root = Path(__file__).resolve().parents[1]
     identity = _analyze_generator_code()
+    for capability in identity.external_runtime:
+        capability.check()
     capture_workload_sources(root, identity)
     return identity
 

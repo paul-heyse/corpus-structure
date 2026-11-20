@@ -52,6 +52,7 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
         entry="corpus_structure.semantic.demand_query_projection",
         profile="demand-query-v2",
         callables=(
+            "corpus_structure.semantic.demand_query_projection.prepare_demand_projection_inputs",
             "corpus_structure.semantic.demand_query_projection.selected_query_rows",
             "corpus_structure.semantic.selected_pages.byte_bounded_page",
             "corpus_structure.semantic.continuation_codec.encode_cursor",

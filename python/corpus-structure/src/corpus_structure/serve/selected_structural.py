@@ -102,6 +102,7 @@ def structural_scope(connection, request, *, roots, source_products=()):
                 scope.scope,
                 scope.max_support_edges,
                 implementation,
+                decimal_fixed_point_digits=scope.decimal_fixed_point_digits,
             )
 
 

@@ -19,6 +19,7 @@ from corpus_structure.semantic.data_operation_support import (
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 
 
 def author_interpretations(engine, prepared, *, request: NativeDemandRequest):
@@ -178,6 +179,7 @@ def authenticate_judgment_source(connection, prepared, nominal, body, *, expecte
             bound_data_operation_model(original),
             scope,
             request.max_support_edges,
+            decimal_fixed_point_digits=decimal_digit_limit(),
         )
         groups = tuple(
             group
@@ -312,5 +314,6 @@ def read_authored_judgment_selection(connection, request, selected_read):
             bound_data_operation_model(prepared),
             selected_read.scope,
             request.max_support_edges,
+            decimal_fixed_point_digits=decimal_digit_limit(),
         )
         yield from selected_authored_judgments(connection, selected, selected_read.product_ids)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from functools import partial
 from hashlib import sha256
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -43,6 +42,7 @@ def rich_query_implementation(query):
         entry="corpus_structure.semantic.rich_query_projection",
         profile=VERSION,
         callables=(
+            "corpus_structure.semantic.rich_query_projection.prepare_rich_frontier",
             "corpus_structure.semantic.rich_query_projection.frontier_content_witness",
             "corpus_structure.semantic.rich_query_projection.prepare_rich_query",
             "corpus_structure.semantic.rich_query_projection.derive_rich_query_rows",
@@ -159,7 +159,7 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
     )
     with SELECTED_QUERY_CACHE.loading(key) as entry:
         remaining = None
-        metadata_provider = entry.record if entry is not None else None
+        metadata = entry.record() if entry is not None else None
         if entry is None:
             graph_key = served_key(
                 connection,
@@ -191,14 +191,13 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
                     SELECTED_QUERY_CACHE.put(graph_key, prepared_index)
             index = prepared_index.query_index()
 
-            metadata_provider = partial(rich_query_metadata, index)
+            metadata = rich_query_metadata(index)
             entry, remaining = bounded_rows(
-                derive_rich_query_rows(index, request.query), metadata_provider
+                derive_rich_query_rows(index, request.query, metadata), metadata
             )
             if entry is not None:
                 SELECTED_QUERY_CACHE.put(key, entry)
-    assert metadata_provider is not None
-    metadata = metadata_provider()
+    assert metadata is not None
     rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
     observations = PageObservations(metadata["unknowns"])
@@ -207,7 +206,7 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
         for packet in rows:
             observations.unknowns = packet["unknowns"]
             yield packet["value"]
-        observations.unknowns = metadata_provider()["unknowns"]
+        observations.unknowns = metadata["unknowns"]
 
     pinned = request.model_copy(
         update=dict(

@@ -72,6 +72,7 @@ def grouped_interpretation_rows(selected, request, authored_judgments):
             product.derivation_id,
             cut=selected.cut,
             max_support_edges=request.max_support_edges,
+            decimal_fixed_point_digits=selected.decimal_fixed_point_digits,
         )
         if not any(
             reference.product_id == candidate_id and reference.member_id is None

@@ -15,6 +15,7 @@ from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.selected_contribution_input import (
     SelectedContributionScope,
 )
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 
 
 def selected_contribution_selection(request, *, product_ids=None) -> WireDemandReadScope:
@@ -58,5 +59,11 @@ def selected_contribution_scope(connection, request, *, product_ids=None):
         model = bound_data_operation_model(prepared)
         index.freeze()
         yield SelectedContributionScope(
-            cut, index, prepared, model, scope, request.max_support_edges
+            cut,
+            index,
+            prepared,
+            model,
+            scope,
+            request.max_support_edges,
+            decimal_fixed_point_digits=decimal_digit_limit(),
         )

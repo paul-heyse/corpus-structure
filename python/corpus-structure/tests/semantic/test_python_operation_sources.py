@@ -218,6 +218,26 @@ def test_owned_container_construction_retains_primitive_method_provenance(body):
     assert result.complete, result.unknowns
 
 
+def test_captured_keyword_argument_retains_exact_return_receiver():
+    result = implementation(
+        "def pass_value(*, item):\n    return item\n"
+        "def nested(*, value):\n    return pass_value(item=value)\n"
+        "def run():\n    return nested(value={}).get('missing')\n",
+        inputs=(),
+    )
+    assert result.complete, result.unknowns
+
+
+def test_dynamic_keyword_expansion_cannot_establish_exact_return_receiver():
+    result = implementation(
+        "def pass_value(*, item):\n    return item\n"
+        "def run(values):\n    return pass_value(**values).get('missing')\n",
+        inputs=(),
+    )
+    assert not result.complete
+    assert any("expanded keyword" in unknown.reason for unknown in result.unknowns)
+
+
 def test_shadowed_builtin_constructor_keeps_receiver_dispatch_unknown():
     result = implementation(
         "def run(list):\n    values = list()\n    return values.copy()\n", inputs=()

@@ -545,13 +545,22 @@ class ClosedPythonSources:
         if {name.name for name in names} != {"dataclasses.dataclass"}:
             return False
         if isinstance(decorator, cst.Call):
+            options = {}
             for arg in decorator.args:
-                if arg.keyword is None or arg.keyword.value not in {"kw_only", "frozen", "init"}:
+                if arg.keyword is None or arg.keyword.value not in {
+                    "kw_only",
+                    "frozen",
+                    "init",
+                    "slots",
+                }:
                     return False
                 if not isinstance(arg.value, cst.Name) or arg.value.value not in {"True", "False"}:
                     return False
                 if arg.keyword.value == "init" and arg.value.value != "True":
                     return False
+                options[arg.keyword.value] = arg.value.value == "True"
+            if options.get("slots") and (node.bases or not options.get("frozen")):
+                return False
         return True
 
     def _runtime_dataclass_field(self, path: str, value) -> bool:
@@ -1443,8 +1452,6 @@ class ClosedPythonSources:
                             "capitalize",
                             "title",
                             "swapcase",
-                            "format",
-                            "format_map",
                         ),
                         "builtins.str",
                     ),
@@ -1485,7 +1492,10 @@ class ClosedPythonSources:
                     "is_integer": "builtins.bool",
                     "as_integer_ratio": "builtins.tuple",
                 },
-                "decimal.Decimal": {"is_finite": "builtins.bool"},
+                "decimal.Decimal": {
+                    "is_finite": "builtins.bool",
+                    "as_tuple": None,
+                },
                 "builtins.tuple": {"count": "builtins.int", "index": "builtins.int"},
                 "builtins.list": {
                     "count": "builtins.int",
@@ -1663,12 +1673,24 @@ class ClosedPythonSources:
                 ):
                     return "unknown", ()
                 defining_module = extractor.modules[source]
-                parameters = (*function.params.posonly_params, *function.params.params)
-                if len(arguments) > len(parameters):
+                positional = (*function.params.posonly_params, *function.params.params)
+                by_name = {
+                    parameter.name.value
+                    for parameter in (*function.params.params, *function.params.kwonly_params)
+                }
+                if sum(name is None for name, _ in arguments) > len(positional):
                     return "unknown", ()
-                bound = dict(
-                    zip((parameter.name.value for parameter in parameters), arguments, strict=False)
-                )
+                bound = {}
+                positional_index = 0
+                for name, value in arguments:
+                    if name is None:
+                        name = positional[positional_index].name.value
+                        positional_index += 1
+                    elif name not in by_name:
+                        return "unknown", ()
+                    if name in bound:
+                        return "unknown", ()
+                    bound[name] = value
                 assignments = {}
                 returns = []
                 unsupported = []
@@ -1767,10 +1789,7 @@ class ClosedPythonSources:
                     if (
                         isinstance(expression, cst.Call)
                         and isinstance(expression.func, cst.Name)
-                        and not any(
-                            argument.star or argument.keyword is not None
-                            for argument in expression.args
-                        )
+                        and not any(argument.star for argument in expression.args)
                     ):
                         names = defining_module.qualified_names(expression.func)
                         if len(names) != 1:
@@ -1782,7 +1801,11 @@ class ClosedPythonSources:
                             else source + "." + name.name
                         )
                         values = tuple(
-                            result(argument.value, visiting) for argument in expression.args
+                            (
+                                None if argument.keyword is None else argument.keyword.value,
+                                result(argument.value, visiting),
+                            )
+                            for argument in expression.args
                         )
                         return returned_value_binding(called, values, active | {target})
                     return "unknown", ()
@@ -2002,6 +2025,13 @@ class ClosedPythonSources:
                         (next(iter(kinds)), tuple(targets)) if len(kinds) == 1 else ("unknown", ())
                     )
                 if isinstance(expression, cst.Attribute):
+                    builtin = module.qualified_names(expression)
+                    if len(builtin) == 1 and any(
+                        member.source == QualifiedNameSource.BUILTIN
+                        and member.name == "builtins.float.fromhex"
+                        for member in builtin
+                    ):
+                        return "value-callable", ("builtins.float",)
                     kind, targets = expression_binding(expression.value, active)
                     if kind == "opaque":
                         return kind, targets
@@ -2123,10 +2153,7 @@ class ClosedPythonSources:
                         kind == "callable"
                         and len(targets) == 1
                         and isinstance(expression.func, cst.Name)
-                        and not any(
-                            argument.star or argument.keyword is not None
-                            for argument in expression.args
-                        )
+                        and not any(argument.star for argument in expression.args)
                     ):
                         names = module.qualified_names(expression.func)
                         declared = {
@@ -2137,7 +2164,10 @@ class ClosedPythonSources:
                         }
                         if declared == set(targets):
                             arguments = tuple(
-                                constructed_value_binding(argument.value, module)
+                                (
+                                    None if argument.keyword is None else argument.keyword.value,
+                                    constructed_value_binding(argument.value, module),
+                                )
                                 for argument in expression.args
                             )
                             return returned_value_binding(targets[0], arguments, frozenset())

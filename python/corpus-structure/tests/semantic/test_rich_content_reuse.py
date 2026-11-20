@@ -12,11 +12,12 @@ from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.demand_wire import decode_wire_demand_result
 from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.rich_query_projection import (
-    RichFrontierInput,
     RichQueryInput,
     frontier_content_witness,
+    prepare_rich_frontier,
 )
 from corpus_structure.semantic.selected_query_cache import SELECTED_QUERY_CACHE, disk_row_cache
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 from corpus_structure.serve import rich_queries
 from corpus_structure.serve.rich_knowledge import (
     SelectedRichKnowledge,
@@ -30,7 +31,7 @@ from semantic.test_rich_query_delivery import CUT
 
 def witnessed_frontier(content):
     native = decode_wire_demand_result(content)
-    return frontier_content_witness(RichFrontierInput(native, json_bytes(native)))
+    return frontier_content_witness(prepare_rich_frontier(json_bytes(native)))
 
 
 def frontier_record(cut=None):
@@ -92,10 +93,9 @@ def test_frontier_witness_keeps_scope_and_native_width_without_receipt_identity(
     assert witnessed_frontier(json_bytes(second)) != first
     assert before["continuation"]["read_id"] == "read:1111"
     admitted = decode_wire_demand_result(json_bytes(before))
-    captured = RichFrontierInput(admitted, json_bytes(admitted))
+    captured = prepare_rich_frontier(json_bytes(admitted))
     admitted["trust_snapshot"]["changed-after-acquisition"] = 1
-    with pytest.raises(ValueError, match="changed after"):
-        frontier_content_witness(captured)
+    assert frontier_content_witness(captured) == first
     second["continuation"]["read_id"] = "another-read"
     assert witnessed_frontier(json_bytes(second)) is None
     assert witnessed_frontier(json_bytes(before | {"view": "products"})) is None
@@ -133,6 +133,7 @@ def test_entity_reuses_disk_rows_after_fresh_cut_check(
                 graph.context,
                 json_bytes(graph.root_input.reference.model_dump(mode="python")),
                 json_bytes(semantic_value(index.state.graph.model_dump(mode="python"))),
+                decimal_fixed_point_digits=decimal_digit_limit(),
             ),
         )
 
@@ -164,3 +165,36 @@ def test_entity_reuses_disk_rows_after_fresh_cut_check(
         with pytest.raises(RichQueryRefused, match="disclosure refused"):
             rich_queries.serve_rich_query(None, request)
         assert next(tier for tier in store.snapshot().tiers if tier.tier == "pages").hits == 1
+
+
+@pytest.mark.parametrize(
+    "record",
+    (
+        {"kind": "computation", "derivation_id": "derivation:1", "admission_use_id": "use:1"},
+        {"kind": "original-source", "admission_id": "admission:1", "source_reference": "source:1"},
+        {"kind": "authored", "admission_id": "admission:1", "source_reference": "source:1"},
+    ),
+)
+def test_rich_support_normalization_needs_only_its_exact_reference_fields(monkeypatch, record):
+    from corpus_structure.semantic import value_codec
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.rich_knowledge_contracts import (
+        DdoRichSelectedMember,
+        rich_reference_key,
+        rich_support_records,
+    )
+
+    def forbid_model():
+        raise AssertionError("reference normalization must not acquire a numeric model")
+
+    monkeypatch.setattr(value_codec, "decimal_digit_limit", forbid_model)
+    reference = DdoRichSelectedMember.model_validate(
+        dict(
+            product_id="product:1",
+            member_id=None,
+            kind_contract="kind:1",
+            support_references=[record, record],
+        )
+    )
+    assert rich_support_records(reference.support_references) == [record]
+    assert rich_reference_key(reference) == canonical_bytes(["product:1", None, "kind:1", [record]])
