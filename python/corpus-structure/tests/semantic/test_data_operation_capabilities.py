@@ -170,6 +170,7 @@ def request_invocation():
 
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.orchestrate.execution_host import ProcessExecutionHost
+    from corpus_structure.settings import AnalyticsSettings
 
     resources = []
 
@@ -177,6 +178,7 @@ def request_invocation():
         executor = SimpleNamespace(
             prepared=SimpleNamespace(release_id="test:request-transport"),
             policy=CharacterizationExecutionPolicy(workers=1, max_submissions=1),
+            analytics_settings=AnalyticsSettings(),
             budget=budget,
             nemotron_endpoint=None,
             engine=None,
