@@ -114,7 +114,13 @@ def _m1_result(kernel, demand):
         result = DataOperationStorage(connection).read_demand_result(
             typing_cast(
                 WireReadDemandResultRequest,
-                {"demand_id": demand, "view": "products", "limit": 100, "max_bytes": 8388608},
+                {
+                    "demand_id": demand,
+                    "view": "products",
+                    "scope": {"operation_id": "extract.m1_candidates"},
+                    "limit": 100,
+                    "max_bytes": 8388608,
+                },
             )
         )
         completions = (
