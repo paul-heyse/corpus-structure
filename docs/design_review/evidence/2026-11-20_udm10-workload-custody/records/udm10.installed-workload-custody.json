@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "udm10.installed-workload-custody",
+  "title": "Finite codec custody and actual installed reader closure",
+  "group": null,
+  "package": "UDM-10",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does finite verified codec acquisition close the installed selected-read workloads?",
+  "answers": [
+    "UDM-10",
+    "T4",
+    "T14"
+  ],
+  "method": "Exercise exact native codec and original Base64 source authentication. Capture the actual callable roots for native demand, rich and contribution serving at the recorded branch revision. Retain the attributed facts from each stage of closure.",
+  "commands": [
+    "uv run ci test review 346b0b664c604fc9a8d07b8c78127da2",
+    "uv run ci test review cbbe0c1fdfe54ef3a2a300841b21c956",
+    "uv run ci test review 6e10a6f3694a49d2a853bbc7215c2dd3"
+  ],
+  "agents": [],
+  "inputs": [],
+  "outputs": [
+    {
+      "path": "raw",
+      "role": "actual-roots-and-attributed-required-facts",
+      "sha256": "1c87d70fcad200fe35739d4ee45a5290fd02935ae4838bcc64408e772ac68f57"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_demand_required_callable_facts",
+      "value": 127,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "rich_eager_facts",
+      "value": 347,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "contribution_eager_facts",
+      "value": 779,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "Finite native-demand codec initialization passed. Native demand still requires a sound owned row-stream and finite value workload contract. Rich and contribution retain attributed eager facts from their existing profiles. Reuse remains withheld.",
+  "consumed_by": [
+    "UDM-10",
+    "UDM-14",
+    "UDM-15",
+    "UDM-22"
+  ]
+}

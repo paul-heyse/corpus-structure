@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "id": "udm06.conservative-validity-stage",
+  "title": "Actual conservative-validity operation on N36 stage",
+  "group": null,
+  "package": "UDM-06",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can an explicitly undetermined operation compile, run and publish under native conservative validity?",
+  "answers": [
+    "T1"
+  ],
+  "method": "Prepare, admit and execute a bounded independently specified scalar fixture on the registered N36 stage. Read the preparation advisory, native validity projection and exact product. Repeat the same demand.",
+  "commands": [
+    "PYTHONPATH=python/corpus-structure/tests:build/udm20-regional/frozen-n36-corrected-runtime/python/corpus-structure/src:build/udm20-regional/frozen-n36-corrected-runtime/tools/evidence/src build/udm20-regional/frozen-n36-corrected-runtime/.venv/bin/python docs/design_review/evidence/2026-11-20_udm06-conservative-validity/run_stage.py",
+    "uv run ci test retry 354031e6f2074c4c887c2927799b2d17 --lane ordinary"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "run_stage.py",
+      "role": "independent-fixture-and-execution-driver",
+      "sha256": "86ecc87ec680f95a6f711e69c21ada7afbcbbcf5156d22f7f5401accd6cc0f0c"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/stage-result.json",
+      "role": "stage-advisory-native-validity-and-product-readback",
+      "sha256": "7958a60ddd34ae35598618e50e5603c3fdfe32e2011a1651c3e81bb64270cda1"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "published_receipts",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unchanged_repeat_receipts",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "elapsed_seconds",
+      "value": 22.40392365003936,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The exact operation emitted the validity_undetermined advisory, appeared in the installed conservative validity projection, and published the expected integer 17. Its repeat produced zero new receipts.",
+  "consumed_by": [
+    "UDM-06",
+    "UDM-22"
+  ]
+}

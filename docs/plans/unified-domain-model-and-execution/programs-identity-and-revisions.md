@@ -805,6 +805,15 @@ workload identity to [UDM-14 and UDM-15](cache-system.md#udm-14--the-two-on-disk
 attributed diagnostics to [UDM-26](operational-cli.md#udm-26). The coordinator owns execution
 state and review disposition.
 
+**Tested and interface-checked, 2026-11-20 UTC.** The installed native-demand
+entry now captures finite native codec symbols and original Base64 helpers with
+their runtime bindings. It derives from owned JSON dictionaries while generic
+mapping inputs retain their public codec semantics. Eager closure exposes 127
+required callable facts in this workload. The open work is a bounded row-stream
+and value-operation contract across retained and fresh rows. Rich and
+contribution still require eager custody for model, validation and graph inputs.
+[Receipts and attributed facts](../../design_review/evidence/2026-11-20_udm10-workload-custody/README.md)
+
 **Resulting behavior.** Capture one immutable source population with its module identities,
 origins and exact bytes. Derive the necessary initialized modules and callable dependencies
 for the selected entry. An import performs initialization, while a local import inside an

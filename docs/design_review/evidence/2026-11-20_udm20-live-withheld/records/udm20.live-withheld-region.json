@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "id": "udm20.live-withheld-region",
+  "title": "Actual two-region N36 composition with one producer deliberately held",
+  "group": null,
+  "package": "UDM-20",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the actual stage compositor promptly retain the missing-region fate while its sibling region publishes, and fulfill after the held producer resumes?",
+  "answers": [
+    "UDM-20",
+    "UDM-23"
+  ],
+  "method": "Register an independently authored PDF. Freeze explicit native discovery for two named sections. Publish capture, organization and discovery through actual providers. Hold one exact sentence request under maintained native claim custody without submitting physical computation. Run the sibling region, inspect actual binding and partial composition, classify and release the held claim, then resume the same demand.",
+  "commands": [
+    "frozen-n36-corrected-runtime/.venv/bin/python -I docs/design_review/evidence/2026-11-20_udm20-live-withheld/run_withheld.py",
+    "frozen-n36-corrected-runtime/.venv/bin/python -I docs/design_review/evidence/2026-11-20_udm20-live-withheld/readback.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "run_withheld.py",
+      "role": "bounded-proof-driver",
+      "sha256": "82b9b8eaa5febc46c9efaa0fabd4587eeedca06c47e51c198bc676c8e04c76f9"
+    },
+    {
+      "path": "raw/two-regions.pdf",
+      "role": "independent-original",
+      "sha256": "cbc39088f3392db38738eaa79ab4f92f5df8f6735edb83edb8a932629c8df0d3"
+    },
+    {
+      "path": "raw/two-regions.text.json",
+      "role": "independent-original-text",
+      "sha256": "cd4c62c5bfd7889c4e25dad94dbf28184b1d1cf769aa5e8d1d2ba787e1c09354"
+    },
+    {
+      "path": "raw/registered.json",
+      "role": "exact-stage-release-and-demand",
+      "sha256": "e8be708c7ffdbd962ec63df589acfccbaf0023e7443a6e69f9bcbe068d727fca"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/withheld.json",
+      "role": "actual-population-binding-and-peer-fates",
+      "sha256": "08254893182a9af40a42b1a7e0ad84c070a796c838ebb3d91629cf0e3bc08255"
+    },
+    {
+      "path": "raw/held-release.json",
+      "role": "exact-native-attempt-retirement",
+      "sha256": "6d74d35a06cae61beae4cf38f57f0c00906ac13a93ad6ee9e36013e2dfdb0edd"
+    },
+    {
+      "path": "raw/final.json",
+      "role": "full-native-composition-after-refill",
+      "sha256": "ebe26407e69a8198684192cb731aa30de08237b174f4683b7e57382b8eda4eee"
+    },
+    {
+      "path": "raw/independent-readback.json",
+      "role": "independent-native-fulfillment-and-lease-observation",
+      "sha256": "ee98c9823f8f6907ee4ebb058afa8f5ba3b726c1bda3e745dfa69269afec9dd8"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "native_region_members",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "bound_requests_seconds",
+      "value": 2.512302779010497,
+      "of": null,
+      "unit": "seconds",
+      "note": null
+    },
+    {
+      "name": "final_fulfilled_obligations",
+      "value": 18,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "refill_publications",
+      "value": 7,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The complete actual discovery population held two regions. While one exact sentence request was held, the sibling region published and the compositor recorded not-applicable with binding-covers reasons only. Actual binding took 2.512 seconds under the configured 120-second statement bound. The unexecuted proof claim retired through the native classified failure route. Refill published seven results and all 18 obligations fulfilled. Project activation was never performed.",
+  "consumed_by": [
+    "UDM-20",
+    "UDM-23"
+  ]
+}

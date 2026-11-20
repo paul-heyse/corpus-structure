@@ -284,6 +284,11 @@ settlement, whose lock timeout is five seconds and which is the phase where the 
 failed, is settled by UDM-06's bounded observation on the stage before revision A is frozen, and
 so before either final run.
 
+**Tested, 2026-11-20 UTC.** The N36 stage scalar fixture emitted
+`validity_undetermined`, appeared under native conservative validity, published
+the expected integer and produced zero receipts on unchanged repeat. The private
+native publication retry passed as well. [T1 evidence](../../design_review/evidence/2026-11-20_udm06-conservative-validity/README.md)
+
 <a id="code-closure-qualification"></a>
 
 ### Code closure and real reuse qualification
@@ -352,8 +357,18 @@ policies. These changes passed 292 targeted controls (`6dc85d72a8864eb6b5013c371
 The six page consumers now pass an immutable refusal projection from acquisition into
 pagination. The refusal and hidden handles remain part of exact byte accounting. An
 independent exact-bound control passed (`183e45cfdd864fcebabdc97dcbefde4c`).
-The native demand projection still reaches unresolved eager library premises. Rich and
-contribution paths additionally reach broader model preparation and runtime contracts.
+**Tested and interface-checked, 2026-11-20 UTC.** Finite authenticated codec
+acquisition closed native demand's eager imports. Its actual callable slice
+still has 127 required facts, including row-source provenance and the operations
+on values and containers used in pagination. Rich and contribution retain eager
+requirements in model preparation, typed validation and index or graph
+reconstruction. [Installed workload diagnostics](../../design_review/evidence/2026-11-20_udm10-workload-custody/README.md)
+
+The strict D2 check now derives the predecessor and independent object count
+from the frozen state. On N36 both offline processes returned
+`no_native_change` for 620 objects. Both rendered and neither hydrated
+(`937bc65220fc4409ad917fdb58d9d29e`). D2 remains open.
+
 The direct entity witness calculation is a declared rich workload root and the acquired
 body retains its native tagged encoding into derivation. An eligible hit must preserve
 diagnostics, continuation interpretation and byte accounting.
@@ -668,9 +683,14 @@ seconds and a fresh native read confirmed all five publications, including both
 regional sentence products. Managed cleanup was established.
 [Replacement run](../../design_review/evidence/2026-11-20_cli-f00e167923f74c0d837b60f6bd1cc6e0/README.md)
 
-**Remaining live observation.** A deliberately withheld region in the actual
-multi-region stage compositor still needs acceptance evidence. Provider and
-whole-book qualification remain UDM-22 and UDM-23 work.
+**Tested, 2026-11-20 UTC, actual withheld-region stage compositor.** The N36
+demand acquired two named regions from an independently authored original.
+One exact sentence claim was held before physical submission. The sibling
+region published its sentence and downstream products. Native binding took
+2.51 seconds and the compositor returned only `binding-covers` while the
+other region was pending. After releasing the held claim through native
+attempt failure, execution resumed the same demand, published seven new
+receipts and fulfilled all 18 obligations. [Withheld-region evidence](../../design_review/evidence/2026-11-20_udm20-live-withheld/README.md)
 
 **Early diagnosis and later confirmation.** In the regional reproduction record the last durable
 boundary for the timed-out attempts. Inspect the exact native intent and publication standing
@@ -1124,9 +1144,9 @@ only when both accounts are on the same commit.
 |---|---|---|
 | The settlement timeouts were caused by the duplicated payload digest (narrated) | UDM-20, reproduction 1: time attributed to named statements | Whether the settlement program needs more than the N27 repair; the margin named in UDM-23 |
 | The binding stall was a cross product from sequence inputs and relational role joins (narrated) | UDM-20, reproduction 2: the plan before and after `1d3640990` and growth with inputs | Whether the binder needs a further repair before UDM-23 |
-| The `sequence-ordinal` refusal was a consequence of the nine missing regions and not a separate defect | UDM-20, the withheld-region case | A possible repair in the composition |
+| Composition under a missing regional family | UDM-20's live N36 withholding case observed only `binding-covers`. The same demand fulfilled after the missing region settled | Bounded stage confirmation passed |
 | No server-side statement timeout bounds the binding path | `SHOW statement_timeout` and `pg_db_role_setting` on stage and canonical development | The binding deadline decision in UDM-20 |
-| The retained comparison script can be pointed at a new demand without changing what it compares | Reading the script at entry to UDM-23 | Whether a successor copy is needed for step 7 |
+| Acquisition for the new PE-S33 demand | The successor separates executable source from the repository/test root and supplies the relocated factory sources. Help and compilation passed | The comparison still needs the final admitted book population. [Successor](../../design_review/evidence/2026-11-20_udm20-live-withheld/compare_retained_book_construction.py) |
 | The failed run's records are still in the result store | Step 0 of UDM-20 | How much of the diagnosis starts from records and how much from narration |
 | A demand can be scoped to one region of the book without registering an excerpt | Reading the demand's scoping at entry to UDM-20 | The construction of the bounded cases only |
 | Retained sentence and formal-evidence products have eligible exact inputs under the final capture | UDM-23 census and equal-content cutoff | Which downstream work the first final-head demand must execute |
@@ -1138,7 +1158,7 @@ only when both accounts are on the same commit.
 
 | Package | State |
 |---|---|
-| UDM-20 | Canonical exact intent standing, independent role binding, finite deadlines and scoped recovery verified. One-page complete-family composition, 60-page regional settlement and a fresh run of the original 66-page case passed on N36. The operator abandoned recovery of the original draft. The deliberately withheld region in an actual multi-region stage compositor remains open. [Diagnosis and evidence](#retained-book-diagnosis) |
+| UDM-20 | Complete for the bounded stage. N36 passed 60- and 66-page regional settlement, complete-family composition, and actual two-region withholding and refill. The cancelled N35 demand and unpublished draft retain their recorded custody. [Diagnosis and evidence](#retained-book-diagnosis) |
 | UDM-21 | Complete. Original custody, exact intent reconciliation and book generation 5 at N29 verified. The actual one-page Integrated provider run and launcher restoration passed on N35. |
-| UDM-22 | `not_run`. Final-source qualification awaits UDM-20 confirmation and complete D2, T4 and T14 workload custody. |
-| UDM-23 | `not_run`. The second canonical adoption and whole-book run await UDM-20 and UDM-22. |
+| UDM-22 | `not_run` for the final union. Bounded stage confirmation passed. Final qualification awaits complete D2, T4 and T14 workload custody and actual managed stop qualification. |
+| UDM-23 | `not_run`. The second canonical adoption and whole-book run await UDM-22. |
