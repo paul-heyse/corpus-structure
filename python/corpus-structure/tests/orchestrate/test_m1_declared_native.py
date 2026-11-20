@@ -16,17 +16,17 @@ from semantic.current_pdf_source_support import (
 from semantic.current_pdf_source_support import (
     current_pdf_source_factory as current_pdf_source_factory,
 )
-from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
+from semantic.data_operation_kernel_support import (
+    CapturedKernelInputs,
+    KernelRecipe,
+    captured_kernel_executor,
+)
 from sqlalchemy import text
 
-from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
 from corpus_structure.semantic._data_operation_wire import (
     WireReadDemandResultRequest,
 )
-from corpus_structure.semantic.composed import (
-    data_operation_dependencies,
-    read_data_operation_inputs,
-)
+from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.m1_products import (
@@ -96,7 +96,6 @@ def _case(current_pdf_source_factory, tmp_path, *, empty):
     rows = (("text", "" if empty else SENTENCE, "" if empty else SENTENCE, None),)
     with current_pdf_source_factory(rows) as source:
         kernel = admit_current_target(source, target, tmp_path / "consumer")
-        clone = source.kernel.clone
         request = current_consumer_request(
             source, kernel, ("extract.m1_candidates",), discover=True
         )
@@ -106,19 +105,7 @@ def _case(current_pdf_source_factory, tmp_path, *, empty):
             demand = create_native_demand(connection, request, prepared=kernel.prepared)[
                 "demand_id"
             ]
-        acquired = read_data_operation_inputs(kernel.preparation.dependencies)
-        assert acquired is not None and acquired[1] is not None
-        captured = acquired[1]
-        executor = NativeDemandExecutor(
-            clone.writer,
-            kernel.prepared,
-            kernel.preparation.runtime,
-            captured,
-            runtime_locations={item.module: Path(item.filename) for item in captured.sources},
-            schema=kernel.preparation.bundle,
-            admission_engine=clone.purpose("admit"),
-            database_capacity=6,
-        )
+        executor = captured_kernel_executor(kernel)
         yield kernel, source.document_key, demand, executor
 
 

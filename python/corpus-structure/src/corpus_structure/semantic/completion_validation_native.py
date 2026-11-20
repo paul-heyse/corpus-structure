@@ -351,6 +351,11 @@ def consuming_completion_programs(model):
                     (
                         *read_producer,
                         authenticate,
+                        # Original correspondence already uses this release's validators.
+                        If(
+                            field("source_", requests, "release_id") == target_release,
+                            (Return(literal(True)),),
+                        ),
                         SelectInto(counterpart, ("definition_",)),
                         If(
                             core_variable("found", Boolean()),

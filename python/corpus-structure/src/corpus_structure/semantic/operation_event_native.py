@@ -502,7 +502,7 @@ def _require_frame(p):
                     "event question changes exact native cut pins",
                 ),
                 Perform(
-                    func.ops.ddo_record_grade_require_cut(
+                    func.ops.ddo_record_grade_require_cut_material(
                         r("project_id"),
                         _text(selected, "cut_canonical_json"),
                         _text(selected, "cut_id"),
@@ -513,7 +513,7 @@ def _require_frame(p):
         *(
             Assign(
                 name + "_census",
-                func.ops.ddo_record_grade_acquire_census(
+                func.ops.ddo_record_grade_acquire_census_material(
                     r("project_id"),
                     _text(question, name + "_selection", "cut_canonical_json"),
                     _text(question, name + "_selection", "cut_id"),
@@ -821,9 +821,9 @@ def _require_fit(p):
                 boundary.table.c.id == _text(selection, "read_id"),
                 boundary.table.c.demand_id == demand("id"),
             ),
-            Perform(func.ops.ddo_require_read_current(boundary(), r("project_id"), True)),
+            Perform(func.ops.ddo_require_read_epochs(boundary(), r("project_id"), True)),
             Assign("p", _object(scope=boundary("scope"))),
-            SelectInto(selected_support_output(p.model), ("admitted",)),
+            SelectInto(selected_support_output(p.model, purpose="custody"), ("admitted",)),
             _reject(
                 ~func.coalesce(admitted, False),
                 "event frame is outside exact native selected support",
@@ -1377,7 +1377,7 @@ def _dependencies(p):
                                 _cut_pair(question),
                                 (
                                     Perform(
-                                        func.ops.ddo_record_grade_require_cut(
+                                        func.ops.ddo_record_grade_require_cut_material(
                                             r("project_id"),
                                             _text(selected, "cut_canonical_json"),
                                             _text(selected, "cut_id"),

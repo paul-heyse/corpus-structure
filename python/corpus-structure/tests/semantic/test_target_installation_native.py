@@ -315,6 +315,8 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
         "ddo_privileged_effect_admitted",
         "ddo_privileged_effect_authorized",
         "ddo_require_completion_effect_authority",
+        "ddo_record_grade_require_cut_material",
+        "ddo_record_grade_acquire_census_material",
         "admit_data_operation_effect_grants",
         "ddo_rich_producing_request",
         "prove_execution_release",

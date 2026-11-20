@@ -362,6 +362,17 @@ def execute_captured_kernel_demand(
     policy: CharacterizationExecutionPolicy | None = None,
 ):
     """Execute a fixture mixing captured production and test Python modules."""
+    executor = captured_kernel_executor(kernel, purpose=purpose, fit=fit, policy=policy)
+    return executor.run(demand, max_rounds=rounds)
+
+
+def captured_kernel_executor(
+    kernel: Kernel,
+    *,
+    purpose="write",
+    fit=False,
+    policy: CharacterizationExecutionPolicy | None = None,
+):
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
     from corpus_structure.semantic.composed import (
         read_data_operation_inputs,
@@ -387,7 +398,7 @@ def execute_captured_kernel_demand(
         location = Path(module_file).resolve()
         assert location.read_bytes() == source.content, source.module
         locations[source.module] = location
-    executor = NativeDemandExecutor(
+    return NativeDemandExecutor(
         kernel.purpose(purpose),
         kernel.prepared,
         preparation.runtime,
@@ -402,7 +413,6 @@ def execute_captured_kernel_demand(
         fitter_engine=kernel.purpose("fit") if fit else None,
         database_capacity=6,
     )
-    return executor.run(demand, max_rounds=rounds)
 
 
 @dataclass(frozen=True)

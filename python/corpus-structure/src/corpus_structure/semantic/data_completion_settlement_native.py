@@ -864,6 +864,23 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
                                     False,
                                 )
                             ),
+                            lookup(
+                                "boundary",
+                                reads,
+                                reads.c.id
+                                == core_variable("selected", JSONB(), "selection")[
+                                    "read_id"
+                                ].astext,
+                                reads.c.demand_id
+                                == core_variable("selected", JSONB(), "selection")[
+                                    "demand_id"
+                                ].astext,
+                            ),
+                            Perform(
+                                func.ops.ddo_require_read_current(
+                                    row("boundary", reads), rf("project_id"), True
+                                )
+                            ),
                         ),
                     ),
                 ),
