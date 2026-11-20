@@ -638,7 +638,7 @@ def test_rich_consumes_exact_sealed_policy_authority_without_reentering_issuance
         parse_sql("SELECT " + producing)[0].stmt
         == parse_sql(
             "SELECT ops.ddo_rich_producing_request(r.project_id,reference,'authorization',false,"
-            "'native-evaluator-policy-authorization')"
+            "'native-evaluator-policy-authorization',NULL)"
         )[0].stmt
     )
     public_kind = condition_before("rich policy is not the actual public authorization contract")
@@ -675,7 +675,7 @@ def test_generated_rich_producer_authority_binds_actual_native_model(native_roll
     execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
     signatures = (
         "ops.ddo_rich_selected_value(text,jsonb,text,jsonb)",
-        "ops.ddo_rich_producing_request(text,jsonb,text,boolean,text)",
+        "ops.ddo_rich_producing_request(text,jsonb,text,boolean,text,text)",
         "ops.ddo_rich_family_contract(text,text)",
         "ops.ddo_rich_require_proposal_context(jsonb,jsonb)",
         "ops.ddo_rich_require_preparation_producer(ops.data_request,jsonb)",

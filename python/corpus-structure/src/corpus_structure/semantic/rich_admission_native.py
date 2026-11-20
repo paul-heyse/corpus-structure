@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 
 from sqlalchemy import Boolean, Integer, Text, and_, cast, column, func, literal, or_, select
-from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
+from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array
 from sqlalchemy.types import NullType
 
 from corpus_structure.schema.integrity import role_name
@@ -323,8 +323,11 @@ def _rich_input_programs(p):
         p.row("definition", "sem.data_operation_definition", "support_contract"),
         p.row("intent", "ops.data_completion_intent", "payload"),
     )
+    required_effect = _value("required_effect", Text())
+    required_family = _value("required_family", Text())
+    admitted_families = p.row("definition", "sem.data_operation_definition", "validity_families")
     effect_granted = func.ops.ddo_privileged_effect_admitted(
-        core_variable("definition", JSONB()), _value("required_effect", Text())
+        core_variable("definition", JSONB()), required_effect
     )
     p.add(
         "ddo_rich_producing_request",
@@ -334,6 +337,7 @@ def _rich_input_programs(p):
             ("output_role", "text"),
             ("requires_cpu", "boolean"),
             ("required_effect", "text"),
+            ("required_family", "text"),
         ),
         (
             SelectInto(
@@ -385,16 +389,17 @@ def _rich_input_programs(p):
                 intents.c.id == p.row("producer", "ops.data_derivation", "intent_id"),
             ),
             _reject(
+                and_(
+                    required_family.is_not(None),
+                    admitted_families.contains(array([required_family])).is_not(True),
+                ),
+                "rich selection producer lacks its required validity family",
+            ),
+            _reject(
                 or_(
-                    ~selected_family(
-                        p.model,
-                        p.row("definition", "sem.data_operation_definition", "release_id"),
-                        p.row("definition", "sem.data_operation_definition", "operation_id"),
-                        "rich",
-                    ),
                     and_(
-                        _value("required_effect", Text()).is_not(None),
-                        ~effect_granted,
+                        required_effect.is_not(None),
+                        effect_granted.is_not(True),
                     ),
                     contract["capabilities"]["prepared_factory"]["source_digest"]
                     .astext.op("~")("^[0-9a-f]{64}$")
@@ -913,7 +918,9 @@ def _rich_preparation_programs(p):
             Assign("reference", _selected_reference(selected)),
             Assign(
                 request_name,
-                func.ops.ddo_rich_producing_request(project, reference, "result", True, None),
+                func.ops.ddo_rich_producing_request(
+                    project, reference, "result", True, None, "rich"
+                ),
             ),
             _retained_completion(p, request_name, reference),
             Perform(
@@ -1175,7 +1182,7 @@ def _rich_admission_program(p):
             Assign(
                 "consolidation_request",
                 func.ops.ddo_rich_producing_request(
-                    project, admission["consolidation"], "consolidated", True, None
+                    project, admission["consolidation"], "consolidated", True, None, "rich"
                 ),
             ),
             _retained_completion(p, "consolidation_request", admission["consolidation"]),
@@ -1234,6 +1241,7 @@ def _rich_admission_program(p):
                             "admission",
                             False,
                             "native-rich-knowledge-admission",
+                            "rich",
                         ),
                     ),
                     producer_episode("known_request", "known_episode"),
@@ -1342,6 +1350,7 @@ def _rich_admission_program(p):
                             "authorization",
                             False,
                             "native-evaluator-policy-authorization",
+                            None,
                         ),
                     ),
                     _reject(
@@ -1385,7 +1394,7 @@ def _rich_admission_program(p):
                     Assign("reference", _selected_reference(selected)),
                     Perform(
                         func.ops.ddo_rich_producing_request(
-                            project, reference, literal(None), True, None
+                            project, reference, literal(None), True, None, None
                         )
                     ),
                     SelectInto(
@@ -1414,7 +1423,7 @@ def _rich_admission_program(p):
                     Assign(
                         "resolution_request",
                         func.ops.ddo_rich_producing_request(
-                            project, reference, "result", True, None
+                            project, reference, "result", True, None, None
                         ),
                     ),
                     Assign(
