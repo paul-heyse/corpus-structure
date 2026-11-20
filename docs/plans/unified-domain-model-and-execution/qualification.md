@@ -1486,5 +1486,5 @@ only when both accounts are on the same commit.
 |---|---|
 | UDM-20 | Complete for the bounded stage. N36 passed 60- and 66-page regional settlement, complete-family composition, and actual two-region withholding and refill. The cancelled N35 demand and unpublished draft retain their recorded custody. [Diagnosis and evidence](#retained-book-diagnosis) |
 | UDM-21 | Complete. Original custody, exact intent reconciliation and book generation 5 at N29 verified. The actual one-page Integrated provider run and launcher restoration passed on N35. |
-| UDM-22 | In progress. Continuation, bounded stage confirmation and actual CUDA stop passed. N40 is installed on stage. Native journey retries and the final-source union remain open. |
+| UDM-22 | In progress. Continuation, bounded stage confirmation, actual CUDA stop and N42 rich admission passed. Final application preparation on main, event scoring, M1 readback and final-source coverage remain open. [N42 evidence](#retained-fit-custody-and-rich-producer-authority) |
 | UDM-23 | `not_run`. The second canonical adoption and whole-book run await UDM-22. |
