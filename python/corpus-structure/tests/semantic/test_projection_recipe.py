@@ -303,7 +303,15 @@ def test_native_companion_authoring_consumes_captured_recipe_without_installed_m
     ]
     captured = PdfDomainContract(canonical_bytes(changed_contract), changed_sources)
     monkeypatch.setattr(owner, "MODEL", Path("/unavailable-installed-companion-model.yaml"))
-    selected = captured_projection("coverage", captured, target_metadata=get_metadata())
+    from corpus_structure.schema import physical
+
+    metadata = get_metadata()
+    with monkeypatch.context() as isolated:
+        isolated.setattr(
+            physical, "compile_physical", lambda *args, **kwargs: pytest.fail("duplicate compile")
+        )
+        selected = captured_projection("coverage", captured, target_metadata=metadata)
+    assert selected._physical is metadata
     assert selected.function_name == "ops.read_captured_coverage_batch"
     assert selected.projection_id != original.projection_id
     assert [(item.name, type(item.type)) for item in selected.columns] == [

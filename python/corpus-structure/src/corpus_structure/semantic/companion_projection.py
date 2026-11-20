@@ -579,7 +579,11 @@ def _build_captured_projection_inputs(domain: PdfDomainContract, target_metadata
     from linkml_runtime.linkml_model.meta import SchemaDefinition
     from linkml_runtime.loaders import yaml_loader
 
-    from corpus_structure.schema.physical import compile_physical
+    from corpus_structure.schema.physical import (
+        compile_physical,
+        physical_source_closure,
+        physical_sources_id,
+    )
 
     from .native_call_sources import source_bindings
     from .pdf_domain import PREFIX, pdf_call_bindings
@@ -600,23 +604,19 @@ def _build_captured_projection_inputs(domain: PdfDomainContract, target_metadata
         logical_sources=logical,
         physical_sources=physical,
     )
-    compiled_physical = compile_physical(physical, linkml_types=logical["linkml:types"])
+    linkml_types = logical["linkml:types"]
+    if target_metadata is None:
+        target_metadata = compile_physical(physical, linkml_types=linkml_types)
+    elif (
+        target_metadata.info.get("physical_sources") != physical
+        or target_metadata.info.get("physical_linkml_types") != linkml_types
+        or target_metadata.info.get("physical_model_id") != physical_sources_id(physical)
+    ):
+        raise ValueError("companion projection physical target differs from its captured domain")
     declaration = yaml_loader.loads(logical["companion_projections"].decode(), SchemaDefinition)
     if view.schema is None or not isinstance(declaration, SchemaDefinition):
         raise ValueError("captured companion recipe requires its declared schema")
     view.schema.annotations = declaration.annotations
-    if target_metadata is not None:
-        if (
-            target_metadata.info.get("physical_sources") != physical
-            or target_metadata.info.get("physical_linkml_types") != logical["linkml:types"]
-            or target_metadata.info.get("physical_model_id")
-            != compiled_physical.info["physical_model_id"]
-        ):
-            raise ValueError(
-                "companion projection physical target differs from its captured domain"
-            )
-        compiled_physical = target_metadata
-    from corpus_structure.schema.physical import physical_source_closure, physical_sources_id
 
     def captured_model(name):
         logical_name = name.removesuffix(".yaml")
@@ -631,9 +631,9 @@ def _build_captured_projection_inputs(domain: PdfDomainContract, target_metadata
     projection_id = (
         RECIPE_VERSION
         + ":"
-        + sha256((model_id + compiled_physical.info["physical_model_id"]).encode()).hexdigest()
+        + sha256((model_id + target_metadata.info["physical_model_id"]).encode()).hexdigest()
     )
-    return view, compiled_physical, projection_id, model_field, resolve
+    return view, target_metadata, projection_id, model_field, resolve
 
 
 def captured_projection(
