@@ -204,6 +204,66 @@ def test_nominal_method_body_is_retained_but_unqualified_dispatch_withholds_iden
 
 
 @pytest.mark.parametrize(
+    "body",
+    [
+        "values = []\n    values.append(1)\n    values.pop()\n    return len(values)",
+        "values = list()\n    values.extend((1, 2))\n    return values.count(1)",
+        "values = {}\n    values.update({'answer': 1})\n    return values.get('answer')",
+        "values = {name: 1 for name in ('answer',)}\n    return values.get('answer')",
+        "values = [name for name in ('answer',)]\n    return values.count('answer')",
+    ],
+)
+def test_owned_container_construction_retains_primitive_method_provenance(body):
+    result = implementation("def run():\n    " + body + "\n", inputs=())
+    assert result.complete, result.unknowns
+
+
+def test_shadowed_builtin_constructor_keeps_receiver_dispatch_unknown():
+    result = implementation(
+        "def run(list):\n    values = list()\n    return values.copy()\n", inputs=()
+    )
+    assert not result.complete
+    assert any("values.copy" in unknown.reason for unknown in result.unknowns)
+
+
+def test_owned_list_does_not_admit_arbitrary_callbacks_or_elements():
+    result = implementation(
+        "def run(callback):\n    values = []\n    values.append(callback)\n"
+        "    return values[0]()\n",
+        inputs=(),
+    )
+    assert not result.complete
+    assert any("dynamic call target" in unknown.reason for unknown in result.unknowns)
+
+
+def test_exact_type_guard_supplies_nominal_field_provenance():
+    result = implementation(
+        "class Item:\n    value: str\n"
+        "def run(item):\n    if type(item) is Item:\n"
+        "        return item.value.strip()\n    return ''\n"
+    )
+    assert result.complete, result.unknowns
+
+
+def test_instance_guard_keeps_subclass_dispatch_unknown():
+    result = implementation(
+        "class Item:\n    value: str\n"
+        "def run(item):\n    if isinstance(item, Item):\n"
+        "        return item.value.strip()\n    return ''\n"
+    )
+    assert not result.complete
+
+
+def test_assignment_within_type_guard_invalidates_receiver_provenance():
+    result = implementation(
+        "class Item:\n    value: str\n"
+        "def run(item, replacement):\n    if type(item) is Item:\n"
+        "        item = replacement\n        return item.value.strip()\n    return ''\n"
+    )
+    assert not result.complete
+
+
+@pytest.mark.parametrize(
     ("argument", "nominal", "bridge", "admitted"),
     [
         ("item", "same", "same", True),

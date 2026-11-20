@@ -1445,6 +1445,12 @@ class ClosedPythonSources:
                     "count": "builtins.int",
                     "index": "builtins.int",
                     "copy": "builtins.list",
+                    "append": None,
+                    "extend": None,
+                    "insert": None,
+                    "pop": None,
+                    "clear": None,
+                    "reverse": None,
                 },
                 "builtins.dict": {
                     "get": None,
@@ -1452,6 +1458,8 @@ class ClosedPythonSources:
                     "keys": None,
                     "values": None,
                     "copy": "builtins.dict",
+                    "update": None,
+                    "clear": None,
                 },
                 "builtins.set": {
                     "issubset": "builtins.bool",
@@ -1553,6 +1561,43 @@ class ClosedPythonSources:
                     return "unknown", ()
                 active = active | {id(expression)}
                 if isinstance(expression, cst.Name):
+                    child = expression
+                    parent = module.parent_nodes.get(child)
+                    while parent is not None and not isinstance(parent, cst.FunctionDef):
+                        if isinstance(parent, cst.If) and child is parent.body:
+                            test = parent.test
+                            if (
+                                isinstance(test, cst.Comparison)
+                                and isinstance(test.left, cst.Call)
+                                and isinstance(test.left.func, cst.Name)
+                                and test.left.func.value == "type"
+                                and any(
+                                    item.name == "builtins.type"
+                                    and item.source == QualifiedNameSource.BUILTIN
+                                    for item in module.qualified_names(test.left.func)
+                                )
+                                and len(test.left.args) == 1
+                                and isinstance(test.left.args[0].value, cst.Name)
+                                and test.left.args[0].value.value == expression.value
+                                and len(test.comparisons) == 1
+                                and isinstance(test.comparisons[0].operator, cst.Is)
+                            ):
+                                assignments = []
+
+                                class Stores(cst.CSTVisitor):
+                                    def visit_Name(self, node, assignments=assignments):
+                                        if (
+                                            node.value == expression.value
+                                            and module.contexts.get(node) == ExpressionContext.STORE
+                                        ):
+                                            assignments.append(node)
+
+                                parent.body.visit(Stores())
+                                if not assignments:
+                                    narrowed = annotated_value(test.comparisons[0].comparator)
+                                    if narrowed[0] != "unknown":
+                                        return narrowed
+                        child, parent = parent, module.parent_nodes.get(parent)
                     candidates = module.qualified_names(expression)
                     targets = []
                     kinds = set()
@@ -1707,6 +1752,28 @@ class ClosedPythonSources:
                         )
                     return "unknown", ()
                 if isinstance(expression, cst.Call):
+                    if isinstance(expression.func, cst.Name):
+                        candidates = module.qualified_names(expression.func)
+                        constructors = {
+                            candidate.name
+                            for candidate in candidates
+                            if candidate.source == QualifiedNameSource.BUILTIN
+                            and candidate.name
+                            in {
+                                "builtins.str",
+                                "builtins.bytes",
+                                "builtins.int",
+                                "builtins.float",
+                                "builtins.bool",
+                                "builtins.tuple",
+                                "builtins.list",
+                                "builtins.dict",
+                                "builtins.set",
+                                "builtins.frozenset",
+                            }
+                        }
+                        if len(constructors) == 1 and len(candidates) == 1:
+                            return "value", tuple(constructors)
                     kind, targets = expression_binding(expression.func, active)
                     # Only the actual opaque receiver's contract covers its returned
                     # object. A boundary name nested inside an argument is irrelevant.
@@ -1718,6 +1785,12 @@ class ClosedPythonSources:
                     (cst.Float, "float"),
                     (cst.SimpleString, "str"),
                     (cst.Tuple, "tuple"),
+                    (cst.List, "list"),
+                    (cst.ListComp, "list"),
+                    (cst.Dict, "dict"),
+                    (cst.DictComp, "dict"),
+                    (cst.Set, "set"),
+                    (cst.SetComp, "set"),
                 ):
                     if isinstance(expression, syntax):
                         return "value", ("builtins." + typename,)
@@ -1770,6 +1843,22 @@ class ClosedPythonSources:
                             or (
                                 isinstance(parent, (cst.Assign, cst.AnnAssign))
                                 and parent.value is node
+                            )
+                            or (
+                                kind == "class"
+                                and isinstance(parent, cst.ComparisonTarget)
+                                and isinstance(parent.operator, cst.Is)
+                                and isinstance(
+                                    comparison := module.parent_nodes.get(parent), cst.Comparison
+                                )
+                                and isinstance(comparison.left, cst.Call)
+                                and isinstance(comparison.left.func, cst.Name)
+                                and len(comparison.left.args) == 1
+                                and any(
+                                    name.source == QualifiedNameSource.BUILTIN
+                                    and name.name == "builtins.type"
+                                    for name in module.qualified_names(comparison.left.func)
+                                )
                             )
                         )
                         ancestor_for_use = parent
@@ -2065,6 +2154,17 @@ class ClosedPythonSources:
                                 candidate.source == QualifiedNameSource.BUILTIN
                                 and candidate.name.rsplit(".", 1)[-1]
                                 not in _SUPPORTED_BUILTIN_CALLS
+                                and not (
+                                    candidate.name == "builtins.type"
+                                    and len(node.args) == 1
+                                    and not node.args[0].star
+                                    and node.args[0].keyword is None
+                                    and isinstance(module.parent_nodes.get(node), cst.Comparison)
+                                    and len(module.parent_nodes[node].comparisons) == 1
+                                    and isinstance(
+                                        module.parent_nodes[node].comparisons[0].operator, cst.Is
+                                    )
+                                )
                             ):
                                 unknowns.add(
                                     SourceUnknown(
