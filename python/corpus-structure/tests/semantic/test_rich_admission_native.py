@@ -26,6 +26,9 @@ from semantic.cpu_basis_support import (
 
 @pytest.fixture
 def rich_guard_connection(cpu_basis_connection):
+    from corpus_structure.semantic.effect_policy import effect_programs
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.native_objects import native_sql_script
     from corpus_structure.semantic.native_protocol_authoring import (
         native_protocol_sources,
         native_sql,
@@ -38,10 +41,15 @@ def rich_guard_connection(cpu_basis_connection):
         "ops.data_publication_receipt",
         "sem.data_kind_contract",
         "sem.artifact",
+        "sem.data_operation_effect_grant",
     ):
         connection.execute(CreateTable(table(name), include_foreign_key_constraints=[]))
     for source, names in (
         (native_sql(native_protocol_sources()), {"ddo_json", "ddo_field", "ddo_digest"}),
+        (
+            native_sql_script(effect_programs(get_metadata())),
+            {"ddo_privileged_effect_eligible", "ddo_privileged_effect_admitted"},
+        ),
         (rich_admission_native_sql(), None),
     ):
         parsed = prepare_sql(source, source="rich-private-correspondence-control")
@@ -175,7 +183,7 @@ def test_rich_command_name_without_real_factory_cpu_and_effect_is_refused(rich_g
             implementation_revision="implementation-slice:controlled",
             input_roles=[],
             output_roles=[],
-            support_contract={"effects": []},
+            support_contract={"effects": [{"name": "native-rich-knowledge-admission"}]},
             binding_expression={"operator": "all", "children": []},
             definition_identity="definition:controlled",
             eligibility_identity="eligibility:controlled",
@@ -193,7 +201,9 @@ def test_rich_command_name_without_real_factory_cpu_and_effect_is_refused(rich_g
             "binding": {"inputs": [], "support": []},
         }
     )
-    with pytest.raises(DBAPIError, match="actual command/effect/factory/CPU"):
+    with pytest.raises(
+        DBAPIError, match="rich admission effect requires its actual operation owner"
+    ):
         connection.execute(
             text(
                 "SELECT ops.ddo_require_rich_admission_completion(jsonb_populate_record(NULL::ops.data_request,CAST(:r AS jsonb)),'{}'::jsonb)"
