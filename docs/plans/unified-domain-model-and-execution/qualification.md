@@ -450,6 +450,23 @@ controls (`580ce7aab0754bc89f9ef165591a738f`). Pyrefly and Ruff passed through
 `ci check` (`2b80e8c80cba4f28af28e607e6bd0506` and
 `89290ab123cd45cfbb09599f78016d25`).
 
+**Tested, 2026-11-20 UTC.** The captured native schema validator matched the
+generated adapter on the native fixture and the shape refusals. The rich reader
+and contribution checks passed with explicit captured numeric policy
+(`0f75123c745b43b2bf2323c806c3bd2a`). The settled offline candidate reported
+`no_native_change` for all 620 N38 objects (`ad5aed17cce94e1ba1894947a794a7a7`).
+The final schema and reader selection passed all 62 controls
+(`f87f9c206b1d41a6a5e12ca2a9153b12`), including refusal of in-place changes to
+numeric material. The broader selection recorded a stale compiler-version assertion
+and the strict D2 skip (`e1d92b1303a7494f900de357b1725426`). The guard assertion
+now checks the current ABI, and passed in the focused retry
+(`ebc2047c3d684c60a0d3717d61931701`). Pyrefly passed
+(`e6bd203264eb49609121c9dce2a33908`).
+The installed-root scan still reported required generated-module initialization
+for demand, graph and validator initialization for rich and contribution, and
+compiler and model initialization for the renderer. The strict reuse journeys
+remain open, and final qualification and adoption remain `not_run`.
+
 The focused serving and CLI controls passed 233 selected identities
 (`53e183166ea54effa89e64324c14fcda`). The final tagged-body and custody selection passed 30
 (`26d3c234872c4457b302b1966eb54588`). The catalog privilege regression exercises the full

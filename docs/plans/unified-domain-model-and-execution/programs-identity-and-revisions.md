@@ -866,6 +866,17 @@ objects (`b825ca9e4cb64f1f8489146c7a8b19bd`). The model, graph, Pydantic and
 SQL compiler effects remain required determinants. The proof for each workload
 must close before the entry point can authorize reuse.
 
+**Implemented, 2026-11-20 UTC.** The selected demand decoder lowers the generated
+adapter's finite core schema, holds the native validator with its schema and strict
+options, and checks live extension bindings. Demand and rich serving identity now include
+the schema digest. The decoder compares exact recursive fields and numeric representations
+directly. Rich query and contribution output and native foundation rendering receive
+their decimal limits from captured inputs. The installed-root scan still reaches
+generated module initialization through the validator acquisition path. The next closure
+step separates that acquisition from the reached decoder and binds the actual validator
+as an authenticated workload input. Graph, compiler and recursive pagination custody
+remain required. [Acceptance and receipts](qualification.md#code-closure-qualification)
+
 **Resulting behavior.** Capture one immutable source population with its module identities,
 origins and exact bytes. Derive the necessary initialized modules and callable dependencies
 for the selected entry. An import performs initialization, while a local import inside an
