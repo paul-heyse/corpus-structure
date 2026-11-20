@@ -23,7 +23,7 @@ from corpus_structure.semantic.source_types import CaseRule
 
 from .alias_policy import label_normalizer
 from .data_operation_json import DdoJsonValue, json_bytes
-from .data_operation_values import semantic_value
+from .data_operation_value_codec import semantic_value
 from .identity import canonical_bytes
 from .refusal_types import RichQueryRefused
 from .rich_graph_validation import RichGraphState
@@ -210,6 +210,7 @@ class RichGraphIndex:
         self,
         state: RichGraphState,
         *,
+        decimal_fixed_point_digits: int,
         max_members: int = 100000,
         max_nested_members: int = 1000,
     ):
@@ -220,6 +221,12 @@ class RichGraphIndex:
         )
         if len(state.members) > max_members or max_members < 1 or max_nested_members < 1:
             raise RichQueryRefused("rich query graph exceeds the admitted member capacity")
+        if (
+            type(decimal_fixed_point_digits) is not int
+            or not 1 <= decimal_fixed_point_digits <= 2_147_483_647
+        ):
+            raise ValueError("rich query requires a positive captured decimal digit limit")
+        self.decimal_fixed_point_digits = decimal_fixed_point_digits
         self.state, self.max_nested_members = state, max_nested_members
         self.entities = MappingProxyType(
             {key: value for key, value in state.members.items() if isinstance(value, DdoRichEntity)}
@@ -296,6 +303,9 @@ class RichGraphIndex:
     def iri(self, value: str) -> str:
         definition = self.state.prepared.index.definitions.get(value)
         return definition.iri if definition is not None else self.state.prepared.expand_name(value)
+
+    def semantic_value(self, value: Any) -> Any:
+        return semantic_value(value, decimal_fixed_point_digits=self.decimal_fixed_point_digits)
 
     def is_a(self, entity: DdoRichEntity, iri: str) -> bool:
         target = self.state.prepared.index.by_iri.get(iri)
@@ -421,12 +431,12 @@ class RichGraphIndex:
             scientific_representative=None
             if representative is None
             else representative.model_dump(mode="python"),
-            object=semantic_value(_untrusted_value(self.object(fact_id))),
+            object=self.semantic_value(_untrusted_value(self.object(fact_id))),
             occurrences=[
                 dict(
                     **item.model_dump(mode="python"),
                     selected=item.occurrence_id in self.selected_occurrences,
-                    qualification=semantic_value(_untrusted_value(self.qualification(item))),
+                    qualification=self.semantic_value(_untrusted_value(self.qualification(item))),
                 )
                 for item in occurrences
             ],
@@ -476,12 +486,18 @@ class RichQueryIndex(RichGraphIndex):
         self,
         state: RichGraphState,
         *,
+        decimal_fixed_point_digits: int,
         max_members: int = 100000,
         max_nested_members: int = 1000,
     ):
         if not isinstance(state.graph, DdoRichAdmission):
             raise RichQueryRefused("rich queries require the actual selected accepted whole")
-        super().__init__(state, max_members=max_members, max_nested_members=max_nested_members)
+        super().__init__(
+            state,
+            decimal_fixed_point_digits=decimal_fixed_point_digits,
+            max_members=max_members,
+            max_nested_members=max_nested_members,
+        )
 
 
 @dataclass(frozen=True)
@@ -492,8 +508,14 @@ class PreparedRichQueryIndex:
     byte_size: int
 
     @classmethod
-    def build(cls, state: RichGraphState, *, max_members: int) -> PreparedRichQueryIndex:
-        index = RichQueryIndex(state, max_members=max_members)
+    def build(
+        cls, state: RichGraphState, *, max_members: int, decimal_fixed_point_digits: int
+    ) -> PreparedRichQueryIndex:
+        index = RichQueryIndex(
+            state,
+            max_members=max_members,
+            decimal_fixed_point_digits=decimal_fixed_point_digits,
+        )
         weight = len(json_bytes(state.graph.model_dump(mode="python"))) * 3
         weight += len(state.model.content) + len(state.prepared.manifest)
         weight += sum(len(item.content) for item in state.prepared.artifacts)
@@ -558,8 +580,8 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                     dict(
                         claim=index.claim_record(key),
                         occurrence=occurrence.model_dump(mode="python"),
-                        qualification=semantic_value(qualification),
-                        interval=semantic_value(interval),
+                        qualification=index.semantic_value(qualification),
+                        interval=index.semantic_value(interval),
                         applicability=ownership_applicability(interval, query.date),
                     )
                 )
@@ -624,7 +646,7 @@ def query_rows(index: RichQueryIndex, query: RichQuery):
                 dict(
                     assertion=reading.model_dump(mode="python"),
                     selected=key in index.selected_readings,
-                    reading=semantic_value(
+                    reading=index.semantic_value(
                         _untrusted_value(index.state.value(reading.reading_value))
                     ),
                     values=index.values((reading.reading_value,)),

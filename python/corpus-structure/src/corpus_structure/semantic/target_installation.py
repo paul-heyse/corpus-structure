@@ -29,27 +29,18 @@ class FoundationPrograms:
     programs: tuple[RenderedProgram, ...]
 
 
-def foundation_programs(
-    target: MetaData | None = None, *, value_codec_source: bytes | None = None
-) -> FoundationPrograms:
-    """Generate the primitive programs used by current target installation."""
+def foundation_programs(target: MetaData, *, decimal_digits: int) -> FoundationPrograms:
+    """Generate primitive programs from the selected physical and numeric policies."""
     from .closure_native import closure_foundation_parts, closure_native_parts
     from .data_operation_value_native import canonical_identity_programs
-    from .metadata import get_metadata
     from .native_objects import NativeIdentity, native_sql_script
     from .native_program_registry import render_programs
-    from .value_codec import VALUE_CODEC_SOURCE, decimal_digit_limit
 
-    capture = None
-    if value_codec_source is not None:
-        from corpus_structure.model.compiled import compiled_model
-
-        capture = compiled_model({VALUE_CODEC_SOURCE: value_codec_source})
-
-    selected = get_metadata() if target is None else target
-    identity_declarations = canonical_identity_programs(decimal_digits=decimal_digit_limit(capture))
-    closure_declarations = closure_foundation_parts(selected)
-    intrinsic_declarations = closure_native_parts(selected)
+    if type(decimal_digits) is not int or not 1 <= decimal_digits <= 2_147_483_647:
+        raise ValueError("foundation programs require a positive captured decimal limit")
+    identity_declarations = canonical_identity_programs(decimal_digits=decimal_digits)
+    closure_declarations = closure_foundation_parts(target)
+    intrinsic_declarations = closure_native_parts(target)
     programs = render_programs(
         (*identity_declarations, *closure_declarations, *intrinsic_declarations),
         registry_schemas=frozenset({"data", "sem"}),
@@ -158,9 +149,12 @@ def render_target_installation(
     *,
     target_metadata: MetaData,
     pdf_sources: tuple[SourceArtifact, ...],
+    decimal_digits: int,
 ) -> TargetInstallation:
     """Render against the acquired physical interpretation and complete PDF cohort."""
-    return _build_target_installation(target_metadata, inputs, pdf_sources=pdf_sources)
+    return _build_target_installation(
+        target_metadata, inputs, pdf_sources=pdf_sources, decimal_digits=decimal_digits
+    )
 
 
 def captured_source(inputs, filename: str) -> bytes:
@@ -180,6 +174,7 @@ def _build_target_installation(
     inputs: NativeGeneratorInputs,
     *,
     pdf_sources: tuple[SourceArtifact, ...],
+    decimal_digits: int,
 ) -> TargetInstallation:
     from .data_operation_compiler_native import data_operation_native_descriptor_program
     from .data_operation_wire import wire_operations
@@ -194,7 +189,7 @@ def _build_target_installation(
     from .source_record_recognition_native import source_record_recognition_sql
 
     logical = dict(inputs.logical_sources)
-    foundation = foundation_programs(selected, value_codec_source=logical["value-codec.yaml"])
+    foundation = foundation_programs(selected, decimal_digits=decimal_digits)
     descriptor = pdf_descriptor_programs()
     binary = pdf_binary_identity_programs()
     artifact = pdf_artifact_identity_programs(selected)
@@ -422,6 +417,8 @@ def target_trigger_programs(inputs: PhysicalTriggerInputs):
 
 def _declaration_installation(installation: TargetInstallation) -> TargetInstallation:
     """Build typed generator trees only when a caller explicitly asks for declarations."""
+    from corpus_structure.model.compiled import CompiledModel
+
     from .archive_projection_native import (
         execution_projection_check_program,
         scientific_layout_program,
@@ -432,12 +429,12 @@ def _declaration_installation(installation: TargetInstallation) -> TargetInstall
         pdf_binary_identity_programs,
     )
     from .pdf_descriptor_native import pdf_descriptor_programs
+    from .value_codec import VALUE_CODEC_SOURCE, decimal_digit_limit
 
     selected = installation.metadata
     captured = {source.name: source.content for source in installation.authoring_inputs.sources}
-    foundation = foundation_programs(
-        selected, value_codec_source=captured["native/value-codec.yaml"]
-    )
+    codec_model = CompiledModel(((VALUE_CODEC_SOURCE, captured["native/value-codec.yaml"]),))
+    foundation = foundation_programs(selected, decimal_digits=decimal_digit_limit(codec_model))
     guards = (
         execution_projection_check_program(selected),
         scientific_layout_program(selected),

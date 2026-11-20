@@ -21,6 +21,7 @@ from corpus_structure.semantic.pdf_validation_read_native import (
     _equal_rows,
     pdf_validation_native_programs,
 )
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 
 
 @pytest.fixture
@@ -63,7 +64,12 @@ def validation_controls(infrastructure_engine, request):
             from corpus_structure.semantic.target_installation import foundation_programs
 
             for source, selected in (
-                (foundation_programs().identity, {"canonical_json"}),
+                (
+                    foundation_programs(
+                        get_metadata(), decimal_digits=decimal_digit_limit()
+                    ).identity,
+                    {"canonical_json"},
+                ),
                 (
                     pdf_binary_identity_sql(),
                     {

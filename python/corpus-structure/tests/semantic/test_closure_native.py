@@ -13,6 +13,7 @@ from corpus_structure.semantic.native_objects import (
     prepare_native_authoring,
 )
 from corpus_structure.semantic.target_installation import foundation_programs
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 from semantic.releases_support import stage
 
 
@@ -27,7 +28,11 @@ def test_generated_closure_receipts_bind_and_keep_mutation_guards(commit_db_engi
                 source="generated-closure",
                 owner="corpus_sem_publisher",
             )
-            for item in parse_sql(foundation_programs(get_metadata()).native_closure)
+            for item in parse_sql(
+                foundation_programs(
+                    get_metadata(), decimal_digits=decimal_digit_limit()
+                ).native_closure
+            )
         )
         ordinary = frozenset(
             item.identity

@@ -162,7 +162,7 @@ def test_program_store_miss_does_not_compile_physical_inputs(tmp_path, monkeypat
     assert missing is None
 
 
-@pytest.mark.parametrize("selection", ("default", "actions", "supplied"))
+@pytest.mark.parametrize("selection", ("default", "actions", "supplied", "codec"))
 def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeypatch, selection):
     from contextlib import contextmanager
 
@@ -175,6 +175,8 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
         target_installation,
     )
     from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.native_protocol_authoring import native_logical_sources
+    from corpus_structure.semantic.value_codec import decimal_digit_limit
 
     current = get_metadata()
     selected = compile_physical(
@@ -183,11 +185,17 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
     )
     cohort = (SourceArtifact("pdf-domain/controlled-cohort", b"prepared sources"),)
     action = SourceArtifact("pdf-domain/native/actions.yaml", b"captured actions")
+    logical = native_logical_sources(model_sources=dict(running_model().sources))
+    if selection == "codec":
+        old_limit = decimal_digit_limit()
+        logical["value-codec.yaml"] = logical["value-codec.yaml"].replace(
+            str(old_limit).encode(), b"43"
+        )
     inputs = native_generation.capture_generator_inputs(
         selected,
         pdf_actions=action if selection == "actions" else None,
         pdf_sources=cohort if selection == "supplied" else None,
-        logical_sources={} if selection == "supplied" else None,
+        logical_sources=logical if selection in {"supplied", "codec"} else None,
     )
     selected.info["unmodeled_shared_state"] = "must not enter rendering"
     observed = []
@@ -220,7 +228,7 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
         assert kwargs["actions_source"] == expected_action
         return cohort
 
-    def inspect(captured, *, target_metadata, pdf_sources):
+    def inspect(captured, *, target_metadata, pdf_sources, decimal_digits):
         assert phases == ["entered"]
         assert captured is inputs
         assert pdf_sources is cohort
@@ -230,6 +238,9 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
         assert target_metadata.info["physical_sources"] == dict(inputs.physical_sources)
         assert target_metadata.info["physical_linkml_types"] == inputs.linkml_types
         assert dict(running_model().sources) == dict(inputs.model_sources)
+        from corpus_structure.semantic.value_codec import decimal_digit_limit
+
+        assert decimal_digits == (43 if selection == "codec" else decimal_digit_limit())
         observed.append(target_metadata)
 
     monkeypatch.setattr(target_installation, "render_target_installation", inspect)

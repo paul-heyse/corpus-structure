@@ -37,6 +37,7 @@ from corpus_structure.semantic.target_installation import (
     prepare_target_candidate,
     prepare_target_successor,
 )
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 from native_test_support import principal_engine
 
 
@@ -364,7 +365,9 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
     descriptor = literal_json_descriptor(admission, "data.execution_contract_descriptor")
     assert descriptor["kernel_identity"] == manifest.kernel_identity
     assert canonical_bytes(descriptor["program_manifest"]) == canonical_bytes(manifest.inventory)
-    for program in foundation_programs().programs:
+    for program in foundation_programs(
+        get_metadata(), decimal_digits=decimal_digit_limit()
+    ).programs:
         key = program.declaration.identity
         if key.name == "activate_release":
             assert "data.prove_execution_release" in desired[key].statements[0]

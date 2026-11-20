@@ -37,11 +37,17 @@ def graph_facets(
     *,
     interpretation,
     assessment,
+    decimal_fixed_point_digits: int,
     member_id=None,
     max_members=100000,
     max_nested_members=1000,
 ) -> Iterator[RichQueryRow]:
-    index = RichGraphIndex(state, max_members=max_members, max_nested_members=max_nested_members)
+    index = RichGraphIndex(
+        state,
+        max_members=max_members,
+        max_nested_members=max_nested_members,
+        decimal_fixed_point_digits=decimal_fixed_point_digits,
+    )
     by_occurrence = defaultdict(list)
     decisions = defaultdict(list)
     for body in state.members.values():
@@ -110,7 +116,7 @@ def graph_facets(
             elif isinstance(body, DdoRichSourceReadingAssertion):
                 meaning = dict(
                     assertion=body.model_dump(mode="python"),
-                    reading=semantic_value(
+                    reading=index.semantic_value(
                         index.state.value(body.reading_value).model_dump(
                             mode="python", exclude_unset=True
                         )

@@ -17,6 +17,7 @@ from corpus_structure.semantic.rich_knowledge_contracts import (
     DdoRichConsolidation,
 )
 from corpus_structure.semantic.rich_queries import RichGraphIndex, RichQueryIndex
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 from semantic.test_external_rich_extraction import rich_bundle as rich_bundle
 from semantic.test_external_rich_extraction import rich_model as rich_model
 from semantic.test_external_rich_extraction import rich_prepared as rich_prepared
@@ -76,7 +77,11 @@ def test_joined_facets_preserve_warning_selection_premises_and_exact_source_cons
     rows = [
         item.value
         for item in graph_facets(
-            selected(graph, index), index.state, interpretation=True, assessment=True
+            selected(graph, index),
+            index.state,
+            interpretation=True,
+            assessment=True,
+            decimal_fixed_point_digits=decimal_digit_limit(),
         )
     ]
     claims = [
@@ -150,9 +155,12 @@ def test_private_interpretation_keeps_actual_eligibility_without_becoming_public
         whole_inputs=(proof,),
         retained_graphs=(proof,),
     )
-    assert RichGraphIndex(state).selected_facts == index.selected_facts
+    assert (
+        RichGraphIndex(state, decimal_fixed_point_digits=decimal_digit_limit()).selected_facts
+        == index.selected_facts
+    )
     with pytest.raises(RichQueryRefused, match="accepted whole"):
-        RichQueryIndex(state)
+        RichQueryIndex(state, decimal_fixed_point_digits=decimal_digit_limit())
     rows = [
         item.value
         for item in graph_facets(
@@ -160,6 +168,7 @@ def test_private_interpretation_keeps_actual_eligibility_without_becoming_public
             state,
             interpretation=True,
             assessment=True,
+            decimal_fixed_point_digits=decimal_digit_limit(),
             member_id="occurrence:supported",
         )
     ]

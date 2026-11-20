@@ -12,6 +12,7 @@ from corpus_structure.semantic.native_objects import (
 )
 from corpus_structure.semantic.native_program import NativeRoutine, pg_type
 from corpus_structure.semantic.native_program_registry import ProgramDeclaration, render_programs
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 
 
 def _declaration(name, body, *, after=()):
@@ -132,7 +133,7 @@ def test_foundation_archive_and_float_programs_have_direct_typed_custody():
     from corpus_structure.semantic.metadata import get_metadata
     from corpus_structure.semantic.target_installation import foundation_programs
 
-    foundation = foundation_programs(get_metadata())
+    foundation = foundation_programs(get_metadata(), decimal_digits=decimal_digit_limit())
     programs = {item.declaration.identity: item for item in foundation.programs}
     assert set(programs) == {
         NativeIdentity("function", "data", "canonical_json", ("jsonb",)),

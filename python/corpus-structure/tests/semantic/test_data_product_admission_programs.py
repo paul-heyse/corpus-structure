@@ -14,6 +14,7 @@ from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
 from corpus_structure.semantic.native_protocol_authoring import native_protocol_sources, native_sql
 from corpus_structure.semantic.prepared_sql import prepare_sql
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 
 
 @pytest.fixture
@@ -36,7 +37,10 @@ def product_connection(infrastructure_rollback):
         )
     from corpus_structure.semantic.target_installation import foundation_programs
 
-    identity = prepare_sql(foundation_programs().identity, source="product-identity-test-helpers")
+    identity = prepare_sql(
+        foundation_programs(get_metadata(), decimal_digits=decimal_digit_limit()).identity,
+        source="product-identity-test-helpers",
+    )
     for i, statement in enumerate(identity.statements):
         node = statement.stmt
         if (

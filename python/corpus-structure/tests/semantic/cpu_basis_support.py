@@ -5,8 +5,9 @@ from pglast import ast
 from sqlalchemy.schema import CreateTable
 
 from corpus_structure.semantic.data_operation_cpu_basis import cpu_input_basis_native_sql
-from corpus_structure.semantic.metadata import table
+from corpus_structure.semantic.metadata import get_metadata, table
 from corpus_structure.semantic.prepared_sql import prepare_sql
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 from native_test_support import database_name, rollback_connection
 
 
@@ -20,7 +21,7 @@ def cpu_basis_engine(native_server):
     )
     from corpus_structure.semantic.target_installation import foundation_programs
 
-    foundation = foundation_programs()
+    foundation = foundation_programs(get_metadata(), decimal_digits=decimal_digit_limit())
     closure = foundation.closure
     with native_server.database(database_name("bare").name, native_server.template) as engine:
         with engine.begin() as connection:

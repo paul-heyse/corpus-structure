@@ -50,21 +50,25 @@ def test_generated_demand_decode_refuses_mutable_or_user_defined_input():
             decode_wire_demand_result(cast(Any, value))
 
 
-def test_typed_decode_refuses_library_retagging_even_when_json_spelling_is_equal(monkeypatch):
+@pytest.mark.parametrize(
+    ("field", "original", "changed"),
+    [
+        ("analyzed_scope", {"scale": Decimal("1.2")}, {"scale": 1.2}),
+        ("analyzed_scope", {"scale": Decimal("1.20")}, {"scale": Decimal("1.2")}),
+        ("body", {"number": -0.0}, {"number": 0.0}),
+    ],
+)
+def test_typed_decode_refuses_changes_to_exact_material(monkeypatch, field, original, changed):
     from corpus_structure.semantic import demand_wire
 
     class RetaggingAdapter:
         def validate_python(self, source, **options):
-            # A future library/schema change must not convert exact scope numbers.
-            import copy
-
-            result = copy.deepcopy(source)
-            result["uses"][0]["products"][0]["analyzed_scope"] = {"scale": 1.2}
-            return result
+            source["uses"][0]["products"][0][field] = changed
+            return source
 
     source = demand_result_page()
-    source["uses"][0]["products"][0]["analyzed_scope"] = {"scale": Decimal("1.2")}
-    monkeypatch.setattr(demand_wire, "_demand_result_adapter", RetaggingAdapter)
+    source["uses"][0]["products"][0][field] = original
+    monkeypatch.setattr(demand_wire, "captured_demand_wire_validator", RetaggingAdapter)
     with pytest.raises(ValueError, match="changed its material native record"):
         decode_wire_demand_result(json_bytes(source))
 

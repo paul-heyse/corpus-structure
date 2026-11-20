@@ -14,6 +14,7 @@ def render_captured(inputs: NativeGeneratorInputs) -> TargetInstallation:
 
     from .pdf_domain import prepare_native_pdf_sources
     from .target_installation import render_target_installation
+    from .value_codec import VALUE_CODEC_SOURCE, decimal_digit_limit
 
     model = CompiledModel(inputs.model_sources)
     with model_request_scope(model):
@@ -21,4 +22,12 @@ def render_captured(inputs: NativeGeneratorInputs) -> TargetInstallation:
             dict(inputs.physical_sources), linkml_types=inputs.linkml_types
         )
         pdf_sources = prepare_native_pdf_sources(inputs)
-        return render_target_installation(inputs, target_metadata=owned, pdf_sources=pdf_sources)
+        codec_model = CompiledModel(
+            ((VALUE_CODEC_SOURCE, dict(inputs.logical_sources)[VALUE_CODEC_SOURCE]),)
+        )
+        return render_target_installation(
+            inputs,
+            target_metadata=owned,
+            pdf_sources=pdf_sources,
+            decimal_digits=decimal_digit_limit(codec_model),
+        )

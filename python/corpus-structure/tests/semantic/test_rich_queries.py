@@ -34,6 +34,7 @@ from corpus_structure.semantic.rich_queries import (
     query_rows,
 )
 from corpus_structure.semantic.rich_statistics_queries import relation_projection
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 from semantic.data_operation_declaration_support import contract, declarations
 from semantic.record_contracts_support import release_inputs
 
@@ -235,7 +236,7 @@ class Graph:
             inputs=(ref,),
             whole_inputs=(proof,),
         )
-        return RichQueryIndex(state)
+        return RichQueryIndex(state, decimal_fixed_point_digits=decimal_digit_limit())
 
 
 def rows(index, query):
@@ -512,7 +513,11 @@ def test_shared_index_keeps_query_unknowns_and_decode_state_local(query_source):
 
     graph = Graph(query_source, {"A": "DistributionFamily", "B": "DistributionFamily"})
     graph.add("structural", "A", "special_case_of", "B", structural=True)
-    prepared = PreparedRichQueryIndex.build(graph.index().state, max_members=100)
+    prepared = PreparedRichQueryIndex.build(
+        graph.index().state,
+        max_members=100,
+        decimal_fixed_point_digits=decimal_digit_limit(),
+    )
     first, second = prepared.query_index(), prepared.query_index()
     first.unknowns["private"] = {"reason": "query-specific"}
     first.state.reached_values.add("only-first")
@@ -527,3 +532,25 @@ def test_shared_index_keeps_query_unknowns_and_decode_state_local(query_source):
     assert "query-local" not in prepared.index.state.decoded
     assert first.entities is second.entities
     assert rows(first, ClaimsQuery(name="claims")) == rows(second, ClaimsQuery(name="claims"))
+
+
+def test_query_value_encoding_uses_its_captured_decimal_policy(monkeypatch, statistics):
+    from decimal import Decimal
+
+    from corpus_structure.semantic import value_codec
+
+    _, existing = statistics
+    index = RichQueryIndex(existing.state, decimal_fixed_point_digits=4)
+
+    def unexpected_model_acquisition(*args, **kwargs):
+        raise AssertionError("query value rendering reacquired the current model")
+
+    monkeypatch.setattr(value_codec, "decimal_digit_limit", unexpected_model_acquisition)
+    assert index.semantic_value({"amount": Decimal("12.340")}) == [
+        "mapping",
+        [["amount", ["decimal", "12.34"]]],
+    ]
+    with pytest.raises(ValueError, match="canonical fixed-point digit limit"):
+        index.semantic_value({"amount": Decimal("123.45")})
+    with pytest.raises(ValueError, match="positive captured decimal digit limit"):
+        RichQueryIndex(existing.state, decimal_fixed_point_digits=True)

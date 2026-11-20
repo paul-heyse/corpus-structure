@@ -37,6 +37,7 @@ from corpus_structure.semantic.native_sql_body import (
     admission_body_comparison,
     sql_standard_definition,
 )
+from corpus_structure.semantic.value_codec import decimal_digit_limit
 
 
 def test_sql_standard_bound_profile_frozen_transition_and_native_results(semantic_bare_engine):
@@ -214,21 +215,23 @@ LANGUAGE sql BEGIN ATOMIC SELECT 1; END;"""
 
 
 def test_current_release_guards_require_current_archive_and_projection_compiler():
-    from corpus_structure.semantic.native_products import function_bodies
-    from corpus_structure.semantic.target_installation import foundation_programs
-
-    archive = function_bodies(foundation_programs().closure)["sem.require_archive_bytes"]
     from corpus_structure.semantic.archive_projection_native import execution_projection_check_sql
     from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.native_products import function_bodies
+    from corpus_structure.semantic.target_installation import foundation_programs
+    from corpus_structure.semantic.types import SEMANTIC_COMPILER_VERSION
 
+    archive = function_bodies(
+        foundation_programs(get_metadata(), decimal_digits=decimal_digit_limit()).closure
+    )["sem.require_archive_bytes"]
     projection = function_bodies(execution_projection_check_sql(get_metadata()))[
         "sem.require_execution_projection"
     ]
     assert "document ->> 'format') IS DISTINCT FROM 'semantic-release-archive-4'" in archive
-    # IS DISTINCT FROM also rejects missing compiler metadata; accepting only 24
-    # leaves historical compilers outside both current guard boundaries.
-    assert "manifest['profile']) ->> 'compiler_version') IS DISTINCT FROM '24'" in archive
-    assert "IS DISTINCT FROM '24'" in projection
+    # Both guards must enforce the current compiler ABI, including absent metadata.
+    compiler_check = f"IS DISTINCT FROM '{SEMANTIC_COMPILER_VERSION}'"
+    assert f"manifest['profile']) ->> 'compiler_version') {compiler_check}" in archive
+    assert compiler_check in projection
     assert "execution projection requires current compiler ABI; regenerate" in projection
     assert "THEN RETURN;" not in archive
     assert "THEN RETURN;" not in projection

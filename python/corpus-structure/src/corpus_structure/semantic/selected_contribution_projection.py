@@ -76,6 +76,7 @@ def contribution_rows(
             rows = graph_facets(
                 selected,
                 scope.graph(selected),
+                decimal_fixed_point_digits=scope.decimal_fixed_point_digits,
                 interpretation=request.include_interpretation,
                 assessment=request.include_assessment,
                 member_id=request.member_id,

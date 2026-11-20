@@ -96,7 +96,11 @@ def prepare_rich_query(inputs: RichQueryInput, *, max_members: int) -> PreparedR
         inputs=(reference,),
         whole_inputs=(whole,),
     )
-    return PreparedRichQueryIndex.build(state, max_members=max_members)
+    return PreparedRichQueryIndex.build(
+        state,
+        max_members=max_members,
+        decimal_fixed_point_digits=inputs.decimal_fixed_point_digits,
+    )
 
 
 def rich_query_metadata(index: RichQueryIndex) -> dict[str, list[dict[str, Any]]]:
