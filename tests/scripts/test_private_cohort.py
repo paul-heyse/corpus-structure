@@ -57,6 +57,7 @@ def test_private_creation_scrubs_routing_authentication_and_script_controls(tmp_
     assert selected["USER"] == selected["LOGNAME"] == pwd.getpwuid(os.getuid()).pw_name
     assert selected["TMPDIR"] == str(tmp_path)
     assert selected["CORPUS_PM2_NATIVE_TEST_ASSETS"] == "/selected/assets"
+    assert selected["ORT_DISABLE_TELEMETRY"] == "1"
 
 
 def test_one_explicit_postgresql18_wrapper_owns_the_whole_selection(tmp_path):
@@ -483,6 +484,33 @@ def test_recovery_removes_selected_sqlite_scratch_after_drain(owned_private_resi
     assert groups == [(101, 0), (102, 0)]
     assert recovery["cleanup"] == {"state": "removed"} and not temporary.exists()
     assert all((receipt / name).read_bytes() == body for name, body in before.items())
+
+
+@pytest.mark.parametrize("valid", (True, False))
+def test_recovery_only_removes_recognized_onnx_session_after_drain(
+    owned_private_residue, monkeypatch, valid
+):
+    from native_private_cohort import recover_private_temporary
+
+    receipt, temporary = owned_private_residue
+    session = temporary / ".ses"
+    session.write_bytes(
+        b"1795162607766\n72cd4c6f-dde8-06e0-0db4-e5accd8cc079\n" if valid else b"retain unknown data"
+    )
+    _interrupted_private_receipts(receipt)
+    assert finish_private_temporary(receipt, {"returncode": 0})["state"] == "retained"
+
+    def absent(group, sig):
+        raise ProcessLookupError()
+
+    monkeypatch.setattr(os, "killpg", absent)
+    if valid:
+        assert recover_private_temporary(receipt)["cleanup"] == {"state": "removed"}
+        assert not temporary.exists()
+    else:
+        with pytest.raises(ValueError, match="remains nonempty"):
+            recover_private_temporary(receipt)
+        assert session.read_bytes() == b"retain unknown data"
 
 
 @pytest.mark.parametrize(

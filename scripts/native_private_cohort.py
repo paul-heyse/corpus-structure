@@ -70,7 +70,11 @@ def private_environment(parent: dict[str, str], temporary: Path) -> dict[str, st
     }
     account = pwd.getpwuid(os.getuid()).pw_name
     env.update(
-        USER=account, LOGNAME=account, TMPDIR=str(temporary), CORPUS_CI_NATIVE_HOST="private"
+        USER=account,
+        LOGNAME=account,
+        TMPDIR=str(temporary),
+        CORPUS_CI_NATIVE_HOST="private",
+        ORT_DISABLE_TELEMETRY="1",
     )
     # pg_virtualenv delegates to system postgresql-common programs by name.
     env["PATH"] = os.pathsep.join(
@@ -239,6 +243,30 @@ def _remove_owned_empty_tree(
             children: _OwnedTree = []
             for name in os.listdir(fd):
                 found = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                session_scratch = bool(
+                    recover_selected_scratch
+                    and top
+                    and name == ".ses"
+                    and stat.S_ISREG(found.st_mode)
+                    and found.st_uid == owner["uid"]
+                    and found.st_dev == identity.st_dev
+                    and found.st_nlink == 1
+                    and found.st_size <= 64
+                )
+                if session_scratch:
+                    # ONNX Runtime's native telemetry client retains this session
+                    # timestamp/UUID file even after all owned processes exit.
+                    source = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=fd)
+                    try:
+                        if os.fstat(source) != found or re.fullmatch(
+                            rb"[0-9]{13}\n[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\n?",
+                            os.read(source, 65),
+                        ) is None:
+                            raise ValueError("private telemetry session scratch differs")
+                    finally:
+                        os.close(source)
+                    children.append((name, found, None))
+                    continue
                 if (
                     selected_scratch
                     and name in {"support.sqlite", "support.sqlite-journal"}
