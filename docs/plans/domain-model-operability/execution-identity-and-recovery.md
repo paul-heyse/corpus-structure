@@ -4,6 +4,8 @@
 owns readiness and disposition. This companion implements the target from review
 [O01][o01], [O02][o02] and [O06][o06]. The [current evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
 records the exercised cases and remaining boundaries.
+The N43 amendment integrates [I01][i01], [I02][i02] and [I06][i06] from review revision
+`7c17b403a`. Their additions below are planned work.
 
 ## Baseline and boundaries
 
@@ -17,9 +19,13 @@ feeds reuse eligibility. The M1 planner was missing from a separately maintained
 These are different failure boundaries even though they currently use overlapping facts.
 [N42 and M1 evidence][cause]
 
-DMO-00 verified both N42 archives on the acquired stage. No stage project selects either release.
-Prepare the two modes using the explicit archived release IDs and actual runtime custody. Report
-archive verification, acquisition and project selection separately. [DMO-00 evidence](../../design_review/evidence/2026-11-20_dmo00-entry-baseline/README.md#current-target-observations)
+DMO-00 verified both N42 archives on the acquired stage and observed neither as selected by a
+stage project. The N43 increment subsequently deployed and verified Standard and Integrated,
+completed actual GLiNER M1 scoped readback and cold one-page Nemotron publication, and retained
+the canonical N29 book binding. Acquire current target and runtime facts when execution resumes.
+Report archive verification, executable acquisition and project selection at their actual scopes.
+[DMO-00 evidence](../../design_review/evidence/2026-11-20_dmo00-entry-baseline/README.md#current-target-observations) ·
+[N43 evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
 
 | Decision | Authority and scope | Consumer |
 | --- | --- | --- |
@@ -65,6 +71,50 @@ A change of a real dependency remains visible in the correct owner. An unresolve
 historical edit remains explicit. Verify actual M1 GLiNER publication, its CPU and logical-provider
 receipt, and operation-scoped native readback through [DMO-08](qualification-and-adoption.md#dmo-08).
 
+<a id="selected-host-preparation"></a>
+### Prepare every required shared-host resident
+
+Integrate [I01][i01] at the existing selected-operation preparation owner. Derive the required
+resident population from the declared target closure and acquired ports. Before upstream PDF
+work or a native work claim, compare every required resident with one acquired host context.
+Carry the selected profiles, interpreter and resource facts, exact execution inventory, inference
+identities and attributed differences as owned preparation data consumed by the executor.
+Shared environment observation can serve several residents while each provider still checks its
+own model and tokenizer assets. An unavailable unselected provider leaves supported work ready.
+At worker startup, recheck the premises whose bytes or environment can change after preparation.
+[Current preparation](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py#L465) ·
+[Shared host declaration](../../../python/corpus-structure/src/corpus_structure/methods/native_host.py#L498)
+
+Use the existing `NativeProfile.identity_projections()` and provider attestations to retain
+inference meaning separately from exact execution custody. A transport-only reacquisition binds
+the new runtime to the exact release and acquired target through the current runtime-binding
+owner. DMO-05 owns validated settings and redacted origins. DMO-07 exposes the guarded acquisition
+and the failed prerequisite through the installed CLI. Replace the evidence-only refresh script,
+ambient provider settings reads and duplicate resident lists as those consumers migrate.
+[Settings owner](json-contracts-and-settings.md#dmo-05-settings) ·
+[Operator diagnostics](consumer-authority-and-operability.md#dmo-07) ·
+[Provider profiles](../../../python/corpus-structure/src/corpus_structure/methods/native_profiles.py)
+
+**Library realization.** Reuse `preflight_pm2_runtime` with the selected project and interpreter.
+Its `uv sync --locked --check --offline --no-python-downloads` route checks the locked environment
+before the isolated worker preflight. Preserve the existing root-workspace `--inexact` policy
+where optional groups are allowed, with all installed distributions still covered by the runtime
+inventory. Python 3.14 `importlib.metadata.distributions()` and the existing authenticated RECORD
+and file receipts supply distribution custody. Require the selected execution inventory as well
+as the version and inference facts. Pydantic Settings 2.16.1 source composition supplies the
+effective configuration at its existing owner.
+[Runtime preflight](../../../python/corpus-structure/src/corpus_structure/methods/pm2_worker.py#L23) ·
+[uv locking and syncing](https://docs.astral.sh/uv/concepts/projects/sync/) ·
+[Python distribution metadata](https://docs.python.org/3.14/library/importlib.metadata.html) ·
+[Settings source state](https://docs.pydantic.dev/latest/concepts/pydantic_settings/#accessing-the-result-of-previous-sources)
+
+**Acceptance.** Select two residents and make either one stale in turn. Each case produces an
+attributed refusal before PDF work or a claim. Check conflicting host cache roots or thread
+policy, an unavailable unselected provider, and an interpreter or asset change after preparation.
+A valid transport refresh keeps the recorded inference identity and obtains new execution
+custody. A changed determining provider resource or inference parameter moves the material basis.
+Verify these decisions through preparation, the actual worker and the managed explanation.
+
 <a id="dmo-02"></a>
 ## DMO-02 · Compare material and recover compatible work
 
@@ -95,7 +145,57 @@ at this boundary. The existing analyzed-scope contract stays in force pending a 
 **Prerequisites.** DMO-01 supplies a selected executable contract. The numeric domains in
 [DMO-05](json-contracts-and-settings.md#dmo-05) supply value meaning. The common schema package
 supplies the installed contract identity when a wire transition affects the material basis.
-The field comparison can start using current admitted inputs before any digest changes.
+The field comparison and first Standard reuse case can use current admitted input and D1 scope
+semantics while the broader numeric transition proceeds. The selected-host prerequisite above
+must be available before the real transport-change case.
+
+<a id="standard-cross-demand-reuse"></a>
+### First delivery through a Standard capture boundary
+
+Integrate [I02][i02] by establishing the complete material basis of one real Standard PDF
+capture and lowering path. Project original bytes and declared scope, capture recipe and options,
+model resources, output schema, determining callable code and required initialization, and the
+lowering that determines the published result. The current capture asset takes reuse eligibility
+from a shared lowering workload that includes Integrated production. The retained root-removal
+probe reduced that workload's unknowns from 328 to 208 and still discovered 608 modules including
+Integrated. It establishes that deleting the explicit Integrated roots alone leaves the current
+analysis incomplete. The earlier transform scan's 546 unknowns describe a different workload.
+[Capture eligibility](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_capture.py#L55) ·
+[Root-removal probe](../../design_review/evidence/2026-11-20_dmo-plan-review/README.md)
+
+Start from the selected callable slice and the existing acquired external-runtime boundaries.
+Use `ast.parse`/`NodeVisitor`, available ty resolution facts and the declared NetworkX projections
+for their respective source and reachability facts. Loaded-callable origin and bytes keep the
+`inspect` and archive correspondence checks described in DMO-01. These facts must account for
+the actual producer's determining behavior before reuse becomes eligible. Keep broad observed
+dependencies and unresolved determining facts attributed at the code-analysis owner.
+[ty capabilities and limits](../../libraries/python_introspection/ty.md) ·
+[NetworkX projections](../../libraries/scientific_compute/networkx.md)
+
+If the selected slice cannot close a real black-box producer, assess a versioned opaque boundary
+only when its acquired interface and complete declared input, resource, code and output/lowering
+surface establish the necessary material contract. Record the scope and why it is sufficient
+before dependent adoption. Preserve demand-scoped refusal for unresolved operations. Completion
+is a sound reusable production boundary and its revealing cases. A matching sample output or
+an arbitrary reduction in the broad unknown count supplies only the evidence it actually shows.
+
+Use the current native attachment and publication owners. Two demands with equal eligible
+material may share the same request key. Verify reuse using the original derivation, attempt,
+and provider attribution. Exercise cross-key adoption only when an actual supported identity
+transition creates distinct keys. A transport-only runtime change and an unrelated downstream
+edit with established noninterference must keep the original capture. Changed original bytes,
+capture options, determining code, model resources or output/lowering contracts must require
+fresh work. Modified replay bytes, counterfeit producer, revoked support or incompatible current
+publication authority still refuse. Retire the shared all-mode eligibility determinant only
+where the selected contract takes its consumers. Retain the broad graph for attributed discovery.
+
+Keep original-byte custody, named semantic material profiles and runtime inventory explicit.
+The first capture case uses ADR-0100's current scope meaning. DMO-05's later finite-number and
+public-output changes require their field policy and independent Python/native vectors before
+any equivalence transition. Faithful conversion or fresh regeneration can move old generated
+results to the target basis while obsolete execution adapters retire with their consumers.
+[Identity decision](../../adr/0100-ddo-contextual-identities.md) ·
+[JSON transition owner](json-contracts-and-settings.md#dmo-05)
 
 **Identity.** Give the existing identity owner named, versioned profiles for D1 keys, semantic
 values and SQL parity where the contract has real consumers. Preserve D1 key bytes and hash
@@ -128,6 +228,30 @@ ineligible derived results through the current path. Retire active legacy reader
 adapters as the new owner takes their actual consumers. [Checkpoint contract](../../adr/0139-compatible-pdf-checkpoint-custody.md) ·
 [Recovery contract](../../adr/0140-durable-recovery-and-exact-stop.md) · [Spool material projection][spool]
 
+<a id="uncertain-effect-recovery"></a>
+### Settle uncertain effects before repeating work
+
+Integrate [I06][i06] with DMO-02 recovery and DMO-08's failure selection. The N43 held-region
+case proves recovery after releasing an uncomputed claim. Add a bounded native case that loses
+acknowledgement after a committed write, then stops or replaces the owner before retry.
+Independently read the committed intent, native task/lease and publication receipts and observe
+physical retirement. Establish which original result was adopted, one effective publication,
+and retirement of the superseded provider. Pair this with known rollback, where retry must
+perform the needed work, and a still-active producer, whose private material remains unavailable
+for adoption. Preserve exact intent replay and original attempt custody in each path.
+[Qualification owner](qualification-and-adoption.md#required-functional-journeys)
+
+The authenticated native intent readback decides the outcome of an uncertain external write.
+Psycopg transaction status informs ordinary connection state. DMO-04 may consolidate completion
+inspection into a set-wise native operation only when it retains each intent's outcome and
+inspection before executable work. Reuse demand, draft, spool and process-retirement owners and
+remove repeated retrieval when the replacement supplies those guarantees. Test cancellation
+during publication and stale-owner replacement through the existing managed route, with native
+receipt counts and process observations independent of the executor's summary.
+[Read-work owner](consumer-authority-and-operability.md#dmo-04) ·
+[Durable recovery](../../adr/0140-durable-recovery-and-exact-stop.md) ·
+[Continuation and reuse](../../adr/0141-serving-continuation-and-reuse.md)
+
 **Library realization.** Use PostgreSQL 18 native predicates and the existing generated attachment
 and settlement operations for visibility, lease and publication decisions. Psycopg 3.3.6 obtains
 transaction outcomes through the current transaction owner. Preserve the distinction among a known
@@ -154,3 +278,6 @@ uncertain commit, and exact intent replay separately before full-book qualificat
 [runtime]: ../../../python/corpus-structure/src/corpus_structure/semantic/external_runtime.py
 [attach]: ../../../python/corpus-structure/src/corpus_structure/semantic/request_attachment_native.py#L1557
 [spool]: ../../../python/corpus-structure/src/corpus_structure/semantic/pdf_spool_native.py#L244
+[i01]: ../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I01
+[i02]: ../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I02
+[i06]: ../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I06

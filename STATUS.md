@@ -56,5 +56,5 @@ _Updated 2026-11-20 UTC. DMO-01 and DMO-02 have scoped implementation and verifi
 
 ## Next execution
 
-- [DMO-02](docs/plans/domain-model-operability/execution-identity-and-recovery.md#dmo-02) still needs a sufficient material proof for cross-request capture reuse and its named identity profiles. The remaining settings, schema and public wire work is owned by [DMO-05/06](docs/plans/domain-model-operability/json-contracts-and-settings.md).
+- The [revised DMO queue](docs/plans/domain-model-operability_2026-11-20.md#execution-queue) schedules [selected-host preparation](docs/plans/domain-model-operability/execution-identity-and-recovery.md#selected-host-preparation) with [validated settings](docs/plans/domain-model-operability/json-contracts-and-settings.md#dmo-05-settings) before the [Standard cross-demand reuse case](docs/plans/domain-model-operability/execution-identity-and-recovery.md#standard-cross-demand-reuse). The revised plan passed `uv run ci docs check` (`637c9c4fe0074cd69ef01899f0daa6c3`).
 - After consumer migration and retirement, [DMO-08 and DMO-09](docs/plans/domain-model-operability/qualification-and-adoption.md) own final-source qualification, guarded adoption and the whole-book journey.

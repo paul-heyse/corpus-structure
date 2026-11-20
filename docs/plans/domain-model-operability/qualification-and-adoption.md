@@ -42,11 +42,12 @@ stub supplies controlled contract evidence. An actual provider receipt supplies 
 Both must retain the assertion and publication scope they established.
 
 The DMO-01/02 increment exercised actual Docling spool recovery, GLiNER M1 publication with
-operation-scoped native readback, and one-page Integrated Nemotron publication. Those results
-establish their recorded scope for N43 or its preparation source. Reassess them against the final
-system and required selection. Numerical
-speed targets and exhaustive semantic agreement with generated historical outputs are outside
-the acceptance design. [Bounded implementation evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
+operation-scoped native readback, and one-page Integrated Nemotron publication. The exact-demand
+regional resume fulfilled 18 obligations and its repeat emitted zero receipts. Three distinct
+runtime-bound demands for that original and release produced separate capture derivations.
+Reassess each receipt against the final system and required selection. Acceptance uses
+representative independent semantic expectations and separate evidence for each recovery or reuse
+claim. Quantitative performance claims require measured evidence. [Bounded implementation evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
 
 ## DMO-08 · Qualify the assembled system on final source
 
@@ -77,6 +78,17 @@ before the accepted evidence boundary. If a change affects source, generated pro
 provider configuration or context after a result, reassess the affected selection and re-observe
 the required properties. Unaffected receipts can retain their explained applicability.
 
+Use focused managed cases during implementation for selected host preparation, Standard
+cross-demand reuse, uncertain effects, cut/authority continuity and generated cutover. Use the
+installed frontdoor when its behavior is part of the claim. Migrate useful evidence-only
+preparation and regional drivers into supported commands or managed fixtures as their owners
+absorb the behavior. Retain the dated evidence copies. Keep infrastructure setup and
+scenario-specific product setup separate so independent tests can reuse infrastructure. Record
+a missing host, model, endpoint or incompatible fixture environment as a prerequisite observation
+and keep the required identity in the final coverage account.
+[N43 I08](../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I08) ·
+[Managed test review](../test-domain-model-and-execution/managed-test-review.md)
+
 The project selects pytest 9.1.1 and pytest-xdist 3.8.0. Registered `provider_evidence` and
 `shared_cluster_fault` markers identify the actual-provider selection and exclusive cluster faults.
 Keep strict marker and config handling so a misspelled marker cannot silently reduce the required
@@ -94,14 +106,15 @@ conditions on the existing managed execution route. They create no new schedulin
 
 | Boundary | Behavior to establish | Evidence and revealing controls |
 | --- | --- | --- |
-| Selected executable acquisition | Standard, Integrated and M1 derive capture and verification from the selected operation and acquire authentic bindings and resources | Source relocation succeeds. A rebound callable, omitted required planner module, changed required resource or unresolved necessary dependency refuses before provider work. Revisit the historical M1/event edit pair with the selected transform. |
-| Material identity and recovery | Output determinants govern eligibility while original custody and current use authority remain attributable | Compare an orchestration or downstream edit with a producer, parameter, schema or provider change. Adopt eligible checkpoints and drafts, refuse altered replay bytes, active or counterfeit producers and revoked support. Independently read original producer attribution and current publication. |
+| Selected executable acquisition | Standard, Integrated and M1 derive capture and verification from the selected operation and acquire authentic bindings and resources | Source relocation succeeds. A stale required resident refuses before upstream work or a claim, an unavailable unselected provider leaves selected work ready, and changed startup facts still refuse. Exercise rebound or omitted required code, changed resources and the historical M1/event edit pair. |
+| Material identity and recovery | Output determinants govern eligibility while original custody and current use authority remain attributable | A real Standard transport-only second demand adopts the original derivation. A determining change recaptures. Independently read original attempt and derivation, current publication and provider activity. Adopt eligible checkpoints and drafts and refuse altered replay bytes, active or counterfeit producers and revoked support. Check exact-demand resume and repeat independently. |
 | Native admission and effects | Requests bind their actual source, role, scope, membership and declared effect | Test wrong role, source, cardinality, contract and support. Distinguish explicit family `none`, known family and undetermined state through the selected target contracts. Check real current authority on publication and disclosure. |
-| Shared work and fault behavior | Concurrent demands can share eligible work, siblings progress, and interrupted work reaches a known state | Exercise stale-owner displacement, known rollback, uncertain commit, exact intent reconciliation, cancellation, physical retirement, quarantine and retry. Read native leases and receipts independently of the executor summary. |
+| Shared work and fault behavior | Concurrent demands can share eligible work, siblings progress, and interrupted work reaches a known state | Exercise known rollback, an acknowledgement lost after commit with stop or owner replacement before retry, and a still-running worker. Inspect native intent, lease and receipt and observe process retirement independently. Retain stale-owner displacement, exact intent reconciliation, cancellation, quarantine and retry cases. |
 | JSON and schema contracts | PostgreSQL, Python, cursors, exports and worker frames implement the chosen numeric and structural domains | Round-trip finite numbers and integer bounds. Reject non-finite tokens, invalid Unicode, duplicate keys, trailing bytes and deep input. Exercise dialect, tuple, pattern and local-reference cases through both schema engines. Verify mismatched contract refusal before commit and immutable snapshot behavior after caller mutation. |
 | Consumer requirements and rich authority | The consuming role selects the producer evidence it needs and respects historical and live authority boundaries | Use a public authorization issuer with family `none`, protected fit data, a wrong issuer, substituted support and changed or revoked live authority. Confirm ordinary readback and protected-body refusal. |
-| Serving, continuation and graph | Authorized selected reads preserve rows, relationship kinds and current authority across pages | Cover isolates, unresolved endpoints, parallel roles, loops, rooted scope, equal-value cutoff, missing-member meaning, distinct cuts, revoked support and incompatible cursors. Reacquire live authority while carrying only guarantees whose premises remain valid. |
-| CLI, MCP and exports | The installed operator and agent surfaces carry the same target and selected semantic context | Exercise passive preview, change explanation, candidate/deploy, managed result inspection, stop/resume, tool/resource reads, bounded delivery and detached verification. Check source/prediction attribution and protected-label exclusion. |
+| Serving, continuation and graph | Authorized selected reads preserve rows, relationship kinds and current authority across pages | Change support or epoch after page one and verify the next disclosure through the shared CLI/MCP reader. Pair with stable equal-value pagination. Cover isolates, unresolved endpoints, parallel roles, loops, rooted scope, missing-member meaning, distinct cuts and incompatible cursors. |
+| Generated contract cutover | The reviewed generated bytes and application capture agree throughout the selected rollout route | Change a tuple schema that generates a Python facade. Confirm exact apply/candidate correspondence, drift refusal, step recovery and admission of both applications. |
+| CLI, MCP and exports | The installed operator and agent surfaces carry the same target and selected semantic context | Exercise passive preview, first failed prerequisite, repeat explanation, an exact scoped query action, candidate/deploy, stop/resume, tool/resource reads, bounded delivery and detached verification. Check source/prediction attribution and protected-label exclusion. |
 | Settings | One validated configuration reaches every consumer and private fixtures acquire their intended environment | Verify model-derived scrubbing of `CORPUS_DEPLOYMENT__URL`, propagation of the chosen Nemotron endpoint, precedence and redacted origins, and bounded diagnostics for malformed settings. |
 
 Retain actual native checks for installation, grants, purpose access, once-only initialization,
@@ -156,6 +169,13 @@ generation, release/runtime selection, original-source inventory, live leases, c
 private drafts, acknowledged pages and eligible products. Use this observed predecessor for
 deployment and compare-and-set activation. Resolve live work through its actual owner before
 migration. Earlier N29/N42 names are history and cannot substitute for this observation.
+
+Present the observed predecessor, original inventory and intended target release/runtime in a
+bounded pre-adoption inventory through the existing inspection commands. For each relevant
+scope, show the authenticated material basis and current authority that supports adoption,
+conversion or regeneration. Use this result as input to the existing guarded deployment and
+separate compare-and-set activation. Reobserve the acquired target and selection at each effect.
+[N43 I08](../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I08)
 
 Verify original bytes through the normal reader against the authenticated inventory. The retained
 census covered 29 originals across 28 local paths. Confirm the actual current inventory and explain

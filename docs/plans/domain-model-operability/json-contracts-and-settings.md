@@ -4,7 +4,10 @@
 
 This companion owns DMO-05 and DMO-06. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns package state, source dispositions, rule decisions and completion. This target is **Proposed**.
-The source baseline is `d4d606247`. The existing package pins are Pydantic 2.14.1,
+The original source baseline is `d4d606247`. The N43 amendment consumes the
+[plan-improvement review](../../plan_improvement_reviews/domain-model-operability_2026-11-20.md)
+at `7c17b403a`, including its inspected source `65db7f674`. Its I01, I03 and I09 changes below
+are scheduled work. The existing package pins are Pydantic 2.14.1,
 pydantic-settings 2.16.1, jsonschema 4.26.0, Psycopg 3.3.6 and python-rapidjson 1.25.
 The retained comparison used referencing 0.37.0 and pg_jsonschema 0.3.4. Execution must compare
 those selections with the current lock and installed extension before relying on the results.
@@ -106,22 +109,34 @@ production package.
 
 ### Consumer transition and retirement
 
-Move the wire and row aliases to the declared finite domain. Remove `wire_json_loads`'s
-`analyzed_scope` key-name branch and interchangeable JSON-value aliases. Migrate execution evidence
-and exports to the same typed numbers, and replace encode-to-validate paths with the appropriate
+Deliver the migration by complete consumer boundary. The execution-evidence finite codec is an
+implemented foundation. First move remaining identity-independent payload families where one
+owned finite JSON value and prepared validator can serve the actual readers. Native request/result
+transport, workers, rows, exports and agent results each migrate with their producers and consumers.
+For scope-bearing boundaries, specify field numeric semantics and independent Python/PostgreSQL
+vectors before removing the existing interpretation. A converging identity class requires the
+DMO-02/05 decision route for ADR-0100. The bounded Standard cross-demand reuse case can retain its
+current accepted D1 meaning while these consumer migrations proceed. [N43 review I09](../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I09)
+
+Move the wire and row aliases to the declared finite domain with their consuming contracts.
+Replace `wire_json_loads`'s `analyzed_scope` key-name branch with the explicit field policy at the
+scope boundary, then remove the superseded branch and interchangeable JSON-value aliases.
+Migrate execution evidence and exports to the same typed numbers, and replace encode-to-validate paths with the appropriate
 model or adapter call. Move target fingerprints and genuine value hashes to DMO-02's identity
 owner. Measure response bytes with the actual delivery serializer once. Parse each selected-source
 event once at its ingress and carry the owned result through its consumers. Consolidate SQL JSONB
 literal spelling at its existing generated-SQL owner, preserving frozen bytes or scheduling a
 forward native transition when they change.
 
-Move MCP typed structured results and their consumers together, then retire `exact_json` double
-transmission and Decimal string/tag bridges serving only transport. D8's current interface and
-ADR-0100's analyzed-scope meaning need the coordinator's explicit decision route before this changes
+Move MCP typed structured results and their actual MCP and CLI consumers together. Keep the native
+cut identity, bounded delivered bytes and explicit partial/unknown standing in the typed result,
+then retire `exact_json` double transmission and Decimal string/tag bridges serving only transport.
+D8's current interface and ADR-0100's analyzed-scope meaning need the coordinator's explicit decision route before this changes
 their binding contracts. Typed scientific value representations or exact original-byte archives
 have their own consumers and must be assessed before removing a tag. Preserve best-effort decoding
 or migration where useful custody requires it. Regenerate incompatible derived data under the new
-basis instead of retaining a compatibility execution path.
+basis through the adopted execution route. Authenticate old exact-byte archives under their
+recorded contract and convert useful values at that boundary or regenerate derived data.
 [D8 agent interface](../../design/D8-agent-and-query-interfaces.md)
 [Contextual identity decision](../../adr/0100-ddo-contextual-identities.md)
 [DMO-02 identity and recovery](execution-identity-and-recovery.md)
@@ -150,7 +165,10 @@ source and provider factory consolidation remains open.
 The N43 Standard regional attempts found stale spaCy and HanLP shared-host inventory despite
 equal provider inference identity. The stage runtime was reacquired through the existing runtime
 owner. Acquire and compare the selected host residents together at preparation so a stale sibling
-cannot surface after PDF publication. Keep inference identity and runtime inventory distinct.
+cannot surface after PDF publication. Keep inference identity and runtime inventory distinct. The
+selected-host preparation result belongs to DMO-01 and is consumed by the worker and its DMO-07 explanation. This settings slice
+supplies the effective validated sections and redacted origins used to acquire that result.
+[Selected-host preparation](execution-identity-and-recovery.md#selected-host-preparation) ·
 [Regional observations](../../design_review/evidence/2026-11-20_dmo01-02/README.md#bounded-regional-stage-recovery)
 
 Resolve settings once and pass validated sections to acquisition, workers and provider factories.
@@ -168,11 +186,30 @@ existing error path.
 [JSON file source](../../libraries/data_model/pydantic-settings.md#52-json-yaml-toml-and-pyprojecttoml)
 [Current settings owner](../../../python/corpus-structure/src/corpus_structure/settings.py)
 
+Use one acquired environment observation for all required residents of the selected host, with
+provider-specific model resources still checked by their owners. The existing
+`preflight_pm2_runtime` selects the project and interpreter and runs
+`uv sync --locked --check --offline`, followed by the worker's preflight. A lock check establishes
+environment correspondence under its declared options. `importlib.metadata` supplies installed
+distribution metadata for the existing authenticated RECORD inventory. Compare that execution
+inventory separately from `NativeProfile.identity_projections()` and the provider's inference
+attestation. The guarded reacquisition operation binds the exact release and acquired target,
+records both identity projections and feeds the normal runtime binding owner. A transport-only
+change can retain inference meaning while changing execution custody. Provider startup verifies
+premises that may have changed since preparation. [Runtime preflight](../../../python/corpus-structure/src/corpus_structure/methods/pm2_worker.py#L23) ·
+[uv environment checks](https://docs.astral.sh/uv/concepts/projects/sync/) ·
+[Python distribution metadata](https://docs.python.org/3.14/library/importlib.metadata.html) ·
+[N43 review I01](../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I01)
+
 Retire bare construction of nested settings sections, hand-kept environment scrub prefixes, private
 origin extraction and unchecked `model_copy(update=...)` paths as each actual consumer moves.
 `MethodSettings` derives defaults from the same validated route. Product environment variables
 become fields while CI lane controls stay with `ci`. Removal of `llm` and `gpu` sections receives a
 separate consumer assessment if selected, independent of the historical SET-01 disposition.
+Migrate provider factories and private-cohort launch inputs in the same slice that supplies their
+validated settings. Retire ambient provider reads, duplicate resident lists and the evidence-only
+`refresh-host-runtime.py` operational reconstruction as the normal guarded acquisition route
+serves their consumers.
 
 ### DMO-05 completion
 
@@ -188,7 +225,11 @@ Nemotron consumer receives `CORPUS_NEMOTRON__ENDPOINT`, invalid settings yield o
 and redacted origin reports match the effective precedence. Product provider qualification belongs
 to DMO-08. DMO-05 completes when every inventoried consumer uses the target route, superseded
 transport code is removed and required durable representations have a usable conversion or fresh
-regeneration route.
+regeneration route. For the shared-host prerequisite, cover valid spaCy with stale HanLP and the
+reverse pairing, an unavailable unselected provider, conflicting cache roots or thread policy,
+and an interpreter or resource changed after preparation. Confirm the early mismatch is reported
+before upstream PDF computation or a native claim, with the selected operation and corrective
+route. Verify redaction and constructor/environment precedence through the existing CLI output.
 
 <a id="dmo-06"></a>
 ## DMO-06 — One schema per authority and deliberate validation placement
@@ -284,6 +325,61 @@ Draft 7 and common lowering. Persistent program/page cache codecs have no obliga
 those tiers were retired. Preserve authored constraints and useful independent verification when
 removing obsolete generator and codec tests.
 
+<a id="prospective-source-cutover"></a>
+### Prospective source and coordinated cutover
+
+The N43 forward revision corrected receipt tuple validation and moved the global wire digest.
+The first candidate refused after generated facade apply changed an indirectly captured dependency.
+Its retry prepared the application from the applied bytes and passed. DMO-06 must acquire a coherent
+prospective source basis before preparing the next affected application. [N43 transition evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md#native-transition) ·
+[N43 review I03](../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I03)
+
+Derive generated facade outputs from the approved physical and logical model together with explicit
+source migrations. Form one immutable prospective source view used for application preparation,
+runtime capture, compilation fingerprint, inspection capsule, SQL explanation and exact patch.
+The existing `native_facades()` output registry owns the generated population. The
+`acquire_data_operation_inputs(..., proposed=...)` seam can supply overlay bytes to acquisition.
+Trace derived profile constructors, direct imports and `Path.read_bytes()` consumers because their
+actual dependency capture must see the same view. The bounded investigation ends with an identified
+capture route for each affected facade and a choice between full prospective capture and the
+explicit staged route below. [Facade output registry](../../../python/corpus-structure/src/corpus_structure/schema/code_generation.py#L81) ·
+[Compilation inputs](../../../python/corpus-structure/src/corpus_structure/schema/model_change.py#L347) ·
+[Application input acquisition](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_preparation.py#L146)
+
+Use full prospective capture where all affected constructors can consume the view. Apply verifies
+and writes the reviewed after-bytes, and candidate acquisition verifies those bytes against its
+retained source and model basis. If a required constructor cannot consume a coherent overlay,
+make generated-source apply an explicit first effect and capture the application from those exact
+applied bytes as the second stage. The CLI retains the reviewed source identities, acquired target,
+predecessor and next action so an interrupted invocation resumes at the recorded stage. A material
+input change still produces an attributed refusal. A successful apply alone supplies the generated
+source prerequisite and leaves application/native qualification with its own stage.
+
+Registration freezes the exact generated migration. Deployment, release/runtime admission and
+project activation remain separate recorded effects with their own expected bindings. Reopen after
+apply and after deployment to verify the supported same-ID recovery routes and known effects.
+Use a forward revision for any later generated change. Retire superseded capture and generation
+paths as their actual consumers adopt the single source basis. Both Standard and Integrated must
+have legitimate acquisition under the applicable native revision. [Model deployment owner](../../../python/corpus-structure/src/corpus_structure/schema/model_deployment.py) ·
+[DMO-08 qualification](qualification-and-adoption.md#dmo-08)
+
+Alembic 1.20.1 `Config.attributes` passes the owning SQLAlchemy connection into the migration
+environment. `MigrationContext.configure(connection)` and `Operations` execute the prepared
+operations through that connection. Retain repository predecessor, target and effect custody around
+those calls. pglast 8.7 `parse_sql` and `Visitor` attribute generated syntax and statement kinds.
+Native catalog and admission readback establish installation. Pydantic `GenerateJsonSchema` mode,
+explicit dialect selection and captured `referencing.Registry` resources supply the schema inputs
+already described above. [Alembic connection sharing](https://alembic.sqlalchemy.org/en/latest/cookbook.html#sharing-a-connection-across-one-or-more-programmatic-migration-commands) ·
+[Alembic programmatic control](../../libraries/postgresql/alembic.md#8-programmatic-control-migration-state-inspection-and-validation) ·
+[pglast reference](../../libraries/postgresql/pglast.md)
+
+The global wire contract remains the selected boundary for this work. Investigate narrower versioning
+only if the consumer census identifies independently deployable contracts and a lower total
+migration and verification burden. Record the proposed version boundary, affected stored evidence,
+continuations and clients, and the coordinator's rule decision before dependent authoring. Draft 7
+and current SQL-request/client-result validation placement remain governed by ADR-0128. A dialect
+or public result-shape change follows that owner's decision route with its actual consumers.
+
 ### DMO-06 completion
 
 Run Python/PostgreSQL differential controls over the supported schema profile. Cover explicit and
@@ -298,6 +394,12 @@ Use a bounded call-count check or trace on affected routes to confirm one struct
 actual request/result boundary and the separate detached-export check. Verify stable owned values
 under caller mutation. Reacquire the current cut, epochs and principal before new protected reads.
 Check native artifact parity and legitimate client acquisition after the coordinated transition.
+Exercise a tuple-schema change that also changes a generated facade and a derived profile that
+reads that facade indirectly. Verify the selected prospective capture or explicit staged route,
+interrupted apply, reopen before candidate, a real authored or generated input mutation, reopen
+between deployment and admission, and the application-only companion admission. Each input
+mutation refusal names the changed source or contract basis. Confirm facade bytes, native digest,
+archive and runtime correspondence through their independent owners.
 Final source, provider and book evidence belong to DMO-08 and DMO-09. No numeric speedup claim is a
 completion condition.
 
@@ -312,6 +414,9 @@ completion condition.
 | Integrated O09, JSON O10, D1/D9/D10 | Independently executable DMO-05 settings slice |
 | JSON O09 | Consumer-owned shape families under DMO-03. This companion supplies shared Pydantic generation |
 | JSON O11 | Explicit dialect delivered in DMO-06. 2020-12 remains conditional on a justified wire transition |
+| N43 I01 | DMO-01 owns selected-host preparation. DMO-05 supplies validated settings, origins and guarded runtime reacquisition, including retirement of evidence-only refresh routes |
+| N43 I03 | DMO-06 prospective-source investigation, generated facade capture, exact staged recovery and coordinated native/application admission |
+| N43 I09 | DMO-05 consumer-boundary JSON migration, DMO-02 scope-identity decision and DMO-06 affected schema/native transition |
 | Earlier codec opportunities | DMO-05 measures emitted size once, parses events once and consolidates SQL literal ownership. Alternate codecs retain their source-review triggers |
 
 The retained review's unresolved non-scope float consumers and dynamically prepared Decimal fields

@@ -2,7 +2,8 @@
 
 **Status:** Partial diagnostics implementation · 2026-11-20. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns readiness and disposition. This companion realizes review [O03][o03], [O04][o04] and the
-selected-support part of [O08][o08]. Its acceptance scenarios are planned.
+selected-support part of [O08][o08]. The N43 amendment integrates [I04][i04], [I05][i05]
+and [I07][i07] from review revision `7c17b403a`. Its new acceptance scenarios are planned.
 
 <a id="dmo-03"></a>
 ## DMO-03 · Derive typed consumer requirements
@@ -13,9 +14,13 @@ journey and 18 native controls. The admitted facts already distinguished issuer,
 receipt, release grant and current effect authority. [Rich admission evidence][cause]
 
 Declare required output role, CPU/publication witness, effect, family claim and disclosure under
-the consuming input role. Derive available producer facts from its admitted declarations and
-support relation. Preserve explicit `none`, an undetermined declaration and a known family as
-separate states. Compile available/required correspondence once per admitted definitions and check
+the consuming input role. Prepare one typed requirement projection from that owner and consume
+it in Python preparation, generated native enforcement and the operator explanation. Derive
+available producer facts from admitted declarations and the support relation. The current rich
+helper accepts separate family, effect, output and CPU arguments, while event scoring checks
+the exact issuer and published authority body at its own native operation. Migrate their shared
+requirements into the projection while keeping the specialized semantic checks with those owners.
+Preserve explicit `none`, an undetermined declaration and a known family as separate states. Compile available/required correspondence once per admitted definitions and check
 it in preparation and the real consumer. At use, verify original history using its cut and
 receipt and apply live authorization to present reads, disclosures and effects. Keep the current
 scope and epoch checks at that boundary. The ordinary authorization input can satisfy its declared
@@ -42,7 +47,11 @@ Migrate affected rich, policy and event consumers with the shared projection. Re
 selectors, producer-family conditionals and hand-carried requirement bundles after migration.
 Verify issue, fit and scoring consumers through a positive mixed-family case and independent
 wrong issuer, substituted support, wrong disclosure purpose, changed epoch and revoked grant cases.
-The refusal identifies the consuming role and failed requirement.
+The refusal identifies the consuming role and failed requirement. Include independent vectors
+for explicit `none`, unknown required family and known family across preparation, native outcome
+and explanation. A public issuer can satisfy its role alongside protected fit support. A failure
+in one requirement affects its dependent consumer while an independently valid sibling proceeds.
+[I05 rationale and integration risks][i05]
 
 <a id="dmo-04"></a>
 ## DMO-04 · Acquire only the support a cut requires
@@ -54,8 +63,12 @@ with repeated validity over shared producers across roots and pages. Two bounded
 share identical-cut indexes and avoid redundant same-release correspondence. [Event evidence][cause] ·
 [Current index][read] · [Support closure][support]
 
-**Decision slice.** Use one bounded private replay of the real event journey. Record setup,
-selected support acquisition, publication and scorer attachment. Use PostgreSQL 18
+**Decision slice.** Attribute fixture setup, application preparation, support seeding, validity
+traversal, inference, publication and delivery in the real event scorer case, the M1 hydration
+case and an already settled regional repeat. Reuse retained observations and perform a bounded
+private replay where a selected phase still needs attribution. N43 observed M1 hydration before
+inference and native readback on an exact repeat with zero new receipts. Statement-level cost
+attribution remains open. Use PostgreSQL 18
 `pg_stat_activity` wait fields for the selected backend and sample `pg_blocking_pids(pid)` when
 waiting on locks. If significant work remains unexplained, inspect the narrow generated query
 plan and nested call counts for that phase on the private target. Treat a wait sample as a point
@@ -68,15 +81,34 @@ fixture through all stages. [PostgreSQL wait events](https://www.postgresql.org/
 [Blocking process API](https://www.postgresql.org/docs/18/functions-info.html) ·
 [EXPLAIN options](https://www.postgresql.org/docs/18/sql-explain.html)
 
-**Realization.** Reuse the existing pinned selected-read acquisition and native set-wise validity
-program. Scope the projection before materializing support. Share material checks only under the
-same cut and validity scope, carry root/member attribution and negative dependencies, and preserve
+**Realization.** Give the existing native reader a compact authenticated cut-acquisition path.
+Acquire the demand, release, read and trust context directly, then pass operation, subject, original
+source and analyzed scope into the earliest sufficient support seed. The current
+`admitted_data_read` obtains metadata through a one-row frontier request, and hydration pages can
+rebuild a materialized binding CTE in separate statements. Replace those broad metadata reads for
+migrated consumers with the compact path. Compare a narrower generated query first. If repeated
+material work persists across statements under one cut, use a transaction-local prepared relation
+whose lifetime belongs to that reader. Reuse the existing native set-wise validity program.
+
+Consume the DMO-03 requirement projection when choosing support. Include support outside the
+returned page when it determines the selected result. Share material checks only under the same
+cut and validity scope, carry root/member attribution and negative dependencies, and preserve
 stable keyset continuation and byte limits. Distinct roots can reuse computation and still have
 distinct explanations. Reacquire the current epoch, principal and purpose at live disclosure or
 effect. SQLAlchemy Core 2.1.6 `Connection` and scoped results retain the existing reader lifecycle.
-Client result streaming can bound client transfer but leaves the server's examined work unchanged.
-Choose the physical SQL shape from the diagnostic and generate it through the native owner.
-Rely on local sharing before adding cross-request retention. [Core result handling](../../libraries/postgresql/sqlalchemy.md#85-result-processing-and-streaming) ·
+Core `VALUES` supplies the bounded selected-pin population. `Connection.execution_options` with
+`yield_per` and `Result.partitions()` bound row buffering and transfer. Use the selected PostgreSQL
+plan to assess server work. Choose the physical SQL shape from the diagnostic and generate it
+through the native owner. Favor sharing within the reader lifetime, with cross-request storage
+conditional on a further demonstrated requirement. [SQLAlchemy 2.1.6 connection source](https://github.com/sqlalchemy/sqlalchemy/blob/rel_2_1_6/doc/build/core/connections.rst)
+
+Consolidate completion observations only where one set-wise inspection retains each pending
+intent's standing and the inspection-before-execution fence. Initial execution-basis acquisition,
+frontier sweeps and final readback need different subsets of current facts. Route each through its
+smallest sufficient native operation. Qualify the result with DMO-02's uncertain-effect recovery
+case before relying on reduced inspection in execution. [I04 source observations][i04] ·
+[Uncertain-effect recovery](execution-identity-and-recovery.md#uncertain-effect-recovery) ·
+[Core result handling](../../libraries/postgresql/sqlalchemy.md#85-result-processing-and-streaming) ·
 [Continuation semantics](../../adr/0141-serving-continuation-and-reuse.md)
 
 Parse a selected-source event once within its owned input/read lifetime. Reuse immutable validated
@@ -85,6 +117,16 @@ removes redundant structural checks. Retire unscoped readback/frontier walks for
 and repeated same-premise acquisition. Start target tests with operation-scoped M1 and event reads.
 Independently check exact scorer result, valid authority leaf, substituted input, counterfeit authored
 parameters, protected frame/label refusal, changed epoch, distinct cuts, and keyset continuity.
+Compare a selected cut with a wider cut against independently expected members, reasons, order
+and output. A row or byte bound on delivery must retain the required support semantics.
+
+**Continuation and shared guarantees.** The immutable cut facts consumed by Python, CLI and MCP
+readers have a declared lifetime. Reacquire current authority for every continued live disclosure
+or effect, including a page served from shared immutable projection work. Read page one, revoke
+support or change epoch, and require the next delivery to refuse or re-evaluate under current
+authority. Pair this with stable-authority pages at equal-value ordering boundaries. Detached
+exports retain independent verification under their own captured custody and purpose. Retire
+repeated same-cut projection only after migrated readers preserve these checks. [I05 continuation][i05]
 
 <a id="dmo-07"></a>
 ## DMO-07 · Explain operator decisions through existing commands
@@ -97,14 +139,27 @@ compared identities can be established. The remaining scope and recovery views a
 
 Consume typed preparation facts from DMO-01, material/recovery decisions from DMO-02 and role and
 scope explanations from DMO-03/04. Start the preparation diagnostic as soon as its owning facts are
-available. Extend `ci model change inspect` with the first changed determinant and bounded scope.
+available. Define each typed decision in the operation that owns it. The view can report ready on
+retained premises, needs current observation, changed material, unresolved correspondence,
+recoverable existing intent or renewed authority required. Show absent observations explicitly.
+Extend `ci model change inspect` with the first changed determinant and bounded scope.
 Extend `ci schema explain-operation` with admitted producer/consumer role, family, effect and scoped
 native fate. Extend `ci results inspect` with the first failed preparation, executable acquisition,
 provider publication or scoped-read boundary, expected/actual basis and a typed next action. Use
 observed native authority and managed result bindings. Show unavailable facts or conditional
 readiness explicitly. Resolve configured target separately from acquired target. Keep passive
-preview free of registration, work claims and provider startup. [Result inspection model][inspect] ·
-[Managed CLI custody](../../adr/0069-cli-operations-custody.md)
+preview free of registration, work claims and provider startup. At execution, recheck the premises
+that can change. A stale host, changed recipe, uncertain commit or interrupted migration yields an
+executable next action bound to the actual target, release, demand and operation where available.
+
+Use `ci query` for operation-scoped current native detail, with its existing demand, project,
+operation, view, row/byte bounds and continuation selectors. `ci results inspect` hands off the
+exact selectors in a typed next action after establishing their recorded target. Material comparison
+owns the determinant explanation, managed inspection owns recorded failure and recovery facts,
+and the selected query owns the bounded current read. Retire scratch extraction and duplicated
+scope logic as these views take their consumers. [I07 route design][i07] ·
+[Selected CLI query](../../../python/corpus-structure/src/corpus_structure/cli/selected_results.py) ·
+[Result inspection model][inspect] · [Managed CLI custody](../../adr/0069-cli-operations-custody.md)
 
 **Library realization.** Typer 0.28.0 `Typer` sub-apps and `Context` use the existing command and
 resolved profile state. Keep typed `Argument`/`Option` scope and result selectors at the commands.
@@ -123,6 +178,9 @@ bulk scans and a second source of managed truth. [Typer command composition](../
 an actual publication with scoped readback. Check matching terminal/JSON facts, explicit missing
 observations, bounded output, stable selection, and redaction for credentials and protected support.
 Verify retained invocation/target binding and executable next action through the managed route.
+Typer `CliRunner` checks stdout, stderr and exit standing independently, including JSON parsing of
+machine output while Rich writes human diagnostics to stderr. Check a passive conditional view,
+an observed refusal and the scoped `ci query` handoff with the same identifiers. [Typer testing](https://typer.tiangolo.com/tutorial/testing/)
 
 [o03]: ../../functional_reviews/udm-operability-and-json_2026-11-20.md#O03
 [o04]: ../../functional_reviews/udm-operability-and-json_2026-11-20.md#O04
@@ -132,3 +190,7 @@ Verify retained invocation/target binding and executable next action through the
 [read]: ../../../python/corpus-structure/src/corpus_structure/semantic/demand_results.py#L342
 [support]: ../../../python/corpus-structure/src/corpus_structure/semantic/support_edges.py#L332
 [inspect]: ../../../python/corpus-structure/src/corpus_structure/cli/result_inspection.py#L47
+
+[i04]: ../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I04
+[i05]: ../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I05
+[i07]: ../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I07
