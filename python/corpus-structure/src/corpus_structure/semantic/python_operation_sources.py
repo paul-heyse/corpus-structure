@@ -1557,6 +1557,27 @@ class ClosedPythonSources:
                     else ("unknown", ())
                 )
 
+            def exact_type_comparison(node):
+                """Recognize a one-argument native type read consumed by identity."""
+                parent = module.parent_nodes.get(node)
+                if (
+                    isinstance(parent, cst.Comparison)
+                    and parent.left is node
+                    and len(parent.comparisons) == 1
+                    and isinstance(parent.comparisons[0].operator, (cst.Is, cst.IsNot))
+                    and isinstance(node.func, cst.Name)
+                    and len(node.args) == 1
+                    and not node.args[0].star
+                    and node.args[0].keyword is None
+                ):
+                    candidates = module.qualified_names(node.func)
+                    if len(candidates) == 1 and any(
+                        item.name == "builtins.type" and item.source == QualifiedNameSource.BUILTIN
+                        for item in candidates
+                    ):
+                        return parent.comparisons[0]
+                return None
+
             def expression_binding(expression, active=frozenset()):
                 """Resolve supported receiver provenance, never arbitrary object inference.
 
@@ -1575,17 +1596,9 @@ class ClosedPythonSources:
                             if (
                                 isinstance(test, cst.Comparison)
                                 and isinstance(test.left, cst.Call)
-                                and isinstance(test.left.func, cst.Name)
-                                and test.left.func.value == "type"
-                                and any(
-                                    item.name == "builtins.type"
-                                    and item.source == QualifiedNameSource.BUILTIN
-                                    for item in module.qualified_names(test.left.func)
-                                )
-                                and len(test.left.args) == 1
+                                and exact_type_comparison(test.left) is not None
                                 and isinstance(test.left.args[0].value, cst.Name)
                                 and test.left.args[0].value.value == expression.value
-                                and len(test.comparisons) == 1
                                 and isinstance(test.comparisons[0].operator, cst.Is)
                             ):
                                 assignments = []
@@ -1879,18 +1892,11 @@ class ClosedPythonSources:
                             or (
                                 kind == "class"
                                 and isinstance(parent, cst.ComparisonTarget)
-                                and isinstance(parent.operator, cst.Is)
                                 and isinstance(
                                     comparison := module.parent_nodes.get(parent), cst.Comparison
                                 )
                                 and isinstance(comparison.left, cst.Call)
-                                and isinstance(comparison.left.func, cst.Name)
-                                and len(comparison.left.args) == 1
-                                and any(
-                                    name.source == QualifiedNameSource.BUILTIN
-                                    and name.name == "builtins.type"
-                                    for name in module.qualified_names(comparison.left.func)
-                                )
+                                and exact_type_comparison(comparison.left) is parent
                             )
                         )
                         ancestor_for_use = parent
@@ -2084,6 +2090,7 @@ class ClosedPythonSources:
                             )
                         )
                     callee_kind, callee_targets = expression_binding(expression)
+                    type_identity = exact_type_comparison(node) is not None
 
                     def admitted_nominal_argument(kind, targets):
                         # A nominal value is not its class object. Only an exact,
@@ -2171,8 +2178,9 @@ class ClosedPythonSources:
                                     )
                                 )
 
-                    for argument in node.args:
-                        argument.value.visit(ArgumentUses())
+                    if not type_identity:
+                        for argument in node.args:
+                            argument.value.visit(ArgumentUses())
                     if isinstance(expression, cst.Name):
                         candidates = module.qualified_names(expression)
                         if not candidates:
@@ -2186,18 +2194,7 @@ class ClosedPythonSources:
                                 candidate.source == QualifiedNameSource.BUILTIN
                                 and candidate.name.rsplit(".", 1)[-1]
                                 not in _SUPPORTED_BUILTIN_CALLS
-                                and not (
-                                    candidate.name == "builtins.type"
-                                    and len(node.args) == 1
-                                    and not node.args[0].star
-                                    and node.args[0].keyword is None
-                                    and isinstance(module.parent_nodes.get(node), cst.Comparison)
-                                    and len(module.parent_nodes[node].comparisons) == 1
-                                    and isinstance(
-                                        module.parent_nodes[node].comparisons[0].operator,
-                                        (cst.Is, cst.IsNot),
-                                    )
-                                )
+                                and not type_identity
                             ):
                                 unknowns.add(
                                     SourceUnknown(

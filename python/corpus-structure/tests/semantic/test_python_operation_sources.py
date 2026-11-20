@@ -291,10 +291,7 @@ def test_nested_function_dynamic_dependency_remains_required():
 
 def test_nested_function_cannot_escape_as_a_callback():
     result = implementation(
-        "def run(receiver):\n"
-        "    def value():\n"
-        "        return 7\n"
-        "    return receiver(value)\n"
+        "def run(receiver):\n    def value():\n        return 7\n    return receiver(value)\n"
     )
     assert not result.complete
     assert any("escape" in item.reason for item in result.unknowns)
@@ -329,6 +326,25 @@ def test_type_identity_refusal_does_not_authorize_dynamic_class_construction():
     assert result.complete, result.unknowns
     dynamic = implementation("def run():\n    return type('Created', (), {})\n", inputs=())
     assert not dynamic.complete
+
+
+def test_exact_nominal_type_refusal_does_not_pass_the_object_to_dynamic_code():
+    result = implementation(
+        "class Item:\n    value: str\n"
+        "def run(item: Item):\n"
+        "    if type(item) is not Item:\n        raise TypeError('item required')\n"
+        "    return item.value.strip()\n"
+    )
+    assert result.complete, result.unknowns
+
+
+def test_shadowed_type_does_not_admit_a_nominal_object_handoff():
+    result = implementation(
+        "class Item:\n    value: str\n"
+        "def run(item: Item, type):\n    return type(item) is not Item\n"
+    )
+    assert not result.complete
+    assert any("escape" in unknown.reason for unknown in result.unknowns)
 
 
 @pytest.mark.parametrize(
