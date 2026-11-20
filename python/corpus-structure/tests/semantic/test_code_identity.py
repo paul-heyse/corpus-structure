@@ -100,6 +100,7 @@ def test_package_location_does_not_determine_code_identity(tmp_path):
 
 def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
     from corpus_structure.semantic.code_identity import CodeIdentity, CodeUnknown
+    from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.page_envelope import PageEnvelope
     from corpus_structure.semantic.selected_pages import byte_bounded_page
     from corpus_structure.semantic.selected_query_cache import (
@@ -107,7 +108,11 @@ def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
         ServedKey,
         bounded_rows,
     )
-    from corpus_structure.semantic.serving_code import ServingImplementation, serving_code
+    from corpus_structure.semantic.serving_code import (
+        ServingImplementation,
+        capture_page_refusal,
+        serving_code,
+    )
 
     basis = CodeIdentity(
         ("example.entry",), (), (), (CodeUnknown("example.entry", 4, "dynamic"),), b"{}"
@@ -119,22 +124,36 @@ def test_incomplete_serving_computes_a_fresh_page_without_reuse_handles():
     assert entry is not None
     with serving_code(implementation):
         assert cache.put(key, entry) is False
-        result = byte_bounded_page(
-            iter([7, 8]),
-            offset=0,
-            limit=1,
-            max_bytes=16384,
-            presentation=PageEnvelope(
-                header={"resource_handle": "held"},
-                cursor_basis={},
-                cursor_field="cursor",
-                include_page_complete=True,
-            ),
+        presentation = PageEnvelope(
+            header={"resource_handle": "held"},
+            cursor_basis={},
+            cursor_field="cursor",
+            include_page_complete=True,
+            reuse_refusal=capture_page_refusal(),
         )
-    assert result["items"] == [7]
-    assert result["cursor"] is None and result["resource_handle"] is None
-    assert result["page_complete"] is False
-    assert result["reuse"]["eligible"] is False
+    expected = dict(
+        resource_handle=None,
+        items=[7],
+        cursor=None,
+        page_complete=False,
+        reuse=dict(
+            eligible=False,
+            reason="incomplete_code_identity",
+            unknowns=[dict(module="example.entry", line=4, reason="dynamic")],
+            omitted=0,
+        ),
+    )
+    bound = len(json_bytes(expected))
+    assert (
+        byte_bounded_page(
+            iter([7, 8]), offset=0, limit=1, max_bytes=bound, presentation=presentation
+        )
+        == expected
+    )
+    with pytest.raises(ValueError, match="one complete selected answer"):
+        byte_bounded_page(
+            iter([7, 8]), offset=0, limit=1, max_bytes=bound - 1, presentation=presentation
+        )
     assert cache.get(key) is None
 
 

@@ -14,6 +14,7 @@ from .continuation_codec import decode_cursor, encode_cursor
 from .demand_query_projection import DemandQueryProjectionInputs, selected_query_rows
 from .page_envelope import PageEnvelope
 from .selected_pages import byte_bounded_page
+from .serving_code import capture_page_refusal
 
 DemandView = Literal["members", "operations", "sources", "support", "coverage"]
 
@@ -232,6 +233,7 @@ def _serve_demand_query(connection, request, implementation):
     current_cursor = token_for(current_request, 0)
     assert current_cursor is not None
     presentation = PageEnvelope(
+        reuse_refusal=capture_page_refusal(),
         header=dict(
             version="demand-query-v2",
             implementation=implementation,

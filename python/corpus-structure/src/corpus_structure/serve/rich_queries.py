@@ -32,6 +32,7 @@ from corpus_structure.semantic.selected_query_cache import (
     served_key,
     uncached_rows_from,
 )
+from corpus_structure.semantic.serving_code import capture_page_refusal
 from corpus_structure.semantic.serving_identity import installed_read_implementation
 
 from .rich_knowledge import read_selected_rich_knowledge, read_selected_rich_reference
@@ -220,6 +221,7 @@ def _serve_rich_query(connection, request: RichQueryRequest, *, implementation: 
         )
     )
     presentation = PageEnvelope(
+        reuse_refusal=capture_page_refusal(),
         header=dict(
             format=VERSION,
             implementation=implementation,

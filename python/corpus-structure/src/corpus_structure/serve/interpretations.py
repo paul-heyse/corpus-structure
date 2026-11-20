@@ -12,6 +12,7 @@ from corpus_structure.semantic.grouped_record_interpretations import GroupedInte
 from corpus_structure.semantic.page_envelope import PageEnvelope
 from corpus_structure.semantic.releases import open_release
 from corpus_structure.semantic.selected_pages import byte_bounded_page
+from corpus_structure.semantic.serving_code import capture_page_refusal
 
 
 class InterpretationAnswer(BaseModel):
@@ -262,6 +263,7 @@ def _group_selected_interpretations(connection, request, implementation):
         total = len(entry)
 
     presentation = PageEnvelope(
+        reuse_refusal=capture_page_refusal(),
         header={
             "version": "grouped-source-records-2",
             "implementation": implementation,

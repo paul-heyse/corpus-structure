@@ -1,7 +1,7 @@
 """Semantic continuation encoding and exact response-envelope pagination."""
 
 from .data_operation_json import json_bytes
-from .page_envelope import PageEnvelope, render_page, row_array
+from .page_envelope import PageEnvelope, render_envelope, render_page, row_array
 
 
 def byte_bounded_page(rows, *, offset, limit, max_bytes, presentation: PageEnvelope):
@@ -10,8 +10,6 @@ def byte_bounded_page(rows, *, offset, limit, max_bytes, presentation: PageEnvel
     The presentation data supplies fresh cut/provenance and the ordinal cursor.
     Multiple output arrays can share one indivisible pagination unit (dossiers).
     """
-    from .serving_code import serving_report
-
     separator = len(json_bytes([0, 0])) - 2 * len(json_bytes(0)) - 2
     fields = {name: (source, value) for name, source, value, _ in presentation.arrays}
     dynamic_names = {
@@ -23,7 +21,7 @@ def byte_bounded_page(rows, *, offset, limit, max_bytes, presentation: PageEnvel
         "unknowns",
         *fields,
     }
-    initial = serving_report(render_page(presentation, offset, [], True))
+    initial = render_envelope(presentation, offset, False, True)
     static = {key: value for key, value in initial.items() if key not in dynamic_names}
     static_width = len(json_bytes(static))
     values, widths, counts = [], dict.fromkeys(fields, 0), dict.fromkeys(fields, 0)
@@ -41,9 +39,8 @@ def byte_bounded_page(rows, *, offset, limit, max_bytes, presentation: PageEnvel
         }
         next_counts = {name: counts[name] + len(additions[name]) for name in fields}
         values.append(row)
-        candidate = serving_report(render_page(presentation, offset + len(values), values, True))
+        candidate = render_envelope(presentation, offset + len(values), True, True)
         dynamic = {key: value for key, value in candidate.items() if key in dynamic_names}
-        dynamic.update({name: [] for name in fields})
         row_width = sum(
             next_widths[name] + separator * max(0, next_counts[name] - 1) for name in fields
         )
@@ -61,12 +58,12 @@ def byte_bounded_page(rows, *, offset, limit, max_bytes, presentation: PageEnvel
             more = True
             break
         widths, counts = next_widths, next_counts
-    result = serving_report(render_page(presentation, offset + len(values), values, more))
+    result = render_page(presentation, offset + len(values), values, more)
     while len(json_bytes(result)) > max_bytes:
         if not values:
             raise ValueError("complete selected answer envelope exceeds max_bytes")
         values.pop()
         if not values:
             raise ValueError("one complete selected answer and its envelope exceed max_bytes")
-        result = serving_report(render_page(presentation, offset + len(values), values, True))
+        result = render_page(presentation, offset + len(values), values, True)
     return result

@@ -11,14 +11,14 @@ from uuid import uuid4
 
 if TYPE_CHECKING:
     from .code_identity import CodeIdentity
-    from .code_reuse import CompactReuseReport
+    from .page_envelope import PageReuseRefusal
 
 
 class ServingImplementation(str):
     complete: bool
     verify: Callable[[], None] | None
     code: CodeIdentity
-    compact_report: CompactReuseReport | None
+    page_refusal: PageReuseRefusal | None
 
     def __new__(cls, identity: str, code: CodeIdentity, verify: Callable[[], None] | None = None):
         # An incomplete observation is useful attribution for this one read.
@@ -27,7 +27,7 @@ class ServingImplementation(str):
         value = super().__new__(cls, token)
         value.complete = code.complete
         value.code = code
-        value.compact_report = None
+        value.page_refusal = None
         value.verify = verify
         return value
 
@@ -67,21 +67,24 @@ def reusable_serving_code(implementation: str | None = None) -> bool:
     return True
 
 
-def serving_report(record):
+def capture_page_refusal() -> PageReuseRefusal | None:
     selected = _ACTIVE.get()
     if selected is None or selected.complete:
-        return record
-    result = dict(record)
-    for field in ("cursor", "continuation", "next_cursor", "resource_handle"):
-        if field in result:
-            result[field] = None
-    from .code_reuse import compact_code_reuse
+        return None
+    from .page_envelope import PageReuseRefusal
 
-    if selected.compact_report is None:
-        selected.compact_report = compact_code_reuse(selected.code)
-    projection = selected.compact_report
-    result["reuse"] = {**projection, "unknowns": [fact.copy() for fact in projection["unknowns"]]}
-    return result
+    if selected.page_refusal is None:
+        first = selected.code.unknowns[0]
+        selected.page_refusal = PageReuseRefusal(
+            first.module, first.line, first.reason, len(selected.code.unknowns) - 1
+        )
+    return selected.page_refusal
+
+
+def serving_report(record):
+    from .page_envelope import apply_page_reuse_refusal
+
+    return apply_page_reuse_refusal(record, capture_page_refusal())
 
 
 def record_serving_reuse(outcome: Literal["derived", "reused", "withheld", "unknown"]):

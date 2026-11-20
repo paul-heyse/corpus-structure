@@ -14,6 +14,7 @@ from corpus_structure.semantic.selected_structural_projection import (
     selected_root,
     structural_report,
 )
+from corpus_structure.semantic.serving_code import capture_page_refusal
 
 from .selected_structural import (
     SelectedStructuralRoot,
@@ -267,6 +268,7 @@ def _inspect_selected_dossier(conn, request: SelectedDossierRequest, implementat
     rows = entry.rows(offset) if entry is not None else uncached_rows_from(remaining, offset)
 
     presentation = PageEnvelope(
+        reuse_refusal=capture_page_refusal(),
         header=dict(
             format="selected-dossier-page-v2",
             availability="observed",

@@ -5,22 +5,9 @@ from __future__ import annotations
 import os
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Literal, TypedDict
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
-
-
-class CodeReuseSite(TypedDict):
-    module: str | None
-    line: int | None
-    reason: str
-
-
-class CompactReuseReport(TypedDict):
-    eligible: bool
-    reason: str
-    unknowns: list[CodeReuseSite]
-    omitted: int
 
 
 class CodeReuseFact(BaseModel):
@@ -142,23 +129,3 @@ def retain_reuse_explanation(invocation, records):
     path.write_text(report.model_dump_json() + "\n")
     invocation.publish("reuse_explanation", path)
     return report
-
-
-def compact_code_reuse(code) -> CompactReuseReport:
-    report = code_reuse_report(
-        code,
-        entry_point=code.entries[0] if code.entries else "unknown",
-        tier="selected-result",
-        outcome="withheld",
-        limit=1,
-    )
-    return {
-        "eligible": report.eligible,
-        "reason": "complete_code_identity" if report.eligible else "incomplete_code_identity",
-        "unknowns": [
-            {"module": fact.module, "line": fact.line, "reason": fact.reason}
-            for fact in report.facts
-            if fact.standing == "unresolved"
-        ],
-        "omitted": report.omitted,
-    }
