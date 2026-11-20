@@ -20,6 +20,7 @@ from scenario_recipes import register_scenario_builder
 
 from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.data_operation_source_sets import SelectedSourceSetEntry
+from corpus_structure.semantic.effect_policy import ApprovedEffect
 from corpus_structure.semantic.rich_knowledge_contracts import (
     DdoRichAdmission,
     DdoRichAuthoredBody,
@@ -149,6 +150,7 @@ classes:
     return replace(
         recipe,
         name="current-rich-publication",
+        effect_approvals=(ApprovedEffect("rich.admit", "native-rich-knowledge-admission"),),
         captured_inputs=CapturedKernelInputs(
             SourceBundle(source.name, (*captured.bundle.sources, source)),
             captured.dependencies,
@@ -171,27 +173,7 @@ class AuthoredPublicationStage:
         return self.kernel_stage.seed_files
 
     def validate_clone(self, admin):
-        from sqlalchemy import select
-
-        from corpus_structure.semantic.metadata import table
-
         self.kernel_stage.validate_clone(admin)
-        stage = self.kernel_stage
-        grants = table("sem.data_operation_effect_grant")
-        with admin.connect() as connection:
-            actual = connection.execute(
-                select(grants.c.operation_id, grants.c.effect, grants.c.definition_identity).where(
-                    grants.c.release_id == stage.preparation.prepared.release_id
-                )
-            ).all()
-        if actual != [
-            (
-                "rich.admit",
-                "native-rich-knowledge-admission",
-                stage.identities["rich.admit", "definition"],
-            )
-        ]:
-            raise ValueError("authored publication requires its exact approved rich effect owner")
 
     def acquired(self, clone):
         from semantic.data_operation_kernel_support import Kernel
@@ -258,7 +240,6 @@ class AuthoredPublicationJourney:
 
 
 def _build_authored_publication(scenario, admin, writer, directory, *, purpose_engine):
-    from corpus_structure.semantic.effect_policy import ApprovedEffect, admit_effect_grants
     from semantic.data_operation_kernel_support import build_kernel
 
     stage = build_kernel(
@@ -268,13 +249,6 @@ def _build_authored_publication(scenario, admin, writer, directory, *, purpose_e
         directory,
         purpose_engine=purpose_engine,
     )
-    with admin.begin() as connection:
-        admit_effect_grants(
-            connection,
-            stage.preparation.prepared,
-            stage.preparation.model,
-            (ApprovedEffect("rich.admit", "native-rich-knowledge-admission"),),
-        )
     return AuthoredPublicationStage(stage)
 
 

@@ -33,6 +33,7 @@ from corpus_structure.semantic.data_operation_runtime import (
     prepare_data_operation_runtime,
 )
 from corpus_structure.semantic.data_operation_version import MODEL_VERSION
+from corpus_structure.semantic.effect_policy import ApprovedEffect
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.releases import persist_release
@@ -102,6 +103,7 @@ class KernelRecipe:
     additional_files: tuple[tuple[str, bytes], ...] = ()
     python_sources: tuple[tuple[str, str, bytes], ...] = ()
     captured_inputs: CapturedKernelInputs | None = None
+    effect_approvals: tuple[ApprovedEffect, ...] = ()
 
     @property
     def requires_consumer_binding(self) -> bool:
@@ -336,7 +338,9 @@ def admit_kernel(
         preparation.profile,
         preparation.prepared,
     )
-    admit_data_operation_release(connection, preparation.prepared)
+    admit_data_operation_release(
+        connection, preparation.prepared, effect_approvals=recipe.effect_approvals
+    )
     persist_runtime_binding(connection, preparation.prepared, preparation.runtime)
     if recipe.project_id is not None:
         connection.execute(insert(table("data.project")).values(project_id=recipe.project_id))
@@ -432,6 +436,26 @@ class KernelSeedStage:
             )
             if actual != {operation.semantic_id for operation in self.preparation.model.operations}:
                 raise ValueError("kernel seed admitted operations differ")
+            if self.recipe.effect_approvals:
+                grants = table("sem.data_operation_effect_grant")
+                retained = {
+                    tuple(row)
+                    for row in connection.execute(
+                        select(
+                            grants.c.operation_id, grants.c.effect, grants.c.definition_identity
+                        ).where(grants.c.release_id == self.preparation.prepared.release_id)
+                    )
+                }
+                expected = {
+                    (
+                        approval.operation_id,
+                        approval.effect,
+                        self.identities[approval.operation_id, "definition"],
+                    )
+                    for approval in self.recipe.effect_approvals
+                }
+                if retained != expected:
+                    raise ValueError("kernel seed effect grants differ from the approved owners")
 
 
 def build_kernel(recipe, admin, writer, directory, *, purpose_engine=None):
