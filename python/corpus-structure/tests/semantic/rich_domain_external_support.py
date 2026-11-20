@@ -8,13 +8,15 @@ from dataclasses import replace
 
 from evaluate.declared_record_native_support import (
     PROJECT,
-    ROOT,
     authored,
     project_context,
     request,
 )
 
-from semantic.data_operation_kernel_support import split_captured_operations
+from semantic.data_operation_kernel_support import (
+    execute_captured_kernel_demand,
+    split_captured_operations,
+)
 from semantic.rich_domain_preservation_support import NS
 
 EXTERNAL = "https://corpus-structure.dev/semantic/data-operation-external-extraction/"
@@ -76,7 +78,6 @@ def publish_external_report(journey, source, response_factory, *, inference):
     from corpus_structure.semantic.data_operation_service import (
         DemandDiscoverySelection,
         DemandRoot,
-        execute_data_demand,
     )
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
     from corpus_structure.semantic.data_operation_values import decode_semantic_value
@@ -153,13 +154,9 @@ def publish_external_report(journey, source, response_factory, *, inference):
     retained = author_interpretations(
         journey.kernel.purpose("write"), journey.kernel.prepared, request=pending
     )
-    execute_data_demand(
-        journey.kernel.purpose("write"),
+    execute_captured_kernel_demand(
+        journey.kernel,
         retained["demand_id"],
-        source_root=ROOT / "python/corpus-structure/src",
-        admission_engine=journey.kernel.purpose("admit"),
-        project_id=PROJECT,
-        database_capacity=6,
     )
     session = ExternalDataSession(
         journey.kernel.purpose("write"), PROJECT, demand_id=retained["demand_id"]
@@ -191,13 +188,9 @@ def publish_external_report(journey, source, response_factory, *, inference):
         receipt["actor_assertion"] == "controlled-domain-author"
         and receipt["model_assertion"] is None
     )
-    execute_data_demand(
-        journey.kernel.purpose("write"),
+    execute_captured_kernel_demand(
+        journey.kernel,
         retained["demand_id"],
-        source_root=ROOT / "python/corpus-structure/src",
-        admission_engine=journey.kernel.purpose("admit"),
-        project_id=PROJECT,
-        database_capacity=6,
     )
     _, products, *_ = journey.selected_products(
         journey.kernel.purpose("read"),
@@ -255,13 +248,9 @@ def publish_external_report(journey, source, response_factory, *, inference):
     final_retained = author_interpretations(
         journey.kernel.purpose("write"), journey.kernel.prepared, request=final
     )
-    result = execute_data_demand(
-        journey.kernel.purpose("write"),
+    result = execute_captured_kernel_demand(
+        journey.kernel,
         final_retained["demand_id"],
-        source_root=ROOT / "python/corpus-structure/src",
-        admission_engine=journey.kernel.purpose("admit"),
-        project_id=PROJECT,
-        database_capacity=6,
     )
     assert result.receipt_count == 2
     cut, products, uses, episodes, _ = journey.selected_products(

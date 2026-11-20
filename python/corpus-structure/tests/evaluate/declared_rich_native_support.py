@@ -24,6 +24,7 @@ from evaluate.declared_record_native_support import (
 from semantic.data_operation_kernel_support import (
     CapturedKernelInputs,
     KernelRecipe,
+    execute_captured_kernel_demand,
     split_captured_operations,
 )
 
@@ -130,7 +131,6 @@ def run_rich_admission(
     selected_source,
     inference,
 ):
-    from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
     from corpus_structure.semantic.rich_knowledge_contracts import (
         DdoRichAdmission,
@@ -186,13 +186,9 @@ def run_rich_admission(
     retained = author_interpretations(
         journey.kernel.purpose("write"), journey.kernel.prepared, request=pending
     )
-    result = execute_data_demand(
-        journey.kernel.purpose("write"),
+    result = execute_captured_kernel_demand(
+        journey.kernel,
         retained["demand_id"],
-        source_root=ROOT / "python/corpus-structure/src",
-        admission_engine=journey.kernel.purpose("admit"),
-        project_id=PROJECT,
-        database_capacity=6,
     )
     assert result.receipt_count == 2
     cut, products, _uses, _episodes, outputs = journey.selected_products(

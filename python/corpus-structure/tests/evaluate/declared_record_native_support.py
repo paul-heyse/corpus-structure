@@ -23,6 +23,7 @@ from semantic.data_operation_kernel_support import (
     KernelRecipe,
     KernelSeedStage,
     build_kernel,
+    execute_captured_kernel_demand,
     split_captured_operations,
 )
 
@@ -316,7 +317,6 @@ def _capture_record_policy(kernel, tmp_path, source_count):
     from corpus_structure.semantic.data_operation_demands import DemandPlanner, freeze_demand
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.data_operation_model import json_context_meaning
-    from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.demand_results import selected_record_index
@@ -380,13 +380,9 @@ def _capture_record_policy(kernel, tmp_path, source_count):
     # The controlled content yields identical shared stream parts across the
     # originals. This scenario exercises derived record publication, so let
     # each capture publish those parts before another capture reuses them.
-    result = execute_data_demand(
-        kernel.purpose("write"),
+    result = execute_captured_kernel_demand(
+        kernel,
         demand,
-        source_root=ROOT / "python/corpus-structure/src",
-        admission_engine=kernel.purpose("admit"),
-        project_id=PROJECT,
-        database_capacity=6,
         policy=CharacterizationExecutionPolicy(
             workers=1, max_submissions=1, max_regions=1, max_claims=1
         ),
@@ -855,7 +851,6 @@ def run_readings(
         DdoRecordGradeSpecification,
         DdoRecordPredictionSelection,
     )
-    from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
     from corpus_structure.semantic.observations import source_value
     from corpus_structure.semantic.reading_resolution_products import RECIPE
@@ -913,13 +908,9 @@ def run_readings(
     retained = author_interpretations(
         journey.kernel.purpose("write"), journey.kernel.prepared, request=pending
     )
-    execution = execute_data_demand(
-        journey.kernel.purpose("write"),
+    execution = execute_captured_kernel_demand(
+        journey.kernel,
         retained["demand_id"],
-        source_root=ROOT / "python/corpus-structure/src",
-        admission_engine=journey.kernel.purpose("admit"),
-        project_id=PROJECT,
-        database_capacity=6,
     )
     assert execution.receipt_count == 2 * len(selected_sources)
     cut, selected_products, uses, episodes, outputs = journey.selected_products(
@@ -1028,7 +1019,6 @@ def run_grade(
         DdoRecordGradeSelection,
         author_record_policy_inputs,
     )
-    from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 
     entries = []
@@ -1059,14 +1049,10 @@ def run_grade(
     retained = author_record_policy_inputs(
         journey.kernel.purpose("evaluate"), journey.kernel.prepared, request=pending
     )
-    result = execute_data_demand(
-        journey.kernel.purpose("evaluate"),
+    result = execute_captured_kernel_demand(
+        journey.kernel,
         retained["demand_id"],
-        source_root=ROOT / "python/corpus-structure/src",
         purpose="evaluate",
-        admission_engine=journey.kernel.purpose("admit"),
-        project_id=PROJECT,
-        database_capacity=6,
     )
     assert result.receipt_count == 1
     cut, products, uses, episodes, outputs = journey.selected_products(
@@ -1122,7 +1108,6 @@ def complete_policy_fit(journey):
         author_record_policy_inputs,
         prepare_record_feature_policy,
     )
-    from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
     from corpus_structure.semantic.reading_resolution_products import EVENT_PROCEDURE
     from corpus_structure.semantic.record_policy import RecordAlgorithm
@@ -1222,15 +1207,11 @@ def complete_policy_fit(journey):
     retained = author_record_policy_inputs(
         journey.kernel.purpose("evaluate"), journey.kernel.prepared, request=pending
     )
-    result = execute_data_demand(
-        journey.kernel.purpose("evaluate"),
+    result = execute_captured_kernel_demand(
+        journey.kernel,
         retained["demand_id"],
-        source_root=ROOT / "python/corpus-structure/src",
         purpose="evaluate",
-        admission_engine=journey.kernel.purpose("admit"),
-        fitter_engine=journey.kernel.purpose("fit"),
-        project_id=PROJECT,
-        database_capacity=6,
+        fit=True,
     )
     assert result.receipt_count == 2
     _, fitted, *_ = journey.selected_products(
@@ -1265,7 +1246,6 @@ def copy_grade(journey, selected_grade):
     )
     from corpus_structure.semantic.data_operation_service import (
         create_native_demand,
-        execute_data_demand,
     )
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 
@@ -1287,14 +1267,10 @@ def copy_grade(journey, selected_grade):
     )
     with journey.kernel.purpose("evaluate").begin() as connection:
         demand = create_native_demand(connection, pending)["demand_id"]
-    executed = execute_data_demand(
-        journey.kernel.purpose("evaluate"),
+    executed = execute_captured_kernel_demand(
+        journey.kernel,
         demand,
-        source_root=ROOT / "python/corpus-structure/src",
         purpose="evaluate",
-        admission_engine=journey.kernel.purpose("admit"),
-        project_id=PROJECT,
-        database_capacity=6,
     )
     assert executed.receipt_count == 1
     cut, products, uses, episodes, outputs = journey.selected_products(
@@ -1338,7 +1314,6 @@ def refuse_exchanged_fitted_body(fitted, monkeypatch):
         author_record_policy_inputs,
     )
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
-    from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.data_operation_values import (
@@ -1413,15 +1388,11 @@ def refuse_exchanged_fitted_body(fitted, monkeypatch):
     with monkeypatch.context() as patch:
         patch.setattr(DataOperationStorage, "retain_data_completion_intent", exchanged)
         with pytest.raises(NativeDemandExecutionError):
-            execute_data_demand(
-                journey.kernel.purpose("evaluate"),
+            execute_captured_kernel_demand(
+                journey.kernel,
                 retained["demand_id"],
-                source_root=ROOT / "python/corpus-structure/src",
                 purpose="evaluate",
-                admission_engine=journey.kernel.purpose("admit"),
-                fitter_engine=journey.kernel.purpose("fit"),
-                project_id=PROJECT,
-                database_capacity=6,
+                fit=True,
             )
     assert len(observed) == 1
     import psycopg

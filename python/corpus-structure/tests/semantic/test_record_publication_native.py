@@ -4,13 +4,14 @@ import os
 from decimal import Decimal
 
 import pytest
-from evaluate.declared_record_native_support import PROJECT, ROOT
+from evaluate.declared_record_native_support import PROJECT
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.refusal_types import RichQueryRefused
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichEntity, DdoRichOccurrence
 from corpus_structure.semantic.rich_queries import ClaimsQuery, EntityQuery, SourceReadingsQuery
+from semantic.data_operation_kernel_support import execute_captured_kernel_demand
 from semantic.record_publication_native_support import (
     authored_propositions,
     publication_recipe,
@@ -59,7 +60,6 @@ def test_publication_prepares_current_rich_contracts_and_authored_semantics(tmp_
 
 
 def test_native_authored_publication_keeps_entity_qualification_and_origin(rich_publication):
-    from corpus_structure.semantic.data_operation_service import execute_data_demand
     from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     selected = publish_authored(
@@ -106,13 +106,9 @@ def test_native_authored_publication_keeps_entity_qualification_and_origin(rich_
     } == {True}
     assert query_publication(selected, SourceReadingsQuery(name="source_readings"))["rows"] == []
     assert page["scope"]["global_completeness"] == "unknown"
-    replay = execute_data_demand(
-        rich_publication.kernel.purpose("write"),
+    replay = execute_captured_kernel_demand(
+        rich_publication.kernel,
         selected.demand_id,
-        source_root=ROOT / "python/corpus-structure/src",
-        admission_engine=rich_publication.kernel.purpose("admit"),
-        project_id=PROJECT,
-        database_capacity=6,
     )
     assert replay.receipt_count == 0
 

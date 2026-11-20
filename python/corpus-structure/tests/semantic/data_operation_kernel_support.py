@@ -21,6 +21,7 @@ from typing import Any, Protocol
 from scenario_recipes import register_scenario_builder
 from sqlalchemy import Connection, Engine, insert, select
 
+from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.semantic.data_operation_admission import (
     admit_data_operation_release,
     bound_data_operation_model,
@@ -348,7 +349,13 @@ def admit_kernel(
 
 
 def execute_captured_kernel_demand(
-    kernel: Kernel, demand: str, *, purpose="write", fit=False, rounds=100
+    kernel: Kernel,
+    demand: str,
+    *,
+    purpose="write",
+    fit=False,
+    rounds=100,
+    policy: CharacterizationExecutionPolicy | None = None,
 ):
     """Execute a fixture mixing captured production and test Python modules."""
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutor
@@ -381,6 +388,7 @@ def execute_captured_kernel_demand(
         kernel.prepared,
         preparation.runtime,
         sources,
+        policy=policy,
         runtime_locations=locations,
         source_root=Path(__file__).resolve().parents[2] / "src",
         schema=preparation.bundle,
