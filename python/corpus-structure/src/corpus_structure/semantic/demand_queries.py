@@ -11,7 +11,7 @@ from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_
 from corpus_structure.semantic.demand_results import read_demand_result
 
 from .continuation_codec import decode_cursor, encode_cursor
-from .demand_query_projection import DemandQueryProjectionInputs, selected_query_rows
+from .demand_query_projection import prepare_demand_projection_inputs, selected_query_rows
 from .page_envelope import PageEnvelope
 from .selected_pages import byte_bounded_page
 from .serving_code import capture_page_refusal
@@ -169,8 +169,9 @@ def _serve_demand_query(connection, request, implementation):
                 )
                 entry, remaining = bounded_rows(
                     selected_query_rows(
-                        DemandQueryProjectionInputs(
-                            whole.content, selection_content, decimal_fixed_point_digits
+                        prepare_demand_projection_inputs(
+                            whole.content, selection_content,
+                            decimal_fixed_point_digits=decimal_fixed_point_digits,
                         )
                     ),
                     {},
@@ -181,8 +182,9 @@ def _serve_demand_query(connection, request, implementation):
     else:
         rows = uncached_rows_from(
             selected_query_rows(
-                DemandQueryProjectionInputs(
-                    page.content, selection_content, decimal_fixed_point_digits
+                prepare_demand_projection_inputs(
+                    page.content, selection_content,
+                    decimal_fixed_point_digits=decimal_fixed_point_digits,
                 )
             ),
             offset,

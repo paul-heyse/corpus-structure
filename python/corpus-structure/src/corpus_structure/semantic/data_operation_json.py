@@ -53,3 +53,39 @@ def wire_json_loads(content: str | bytes) -> Any:
         return float(value) if isinstance(value, Decimal) and not scope else value
 
     return presentation(json_loads(content))
+
+
+def own_json_value(value):
+    """Copy only exact inert JSON/Decimal values; never call a user's protocol.
+
+    This is ownership preparation, not schema validation. Native wire and public
+    request validators retain their own domain constraints.
+    """
+    import math
+
+    if value is None:
+        return None
+    if type(value) is bool:
+        return value
+    if type(value) is int:
+        return value
+    if type(value) is str:
+        return value
+    if type(value) is float:
+        if not math.isfinite(value):
+            raise ValueError("owned JSON requires finite numbers")
+        return value
+    if type(value) is Decimal:
+        if not value.is_finite():
+            raise ValueError("owned JSON requires finite numbers")
+        return value
+    if type(value) is list:
+        return [own_json_value(item) for item in value]
+    if type(value) is dict:
+        result = {}
+        for key in value:
+            if type(key) is not str:
+                raise TypeError("owned JSON requires exact string keys")
+            result[key] = own_json_value(value[key])
+        return result
+    raise TypeError("owned JSON requires exact inert values")

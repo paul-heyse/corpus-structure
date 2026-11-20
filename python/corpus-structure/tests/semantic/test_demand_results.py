@@ -42,7 +42,7 @@ def test_native_projection_consumes_its_snapshot_and_explicit_decimal_limit(monk
 
     from corpus_structure.semantic import value_codec
     from corpus_structure.semantic.demand_query_projection import (
-        DemandQueryProjectionInputs,
+        prepare_demand_projection_inputs,
         selected_query_rows,
     )
 
@@ -50,7 +50,7 @@ def test_native_projection_consumes_its_snapshot_and_explicit_decimal_limit(monk
     selection = json_bytes(
         DemandQueryRequest(demand_id="demand:A", project_id="project:A").selection()
     )
-    inputs = DemandQueryProjectionInputs(native, selection, 4)
+    inputs = prepare_demand_projection_inputs(native, selection, decimal_fixed_point_digits=4)
 
     def unexpected_model_acquisition(*args, **kwargs):
         raise AssertionError("native projection acquired the running model")

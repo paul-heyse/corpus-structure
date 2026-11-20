@@ -3,19 +3,50 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from .data_operation_json import json_loads, wire_json_loads
+from .data_operation_json import json_bytes, json_loads, own_json_value
 from .data_operation_value_codec import decode_semantic_value
 from .data_operation_value_codec import native_semantic_value as semantic_value
+
+if TYPE_CHECKING:
+    from ._data_operation_wire import WireReadDemandResultResult
 
 
 @dataclass(frozen=True)
 class DemandQueryProjectionInputs:
-    """Owned native wire bytes and the already validated semantic query selection."""
+    """Detached generated values plus immutable witnesses of their keyed material."""
 
-    native: bytes
-    selection: bytes
+    page: WireReadDemandResultResult
+    selection: dict
+    native_witness: bytes
+    selection_witness: bytes
     decimal_fixed_point_digits: int
+
+
+def prepare_demand_projection_inputs(
+    native: bytes, selection: bytes, *, decimal_fixed_point_digits: int
+) -> DemandQueryProjectionInputs:
+    """Validate once during acquisition, before selected row derivation.
+
+    The native cut already identifies immutable product bodies; strict generated
+    decoding must preserve their complete material rather than transform it.
+    """
+    from .demand_wire import decode_wire_demand_result
+
+    if type(selection) is not bytes:
+        raise TypeError("native projection requires immutable selection bytes")
+    page = decode_wire_demand_result(native)
+    selected = own_json_value(json_loads(selection))
+    if type(selected) is not dict:
+        raise TypeError("native projection selection requires an object")
+    return DemandQueryProjectionInputs(
+        page=page,
+        selection=selected,
+        native_witness=json_bytes(page),
+        selection_witness=json_bytes(selected),
+        decimal_fixed_point_digits=decimal_fixed_point_digits,
+    )
 
 
 def selected_members(page: dict, *, decimal_fixed_point_digits: int) -> tuple[dict, ...]:
@@ -53,7 +84,7 @@ def selected_members(page: dict, *, decimal_fixed_point_digits: int) -> tuple[di
                         meaning_body=output["body"],
                     )
                 )
-            packets = body.get("members", ()) if isinstance(body, dict) else ()
+            packets = body.get("members", ()) if type(body) is dict else ()
             projected = [
                 packet
                 for packet in packets
@@ -61,35 +92,47 @@ def selected_members(page: dict, *, decimal_fixed_point_digits: int) -> tuple[di
             ]
             if output["member_id"] is not None and len(projected) != 1:
                 raise ValueError("selected output member is absent from its canonical product")
-            occurrences.extend(
-                dict(
-                    header,
-                    member_id=packet["member_id"],
-                    kind_contract=packet["kind_contract"],
-                    **packet["context"],
-                    body=packet["body"],
-                    meaning_body=semantic_value(
-                        packet["body"], decimal_fixed_point_digits=decimal_fixed_point_digits
-                    ),
+            for packet in projected:
+                if type(packet) is not dict:
+                    raise TypeError("selected member packets require owned records")
+                context = packet["context"]
+                if type(context) is not dict:
+                    raise TypeError("selected member context requires an owned record")
+                occurrences.append(
+                    dict(
+                        header,
+                        member_id=packet["member_id"],
+                        kind_contract=packet["kind_contract"],
+                        subject=context["subject"],
+                        subject_definition=context["subject_definition"],
+                        original_source=context["original_source"],
+                        analyzed_scope=context["analyzed_scope"],
+                        body=packet["body"],
+                        meaning_body=semantic_value(
+                            packet["body"], decimal_fixed_point_digits=decimal_fixed_point_digits
+                        ),
+                    )
                 )
-                for packet in projected
-            )
     return tuple(occurrences)
 
 
 def selected_query_rows(inputs: DemandQueryProjectionInputs):
     if type(inputs) is not DemandQueryProjectionInputs:
         raise TypeError("native projection requires its owned immutable input snapshot")
-    if type(inputs.native) is not bytes or type(inputs.selection) is not bytes:
-        raise TypeError("native projection requires immutable wire bytes")
+    if type(inputs.native_witness) is not bytes or type(inputs.selection_witness) is not bytes:
+        raise TypeError("native projection requires immutable material witnesses")
+    native = own_json_value(inputs.page)
+    selection = own_json_value(inputs.selection)
+    if type(native) is not dict or type(selection) is not dict:
+        raise TypeError("native projection requires owned record inputs")
+    if json_bytes(native) != inputs.native_witness or json_bytes(selection) != inputs.selection_witness:
+        raise ValueError("native projection inputs changed after their keyed acquisition")
     decimal_fixed_point_digits = inputs.decimal_fixed_point_digits
     if (
         type(decimal_fixed_point_digits) is not int
         or not 1 <= decimal_fixed_point_digits <= 2_147_483_647
     ):
         raise ValueError("native projection requires a positive model-derived decimal limit")
-    native: dict = wire_json_loads(inputs.native)
-    selection: dict = json_loads(inputs.selection)
     if selection["view"] == "operations":
         rows = (
             dict(
@@ -121,7 +164,7 @@ def selected_query_rows(inputs: DemandQueryProjectionInputs):
                 native, decimal_fixed_point_digits=decimal_fixed_point_digits
             )
             if row["member_id"] is None
-            and isinstance(row["body"], dict)
+            and type(row["body"]) is dict
             and "source" in row["body"]
             for coverage in row["body"].get("coverage", ())
         )
@@ -136,11 +179,11 @@ def selected_query_rows(inputs: DemandQueryProjectionInputs):
             (not selection["containers_only"] or row.get("member_id") is None)
             and (
                 selection["record_type"] is None
-                or (isinstance(body, dict) and body.get("record_type") == selection["record_type"])
+                or (type(body) is dict and body.get("record_type") == selection["record_type"])
             )
             and (
                 selection["family"] is None
-                or (isinstance(body, dict) and body.get("family") == selection["family"])
+                or (type(body) is dict and body.get("family") == selection["family"])
             )
             and all(value is None or row.get(key) == value for key, value in filters.items())
         ):
