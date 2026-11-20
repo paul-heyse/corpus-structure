@@ -274,3 +274,209 @@ def test_standard_base64_builtin_type_table_cannot_use_custom_equality(monkeypat
     monkeypatch.setattr(module, "bytes_types", (PretendBytes, bytearray))
     with pytest.raises(ValueError, match="Base64 global"):
         acquire_codec_runtime()
+
+
+def test_verified_native_integer_constant_is_data_and_rechecked(tmp_path, monkeypatch):
+    root = tmp_path / "constant_example"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    (root / "entry.py").write_text(
+        "from rapidjson import NM_DECIMAL\ndef result():\n return NM_DECIMAL + 1\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    identity = capture_code_identity(
+        root,
+        ("constant_example.entry",),
+        callables=("constant_example.entry.result",),
+        external_runtime=acquire_codec_runtime(),
+    )
+    assert identity.complete, identity.unknowns
+    with authenticate_workload(root, identity) as verify:
+        module = importlib.import_module("constant_example.entry")
+        assert module.result() == 3
+        verify()
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "rapidjson.loads(content, number_mode=rapidjson.NM_DECIMAL, allow_nan=False)",
+        "rapidjson.dumps({'value': 7}, number_mode=rapidjson.NM_DECIMAL, allow_nan=False, sort_keys=True, ensure_ascii=False, bytes_mode=rapidjson.BM_NONE).encode()",
+    ],
+)
+def test_exact_native_json_codec_configuration_has_authenticated_custody(
+    tmp_path, monkeypatch, expression
+):
+    root = tmp_path / "json_example"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    (root / "entry.py").write_text(
+        "import rapidjson\ndef result(content):\n return " + expression + "\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    identity = capture_code_identity(
+        root,
+        ("json_example.entry",),
+        callables=("json_example.entry.result",),
+        external_runtime=acquire_codec_runtime(),
+    )
+    assert identity.complete, identity.unknowns
+    with authenticate_workload(root, identity) as verify:
+        module = importlib.import_module("json_example.entry")
+        if "loads" in expression:
+            from decimal import Decimal
+
+            assert module.result(b'{"value": 0.0100}') == {"value": Decimal("0.0100")}
+        else:
+            assert module.result({"value": 7}) == b'{"value":7}'
+        verify()
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        "number_mode=rapidjson.NM_DECIMAL, allow_nan=False, object_hook=callback",
+        "number_mode=rapidjson.NM_NATIVE, allow_nan=False",
+        "number_mode=rapidjson.NM_DECIMAL",
+        "number_mode=rapidjson.NM_DECIMAL, allow_nan=True",
+        "number_mode=rapidjson.NM_DECIMAL, allow_nan=False, parse_mode=1",
+        "**callback",
+    ],
+)
+def test_unmodeled_native_json_options_keep_workload_incomplete(tmp_path, options):
+    root = tmp_path / "unsupported_json"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    (root / "entry.py").write_text(
+        "import rapidjson\ndef result(content, callback):\n return rapidjson.loads(content, "
+        + options
+        + ")\n"
+    )
+    identity = capture_code_identity(
+        root,
+        ("unsupported_json.entry",),
+        callables=("unsupported_json.entry.result",),
+        external_runtime=acquire_codec_runtime(),
+    )
+    assert not identity.complete
+    assert any("exact finite codec configuration" in item.reason for item in identity.unknowns)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "rapidjson.loads.__dict__",
+        "rapidjson.dumps({'a':7}, number_mode=rapidjson.NM_DECIMAL, allow_nan=False, sort_keys=True, ensure_ascii=False, bytes_mode=rapidjson.BM_NONE).encode().decode().format(content)",
+        "rapidjson.dumps('{}', number_mode=rapidjson.NM_DECIMAL, allow_nan=False, sort_keys=True, ensure_ascii=False, bytes_mode=rapidjson.BM_NONE).format(content)",
+        "rapidjson.dumps({'a':7}, number_mode=rapidjson.NM_DECIMAL, allow_nan=False, sort_keys=True, ensure_ascii=False, bytes_mode=rapidjson.BM_NONE).encode(content)",
+        "rapidjson.dumps({'a':content}, number_mode=rapidjson.NM_DECIMAL, allow_nan=False, sort_keys=True, ensure_ascii=False, bytes_mode=rapidjson.BM_NONE)",
+        "rapidjson.loads(content, number_mode=rapidjson.NM_DECIMAL, allow_nan=False).arbitrary()",
+        "rapidjson.dumps(content, number_mode=rapidjson.NM_DECIMAL, allow_nan=False, sort_keys=True, ensure_ascii=False, bytes_mode=rapidjson.BM_NONE)",
+    ],
+)
+def test_json_options_do_not_authorize_opaque_attributes_or_unowned_encoding(tmp_path, expression):
+    root = tmp_path / "unowned_json"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    (root / "entry.py").write_text(
+        "import rapidjson\ndef result(content):\n return " + expression + "\n"
+    )
+    identity = capture_code_identity(
+        root,
+        ("unowned_json.entry",),
+        callables=("unowned_json.entry.result",),
+        external_runtime=acquire_codec_runtime(),
+    )
+    assert not identity.complete
+
+
+def test_actual_json_decoder_wrapper_has_live_codec_and_annotation_custody():
+    from pathlib import Path
+
+    from corpus_structure.semantic import data_operation_json
+
+    root = Path(data_operation_json.__file__).parents[1]
+    identity = capture_code_identity(
+        root,
+        ("corpus_structure.semantic.data_operation_json",),
+        callables=("corpus_structure.semantic.data_operation_json.json_loads",),
+        external_runtime=acquire_codec_runtime(),
+    )
+    assert identity.complete, identity.unknowns
+    with authenticate_workload(root, identity) as verify:
+        assert data_operation_json.json_loads(b'{"count":7}') == {"count": 7}
+        verify()
+
+
+@pytest.mark.parametrize("expression", ["Any()", "Any.__mro__", "Any[int]"])
+def test_passive_any_annotation_does_not_admit_runtime_or_subscription(tmp_path, expression):
+    root = tmp_path / "annotation_example"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    (root / "entry.py").write_text(
+        "from typing import Any\ndef result():\n return " + expression + "\n"
+    )
+    identity = capture_code_identity(
+        root, ("annotation_example.entry",), callables=("annotation_example.entry.result",)
+    )
+    assert not identity.complete
+
+
+def test_bare_any_annotation_rechecks_its_consumed_import_binding(tmp_path, monkeypatch):
+    from corpus_structure._query_custody import SourceCustodyError
+
+    root = tmp_path / "passive_any"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    (root / "entry.py").write_text(
+        "from typing import Any\ndef result(value: Any) -> Any:\n return value\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    identity = capture_code_identity(
+        root, ("passive_any.entry",), callables=("passive_any.entry.result",)
+    )
+    assert identity.complete, identity.unknowns
+    with (
+        pytest.raises(SourceCustodyError, match="changed"),
+        authenticate_workload(root, identity) as verify,
+    ):
+        module = importlib.import_module("passive_any.entry")
+        monkeypatch.setattr(module, "Any", int)
+        verify()
+
+
+def test_direct_import_aliases_keep_the_exact_native_json_options(tmp_path, monkeypatch):
+    root = tmp_path / "aliased_json"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    (root / "entry.py").write_text(
+        "from rapidjson import loads as decode, NM_DECIMAL as mode\n"
+        "def result(content: bytes):\n return decode(content, number_mode=mode, allow_nan=False)\n"
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))
+    identity = capture_code_identity(
+        root,
+        ("aliased_json.entry",),
+        callables=("aliased_json.entry.result",),
+        external_runtime=acquire_codec_runtime(),
+    )
+    assert identity.complete, identity.unknowns
+    with authenticate_workload(root, identity) as verify:
+        module = importlib.import_module("aliased_json.entry")
+        assert module.result(b'{"value":true}') == {"value": True}
+        verify()
+
+
+def test_any_subscription_in_annotation_is_still_required_uncertainty(tmp_path):
+    root = tmp_path / "subscribed_any"
+    root.mkdir()
+    (root / "__init__.py").write_text("")
+    (root / "entry.py").write_text(
+        "from __future__ import annotations\nfrom typing import Any\n"
+        "def result(value: Any[int]):\n return value\n"
+    )
+    identity = capture_code_identity(
+        root, ("subscribed_any.entry",), callables=("subscribed_any.entry.result",)
+    )
+    assert not identity.complete
+    assert any("bare verified annotation" in item.reason for item in identity.unknowns)

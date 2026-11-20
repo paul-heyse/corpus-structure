@@ -341,6 +341,12 @@ def capture_code_identity(
         capability.check()
     boundaries = (
         *boundaries,
+        CodeBoundary(
+            "typing.Any",
+            "standard-passive-any-annotation-v1",
+            "passive-any-annotation",
+            sha256(_bytes({"name": "typing.Any", "python": sys.version})).hexdigest(),
+        ),
         *(
             CodeBoundary(item.reference, item.contract, "initialization", item.digest)
             for item in external_runtime
@@ -351,9 +357,18 @@ def capture_code_identity(
             for name, _ in item.modules
         ),
         *(
-            CodeBoundary(reference, item.contract, "native-codec", item.digest)
+            CodeBoundary(
+                reference,
+                item.contract,
+                "native-integer-value"
+                if type(value) is int
+                else "native-json-callable"
+                if reference in {"rapidjson.loads", "rapidjson.dumps"}
+                else "native-codec",
+                item.digest,
+            )
             for item in external_runtime
-            for reference, _ in item.symbols
+            for reference, value in item.symbols
         ),
     )
     package = entries[0].split(".")[0] if entries else ""
