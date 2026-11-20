@@ -736,13 +736,29 @@ authority.
 **Tested increment · 2026-11-19.** Tagged values have a lightweight semantic owner. Direct
 consumers now import the value codec without loading operation identity. The semantic package
 initializer no longer re-exports preparation machinery. Selected reads pass an immutable native
-page and typed selection snapshot to the projection. Cursor encoding has its own small owner,
-the native demand report has a named builder, and callable discovery includes explicitly declared
-owners even when the entry module does not import them. The initial scope passed 245 selected
-controls and the selected-reader scope passed 75. Strict D2 remained prerequisite-blocked.
-The remaining determining contracts include renderer initialization and external behavior,
-authenticated model-derived codec inputs, and finite report policies for each selected family.
-These still govern D2, T4 and T14 in the [qualification companion](qualification.md#code-closure-and-real-reuse-qualification).
+page, typed selection and validated model-derived Decimal limit to the projection. The pure
+codec consumes that limit directly. Six selected-page consumers now use finite envelope policies.
+Cursor encoding has its own small owner. Callable discovery includes explicitly declared owners
+even when the entry module does not import them. The 292 codec and reader controls and 124
+runtime correspondence controls passed (`6dc85d72a8864eb6b5013c37148d90fa`,
+`fd7ea68602fc49fab8ad1e3f39eb3180`).
+
+Native protocol authoring and the archived model version now have owners outside runtime
+storage. The renderer probe reduced required eager premises from 426 to 115 on its measured
+baseline. Offline comparison of all 620 N35 objects returned `no_native_change` on the
+integrated source (`6a41d5552b674d5cb660f18770f7c3b7`). The proposed `SourceArtifact` move was
+held after a separate comparison found two changed installed routines. Their exact helper
+source digests include the affected import locations. This leaves one current source-artifact
+owner and exposes a boundary for later provider-source closure work. After the separate
+canonicalization repair, the offline N36 comparison also returned `no_native_change`
+for all 620 objects (`af411378c9384cefb4ae180702ff436a`).
+
+Strict D2 is still blocked by determining renderer contracts. Native demand serving has ten
+remaining eager library premises on its measured probe. Rich and contribution preparation
+still acquire broader model and runtime context. Exact stage capture invoked under two runtime
+bindings used separate demand-scoped producer requests because its PDF lowering asset has
+incomplete determining identity. These obligations remain in the
+[qualification companion](qualification.md#code-closure-and-real-reuse-qualification).
 
 **Partial implementation · 2026-11-19.** The bootstrap checks the executing package body and
 the exact sibling loader bytes. Package startup no longer scans the reader module population.

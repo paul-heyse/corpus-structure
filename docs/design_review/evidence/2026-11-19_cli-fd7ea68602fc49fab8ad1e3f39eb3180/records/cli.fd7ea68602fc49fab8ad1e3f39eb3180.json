@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "cli.fd7ea68602fc49fab8ad1e3f39eb3180",
+  "title": "Retained CLI invocation fd7ea68602fc49fab8ad1e3f39eb3180",
+  "group": null,
+  "package": null,
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "What evidence did test produce for UDM-10?",
+  "answers": [],
+  "method": "Copy the selected published artifact under the invocation lease.",
+  "commands": [],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "invocation.json",
+      "role": "invocation-provenance",
+      "sha256": "11812269746784e187171c5cee5e848372121363a6536a3da7439a32a7336406"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/ordinary",
+      "role": "retained-artifact",
+      "sha256": "739bded44556a40917ade2d11d35fd9952d434c3304fb90f3486b0217d885848"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "invocation_outcome",
+      "value": "passed",
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The retained invocation settled as passed.",
+  "consumed_by": [
+    "UDM-10"
+  ]
+}
