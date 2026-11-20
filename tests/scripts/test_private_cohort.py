@@ -495,7 +495,9 @@ def test_recovery_only_removes_recognized_onnx_session_after_drain(
     receipt, temporary = owned_private_residue
     session = temporary / ".ses"
     session.write_bytes(
-        b"1795162607766\n72cd4c6f-dde8-06e0-0db4-e5accd8cc079\n" if valid else b"retain unknown data"
+        b"1795162607766\n72cd4c6f-dde8-06e0-0db4-e5accd8cc079\n"
+        if valid
+        else b"retain unknown data"
     )
     _interrupted_private_receipts(receipt)
     assert finish_private_temporary(receipt, {"returncode": 0})["state"] == "retained"

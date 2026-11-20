@@ -258,10 +258,14 @@ def _remove_owned_empty_tree(
                     # timestamp/UUID file even after all owned processes exit.
                     source = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=fd)
                     try:
-                        if os.fstat(source) != found or re.fullmatch(
-                            rb"[0-9]{13}\n[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\n?",
-                            os.read(source, 65),
-                        ) is None:
+                        if (
+                            os.fstat(source) != found
+                            or re.fullmatch(
+                                rb"[0-9]{13}\n[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\n?",
+                                os.read(source, 65),
+                            )
+                            is None
+                        ):
                             raise ValueError("private telemetry session scratch differs")
                     finally:
                         os.close(source)

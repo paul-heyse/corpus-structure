@@ -45,9 +45,7 @@ def test_dynamic_import_reports_incomplete_without_import_or_exception(tmp_path)
 
 def test_reached_local_import_expands_through_reexport_before_completion(tmp_path):
     root = package(tmp_path)
-    (root / "entry.py").write_text(
-        "def result():\n from .bridge import answer\n return answer()\n"
-    )
+    (root / "entry.py").write_text("def result():\n from .bridge import answer\n return answer()\n")
     (root / "bridge.py").write_text("from .value import answer\n")
     (root / "value.py").write_text("def answer():\n return 7\n")
     first = capture_code_identity(root, ("example.entry",), callables=("example.entry.result",))

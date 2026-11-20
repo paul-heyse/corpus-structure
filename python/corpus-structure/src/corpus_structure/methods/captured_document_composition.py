@@ -676,6 +676,5 @@ class ComposeCapturedDocumentFamily(ComposeFullDocumentOperation):
         )
 
 
-
 class ComposeCapturedDocumentOperation(ComposeCapturedDocumentFamily):
     __data_operation__: ClassVar[dict] = {"abstract": False}

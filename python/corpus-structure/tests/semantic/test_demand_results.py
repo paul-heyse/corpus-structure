@@ -638,7 +638,9 @@ def test_selected_record_acquisition_enforces_whole_unique_record_budget(monkeyp
         assert cut.identity == CutSelection.from_native(demand_result_page()).identity
     selected = pages()
     with (
-        pytest.raises(SelectedGraphBudgetExceeded, match="closure exceeds record bound") as captured,
+        pytest.raises(
+            SelectedGraphBudgetExceeded, match="closure exceeds record bound"
+        ) as captured,
         owner.selected_record_index(
             None,
             "demand:A",
