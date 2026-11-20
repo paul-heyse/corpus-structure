@@ -9,6 +9,7 @@ from corpus_structure.caches import declare
 from .target_installation import (
     NativeGeneratorInputs,
     TargetInstallation,
+    capture_trigger_inputs,
     render_target_installation,
 )
 from .types import SourceArtifact
@@ -135,6 +136,7 @@ def capture_generator_inputs(
             for name in ("pglast", "sqlalchemy", "linkml-runtime", "networkx")
         ),
         code_identity=code_identity,
+        trigger_inputs=capture_trigger_inputs(selected),
     )
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 from contextlib import contextmanager
+from dataclasses import asdict
 from functools import cache
 from hashlib import sha256
 from pathlib import Path
@@ -266,6 +267,7 @@ def input_key(inputs, *, include_format: bool) -> bytes | None:
                 (name, sha256(content).hexdigest()) for name, content in inputs.model_sources
             ),
             generator=code.digest,
+            trigger_inputs=asdict(inputs.trigger_inputs),
             copied_source_bytes=copied,
             physical=tuple(
                 (name, sha256(content).hexdigest()) for name, content in inputs.physical_sources

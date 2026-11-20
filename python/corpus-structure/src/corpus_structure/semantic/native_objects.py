@@ -16,7 +16,7 @@ from typing import Literal
 
 from pglast import ast, enums
 from pglast.stream import RawStream
-from sqlalchemy import Connection, Integer, Table, cast, func, literal, select
+from sqlalchemy import Connection, Integer, cast, func, literal, select
 from sqlalchemy.dialects.postgresql import OID, dialect
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.exc import DBAPIError
@@ -153,14 +153,16 @@ def native_owner_sql(identity: NativeIdentity, owner: str) -> str:
 
 
 def native_before_trigger(
-    relation: Table,
+    relation: NativeIdentity,
     name: str,
     routine: tuple[str, str],
     *,
     events: tuple[Literal["insert", "delete", "update", "truncate"], ...],
     row: bool = False,
 ) -> ast.CreateTrigStmt:
-    """Build a PostgreSQL trigger on a captured physical relation."""
+    """Build a PostgreSQL trigger on a captured qualified relation identity."""
+    if relation.kind != "table":
+        raise NativeAuthoringError("native trigger requires a physical table identity")
     # PostgreSQL TRIGGER_TYPE_* bits used by CreateTrigStmt.
     event_bits = {"insert": 4, "delete": 8, "update": 16, "truncate": 32}
     return ast.CreateTrigStmt(
