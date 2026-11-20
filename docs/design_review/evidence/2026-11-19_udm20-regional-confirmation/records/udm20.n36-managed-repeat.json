@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "udm20.n36-managed-repeat",
+  "title": "Exact managed repeat of the N36 full-family stage demand",
+  "group": null,
+  "package": "UDM-26",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the managed-result resume route reacquire the completed N36 demand and its existing producer receipts?",
+  "answers": [
+    "UDM-26",
+    "UDM-23"
+  ],
+  "method": "Resume using only the original managed result ID and the acquired stage configuration. Compare the fresh native obligations and producer snapshots and count new receipts.",
+  "commands": [
+    "ci run resume --result bc94c35adc3e438b8e4eb771d4ccb155 --json",
+    "ci results inspect 815c8161fe4a446892c127d195ec67d6 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/n36-full-family-fates.json",
+      "role": "original-native-fulfillment",
+      "sha256": "65271790ddb18b646029d4361685a74b560efd0c01f844c30344ec01558216e3"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/n36-full-family-exact-repeat.json",
+      "role": "same-demand-and-existing-producer-comparison",
+      "sha256": "89947d47736c5a741f5a10d370eb051dae1c2ad6445b69506768bd4e5c50935e"
+    }
+  ],
+  "depends_on": [
+    "udm20.n36-full-family"
+  ],
+  "results": [
+    {
+      "name": "original_publications",
+      "value": 11,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "repeat_publications",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The managed result recovered the same demand, release, runtime, frozen selection, execution policy, source root and limits with established cleanup. Fresh native obligations, producer requests, derivations and intents matched the source run and the repeat produced zero new publication receipts.",
+  "consumed_by": [
+    "UDM-26",
+    "UDM-23"
+  ]
+}

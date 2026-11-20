@@ -29,7 +29,7 @@
     }
   ],
   "depends_on": [
-    "udm21.first-adoption"
+    "2026-11-19_udm20-21-canonical/udm21.first-adoption"
   ],
   "results": [
     {
