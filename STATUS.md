@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-20 UTC. PostgreSQL stage runs N40 with separate historical grant verification and live effect authorization. The bounded project's last activation is N35 at generation 32. Canonical development runs N29, selected by the book at generation 5. The earlier 518-page capture and regional results remain in retained custody._
+_Updated 2026-11-20 UTC. PostgreSQL stage runs N41 with separate historical material verification and live presentation authority. The bounded project's last activation is N35 at generation 32. Canonical development runs N29, selected by the book at generation 5. The earlier 518-page capture and regional results remain in retained custody._
 
 ## Current owners
 
@@ -23,6 +23,7 @@ _Updated 2026-11-20 UTC. PostgreSQL stage runs N40 with separate historical gran
 - **Failed, then exact resume passed.** Real CUDA stop exposed unresolved transport retirement and a live native lease. After expiry, the same demand published three receipts, cleared the leases and repeated with zero new receipts. [Managed stop and recovery](docs/design_review/evidence/2026-11-20_udm27-managed-stop/README.md)
 - **Passed.** The repaired managed CUDA stop cleared the worker, GPU allocation and lease before retry. The exact resume published three receipts and unchanged repeat published zero. [Repaired stop](docs/design_review/evidence/2026-11-20_udm27-managed-stop/README.md)
 - **Passed.** N37 passed offline parity, guarded stage deployment and both exact stage application checks. All three actual E5 native publication and retrieval cases passed on private N37. [N37 and E5 evidence](docs/design_review/evidence/2026-11-20_udm22-contextual-frozen-producers/README.md)
+- **Passed.** Guarded N41 deployment installed on stage (`8896b915a1ae403a8143653bf4b413de`). Exact database and release checks passed. Two offline renders matched all 624 frozen objects. [N41 stage evidence](docs/plans/unified-domain-model-and-execution/qualification.md#retained-fit-custody-and-rich-producer-authority)
 
 ## Earlier verified evidence
 
@@ -56,5 +57,5 @@ _Updated 2026-11-20 UTC. PostgreSQL stage runs N40 with separate historical gran
 
 ## Next execution
 
-- Finish the N40 native journey retries and reconcile the ordinary, fault and provider selections on the exact final source. The cold N39 Integrated Nemotron observation passed. [UDM-22](docs/plans/unified-domain-model-and-execution/qualification.md#udm-22--the-managed-union-on-final-source)
+- Finish the operation-event, M1 and rich-admission journeys. N42 is being authored with the Standard book configuration. Reconcile the ordinary, fault and provider selections on final source. [UDM-22](docs/plans/unified-domain-model-and-execution/qualification.md#retained-fit-custody-and-rich-producer-authority)
 - After UDM-22, verify originals during guarded canonical re-adoption and qualify the recorded whole-book demand under UDM-23. Chandra OCR remains excluded. [UDM-23](docs/plans/unified-domain-model-and-execution/qualification.md#udm-23--the-whole-book-run)

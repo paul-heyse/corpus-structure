@@ -1073,10 +1073,47 @@ authorization. The combined preview `b0479b94f1e549cab38f097203f86779` identifie
 objects with no physical or existing privilege changes. The rollback-only candidate
 `0192328720894bad89979b7d9fbb1a18` passed. Registration `4df076ebc9c14f799f6adb577becf2c2` froze
 N40. Guarded deployment `816636325a2648c481a12157b0baf290` migrated stage OID 130661481 from
-N39 to N40 and admitted Standard release
+N39 to N40 and admitted Integrated release
 `release:5dd3a504a1b0fd91f822d1e194c3be00252a0175bc395e4f53aa380d9933660d`.
 `ci db check --target deployment` and `ci release check --target deployment --native-proof`
 independently accepted that release on the same stage database.
+
+### Retained fit custody and rich producer authority
+
+**Tested, 2026-11-20 UTC.** The N40 grouped operation-event cases again reached the
+15-minute watchdog, during PostgreSQL retention of the fit (`84d6a55459bf4757b84e7c0608ce2ab5`).
+Source inspection found duplicate authentication of the same episode during same-release
+validity. After original correspondence succeeds, the consuming bridge has no changed
+validator identities to apply on the same release. N41 skips this repeat and keeps the
+bridge on cross-release and distinct consuming-request paths.
+
+N40 rich admission also reached the protected presentation check while verifying a retained
+fit under its original boundary (`50757742720b4fcba376a7da64100cbc`). The N41 material path
+verifies its exact selection, disclosure and historical access universes. Fresh live fit,
+grade and event presentation retain current caller authorization. The current validity and
+disclosure controls and the actual grade and fit journey passed on private N41
+(`eec85e184dd040b1a13946c95c029761`). The event cases in that checkout stopped at the provider
+environment lock check. The actual rich writer then reached a distinct failure. The shared
+producer check demanded the rich validity family from the issued public evaluator policy.
+N42 scopes the family requirement to rich-owned producers and retains exact output,
+receipt, effect and CPU checks for all inputs.
+
+The N41 preview `3d7ee89cfc5e4fada38a9d825550c5b5`, rollback candidate
+`f21976707a8c476da650a1b73640bc42` and registration
+`673d78aa8cda4606b853e63b9ac424f9` passed. Guarded deployment
+`8896b915a1ae403a8143653bf4b413de` migrated stage OID 130661481 from N40 to N41 and
+admitted Integrated release
+`release:fb0ebd3b9d1be5cf501a932785c04b490c622d3bb4fb7e414782072cbf94bf6b`.
+Both stage application checks passed. Two fresh offline renders matched 624 frozen
+objects. The N42 preview `e404b3620de64a1b940374f736158bfc` stages the existing
+[Standard configuration](../../design_review/evidence/2026-11-19_udm20-regional-confirmation/n36-standard-regional-inputs.yaml)
+for the book.
+
+The N40 provider campaign selected 24 cases. It passed 23, including two-region
+exact resume, PDF spool recovery, combined provider execution, Lark-backed parsing,
+and DiPO and D1 custody. One M1 case used a logical archive path as the physical
+module path (`1e0a55beca9b43e3be696f74eb6f422a`). The fixture now uses the shared captured-source
+executor. The exact retry and the final-source campaign are pending.
 
 **Bounded provider evidence, 2026-11-20 UTC.** The actual CUDA GLiNER
 production pack tests and the actual HanLP, Maverick and DiPO native
