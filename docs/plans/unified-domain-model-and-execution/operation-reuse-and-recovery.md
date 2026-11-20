@@ -1,6 +1,8 @@
 # Operation reuse and recoverable completion
 
-**Status:** The bounded implementation and qualification are complete. Recovery ordering, draft retirement, changed-request uptake and fresh PDF attribution passed. N35 is active on the bounded stage. UDM-20 owns regional confirmation.
+**Status:** Superseded 2026-11-20 by [Domain model operability](../domain-model-operability_2026-11-20.md).
+
+**Historical checkpoint:** The bounded implementation and qualification are complete. Recovery ordering, draft retirement, changed-request uptake and fresh PDF attribution passed. N35 is active on the bounded stage. UDM-20 owns regional confirmation.
 **Created:** 2026-11-18.
 
 This companion owns **UDM-25**, the recoverable completion and compatible PDF checkpoint

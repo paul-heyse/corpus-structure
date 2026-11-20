@@ -1,6 +1,8 @@
 # Programs, identity and revisions: the program registry, the identity layers, revisions by program bytes and carried assurance
 
-**Status:** In progress. The typed registry and transition programs are integrated. The
+**Status:** Superseded 2026-11-20 by [Domain model operability](../domain-model-operability_2026-11-20.md).
+
+**Historical checkpoint:** In progress. The typed registry and transition programs are integrated. The
 [UDM-10 code-closure follow-up](#udm-10-code-closure) is scheduled for the generator and selected
 readers under the approved continuation amendment, with revised acceptance still open.
 **Approved amendment · 2026-11-20.** [ADR-0141](../../adr/0141-serving-continuation-and-reuse.md)

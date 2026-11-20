@@ -1,6 +1,8 @@
 # Analytical placement, the remaining SQL text, and retirement
 
-**Status:** UDM-18 and UDM-19 are complete for their bounded increments. Spawned-worker analytics settings and candidate TEMP policy inputs are verified. D1 now uses typed Python and passed the admitted cohort again. Fresh selected-source and companion export qualification passed privately on registered N35.
+**Status:** Superseded 2026-11-20 by [Domain model operability](../domain-model-operability_2026-11-20.md).
+
+**Historical checkpoint:** UDM-18 and UDM-19 are complete for their bounded increments. Spawned-worker analytics settings and candidate TEMP policy inputs are verified. D1 now uses typed Python and passed the admitted cohort again. Fresh selected-source and companion export qualification passed privately on registered N35.
 **Created:** 2026-11-19.
 
 This companion owns the designs of **UDM-16** (DuckDB conditions of use, declared settings, the

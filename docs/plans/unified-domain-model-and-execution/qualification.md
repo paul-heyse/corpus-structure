@@ -1,6 +1,8 @@
 # Qualification: the union restated, the book-run diagnosis, and the final runs
 
-**Status:** In progress. Retained diagnosis and bounded native controls are recorded.
+**Status:** Superseded 2026-11-20 by [Domain model operability](../domain-model-operability_2026-11-20.md).
+
+**Historical checkpoint:** In progress. Retained diagnosis and bounded native controls are recorded.
 **Created:** 2026-11-19.
 
 This companion owns the designs of **UDM-20** (the book-run diagnosis), **UDM-21** (environments

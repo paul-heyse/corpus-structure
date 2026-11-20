@@ -1,6 +1,8 @@
 # Unified domain model and execution
 
-**Status:** In progress. **Created:** 2026-11-19.
+**Status:** Superseded 2026-11-20 by [Domain model operability](domain-model-operability_2026-11-20.md).
+
+**Historical checkpoint:** In progress. **Created:** 2026-11-19.
 This coordinator owns the series' combined target, shared contracts, package queue, rule-change
 record, the scheduled disposition of every finding it lists, and the qualification of the
 assembled system. Companion plans own the detailed designs and package descriptions.

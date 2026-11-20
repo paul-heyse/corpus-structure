@@ -1,6 +1,8 @@
 # Model authorities and openness: the compiled model, the declaration grammar, integrity vocabularies and the earlier model's retirement
 
-**Status:** UDM-01–04 are integrated within their defined scope. The registry owns program grants, and private PostgreSQL qualification confirmed captured candidate integrity policies.
+**Status:** Superseded 2026-11-20 by [Domain model operability](../domain-model-operability_2026-11-20.md).
+
+**Historical checkpoint:** UDM-01–04 are integrated within their defined scope. The registry owns program grants, and private PostgreSQL qualification confirmed captured candidate integrity policies.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-01** (one composer and one held compiled model),

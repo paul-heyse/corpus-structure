@@ -1,6 +1,8 @@
 # The cache system and safe continuation
 
-**Status:** UDM-13 complete for the bounded N34 increment. UDM-14 implements safe continuation and removes the deferred persistent program/page tiers. The native demand path passed. The remaining T4 and T14 qualification is recorded in the [qualification companion](qualification.md#continuation-compatibility-amendment).
+**Status:** Superseded 2026-11-20 by [Domain model operability](../domain-model-operability_2026-11-20.md).
+
+**Historical checkpoint:** UDM-13 complete for the bounded N34 increment. UDM-14 implements safe continuation and removes the deferred persistent program/page tiers. The native demand path passed. The remaining T4 and T14 qualification is recorded in the [qualification companion](qualification.md#continuation-compatibility-amendment).
 **Created:** 2026-11-19. **Amended:** 2026-11-19 from the code dependency closure review at `1982a20c3`. Production reuse qualification remains open.
 
 This companion owns the designs of **UDM-13** (the cache owner module, cachetools 8.0.1 and the

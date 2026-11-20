@@ -1,6 +1,8 @@
 # Lowered operation facts and validity: declared families, selection by lowered attribute, the conservative check and one support-edge meaning
 
-**Status:** UDM-05 through UDM-07 are integrated and verified for the bounded N32 transition.
+**Status:** Superseded 2026-11-20 by [Domain model operability](../domain-model-operability_2026-11-20.md).
+
+**Historical checkpoint:** UDM-05 through UDM-07 are integrated and verified for the bounded N32 transition.
 **Created:** 2026-11-19. Writing this plan authorizes no implementation.
 
 This companion owns the designs of **UDM-05** (per-operation validity declarations lowered per

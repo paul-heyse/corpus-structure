@@ -1,6 +1,8 @@
 # Operational CLI: exact recovery, attributed observation and managed stop
 
-**Status:** Implemented source and scoped controls tested for UDM-26 and UDM-27. Native
+**Status:** Superseded 2026-11-20 by [Domain model operability](../domain-model-operability_2026-11-20.md).
+
+**Historical checkpoint:** Implemented source and scoped controls tested for UDM-26 and UDM-27. Native
 recovery, actual-provider retirement and assembled qualification remain open.
 **Created:** 2026-11-18.
 
