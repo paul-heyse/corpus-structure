@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from sqlalchemy import MetaData
 
     from .code_identity import CodeIdentity
-    from .native_objects import NativeDefinition
+    from .native_objects import NativeDefinition, NativeIdentity
     from .native_products import NativeAuthoringInputs
     from .native_program_registry import ProgramDeclaration, RenderedProgram
 
@@ -78,6 +78,23 @@ def target_task_guard_sql(protocol: bytes, *, target_metadata: MetaData) -> str:
 
 
 @dataclass(frozen=True)
+class PhysicalTriggerRelation:
+    relation: NativeIdentity
+    immutable: bool
+    frontier_guarded: bool
+    pending_content: bool
+    pending_component: bool
+    archived: bool
+
+
+@dataclass(frozen=True)
+class PhysicalTriggerInputs:
+    publisher: str
+    task_relation: NativeIdentity
+    relations: tuple[PhysicalTriggerRelation, ...]
+
+
+@dataclass(frozen=True)
 class TargetInstallation:
     """One exact physical/native capture; preparation grants no deployment authority."""
 
@@ -90,6 +107,7 @@ class TargetInstallation:
     programs: tuple[NativeDefinition, ...] = ()
     prerequisites: tuple[NativeDefinition, ...] = ()
     rendered_only: bool = False
+    trigger_inputs: PhysicalTriggerInputs | None = None
 
 
 @dataclass(frozen=True)
@@ -108,6 +126,7 @@ class NativeGeneratorInputs:
     analysis_runtime: tuple[tuple[str, str], ...]
     native_library_runtime: tuple[tuple[str, str], ...]
     code_identity: CodeIdentity
+    trigger_inputs: PhysicalTriggerInputs
 
     @property
     def complete(self) -> bool:
@@ -239,7 +258,13 @@ def _build_target_installation(
         ),
     )
     provisional = TargetInstallation(
-        selected, pdf_sources, authoring_inputs, foundation, descriptor, (*binary, *artifact)
+        selected,
+        pdf_sources,
+        authoring_inputs,
+        foundation,
+        descriptor,
+        (*binary, *artifact),
+        trigger_inputs=inputs.trigger_inputs,
     )
     products = target_program_definitions(None, provisional)
     definitions = (*target_physical_prerequisites(None, provisional), *products)
@@ -274,24 +299,71 @@ def target_physical_prerequisites(connection, installation: TargetInstallation):
     )
 
 
-def target_trigger_programs(target: MetaData):
+def capture_trigger_inputs(target: MetaData) -> PhysicalTriggerInputs:
+    """Acquire immutable trigger determinants from the approved physical interpretation."""
     from .alembic_privileges import metadata_integrity
-    from .native_objects import native_before_trigger
-    from .native_program_registry import RelationProgramDeclaration
+    from .native_objects import NativeIdentity
     from .native_protocol_authoring import data_operation_immutable_relations
 
-    owner = metadata_integrity(target).publisher
+    def identity(relation):
+        if relation.schema is None:
+            raise ValueError("native trigger requires a qualified physical relation")
+        return NativeIdentity("table", str(relation.schema), str(relation.name))
+
+    intrinsic = set(data_operation_immutable_relations(target, target.info["physical_sources"]))
+    pending = {
+        table
+        for table in target.tables.values()
+        if table.info.get("immutability") == "pending-content"
+    }
+    relations = []
+    for table in sorted(target.tables.values(), key=lambda item: item.fullname):
+        immutable = (
+            table in intrinsic
+            or table.info.get("immutability") in {"intrinsic", "immutable", "deployment"}
+            or table.fullname == "sem.physical_contract"
+        )
+        guarded = table.info.get("frontier_guard") == "guarded"
+        pending_content = table in pending
+        archived = table.info.get("archive_role") is not None
+        if not any((immutable, guarded, pending_content, archived)):
+            continue
+        relations.append(
+            PhysicalTriggerRelation(
+                identity(table),
+                immutable,
+                guarded,
+                pending_content,
+                pending_content
+                and any(
+                    foreign.column.table in pending and foreign.column.table is not table
+                    for foreign in table.foreign_keys
+                ),
+                archived,
+            )
+        )
+    return PhysicalTriggerInputs(
+        metadata_integrity(target).publisher,
+        identity(target.tables["ops.task"]),
+        tuple(relations),
+    )
+
+
+def target_trigger_programs(inputs: PhysicalTriggerInputs):
+    """Render trigger declarations from captured names and policy values only."""
+    from .native_objects import native_before_trigger
+    from .native_program_registry import RelationProgramDeclaration
 
     def trigger(relation, name, routine, source, events, *, row=False):
         return RelationProgramDeclaration(
             native_before_trigger(relation, name, routine, events=events, row=row),
             source,
-            owner,
+            inputs.publisher,
         )
 
     programs = [
         trigger(
-            target.tables["ops.task"],
+            inputs.task_relation,
             "zz_execution_task",
             ("ops", "guard_execution_task"),
             "target-current:request task fence",
@@ -299,18 +371,9 @@ def target_trigger_programs(target: MetaData):
             row=True,
         )
     ]
-    intrinsic = set(data_operation_immutable_relations(target, target.info["physical_sources"]))
-    pending = {
-        item
-        for item in target.tables.values()
-        if item.info.get("immutability") == "pending-content"
-    }
-    for relation in sorted(target.tables.values(), key=lambda item: item.fullname):
-        if (
-            relation in intrinsic
-            or relation.info.get("immutability") in {"intrinsic", "immutable", "deployment"}
-            or relation.fullname == "sem.physical_contract"
-        ):
+    for selected in inputs.relations:
+        relation = selected.relation
+        if selected.immutable:
             programs.append(
                 trigger(
                     relation,
@@ -320,7 +383,7 @@ def target_trigger_programs(target: MetaData):
                     ("update", "delete", "truncate"),
                 )
             )
-        if relation.info.get("frontier_guard") == "guarded":
+        if selected.frontier_guarded:
             programs.append(
                 trigger(
                     relation,
@@ -330,14 +393,12 @@ def target_trigger_programs(target: MetaData):
                     ("insert", "update", "delete", "truncate"),
                 )
             )
-        if relation in pending:
-            is_component = any(
-                foreign.column.table in pending and foreign.column.table is not relation
-                for foreign in relation.foreign_keys
-            )
+        if selected.pending_content:
             for events, row, name in (
                 (
-                    ("insert", "update", "delete") if is_component else ("update", "delete"),
+                    ("insert", "update", "delete")
+                    if selected.pending_component
+                    else ("update", "delete"),
                     True,
                     "pdf_shared_content_mutation",
                 ),
@@ -353,7 +414,7 @@ def target_trigger_programs(target: MetaData):
                         row=row,
                     )
                 )
-        if relation.info.get("archive_role") is not None:
+        if selected.archived:
             programs.append(
                 trigger(
                     relation,
@@ -399,6 +460,7 @@ def _declaration_installation(installation: TargetInstallation) -> TargetInstall
         authoring_inputs=replace(installation.authoring_inputs, guard_programs=guards),
         pdf_descriptor=pdf_descriptor_programs(),
         pdf_identity=(*pdf_binary_identity_programs(), *pdf_artifact_identity_programs(selected)),
+        trigger_inputs=capture_trigger_inputs(selected),
         rendered_only=False,
     )
 
@@ -438,6 +500,8 @@ def target_native_declarations(installation: TargetInstallation):
     selected = installation.metadata
     if installation.rendered_only:
         installation = _declaration_installation(installation)
+    if installation.trigger_inputs is None:
+        raise ValueError("native declarations require acquired physical trigger inputs")
     domain = PdfDomainContract(
         next(item.content for item in installation.pdf_sources if item.name == CONTRACT),
         tuple(item for item in installation.pdf_sources if item.name != CONTRACT),
@@ -464,7 +528,7 @@ def target_native_declarations(installation: TargetInstallation):
         *installation.pdf_identity,
         *archive_native_programs(target_metadata=selected),
         *runtime_binding_programs(selected),
-        *target_trigger_programs(selected),
+        *target_trigger_programs(installation.trigger_inputs),
         *admission_programs(selected),
         *data_operation_native_programs(
             target_metadata=selected,
