@@ -145,7 +145,12 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
 
     from corpus_structure.model.compiled import running_model
     from corpus_structure.schema.physical import compile_physical
-    from corpus_structure.semantic import native_generation, native_program_store, pdf_domain
+    from corpus_structure.semantic import (
+        native_generation,
+        native_program_store,
+        pdf_domain,
+        target_installation,
+    )
     from corpus_structure.semantic.metadata import get_metadata
 
     current = get_metadata()
@@ -204,7 +209,7 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
         assert dict(running_model().sources) == dict(inputs.model_sources)
         observed.append(target_metadata)
 
-    monkeypatch.setattr(native_generation, "render_target_installation", inspect)
+    monkeypatch.setattr(target_installation, "render_target_installation", inspect)
     monkeypatch.setattr(pdf_domain, "pdf_domain_sources", prepare)
     monkeypatch.setattr(native_program_store, "capture_generator_custody", custody)
     native_generation._render_captured(inputs)
@@ -213,7 +218,7 @@ def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeyp
 
 
 def test_program_artifact_hit_never_enters_pdf_preparation(program_capture, monkeypatch):
-    from corpus_structure.semantic import native_generation, native_program_store, pdf_domain
+    from corpus_structure.semantic import native_generation, native_program_store, native_rendering, pdf_domain
     from corpus_structure.semantic.metadata import get_metadata
 
     inputs = native_generation.capture_generator_inputs(get_metadata())
@@ -227,7 +232,7 @@ def test_program_artifact_hit_never_enters_pdf_preparation(program_capture, monk
         native_program_store, "load_installation", lambda *args, **kwargs: program_capture
     )
     monkeypatch.setattr(pdf_domain, "pdf_domain_sources", unexpected)
-    monkeypatch.setattr(native_generation, "render_target_installation", unexpected)
+    monkeypatch.setattr(native_rendering, "render_captured", unexpected)
     assert native_generation._held_target_installation.loader(inputs) is program_capture
 
 

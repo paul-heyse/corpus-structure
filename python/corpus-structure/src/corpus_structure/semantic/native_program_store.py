@@ -105,6 +105,7 @@ def _analyze_generator_code():
         root,
         ("corpus_structure.semantic.target_installation",),
         callables=(
+            "corpus_structure.semantic.native_rendering.render_captured",
             "corpus_structure.model.compiled.CompiledModel.__init__",
             "corpus_structure.model.compiled.CompiledModel.exact_physical",
             "corpus_structure.model.compiled.model_request_scope",

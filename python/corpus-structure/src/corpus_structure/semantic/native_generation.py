@@ -10,7 +10,6 @@ from .target_installation import (
     NativeGeneratorInputs,
     TargetInstallation,
     capture_trigger_inputs,
-    render_target_installation,
 )
 from .types import SourceArtifact
 
@@ -32,22 +31,12 @@ class _GenerationFailure:
 
 
 def _render_captured(inputs: NativeGeneratorInputs) -> TargetInstallation:
-    """Prepare captured interpretations before entering the deterministic renderer."""
-    from corpus_structure.model.compiled import CompiledModel, model_request_scope
-
+    """Authenticate all preparation and rendering under the same captured custody."""
     from .native_program_store import capture_generator_custody
-    from .pdf_domain import prepare_native_pdf_sources
+    from .native_rendering import render_captured
 
-    model = CompiledModel(inputs.model_sources)
-    with model_request_scope(model):
-        owned = model.exact_physical(
-            dict(inputs.physical_sources), linkml_types=inputs.linkml_types
-        )
-        with capture_generator_custody(inputs.code_identity, closed=True):
-            pdf_sources = prepare_native_pdf_sources(inputs)
-            return render_target_installation(
-                inputs, target_metadata=owned, pdf_sources=pdf_sources
-            )
+    with capture_generator_custody(inputs.code_identity, closed=True):
+        return render_captured(inputs)
 
 
 @declare("native-installation", "program_sets", key=_installation_key)
