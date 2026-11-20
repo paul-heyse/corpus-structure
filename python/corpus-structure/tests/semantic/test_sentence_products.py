@@ -635,7 +635,9 @@ def test_prepared_canonical_full_source_digest_accepts_authenticated_required_su
     assert {source.module for source in port.sources.sources} == {
         "corpus_structure.semantic.sentence_products",
         "corpus_structure.methods.sentence_evidence",
+        "corpus_structure.semantic.input_values",
         "corpus_structure.semantic.canonical_sentences",
+        "corpus_structure.semantic.data_operation_ports",
         "corpus_structure.methods.canonical_sentences",
         "extra_original",
     }

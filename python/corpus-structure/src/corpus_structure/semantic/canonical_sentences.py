@@ -232,6 +232,11 @@ def canonical_sentence_operation_sources(*, sentence_configuration=None, include
                 str(Path(__file__)),
             ),
             PythonSource(
+                "corpus_structure.semantic.data_operation_ports",
+                Path(__file__).with_name("data_operation_ports.py").read_bytes(),
+                str(Path(__file__).with_name("data_operation_ports.py")),
+            ),
+            PythonSource(
                 "corpus_structure.methods.canonical_sentences", path.read_bytes(), str(path)
             ),
         ),
