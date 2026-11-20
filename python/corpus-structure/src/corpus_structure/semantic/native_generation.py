@@ -30,13 +30,25 @@ class _GenerationFailure:
     error: Exception
 
 
+def _render_captured(inputs: NativeGeneratorInputs) -> TargetInstallation:
+    """Prepare model interpretation before entering the deterministic renderer."""
+    from corpus_structure.model.compiled import compiled_model, model_request_scope
+    from corpus_structure.schema.physical import compile_physical
+
+    from .native_program_store import capture_generator_custody
+
+    with model_request_scope(compiled_model(dict(inputs.model_sources))):
+        owned = compile_physical(dict(inputs.physical_sources), linkml_types=inputs.linkml_types)
+        with capture_generator_custody(inputs.code_identity, closed=True):
+            return render_target_installation(inputs, target_metadata=owned)
+
+
 @declare("native-installation", "program_sets", key=_installation_key)
 def _held_target_installation(inputs: NativeGeneratorInputs):
     from .code_reuse import record_code_reuse
 
     try:
         from .native_program_store import (
-            capture_generator_custody,
             input_key,
             load_installation,
             save_installation,
@@ -60,8 +72,7 @@ def _held_target_installation(inputs: NativeGeneratorInputs):
                 outcome="reused",
             )
             return retained
-        with capture_generator_custody(inputs.code_identity, closed=True):
-            result = render_target_installation(inputs)
+        result = _render_captured(inputs)
         if key is not None:
             save_installation(key, result)
         record_code_reuse(
@@ -152,7 +163,7 @@ def capture_target_installation(
         outcome="unknown" if inputs.complete else "withheld",
     )
     if not inputs.complete:
-        return render_target_installation(inputs)
+        return _render_captured(inputs)
     with capture_generator_custody(inputs.code_identity):
         result = _held_target_installation(inputs)
     if isinstance(result, _GenerationFailure):

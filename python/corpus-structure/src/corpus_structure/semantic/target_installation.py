@@ -10,11 +10,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
-from sqlalchemy import MetaData
-
 from .types import SourceArtifact
 
 if TYPE_CHECKING:
+    from sqlalchemy import MetaData
+
     from .code_identity import CodeIdentity
     from .native_objects import NativeDefinition
     from .native_products import NativeAuthoringInputs
@@ -134,13 +134,11 @@ def capture_target_installation(
     )
 
 
-def render_target_installation(inputs: NativeGeneratorInputs) -> TargetInstallation:
-    from corpus_structure.model.compiled import compiled_model, model_request_scope
-    from corpus_structure.schema.physical import compile_physical
-
-    with model_request_scope(compiled_model(dict(inputs.model_sources))):
-        owned = compile_physical(dict(inputs.physical_sources), linkml_types=inputs.linkml_types)
-        return _build_target_installation(owned, inputs)
+def render_target_installation(
+    inputs: NativeGeneratorInputs, *, target_metadata: MetaData
+) -> TargetInstallation:
+    """Render against the physical interpretation acquired from the captured inputs."""
+    return _build_target_installation(target_metadata, inputs)
 
 
 def captured_source(inputs, filename: str) -> bytes:

@@ -139,6 +139,33 @@ def test_program_store_miss_does_not_compile_physical_inputs(tmp_path, monkeypat
     assert missing is None
 
 
+def test_renderer_receives_the_captured_interpretation_after_acquisition(monkeypatch):
+    from corpus_structure.model.compiled import running_model
+    from corpus_structure.schema.physical import compile_physical
+    from corpus_structure.semantic import native_generation
+    from corpus_structure.semantic.metadata import get_metadata
+
+    current = get_metadata()
+    selected = compile_physical(
+        dict(current.info["physical_sources"]),
+        linkml_types=current.info["physical_linkml_types"],
+    )
+    inputs = native_generation.capture_generator_inputs(selected)
+    observed = []
+
+    def inspect(captured, *, target_metadata):
+        assert captured is inputs
+        assert target_metadata is selected
+        assert target_metadata.info["physical_sources"] == dict(inputs.physical_sources)
+        assert target_metadata.info["physical_linkml_types"] == inputs.linkml_types
+        assert dict(running_model().sources) == dict(inputs.model_sources)
+        observed.append(target_metadata)
+
+    monkeypatch.setattr(native_generation, "render_target_installation", inspect)
+    native_generation._render_captured(inputs)
+    assert len(observed) == 1
+
+
 @pytest.mark.skipif(
     os.environ.get("CORPUS_RUN_UDM_D2") != "1",
     reason="actual D2 qualification requires complete authenticated generator identity",
