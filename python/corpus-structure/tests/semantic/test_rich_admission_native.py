@@ -140,7 +140,36 @@ def test_rich_private_helpers_compile_without_grants_or_authority_for_unrelated_
     rich_guard_connection,
 ):
     connection = rich_guard_connection
-    request = json.dumps({"operation_id": "unrelated", "project_id": "project:actual"})
+    connection.execute(
+        table("sem.data_operation_definition")
+        .insert()
+        .values(
+            release_id="release:controlled",
+            operation_id="unrelated",
+            subject_definition="knowledge-universe",
+            recipe="recipe:controlled",
+            profile="command",
+            implementation_revision="implementation-slice:controlled",
+            input_roles=[],
+            output_roles=[],
+            parameter_definitions={},
+            support_contract={"effects": []},
+            validity_families=[],
+            validity_conservative=False,
+            binding_expression={"operator": "all", "children": []},
+            definition_identity="definition:controlled",
+            eligibility_identity="eligibility:controlled",
+            quantified=False,
+            dependencies=[],
+        )
+    )
+    request = json.dumps(
+        {
+            "release_id": "release:controlled",
+            "operation_id": "unrelated",
+            "project_id": "project:actual",
+        }
+    )
     connection.execute(
         text(
             "SELECT ops.ddo_require_rich_admission_completion(jsonb_populate_record(NULL::ops.data_request,CAST(:r AS jsonb)),'{}'::jsonb)"
@@ -183,7 +212,10 @@ def test_rich_command_name_without_real_factory_cpu_and_effect_is_refused(rich_g
             implementation_revision="implementation-slice:controlled",
             input_roles=[],
             output_roles=[],
+            parameter_definitions={},
             support_contract={"effects": [{"name": "native-rich-knowledge-admission"}]},
+            validity_families=["rich"],
+            validity_conservative=False,
             binding_expression={"operator": "all", "children": []},
             definition_identity="definition:controlled",
             eligibility_identity="eligibility:controlled",
@@ -229,7 +261,10 @@ def test_private_rich_name_does_not_grant_computed_authority(rich_guard_connecti
             implementation_revision="implementation-slice:controlled",
             input_roles=[],
             output_roles=[],
+            parameter_definitions={},
             support_contract={"effects": []},
+            validity_families=["rich"],
+            validity_conservative=False,
             binding_expression={"operator": "all", "children": []},
             definition_identity="definition:controlled",
             eligibility_identity="eligibility:controlled",
