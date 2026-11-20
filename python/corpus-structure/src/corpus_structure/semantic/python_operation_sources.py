@@ -51,7 +51,18 @@ from .types import Diagnostic, PreparationError, SourceArtifact
 
 _EXACT_BUILTIN_CONSTRUCTORS = frozenset(
     "builtins." + name
-    for name in ("str", "bytes", "int", "float", "bool", "tuple", "list", "dict", "set", "frozenset")
+    for name in (
+        "str",
+        "bytes",
+        "int",
+        "float",
+        "bool",
+        "tuple",
+        "list",
+        "dict",
+        "set",
+        "frozenset",
+    )
 )
 
 # Deliberately bounded static profile. Callback-taking/reflection/code-loading
@@ -1589,10 +1600,15 @@ class ClosedPythonSources:
                 if isinstance(expression, cst.SimpleString):
                     return "value", ("builtins." + type(expression.evaluated_value).__name__,)
                 for syntax, typename in (
-                    (cst.Dict, "dict"), (cst.DictComp, "dict"),
-                    (cst.List, "list"), (cst.ListComp, "list"),
-                    (cst.Tuple, "tuple"), (cst.Set, "set"), (cst.SetComp, "set"),
-                    (cst.Integer, "int"), (cst.Float, "float"),
+                    (cst.Dict, "dict"),
+                    (cst.DictComp, "dict"),
+                    (cst.List, "list"),
+                    (cst.ListComp, "list"),
+                    (cst.Tuple, "tuple"),
+                    (cst.Set, "set"),
+                    (cst.SetComp, "set"),
+                    (cst.Integer, "int"),
+                    (cst.Float, "float"),
                 ):
                     if isinstance(expression, syntax):
                         return "value", ("builtins." + typename,)
@@ -1600,7 +1616,10 @@ class ClosedPythonSources:
                     names = source_module.qualified_names(expression.func)
                     if len(names) == 1:
                         name = next(iter(names))
-                        if name.source == QualifiedNameSource.BUILTIN and name.name in _EXACT_BUILTIN_CONSTRUCTORS:
+                        if (
+                            name.source == QualifiedNameSource.BUILTIN
+                            and name.name in _EXACT_BUILTIN_CONSTRUCTORS
+                        ):
                             return "value", (name.name,)
                 return "unknown", ()
 
@@ -1614,13 +1633,19 @@ class ClosedPythonSources:
                 if target in active or target not in extractor.definitions:
                     return "unknown", ()
                 source, function = extractor.definitions[target]
-                if not isinstance(function, cst.FunctionDef) or function.asynchronous or function.decorators:
+                if (
+                    not isinstance(function, cst.FunctionDef)
+                    or function.asynchronous
+                    or function.decorators
+                ):
                     return "unknown", ()
                 defining_module = extractor.modules[source]
                 parameters = (*function.params.posonly_params, *function.params.params)
                 if len(arguments) > len(parameters):
                     return "unknown", ()
-                bound = dict(zip((parameter.name.value for parameter in parameters), arguments, strict=False))
+                bound = dict(
+                    zip((parameter.name.value for parameter in parameters), arguments, strict=False)
+                )
                 assignments = {}
                 returns = []
                 unsupported = []
@@ -1716,15 +1741,26 @@ class ClosedPythonSources:
                                 return "unknown", ()
                             return result(value, visiting)
                         return bound.get(expression.value, ("unknown", ()))
-                    if isinstance(expression, cst.Call) and isinstance(expression.func, cst.Name) and not any(
-                        argument.star or argument.keyword is not None for argument in expression.args
+                    if (
+                        isinstance(expression, cst.Call)
+                        and isinstance(expression.func, cst.Name)
+                        and not any(
+                            argument.star or argument.keyword is not None
+                            for argument in expression.args
+                        )
                     ):
                         names = defining_module.qualified_names(expression.func)
                         if len(names) != 1:
                             return "unknown", ()
                         name = next(iter(names))
-                        called = name.name if name.source == QualifiedNameSource.IMPORT else source + "." + name.name
-                        values = tuple(result(argument.value, visiting) for argument in expression.args)
+                        called = (
+                            name.name
+                            if name.source == QualifiedNameSource.IMPORT
+                            else source + "." + name.name
+                        )
+                        values = tuple(
+                            result(argument.value, visiting) for argument in expression.args
+                        )
                         return returned_value_binding(called, values, active | {target})
                     return "unknown", ()
 
@@ -1965,16 +2001,27 @@ class ClosedPythonSources:
                     # object. A boundary name nested inside an argument is irrelevant.
                     if kind == "opaque":
                         return "opaque", targets
-                    if kind == "callable" and len(targets) == 1 and isinstance(expression.func, cst.Name) and not any(
-                        argument.star or argument.keyword is not None for argument in expression.args
+                    if (
+                        kind == "callable"
+                        and len(targets) == 1
+                        and isinstance(expression.func, cst.Name)
+                        and not any(
+                            argument.star or argument.keyword is not None
+                            for argument in expression.args
+                        )
                     ):
                         names = module.qualified_names(expression.func)
                         declared = {
-                            name.name if name.source == QualifiedNameSource.IMPORT else module_name + "." + name.name
+                            name.name
+                            if name.source == QualifiedNameSource.IMPORT
+                            else module_name + "." + name.name
                             for name in names
                         }
                         if declared == set(targets):
-                            arguments = tuple(constructed_value_binding(argument.value, module) for argument in expression.args)
+                            arguments = tuple(
+                                constructed_value_binding(argument.value, module)
+                                for argument in expression.args
+                            )
                             return returned_value_binding(targets[0], arguments, frozenset())
                     return ("value", targets) if kind == "value-callable" else ("unknown", ())
                 if isinstance(expression, cst.SimpleString):

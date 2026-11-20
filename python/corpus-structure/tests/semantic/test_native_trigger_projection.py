@@ -82,20 +82,102 @@ def observed(inputs):
 def test_captured_trigger_policy_has_independent_expected_inventory(physical_target):
     inputs = capture_trigger_inputs(physical_target)
     assert observed(inputs) == [
-        ("ops", "task", "zz_execution_task", ("ops", "guard_execution_task"), 20, True, "trigger_publisher"),
-        ("ops", "archive", "semantic_immutable", ("sem", "refuse_immutable_mutation"), 56, False, "trigger_publisher"),
-        ("ops", "archive", "ddo_read_frontier_guard", ("ops", "ddo_refuse_post_acquisition_graph_write"), 60, False, "trigger_publisher"),
-        ("ops", "archive", "finalized_release", ("sem", "guard_finalized_insert"), 4, True, "trigger_publisher"),
-        ("ops", "intrinsic", "semantic_immutable", ("sem", "refuse_immutable_mutation"), 56, False, "trigger_publisher"),
-        ("ops", "pending_child", "pdf_shared_content_mutation", ("ops", "pdf_shared_stream_mutation_guard"), 28, True, "trigger_publisher"),
-        ("ops", "pending_child", "pdf_shared_content_truncate", ("ops", "pdf_shared_stream_mutation_guard"), 32, False, "trigger_publisher"),
-        ("ops", "pending_parent", "pdf_shared_content_mutation", ("ops", "pdf_shared_stream_mutation_guard"), 24, True, "trigger_publisher"),
-        ("ops", "pending_parent", "pdf_shared_content_truncate", ("ops", "pdf_shared_stream_mutation_guard"), 32, False, "trigger_publisher"),
-        ("sem", "physical_contract", "semantic_immutable", ("sem", "refuse_immutable_mutation"), 56, False, "trigger_publisher"),
+        (
+            "ops",
+            "task",
+            "zz_execution_task",
+            ("ops", "guard_execution_task"),
+            20,
+            True,
+            "trigger_publisher",
+        ),
+        (
+            "ops",
+            "archive",
+            "semantic_immutable",
+            ("sem", "refuse_immutable_mutation"),
+            56,
+            False,
+            "trigger_publisher",
+        ),
+        (
+            "ops",
+            "archive",
+            "ddo_read_frontier_guard",
+            ("ops", "ddo_refuse_post_acquisition_graph_write"),
+            60,
+            False,
+            "trigger_publisher",
+        ),
+        (
+            "ops",
+            "archive",
+            "finalized_release",
+            ("sem", "guard_finalized_insert"),
+            4,
+            True,
+            "trigger_publisher",
+        ),
+        (
+            "ops",
+            "intrinsic",
+            "semantic_immutable",
+            ("sem", "refuse_immutable_mutation"),
+            56,
+            False,
+            "trigger_publisher",
+        ),
+        (
+            "ops",
+            "pending_child",
+            "pdf_shared_content_mutation",
+            ("ops", "pdf_shared_stream_mutation_guard"),
+            28,
+            True,
+            "trigger_publisher",
+        ),
+        (
+            "ops",
+            "pending_child",
+            "pdf_shared_content_truncate",
+            ("ops", "pdf_shared_stream_mutation_guard"),
+            32,
+            False,
+            "trigger_publisher",
+        ),
+        (
+            "ops",
+            "pending_parent",
+            "pdf_shared_content_mutation",
+            ("ops", "pdf_shared_stream_mutation_guard"),
+            24,
+            True,
+            "trigger_publisher",
+        ),
+        (
+            "ops",
+            "pending_parent",
+            "pdf_shared_content_truncate",
+            ("ops", "pdf_shared_stream_mutation_guard"),
+            32,
+            False,
+            "trigger_publisher",
+        ),
+        (
+            "sem",
+            "physical_contract",
+            "semantic_immutable",
+            ("sem", "refuse_immutable_mutation"),
+            56,
+            False,
+            "trigger_publisher",
+        ),
     ]
     assert all(isinstance(row.relation, NativeIdentity) for row in inputs.relations)
     assert all(row.relation.name != "unrelated" for row in inputs.relations)
-    assert all(isinstance(item.body, ast.CreateTrigStmt) for item in target_trigger_programs(inputs))
+    assert all(
+        isinstance(item.body, ast.CreateTrigStmt) for item in target_trigger_programs(inputs)
+    )
 
 
 def test_trigger_rendering_uses_only_the_immutable_acquired_values(physical_target):

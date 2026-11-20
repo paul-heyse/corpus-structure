@@ -390,38 +390,54 @@ def test_nominal_value_handoff_requires_exact_shared_revisioned_boundary(
         assert any("escape" in unknown.reason for unknown in result.unknowns)
 
 
-@pytest.mark.parametrize("factory", ["return {}", "value = dict()\n    return value", "value = {}\n    if flag:\n        return value\n    return value"])
+@pytest.mark.parametrize(
+    "factory",
+    [
+        "return {}",
+        "value = dict()\n    return value",
+        "value = {}\n    if flag:\n        return value\n    return value",
+    ],
+)
 def test_captured_constructor_results_supply_exact_value_provenance(factory):
-    code = "def create(flag):\n    " + factory + "\ndef run():\n    return create(False).get('answer')\n"
+    code = (
+        "def create(flag):\n    "
+        + factory
+        + "\ndef run():\n    return create(False).get('answer')\n"
+    )
     result = implementation(code, inputs=())
     assert result.complete, result.unknowns
 
 
 def test_captured_return_correspondence_uses_actual_argument_value():
     result = implementation(
-        "def same(value):\n    return value\n"
-        "def run():\n    return same({}).get('answer')\n", inputs=()
+        "def same(value):\n    return value\ndef run():\n    return same({}).get('answer')\n",
+        inputs=(),
     )
     assert result.complete, result.unknowns
 
 
-@pytest.mark.parametrize("factory", [
-    "def create(value) -> dict:\n    return value\n",
-    "def create(value):\n    result = {}\n    for result in value:\n        pass\n    return result\n",
-    "def create(value):\n    if value:\n        return {}\n",
-    "def create(value):\n    yield {}\n",
-    "def create(value):\n    result = {}\n    result = value\n    return result\n",
-    "def create(value):\n    if value:\n        value = []\n    return value\n",
-    "def create(value):\n    return value\n    value = {}\n",
-    "def create(value):\n    result = {}\n    def result():\n        return 1\n    return result\n",
-    "def create(value):\n    result = {}\n    with value as result:\n        pass\n    return result\n",
-    "def create(value):\n    result = {}\n    try:\n        value()\n    except ValueError as result:\n        pass\n    return result\n",
-    "def create(value):\n    result = {}\n    match value:\n        case result:\n            pass\n    return result\n",
-    "def create(value):\n    result = {}\n    import math as result\n    return result\n",
-    "def create(value):\n    result = {}\n    def change():\n        nonlocal result\n        result = value\n    change()\n    return result\n",
-])
+@pytest.mark.parametrize(
+    "factory",
+    [
+        "def create(value) -> dict:\n    return value\n",
+        "def create(value):\n    result = {}\n    for result in value:\n        pass\n    return result\n",
+        "def create(value):\n    if value:\n        return {}\n",
+        "def create(value):\n    yield {}\n",
+        "def create(value):\n    result = {}\n    result = value\n    return result\n",
+        "def create(value):\n    if value:\n        value = []\n    return value\n",
+        "def create(value):\n    return value\n    value = {}\n",
+        "def create(value):\n    result = {}\n    def result():\n        return 1\n    return result\n",
+        "def create(value):\n    result = {}\n    with value as result:\n        pass\n    return result\n",
+        "def create(value):\n    result = {}\n    try:\n        value()\n    except ValueError as result:\n        pass\n    return result\n",
+        "def create(value):\n    result = {}\n    match value:\n        case result:\n            pass\n    return result\n",
+        "def create(value):\n    result = {}\n    import math as result\n    return result\n",
+        "def create(value):\n    result = {}\n    def change():\n        nonlocal result\n        result = value\n    change()\n    return result\n",
+    ],
+)
 def test_unproved_return_values_cannot_inherit_declared_dictionary_behavior(factory):
-    result = implementation(factory + "def run(value):\n    return create(value).get('answer')\n", inputs=())
+    result = implementation(
+        factory + "def run(value):\n    return create(value).get('answer')\n", inputs=()
+    )
     assert not result.complete
     assert any("create(value).get" in item.reason for item in result.unknowns)
 
@@ -429,8 +445,7 @@ def test_unproved_return_values_cannot_inherit_declared_dictionary_behavior(fact
 @pytest.mark.parametrize("expression", ["b'owned'.encode()", "create().encode()"])
 def test_bytes_literals_and_constructed_results_keep_bytes_methods(expression):
     result = implementation(
-        "def create():\n    return b'owned'\n"
-        "def run():\n    return " + expression + "\n", inputs=()
+        "def create():\n    return b'owned'\ndef run():\n    return " + expression + "\n", inputs=()
     )
     assert not result.complete
     assert any("attribute access" in item.reason for item in result.unknowns)
@@ -440,7 +455,8 @@ def test_bytes_literals_and_constructed_results_keep_bytes_methods(expression):
 def test_return_proof_does_not_promote_annotated_parameters(value_type):
     result = implementation(
         "def same(value):\n    return value\n"
-        "def run(value: " + value_type + "):\n    return same(value).copy()\n", inputs=()
+        "def run(value: " + value_type + "):\n    return same(value).copy()\n",
+        inputs=(),
     )
     assert not result.complete
     assert any("same(value).copy" in item.reason for item in result.unknowns)
@@ -449,7 +465,8 @@ def test_return_proof_does_not_promote_annotated_parameters(value_type):
 def test_bound_method_does_not_reinterpret_its_implicit_receiver_as_an_argument():
     result = implementation(
         "class Item:\n    def make(self, value):\n        return self\n"
-        "def run(item: Item):\n    return item.make({}).get('answer')\n", inputs=()
+        "def run(item: Item):\n    return item.make({}).get('answer')\n",
+        inputs=(),
     )
     assert not result.complete
     assert any("item.make({}).get" in item.reason for item in result.unknowns)
@@ -459,7 +476,8 @@ def test_decorated_function_cannot_inherit_its_source_body_return_profile():
     result = implementation(
         "def alter(function):\n    return function\n"
         "@alter\ndef make():\n    return {}\n"
-        "def run():\n    return make().get('answer')\n", inputs=()
+        "def run():\n    return make().get('answer')\n",
+        inputs=(),
     )
     assert not result.complete
     assert any("make().get" in item.reason for item in result.unknowns)
