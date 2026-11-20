@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "id": "udm27.resume-expired-capture-lease",
+  "title": "Exact N36 capture resumes after the failed stop lease expires",
+  "group": null,
+  "package": "UDM-27",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can the bounded capture recover the same native demand after the failed stop lease expires?",
+  "answers": [
+    "UDM-27",
+    "T22"
+  ],
+  "method": "Confirm the stopped capture's exact worker has exited and the original lease expired. Resume by managed result, verify native lease and attempt standing, then repeat the same resulting demand unchanged.",
+  "commands": [
+    "ci run resume --result 084217ccbe14425a81c83cd843dd7143 --json",
+    "ci run resume --result ebe0b47d160f4ac78359b47051e15df0 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/native-expired-lease.json",
+      "role": "pre-resume-native-lease-census",
+      "sha256": "04a58f34ecae35a2bf060b5b74cae295e04eadbc10fd5dfb31c02e5547e9b492"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/resume.json",
+      "role": "managed-exact-recovery",
+      "sha256": "90584511d4bc6128600aeabddafd6009d4969ade3c94015dee0f084509add521"
+    },
+    {
+      "path": "raw/resume-task-readback.json",
+      "role": "independent-task-and-lease-readback",
+      "sha256": "af5b7ab232aa81ca391a2ccd2578e95f9b03902f121505fc9d56c93fcb6b4e75"
+    },
+    {
+      "path": "raw/repeat.json",
+      "role": "unchanged-managed-repeat",
+      "sha256": "ad1c447f33b762db390cc37545d3b5aa62412bb5063bae54e5445ec0cc4cf65c"
+    }
+  ],
+  "depends_on": [
+    "2026-11-20_udm27-managed-stop/udm27.actual-capture-stop"
+  ],
+  "results": [
+    {
+      "name": "resumed_receipts",
+      "value": 3,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "live_native_leases",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "unchanged_repeat_receipts",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "After expiry the same demand published three source results. The original capture task completed at attempt two and all three leases cleared. The unchanged repeat produced zero new receipts.",
+  "consumed_by": [
+    "UDM-27",
+    "UDM-23"
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "id": "udm27.repaired-actual-stop",
+  "title": "Corrected N36 managed stop joins an active CUDA capture and releases its lease",
+  "group": null,
+  "package": "UDM-27",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Does the repaired managed stop retire actual CUDA work and release its native lease immediately?",
+  "answers": [
+    "T22"
+  ],
+  "method": "Reprepare the N36 registered release against the corrected transport source. Start the bounded capture, detect CUDA utilization on its owned descendant, issue exact managed stop twice, and independently inspect physical and native lease custody.",
+  "commands": [
+    "ci ingest --source-root SOURCE_ROOT --request REQUEST --execution-policy POLICY --json",
+    "ci results stop ddaaf6e8c03946b3bca4cf5b9970300e --reason 'UDM-27 actual capture retirement proof' --json",
+    "ci results inspect ddaaf6e8c03946b3bca4cf5b9970300e --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/repaired/original.json",
+      "role": "exact-registered-excerpt",
+      "sha256": "a329148c601868db97f1560359281c1ca5d29cf4fc93675f545f80eaf5a3aa0a"
+    },
+    {
+      "path": "raw/repaired/request.json",
+      "role": "corrected-stage-request",
+      "sha256": "23ced1679f278bc5a5bcf5c2670a738cde1acdcfd3a6a3d821d95a50bce16ee3"
+    },
+    {
+      "path": "raw/repaired/reprepare.json",
+      "role": "corrected-release-and-runtime-binding",
+      "sha256": "4f2bb79f85f6c7848b2bc45da15720caaf47d95c38ffe331037485dcc0b802c3"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/repaired/cuda-at-stop.json",
+      "role": "owned-in-flight-cuda-proof",
+      "sha256": "aa8fcb5b1b599a6f0404b543383b4669a1354204b60a8b7dc0c256bfc007e11a"
+    },
+    {
+      "path": "raw/repaired/stop-repeat.json",
+      "role": "second-managed-stop-observation",
+      "sha256": "ce79bc8a610dbfe63875a02e18391a2be020f96cdd14576aa484d9f2365e5cc8"
+    },
+    {
+      "path": "raw/repaired/settled.json",
+      "role": "managed-retirement-and-journal",
+      "sha256": "d4054b60ffbdfcc10e063ed1c7502a8d09a84698912a23a1f8032b43dbb244b5"
+    },
+    {
+      "path": "raw/repaired/retirement.json",
+      "role": "independent-worker-and-gpu-readback",
+      "sha256": "a33fa642d18617679e0d044d91117ecc009486407fa1a3e2963319d1ae8797e6"
+    },
+    {
+      "path": "raw/repaired/native-after-stop.json",
+      "role": "native-lease-readback-before-resume",
+      "sha256": "89ae09dc1cc69243adea01f6aba3f954d927a57d60066af6e036cfa3bba33eaa"
+    }
+  ],
+  "depends_on": [
+    "2026-11-20_udm27-managed-stop/udm27.actual-capture-stop"
+  ],
+  "results": [
+    {
+      "name": "observed_cuda_workers",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "remaining_observed_cuda_workers",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "live_native_leases_after_stop",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The exact managed CUDA capture settled interrupted with confirmed retirement. The owned process and GPU allocation cleared, and independent native readback found the capture task pending without a lease before any retry.",
+  "consumed_by": [
+    "UDM-27",
+    "UDM-22",
+    "UDM-23"
+  ]
+}

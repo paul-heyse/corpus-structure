@@ -904,6 +904,34 @@ generation. Each is dated and names the commit and native revision it was observ
 
 ## UDM-22 — The managed union on final source
 
+**Bounded provider evidence, 2026-11-20 UTC.** The actual CUDA GLiNER
+production pack tests and the actual HanLP, Maverick and DiPO native
+publication and exact-resume test passed in a ten-case managed selection
+(`24dcecbab46c435f865578ab7c8eefd8`). Its GLiNER definition case reached
+native publication and then tried to inspect the retired task `run_id`
+column. The retry passed the definition case using the native request and
+generation (`386a8512dff148fc867fc0cf94ff8057`).
+The earlier N35 one-page Nemotron receipt retains its original scope.
+
+The CPU E5 and Qwen encoder panel passed its two cases
+(`05db4889f63e4361a4522d6099372204`). The three actual E5 selected-context
+cases reached native retrieval preparation after the test source paths were
+repaired. The installed guard refused the retained query and inventory
+producers under the retrieval family (`1ba7efc4d2a4407b92b4f5251927289c`).
+They require the admitted frozen-source role contract while local producer
+checks and common publication proof remain enforced.
+The typed guard repair passed 19 focused PostgreSQL controls
+(`38a3cef5842f4840bd7a90c60b2f1d2e`), including exact named-source refusal,
+generated routine checks and no-encoder composition. Actual E5 retrieval
+still requires the installed successor and fresh provider receipts.
+
+The Lark grammar, formal product and construction selection accounted for
+295 passed identities across its original run and exact retry
+(`5f8b8ca73e9a4876bbcf14c593d21e3b`, `350bed8fbae145aba761f8796df1deb4`).
+The sole original failure expected a superseded message for the same
+rejection of a replaced callable. These scoped provider and grammar
+observations precede the final-source union.
+
 **Vision.** Once every functional package is implemented and the last native revision is
 deployed to stage, the package freezes the source at a named commit and runs the whole
 qualification union there: every carried and restated obligation above except those belonging to
@@ -1160,5 +1188,5 @@ only when both accounts are on the same commit.
 |---|---|
 | UDM-20 | Complete for the bounded stage. N36 passed 60- and 66-page regional settlement, complete-family composition, and actual two-region withholding and refill. The cancelled N35 demand and unpublished draft retain their recorded custody. [Diagnosis and evidence](#retained-book-diagnosis) |
 | UDM-21 | Complete. Original custody, exact intent reconciliation and book generation 5 at N29 verified. The actual one-page Integrated provider run and launcher restoration passed on N35. |
-| UDM-22 | `not_run` for the final union. Bounded stage confirmation passed. Final qualification awaits complete D2, T4 and T14 workload custody and actual managed stop qualification. |
+| UDM-22 | `not_run` for the final union. Bounded stage confirmation and actual CUDA stop passed. Final qualification awaits complete D2, T4 and T14 workload custody and the remaining exact provider receipts. |
 | UDM-23 | `not_run`. The second canonical adoption and whole-book run await UDM-22. |

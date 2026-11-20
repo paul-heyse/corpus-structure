@@ -399,6 +399,20 @@ stop, stale owner, terminal outcome and unresolved retirement have separate resp
 owning checks establish these bounded behaviors. Actual-provider drain and repeat across the
 exact recovered book demand remain in UDM-22 and UDM-23.
 
+**Tested, 2026-11-20 UTC.** A managed N36 Standard capture was stopped during
+observed CUDA compute. It reported `stop_requested` and `draining`, then an
+unconfirmed transport-thread retirement. The worker exited and GPU
+allocation cleared. A fresh native read still showed a live lease on the
+exact attempt. The result retains unresolved custody, and the UDM-27
+follow-up must verify join and lease release together. [Actual stop evidence](../../design_review/evidence/2026-11-20_udm27-managed-stop/README.md)
+
+With the transport repair and a freshly admitted N36 runtime, the live
+capture stopped while its owned CUDA worker was active. The exact result
+`ddaaf6e8c03946b3bca4cf5b9970300e` settled interrupted with
+`confirmed_retirement`. The worker, GPU allocation and native task lease
+were clear at independent readback. The shared native interest control also
+passed under the existing exact request identity.
+
 An actual stage invocation used `ci run resume --result` and reacquired the original demand after
 its Docling capture had already published (`a725a0505d5a455a8fd7f78386805186`). The organizer
 subsequently refused stale runtime custody. While that invocation was active, the installed

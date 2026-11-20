@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "id": "udm27.actual-capture-stop",
+  "title": "Actual CUDA capture exposes incomplete managed retirement",
+  "group": null,
+  "package": "UDM-27",
+  "finalized": "2026-11-19",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can managed stop drain and authenticate retirement after actual capture activity?",
+  "answers": [
+    "T22"
+  ],
+  "method": "Run the exact N36 managed Standard capture. Detect CUDA utilization on an owned descendant, issue managed stop twice, read the terminal state, and inspect the worker, GPU allocation and native task lease independently.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-20_udm27-managed-stop/stop_capture.py",
+    "uv run python docs/design_review/evidence/2026-11-20_udm27-managed-stop/readback.py settled.json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "raw/original.json",
+      "role": "exact-excerpt-descriptor",
+      "sha256": "cea263c081835b25c49d28600e6625338dde52bec850ded99f9d3bc01301faf0"
+    },
+    {
+      "path": "raw/request.json",
+      "role": "exact-stage-request",
+      "sha256": "0a170d8df620ee714d70316340395815f2ea15baf73fb8cff565eb92827ab227"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/cuda-at-stop.json",
+      "role": "managed-capture-child-cuda-utilization",
+      "sha256": "60aa20c53a4d87dccaf276bd45ad95a4bf5d7abf529f29f4e834282d313ad745"
+    },
+    {
+      "path": "raw/stop-request.json",
+      "role": "first-managed-stop",
+      "sha256": "54719050d089a93d4dc16b82f2914ed9133fb03025a7440691e6dd41a38755ba"
+    },
+    {
+      "path": "raw/stop-repeat.json",
+      "role": "repeated-managed-stop",
+      "sha256": "7bc26a4df8f58dd2f284c088f62317ea738f140d4b7a87dafeb64a0a4caff2c2"
+    },
+    {
+      "path": "raw/settled.json",
+      "role": "managed-custody-and-journal",
+      "sha256": "e763a3f90b9cafd25796d0ed7a539de2d2d60128e0eba193df73509c65aff8f1"
+    },
+    {
+      "path": "raw/retirement.json",
+      "role": "independent-process-and-gpu-readback",
+      "sha256": "42aab15d940e8f045d26d959c4153a3e548fa5507523e3c67724710ac050d4e6"
+    },
+    {
+      "path": "raw/native-leases.json",
+      "role": "independent-native-lease-readback",
+      "sha256": "311179b27f496e6f8be8e1bdb5b72d4b01f65f1772a9d8656e878a9aaf89850f"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "observed_cuda_workers",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "remaining_observed_cuda_workers",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "live_native_leases_after_process_exit",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "failed",
+  "conclusion": "The dedicated CUDA worker was active. Managed stop requested and drained, but bounded transport-thread join failed and managed custody remained unresolved. The CUDA process and allocation subsequently disappeared. The native attempt still had a live lease at readback.",
+  "consumed_by": [
+    "UDM-27",
+    "UDM-22",
+    "UDM-23"
+  ]
+}
