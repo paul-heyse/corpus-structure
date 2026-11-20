@@ -17,13 +17,16 @@ from semantic.current_pdf_source_support import (
     published_pdf_source_factory as published_pdf_source_factory,
 )
 from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from corpus_structure.core.method import MethodSettings
 from corpus_structure.ingest.sentences import SentenceConfig
+from corpus_structure.semantic.data_operation_execution_evidence import NativeExecutionEvidence
+from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_service import execute_data_demand, read_data_demand
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.hanlp_products import prepare_hanlp_selection
+from corpus_structure.semantic.metadata import table
 from corpus_structure.semantic.primary_operations import primary_operation_inputs
 from corpus_structure.semantic.regeneration import DOMAINS, acquire_pack
 
@@ -170,7 +173,42 @@ def test_two_language_regions_use_native_source_demand_and_exact_resume(
         database_capacity=6,
     )
     assert resumed.demand_id == result.demand_id and resumed.receipt_count == 0
-    assert result.receipts and all(json.loads(value)["physical"] for value in result.receipts)
+    published = {json.loads(value)["derivation_id"] for value in result.receipts}
+    assert published and published <= {use["derivation_id"] for use in snapshot["uses"]}
+    hanlp_obligations = {
+        item["obligation_id"]
+        for item in snapshot["obligations"]
+        if item["operation_id"] == "text.hanlp_native/source-native"
+    }
+    hanlp_episodes = {
+        use["derivation_id"]
+        for use in snapshot["uses"]
+        if use["obligation_id"] in hanlp_obligations
+    }
+    assert len(hanlp_episodes) == 2 and hanlp_episodes <= published
+    episodes = table("ops.data_derivation")
+    intents = table("ops.data_completion_intent")
+    with clone.admin.connect() as connection:
+        retained = connection.execute(
+            select(episodes.c.id, episodes.c.request_id, intents.c.payload["execution_evidence"])
+            .select_from(episodes.join(intents, intents.c.id == episodes.c.intent_id))
+            .where(episodes.c.id.in_(hanlp_episodes))
+        ).all()
+    assert {episode for episode, _, _ in retained} == hanlp_episodes
+    for _, request_id, payload in retained:
+        evidence = NativeExecutionEvidence.model_validate_json(json_bytes(payload))
+        assert evidence.request_id == request_id
+        # This ordinary HanLP port retains direct native-host exchanges, rather
+        # than learned-primary cohort/scatter provider receipts.
+        assert evidence.host_receipts
+        assert {receipt.provider for receipt in evidence.host_receipts} == {"hanlp"}
+        assert all(
+            receipt.input_digest
+            and receipt.output_digest
+            and receipt.host_generation
+            and receipt.profile
+            for receipt in evidence.host_receipts
+        )
 
 
 @pytest.mark.gpu

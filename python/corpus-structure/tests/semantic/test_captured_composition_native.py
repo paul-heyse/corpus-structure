@@ -47,7 +47,9 @@ def test_composition_closes_its_coordinate_ordering_dependency(captured):
     from corpus_structure.semantic.python_operation_sources import ClosedPythonSources
 
     source_factory = (
-        captured_document_view_operation_sources if captured else full_document_view_operation_sources
+        captured_document_view_operation_sources
+        if captured
+        else full_document_view_operation_sources
     )
     sources = source_factory(include_dependencies=False)
     assert any(
@@ -58,7 +60,11 @@ def test_composition_closes_its_coordinate_ordering_dependency(captured):
         operation
         for operation in ClosedPythonSources(sources).operations()
         if json.loads(operation.metadata).get("id")
-        == ("text.compose_view/captured-full-native" if captured else "text.compose_view/full-native")
+        == (
+            "text.compose_view/captured-full-native"
+            if captured
+            else "text.compose_view/full-native"
+        )
     )
     assert composition.implementation.complete, composition.implementation.unknowns
     assert all(
@@ -80,12 +86,24 @@ def test_composition_presents_sets_by_source_coordinate(captured, monkeypatch):
 
     from corpus_structure.methods import full_document_composition
     from corpus_structure.methods.captured_document_composition import ComposeCapturedDocumentFamily
+    from corpus_structure.semantic.enriched_document_products import RetainedCharacterizationProduct
+    from corpus_structure.semantic.source_products import FrozenNativeSource
 
-    first = SimpleNamespace(value={"source": {"section_pointer": "a"}})
-    second = SimpleNamespace(value={"source": {"section_pointer": "b"}})
-    early = SimpleNamespace(content=b'{"source":{"section_pointer":"a"}}', semantic_id="a")
-    late = SimpleNamespace(content=b'{"source":{"section_pointer":"a"}}', semantic_id="z")
-    last = SimpleNamespace(content=b'{"source":{"section_pointer":"b"}}', semantic_id="b")
+    # Only the ordering projection reaches these doubles at the mocked port.
+    first = cast(FrozenNativeSource, SimpleNamespace(value={"source": {"section_pointer": "a"}}))
+    second = cast(FrozenNativeSource, SimpleNamespace(value={"source": {"section_pointer": "b"}}))
+    early = cast(
+        RetainedCharacterizationProduct,
+        SimpleNamespace(content=b'{"source":{"section_pointer":"a"}}', semantic_id="a"),
+    )
+    late = cast(
+        RetainedCharacterizationProduct,
+        SimpleNamespace(content=b'{"source":{"section_pointer":"a"}}', semantic_id="z"),
+    )
+    last = cast(
+        RetainedCharacterizationProduct,
+        SimpleNamespace(content=b'{"source":{"section_pointer":"b"}}', semantic_id="b"),
+    )
     observed = []
 
     def execute(receiver, sources, products, active, profile):
@@ -97,8 +115,10 @@ def test_composition_presents_sets_by_source_coordinate(captured, monkeypatch):
         if captured
         else full_document_composition.ComposeFullDocumentOperation
     )
-    owner.run(object.__new__(owner), (second, first), (last, late, early), (), (), (), (), (), ())
-    assert observed == [((first, second), (early, late, last), (early, late, last), "full_characterization")]
+    object.__new__(owner).run((second, first), (last, late, early), (), (), (), (), (), ())
+    assert observed == [
+        ((first, second), (early, late, last), (early, late, last), "full_characterization")
+    ]
 
 
 def captured_recipe(directory):
