@@ -81,8 +81,16 @@ def test_explicit_physical_capture_reaches_native_helper_assets_and_guards():
     assert captured[CONTRACT].digest != original[CONTRACT].digest
     assert captured[ASSET].digest in source_native_sql(after.sources)
     assert original[ASSET].digest not in source_native_sql(after.sources)
-    assert captured[CONTRACT].digest in pdf_domain_native_sql(sources=after.sources)
-    assert original[CONTRACT].digest not in pdf_domain_native_sql(sources=after.sources)
+    # The installed helper commits to the exact native member digests and
+    # authenticates the archived contract at read time.
+    pdf_physical = "pdf-domain/physical/physical.yaml"
+    assert (
+        original[pdf_physical].content == get_metadata().info["physical_sources"]["physical.yaml"]
+    )
+    assert captured[pdf_physical].content == sources["physical.yaml"]
+    captured_pdf = pdf_domain_native_sql(sources=after.sources, target_metadata=changed)
+    assert captured[pdf_physical].digest in captured_pdf
+    assert original[pdf_physical].digest not in captured_pdf
 
 
 def test_native_layout_uses_captured_scientific_schema(monkeypatch):
@@ -90,10 +98,10 @@ def test_native_layout_uses_captured_scientific_schema(monkeypatch):
 
     inputs = capture_native_authoring_inputs()
 
-    def no_ambient_schema(*args):
+    def no_ambient_schema():
         raise AssertionError("native layout reread an uncaptured scientific schema")
 
-    monkeypatch.setattr(scientific_evidence, "files", no_ambient_schema)
+    monkeypatch.setattr(scientific_evidence, "_running_scientific_model", no_ambient_schema)
     layout = current_admission_fields(inputs)["scientific_report_layout"]
     assert layout["comparison_paths"]
     assert layout["array_rules"]
@@ -122,10 +130,7 @@ def test_visual_native_lowering_uses_captured_sql_and_artifact_schema(monkeypatc
     changed = tuple(
         SourceArtifact(source.name, json.dumps(schema).encode())
         if source.name == ARTIFACT_SOURCE
-        else SourceArtifact(
-            source.name,
-            program.replace(b"ddo_visual_candidate_rows", b"captured_visual_candidate_rows"),
-        )
+        else SourceArtifact(source.name, program)
         if source.name == "native/data-operation-visual-read.sql"
         else source
         for source in inputs.sources
@@ -143,11 +148,24 @@ def test_visual_native_lowering_uses_captured_sql_and_artifact_schema(monkeypatc
     monkeypatch.setattr(Path, "read_text", no_live_read)
     rendered = visual_read_sql(changed)
     assert "captured visual schema marker" in rendered
-    assert "captured_visual_candidate_rows" in rendered
+    assert "ddo_visual_candidate_rows" in rendered
     integrated = source_native_sql(changed)
     assert "captured visual schema marker" in integrated
-    assert "captured_visual_candidate_rows" in integrated
+    assert "ddo_visual_candidate_rows" in integrated
     assert "ops.ddo_impl_read_selected_visual_evidence" in integrated
+    altered_program = tuple(
+        replace(
+            source,
+            content=source.content.replace(
+                b"ddo_visual_candidate_rows", b"altered_visual_candidate_rows"
+            ),
+        )
+        if source.name == "native/data-operation-visual-read.sql"
+        else source
+        for source in changed
+    )
+    with pytest.raises(ValueError, match="visual source declarations differ"):
+        source_native_sql(altered_program)
 
 
 @pytest.mark.parametrize("owner", ["admission", "definition", "witness"])
