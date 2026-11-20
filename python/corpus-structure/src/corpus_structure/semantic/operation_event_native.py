@@ -283,6 +283,10 @@ def _scopes(p):
         (("r", "ops.data_request"),),
         (
             If(
+                ~selected_family(p.model, r("release_id"), r("operation_id"), "operation-event"),
+                (Return(),),
+            ),
+            If(
                 input_role(p.model, r("release_id"), r("operation_id"), "question"),
                 (
                     Assign(

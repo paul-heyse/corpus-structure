@@ -52,6 +52,14 @@ def declared_frame():
                 "text": text,
                 "items": items,
                 "pieces": pieces,
+                "selectors": [
+                    {
+                        "projection": projection,
+                        "native_pointer": "#/texts/0",
+                        "start": 0,
+                        "end": len(text),
+                    }
+                ],
             }
         ).decode(),
         canonical_bytes(address.pin()).decode(),

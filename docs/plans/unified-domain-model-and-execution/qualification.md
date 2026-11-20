@@ -162,6 +162,11 @@ exact retry `dbc3aa31900a4a4fb4cd561a1ad8e869`; the parity receipt is
 `f3a8718e36414575be68f6414023d2f3`. These observations cover the scoped amendment
 checks before final-source qualification.
 
+**Tested, 2026-11-20 UTC.** The private successor selection passed native rich and
+contribution continuation, two independently pinned entity reads, native change-impact
+pagination, and the registered MCP resource and CLI contract (`4f2e3edd46704d0eb6e7839a176129dd`).
+The ordinary and provider unions below establish applicability to the final head.
+
 ## Rules of this qualification
 
 **Credit follows source.** A receipt establishes behaviour for the source and native context it
@@ -1006,6 +1011,33 @@ Nemotron receipt showing a non-zero count of inference requests and the restored
 generation. Each is dated and names the commit and native revision it was observed on.
 
 ## UDM-22 — The managed union on final source
+
+### First campaign and completion guard repair
+
+**Tested, 2026-11-20 UTC.** The first unnarrowed `ci test --workers 12` campaign
+`cf42805e194d4af7b9169db8ee3d993a` found 58 ordinary failures before a supervised stop
+for a native repair. Its eight exclusive fault identities passed. The concurrently selected
+24 real-provider identities also stopped at this repair boundary. Eight GLiNER cases and
+three E5 cases passed before the stop (`54ea347a1f214c13acb6077949ffb99e`). The explicit
+GLiNER Base boundary diagnostic passed separately with `CORPUS_GLINER_DIAGNOSTIC=1`
+(`c4de9043fbd74920a77f39371b9f66de`). Earlier-source observations retain their original scope.
+
+The actual grade, empty-carrier and rich-admission journeys exposed the same native failure.
+The shared completion scope function interpreted ordinary `question` roles as event frame
+selectors before it checked validity family. The generated repair checks the admitted
+`operation-event` family first. The preview and rollback-only candidate changed one function
+and two descriptors, with zero physical and privilege changes (`ce58bdc31cf240cab5119ab52cb13558`,
+`055805a98f9247d09617ab572eb58608`). Registration `7b1cc70f8cb348ffbb0e11b88640fdd1` froze
+N39. Guarded deployment `66e3db21b43f4a8b90f759276a784e1b` advanced stage OID 130661481 from
+N38 to N39. Canonical adoption follows final qualification.
+
+The same campaign exposed stale fixtures. Repairs preserve the current custody and authority
+checks for regeneration, math, PDF, in-transaction source acquisition, admitted rule input,
+predicate selectors, GLiNER loader binding, PM2 restart behavior, and inline input
+correspondence. The historic local-semantic pgTAP family calls `data.local_semantic_case_matches`,
+retired by DDO at `d6ee43480`. Its 19 cases move together when accounting for the failed campaign.
+The older M1 PDF preflight depends on retired `ops.run` storage. These mechanism-specific failures
+retain their original receipts while the current declared-source paths receive qualification.
 
 **Bounded provider evidence, 2026-11-20 UTC.** The actual CUDA GLiNER
 production pack tests and the actual HanLP, Maverick and DiPO native

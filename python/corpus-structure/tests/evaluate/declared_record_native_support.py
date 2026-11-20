@@ -48,12 +48,15 @@ def policy_recipe(directory):
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
     )
+    from corpus_structure.semantic.effect_policy import ApprovedEffect
     from corpus_structure.semantic.primary_operations import combine_primary_sources
     from corpus_structure.semantic.reading_resolution_products import (
         reading_resolution_declarations,
         reading_resolution_operation_sources,
     )
     from corpus_structure.semantic.record_policy_authority import (
+        AUTHORIZATION_EFFECT,
+        AUTHORIZATION_OPERATION,
         record_policy_authorization_sources,
         record_policy_kind_declarations,
     )
@@ -193,6 +196,10 @@ def policy_recipe(directory):
         "",
         project_id=None,
         execution_profile="source-native",
+        effect_approvals=(
+            *original.effect_approvals,
+            ApprovedEffect(AUTHORIZATION_OPERATION, AUTHORIZATION_EFFECT.name),
+        ),
         captured_inputs=CapturedKernelInputs(bundle, dependencies, captured.profile),
     )
 

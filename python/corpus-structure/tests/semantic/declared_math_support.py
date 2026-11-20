@@ -18,7 +18,6 @@ from corpus_structure.semantic.declared_math_products import (
 )
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
-    formal_operation_sources,
     prepare_formal_evidence,
 )
 from corpus_structure.semantic.identity import canonical_bytes
@@ -41,7 +40,7 @@ def math_profile(tmp_path_factory):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
-    from corpus_structure.semantic.characterization_ports import characterization_operation_sources
+    from corpus_structure.semantic.characterization_ports import construction_operation_sources
     from corpus_structure.semantic.construction_products import construction_product_inputs
 
     configuration = SentenceConfig(exclude=("ner",))
@@ -49,7 +48,7 @@ def math_profile(tmp_path_factory):
         NativeProfile(
             "spacy",
             {"controlled": "unadmitted-schema"},
-            {},
+            {"files": {}},
             configuration.model_dump(mode="json"),
             "float32",
             "cupy",
@@ -63,9 +62,8 @@ def math_profile(tmp_path_factory):
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
     )
     captured = combine_primary_sources(
-        formal_operation_sources(),
         math_operation_sources(),
-        characterization_operation_sources(
+        construction_operation_sources(
             sentence_configuration=configuration, sentence_selection=selection
         ),
     )

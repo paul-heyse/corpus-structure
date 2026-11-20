@@ -10,6 +10,7 @@ from corpus_structure.semantic.observations import source_python
 from corpus_structure.semantic.source_contexts import record_source_pin
 from methods.inline_formula_support import _FROZEN_TEXT as _FROZEN_TEXT
 from methods.m1_source_preparation_support import source
+from methods.navigation_fixture import source_primary_products
 from methods.scoped_relations_support import discover_relations
 
 
@@ -31,7 +32,9 @@ def inline_rows(output):
 
 @pytest.mark.parametrize("mu", ["µ", "μ"])
 def test_frozen_symbol_is_exact_standalone_and_separate_from_geometry(mu):
-    _, frame, output = discovery(_FROZEN_TEXT.replace("µ", mu))
+    frame = source(_FROZEN_TEXT.replace("µ", mu), labels=("text",))
+    primary = source_primary_products(frame)
+    output = discover_relations(frame, primary=primary, inline_equations_enabled=True)
     operation, rows = inline_rows(output)
     assert operation["inspected_count"] == 1
     assert operation["outcome"] == "succeeded"
@@ -42,7 +45,7 @@ def test_frozen_symbol_is_exact_standalone_and_separate_from_geometry(mu):
     assert (anchor["start"], anchor["end"], anchor["source_piece"]) == (242, 243, "Z")
     assert z["kind"] == "occurrence" and "members" not in z and "endpoints" not in z
     assert source_python(z["value"])["syntax_standing"] == "syntax_only"
-    previous = discover_relations(frame)
+    previous = discover_relations(frame, primary=primary)
     assert output["operation"] == previous["operation"]
     assert [row for row in output["contributions"] if row not in rows] == list(
         previous["contributions"]

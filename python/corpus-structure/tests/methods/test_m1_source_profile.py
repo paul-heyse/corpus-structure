@@ -109,6 +109,7 @@ def test_loader_requests_and_proves_actual_splitter_without_model_execution(
 
     import torch
     from gliner2 import AutoExtractor
+    from gliner2.models.boundary.engine import BoundaryExtractor
     from gliner2.processing.word_splitter import WhitespaceTokenSplitter
 
     @dataclass
@@ -124,6 +125,7 @@ def test_loader_requests_and_proves_actual_splitter_without_model_execution(
         boundary_settings=Settings(),
         config=SimpleNamespace(to_dict=lambda: {}),
     )
+    model._attach_entity_attributes = BoundaryExtractor._attach_entity_attributes.__get__(model)
 
     def load(path, **kwargs):
         received.append(kwargs)

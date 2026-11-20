@@ -12,6 +12,7 @@ from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_assets import prepare_pdf_assets
 from corpus_structure.ingest.pdf_candidates import capture_candidates
 from corpus_structure.ingest.pdf_methods import PdfIngestConfig
+from corpus_structure.semantic.file_custody import FileCustodyError
 
 
 def test_pdf_recipe_has_no_implicit_conversion_deadline():
@@ -69,7 +70,7 @@ def test_owned_assets_pin_actual_table_revision_and_detect_changed_bytes(tmp_pat
     changed = assets.root / assets.files[0][0]
     changed.chmod(0o644)
     changed.write_bytes(b"corrupt")
-    with pytest.raises(ValueError, match="integrity"):
+    with pytest.raises(FileCustodyError, match="acquired file changed"):
         assets.verify()
 
 
@@ -212,7 +213,11 @@ def test_organization_profile_capture_does_not_initialize_models(tmp_path, monke
     captured = pdf_transform_operation_sources(
         "organized", options=SectionPolicy("explicit-policy"), directory=tmp_path
     )
-    (custody,) = captured.boundary_contracts
+    (custody,) = (
+        asset
+        for asset in captured.boundary_contracts
+        if asset.name == "pdf-organized/execution-custody"
+    )
     profile = json.loads(custody.content)
     assert profile["options"]["rule_id"] == "explicit-policy"
     assert profile["input_operation"] == "source.pdf/capture"
@@ -554,7 +559,7 @@ def test_selected_enrichment_kernel_retains_exact_parent_and_scoped_outcomes(
             paragraph.self_ref
         ]
         assert draft.metadata["inline_alignment_reports"][0]["candidate_index"] == 0
-        assert draft.metadata["derivation_mappings"] == []
+        assert draft.metadata["derivation_mappings"] == ()
         return
     if with_ancestor:
         (context,) = _drafts(

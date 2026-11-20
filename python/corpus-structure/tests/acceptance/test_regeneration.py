@@ -16,6 +16,7 @@ from corpus_structure.semantic.storage_target import StorageTarget
 
 @pytest.fixture
 def native_request(tmp_path, monkeypatch):
+    from corpus_structure.orchestrate import native_execution
     from corpus_structure.semantic import data_operation_service
 
     request = tmp_path / "request.json"
@@ -51,7 +52,7 @@ def native_request(tmp_path, monkeypatch):
 
     monkeypatch.setattr(demands, "ENGINE", engine)
     monkeypatch.setattr(
-        demands,
+        native_execution,
         "acquired_target",
         lambda conn, *, purpose: StorageTarget(
             database="controlled-routing",
@@ -62,7 +63,8 @@ def native_request(tmp_path, monkeypatch):
             purpose=purpose,
         ),
     )
-    monkeypatch.setattr(demands, "create_native_demand", lambda *args, **kwargs: snapshot)
+    monkeypatch.setattr(native_execution, "create_native_demand", lambda *args, **kwargs: snapshot)
+    monkeypatch.setattr(native_execution, "read_data_demand", lambda *args, **kwargs: snapshot)
     monkeypatch.setattr(
         data_operation_service,
         "execute_data_demand",

@@ -6,7 +6,7 @@ from dataclasses import asdict
 
 import pytest
 from pglast import ast
-from sqlalchemy import text
+from sqlalchemy import Column, MetaData, Table, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
@@ -66,8 +66,10 @@ def test_generated_operation_event_guards_bind_and_keep_exact_eligibility(native
             "SELECT coalesce(ops.ddo_operation_event_command_eligible(jsonb_populate_record(NULL::sem.data_operation_definition,CAST(:definition AS jsonb))),false)"
         )
         assert connection.scalar(query, {"definition": json.dumps(definition)}) is True
+        renamed = deepcopy(definition)
+        renamed["operation_id"] = "other.authorize"
+        assert connection.scalar(query, {"definition": json.dumps(renamed)}) is True
         for change in (
-            "operation",
             "profile",
             "preparation",
             "forms",
@@ -78,16 +80,14 @@ def test_generated_operation_event_guards_bind_and_keep_exact_eligibility(native
         ):
             invalid = deepcopy(definition)
             capabilities = invalid["support_contract"]["capabilities"]
-            if change == "operation":
-                invalid["operation_id"] = "other.authorize"
-            elif change == "profile":
+            if change == "profile":
                 invalid["profile"] = "derivation"
             elif change == "preparation":
                 capabilities["preparation"] = "none"
             elif change == "forms":
                 capabilities["forms"] = ["batch"]
             elif change == "factory":
-                capabilities["prepared_factory"]["entrypoint"] = "other.acquire_port"
+                capabilities["prepared_factory"]["entrypoint"] = ""
             elif change == "source":
                 capabilities["prepared_factory"]["source_digest"] = "uncaptured"
             elif change == "effects":
@@ -121,8 +121,39 @@ def test_generated_operation_event_guards_bind_and_keep_exact_eligibility(native
 def event_scope_connection(infrastructure_rollback):
     connection = infrastructure_rollback
     connection.exec_driver_sql("CREATE SCHEMA ops")
+    connection.exec_driver_sql("CREATE SCHEMA sem")
     connection.execute(
         CreateTable(get_metadata().tables["ops.data_request"], include_foreign_key_constraints=[])
+    )
+    definition = get_metadata().tables["sem.data_operation_definition"]
+    definitions = Table(
+        "data_operation_definition",
+        MetaData(),
+        *(
+            Column(name, definition.c[name].type, nullable=False)
+            for name in ("release_id", "operation_id", "input_roles", "validity_families")
+        ),
+        schema="sem",
+    )
+    connection.execute(CreateTable(definitions))
+    connection.execute(
+        definitions.insert(),
+        [
+            dict(
+                release_id="scope-release",
+                operation_id=operation,
+                input_roles=[{"name": role}],
+                validity_families=families,
+            )
+            for operation, role, families in (
+                ("operation_event.frame", "question", ["operation-event"]),
+                ("operation_event.fit", "specification", ["operation-event"]),
+                ("family.question", "question", ["operation-event"]),
+                ("family.specification", "specification", ["operation-event"]),
+                ("ordinary.question", "question", []),
+                ("ordinary.specification", "specification", []),
+            )
+        ],
     )
     # Controlled input and cut ports let the actual generated scope consumer
     # select and validate its original/prediction/frame values independently.
@@ -162,6 +193,7 @@ def _scopes(connection, request):
 
 def test_event_scope_consumer_preserves_distinct_cuts_and_fit_selection(event_scope_connection):
     request = {
+        "release_id": "scope-release",
         "project_id": "project",
         "operation_id": "operation_event.frame",
         "binding": {
@@ -186,8 +218,43 @@ def test_event_scope_consumer_preserves_distinct_cuts_and_fit_selection(event_sc
         _scopes(event_scope_connection, request)
     assert getattr(refusal.value.orig, "sqlstate", None) == "23514"
     request = {
+        "release_id": "scope-release",
         "project_id": "project",
         "operation_id": "operation_event.fit",
         "binding": {"specification": {"frame": {"selection": {"use_id": "selected"}}}},
     }
     assert _scopes(event_scope_connection, request) == ["fit:selected"]
+
+
+@pytest.mark.parametrize("family", ["family", "ordinary", "unknown"])
+@pytest.mark.parametrize(
+    ("role", "body", "expected"),
+    [
+        (
+            "question",
+            {
+                "original_selection": {"project_id": "project", "cut_canonical_json": "original"},
+                "prediction_selection": {
+                    "project_id": "project",
+                    "cut_canonical_json": "prediction",
+                },
+            },
+            ["grade:original", "grade:prediction"],
+        ),
+        (
+            "specification",
+            {"frame": {"selection": {"use_id": "selected"}}},
+            ["fit:selected"],
+        ),
+    ],
+)
+def test_event_scope_consumer_requires_declared_family_before_interpreting_roles(
+    event_scope_connection, family, role, body, expected
+):
+    request = {
+        "release_id": "scope-release",
+        "project_id": "project",
+        "operation_id": f"{family}.{role}",
+        "binding": {role: body},
+    }
+    assert _scopes(event_scope_connection, request) == (expected if family == "family" else [])

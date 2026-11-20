@@ -20,12 +20,15 @@ from semantic.structural_production_native_support import recipe as structural_r
 
 def recipe(directory):
     from corpus_structure.evaluate.declared_operation_events import (
+        AUTHORIZATION_EFFECT,
+        AUTHORIZATION_OPERATION,
         operation_event_kind_declarations,
         operation_event_operation_sources,
     )
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
     )
+    from corpus_structure.semantic.effect_policy import ApprovedEffect
     from corpus_structure.semantic.operation_score_sources import (
         operation_score_inputs,
         operation_score_sources,
@@ -51,6 +54,10 @@ def recipe(directory):
         original,
         name="current-operation-event-development",
         captured_inputs=replace(captured, dependencies=dependencies),
+        effect_approvals=(
+            *original.effect_approvals,
+            ApprovedEffect(AUTHORIZATION_OPERATION, AUTHORIZATION_EFFECT.name),
+        ),
     )
 
 

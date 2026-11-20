@@ -157,7 +157,9 @@ def test_context_keeps_cross_page_selection_gaps_and_rejects_missing_source_piec
         == "partial"
     )
     broken = replace(frame, source_content=canonical_bytes(dict(frame.value, pieces=[])).decode())
-    with pytest.raises(ValueError, match="not covered"):
+    with pytest.raises(
+        ValueError, match="declared native projection differs from its selected source"
+    ):
         ContextualLayer(
             frame.value["source"],
             {"selectors": []},

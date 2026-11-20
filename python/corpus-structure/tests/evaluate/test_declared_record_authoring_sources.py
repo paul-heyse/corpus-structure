@@ -57,7 +57,11 @@ def authoring(monkeypatch):
 
     monkeypatch.setattr(demand_results, "selected_record_index", selected_index)
     monkeypatch.setattr(policy, "_selected_body", lambda *_args: (row, body))
-    monkeypatch.setattr(policy, "_check_source_coordinates", lambda *args: coordinates.append(args))
+    monkeypatch.setattr(
+        policy,
+        "_check_source_coordinates",
+        lambda *args, source_cache=None: coordinates.append(args),
+    )
     monkeypatch.setattr(releases, "open_release", lambda *_args: prepared)
     monkeypatch.setattr(data_operation_admission, "bound_data_operation_model", lambda _: model)
     from corpus_structure.evaluate import record_alignment

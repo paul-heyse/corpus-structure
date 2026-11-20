@@ -37,6 +37,7 @@ def rich_policy_recipe(directory):
     from corpus_structure.semantic.composed import (
         data_operation_dependencies,
     )
+    from corpus_structure.semantic.effect_policy import ApprovedEffect
     from corpus_structure.semantic.math_context import acquire_analysis_context_profile
     from corpus_structure.semantic.primary_operations import combine_primary_sources
     from corpus_structure.semantic.rich_invocations import rich_knowledge_operation_sources
@@ -75,6 +76,10 @@ def rich_policy_recipe(directory):
         "",
         project_id=None,
         execution_profile=original.execution_profile,
+        effect_approvals=(
+            *original.effect_approvals,
+            ApprovedEffect("rich.admit", "native-rich-knowledge-admission"),
+        ),
         captured_inputs=CapturedKernelInputs(bundle, dependencies, captured.profile),
     )
 

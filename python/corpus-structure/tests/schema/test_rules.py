@@ -181,12 +181,12 @@ def test_a_policy_language_shares_literal_discipline():
     }
 
 
-def test_current_policy_refuses_duplicate_ids(statistics_pack_prepared, statistics_rules_policy):
-    source = {
-        **statistics_rules_policy.source,
-        "rules": [statistics_rules_policy.source["rules"][0]] * 2,
-        "guideline": [],
-    }
+def test_current_policy_refuses_duplicate_ids(statistics_pack_prepared):
+    source = yaml.safe_load(
+        next(a.content for a in statistics_pack_prepared.artifacts if a.kind == RULE_INPUT)
+    )
+    source["rules"] = [source["rules"][0]] * 2
+    source["guideline"] = []
     changed = replace(
         statistics_pack_prepared,
         artifacts=tuple(
