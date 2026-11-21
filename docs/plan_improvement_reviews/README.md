@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Set-based execution after SBX-01](set-based-execution-after-sbx01_2026-11-21.md).
+  Recommends explicit block correspondence and proof authority, bounded reads, an early real
+  Revision A chain, attributable cutover effects, and changes to carrier custody and test reuse.
+
 - [Domain Model Operability after N46](domain-model-operability-after-n46_2026-11-21.md).
   Recommends original spool location recovery, model-owned producer profiles, coordinated
   admission, early installed-path verification and a bounded Standard cutover.
