@@ -638,29 +638,23 @@ def _prepared_wire_schema(encoded, contextual_fields, frontier_path):
     if contextual_fields:
         from .wire_json_policy import prepare_json_projection
 
-        declared = prepare_json_projection(json.loads(encoded), contextual_fields)
+        document = json.loads(encoded)
+        declared = prepare_json_projection(document, contextual_fields)
+        projector = declared
+        if frontier_path is not None:
+            from .selected_support_contract import SUPPORT_EXTENSION, SelectedSupportReader
 
-        def project(value):
-            if frontier_path is not None:
-                selected = value
+            reader = SelectedSupportReader(document.get(SUPPORT_EXTENSION))
+
+            def project(value):
+                projected = declared(value)
+                source, target = value, projected
                 for key in frontier_path:
-                    selected = selected[key]
-                support = selected.get("support_page")
-                interpreted = declared(value)
-                if support is not None:
-                    from .selected_support_contract import SUPPORT_EXTENSION, SelectedSupportReader
+                    source, target = source[key], target[key]
+                reader.project_page(source, target)
+                return projected
 
-                    reader = SelectedSupportReader(json.loads(encoded).get(SUPPORT_EXTENSION))
-                    target = interpreted
-                    for key in frontier_path:
-                        target = target[key]
-                    target["support_page"]["records"] = [
-                        reader.record(row) for row in support["records"]
-                    ]
-                return interpreted
-            return declared(value)
-
-        projector = project
+            projector = project
 
     def validate(value: Any) -> Any:
         return _validate_wire_value(validator, value, projector=projector)

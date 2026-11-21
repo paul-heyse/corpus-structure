@@ -207,6 +207,14 @@ class SelectedSupportReader:
             relation: native_json_loads(self.contract(relation)) for relation in sorted(relations)
         }
 
+    def project_page(self, source, projected):
+        support = source.get("support_page")
+        if support is None:
+            return
+        if source.get("view", "frontier") == "frontier":
+            raise ValueError("frontier JSON interpretation requires an absent support page")
+        projected["support_page"]["records"] = [self.record(row) for row in support["records"]]
+
 
 def prepare_demand_interpretation(schema, contextual_fields):
     """Prepare field roles separately from native or captured structural admission."""
@@ -214,15 +222,11 @@ def prepare_demand_interpretation(schema, contextual_fields):
     reader = SelectedSupportReader(schema.get(SUPPORT_EXTENSION))
 
     def interpret(value):
-        support = value.get("support_page")
         try:
             projected = declared(value)
         except (TypeError, AttributeError, KeyError) as error:
             raise ValueError("native demand fields differ from their declared structure") from error
-        if support is not None:
-            projected["support_page"]["records"] = [
-                reader.record(row) for row in support["records"]
-            ]
+        reader.project_page(value, projected)
         return projected
 
     return interpret
