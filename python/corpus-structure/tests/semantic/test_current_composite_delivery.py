@@ -79,7 +79,15 @@ def scope(tmp_path, source, *, side="one", left="A"):
                 read_id="read:" + side,
                 release_id=source[0].release_id,
                 runtime_id="runtime:controlled",
-                selection={"targets": ["rich.admit"]},
+                selection={
+                    "version": "data-demand-public-selection-v1",
+                    "model": "a" * 64,
+                    "intent_digest": "intent:" + side,
+                    "roots": [],
+                    "targets": ["rich.admit"],
+                    "root_operations": ["rich.admit"],
+                    "discovery": [],
+                },
                 trust_snapshot={},
                 read_snapshot="1:2:",
                 frontier_at="2026-11-15T00:00:00Z",
@@ -303,9 +311,7 @@ def test_current_comparison_uses_exact_two_root_use_and_cut_pins(
         after.index.close()
 
 
-def test_comparison_mcp_and_cli_keep_two_cuts_exact_values_and_retention_after_transaction(
-    monkeypatch, tmp_path
-):
+def test_comparison_keeps_two_cuts_and_projects_mcp_numbers_at_delivery(monkeypatch, tmp_path):
     from corpus_structure.cli import research
     from corpus_structure.cli.managed import ResultStore
     from corpus_structure.intervene import contribution_facet_tools as tools
@@ -382,7 +388,8 @@ def test_comparison_mcp_and_cli_keep_two_cuts_exact_values_and_retention_after_t
             assert not response.is_error and response.structured_content is not None
             assert response.structured_content["cut_ids"] == ["cut:before", "cut:after"]
             assert (
-                response.structured_content["result"]["changes"][0]["alignment_score"] == fraction
+                response.structured_content["result"]["changes"][0]["alignment_score"]
+                == 0.12345678912345678
             )
             changed = selected.model_copy(
                 update={"after": selected.after.model_copy(update={"project_id": "other-project"})}

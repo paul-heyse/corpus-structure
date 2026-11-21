@@ -22,6 +22,7 @@ from corpus_structure.cli.operation_observation import (
     OperationalObservation,
     operational_observation,
 )
+from corpus_structure.semantic._data_operation_wire import WireReadDemandResultRequest
 from corpus_structure.semantic.code_reuse import ReuseExplanationReport
 from corpus_structure.semantic.data_operation_storage import NativeKernelObservation
 from corpus_structure.semantic.demand_queries import DemandQueryRequest
@@ -35,7 +36,7 @@ class NextAction(BaseModel):
         "resume_demand",
         "resume_result",
         "recover_result",
-        "native_status",
+        "replay_native_read",
         "query",
         "successor_admission",
         "resume_deployment",
@@ -50,7 +51,8 @@ class NextAction(BaseModel):
     reason: str | None = None
     expected_target: StorageTarget | None = None
     query: DemandQueryRequest | None = None
-    read_scope: Literal["fresh_current"] | None = None
+    retained_read: WireReadDemandResultRequest | None = None
+    read_scope: Literal["fresh_current", "retained_frontier"] | None = None
 
 
 class NativeInspection(BaseModel):
@@ -64,6 +66,7 @@ class NativeInspection(BaseModel):
     configured_selection: dict[str, Any] | None = None
     expected_target: dict[str, Any] | None = None
     kernel: NativeKernelObservation | None = None
+    retained_read: WireReadDemandResultRequest | None = None
 
 
 class DeploymentObservation(BaseModel):
@@ -166,7 +169,10 @@ def native_inspection(
                 kernel = _kernel_observation(conn, bindings["release_id"])
             from corpus_structure.semantic.data_operation_service import read_data_demand
 
-            snapshot = read_data_demand(conn, demand_id, limit=min(selection.limit, 16))
+            limit = min(selection.limit, 16)
+            snapshot = read_data_demand(
+                conn, demand_id, limit=limit, max_bytes=selection.max_bytes, view="frontier"
+            )
             for recorded, native in (
                 ("project", "project_id"),
                 ("release_id", "release_id"),
@@ -184,6 +190,14 @@ def native_inspection(
                 configured_selection=configured,
                 expected_target=target,
                 kernel=kernel,
+                retained_read={
+                    "demand_id": snapshot["demand_id"],
+                    "read_id": snapshot["read_id"],
+                    "scope": snapshot["scope"],
+                    "view": "frontier",
+                    "limit": limit,
+                    "max_bytes": selection.max_bytes,
+                },
                 demand={
                     key: snapshot[key]
                     for key in (
@@ -335,13 +349,6 @@ def inspect_result(
                 )
             )
         if bindings.demand_id is not None:
-            actions.append(
-                NextAction(
-                    kind="native_status",
-                    command=shlex.join(["ci", "demands", "read", bindings.demand_id]),
-                    owner="native_demand",
-                )
-            )
             source_root = manifest.details.get("native_source_root")
             if isinstance(source_root, str) and not has_context:
                 actions.append(
@@ -384,6 +391,36 @@ def inspect_result(
                 max_bytes=selection.max_bytes,
             )
             target = StorageTarget.model_validate(native.expected_target)
+            if native.retained_read is not None:
+                from corpus_structure.semantic.data_operation_json import finite_json_bytes
+
+                actions.append(
+                    NextAction(
+                        kind="replay_native_read",
+                        command=shlex.join(
+                            [
+                                "ci",
+                                "demands",
+                                "read",
+                                query.demand_id,
+                                "--project",
+                                query.project_id,
+                                "--continuation-json",
+                                finite_json_bytes(native.retained_read).decode(),
+                                "--expected-target",
+                                target.model_dump_json(),
+                                "--json",
+                            ]
+                        ),
+                        owner="native_demand",
+                        demand_id=query.demand_id,
+                        standing="conditional",
+                        reason="Reopen the recorded frontier on the recorded target with current disclosure authority.",
+                        expected_target=target,
+                        retained_read=native.retained_read,
+                        read_scope="retained_frontier",
+                    )
+                )
             actions.append(
                 NextAction(
                     kind="query",

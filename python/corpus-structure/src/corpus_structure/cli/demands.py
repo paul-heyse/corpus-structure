@@ -32,7 +32,7 @@ from corpus_structure.semantic.data_operation_service import (
     create_native_demand,
     read_data_demand,
 )
-from corpus_structure.semantic.storage_target import acquired_target
+from corpus_structure.semantic.storage_target import StorageTarget, acquired_target, verify_target
 from corpus_structure.settings import DeploymentProfile
 
 app = typer.Typer(help="Create, inspect and cancel immutable native demands.", no_args_is_help=True)
@@ -127,12 +127,32 @@ def read(
         typer.Option(min=1, max=67108864, help="Complete product-page byte bound (default 8 MiB)."),
     ] = None,
     view: Annotated[Literal["frontier", "products"] | None, typer.Option()] = None,
+    project: Annotated[str | None, typer.Option(help="Expected project of this demand.")] = None,
+    continuation_json: Annotated[
+        str | None, typer.Option(help="Complete native continuation JSON supplied directly.")
+    ] = None,
+    expected_target: Annotated[
+        str | None, typer.Option(help="Acquired StorageTarget JSON required by a read handoff.")
+    ] = None,
     json: JsonOpt = False,
 ) -> None:
     """Inspect the native frontier, preserving source, read and pagination pins."""
     with failure_boundary(json, expected=(ValueError, OSError)):
-        pins = read_continuation(continuation)
+        from corpus_structure.semantic.demand_wire import decode_wire_demand_request
+
+        if continuation is not None and continuation_json is not None:
+            raise ValueError("select a continuation file or inline continuation JSON")
+        pins = (
+            read_continuation(continuation)
+            if continuation_json is None
+            else decode_wire_demand_request(continuation_json.encode(), demand_id=demand)
+        )
+        target = (
+            None if expected_target is None else StorageTarget.model_validate_json(expected_target)
+        )
         with ENGINE(state(ctx).settings(), purpose="read") as engine, engine.begin() as connection:
+            if target is not None:
+                verify_target(connection, target, purpose="read")
             snapshot = read_data_demand(
                 connection,
                 demand,
@@ -141,6 +161,8 @@ def read(
                 max_bytes=max_bytes,
                 view=view,
             )
+            if project is not None and snapshot["project_id"] != project:
+                raise ValueError("demand belongs to another project")
     _emit_demand(DemandSnapshot(snapshot), json=json)
 
 

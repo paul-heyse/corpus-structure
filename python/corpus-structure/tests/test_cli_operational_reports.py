@@ -97,6 +97,7 @@ def test_inspection_current_kernel_keeps_resume_prerequisites(standing, tmp_path
 def test_recovery_actions_keep_owner_observations_and_guard_fresh_query_target(
     tmp_path, monkeypatch
 ):
+    import json
     import shlex
 
     import typer
@@ -151,6 +152,14 @@ def test_recovery_actions_keep_owner_observations_and_guard_fresh_query_target(
             "read_id": "old-read",
             "continuation": {"native_only": True},
         },
+        retained_read={
+            "demand_id": "demand:one",
+            "read_id": "old-read",
+            "scope": {"operation_id": "selected-operation"},
+            "view": "frontier",
+            "limit": 7,
+            "max_bytes": 1048576,
+        },
     )
     monkeypatch.setattr(
         "corpus_structure.cli.result_inspection.native_inspection", lambda *args: native
@@ -178,6 +187,16 @@ def test_recovery_actions_keep_owner_observations_and_guard_fresh_query_target(
     assert args[args.index("--limit") + 1] == "7"
     assert StorageTarget.model_validate_json(args[args.index("--expected-target") + 1]) == target
     assert "--cursor" not in args
+    replay = next(action for action in report.next_actions if action.kind == "replay_native_read")
+    assert replay.read_scope == "retained_frontier" and replay.standing == "conditional"
+    assert replay.query is None and replay.retained_read == native.retained_read
+    assert replay.command is not None
+    args = shlex.split(replay.command)
+    assert args[:4] == ["ci", "demands", "read", "demand:one"]
+    assert args[args.index("--project") + 1] == "project with spaces"
+    assert json.loads(args[args.index("--continuation-json") + 1]) == native.retained_read
+    assert StorageTarget.model_validate_json(args[args.index("--expected-target") + 1]) == target
+    assert all(action.kind != "native_status" for action in report.next_actions)
 
 
 def test_query_target_handoff_is_verified_before_read(cli, monkeypatch):
@@ -241,6 +260,84 @@ def test_query_target_handoff_is_verified_before_read(cli, monkeypatch):
     result = cli(*args)
     assert result.exit_code != 0
     assert "different PostgreSQL target" in result.stdout
+
+
+def test_retained_native_handoff_keeps_read_scope_and_verifies_target(cli, monkeypatch):
+    import json
+    from contextlib import contextmanager
+
+    from corpus_structure.cli import demands
+    from corpus_structure.semantic.storage_target import StorageTarget, StorageTargetError
+
+    target = StorageTarget(
+        database="captured",
+        database_oid=21,
+        system_identifier="cluster:one",
+        host="localhost",
+        port=5434,
+        purpose="read",
+    )
+    retained_read = {
+        "demand_id": "demand:one",
+        "read_id": "read:captured",
+        "scope": {"operation_id": "selected-operation"},
+        "view": "frontier",
+        "limit": 7,
+        "max_bytes": 65536,
+    }
+    connection = object()
+    events = []
+
+    @contextmanager
+    def engine(settings, *, purpose):
+        assert purpose == "read"
+
+        class Engine:
+            @contextmanager
+            def begin(self):
+                yield connection
+
+        yield Engine()
+
+    def verify(conn, expected, *, purpose):
+        assert conn is connection and expected == target and purpose == "read"
+        events.append("verified")
+
+    def read(conn, demand, *, continuation, **kwargs):
+        assert conn is connection and demand == "demand:one"
+        assert events[-1] == "verified" and continuation == retained_read
+        assert all(value is None for value in kwargs.values())
+        events.append("read")
+        return {"project_id": "project with spaces", "read_id": "read:captured"}
+
+    monkeypatch.setattr(demands, "ENGINE", engine)
+    monkeypatch.setattr(demands, "verify_target", verify)
+    monkeypatch.setattr(demands, "read_data_demand", read)
+    args = (
+        "demands",
+        "read",
+        "demand:one",
+        "--expected-target",
+        target.model_dump_json(),
+        "--continuation-json",
+        json.dumps(retained_read),
+        "--json",
+    )
+    result = cli(*args, "--project", "project with spaces")
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["read_id"] == "read:captured"
+    wrong_project = cli(*args, "--project", "different project")
+    assert wrong_project.exit_code != 0
+    assert "demand belongs to another project" in wrong_project.stdout
+
+    def refuse(*args, **kwargs):
+        raise StorageTargetError("different PostgreSQL target")
+
+    monkeypatch.setattr(demands, "verify_target", refuse)
+    wrong_target = cli(*args)
+    assert wrong_target.exit_code != 0
+    assert "different PostgreSQL target" in wrong_target.stdout
+    assert events == ["verified", "read", "verified", "read"]
 
 
 def test_deployment_inspection_preserves_candidate_target_and_settled_effects(tmp_path):
@@ -388,6 +485,105 @@ def test_query_explain_reuse_is_opt_in_and_uses_the_executed_owner(cli, monkeypa
     (report,) = body["reuse_explanation"]["reports"]
     assert body["reuse_explanation"]["availability"] == "available"
     assert report["entry_point"] == "actual.entry" and report["facts"][0]["module"] == "actual.dep"
+
+
+def test_selected_page_delivers_implementation_identity_without_live_code_custody():
+    import base64
+    import json
+
+    from corpus_structure.intervene.demand_read_tools import SelectedResult
+    from corpus_structure.intervene.mcp_results import bounded_structured_result
+    from corpus_structure.semantic.data_operation_json import (
+        JsonBoundaryError,
+        finite_result_record,
+    )
+    from corpus_structure.semantic.page_envelope import PageEnvelope
+    from corpus_structure.semantic.selected_pages import byte_bounded_page
+
+    code = CodeIdentity(("actual.entry",), (), (), (), b"{}")
+    implementation = ServingImplementation("a" * 64, code)
+    presentation = PageEnvelope(
+        header={"implementation": implementation, "cut_id": "cut:one"},
+        cursor_basis={
+            "version": "demand-query-v2",
+            "implementation": implementation,
+            "selection": "selected",
+            "request": {"demand_id": "demand:one", "view": "products"},
+            "cut": "cut:one",
+        },
+    )
+    page = byte_bounded_page(
+        [{"member_id": "one"}, {"member_id": "two"}],
+        offset=0,
+        limit=1,
+        max_bytes=65536,
+        presentation=presentation,
+    )
+    assert type(page["implementation"]) is str
+    assert page["implementation"] == "a" * 64
+    assert presentation.header["implementation"] is implementation
+    assert implementation.code is code
+    assert json.loads(base64.b64decode(page["continuation"], altchars=b"-_", validate=True)) == {
+        **presentation.cursor_basis,
+        "ordinal": 1,
+    }
+    delivered = finite_result_record(page)
+    mcp = bounded_structured_result(SelectedResult(cut_id="cut:one", result=delivered), 65536)
+    assert mcp.structured_content is not None
+    assert mcp.structured_content["result"]["implementation"] == "a" * 64
+
+    class OtherString(str):
+        pass
+
+    with pytest.raises(JsonBoundaryError, match="unsupported structured result value"):
+        finite_result_record({"implementation": OtherString("unowned")})
+
+
+def test_installed_query_handles_implementation_projection_and_delivery_refusal(cli, monkeypatch):
+    import json
+    from contextlib import contextmanager
+
+    from corpus_structure.cli import selected_results
+    from corpus_structure.semantic import runtime
+    from corpus_structure.semantic.page_envelope import PageEnvelope
+    from corpus_structure.semantic.selected_pages import byte_bounded_page
+
+    @contextmanager
+    def engine(*args, **kwargs):
+        class Engine:
+            @contextmanager
+            def begin(self):
+                yield object()
+
+        yield Engine()
+
+    implementation = ServingImplementation(
+        "a" * 64, CodeIdentity(("actual.entry",), (), (), (), b"{}")
+    )
+
+    def query(connection, request):
+        return byte_bounded_page(
+            [{"member_id": "one"}],
+            offset=0,
+            limit=1,
+            max_bytes=65536,
+            presentation=PageEnvelope(
+                header={"implementation": implementation},
+                cursor_basis={"implementation": implementation},
+            ),
+        )
+
+    monkeypatch.setattr(runtime, "open_runtime_engine", engine)
+    monkeypatch.setattr(selected_results, "serve_demand_query", query)
+    args = ("query", "members", "--demand", "demand:one", "--project", "project:one", "--json")
+    result = cli(*args)
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["implementation"] == "a" * 64
+
+    monkeypatch.setattr(selected_results, "serve_demand_query", lambda *args: {"invalid": object()})
+    refused = cli(*args)
+    assert refused.exit_code != 0
+    assert json.loads(refused.stdout)["error"]["code"] == "JsonBoundaryError"
 
 
 def test_native_candidate_explanation_is_retained_for_managed_inspection(
