@@ -59,6 +59,24 @@ def test_logical_model_change_compares_captures_without_revision(model_checkout)
     assert all("revisions.yaml" not in item for item in preview.inputs)
 
 
+def test_native_protocol_field_edit_uses_its_protocol_owner(model_checkout):
+    root, location = model_checkout
+    path = location / "semantic" / "data-operation-native.yaml"
+    document = yaml.safe_load(path.read_bytes())
+    document["definitions"]["record_data_fate_request"]["properties"]["work_member"] = {
+        "type": "array",
+        "items": [{"type": "string"}, {"type": "integer"}],
+        "minItems": 2,
+        "maxItems": 2,
+        "additionalItems": False,
+    }
+    edit = LogicalSourceEdit(
+        path=path.relative_to(root).as_posix(), content=yaml.safe_dump(document, sort_keys=False)
+    )
+    with pytest.raises(ModelError, match="physical and native object effects"):
+        prepare_preview(root, ChangeRequest(logical_sources=(edit,)))
+
+
 def test_preview_retains_generated_decimal_guard_change(model_checkout):
     root, location = model_checkout
     path = location / "semantic" / "value-codec.yaml"

@@ -722,9 +722,15 @@ def prepare_preview(
     # resolves imported ranges, structured constraints and vocabulary membership.
     if PHYSICAL_ROOT in new.sources:
         new.physical()
+    from corpus_structure.semantic.native_protocol_authoring import NATIVE_PROTOCOL_FILE
+
     for item in request.logical_sources:
-        if Path(item.path).suffix == ".yaml":
-            new.view(Path(item.path).name)
+        path = Path(item.path)
+        if PHYSICAL_ROOT in new.sources and path.name == NATIVE_PROTOCOL_FILE:
+            # The captured native projection above already validates this protocol.
+            continue
+        if path.suffix == ".yaml":
+            new.view(path.name)
         else:
             json.loads(item.content)
     native = request.native_effect(native_delta)

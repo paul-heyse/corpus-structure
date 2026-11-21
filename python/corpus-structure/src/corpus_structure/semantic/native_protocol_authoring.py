@@ -23,6 +23,7 @@ from .types import SourceArtifact
 if TYPE_CHECKING:
     from .data_operation_model import EffectiveDataOperationModel
 
+NATIVE_PROTOCOL_FILE = "data-operation-native.yaml"
 NATIVE_LOGICAL_FILES = (
     "observations.yaml",
     "pdf-actions.yaml",
@@ -153,7 +154,7 @@ def _native_protocol_sources(
     if not isinstance(linkml_types, bytes):
         raise ValueError("explicit native physical inputs lack captured LinkML types")
     try:
-        protocol = physical_sources["data-operation-native.yaml"]
+        protocol = physical_sources[NATIVE_PROTOCOL_FILE]
         physical = physical_sources["data-operation-physical.yaml"]
     except KeyError as error:
         raise ValueError("explicit native physical closure lacks DDO declarations") from error
@@ -1191,7 +1192,7 @@ def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_do
         )
     operations = _protocol(captured)
     public = {item["name"] for item in operations}
-    protocol = physical_sources["data-operation-native.yaml"]
+    protocol = physical_sources[NATIVE_PROTOCOL_FILE]
     if PROGRAM_MANIFEST_SOURCE in captured_map:
         descriptor = (
             data_operation_native_descriptor_program(
