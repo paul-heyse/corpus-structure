@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-20. DMO-01 through DMO-06 have scoped implementation. The dedicated stage installed N44 and admitted Standard and Integrated. The canonical book remains on the recorded N29 generation 5 binding._
+_Updated 2026-11-21. DMO-01 through DMO-06 have scoped implementation. The dedicated stage is on N44 with Standard and Integrated admitted. The canonical book remains on the recorded N29 generation 5 binding._
 
 ## Current owners
 
@@ -10,10 +10,10 @@ _Updated 2026-11-20. DMO-01 through DMO-06 have scoped implementation. The dedic
 - The [test-domain coordinator](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence) owns test-fixture custody and TDM-18. The [test audit refresh](docs/design_review/test-audit/README.md#tdm-refresh-2026-11-18) holds the inspected baseline.
 - [Library-discovery tooling](tooling/docs/plans/library-discovery-tooling_2026-11-17.md#current-state) is implemented for LDT-00–08. Its 302 selected tests and repository checks passed on 2026-11-17 (`8cd3bc5aa2b24d5a9e5d8d4c4a69270b`, `34811b452107403d90e5035f8a2e0550`). LDT-C1–C3 retain their conditional triggers.
 
-## Last verified · 2026-11-20
+## Last verified · 2026-11-21
 
-- **Passed.** `uv run ci test` verified the N44 M1 empty inspection and unchanged repeat (`185731a36c2242618f7b1ed3cb974377`) and 122 PDF record and certification controls (`f3219ac77666457ea4a757e45593c5b5`). `uv run ci check --only types` and `uv run ci check --only lint` passed (`ce98af545b674f258bb79d496174b862`, `98340a505309441cb01fba54e04c7f72`). [Identity and recovery](docs/plans/domain-model-operability/execution-identity-and-recovery.md)
-- **Passed.** The bounded N43 regional driver restored composition after releasing a held region. Independent native readback found all 18 obligations fulfilled. The exact resume published seven receipts and the unchanged repeat published zero. Runtime-only changes between distinct demands still rebuilt capture. [Regional evidence](docs/design_review/evidence/2026-11-20_dmo01-02/README.md#bounded-regional-stage-recovery)
+- **Passed.** `uv run ci test` verified actual Docling three-page spool resume and rebuild (`36e22cf1e8dd4905be18a55c14d357ea`), 80 host and execution cases (`f926f0f5e2bd483495d8b4331af7df12`) and private PostgreSQL acknowledgement loss with spawned CPU retirement and one publication (`1fa767691bd84bb1a193c6c64bb2eb45`). [Identity and recovery](docs/plans/domain-model-operability/execution-identity-and-recovery.md)
+- **Passed.** The private `ci model change` lifecycle verified fixed tuples in Python and PostgreSQL, exact facade bytes, indirect drift refusal, same-candidate recovery and separate Standard and Integrated admissions. `uv run ci test` verified 41 managed CLI and model cases (`45a2467b01bc4ef1b99e90dc23cfd5cd`) and 71 draft, demand and selected-read cases (`13d8deda42b44d89a493ab0e526be7a9`). [Staged trial evidence](docs/design_review/evidence/2026-11-21_dmo-n44-facade-trial/README.md)
 - **Passed.** DMO-00 and DMO-01/02 evidence finalization and index refresh passed. `uv run ci evidence check` from DMO-00 reported five older DDO errors (`d6f5f26150c24b268fd46ad1c2ac4f82`).
 - **Passed.** The N36 live withheld region produced only `binding-covers` in 2.51 seconds while its sibling published. Releasing the claim and resuming the exact demand fulfilled all 18 obligations. [Live result and PE-S33 successor](docs/design_review/evidence/2026-11-20_udm20-live-withheld/README.md)
 - **Passed.** The N36 T1 fixture emitted `validity_undetermined`, published under native conservative validity and repeated with zero new receipts. [T1 stage and private receipts](docs/design_review/evidence/2026-11-20_udm06-conservative-validity/README.md)
@@ -56,5 +56,5 @@ _Updated 2026-11-20. DMO-01 through DMO-06 have scoped implementation. The dedic
 
 ## Next execution
 
-- The [amended DMO queue](docs/plans/domain-model-operability_2026-11-20.md#execution-queue) prioritizes [Standard reuse across two demands](docs/plans/domain-model-operability/execution-identity-and-recovery.md#standard-cross-demand-reuse). The staged facade trial and authenticated consumer reads can proceed independently. Stage `ci model change deploy` passed for the N44 kernel (`703ec35909e946cf94441cd844cb24f4`), Standard (`99efbb79896545149a94276e841ce20b`) and Integrated (`711ac13a919d473fabe8fa36ea3db5e6`).
+- The [amended DMO queue](docs/plans/domain-model-operability_2026-11-20.md#execution-queue) prioritizes the parent executable contract for [Standard reuse across two demands](docs/plans/domain-model-operability/execution-identity-and-recovery.md#standard-cross-demand-reuse). The typed frontier and support-view numeric migrations retain their own boundaries. [N44 dispositions](docs/plans/domain-model-operability_2026-11-20.md#n44-disposition)
 - After consumer migration and retirement, [DMO-08 and DMO-09](docs/plans/domain-model-operability/qualification-and-adoption.md) own final-source qualification, guarded adoption and the whole-book journey.

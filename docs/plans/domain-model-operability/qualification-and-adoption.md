@@ -34,6 +34,18 @@ and the positive event result establish their recorded properties. Final-source 
 authority-negative and book evidence retain the acceptance below.
 [N44 admission](json-contracts-and-settings.md) · [Event and M1 receipts](consumer-authority-and-operability.md#dmo-04)
 
+On 2026-11-21 the actual Docling provider resumed and rebuilt a three-page Standard spool on
+source `534ec613c` (`36e22cf1e8dd4905be18a55c14d357ea`). The separate private PostgreSQL
+composite observed a real lost commit acknowledgement, spawned CPU retirement and exactly one
+publication (`1fa767691bd84bb1a193c6c64bb2eb45`). The retained receipts establish those scoped
+recovery behaviors. The first real cross-demand Standard reuse case and the final-source union
+remain open. [Execution identity and recovery](execution-identity-and-recovery.md)
+
+The private DMO-06 trial passed on 2026-11-21. It exercised a real generated tuple and native
+wrapper change, refusal of indirect source drift, interruption at the committed migration
+checkpoint and same-candidate Standard recovery. Integrated separately admitted the reviewed
+source on the same native revision. [Staged trial evidence](../../design_review/evidence/2026-11-21_dmo-n44-facade-trial/README.md)
+
 ## Supported behavior and evidence boundary
 
 A useful result has declared inputs, authentic production and publication, the required current

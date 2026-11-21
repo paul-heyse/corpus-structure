@@ -1,6 +1,6 @@
 # Executable acquisition, material identity and recovery
 
-**Status:** Partial implementation · 2026-11-20. The [coordinator](../domain-model-operability_2026-11-20.md)
+**Status:** Partial implementation · 2026-11-21. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns readiness and disposition. This companion implements the target from review
 [O01][o01], [O02][o02] and [O06][o06]. The [current evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
 records the exercised cases and remaining boundaries.
@@ -8,6 +8,36 @@ The N43 amendment integrates [I01][i01], [I02][i02] and [I06][i06] from review r
 `7c17b403a`. The 2026-11-21 amendment consumes the post-N44 review at `c73a9e958`,
 integrating [I01][n44-i01], [I02][n44-i02] and [I03][n44-i03] into the remaining work below.
 The execution checkpoint retains its recorded source and verification scope.
+
+**N44 execution checkpoint · 2026-11-21.** Resident declaration, preparation and guarded
+reacquisition now enforce one project, interpreter and worker script for a physical shared host.
+Mixed environments refuse before preflight or declaration. The 80 managed host and execution
+tests passed (`f926f0f5e2bd483495d8b4331af7df12`). Preparation refusals retain the resource,
+prerequisite and redacted expected and observed facts in the managed account. The installed
+reacquisition command refused an incorrect private PostgreSQL OID with the actual acquired target
+and an empty effect list (`a78820de105c468da2b973c5bf4c2ee6`).
+
+The PDF companion encoder has a database-free owner. Spool preparation v2 records the initialized
+converter, backend, pipeline and selected stages with observed file, loaded code, option and model
+asset correspondence. Conversion checks that custody in the worker. Historical v1 spools refuse
+with instructions to retain the original and regenerate under v2. The actual three-page Docling
+interruption, missing-page resume and same-spool rebuild passed
+(`36e22cf1e8dd4905be18a55c14d357ea`, source `534ec613c`). Parent acquisition still needs a
+bounded executable contract that the worker can authenticate at its existing pre-conversion
+preparation acknowledgement. Standard eligibility still depends on the combined lowering workload.
+The producer must retire before publication because its process owns the spool writer lease.
+Cross-demand attachment and a real material-change refusal remain open.
+
+New private drafts retain the captured writer schema and original bytes. V1 drafts reopen only
+through the writer release's authenticated schema. The ready-item decision precedes fresh
+hydration and provider work. Exact completion inspections deduplicate by intent. Focused draft
+and recovery selections passed (`7e0b16b77c7f4cc795fce6e230ad99d4`,
+`acf33600a34043db9d3fe0af1288d13f`). In the private PostgreSQL composite
+(`1fa767691bd84bb1a193c6c64bb2eb45`), real commit acknowledgement loss left one publication,
+retained its original attempt and cleared the lease after the spawned CPU producer retired.
+A fresh executor submitted zero duplicate provider work. Known rollback took the separate retry
+route. The experiment used a native CPU producer with scoped publication, with external-provider
+recovery qualified by its respective journey.
 
 **Execution checkpoint · 2026-11-20.** Selected executable preparation now checks a shared
 installation once for its required resident population, validates model files, and exposes

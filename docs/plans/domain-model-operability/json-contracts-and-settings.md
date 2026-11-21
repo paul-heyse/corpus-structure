@@ -16,6 +16,41 @@ those selections with the current lock and installed extension before relying on
 [Integrated review O05–O09](../../functional_reviews/udm-operability-and-json_2026-11-20.md#O05)
 [Retained library contracts](../../design_review/evidence/2026-11-20_json-boundary-contracts/README.md)
 
+**N44 execution checkpoint · 2026-11-21.** Detached export authenticates v3 manifest bytes before
+typing its metadata and checking content coverage. Its captured kind reader uses the native Draft 7
+dialect where archive schemas omit the dialect. The demand cursor now admits only finite paging
+coordinates and a typed native paging request. Managed result `4aad4390318644ac8f501b030c996a5f`
+passed 67 cases, including six native exports, changed and unchanged validator-family currency, and
+forged retained intent refusal. The resolved archive hashes and D1 cut behavior retain their format.
+The typed producer, verifier and structural review consumers share the checked manifest model.
+The integrated native export, cursor and historical draft selection passed 28 cases
+(`6fcc78d918a04a60accf6bccfd6b162c`).
+
+The next typed native read is the frontier and its continuation. The frontier excludes the open
+relation-dispatched support body. Declare D1 scope semantics at the relevant schema fields. Both
+the ambient storage and captured generated call decoders must classify original numeric tokens with
+that contract, then pass interpreted values to the detached or cursor owner. Prepared arrays,
+ordinary nested payloads, and declared D1 scope have separate field behavior. Support-view rows
+still need their captured relation and schema ownership. [Consumer transition](#consumer-transition-and-retirement)
+
+The private facade trial exposed a preview routing defect and now sends native wire declarations
+to their native compiler. Preview `8c07c1b1827141f1bea9a14da5d867fc` and apply
+`57e1749c124e4b2c84b376b23b0c20eb` changed four approved files, including the Python wire facade.
+The bytes matched the reviewed preview on disk. Premature candidate creation refused. Reopening
+capture with changed indirect PDF facade bytes refused with that path
+(`802ed99288bb48579db2f4069120abcd`). Restoring the reviewed bytes allowed the original preview
+to produce the Standard capture (`08bb9081ac434e50b24c4782116f4828`) and rollback-only candidate
+(`8a0cc12a8ce94560a8468ff818180040`). Registration passed
+(`b37781a9238140fa95f6ef1a7d7535bc`). The private deployment interruption
+(`8355d68565cf4c18ad246c9f2ad40c55`) retained the committed migration, exact candidate and next
+command. Independent PostgreSQL readback found the new revision and zero Standard release rows
+at that point. The installed wrapper hash changed from `7ca594da353f` to `97a290bd9f15`.
+The prepared Python and installed PostgreSQL schemas accepted the reviewed pair and refused the
+swapped, short and long arrays. Same-candidate deployment completed Standard admission
+(`2c06ec09a1f64cee819d16b22eb4274e`). A separate Integrated candidate on the approved applied
+baseline completed admission (`9797d0e76efb4361ac75448508236de5`). Independent readback matched
+the two exact runtimes and the installed native descriptor. [Private facade trial evidence](../../design_review/evidence/2026-11-21_dmo-n44-facade-trial/README.md)
+
 **Execution checkpoint · 2026-11-20.** Settings source reporting uses the public native source
 composition and carries redacted leaf origins. The flat execution-policy override files use a
 shared strict reader that preserves explicit override precedence and refuses missing or malformed

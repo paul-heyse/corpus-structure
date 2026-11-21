@@ -1,12 +1,21 @@
 # Consumer authority, support acquisition and operational inspection
 
-**Status:** Partial consumer authority and read integration · 2026-11-20. The [coordinator](../domain-model-operability_2026-11-20.md)
+**Status:** Partial consumer authority and read integration · 2026-11-21. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns readiness and disposition. This companion realizes review [O03][o03], [O04][o04] and the
 selected-support part of [O08][o08]. The N43 amendment integrates [I04][i04], [I05][i05]
 and [I07][i07] from review revision `7c17b403a`. The amendment of 2026-11-21 consumes the
 [post-N44 review][n44] at `c73a9e958`, including [I04][n44-i04], [I07][n44-i07] and the
 [I03 recovery dependency][n44-i03]. Its additional consumer migrations and acceptance scenarios
 are scheduled work.
+
+**N44 execution checkpoint · 2026-11-21.** Event prediction consumes the acquired pages for its
+selected uses directly. Record-grade production supplies its selected obligations and the protected
+grade reader supplies its use ID. The selected-use index stops when it has resolved the requested
+population and verifies current authority before disclosing support. The same-cut, later-page,
+distinct-cut and changed-authority controls passed (`78cebfe84bd349f5b124632ea6bf0057`,
+`11fc6003e61f4ad8b564f0faa9cd009e`). Selected record-policy controls passed
+(`f4503916cb92457eb4d24605c4c11126`). The remaining actual consumer journeys and regional
+attribution are still required for broader closure.
 
 **Execution checkpoint · 2026-11-20.** The admitted consuming role now carries the prepared
 producer requirement. Rich native admission uses it for output role, CPU witness, effect and

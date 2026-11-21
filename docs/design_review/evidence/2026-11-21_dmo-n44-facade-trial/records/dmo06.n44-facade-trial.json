@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "dmo06.n44-facade-trial",
+  "title": "Private generated facade and native cutover with same-candidate recovery",
+  "group": null,
+  "package": "DMO-06",
+  "finalized": "2026-11-21",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can one generated fixed-tuple wire change preserve exact staged source and native application custody?",
+  "answers": [
+    "DMO-06",
+    "DMO-08"
+  ],
+  "method": "Run the installed model change lifecycle on an N44 clone. Compare approved source bytes and native wrapper hash independently. Refuse drift, interrupt at the recorded migration boundary, and verify both distinct admissions.",
+  "commands": [
+    "uv run ci model change inspect 8c07c1b1827141f1bea9a14da5d867fc --view effects --json",
+    "uv run ci model change apply 8c07c1b1827141f1bea9a14da5d867fc --json",
+    "uv run ci model change capture 8c07c1b1827141f1bea9a14da5d867fc --json",
+    "uv run ci model change candidate 08bb9081ac434e50b24c4782116f4828 --json",
+    "uv run ci model change register 8a0cc12a8ce94560a8468ff818180040 --json",
+    "uv run ci model change deploy 8a0cc12a8ce94560a8468ff818180040 --json",
+    "uv run ci model change deploy 88dcd57870c242a1af2bad3ab868921c --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "check-tuple.py",
+      "role": "independent prepared Python and native PostgreSQL tuple cases",
+      "sha256": "87cd76393fd9761243da9785aff690078245101f8140909ef3f48fc41ed4d975"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/observed.json",
+      "role": "managed effect custody and independent tuple and admission observations",
+      "sha256": "fa80a4a8a917e35d8df9eeb78a3f4c6b5f5edd2621006a216e54d8d149f72704"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "independent tuple vectors",
+      "value": 4,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "distinct exact release and runtime admissions",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Changed generated and native bytes corresponded to the preview. Capture refused drift. A same-candidate deployment resumed from the committed migration and completed Standard admission. Integrated separately admitted the same installed native contract. Python and PostgreSQL agreed on tuple position and arity.",
+  "consumed_by": [
+    "DMO-06",
+    "DMO-08"
+  ]
+}
