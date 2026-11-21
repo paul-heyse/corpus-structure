@@ -318,7 +318,7 @@ def recheck_selected_frontier(
 
 
 def stream_selected_support(
-    connection, page: DemandResult, *, whole_read: bool = False
+    connection, page: DemandResult, *, whole_read: bool = False, obligation_id: str | None = None
 ) -> Iterator[dict[str, Any]]:
     """Read the page or whole scoped cut closure in bounded native keyset pages."""
     from .data_operation_storage import DataOperationStorage
@@ -334,6 +334,13 @@ def stream_selected_support(
         if key in original_request:
             request[key] = original_request[key]
     request["view"] = "support"
+    if obligation_id is not None:
+        if whole_read or obligation_id not in {
+            row["obligation_id"] for row in page.record["obligations"]
+        }:
+            raise ValueError("selected support obligation is outside its acquired page")
+        request["obligation_id"] = obligation_id
+        request.pop("after", None)
     if whole_read:
         request["support_scope"] = "read"
         request.pop("after", None)
@@ -429,10 +436,22 @@ def selected_record_index(
                             "selected resource belongs to another cut/trust assessment"
                         )
                     selected_page = True
+                    support_obligations: tuple[str | None, ...] = (None,)
                     if remaining_uses is not None:
                         present = {row["use_id"] for row in page.record["uses"]} & remaining_uses
                         selected_page = bool(present)
                         remaining_uses.difference_update(present)
+                        support_obligations = tuple(
+                            dict.fromkeys(
+                                row["obligation_id"]
+                                for row in page.record["uses"]
+                                if row["use_id"] in present
+                            )
+                        )
+                        if set(support_obligations) == {
+                            row["obligation_id"] for row in page.record["obligations"]
+                        }:
+                            support_obligations = (None,)
                     if capture_frontier and selected_page:
                         index.append_page(page.record)
                     if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
@@ -449,24 +468,30 @@ def selected_record_index(
                     if selected_page and (
                         use_ids is not None or obligation_ids is not None or continuation is None
                     ):
-                        for record in stream_selected_support(
-                            connection, page, whole_read=obligation_ids is None and use_ids is None
-                        ):
-                            index.append(json_bytes(record), allow_equal=True)
-                            if (
-                                max_total_records is not None
-                                and index.retained_records > max_total_records
+                        for support_obligation in support_obligations:
+                            for record in stream_selected_support(
+                                connection,
+                                page,
+                                whole_read=obligation_ids is None and use_ids is None,
+                                obligation_id=support_obligation,
                             ):
-                                raise SelectedGraphBudgetExceeded(
-                                    "selected graph examined closure exceeds record bound", cut=cut
-                                )
-                            if (
-                                max_total_bytes is not None
-                                and index.retained_bytes > max_total_bytes
-                            ):
-                                raise SelectedGraphBudgetExceeded(
-                                    "selected graph examined closure exceeds byte bound", cut=cut
-                                )
+                                index.append(json_bytes(record), allow_equal=True)
+                                if (
+                                    max_total_records is not None
+                                    and index.retained_records > max_total_records
+                                ):
+                                    raise SelectedGraphBudgetExceeded(
+                                        "selected graph examined closure exceeds record bound",
+                                        cut=cut,
+                                    )
+                                if (
+                                    max_total_bytes is not None
+                                    and index.retained_bytes > max_total_bytes
+                                ):
+                                    raise SelectedGraphBudgetExceeded(
+                                        "selected graph examined closure exceeds byte bound",
+                                        cut=cut,
+                                    )
                     if remaining_uses is not None and not remaining_uses:
                         break
                     if continuation is None:

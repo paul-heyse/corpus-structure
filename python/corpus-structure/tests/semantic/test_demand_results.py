@@ -1067,9 +1067,10 @@ def test_selected_use_index_reuses_acquired_metadata_and_stops_when_resolved(
         record["continuation"] = {"after": "obligation:A"} if suffix == "A" else None
         return DemandResult(json_bytes(record), json_bytes(continuation))
 
-    def support(connection, page, *, whole_read):
+    def support(connection, page, *, whole_read, obligation_id=None):
         assert whole_read is False
         use = page.record["uses"][0]["use_id"]
+        assert obligation_id is None
         support_pages.append(use)
         return iter(({"relation": "ops.data_derivation", "key": use, "record": {"id": use}},))
 
@@ -1106,6 +1107,75 @@ def test_selected_use_index_reuses_acquired_metadata_and_stops_when_resolved(
         pass
 
 
+def test_selected_use_support_excludes_other_obligations_on_the_same_page(monkeypatch):
+    from copy import deepcopy
+
+    from corpus_structure.semantic import demand_results as owner
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+
+    record = demand_result_page()
+    unrelated_obligation = deepcopy(record["obligations"][0])
+    unrelated_obligation["obligation_id"] = unrelated_obligation["id"] = "obligation:other"
+    record["obligations"].append(unrelated_obligation)
+    unrelated_use = deepcopy(record["uses"][0])
+    unrelated_use.update(use_id="use:other", obligation_id="obligation:other")
+    record["uses"].append(unrelated_use)
+    page = DemandResult(json_bytes(record), json_bytes({"after": "obligation:earlier"}))
+    support_requests = []
+
+    def read(self, request):
+        support_requests.append(request)
+        assert request["view"] == "support"
+        assert request["obligation_id"] == "obligation:A"
+        assert "after" not in request
+        return {
+            **record,
+            "support_page": {
+                "records": [
+                    {
+                        "relation": "ops.data_derivation",
+                        "key": "selected",
+                        "record": {"id": "selected"},
+                    }
+                ],
+                "complete": True,
+                "after": None,
+            },
+        }
+
+    monkeypatch.setattr(owner, "read_demand_result", lambda *args, **kwargs: page)
+    monkeypatch.setattr(DataOperationStorage, "read_demand_result", read)
+    with owner.selected_record_index(
+        None,
+        "demand:A",
+        project_id="project:A",
+        scope={},
+        read_id="read:A",
+        expected_cut=page.cut.identity,
+        use_ids={"use:A"},
+    ) as (_, index):
+        assert list(index.rows("ops.data_derivation")) == [{"id": "selected"}]
+    assert len(support_requests) == 1
+
+
+@pytest.mark.parametrize("whole_read,obligation_id", [(False, "outside"), (True, "obligation:A")])
+def test_support_obligation_refuses_outside_page_or_whole_cut(
+    monkeypatch, whole_read, obligation_id
+):
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.demand_results import stream_selected_support
+
+    def forbidden_read(*args, **kwargs):
+        raise AssertionError("invalid support selector reached native acquisition")
+
+    monkeypatch.setattr(DataOperationStorage, "read_demand_result", forbidden_read)
+    page = DemandResult(json_bytes(demand_result_page()))
+    with pytest.raises(ValueError, match="outside its acquired page"):
+        list(
+            stream_selected_support(None, page, whole_read=whole_read, obligation_id=obligation_id)
+        )
+
+
 def test_selected_record_index_seeds_only_explicit_obligations_under_the_same_cut(monkeypatch):
     from corpus_structure.semantic import demand_results as owner
 
@@ -1122,7 +1192,8 @@ def test_selected_record_index_seeds_only_explicit_obligations_under_the_same_cu
         record["uses"][0]["use_id"] = "use:" + obligation
         return DemandResult(json_bytes(record))
 
-    def witness(connection, page, *, whole_read):
+    def witness(connection, page, *, whole_read, obligation_id=None):
+        assert obligation_id is None
         support.append((page.record["obligations"][0]["obligation_id"], whole_read))
         return iter(())
 
@@ -1183,7 +1254,8 @@ def test_selected_record_index_retains_support_from_every_selected_frontier_page
         assert kwargs["continuation"]["obligation_id"] == "obligation:A"
         return next(pages)
 
-    def support(connection, page, *, whole_read):
+    def support(connection, page, *, whole_read, obligation_id=None):
+        assert obligation_id is None
         assert whole_read is False
         identity = page.record["uses"][0]["use_id"]
         observed.append(identity)

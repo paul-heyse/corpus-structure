@@ -14,6 +14,7 @@ from evaluate.declared_record_native_support import (
 )
 from evaluate.declared_rich_native_journey_test_support import (
     verify_completion_refusals,
+    verify_mixed_producer_requirements,
 )
 from evaluate.declared_rich_native_support import (
     current_rich_policy as current_rich_policy,
@@ -117,6 +118,9 @@ def test_actual_rich_admission_keeps_complete_reading_authority_separate_from_sc
     # Actual direct raw/resolution computation support, never a synthesized agent
     # observation or a guessed member-to-episode relationship.
     with journey.kernel.engine.begin() as connection:
+        verify_mixed_producer_requirements(
+            connection, selected.episode, selected.admission, assertions
+        )
         assert (
             connection.scalar(
                 text("SELECT ops.ddo_node_valid('episode',:episode)"), {"episode": selected.episode}

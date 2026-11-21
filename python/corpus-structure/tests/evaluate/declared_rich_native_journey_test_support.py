@@ -28,6 +28,83 @@ def _completion_counts(connection, request_id):
     )
 
 
+def verify_mixed_producer_requirements(connection, episode, admission, assertions):
+    """Compare actual native consumers with independent requirements and receipts."""
+    from sqlalchemy import text
+
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+
+    selected = (
+        ("consolidation", admission.consolidation, "rich", True, None),
+        ("records", assertions[0].original, "none", True, None),
+        ("readings", assertions[0].resolution, "none", True, None),
+        (
+            "policy_authorizations",
+            admission.policy_authorizations[0],
+            "none",
+            False,
+            "native-evaluator-policy-authorization",
+        ),
+    )
+    consumer = connection.execute(
+        text(
+            "SELECT definition.input_roles FROM ops.data_derivation episode "
+            "JOIN ops.data_request request ON request.id=episode.request_id "
+            "JOIN sem.data_operation_definition definition "
+            "ON definition.release_id=request.release_id "
+            "AND definition.operation_id=request.operation_id WHERE episode.id=:episode"
+        ),
+        {"episode": episode},
+    ).scalar_one()
+    roles = {role["name"]: role["producer_requirement"] for role in consumer}
+    for role, reference, family, requires_cpu, effect in selected:
+        requirement = roles[role]
+        assert requirement["required_family"] == family
+        assert requirement["requires_cpu"] is requires_cpu
+        assert requirement["required_effect"] == effect
+        producer = connection.execute(
+            text(
+                "SELECT producer.id FROM ops.data_derivation episode "
+                "JOIN ops.data_request request ON request.id=episode.request_id "
+                "CROSS JOIN LATERAL ops.ddo_rich_producing_request("
+                "request,CAST(:selected AS jsonb),:role) producer "
+                "WHERE episode.id=:episode"
+            ),
+            {
+                "episode": episode,
+                "selected": json_bytes(reference.model_dump(mode="python")).decode(),
+                "role": role,
+            },
+        ).scalar_one()
+        observed = connection.execute(
+            text(
+                "SELECT definition.profile,definition.validity_families,intent.payload,"
+                "receipt.derivation_id FROM ops.data_request request "
+                "JOIN sem.data_operation_definition definition "
+                "ON definition.release_id=request.release_id "
+                "AND definition.operation_id=request.operation_id "
+                "JOIN ops.data_derivation episode ON episode.request_id=request.id "
+                "JOIN ops.data_completion_intent intent ON intent.id=episode.intent_id "
+                "JOIN ops.data_publication_receipt receipt "
+                "ON receipt.derivation_id=episode.id AND receipt.intent_id=intent.id "
+                "WHERE request.id=:producer"
+            ),
+            {"producer": producer},
+        ).one()
+        support = reference.support_references[0]
+        assert isinstance(support, ComputationalSupportReference)
+        assert observed.derivation_id == support.derivation_id
+        if requires_cpu:
+            assert observed.profile == "derivation"
+            assert len(observed.payload["execution_evidence"]["cpu_receipts"]) == 1
+        if family == "rich":
+            assert "rich" in observed.validity_families
+        if role == "policy_authorizations":
+            assert observed.profile == "command"
+            assert "rich" not in observed.validity_families
+
+
 def _unretained_completion(journey, request_id):
     with journey.kernel.engine.begin() as connection:
         assert _completion_counts(connection, request_id) == (0, 0, 0)
