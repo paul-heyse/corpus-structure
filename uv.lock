@@ -794,7 +794,7 @@ dependencies = [
     { name = "sympy" },
     { name = "threadpoolctl" },
     { name = "torch" },
-    { name = "transformers" },
+    { name = "transformers", extra = ["sentencepiece"] },
     { name = "typer" },
     { name = "valuesets" },
     { name = "wcwidth" },
@@ -864,7 +864,7 @@ requires-dist = [
     { name = "sympy", specifier = "==1.14.0" },
     { name = "threadpoolctl", specifier = "==3.7.0" },
     { name = "torch", specifier = "==2.15.0" },
-    { name = "transformers", specifier = "==5.22.1" },
+    { name = "transformers", extras = ["sentencepiece"], specifier = "==5.22.1" },
     { name = "typer", specifier = "==0.28.0" },
     { name = "valuesets", specifier = "==0.4.2" },
     { name = "wcwidth", specifier = "==0.9.4" },
@@ -6723,6 +6723,10 @@ wheels = [
 [package.optional-dependencies]
 chat-template = [
     { name = "jinja2" },
+]
+sentencepiece = [
+    { name = "protobuf" },
+    { name = "sentencepiece" },
 ]
 
 [[package]]

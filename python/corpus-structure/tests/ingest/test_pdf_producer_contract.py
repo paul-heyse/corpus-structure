@@ -86,13 +86,23 @@ def test_selected_material_ignores_unrelated_files_and_authenticates_dependency(
     unrelated.write_text("first\n")
     monkeypatch.setattr(producer, "STANDARD_MODULES", ("ingest/pdf_producer_contract",))
     monkeypatch.setattr(sys, "prefix", str(tmp_path))
+    requirements = {
+        "transformers": (
+            "sentencepiece; extra == 'sentencepiece'",
+            "protobuf; extra == 'sentencepiece'",
+            "unused; extra == 'unused'",
+        ),
+        "sentencepiece": ("bridge[feature]",),
+        "bridge": ("leaf; extra == 'feature'",),
+        "jsonschema": ("format-leaf; extra == 'format'",),
+    }
     monkeypatch.setattr(
         producer,
         "distribution",
         lambda name: SimpleNamespace(
             version="1.0",
             files=("dependency.py",),
-            requires=(),
+            requires=requirements.get(name, ()),
             locate_file=lambda name: tmp_path / name,
         ),
     )
@@ -104,6 +114,10 @@ def test_selected_material_ignores_unrelated_files_and_authenticates_dependency(
         second = producer.standard_pdf_contract()
         assert first.content == second.content
         document = json.loads(first.content)
+        assert {"sentencepiece", "protobuf", "bridge", "leaf", "format-leaf"} <= set(
+            document["distributions"]
+        )
+        assert "unused" not in document["distributions"]
         assert document["dependencies"] == [["dependency.py", observed_file(dependency).digest]]
         dependency.write_text("x = 2\n")
         with pytest.raises(ValueError, match="changed"):

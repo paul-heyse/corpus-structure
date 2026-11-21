@@ -178,6 +178,7 @@ def standard_pdf_contract() -> StandardPdfContract:
     ]
     pending.append(("jsonschema", ("format",)))
     pending.append(("requests", ("use-chardet-on-py3",)))
+    pending.append(("transformers", ("sentencepiece",)))
     selected: dict[str, str] = {}
     selected_extras: dict[str, set[str]] = {}
     files: dict[str, str] = {}
