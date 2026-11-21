@@ -38,7 +38,7 @@ from sqlalchemy.sql.visitors import replacement_traverse
 
 from ._data_operation_fates import RecordableFate
 from .binding_primitives import BINDING_PRIMITIVE_ALIASES, BINDING_VALUE_TYPES
-from .data_operation_json import json_bytes, native_json_loads, scope_identity, wire_json_loads
+from .data_operation_json import json_bytes, native_json_loads, scope_identity
 from .data_operation_jsonb import ContextJSONB, json_context_equal
 from .data_operation_kind_refinements import input_kind_contracts
 from .data_operation_model import (
@@ -59,6 +59,7 @@ from .data_operation_source_sets import (
     source_sets_record,
 )
 from .data_operation_values import decode_semantic_value, semantic_value
+from .data_operation_wire import interpret_wire_record
 from .data_operation_version import MODEL_VERSION
 from .identity import canonical_bytes
 from .selected_support import ProducerOutputOccurrence
@@ -657,7 +658,9 @@ def compile_binding(
                 if population is None:
                     condition = and_(condition, false())
                 else:
-                    evidence = wire_json_loads(population.evidence)
+                    evidence = interpret_wire_record(
+                        "population_evidence", native_json_loads(population.evidence)
+                    )
                     if subject_context is None:
                         raise ValueError(
                             "discovery input association requires its complete child context"
@@ -769,7 +772,9 @@ def compile_binding(
     def population_product(name: str, population: PopulationBinding):
         if population.projection == "qualified-context":
             return true()
-        evidence = wire_json_loads(population.evidence)
+        evidence = interpret_wire_record(
+            "population_evidence", native_json_loads(population.evidence)
+        )
         product = evidence.get("product_id")
         if product is None:
             return true()
@@ -1562,7 +1567,9 @@ def decode_binding_rows(
                         if population.projection == "qualified-context"
                         else {}
                     ),
-                    "evidence": wire_json_loads(population.evidence),
+                    "evidence": interpret_wire_record(
+                        "population_evidence", native_json_loads(population.evidence)
+                    ),
                 }
             )
             if population

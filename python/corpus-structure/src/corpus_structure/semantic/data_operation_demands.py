@@ -37,7 +37,8 @@ from corpus_structure.semantic._data_operation_wire import (
 from corpus_structure.semantic.identifiers import ProjectId, RuntimeId
 
 from .data_operation_compilation import project_operation_binding
-from .data_operation_json import json_bytes, json_loads, wire_json_loads
+from .data_operation_json import json_bytes, json_loads, native_json_loads
+from .data_operation_wire import interpret_wire_record
 from .data_operation_model import (
     EffectiveDataOperationModel,
     ResolvedOperationBinding,
@@ -110,7 +111,9 @@ class DemandIntent:
 
     @property
     def record(self) -> WireDemandIntent:
-        return cast(WireDemandIntent, wire_json_loads(self.content))
+        return cast(
+            WireDemandIntent, interpret_wire_record("demand_intent", native_json_loads(self.content))
+        )
 
 
 def freeze_demand(
@@ -654,7 +657,7 @@ class DemandPlanner:
                         "obligation_id": obligation["obligation_id"],
                         "request_meaning": json.loads(bound.request),
                         "request_key": bound.request_id,
-                        "binding": wire_json_loads(bound.binding),
+                        "binding": interpret_wire_record("binding", native_json_loads(bound.binding)),
                         "replicate": operation["replicate"],
                     },
                 )

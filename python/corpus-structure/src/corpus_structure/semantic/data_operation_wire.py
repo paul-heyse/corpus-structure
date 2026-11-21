@@ -698,6 +698,29 @@ def wire_record_schema(name: str, sources=None) -> dict[str, Any]:
     return schema_closure({"$ref": "#/definitions/" + name}, protocol["definitions"])
 
 
+@lru_cache(maxsize=256)
+def _wire_record_interpretation(schema: bytes, contextual_fields: tuple[str, ...]):
+    from .wire_json_policy import prepare_json_projection
+
+    return prepare_json_projection(json.loads(schema), contextual_fields)
+
+
+def interpret_wire_record(
+    name: str,
+    value: Any,
+    *,
+    sources: tuple[SourceArtifact, ...] | None = None,
+) -> Any:
+    """Interpret an acquired native record using its selected declaration.
+
+    Structural admission stays with the ingress owner. Captured readers supply
+    their source artifacts, while current writers use the current declaration.
+    Preparation is shared only for equal schema bytes and declared field roles.
+    """
+    schema = canonical_bytes(wire_record_schema(name, sources))
+    return _wire_record_interpretation(schema, wire_contextual_fields(sources))(value)
+
+
 def wire_kind_declarations(
     sources: tuple[SourceArtifact, ...] | None = None,
 ) -> tuple[dict[str, Any], ...]:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -24,6 +25,30 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.types import SourceArtifact
 from semantic.data_operation_declaration_support import contract
 from semantic.data_operation_port_support import captured
+
+
+def test_acquired_record_interpretation_uses_declared_roles_without_revalidation(monkeypatch):
+    from corpus_structure.semantic import data_operation_wire as wire
+    from corpus_structure.semantic.data_operation_json import native_json_loads
+    from corpus_structure.semantic.schema_validation import PreparedSchemaValidator
+
+    def unexpected_validation(*args):
+        raise AssertionError("acquired record interpretation must not repeat structural admission")
+
+    monkeypatch.setattr(PreparedSchemaValidator, "validate", unexpected_validation)
+    original = native_json_loads(
+        b'{"selection":{"analyzed_scope":{"fraction":0.123456789012345678901},"filter":{"analyzed_scope":{"fraction":0.123456789012345678901}}}}'
+    )
+    interpreted = wire.interpret_wire_record("population_evidence", original)
+    assert interpreted["selection"]["analyzed_scope"]["fraction"] == Decimal(
+        "0.123456789012345678901"
+    )
+    assert interpreted["selection"]["filter"]["analyzed_scope"]["fraction"] == 0.12345678901234568
+    assert type(interpreted["selection"]["filter"]["analyzed_scope"]["fraction"]) is float
+    interpreted["selection"]["analyzed_scope"].clear()
+    assert original["selection"]["analyzed_scope"] == {
+        "fraction": Decimal("0.123456789012345678901")
+    }
 
 
 def test_ambient_protocol_is_prepared_once_while_results_remain_detached(monkeypatch):

@@ -608,6 +608,34 @@ def test_frozen_root_identity_includes_source_and_canonical_analyzed_scope():
         )
 
 
+def test_frozen_intent_preserves_declared_scope_numbers_without_rewriting_bytes():
+    from corpus_structure.semantic.data_operation_json import json_bytes
+
+    compiled = model(operation("op:result"))
+    intent = freeze_demand(
+        compiled,
+        roots=(
+            RootSubject(
+                "document:one", "source:one", b'{"fraction":0.123456789012345678901}'
+            ),
+        ),
+        targets=("op:result",),
+        inference="exact",
+        execution_profile="one",
+    )
+    retained = intent.content
+    record = intent.record
+    assert record["roots"][0]["analyzed_scope"] == {
+        "fraction": Decimal("0.123456789012345678901")
+    }
+    assert json_bytes(record) == retained
+    record["roots"][0]["analyzed_scope"]["fraction"] = 9
+    assert intent.record["roots"][0]["analyzed_scope"] == {
+        "fraction": Decimal("0.123456789012345678901")
+    }
+    assert intent.content == retained
+
+
 def test_root_duplicate_check_uses_json_numeric_meaning_and_keeps_boolean_distinct():
     compiled = model(operation("op:result"))
     arguments = {"targets": ("op:result",), "inference": "exact", "execution_profile": "one"}
