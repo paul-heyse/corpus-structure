@@ -48,7 +48,7 @@ ROOT = Path(__file__).resolve().parents[4]
 SENTENCE = "The sample mean is the sum of the observations divided by the sample size."
 
 
-def _recipe(*, empty=False):
+def _recipe():
     from methods.domain_configuration import candidate_configuration
     from statistics_pack_support import statistics_bundle
 
@@ -58,10 +58,11 @@ def _recipe(*, empty=False):
     # This is an explicit supported producer profile, with no undeclared rule or
     # formal input and no extra local question. Family semantics remain original.
     cfg = freeze_m1_configuration(
-        cfg.model_copy(
-            update={
+        type(cfg).model_validate(
+            {
+                **cfg.model_dump(),
                 "local_schema": None,
-                "region_pointers": () if empty else ("#/texts/0",),
+                "region_pointers": ("#/texts/0",),
                 "max_context_chars": 512,
             }
         )
@@ -92,7 +93,7 @@ def _recipe(*, empty=False):
 
 @contextmanager
 def _case(current_pdf_source_factory, tmp_path, *, empty):
-    target = _recipe(empty=empty)
+    target = _recipe()
     rows = (("text", "" if empty else SENTENCE, "" if empty else SENTENCE, None),)
     with current_pdf_source_factory(rows) as source:
         kernel = admit_current_target(source, target, tmp_path / "consumer")

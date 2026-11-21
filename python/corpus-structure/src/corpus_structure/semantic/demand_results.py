@@ -235,6 +235,38 @@ def stream_demand_result(
             break
 
 
+def selected_obligations_for_uses(
+    connection, cut: CutSelection, use_ids: set[str]
+) -> tuple[str, ...]:
+    """Resolve selected uses through their authenticated cut's metadata pages."""
+    pins = cut.record
+    remaining = set(use_ids)
+    obligations: set[str] = set()
+    continuation: Mapping[str, Any] | None = dict(
+        demand_id=pins["demand_id"],
+        read_id=pins["read_id"],
+        scope=pins["scope"],
+        view="frontier",
+    )
+    while remaining:
+        page = read_demand_result(
+            connection,
+            pins["demand_id"],
+            project_id=pins["project_id"],
+            continuation=continuation,
+            cut=cut,
+            view="frontier",
+        )
+        for use in page.record["uses"]:
+            if use["use_id"] in remaining:
+                remaining.remove(use["use_id"])
+                obligations.add(use["obligation_id"])
+        continuation = page.continuation
+        if remaining and continuation is None:
+            raise ValueError("selected use is absent from its exact frontier cut")
+    return tuple(sorted(obligations))
+
+
 def recheck_selected_frontier(
     connection,
     demand_id,
