@@ -1,7 +1,5 @@
 """Acquire one reference parent through an exact live selection before opening its body."""
 
-from collections.abc import Mapping, Sequence
-
 from sqlalchemy import Text, column, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -12,7 +10,7 @@ from .data_operation_model import BoundRoleMember, EffectiveDataOperationModel
 from .data_operation_storage import AdmittedDataRead, admitted_data_read
 from .data_operation_support import support_reference_records
 from .data_operation_values import decode_semantic_value
-from .reference_resolution import ProducingReferenceInput
+from .reference_resolution import AcquiredReferencePartition, ProducingReferenceInput
 
 
 class LiveReferenceAccess:
@@ -122,7 +120,7 @@ class LiveReferenceAccess:
 
     def partition(
         self, product_id: str, collection: str, partition_key: str
-    ) -> tuple[Sequence[Mapping[str, object]], tuple[str, ...]]:
+    ) -> AcquiredReferencePartition:
         pin, read, _ = self._authorized(product_id)
         if pin.member is not None:
             raise PermissionError("selected member does not authorize its parent's partitions")
@@ -153,4 +151,6 @@ class LiveReferenceAccess:
             raise ValueError("reference partition exceeds owned packet capacity")
         if returned_product != product_id:
             raise PermissionError("reference partition belongs to another parent")
-        return decode_semantic_value(packet["body"]), tuple(declarations[0]["address"])
+        return AcquiredReferencePartition(
+            packet["partition_digest"], packet["body"], tuple(declarations[0]["address"])
+        )

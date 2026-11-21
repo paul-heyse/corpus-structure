@@ -1,7 +1,6 @@
 """Declared reference controls at the Python and generated native boundaries."""
 
 import json
-from collections.abc import Mapping, Sequence
 from dataclasses import replace
 
 import pytest
@@ -23,6 +22,7 @@ from corpus_structure.semantic.data_product_reference import (
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.reference_resolution import (
+    AcquiredReferencePartition,
     ProducingReferenceBindings,
     ProducingReferenceInput,
     ReferenceResolver,
@@ -64,20 +64,31 @@ def test_reference_item_key_requires_nominal_atoms_and_exact_python_scalar_types
             read_semantic_reference({**reference.values(), "item_key": [invalid]})
 
 
-def test_resolve_exact_producing_occurrence_and_authorize_even_on_cache_hit():
+def test_resolve_exact_producing_occurrence_and_authorize_even_on_cache_hit(monkeypatch):
+    from corpus_structure.semantic import reference_resolution
+
     admitted = ProducingReferenceInput("inventory", "producing-parent", "kind", occurrence="origin")
-    sibling = replace(admitted, product_id="unrelated", occurrence="sibling")
+    sibling = replace(admitted, product_id="same-content", occurrence="sibling")
     target = ReferenceTarget(
         "inventory", "partition-item", "kind", "rows", requires_occurrence=True
     )
     ref = SemanticReference.item("inventory", "rows", "block", ("sentence", 2), occurrence="origin")
+    packet = partition_packet("rows", "block", 0, 0, 3, [{"kind": "sentence", "index": 2}])
+    decoder = reference_resolution.decode_semantic_value
+    decoded = []
+
+    def decode(meaning):
+        decoded.append(meaning)
+        return decoder(meaning)
+
+    monkeypatch.setattr(reference_resolution, "decode_semantic_value", decode)
 
     class Access:
         allowed = True
         lookups = 0
 
         def authorize(self, binding):
-            if binding != admitted or not self.allowed:
+            if binding not in (admitted, sibling) or not self.allowed:
                 raise PermissionError("target denied")
 
         def product(self, product_id: str) -> object:
@@ -88,14 +99,23 @@ def test_resolve_exact_producing_occurrence_and_authorize_even_on_cache_hit():
 
         def partition(
             self, product_id: str, collection: str, partition_key: str
-        ) -> tuple[Sequence[Mapping[str, object]], tuple[str, ...]]:
-            assert (product_id, collection, partition_key) == ("producing-parent", "rows", "block")
+        ) -> AcquiredReferencePartition:
+            assert product_id in ("producing-parent", "same-content")
+            assert (collection, partition_key) == ("rows", "block")
             self.lookups += 1
-            return ([{"kind": "sentence", "index": 2}], ("kind", "index"))
+            return AcquiredReferencePartition(
+                packet["partition_digest"], packet["body"], ("kind", "index")
+            )
 
     access = Access()
     resolver = ReferenceResolver(ProducingReferenceBindings("actual", (admitted, sibling)), access)
-    assert resolver.resolve(ref, target) == {"kind": "sentence", "index": 2}
+    first = resolver.resolve(ref, target)
+    assert isinstance(first, dict) and first == {"kind": "sentence", "index": 2}
+    first["index"] = 4
+    assert resolver.resolve(replace(ref, occurrence="sibling"), target) == {
+        "kind": "sentence",
+        "index": 2,
+    }
     with pytest.raises(ValueError, match="does not resolve"):
         resolver.resolve(replace(ref, item_key=("sentence", 3)), target)
     with pytest.raises(ValueError, match="declared slot target"):
@@ -103,7 +123,8 @@ def test_resolve_exact_producing_occurrence_and_authorize_even_on_cache_hit():
     access.allowed = False
     with pytest.raises(PermissionError):
         resolver.resolve(ref, target)
-    assert access.lookups == 1
+    assert access.lookups == 2
+    assert decoded == [packet["body"]]
 
 
 def test_native_declared_partition_reference_requires_actual_bound_item(product_connection):

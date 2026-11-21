@@ -1,11 +1,13 @@
 """Available producer facts stay behind the existing authenticated binding reader."""
 
+from types import SimpleNamespace
 from typing import cast
 
 import pytest
 from pglast import ast
 from psycopg.errors import CheckViolation, InsufficientPrivilege
-from sqlalchemy import select, text
+from sqlalchemy import Integer, Text, column, literal, select, text, values
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
@@ -71,6 +73,7 @@ def test_authorized_binding_observes_producer_without_disclosing_protected_suppo
     assert {item.release_id for item in observations} == {stage.prepared.release_id}
     assert all(item.publication_receipt for item in observations)
     assert all(item.cpu_receipt is False for item in observations)
+    assert all(item.reference_inputs == () for item in observations)
     assert all(
         set(value["producer_contract"])
         == {
@@ -82,6 +85,7 @@ def test_authorized_binding_observes_producer_without_disclosing_protected_suppo
             "cpu_receipt",
             "admitted_effects",
             "validity_families",
+            "reference_inputs",
         }
         for value in evidence
     )
@@ -131,3 +135,127 @@ def test_updated_binding_producer_projection_compiles_in_native_rollback(native_
         .all()
     )
     assert errors == []
+
+
+def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(native_rollback):
+    from corpus_structure.semantic.producer_correspondence_native import _selected_reference_inputs
+
+    def relation(name, fields, rows):
+        return values(*(column(field, kind) for field, kind in fields)).data(rows).cte(name)
+
+    def pin(role, product):
+        return {"role": role, "position": 0, "product_id": product, "member_id": None}
+
+    hidden_and_unrelated = [pin("protected", "protected-parent"), pin("other", "unrelated-parent")]
+    uses = relation(
+        "actual_uses",
+        (("id", Text), ("derivation_id", Text), ("fate", Text), ("selection", JSONB)),
+        [
+            (
+                "authentic-use",
+                "historical-derivation",
+                "fulfilled",
+                {
+                    "inputs": [pin("source", "original-parent"), *hidden_and_unrelated],
+                },
+            ),
+            (
+                "substituted-use",
+                "historical-derivation",
+                "fulfilled",
+                {
+                    "inputs": [pin("source", "equal-content-replacement"), *hidden_and_unrelated],
+                },
+            ),
+        ],
+    )
+    inputs = relation(
+        "actual_original_edges",
+        (
+            ("derivation_id", Text),
+            ("role", Text),
+            ("position", Integer),
+            ("multiplicity", Integer),
+            ("product_id", Text),
+            ("member_id", Text),
+        ),
+        [
+            ("historical-derivation", "source", 0, 1, "original-parent", None),
+            ("historical-derivation", "protected", 0, 1, "protected-parent", None),
+            ("historical-derivation", "other", 0, 1, "unrelated-parent", None),
+        ],
+    )
+    products = relation(
+        "actual_products",
+        (("id", Text), ("project_id", Text), ("kind_contract", Text), ("canonical_body", JSONB)),
+        [
+            ("original-parent", "project", "source-kind", {"private": "original body"}),
+            ("equal-content-replacement", "project", "source-kind", {"private": "original body"}),
+            ("protected-parent", "project", "evaluator-kind", {"private": "concealed body"}),
+            ("unrelated-parent", "project", "source-kind", {"private": "unrelated body"}),
+        ],
+    )
+    members = relation(
+        "actual_members",
+        (("product_id", Text), ("member_id", Text), ("kind_contract", Text), ("body", JSONB)),
+        [("other-product", "other-member", "other-kind", {})],
+    )
+    selected = relation(
+        "selected_producer_use",
+        (("use_id", Text), ("output_role", Text)),
+        [("authentic-use", "result"), ("substituted-use", "result")],
+    )
+    episodes = relation("actual_episode", (("id", Text),), [("historical-derivation",)])
+    requests = relation("actual_request", (("project_id", Text),), [("project",)])
+    definitions = relation(
+        "actual_definition",
+        (("support_contract", JSONB),),
+        [
+            (
+                {
+                    "reference_targets": [
+                        {"output_role": "result", "input_role": "source"},
+                        {"output_role": "result", "input_role": "protected"},
+                    ]
+                },
+            )
+        ],
+    )
+    metadata = SimpleNamespace(
+        tables={
+            "ops.data_derivation_input": inputs,
+            "ops.demand_use": uses,
+            "kb.data_product": products,
+            "kb.data_product_member": members,
+        }
+    )
+    projection = _selected_reference_inputs(
+        metadata,
+        selected,
+        episodes,
+        requests,
+        definitions,
+        body_eligible=lambda kind, _body: kind == "source-kind",
+    )
+    rows = native_rollback.connection.execute(
+        select(selected.c.use_id, projection).select_from(
+            selected.join(episodes, literal(True))
+            .join(requests, literal(True))
+            .join(
+                definitions,
+                literal(True),
+            )
+        )
+    ).all()
+    assert dict(tuple(row) for row in rows) == {
+        "authentic-use": [
+            {
+                "role": "source",
+                "product_id": "original-parent",
+                "kind_contract": "source-kind",
+                "member_id": None,
+                "multiplicity": 1,
+            }
+        ],
+        "substituted-use": [],
+    }

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+from .data_product_reference import read_semantic_reference
 from .declared_math_products import (
     DeclaredMathInput,
-    DeclaredMathProduct,
+    DeclaredMathOccurrenceProduct,
     DeclaredMathScopeProduct,
+    DeclaredMathSymbolicProduct,
     _RetainedCharacterization,
 )
 from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes
+from .reference_resolution import require_selected_whole_reference
 
 
 def execute_scope(
@@ -32,18 +35,28 @@ def execute_scope(
     frame = profile.frame(source)
     if profile.options.math_scope_binders is None:
         raise ValueError("symbol scope requires explicitly acquired binder policy")
-    occurrence = DeclaredMathProduct.model_validate(occurrences)
-    normalized = DeclaredMathProduct.model_validate(symbolic)
+    occurrence = DeclaredMathOccurrenceProduct.model_validate(occurrences)
+    normalized = DeclaredMathSymbolicProduct.model_validate(symbolic)
     if (
         occurrence.phase != "occurrences"
         or normalized.phase != "symbolic"
         or not occurrence.source.matches_pin(frame.pin.values())
         or occurrence.source != normalized.source
-        or normalized.occurrence_input != profile.reference("occurrences")
     ):
         raise ValueError(
             "symbol scope requires exact source and occurrence/normalization correspondence"
         )
+    try:
+        require_selected_whole_reference(
+            read_semantic_reference(normalized.occurrence_input),
+            role="occurrences",
+            producing=profile.member("symbolic"),
+            selected=profile.member("occurrences"),
+        )
+    except ValueError as error:
+        raise ValueError(
+            "symbol scope requires exact occurrence/normalization correspondence"
+        ) from error
     retained = _RetainedCharacterization(
         profile.member("constructions").product,
         canonical_bytes(constructions),
@@ -157,7 +170,7 @@ def execute_scope(
     candidates = {}
     supplied = set()
     for pin, body in zip(pins, inherited, strict=True):
-        product = DeclaredMathProduct.model_validate(body)
+        product = DeclaredMathScopeProduct.model_validate(body)
         parent = parents.get((product.source.source_product, product.source.source_member))
         if (
             product.phase != "scope"

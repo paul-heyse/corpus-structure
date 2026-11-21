@@ -826,7 +826,11 @@ def binding_branches(metadata):
             position=candidates.c.output_position,
             multiplicity=candidates.c.output_multiplicity,
         ),
-        producer_contract=selected_producer_contract(metadata, candidates),
+        producer_contract=selected_producer_contract(
+            metadata,
+            candidates,
+            body_eligible=lambda kind, body: _custody_body_eligible(metadata, kind, body),
+        ),
         demand_id=demand,
         use_id=candidates.c.use_id,
         trust_snapshot=_var("snapshot", JSONB),

@@ -58,22 +58,6 @@ class DefinitionDeclarationOperation:
                 },
             },
             {
-                "name": "hanlp",
-                "parameter": "hanlp",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-hanlp/DdoHanlpInventory",
-                "direction": "input",
-                "minimum": 1,
-                "maximum": None,
-                "collection": "sequence",
-                "presence": "required",
-                "support": {
-                    "provenance": "exact",
-                    "source": "same-original",
-                    "coverage": {"role": "hanlp", "description": "exact-selected-source"},
-                    "identity_requirements": ["episode"],
-                },
-            },
-            {
                 "name": "result",
                 "kind": "urn:corpus:structural:DeclaredDefinitionComponentsReport",
                 "direction": "output",
@@ -104,7 +88,6 @@ class DefinitionDeclarationOperation:
         "precision_description": "original-native-half-open-extents",
         "dependencies": [
             "text.declaration_syntax/source-native",
-            "text.hanlp_native/source-native",
         ],
         "effects": [],
         "capabilities": {
@@ -129,7 +112,6 @@ class DefinitionDeclarationOperation:
             "children": [
                 {"operator": "scan", "roles": ["source"]},
                 {"operator": "collection", "roles": ["syntax"], "collection": "sequence"},
-                {"operator": "collection", "roles": ["hanlp"], "collection": "sequence"},
             ],
         },
         "output_witnesses": [
@@ -329,7 +311,6 @@ class DefinitionDeclarationOperation:
         self,
         source: dict,
         syntax: tuple[dict, ...],
-        hanlp: tuple[dict, ...],
         start: int,
         end: int,
         passage_id: str,
@@ -338,5 +319,5 @@ class DefinitionDeclarationOperation:
         parent: str,
     ) -> dict:
         return execute_definition_declaration(
-            self, source, syntax, hanlp, start, end, passage_id, scope, effective_version, parent
+            self, source, syntax, start, end, passage_id, scope, effective_version, parent
         )

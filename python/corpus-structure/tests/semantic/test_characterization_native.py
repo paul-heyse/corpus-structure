@@ -10,7 +10,10 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.characterization import validate_inventory_graph
-from corpus_structure.semantic.characterization_evidence import validate_formal_evidence
+from corpus_structure.semantic.characterization_evidence import (
+    validate_formal_normalization,
+    validate_formal_positions,
+)
 from corpus_structure.semantic.construction_products import (
     ConstructionOptions,
     PreparedConstructionProfile,
@@ -570,11 +573,15 @@ def test_current_formal_evidence_kernel_keeps_independent_counterexamples(mutati
         if annotation["local_id"] in {"symbol", "formal-token"}:
             annotation["occurrences"] = ["o0"]
     body.update(annotations=evidence["annotations"])
-    validate_formal_evidence(_indexes(body))
+    expected_indexes = _indexes(body)
+    validate_formal_positions(expected_indexes)
+    validate_formal_normalization(expected_indexes["annotations"])
     invalid = deepcopy(body)
     mutate_evidence(invalid, mutation)
     with pytest.raises(ValueError):
-        validate_formal_evidence(_indexes(invalid))
+        indexes = _indexes(invalid)
+        validate_formal_positions(indexes)
+        validate_formal_normalization(indexes["annotations"])
 
 
 def test_current_shared_graph_kernel_keeps_factorized_diamond_and_refuses_cycle():

@@ -6,7 +6,10 @@ from typing import Any
 import pytest
 
 from corpus_structure.semantic.characterization import _validate_construction_support
-from corpus_structure.semantic.characterization_evidence import validate_formal_evidence
+from corpus_structure.semantic.characterization_evidence import (
+    validate_formal_normalization,
+    validate_formal_positions,
+)
 from semantic.characterization_evidence_support import (
     EVIDENCE_MUTATIONS as EVIDENCE_MUTATIONS,
 )
@@ -48,12 +51,12 @@ def _evidence_body() -> dict[str, Any]:
 
 
 def _validate(body):
-    validate_formal_evidence(
-        {
-            name: {row["local_id"]: row for row in body[name]}
-            for name in ("annotations", "occurrences")
-        },
-    )
+    indexes = {
+        name: {row["local_id"]: row for row in body[name]}
+        for name in ("annotations", "occurrences")
+    }
+    validate_formal_positions(indexes)
+    validate_formal_normalization(indexes["annotations"])
 
 
 @pytest.fixture(scope="module")

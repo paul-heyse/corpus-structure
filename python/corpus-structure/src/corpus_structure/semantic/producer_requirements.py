@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .data_operation_json import json_bytes, native_json_loads
 from .data_operation_model import BoundRoleMember, ProducerRequirement
+from .reference_resolution import ProducingReferenceInput
 from .selected_support import ProducerOutputOccurrence
 
 
@@ -21,6 +22,7 @@ class SelectedProducerContract(BaseModel):
     cpu_receipt: bool
     admitted_effects: tuple[str, ...]
     validity_families: tuple[str, ...]
+    reference_inputs: tuple[ProducingReferenceInput, ...] = ()
 
 
 @dataclass(frozen=True)

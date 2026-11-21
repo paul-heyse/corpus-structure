@@ -137,7 +137,7 @@ class PreparedDefinitionInputs:
         return tuple(result)
 
     def declaration(
-        self, source, syntax, hanlp, *, start, end, passage_id, scope, effective_version, parent
+        self, source, syntax, *, start, end, passage_id, scope, effective_version, parent
     ):
         from corpus_structure.methods.definition_declaration import (
             primary_declaration_component_products,
@@ -186,9 +186,8 @@ class PreparedDefinitionInputs:
         ):
             raise ValueError("definition passage exceeds its analyzed original source scope")
         primary = self.retained("syntax", syntax, "DdoDeclarationSyntaxProduct", model, selected)
-        support = self.retained("hanlp", hanlp, "DdoHanlpInventory", model, selected)
         component = primary_declaration_component_products(
-            primary, selected, passage, supporting=support, source_pin=frame.pin.values()
+            primary, selected, passage, source_pin=frame.pin.values()
         )
         source_pin = DeclaredStructuralInputPin.from_bound(
             source_member, project=self.context.project_id
@@ -197,9 +196,7 @@ class PreparedDefinitionInputs:
             DeclaredStructuralInputPin.from_bound(member, project=self.context.project_id)
             for member in self.members("syntax")
         )
-        dependencies = tuple(
-            member.product for role in ("syntax", "hanlp") for member in self.members(role)
-        )
+        dependencies = tuple(member.product for member in self.members("syntax"))
         report = DeclaredDefinitionComponentsReport(
             inputs=DeclaredStructuralInput(
                 question="Read the exact retained local declaration chain.",
@@ -229,12 +226,11 @@ class PreparedDefinitionInputs:
 
 
 def execute_definition_declaration(
-    receiver, source, syntax, hanlp, start, end, passage_id, scope, effective_version, parent
+    receiver, source, syntax, start, end, passage_id, scope, effective_version, parent
 ):
     return receiver.inputs.declaration(
         source,
         syntax,
-        hanlp,
         start=start,
         end=end,
         passage_id=passage_id,
@@ -259,7 +255,7 @@ def definition_kernel(
     from .data_operation_values import semantic_value
 
     names = {role.role for role in roles}
-    if names != {"source", "syntax", "hanlp"} or any(
+    if names != {"source", "syntax"} or any(
         role.state != "present" or not role.members for role in roles
     ):
         raise ValueError("definition declaration requires its exact original input population")

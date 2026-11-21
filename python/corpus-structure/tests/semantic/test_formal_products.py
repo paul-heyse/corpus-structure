@@ -907,6 +907,9 @@ def test_prepared_family_completion_preserves_declared_success_outcome(profile):
     assert {attestation.rule_id for attestation in completion.rule_attestations} == {
         "text.formal_evidence/literal-source-geometry",
         "text.formal_evidence/packed-choice-members",
+        "text.formal_evidence/examined-scope",
+        "text.formal_evidence/lexical-inventory-links",
+        "text.formal_evidence/symbolic-inventory-positions",
     }
 
 

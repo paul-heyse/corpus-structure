@@ -164,6 +164,23 @@ classes:
     description: Distinct declaration syntax from exact canonical sentences and independently retained HanLP heads.
     annotations:
       cs:data_universe: ordinary
+    attributes:
+      term_support:
+        range: DdoDeclarationTermSupport
+        multivalued: true
+        inlined: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+  DdoDeclarationTermSupport:
+    is_a: SourceRecordProduct
+    attributes:
+      term_id: {required: true}
+      references:
+        range: DdoSemanticReference
+        multivalued: true
+        inlined: true
+        required: true
+        minimum_cardinality: 1
   DdoContextualMeaningProduct:
     is_a: DdoInterpretedProduct
     description: Exact selected symbolic products evaluated under explicitly selected

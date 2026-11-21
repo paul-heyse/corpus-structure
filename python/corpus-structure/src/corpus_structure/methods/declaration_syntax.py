@@ -19,6 +19,15 @@ class DeclarationSyntaxOperation:
         "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope", "exact-canonical-and-hanlp-products"],
         "entrypoints": ["run"],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/term_support/*/references/*",
+                "input_role": "hanlp",
+                "variant": "partition-item",
+                "collection": "rows",
+            }
+        ],
         "roles": [
             {
                 "name": "source",

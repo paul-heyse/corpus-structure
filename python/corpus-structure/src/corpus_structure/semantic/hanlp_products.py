@@ -87,12 +87,13 @@ def canonical_hanlp_rows(source, canonical):
             raise ValueError("HanLP requires exact local canonical sentence membership")
         for ordinal, sentence in sentences.items():
             start, end = block.start + sentence["start"], block.start + sentence["end"]
-            words = []
+            words, extents = [], []
             for token in tokens.get(ordinal, ()):
                 lo, hi = block.start + token["start"], block.start + token["end"]
                 if not start <= lo < hi <= end:
                     raise ValueError("HanLP token bounds exceed the canonical sentence")
                 if (word := selected["text"][lo:hi]).strip():
+                    extents.append((lo, hi))
                     words.append(
                         (
                             SemanticReference.item(
@@ -111,6 +112,7 @@ def canonical_hanlp_rows(source, canonical):
                             block_id=block.key,
                             placement=(block.start, block.end),
                             block_order=block.ordinal,
+                            token_extents=tuple(extents),
                             reference=SemanticReference.item(
                                 "canonical", COLLECTION, block.key, ("sentence", ordinal)
                             ).values(),

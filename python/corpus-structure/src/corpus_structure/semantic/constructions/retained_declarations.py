@@ -306,7 +306,6 @@ def _emit_declaration_sentence(layer, view, sentence, *, source_key, premises):
         positions=((sentence.positions[0][0], sentence.positions[-1][1]),),
     )
     layer.terms[key]["value"] = "declaration_sentence"
-    layer.terms[key]["external_premises"] = premises
     annotation = identity("declaration-syntax", [root])
     layer.annotations[annotation] = dict(
         local_id=annotation,
@@ -318,48 +317,51 @@ def _emit_declaration_sentence(layer, view, sentence, *, source_key, premises):
         native_label="declaration_sentence",
         status="interpreted",
         occurrences=layer.terms[key]["occurrences"],
-        external_premises=premises,
     )
     layer.terms[key]["premises"] = [annotation]
+    return dict(term_id=key, references=premises)
 
 
 def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, source_frame=None):
     """Index original canonical units and actual HanLP heads without re-recognition."""
-    from ..data_product_reference import DataProductReference, member_reference
+    from ..data_operation_partitions import partition_header
+    from ..data_product_reference import SemanticReference, read_semantic_reference
     from ..declared_record_sources import DeclaredNativeFrameSource
+    from ..hanlp_products import canonical_hanlp_rows
+    from ..sentence_partitions import COLLECTION, blocks_from_packets
     from ..source_contexts import PreparedNativeSources, source_slice
 
     selected = source.value
-    canonical_body, body = json.loads(canonical.content), json.loads(hanlp.content)
-    for value in (canonical_body, body):
-        if value["source"] != selected["source"] or value["selectors"] != selected["selectors"]:
-            raise DeclarationNotQualified(
-                "declaration inputs differ from exact original source and analyzed scope"
-            )
-    if body["canonical"] != DataProductReference(canonical.semantic_id).values():
-        raise DeclarationNotQualified("declaration HanLP input names another canonical product")
-    canonical_rows = {packet["member_id"]: packet["body"] for packet in canonical_body["members"]}
-    packets = body["members"]
-    grouped = {}
-    for packet in packets:
-        unit = packet["body"]
-        if unit["record_type"] in {"token", "srl_group"}:
-            sentence = unit["sentence"]
-            if sentence["product_id"] != canonical.semantic_id:
-                raise DeclarationNotQualified(
-                    "declaration HanLP sentence leaves its canonical product"
-                )
-            grouped.setdefault(sentence["member_id"], []).append(unit)
-    candidates = sorted(
-        (
-            (identifier, row)
-            for identifier, row in canonical_rows.items()
-            if row["record_type"] == "sentence"
-        ),
-        key=lambda item: item[1]["start"],
-    )
-    if len({(row["start"], row["end"]) for _, row in candidates}) != len(candidates):
+    body = json.loads(hanlp.content)
+    if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
+        raise DeclarationNotQualified(
+            "declaration HanLP differs from exact original source and scope"
+        )
+    if read_semantic_reference(body["canonical_input"]) != SemanticReference.whole("canonical"):
+        raise DeclarationNotQualified("declaration HanLP input has no canonical producing role")
+    candidates = sorted(canonical_hanlp_rows(source, canonical), key=lambda item: item[0]["start"])
+    addresses = {(sentence["block_id"], sentence["ordinal"]) for sentence, _ in candidates}
+    if len({(row["start"], row["end"]) for row, _ in candidates}) != len(candidates):
         raise DeclarationNotQualified("declaration requires unique exact canonical sentences")
+    packets = tuple(json.loads(packet) for packet in hanlp.partitions)
+    if partition_header(packets) != body[COLLECTION]:
+        raise DeclarationNotQualified(
+            "declaration HanLP partitions differ from their exact commitment"
+        )
+    grouped = {}
+    for block in blocks_from_packets(packets):
+        for unit in block.rows:
+            if unit["record_type"] not in {"token", "srl_group"}:
+                continue
+            key = block.key, unit["sentence_ordinal"]
+            reference = SemanticReference.item(
+                "canonical", COLLECTION, block.key, ("sentence", key[1])
+            )
+            if key not in addresses or read_semantic_reference(unit["sentence"]) != reference:
+                raise DeclarationNotQualified(
+                    "declaration HanLP sentence leaves its canonical input"
+                )
+            grouped.setdefault(key, []).append(unit)
     if not candidates:
         return
     if source_frame is None:
@@ -388,28 +390,29 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, 
         version=2,
         preparation=PreparedNativeSources((frame,), max_sources=1),
     )
-    for number, (identifier, original) in enumerate(candidates):
+    for number, (original, canonical_tokens) in enumerate(candidates):
         start, end = original["start"], original["end"]
         if not admitted(start, end):
             continue
+        key = original["block_id"], original["ordinal"]
         selector = dict(projection=selected["source"]["projection"], start=start, end=end)
         try:
+            units = grouped.get(key, ())
             tokens = sorted(
-                (row for row in grouped.get(identifier, ()) if row["record_type"] == "token"),
+                (row for row in units if row["record_type"] == "token"),
                 key=lambda row: row["ordinal"],
             )
-            refs = [
-                dict(product_id=canonical.semantic_id, member_id=key)
-                for key in original["token_ids"]
-                if selected["text"][
-                    canonical_rows[key]["start"] : canonical_rows[key]["end"]
-                ].strip()
-            ]
+            refs = [reference for reference, _ in canonical_tokens]
             _require(tokens and [row["ordinal"] for row in tokens] == list(range(len(tokens))))
             _require([row["token"] for row in tokens] == refs)
-            canonical_tokens = [canonical_rows[value["member_id"]] for value in refs]
-            positions = tuple((row["start"], row["end"]) for row in canonical_tokens)
+            positions = original["token_extents"]
             _require(start <= positions[0][0] < positions[-1][1] <= end)
+
+            def native_reference(row, *, key=key):
+                return SemanticReference.item(
+                    "hanlp", COLLECTION, key[0], (key[1], row["record_type"], row["ordinal"])
+                )
+
             for family in (
                 "hanlp.tokens",
                 "hanlp.lemma",
@@ -488,9 +491,7 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, 
                 return key
 
             groups, keys, evidence = {}, {}, []
-            for group in (
-                row for row in grouped.get(identifier, ()) if row["record_type"] == "srl_group"
-            ):
+            for group in (row for row in units if row["record_type"] == "srl_group"):
                 args, predicate = [], None
                 for role in group["roles"]:
                     left, right = role["start"], role["end"]
@@ -506,10 +507,8 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, 
                 if predicate is None:
                     raise DeclarationNotQualified("declaration native SRL has no unique predicate")
                 groups.setdefault(predicate, []).append(_SRL(tuple(args)))
-                reference = member_reference(
-                    DataProductReference(hanlp.semantic_id), group["local_id"]
-                )
-                keys[predicate] = reference.identity
+                reference = native_reference(group)
+                keys[predicate] = identity("hanlp-frame", reference.values())
                 evidence.append(reference)
             frames = {}
             for predicate, srl in groups.items():
@@ -528,10 +527,7 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, 
                     else "active",
                     tuple(srl),
                 )
-            evidence.extend(
-                member_reference(DataProductReference(hanlp.semantic_id), token["local_id"])
-                for token in tokens
-            )
+            evidence.extend(native_reference(token) for token in tokens)
             sentence = _Sentence(
                 context,
                 number,
@@ -580,7 +576,7 @@ def populate_declaration_products(
                 "unknown",
                 "declaration syntax requires an admitted source frame and exact canonical and HanLP products",
             )
-        return
+        return []
     products = (
         tuple(annotation_products)
         if annotation_products is not None
@@ -588,6 +584,7 @@ def populate_declaration_products(
         if native is not None
         else ()
     )
+    premise_sets = []
     try:
         produced = False
         for selector, sentence, reason in _declared_sentences(
@@ -601,12 +598,14 @@ def populate_declaration_products(
                 )
                 continue
             layer.record(DECLARATION_FAMILY, selector, "complete")
-            _emit_declaration_sentence(
-                layer,
-                view,
-                sentence,
-                source_key=view.key,
-                premises=[ref.values() for ref in sentence.evidence],
+            premise_sets.append(
+                _emit_declaration_sentence(
+                    layer,
+                    view,
+                    sentence,
+                    source_key=view.key,
+                    premises=[ref.values() for ref in sentence.evidence],
+                )
             )
         if not produced:
             outcome = (
@@ -627,12 +626,18 @@ def populate_declaration_products(
                 DECLARATION_FAMILY, selector, "unknown", "declaration syntax: " + str(error)
             )
 
+    return premise_sets
 
-def declaration_sentences_products(products, source, passage, *, supporting):
+
+def declaration_sentences_products(products, source, passage):
     """Read positioned declaration facts with their exact admitted native premises."""
     from types import SimpleNamespace
 
-    from ..data_product_reference import DataProductReference, member_reference
+    from ..data_product_reference import (
+        DataProductReference,
+        member_reference,
+        read_semantic_reference,
+    )
 
     selected = source.value
     if (
@@ -640,16 +645,6 @@ def declaration_sentences_products(products, source, passage, *, supporting):
         or selected["text"][passage.start : passage.end] != passage.text
     ):
         raise DeclarationNotQualified("declaration passage differs from exact original source")
-    supports = {}
-    for product in supporting:
-        body = json.loads(product.content)
-        if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
-            raise DeclarationNotQualified(
-                "declaration support differs from exact original source and analyzed scope"
-            )
-        if product.semantic_id in supports:
-            raise DeclarationNotQualified("declaration support repeats a selected product")
-        supports[product.semantic_id] = {packet["member_id"] for packet in body["members"]}
     found, evidence = [], []
 
     def read(term, terms) -> Any:
@@ -672,6 +667,10 @@ def declaration_sentences_products(products, source, passage, *, supporting):
         facts = product.inventory()
         terms = {row["local_id"]: row for row in facts["terms"]}
         occurrences = {row["local_id"]: row for row in facts["occurrences"]}
+
+        support = {row["term_id"]: row["references"] for row in body["term_support"]}
+        if len(support) != len(body["term_support"]):
+            raise DeclarationNotQualified("declaration repeats native term support")
 
         for term in terms.values():
             if (
@@ -717,12 +716,12 @@ def declaration_sentences_products(products, source, passage, *, supporting):
                 for selector in row.get("unexamined", ())
             ):
                 raise DeclarationNotQualified("declaration primary coverage is incomplete")
-            premises = term.get("external_premises", ())
-            if not premises or any(
-                ref.get("member_id") not in supports.get(ref.get("product_id"), ())
-                for ref in premises
+            premises = support.get(term["local_id"], ())
+            if not premises or not all(
+                ref.variant == "partition-item" and ref.role == "hanlp" and ref.collection == "rows"
+                for ref in map(read_semantic_reference, premises)
             ):
-                raise DeclarationNotQualified("declaration native support is unavailable")
+                raise DeclarationNotQualified("declaration native term support is unavailable")
             data = read(term, terms)
             if (
                 not isinstance(data, dict)

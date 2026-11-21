@@ -63,6 +63,13 @@ missing or forged required proof and a dangling partition item
 (`85e9b6137e904489b262743b66ceb23c`). Cross-selection reuse and complete family migration
 remain separate obligations.
 
+The chain passed again after adding current-use producing input metadata
+(`c285558d8dc04e8a9256fe399e655bfb`). The successor candidate for that scope passed rollback-only
+authoring against N47 (`27c37c0e9aaa403ebbb53817d6cee671`).
+The extended real spaCy, canonical, HanLP and declaration syntax chain verified complete HanLP
+output and admitted syntax coverage. The same demand repeated with zero new receipts
+(`ce9ecaff99cb4d2c9ce00cfdd29fdc05`).
+
 Run this focused integration before spreading its assumptions through whole producer and consumer
 families. It closes the early shared-boundary uncertainty. SBX-20 still owns the single registered
 Revision A cutover and SBX-22 the assembled required union.

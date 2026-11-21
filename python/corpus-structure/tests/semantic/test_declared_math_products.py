@@ -14,9 +14,12 @@ from corpus_structure.semantic.data_operation_model import (
     BoundRoleMember,
     SubjectContext,
 )
+from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.declared_math_products import (
     DeclaredMathOptions,
     DeclaredMathProduct,
+    DeclaredMathScopeProduct,
+    DeclaredMathSymbolicProduct,
     PreparedMathInputs,
     acquire_analysis_context_profile,
 )
@@ -30,6 +33,36 @@ from semantic.declared_math_support import math_profile as math_profile
 from semantic.formal_products_support import selected
 
 
+def _selected_symbolic(occurrences: BoundRoleMember) -> BoundRoleMember:
+    return replace(
+        occurrences,
+        product="product:symbolic",
+        support_episodes=("symbolic-derivation",),
+        support_references=(ComputationalSupportReference(derivation_id="symbolic-derivation"),),
+        support_evidence=canonical_bytes(
+            {
+                "producer_contract": {
+                    "version": "selected-producer-contract-v1",
+                    "derivation_id": "symbolic-derivation",
+                    "release_id": "release",
+                    "runtime_id": "runtime",
+                    "publication_receipt": True,
+                    "cpu_receipt": True,
+                    "admitted_effects": [],
+                    "validity_families": [],
+                    "reference_inputs": [
+                        {
+                            "role": "occurrences",
+                            "product_id": occurrences.product,
+                            "kind_contract": occurrences.kind_contract,
+                        }
+                    ],
+                },
+            }
+        ),
+    )
+
+
 def test_math_profiles_compile_without_a_legacy_execution_binding(math_profile):
     prepared = math_profile.prepared
     model = bound_data_operation_model(prepared)
@@ -39,6 +72,12 @@ def test_math_profiles_compile_without_a_legacy_execution_binding(math_profile):
     assert (
         model.operation("normalize.formula/declared").roles[1].kind
         == "urn:corpus:math:DeclaredMathOccurrenceProduct"
+    )
+    (target,) = model.operation("normalize.formula/declared").reference_targets
+    assert (target.path, target.input_role, target.variant) == (
+        "/occurrence_input",
+        "occurrences",
+        "product",
     )
 
 
@@ -83,13 +122,21 @@ def test_occurrence_and_normalization_consume_exact_retained_syntax(math_profile
         profile,
         roles=(_role("source", (source_member,)), _role("occurrences", (occurrence_member,))),
     )
-    result = DeclaredMathProduct.model_validate(
+    result = DeclaredMathSymbolicProduct.model_validate(
         DeclaredMathNormalization(normalizer).run(source.value, actual)
     )
     assert result.phase == "symbolic"
-    assert result.occurrence_input is not None
-    assert result.occurrence_input is not None
-    assert result.occurrence_input.product_id == "product:occurrences"
+    assert result.occurrence_input == {"role": "occurrences", "variant": "product"}
+    equal_body_replacement = replace(
+        normalizer,
+        roles=(
+            _role("source", (source_member,)),
+            _role("occurrences", (replace(occurrence_member, product="product:equal-content"),)),
+        ),
+    )
+    assert DeclaredMathNormalization(equal_body_replacement).run(
+        source.value, actual
+    ) == result.model_dump(mode="json")
     assert result.items[0]["symbolic"] == {"format": "sympy-srepr-1", "expression": "Integer(3)"}
     changed = {**actual, "source": {**actual["source"], "membership": "direct"}}
     with pytest.raises(ValueError, match="exact selected source"):
@@ -151,7 +198,7 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
         roles=(
             _role("source", (source_member,)),
             _role("occurrences", (occurrence_member,)),
-            _role("symbolic", (replace(occurrence_member, product="product:symbolic"),)),
+            _role("symbolic", (_selected_symbolic(occurrence_member),)),
             _role("constructions", (replace(formal_member, product=construction.semantic_id),)),
             _role("inherited", ()),
             _role("ancestor_sources", ()),
@@ -162,7 +209,7 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
     monkeypatch.setattr(
         grammar, "syntax", lambda *_a, **_kw: pytest.fail("scope reparsed primary syntax")
     )
-    result = DeclaredMathProduct.model_validate(
+    result = DeclaredMathScopeProduct.model_validate(
         DeclaredMathScope(scope_profile).run(
             source.value,
             original,
@@ -177,15 +224,20 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
     assert result.occurrence_input.product_id == "product:occurrences"
     assert result.symbolic_input is not None
     assert result.symbolic_input.product_id == "product:symbolic"
-    substituted = {
-        **symbolic,
-        "occurrence_input": {**symbolic["occurrence_input"], "product_id": "product:other"},
-    }
+    substituted = replace(
+        scope_profile,
+        roles=tuple(
+            _role("occurrences", (replace(occurrence_member, product="product:other"),))
+            if role.role == "occurrences"
+            else role
+            for role in scope_profile.roles
+        ),
+    )
     with pytest.raises(ValueError, match="correspondence"):
-        DeclaredMathScope(scope_profile).run(
+        DeclaredMathScope(substituted).run(
             source.value,
             original,
-            substituted,
+            symbolic,
             construction.value.model_dump(mode="json", exclude_unset=True),
         )
 
@@ -350,7 +402,7 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
         roles=(
             _role("source", (pin,)),
             _role("occurrences", (occurrence_pin,)),
-            _role("symbolic", (replace(occurrence_pin, product="product:symbolic"),)),
+            _role("symbolic", (_selected_symbolic(occurrence_pin),)),
             _role("constructions", (replace(formal_pin, product="product:cues"),)),
             _role("inherited", ()),
             _role("ancestor_sources", ()),

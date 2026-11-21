@@ -1,10 +1,15 @@
 """Interpret producing addresses through an independently acquired disclosure boundary."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
+from .data_operation_values import decode_semantic_value
 from .data_product_reference import ReferenceKey, ReferenceVariant, SemanticReference
+
+if TYPE_CHECKING:
+    from .data_operation_model import BoundRoleMember
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +50,51 @@ class ProducingReferenceBindings:
         return matches[0]
 
 
+def selected_producing_reference_bindings(
+    producing: BoundRoleMember,
+) -> ProducingReferenceBindings:
+    """Read original bindings disclosed by this input's exact currently admitted producing use."""
+    from .data_operation_json import json_bytes, native_json_loads
+    from .producer_requirements import SelectedProducerContract
+
+    evidence = native_json_loads(producing.support_evidence)
+    observed = evidence.get("producer_contract")
+    if observed is None:
+        raise ValueError("producing reference requires the exact selected producer contract")
+    contract = SelectedProducerContract.model_validate_json(json_bytes(observed))
+    if producing.support_episodes != (contract.derivation_id,):
+        raise ValueError("producing reference contract belongs to another derivation")
+    return ProducingReferenceBindings(contract.derivation_id, contract.reference_inputs)
+
+
+def require_selected_whole_reference(
+    reference: SemanticReference,
+    *,
+    role: str,
+    producing: BoundRoleMember,
+    selected: BoundRoleMember,
+) -> None:
+    """Require a role-relative citation to match the caller's independent live whole pin."""
+    if reference != SemanticReference.whole(role):
+        raise ValueError("reference differs from its declared whole-product role")
+    original = selected_producing_reference_bindings(producing).resolve(reference)
+    if (
+        original.member_id is not None
+        or selected.member is not None
+        or selected.multiplicity != 1
+        or (original.product_id, original.kind_contract)
+        != (selected.product, selected.kind_contract)
+    ):
+        raise ValueError("original reference target differs from the independently selected input")
+
+
+@dataclass(frozen=True, slots=True)
+class AcquiredReferencePartition:
+    digest: str
+    meaning: object
+    address: tuple[str, ...]
+
+
 class AcquiredReferenceAccess(Protocol):
     """Current selected authority or captured replay custody, scoped by its owner."""
 
@@ -56,7 +106,7 @@ class AcquiredReferenceAccess(Protocol):
 
     def partition(
         self, product_id: str, collection: str, partition_key: str
-    ) -> tuple[Sequence[Mapping[str, object]], tuple[str, ...]]: ...
+    ) -> AcquiredReferencePartition: ...
 
 
 def _field(row: object, path: str) -> str | int:
@@ -72,12 +122,15 @@ def _field(row: object, path: str) -> str | int:
 
 
 class ReferenceResolver:
-    """Resolve through keyed access, with one decoded index per acquired partition."""
+    """Resolve through keyed access and reuse content with the same address declaration."""
 
     def __init__(self, producing: ProducingReferenceBindings, access: AcquiredReferenceAccess):
         self.producing = producing
         self.access = access
-        self._partitions: dict[tuple[str, str, str], dict[ReferenceKey, Mapping[str, object]]] = {}
+        self._locations: dict[tuple[str, str, str], tuple[str, tuple[str, ...]]] = {}
+        self._partitions: dict[
+            tuple[str, tuple[str, ...]], dict[ReferenceKey, Mapping[str, object]]
+        ] = {}
 
     def resolve(self, reference: SemanticReference, target: ReferenceTarget) -> object:
         if (reference.role, reference.variant, reference.collection) != (
@@ -99,15 +152,22 @@ class ReferenceResolver:
             if reference.item_key is None:
                 return self.access.product(binding.product_id)
             assert reference.collection is not None and reference.partition_key is not None
-            key = (binding.product_id, reference.collection, reference.partition_key)
-            if key not in self._partitions:
-                rows, fields = self.access.partition(*key)
-                if not fields:
+            location = (binding.product_id, reference.collection, reference.partition_key)
+            if location not in self._locations:
+                partition = self.access.partition(*location)
+                if not partition.address:
                     raise ValueError("partition lacks a declared item address")
-                indexed = {tuple(_field(row, field) for field in fields): row for row in rows}
-                if len(indexed) != len(rows):
-                    raise ValueError("partition repeats a declared item address")
-                self._partitions[key] = indexed
-            return self._partitions[key][reference.item_key]
+                identity = (partition.digest, partition.address)
+                if identity not in self._partitions:
+                    rows = decode_semantic_value(partition.meaning)
+                    indexed = {
+                        tuple(_field(row, field) for field in partition.address): row
+                        for row in rows
+                    }
+                    if len(indexed) != len(rows):
+                        raise ValueError("partition repeats a declared item address")
+                    self._partitions[identity] = indexed
+                self._locations[location] = identity
+            return deepcopy(self._partitions[self._locations[location]][reference.item_key])
         except KeyError as error:
             raise ValueError("reference does not resolve its declared target") from error

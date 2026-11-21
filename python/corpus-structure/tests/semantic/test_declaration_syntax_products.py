@@ -22,7 +22,7 @@ def test_declaration_syntax_is_distinct_from_source_grammar_and_uses_actual_cano
             NativeProfile(
                 "spacy",
                 {"controlled": "preparation"},
-                {},
+                {"files": {}},
                 configuration.model_dump(mode="json"),
                 "float32",
                 "cupy",

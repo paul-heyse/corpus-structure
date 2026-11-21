@@ -1,6 +1,6 @@
 """Scoped producer facts for admitted binding rows, with no protected input bodies."""
 
-from sqlalchemy import and_, func, literal, select
+from sqlalchemy import Text, and_, case, column, func, literal, select
 from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by
 
 
@@ -15,7 +15,7 @@ def producer_cpu_witness(profile, effects, payload):
     )
 
 
-def selected_producer_contract(metadata, selected):
+def selected_producer_contract(metadata, selected, *, body_eligible):
     """Observe only the producer of a row already bounded by native read authority.
 
     Return identifiers and correspondence facts. Protected bodies, receipt payloads,
@@ -73,6 +73,10 @@ def selected_producer_contract(metadata, selected):
         effects,
         "validity_families",
         func.to_jsonb(definitions.c.validity_families),
+        "reference_inputs",
+        _selected_reference_inputs(
+            metadata, selected, episodes, requests, definitions, body_eligible
+        ),
     )
     return (
         select(record)
@@ -89,5 +93,96 @@ def selected_producer_contract(metadata, selected):
         )
         .where(episodes.c.id == selected.c.episode_id)
         .correlate(selected)
+        .scalar_subquery()
+    )
+
+
+def _selected_reference_inputs(metadata, selected, episodes, requests, definitions, body_eligible):
+    """Expose only scalar original addresses selected by this exact current use."""
+    inputs = metadata.tables["ops.data_derivation_input"].alias("reference_producer_input")
+    uses = metadata.tables["ops.demand_use"].alias("reference_producer_use")
+    products = metadata.tables["kb.data_product"].alias("reference_input_product")
+    members = metadata.tables["kb.data_product_member"].alias("reference_input_member")
+    empty = literal("[]").cast(JSONB)
+    targets = (
+        func.jsonb_array_elements(
+            func.coalesce(definitions.c.support_contract["reference_targets"], empty)
+        )
+        .table_valued(column("value", JSONB()))
+        .render_derived(name="declared_producer_reference_targets")
+    )
+    currently_selected = (
+        func.jsonb_array_elements(uses.c.selection["inputs"])
+        .table_valued(column("value", JSONB()))
+        .render_derived(name="current_producer_reference_inputs")
+    )
+    target = targets.c.value
+    declared = (
+        select(1)
+        .select_from(targets)
+        .where(
+            target["output_role"].astext == selected.c.output_role,
+            target["input_role"].astext == inputs.c.role,
+            target["occurrence_field"].astext.is_(None),
+        )
+        .correlate(selected, definitions, inputs)
+        .exists()
+    )
+    pin = currently_selected.c.value
+    exact = (
+        select(1)
+        .select_from(currently_selected)
+        .where(
+            pin["role"].astext == inputs.c.role,
+            pin["position"].astext == inputs.c.position.cast(Text()),
+            pin["product_id"].astext == inputs.c.product_id,
+            pin["member_id"].astext.is_not_distinct_from(inputs.c.member_id),
+        )
+        .correlate(uses, inputs)
+        .exists()
+    )
+    kind = func.coalesce(members.c.kind_contract, products.c.kind_contract)
+    body = func.coalesce(members.c.body, products.c.canonical_body)
+    record = func.jsonb_build_object(
+        "role",
+        inputs.c.role,
+        "product_id",
+        inputs.c.product_id,
+        "member_id",
+        inputs.c.member_id,
+        "kind_contract",
+        kind,
+        "multiplicity",
+        inputs.c.multiplicity,
+    )
+    return (
+        select(
+            func.coalesce(
+                func.jsonb_agg(aggregate_order_by(record, inputs.c.role, inputs.c.position)), empty
+            )
+        )
+        .select_from(
+            inputs.join(
+                uses,
+                and_(
+                    uses.c.id == selected.c.use_id, uses.c.derivation_id == inputs.c.derivation_id
+                ),
+            )
+            .join(products, products.c.id == inputs.c.product_id)
+            .outerjoin(
+                members,
+                and_(
+                    members.c.product_id == inputs.c.product_id,
+                    members.c.member_id == inputs.c.member_id,
+                ),
+            )
+        )
+        .where(
+            inputs.c.derivation_id == episodes.c.id,
+            uses.c.fate == "fulfilled",
+            products.c.project_id == requests.c.project_id,
+            case((and_(declared, exact), body_eligible(kind, body)), else_=literal(False)),
+        )
+        .correlate(selected, episodes, requests, definitions)
         .scalar_subquery()
     )

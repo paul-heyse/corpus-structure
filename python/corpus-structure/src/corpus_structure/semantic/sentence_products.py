@@ -291,7 +291,7 @@ def source_annotation_member_values(
             _id(value["source"], "token", annotation["block_id"], row["start"], row["end"])
             for row in annotation["tokens"]
         ]
-        tokens = []
+        tokens_by_sentence: dict[str, list[str]] = {}
         for ordinal, (token, lexeme) in enumerate(zip(annotation["tokens"], lexemes, strict=True)):
             piece_indices = [block["piece_offset"] + index for index in token["piece_indices"]]
             body = {
@@ -317,10 +317,11 @@ def source_annotation_member_values(
                 "piece_indices": piece_indices,
             }
             if token.get("sentence") is not None:
-                body["sentence_ref"] = sentence_ids[token["sentence"]]
+                sentence_id = sentence_ids[token["sentence"]]
+                body["sentence_ref"] = sentence_id
+                tokens_by_sentence.setdefault(sentence_id, []).append(token_ids[ordinal])
             if token["dependency"]:
                 body["head_ref"] = token_ids[token["head"]]
-            tokens.append(body)
             result.append(body)
         for ordinal, (sentence, identifier) in enumerate(zip(sentences, sentence_ids, strict=True)):
             result.append(
@@ -330,11 +331,7 @@ def source_annotation_member_values(
                     "block_id": annotation["block_id"],
                     "ordinal": ordinal,
                     **sentence,
-                    "token_ids": [
-                        token["local_id"]
-                        for token in tokens
-                        if token.get("sentence_ref") == identifier
-                    ],
+                    "token_ids": tokens_by_sentence.get(identifier, []),
                 }
             )
     return tuple(result)
@@ -1110,19 +1107,24 @@ class SourceAnnotationReadings:
             configuration=self.product.configuration,
             partitions=self.product.partitions,
         )
-        sentences = self.product.inventory("sentence")
-        object.__setattr__(self, "_sentences", tuple(canonical_bytes(row) for row in sentences))
+        ordered_sentences, sentences, tokens = [], {}, {}
+        for row in source_annotation_member_values(self.product):
+            content = canonical_bytes(row)
+            if row["record_type"] == "sentence":
+                ordered_sentences.append(content)
+                sentences[row["local_id"]] = content
+            else:
+                tokens[row["local_id"]] = content
+        object.__setattr__(self, "_sentences", tuple(ordered_sentences))
         object.__setattr__(
             self,
             "_sentence_by_id",
-            MappingProxyType({row["local_id"]: canonical_bytes(row) for row in sentences}),
+            MappingProxyType(sentences),
         )
         object.__setattr__(
             self,
             "_token_by_id",
-            MappingProxyType(
-                {row["local_id"]: canonical_bytes(row) for row in self.product.inventory("token")}
-            ),
+            MappingProxyType(tokens),
         )
 
     def sentences(self, *, start: int = 0, end: int | None = None):

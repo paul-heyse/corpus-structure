@@ -9,6 +9,7 @@ from .data_operation_subjects import subject_field_path
 from .data_operation_values import decode_semantic_value
 from .data_product_reference import read_semantic_reference
 from .reference_resolution import (
+    AcquiredReferencePartition,
     ProducingReferenceBindings,
     ProducingReferenceInput,
     ReferenceResolver,
@@ -41,7 +42,9 @@ class _CapturedReferenceAccess:
         partition = self.partitions[product_id, collection, partition_key]
         kind = self.kinds[self.products[product_id]["kind_contract"]]
         spec = kind["collections"]["declarations"][collection]
-        return decode_semantic_value(partition["body"]), tuple(spec["address"])
+        return AcquiredReferencePartition(
+            partition["partition_digest"], partition["body"], tuple(spec["address"])
+        )
 
 
 def _occurrence(access, bound, pointer):

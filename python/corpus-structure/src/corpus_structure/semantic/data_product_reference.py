@@ -5,12 +5,22 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Literal
+from typing import Annotated, Literal, TypedDict
+
+from pydantic import ConfigDict, Field, with_config
 
 from .identity import canonical_bytes
 
 ReferenceVariant = Literal["product", "member", "partition-item"]
 ReferenceKey = tuple[str | int, ...]
+
+
+@with_config(ConfigDict(extra="forbid", json_schema_extra={"x-ddo-role-reference": "product"}))
+class SemanticWholeReference(TypedDict):
+    """Nominal JSON projection of the shared whole-product variant without an occurrence."""
+
+    variant: Literal["product"]
+    role: Annotated[str, Field(min_length=1)]
 
 
 def _identifier(value: object) -> bool:
@@ -98,6 +108,11 @@ class SemanticReference:
                 ],
             )
         return value
+
+    def whole_value(self) -> SemanticWholeReference:
+        if self.variant != "product" or self.occurrence is not None:
+            raise ValueError("scalar product reference required")
+        return {"variant": "product", "role": self.role}
 
 
 def read_semantic_reference(value) -> SemanticReference:

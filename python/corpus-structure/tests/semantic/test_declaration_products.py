@@ -3,6 +3,7 @@
 import json
 from hashlib import sha256
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -19,11 +20,17 @@ from corpus_structure.semantic.constructions.retained_declarations import (
     populate_declaration_products,
 )
 from corpus_structure.semantic.data_operation_model import SubjectContext
+from corpus_structure.semantic.data_operation_partitions import partition_header
+from corpus_structure.semantic.data_product_reference import (
+    SemanticReference,
+    read_semantic_reference,
+)
 from corpus_structure.semantic.declared_record_sources import (
     DeclaredRecordSource,
     DeclaredSourcePin,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.sentence_partitions import SentenceBlock, blocks_from_packets
 from corpus_structure.semantic.source_products import native_projection_identity, source_subject
 from corpus_structure.semantic.structural_products import StructuralPassage
 
@@ -171,111 +178,112 @@ def case():
         "kind:source",
     ).pin()
     native_products = (SimpleNamespace(source=DeclaredSourcePin(canonical_bytes(pin).decode())),)
-    canonical, hanlp, offset = [], [], 0
+    canonical_rows: list[dict[str, Any]] = []
+    hanlp_rows: list[dict[str, Any]] = []
+    block_id, extent = "#/texts/0", len(text)
+    offset = token_ordinal = 0
     for number, (sentence, words, lemmas, arcs, groups, _voices) in enumerate(_ROWS):
-        sentence_id = "sentence:" + str(number)
-        sentence_ref = {"product_id": "product:canonical", "member_id": sentence_id}
+        sentence_ref = SemanticReference.item(
+            "canonical", "rows", block_id, ("sentence", number)
+        ).values()
         references, cursor = [], offset
         for index, (word, lemma, (head, relation)) in enumerate(
             zip(words, lemmas, arcs, strict=True)
         ):
             start = text.index(word, cursor)
-            end, cursor = start + len(word), start + len(word)
-            token_id = "token:" + str(number) + ":" + str(index)
-            reference = {"product_id": "product:canonical", "member_id": token_id}
+            end = cursor = start + len(word)
+            reference = SemanticReference.item(
+                "canonical", "rows", block_id, ("token", token_ordinal)
+            ).values()
             references.append(reference)
-            canonical.append(
-                {
-                    "member_id": token_id,
-                    "body": {
-                        "record_type": "token",
-                        "local_id": token_id,
-                        "start": start,
-                        "end": end,
-                    },
-                }
+            canonical_rows.append(
+                dict(
+                    record_type="token",
+                    ordinal=token_ordinal,
+                    start=start,
+                    end=end,
+                    extent=extent,
+                    sentence=number,
+                )
             )
-            hanlp.append(
-                {
-                    "member_id": "hanlp:" + token_id,
-                    "body": {
-                        "record_type": "token",
-                        "local_id": "hanlp:" + token_id,
-                        "sentence": sentence_ref,
-                        "token": reference,
-                        "ordinal": index,
-                        "lemma": lemma,
-                        "pos": "NN",
-                        "dependency_head": head,
-                        "dependency_label": relation,
-                    },
-                }
+            hanlp_rows.append(
+                dict(
+                    record_type="token",
+                    sentence=sentence_ref,
+                    token=reference,
+                    ordinal=index,
+                    sentence_ordinal=number,
+                    lemma=lemma,
+                    pos="NN",
+                    dependency_head=head,
+                    dependency_label=relation,
+                )
             )
-        canonical.append(
-            {
-                "member_id": sentence_id,
-                "body": {
-                    "record_type": "sentence",
-                    "local_id": sentence_id,
-                    "start": offset,
-                    "end": offset + len(sentence),
-                    "token_ids": [ref["member_id"] for ref in references],
-                },
-            }
+            token_ordinal += 1
+        canonical_rows.append(
+            dict(
+                record_type="sentence",
+                ordinal=number,
+                start=offset,
+                end=offset + len(sentence),
+                extent=extent,
+            )
         )
         for index, roles in enumerate(groups):
-            identifier = "srl:" + str(number) + ":" + str(index)
-            hanlp.append(
-                {
-                    "member_id": identifier,
-                    "body": {
-                        "record_type": "srl_group",
-                        "local_id": identifier,
-                        "sentence": sentence_ref,
-                        "ordinal": index,
-                        "roles": [
-                            {"label": role, "start": a, "end": b, "tokens": references[a:b]}
-                            for role, a, b in roles
-                        ],
-                    },
-                }
+            hanlp_rows.append(
+                dict(
+                    record_type="srl_group",
+                    sentence=sentence_ref,
+                    ordinal=index,
+                    sentence_ordinal=number,
+                    roles=[
+                        dict(label=role, start=a, end=b, tokens=references[a:b])
+                        for role, a, b in roles
+                    ],
+                )
             )
         offset += len(sentence) + 1
-    canonical = CharacterizationSnapshot(
+    canonical = partitioned_snapshot(
         "product:canonical",
-        canonical_bytes(
-            {
-                "source": coordinate,
-                "selectors": selectors,
-                "outcome": "complete",
-                "members": canonical,
-            }
-        ),
+        dict(source=coordinate, selectors=selectors, outcome="complete"),
+        block_id,
+        extent,
+        sorted(canonical_rows, key=lambda row: (row["record_type"], row["ordinal"])),
     )
-    hanlp = CharacterizationSnapshot(
+    hanlp = partitioned_snapshot(
         "product:hanlp",
-        canonical_bytes(
-            {
-                "source": coordinate,
-                "selectors": selectors,
-                "canonical": {"product_id": canonical.semantic_id},
-                "coverage": [
-                    {
-                        "family": "hanlp." + family,
-                        "availability": "available",
-                        "outcome": "complete",
-                        "examined": [
-                            {"projection": coordinate["projection"], "start": 0, "end": len(text)}
-                        ],
-                        "unexamined": [],
-                    }
-                    for family in ("tokens", "lemma", "pos", "dependency", "srl")
-                ],
-                "members": hanlp,
-            }
+        dict(
+            source=coordinate,
+            selectors=selectors,
+            canonical_input=SemanticReference.whole("canonical").values(),
+            coverage=[
+                dict(
+                    family="hanlp." + family,
+                    availability="available",
+                    outcome="complete",
+                    examined=[dict(projection=coordinate["projection"], start=0, end=extent)],
+                    unexamined=[],
+                )
+                for family in ("tokens", "lemma", "pos", "dependency", "srl")
+            ],
+        ),
+        block_id,
+        extent,
+        sorted(
+            hanlp_rows,
+            key=lambda row: (row["sentence_ordinal"], row["record_type"], row["ordinal"]),
         ),
     )
     return source, native_products, canonical, hanlp
+
+
+def partitioned_snapshot(product_id, header, block, extent, rows):
+    packet = SentenceBlock(block, 0, 0, extent, tuple(rows)).packet()
+    return CharacterizationSnapshot(
+        product_id,
+        canonical_bytes(dict(header, rows=partition_header((packet,)))),
+        (canonical_bytes(packet),),
+    )
 
 
 def produce(source, native_products, canonical, hanlp):
@@ -290,7 +298,7 @@ def produce(source, native_products, canonical, hanlp):
     frame = DeclaredNativeFrameSource(
         source.content.decode(), canonical_bytes(native_products[0].source.values()).decode()
     )
-    populate_declaration_products(
+    term_support = populate_declaration_products(
         builder,
         ConstructionSource.from_native(source),
         source,
@@ -307,6 +315,7 @@ def produce(source, native_products, canonical, hanlp):
                 "source": source.value["source"],
                 "selectors": source.value["selectors"],
                 "coverage": facts["coverage"],
+                "term_support": term_support,
                 "members": [
                     {"member_id": row["local_id"], "body": {"record_type": tag, **row}}
                     for name, tag in (
@@ -335,34 +344,49 @@ def passage(source):
 def test_declared_native_syntax_preserves_same_domain_chain_and_genuine_primary_refs():
     source, native, canonical, hanlp = case()
     product = produce(source, native, canonical, hanlp)
-    sentences, evidence = declaration_sentences_products(
-        (product,), source, passage(source), supporting=(hanlp,)
-    )
+    sentences, evidence = declaration_sentences_products((product,), source, passage(source))
     chain = _declaration_chain_from_sentences(sentences, passage(source))
     assert chain.label.text == "Definition 1" and chain.term.text == "samples"
     assert [row.frame for row in chain.bindings] and all(
         "member:" in row.frame for row in chain.bindings
     )
     assert all(ref.values()["product_id"] == product.semantic_id for ref in evidence)
+    supports = json.loads(product.content)["term_support"]
+    assert len(supports) == 3
+    for index, row in enumerate(supports):
+        references = tuple(map(read_semantic_reference, row["references"]))
+        assert all(
+            ref.role == "hanlp"
+            and ref.partition_key == "#/texts/0"
+            and ref.item_key is not None
+            and ref.item_key[0] == index
+            for ref in references
+        )
     assert b"source_view_id" not in product.content and b"task_id" not in product.content
 
 
 def test_missing_native_premise_or_changed_canonical_association_cannot_become_empty():
     source, native, canonical, hanlp = case()
     product = produce(source, native, canonical, hanlp)
+    body = json.loads(product.content)
+    body["term_support"] = []
+    unsupported = CharacterizationSnapshot(product.product_id, canonical_bytes(body))
     with pytest.raises(DeclarationNotQualified, match="support is unavailable"):
-        declaration_sentences_products((product,), source, passage(source), supporting=())
+        declaration_sentences_products((unsupported,), source, passage(source))
     body = json.loads(hanlp.content)
-    body["canonical"] = {"product_id": "product:other"}
+    body["canonical_input"] = SemanticReference.whole("other").values()
     failed = produce(
-        source, native, canonical, CharacterizationSnapshot(hanlp.product_id, canonical_bytes(body))
+        source,
+        native,
+        canonical,
+        CharacterizationSnapshot(hanlp.product_id, canonical_bytes(body), hanlp.partitions),
     )
     assert all(
         row["outcome"] not in {"complete", "empty"}
         for row in json.loads(failed.content)["coverage"]
     )
     with pytest.raises(DeclarationNotQualified):
-        declaration_sentences_products((failed,), source, passage(source), supporting=(hanlp,))
+        declaration_sentences_products((failed,), source, passage(source))
 
 
 def test_target_definition_component_retains_semantic_witness_and_independent_domain_result(
@@ -386,7 +410,6 @@ def test_target_definition_component_retains_semantic_witness_and_independent_do
         (product,),
         source,
         passage(source),
-        supporting=(hanlp,),
         source_pin=native[0].source.values(),
     )
     assert component.term.text == "samples" and component.basis == "declaration_chain"
@@ -443,7 +466,7 @@ def applicability_case():
     source_ref = DeclaredStructuralSource.model_validate(frame.pin.values())
     target_passage = passage(source).model_copy(update={"source_ref": source_ref.identity})
     component = primary_declaration_component_products(
-        (product,), source, target_passage, supporting=(hanlp,), source_pin=frame.pin.values()
+        (product,), source, target_passage, source_pin=frame.pin.values()
     )
     source_pin = DeclaredStructuralInputPin(
         product_id=source_ref.source_product,
@@ -463,7 +486,7 @@ def applicability_case():
         policy_id="retained-declaration-chain-v2",
         sources=(source_ref,),
         passages=(target_passage,),
-        dependencies=(product.semantic_id, hanlp.semantic_id),
+        dependencies=(product.semantic_id,),
     )
     report = DeclaredDefinitionComponentsReport(
         inputs=inputs,
@@ -651,24 +674,23 @@ def test_current_declaration_reader_refuses_missing_or_substituted_semantic_scop
             ]
         products = (CharacterizationSnapshot(product.product_id, canonical_bytes(body)),)
     with pytest.raises(DeclarationNotQualified):
-        declaration_sentences_products(products, source, selected, supporting=(hanlp,))
+        declaration_sentences_products(products, source, selected)
 
 
 @pytest.mark.parametrize("corruption", ["missing_column", "srl_support"])
 def test_current_declaration_syntax_failure_preserves_healthy_siblings(corruption):
     source, native, canonical, hanlp = case()
-    body = json.loads(hanlp.content)
+    assert hanlp.partitions is not None
+    (block,) = blocks_from_packets(tuple(json.loads(packet) for packet in hanlp.partitions))
     if corruption == "missing_column":
-        token = next(
-            row["body"] for row in body["members"] if row["body"]["record_type"] == "token"
-        )
+        token = next(row for row in block.rows if row["record_type"] == "token")
         del token["lemma"]
     else:
-        group = next(
-            row["body"] for row in body["members"] if row["body"]["record_type"] == "srl_group"
-        )
+        group = next(row for row in block.rows if row["record_type"] == "srl_group")
         group["roles"][0]["tokens"] = []
-    changed = CharacterizationSnapshot(hanlp.product_id, canonical_bytes(body))
+    changed = partitioned_snapshot(
+        hanlp.product_id, json.loads(hanlp.content), block.key, block.end, block.rows
+    )
     product = produce(source, native, canonical, changed)
     facts = product.inventory()
     roots = [term for term in facts["terms"] if term["value"] == "declaration_sentence"]
@@ -681,7 +703,7 @@ def test_current_declaration_syntax_failure_preserves_healthy_siblings(corruptio
     assert coverage["outcome"] == "partial"
     assert len(coverage["examined"]) == 2 and len(coverage["unexamined"]) == 1
     with pytest.raises(DeclarationNotQualified):
-        declaration_sentences_products((product,), source, passage(source), supporting=(changed,))
+        declaration_sentences_products((product,), source, passage(source))
 
 
 def test_current_healthy_chain_survives_unselected_malformed_sentence(monkeypatch):
@@ -690,19 +712,19 @@ def test_current_healthy_chain_survives_unselected_malformed_sentence(monkeypatc
     selected_text = " ".join(row[0] for row in _ROWS)
     monkeypatch.setattr(sys.modules[__name__], "_ROWS", (*_ROWS, _ROWS[0]))
     source, native, canonical, hanlp = case()
-    body = json.loads(hanlp.content)
+    assert hanlp.partitions is not None
+    (block,) = blocks_from_packets(tuple(json.loads(packet) for packet in hanlp.partitions))
     token = next(
-        row["body"]
-        for row in body["members"]
-        if row["body"]["record_type"] == "token"
-        and row["body"]["sentence"]["member_id"] == "sentence:3"
+        row for row in block.rows if row["record_type"] == "token" and row["sentence_ordinal"] == 3
     )
     del token["lemma"]
-    changed = CharacterizationSnapshot(hanlp.product_id, canonical_bytes(body))
+    changed = partitioned_snapshot(
+        hanlp.product_id, json.loads(hanlp.content), block.key, block.end, block.rows
+    )
     product = produce(source, native, canonical, changed)
     selected = passage(source).model_copy(update=dict(text=selected_text, end=len(selected_text)))
     component = primary_declaration_component_products(
-        (product,), source, selected, supporting=(changed,), source_pin=native[0].source.values()
+        (product,), source, selected, source_pin=native[0].source.values()
     )
     assert component.term.text == "samples"
     assert component.declaration_chain is not None

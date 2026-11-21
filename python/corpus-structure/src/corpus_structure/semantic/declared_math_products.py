@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from .constructions.math_scope import Binders, NativeDomainRule
 from .data_operation_model import ResolvedRoleBinding
 from .data_operation_version import MODEL_VERSION
+from .data_product_reference import SemanticReference, SemanticWholeReference
 from .declared_record_sources import DeclaredNativeFrameSource
 from .declared_structural_references import DeclaredStructuralSource
 from .identity import canonical_bytes
@@ -59,7 +60,6 @@ class DeclaredMathProduct(BaseModel):
     source: DeclaredStructuralSource
     phase: Literal["occurrences", "symbolic", "scope"]
     formal_input: DeclaredMathInput | None = None
-    occurrence_input: DeclaredMathInput | None = None
     inherited_inputs: tuple[DeclaredMathInput, ...] = ()
     symbolic_input: DeclaredMathInput | None = None
     construction_input: DeclaredMathInput | None = None
@@ -76,7 +76,7 @@ class DeclaredMathOccurrenceProduct(DeclaredMathProduct):
 
 class DeclaredMathSymbolicProduct(DeclaredMathProduct):
     phase: Literal["symbolic"] = "symbolic"
-    occurrence_input: DeclaredMathInput
+    occurrence_input: SemanticWholeReference
 
 
 class DeclaredMathScopeProduct(DeclaredMathProduct):
@@ -430,7 +430,7 @@ def execute_normalization(receiver, source, occurrences):
 
     profile = receiver.profile
     frame = profile.frame(source)
-    product = DeclaredMathProduct.model_validate(occurrences)
+    product = DeclaredMathOccurrenceProduct.model_validate(occurrences)
     if product.phase != "occurrences" or not product.source.matches_pin(frame.pin.values()):
         raise ValueError("normalization requires the exact selected source occurrence product")
     readings = declared_normalization_readings(
@@ -445,7 +445,7 @@ def execute_normalization(receiver, source, occurrences):
     return DeclaredMathSymbolicProduct(
         source=product.source,
         phase="symbolic",
-        occurrence_input=profile.reference("occurrences"),
+        occurrence_input=SemanticReference.whole("occurrences").whole_value(),
         inherited_inputs=product.inherited_inputs,
         source_declarations=product.source_declarations,
         items=json.loads(

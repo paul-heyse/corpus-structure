@@ -71,15 +71,20 @@ def reference_output_paths(kinds):
         properties[owner].append((facts["name"], child, facts.get("multivalued", False)))
         parents[child].add(owner)
 
-    owners = {_REFERENCE_KIND}
-    pending = [_REFERENCE_KIND]
+    carriers = {
+        kind.semantic_id
+        for kind in kinds.values()
+        if kind.category == "class" and _carrier_variant(kind) is not None
+    }
+    owners = carriers.copy()
+    pending = list(carriers)
     while pending:
         next_owners = parents[pending.pop()] - owners
         owners.update(next_owners)
         pending.extend(next_owners)
 
     def paths(owner, ancestors=()):
-        if owner == _REFERENCE_KIND:
+        if owner in carriers:
             yield ""
             return
         if owner in ancestors:
@@ -108,6 +113,26 @@ def reference_output_paths(kinds):
         return tuple(result)
 
     return needed
+
+
+def _carrier_variant(kind):
+    if kind.semantic_id == _REFERENCE_KIND:
+        return "any"
+    schema = json.loads(kind.facts).get("json_schema", {})
+    if schema.get("x-ddo-role-reference") != "product":
+        return None
+    fields = schema.get("properties", {})
+    role, variant = fields.get("role", {}), fields.get("variant", {})
+    if (
+        schema.get("type") != "object"
+        or schema.get("additionalProperties") is not False
+        or set(fields) != {"role", "variant"}
+        or set(schema.get("required", ())) != set(fields)
+        or (role.get("type"), role.get("minLength")) != ("string", 1)
+        or (variant.get("type"), variant.get("const")) != ("string", "product")
+    ):
+        raise ValueError("nominal whole reference must match the shared scalar product carrier")
+    return "product"
 
 
 def compile_reference_targets(raw, roles, kinds, output_paths):
@@ -156,7 +181,8 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
                 raise ValueError("reference output collection must be partitioned")
             slot = kinds[owner + "/property/" + output_collection]
             owner = json.loads(slot.facts)["range"]
-        if _record_kind(kinds, owner, target["path"]) != _REFERENCE_KIND:
+        carrier = _carrier_variant(kinds[_record_kind(kinds, owner, target["path"])])
+        if carrier not in {"any", variant}:
             raise ValueError("reference path must identify the shared semantic reference class")
         if occurrence_field is None:
             if source.maximum != 1:

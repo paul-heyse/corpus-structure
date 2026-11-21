@@ -24,7 +24,7 @@ from .characterization import (
     occurrence_id,
     validate_inventory_graph,
 )
-from .characterization_evidence import validate_formal_evidence
+from .characterization_evidence import validate_formal_normalization, validate_formal_positions
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, SubjectContext
 from .data_operation_outcomes import successful_return_outcome
@@ -255,6 +255,60 @@ def verify_formal_packed_members(packets):
         )
 
 
+def verify_formal_examined_scope(product, source):
+    """Check examined scope and family coverage against the actual selected source."""
+    selectors = source["selectors"]
+    if product["source"] != source["source"] or product["selectors"] != selectors:
+        raise ValueError("formal product differs from exact selected source/scope")
+    regions = product["lexicon"]
+    for selector in selectors:
+        if not any(region["selector"] == selector for region in regions):
+            raise ValueError("primary lexicon does not retain every examined selector")
+    for region in regions:
+        selector = region["selector"]
+        start, end = region["start"], region["end"]
+        if (
+            selector not in selectors
+            or not 0 <= start <= end <= len(source["text"])
+            or ("start" in selector and start < selector["start"])
+            or ("end" in selector and end > selector["end"])
+        ):
+            raise ValueError("primary lexicon differs from exact examined region")
+    for row in product["coverage"]:
+        if row["eligible"] != selectors or row["examined"] != selectors:
+            raise ValueError("formal coverage differs from original examined scope")
+        if product["outcome"] == "complete" and row["outcome"] not in {"complete", "empty"}:
+            raise ValueError("complete formal product contains incomplete family coverage")
+
+
+def verify_formal_lexical_links(occurrences, lexicon):
+    """Check each protected atom's exact inventory link and terminal separation."""
+    for region in lexicon:
+        start, end = region["start"], region["end"]
+        atoms, terminals = region["atoms"], region["terminals"]
+        for atom in atoms:
+            key = atom["occurrence"]
+            if key not in occurrences or not start <= atom["start"] < atom["end"] <= end:
+                raise ValueError("primary lexical protection has no exact retained occurrence")
+            extents = occurrences[key]["extents"]
+            if (
+                any("start" not in extent or "end" not in extent for extent in extents)
+                or min(e["start"] for e in extents) != atom["start"]
+                or max(e["end"] for e in extents) != atom["end"]
+            ):
+                raise ValueError("primary lexical protection changes its retained occurrence")
+        for terminal in terminals:
+            if not start <= terminal["start"] < terminal["end"] <= end or any(
+                atom["start"] < terminal["end"] and terminal["start"] < atom["end"]
+                for atom in atoms
+            ):
+                raise ValueError(
+                    "primary lexical observation differs from its original unprotected slice"
+                )
+        if region["availability"] != "available" and (atoms or terminals):
+            raise ValueError("unsupported primary lexicon cannot assert characterized terminals")
+
+
 def validate_formal_product(
     prepared: PreparedRelease,
     value: Mapping[str, Any],
@@ -268,8 +322,7 @@ def validate_formal_product(
     selected = source.value
     member_contracts = formal_member_contracts(prepared, model)
     packets = analytical_packets(checked, member_contracts["manifest"])
-    if checked["source"] != selected["source"] or checked["selectors"] != selected["selectors"]:
-        raise ValueError("formal product differs from exact selected source/scope")
+    verify_formal_examined_scope(checked, selected)
     data = {name: [] for name, _ in _INVENTORIES}
     data["roles"] = []
     by_kind = {kind: name for name, kind in _INVENTORIES}
@@ -329,52 +382,12 @@ def validate_formal_product(
                 selected, extent, selector_index=selector_index
             ):
                 raise ValueError("formal occurrence escapes the selected examined scope")
-    if any(
-        not any(region["selector"] == selector for region in checked["lexicon"])
-        for selector in selected["selectors"]
-    ):
-        raise ValueError("primary lexicon does not retain every examined selector")
-    for region in checked["lexicon"]:
-        selector = region["selector"]
-        if selector not in selected["selectors"] or not selector.get("start", 0) <= region[
-            "start"
-        ] <= region["end"] <= selector.get("end", len(selected["text"])):
-            raise ValueError("primary lexicon differs from exact examined region")
-        for atom in region["atoms"]:
-            if (
-                atom["occurrence"] not in indexes["occurrences"]
-                or not region["start"] <= atom["start"] < atom["end"] <= region["end"]
-            ):
-                raise ValueError("primary lexical protection has no exact retained occurrence")
-            extents = indexes["occurrences"][atom["occurrence"]]["extents"]
-            if (
-                min(e.get("start", -1) for e in extents),
-                max(e.get("end", -1) for e in extents),
-            ) != (atom["start"], atom["end"]):
-                raise ValueError("primary lexical protection changes its retained occurrence")
-        for row in region["terminals"]:
-            if not region["start"] <= row["start"] < row["end"] <= region["end"] or any(
-                atom["start"] < row["end"] and row["start"] < atom["end"]
-                for atom in region["atoms"]
-            ):
-                raise ValueError(
-                    "primary lexical observation differs from its original unprotected slice"
-                )
-        if region["availability"] != "available" and (region["atoms"] or region["terminals"]):
-            raise ValueError("unsupported primary lexicon cannot assert characterized terminals")
-    validate_formal_evidence(indexes)
+    verify_formal_lexical_links(indexes["occurrences"], checked["lexicon"])
+    validate_formal_positions(indexes)
+    validate_formal_normalization(indexes["annotations"])
     validate_inventory_graph(data, indexes, all_nodes, choices, lambda _: None)
     if [row["family"] for row in checked["coverage"]] != list(FAMILIES):
         raise ValueError("formal product must retain every examined family outcome")
-    if any(
-        row["eligible"] != selected["selectors"] or row["examined"] != selected["selectors"]
-        for row in checked["coverage"]
-    ):
-        raise ValueError("formal coverage differs from original examined scope")
-    if checked["outcome"] == "complete" and any(
-        row["outcome"] not in {"complete", "empty"} for row in checked["coverage"]
-    ):
-        raise ValueError("complete formal product contains incomplete family coverage")
     from .established_validity import successful_product_validation
 
     proof = successful_product_validation(
@@ -688,7 +701,13 @@ def execute_formal_profile(receiver, source: FrozenFormalSource) -> FormalEviden
 def formal_execution_custody() -> SourceArtifact:
     """Physical adapter/CPU/receipt code belongs to runtime custody, not recipe meaning."""
     root = Path(__file__).parent
-    names = ("formal_products.py", "established_validity.py", "cpu_execution.py", "cpu_receipts.py")
+    names = (
+        "formal_products.py",
+        "characterization_evidence.py",
+        "established_validity.py",
+        "cpu_execution.py",
+        "cpu_receipts.py",
+    )
     return SourceArtifact(
         "formal/execution-custody",
         canonical_bytes(
@@ -730,6 +749,7 @@ def formal_operation_sources():
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     path = Path(__file__).parents[1] / "methods/formal_evidence.py"
+    evidence = Path(__file__).with_name("characterization_evidence.py")
     return PythonSourceCollection(
         (
             PythonSource(
@@ -741,6 +761,11 @@ def formal_operation_sources():
                 "corpus_structure.methods.formal_evidence",
                 path.read_bytes(),
                 str(path),
+            ),
+            PythonSource(
+                "corpus_structure.semantic.characterization_evidence",
+                evidence.read_bytes(),
+                str(evidence),
             ),
         ),
         boundary_contracts=(formal_profile_assets(), formal_execution_custody()),
@@ -873,11 +898,13 @@ class PreparedFormalEvidencePort:
             }
             # Both the direct producer and CPU result hydration ran the named
             # split validators against this exact output and selected source.
+            selected = {"source": (RuleObservedInput(source.value),)}
             observed = {
-                "text.formal_evidence/literal-source-geometry": {
-                    "source": (RuleObservedInput(source.value),)
-                },
+                "text.formal_evidence/literal-source-geometry": selected,
                 "text.formal_evidence/packed-choice-members": None,
+                "text.formal_evidence/examined-scope": selected,
+                "text.formal_evidence/lexical-inventory-links": None,
+                "text.formal_evidence/symbolic-inventory-positions": None,
             }
             attestations = tuple(
                 successful_rule_attestation(

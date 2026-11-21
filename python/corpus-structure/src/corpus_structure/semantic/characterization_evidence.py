@@ -7,11 +7,19 @@ import re
 from decimal import Decimal, InvalidOperation
 
 
-def validate_formal_evidence(indexes):
+def _field(record, name, default):
+    if name not in record:
+        return default
+    return record[name]
+
+
+def validate_formal_positions(indexes):
+    """Check formal source correspondence and the positioned symbolic inventory."""
     annotations = indexes["annotations"]
     occurrences = indexes["occurrences"]
-    for annotation in annotations.values():
-        formal_input = annotation.get("formal_input")
+    for key in annotations:
+        annotation = annotations[key]
+        formal_input = _field(annotation, "formal_input", None)
         if annotation["kind"] == "formal.input" and formal_input is None:
             raise ValueError("formal input annotation requires typed input")
         if (
@@ -22,26 +30,31 @@ def validate_formal_evidence(indexes):
         if formal_input is None:
             continue
         parent = formal_input["parent_occurrence"]
-        if parent not in occurrences or parent not in annotation.get("occurrences", ()):
+        if parent not in occurrences or parent not in _field(annotation, "occurrences", ()):
             raise ValueError("formal input requires its literal parent occurrence")
         normalized_input = formal_input["representation"] == "normalized_latex"
-        if normalized_input and not formal_input.get("normalization_recipe", "").strip():
-            raise ValueError("normalized formal input requires its normalization recipe")
+        if normalized_input:
+            recipe = _field(formal_input, "normalization_recipe", "")
+            if type(recipe) is not str:
+                raise ValueError("normalized formal input requires its normalization recipe")
+            if not recipe.strip():
+                raise ValueError("normalized formal input requires its normalization recipe")
         parent_extents = occurrences[parent]["extents"]
         if normalized_input and (
             any(e["synthetic"] or "text" not in e for e in parent_extents)
-            or formal_input.get("original_text") != "".join(e["text"] for e in parent_extents)
+            or _field(formal_input, "original_text", None)
+            != "".join(e["text"] for e in parent_extents)
         ):
             raise ValueError("normalized formal input requires its exact original source text")
         position = 0
-        for correspondence in formal_input.get("correspondence", ()):
+        for correspondence in _field(formal_input, "correspondence", ()):
             start, end = correspondence["input_start"], correspondence["input_end"]
             if not 0 <= start <= end <= len(formal_input["text"]):
                 raise ValueError("formal correspondence is outside input")
             if normalized_input and (start != position or end <= start):
                 raise ValueError("normalized correspondence requires an ordered complete partition")
             position = end
-            refs = correspondence.get("source_occurrences", ())
+            refs = _field(correspondence, "source_occurrences", ())
             if any(ref not in occurrences for ref in refs):
                 raise ValueError("formal correspondence has unknown source occurrence")
             relation = correspondence["relation"]
@@ -51,7 +64,7 @@ def validate_formal_evidence(indexes):
                         "synthetic correspondence requires a boundary, no literal source"
                     )
                 if not any(
-                    e.get("start", -1) <= correspondence["boundary"] <= e.get("end", -1)
+                    _field(e, "start", -1) <= correspondence["boundary"] <= _field(e, "end", -1)
                     for e in occurrences[parent]["extents"]
                 ):
                     raise ValueError("synthetic correspondence boundary is outside parent source")
@@ -70,7 +83,10 @@ def validate_formal_evidence(indexes):
                 raise ValueError("normalized correspondence requires literal source support")
             if normalized_input and any(
                 not any(
-                    all(e.get(key) == p.get(key) for key in ("projection", "native_pointer"))
+                    all(
+                        _field(e, key, None) == _field(p, key, None)
+                        for key in ("projection", "native_pointer")
+                    )
                     and all(key in extent for extent in (p, e) for key in ("start", "end"))
                     and p["start"] <= e["start"] <= e["end"] <= p["end"]
                     for p in parent_extents
@@ -89,8 +105,8 @@ def validate_formal_evidence(indexes):
             raise ValueError("normalized correspondence requires an ordered complete partition")
     parents = {
         key: row["formal"]["symbol_parent"]
-        for key, row in annotations.items()
-        if "symbol_parent" in row.get("formal", {})
+        for key in annotations
+        if "symbol_parent" in _field(row := annotations[key], "formal", {})
     }
     settled = set()
     for key in parents:
@@ -98,29 +114,33 @@ def validate_formal_evidence(indexes):
         while key in parents and key not in settled:
             if key in pending:
                 raise ValueError("formal symbol parent cycle")
-            pending.add(key)
+            pending |= {key}
             key = parents[key]
-        settled.update(pending)
-    for annotation in annotations.values():
-        formal = annotation.get("formal")
+        settled |= pending
+    for key in annotations:
+        annotation = annotations[key]
+        formal = _field(annotation, "formal", None)
         if formal is None:
             continue
-        root = annotations.get(formal["input_id"], {}).get("formal_input")
+        root = _field(_field(annotations, formal["input_id"], {}), "formal_input", None)
         if root is None:
             raise ValueError("formal node requires a typed input root")
         start, end = formal["start"], formal["end"]
         if "symbol_parent" in formal:
-            parent = annotations.get(formal["symbol_parent"], {})
-            positions = parent.get("formal", {})
+            parent = _field(annotations, formal["symbol_parent"], {})
+            positions = _field(parent, "formal", {})
             if (
-                parent.get("kind") != "formal.symbol"
-                or positions.get("input_id") != formal["input_id"]
-                or not positions.get("start", end + 1) <= start <= end <= positions.get("end", -1)
+                _field(parent, "kind", None) != "formal.symbol"
+                or _field(positions, "input_id", None) != formal["input_id"]
+                or not _field(positions, "start", end + 1)
+                <= start
+                <= end
+                <= _field(positions, "end", -1)
             ):
                 raise ValueError("formal symbol parent differs from positioned enclosing symbol")
         if not 0 <= start <= end <= len(root["text"]):
             raise ValueError("formal node is outside represented input")
-        if start == end and not formal.get("synthetic", False):
+        if start == end and not _field(formal, "synthetic", False):
             raise ValueError("empty formal node requires synthetic boundary status")
         if ("container_start" in formal) != ("container_end" in formal):
             raise ValueError("formal container requires both endpoints")
@@ -133,7 +153,12 @@ def validate_formal_evidence(indexes):
             <= len(root["text"])
         ):
             raise ValueError("formal container does not enclose visible extent")
-        normalized = formal.get("normalized", {})
+
+
+def validate_formal_normalization(annotations):
+    """Check finite numeric meaning for formal normalization assertions."""
+    for annotation in annotations.values():
+        normalized = annotation.get("formal", {}).get("normalized", {})
         if (
             normalized.get("kind") in {"decimal", "threshold"}
             and normalized.get("domain_status") == "valid"

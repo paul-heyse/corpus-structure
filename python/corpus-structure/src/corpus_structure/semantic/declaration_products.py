@@ -36,6 +36,8 @@ _PATHS = (
     "semantic/canonical_sentences.py",
     "semantic/hanlp_products.py",
     "semantic/characterization_manifests.py",
+    "semantic/reference_resolution.py",
+    "semantic/sentence_partitions.py",
     "semantic/enriched_document_products.py",
     "model/semantic/data-operation-constructions.yaml",
 )
@@ -61,7 +63,7 @@ def declaration_profile_assets():
         "declarations/profile-assets",
         canonical_bytes(
             {
-                "version": "declared-canonical-hanlp-syntax-v1",
+                "version": "declared-canonical-hanlp-syntax-v2",
                 "files": [
                     (
                         name,
@@ -121,7 +123,7 @@ def declaration_product_values(
         layer.record(
             DECLARATION_FAMILY, selector, "unknown", "selected original ancestry is unavailable"
         )
-    populate_declaration_products(
+    term_support = populate_declaration_products(
         layer,
         view,
         source,
@@ -133,7 +135,9 @@ def declaration_product_values(
         check_active=check_active,
         admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),
     )
-    return interpreted_product_value(source, layer.facts(), contracts, (canonical, hanlp))
+    return dict(
+        interpreted_product_value(source, layer.facts(), contracts, ()), term_support=term_support
+    )
 
 
 @dataclass(frozen=True)
@@ -151,7 +155,7 @@ class PreparedDeclarationInputs:
         return member
 
     def retained(self, name, value, kind, model):
-        from .enriched_document_products import RetainedCharacterizationProduct
+        from .data_operation_identity import body_identity, contextual_product_identity
 
         member = self.member(name)
         context = SubjectContext(
@@ -161,20 +165,28 @@ class PreparedDeclarationInputs:
             member.analyzed_scope,
             subject_definition=member.subject_definition,
         )
-        product = RetainedCharacterizationProduct.acquire(
-            self.prepared,
-            model,
-            self.prepared.index.definitions[kind].iri,
-            canonical_bytes(value),
-            subject_context=context,
+        contract = next(
+            item.key
+            for item in model.identities
+            if item.owner == self.prepared.index.definitions[kind].iri and item.domain == "kind"
         )
-        if product.semantic_id != member.product:
+        header = value["header"]
+        product = contextual_product_identity(
+            kind=contract, context=context, body=body_identity(header).key
+        ).key
+        if member.kind_contract != contract or product != member.product:
             raise ValueError("declaration body differs from its exact bound product")
-        return CharacterizationSnapshot(product.semantic_id, product.content)
+        return CharacterizationSnapshot(
+            product,
+            canonical_bytes(header),
+            tuple(canonical_bytes(packet) for packet in value["partitions"]),
+        )
 
     def run(self, source, canonical, hanlp):
         from .data_operation_admission import bound_data_operation_model
+        from .data_product_reference import read_semantic_reference
         from .declared_record_sources import DeclaredNativeFrameSource
+        from .reference_resolution import require_selected_whole_reference
         from .source_products import FrozenNativeSource
 
         model = bound_data_operation_model(self.prepared)
@@ -187,6 +199,12 @@ class PreparedDeclarationInputs:
         )
         canonical = self.retained("canonical", canonical, "DdoCanonicalSentences", model)
         hanlp = self.retained("hanlp", hanlp, "DdoHanlpInventory", model)
+        require_selected_whole_reference(
+            read_semantic_reference(json.loads(hanlp.content)["canonical_input"]),
+            role="canonical",
+            producing=self.member("hanlp"),
+            selected=self.member("canonical"),
+        )
         self.check_active()
         value = declaration_product_values(
             selected,
@@ -201,7 +219,7 @@ class PreparedDeclarationInputs:
             model,
             value,
             selected,
-            (canonical, hanlp),
+            (),
             product_type=DeclarationSyntaxProduct,
             subject_context=self.context,
         )

@@ -112,7 +112,7 @@ def _declaration_chain_from_sentences(candidates, passage):
     )
 
 
-def primary_declaration_component_products(products, source, passage, *, supporting, source_pin):
+def primary_declaration_component_products(products, source, passage, *, source_pin):
     """Select the same domain chain from declared positioned syntax and native support."""
     from corpus_structure.semantic.constructions.retained_declarations import (
         declaration_sentences_products,
@@ -123,9 +123,7 @@ def primary_declaration_component_products(products, source, passage, *, support
         declared_definition_component,
     )
 
-    sentences, evidence = declaration_sentences_products(
-        products, source, passage, supporting=supporting
-    )
+    sentences, evidence = declaration_sentences_products(products, source, passage)
     chain = _declaration_chain_from_sentences(sentences, passage)
     return declared_definition_component(
         term=chain.term,

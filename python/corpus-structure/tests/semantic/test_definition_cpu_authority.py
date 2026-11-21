@@ -84,9 +84,9 @@ def test_definition_wrappers_bind_actual_values_parameters_and_support_before_di
     from corpus_structure.semantic import definition_component_products as components
     from corpus_structure.semantic import definition_products as declaration
 
-    sequences = ("syntax", "hanlp") if variant == "declaration" else ()
+    sequences = ("syntax",) if variant == "declaration" else ()
     names = {
-        "declaration": ("source", "syntax", "hanlp"),
+        "declaration": ("source", "syntax"),
         "applicability": ("source", "components", "relationship"),
         "learned": ("source", "observation", "candidates"),
         "named": ("source", "annotations", "constructions"),

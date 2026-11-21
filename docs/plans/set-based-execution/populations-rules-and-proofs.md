@@ -381,7 +381,15 @@ acceptance.
 
 Construction row readers and some prepared/generic consumers use the new annotation envelope.
 M1 reads the annotation partitions and requires the row-span and exact-source-scope rules.
-Construction outputs, clauses, declarations, external extraction, definitions, and assessment
+Declaration syntax reads canonical and HanLP partitions, verifies the HanLP producer's exact
+canonical input, and emits typed references to HanLP rows. Definition replay consumes the admitted
+syntax term evidence and no longer binds a separate HanLP role. Fifteen independent syntax and
+definition cases passed (`ea29fc34aa564baba414dc14b0d2465b`), along with seven compiled-workflow
+and CPU authority cases (`075365d01bed4d3ca79febc23861cdd8`).
+The real HanLP-to-declaration syntax chain passed under native settlement
+(`ce9ecaff99cb4d2c9ce00cfdd29fdc05`).
+The annotation reader groups tokens by sentence during one traversal and builds both indexes from
+the same row view. Construction outputs, clauses, external extraction, named definitions, and assessment
 still have consumers of synthetic annotation member identities or flattened payloads. Move those
 reads to the typed row view and declare their producing input references before removing the
 recovery and validation paths for the old shapes. Preserve required source, manifest and
@@ -444,13 +452,18 @@ Formal coverage-family uniqueness and ordered lexicon bounds have named intrinsi
 `uv run ci test` passed 42 rule and admission cases (`d1cf0aec9979403e92838a7364d43b2f`).
 Formal production also attests literal source geometry and exact packed choice members. The 39-case
 formal and native rule selection checks both retained rule claims (`49d22639b4eb4ea7ad5cd3812e7aaeae`).
+Formal completion also emits separate checks for examined source scope and coverage, lexical links,
+and positioned symbols and their containment. The shared 113-case selection passed on stable source,
+including the prepared formal CPU route and native rule cases
+(`481f8700fa034696b5b6ef45229dc986`).
 
 Removed the coordinate, role, endpoint, coverage and choice side tables from the target compiler
 and generated wire. The generated successor passed rollback-only candidate authoring against N47
-(`c9a513040006422ebcb309693bc15ce5`). Native binding uses derivation output position and
+(`27c37c0e9aaa403ebbb53817d6cee671`). Native binding uses derivation output position and
 multiplicity. Native product admission still checks exact nominal member rows. The rest of the
-formal inventory, selector, page and scope checks, the construction and contextual validator splits,
-required consumer declarations, and `ProductValidation` receipt retirement remain open. Resolve
+formal inventory graph, numeric normalization and occurrence page, selector and address checks,
+the construction and contextual validator splits, required consumer declarations, and
+`ProductValidation` receipt retirement remain open. Resolve
 member-level output retirement against the actual output declarations and native consumers before
 deleting that path.
 

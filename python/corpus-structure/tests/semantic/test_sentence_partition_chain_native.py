@@ -1,6 +1,6 @@
 """Actual annotation and canonical projection through native custody."""
 
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -38,35 +38,47 @@ from semantic.structural_production_native_support import (
 from semantic.test_target_installation_native import install_target_root
 
 
-def _recipe(directory):
+def _recipe(directory, *, declaration=False):
     original = current_pdf_recipe(directory)
     captured = original.captured_inputs
     assert captured is not None
     dependencies, declarations, sources = split_captured_operations(captured)
+    if declaration:
+        from corpus_structure.semantic.declaration_products import (
+            declaration_inputs,
+            declaration_operation_sources,
+        )
+        from corpus_structure.semantic.hanlp_products import (
+            hanlp_operation_sources,
+            prepare_hanlp_selection,
+        )
+
+        bundle = declaration_inputs(captured.bundle)
+        operations = combine_primary_sources(
+            hanlp_operation_sources(prepare_hanlp_selection()), declaration_operation_sources()
+        )
+    else:
+        bundle = sentence_product_inputs(captured.bundle)
+        operations = canonical_sentence_operation_sources()
     return replace(
         original,
-        name="annotation-canonical-partition-chain",
+        name="hanlp-declaration-partition-chain"
+        if declaration
+        else "annotation-canonical-partition-chain",
         captured_inputs=CapturedKernelInputs(
-            sentence_product_inputs(captured.bundle),
+            bundle,
             data_operation_dependencies(
                 dependencies,
                 declarations,
-                combine_primary_sources(sources, canonical_sentence_operation_sources()),
+                combine_primary_sources(sources, operations),
             ),
             captured.profile,
         ),
     )
 
 
-@pytest.mark.gpu
-@pytest.mark.provider_evidence
-def test_actual_annotation_partition_proof_and_canonical_chain(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch
-):
-    text = "Ada acts. Bob waits."
-    target = "segment.sentences/canonical-projection"
-    namespace = "https://corpus-structure.dev/semantic/data-operation-sentences/"
-    admin = semantic_bare_engine
+@contextmanager
+def _private_source(admin, native_settings, tmp_path, monkeypatch, text):
     epoch = capture_target_installation(get_metadata(), logical_sources=native_model_inputs(ROOT))
     *_, revision_path = install_target_root(admin, epoch, tmp_path)
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
@@ -86,7 +98,20 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             return purposes[name]
 
         stage = build_pdf_source(scenario, admin, purpose("write"), inputs, purpose_engine=purpose)
-        source = stage.acquired(SimpleNamespace(admin=admin, purpose=purpose))
+        yield stage.acquired(SimpleNamespace(admin=admin, purpose=purpose))
+
+
+@pytest.mark.gpu
+@pytest.mark.provider_evidence
+def test_actual_annotation_partition_proof_and_canonical_chain(
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+):
+    text = "Ada acts. Bob waits."
+    target = "segment.sentences/canonical-projection"
+    namespace = "https://corpus-structure.dev/semantic/data-operation-sentences/"
+    with _private_source(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch, text
+    ) as source:
         kernel = admit_current_target(source, _recipe(tmp_path / "recipe"), tmp_path / "target")
         retained, original, products, _ = produce_source_reports(source, kernel, target, text=text)
         (annotation,) = selected_for_source(
@@ -136,4 +161,36 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             for row in canonical_rows
         )
         repeated = execute_captured_kernel_demand(kernel, demand_id)
+        assert repeated.receipt_count == 0
+
+
+@pytest.mark.gpu
+@pytest.mark.provider_evidence
+def test_actual_hanlp_declaration_binds_the_historical_canonical_input(
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+):
+    from corpus_structure.semantic.constructions.retained_declarations import DECLARATION_FAMILY
+
+    text = "The mean is 2."
+    target = "text.declaration_syntax/source-native"
+    namespace = "https://corpus-structure.dev/semantic/"
+    with _private_source(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch, text
+    ) as source:
+        kernel = admit_current_target(
+            source, _recipe(tmp_path / "recipe", declaration=True), tmp_path / "target"
+        )
+        retained, original, products, _ = produce_source_reports(source, kernel, target, text=text)
+        (hanlp,) = selected_for_source(
+            kernel, products, namespace + "data-operation-hanlp/DdoHanlpInventory", original
+        )
+        (syntax,) = selected_for_source(
+            kernel,
+            products,
+            namespace + "data-operation-constructions/DdoDeclarationSyntaxProduct",
+            original,
+        )
+        assert hanlp.body["outcome"] == "complete"
+        assert any(row["family"] == DECLARATION_FAMILY for row in syntax.body["coverage"])
+        repeated = execute_captured_kernel_demand(kernel, retained["demand_id"])
         assert repeated.receipt_count == 0

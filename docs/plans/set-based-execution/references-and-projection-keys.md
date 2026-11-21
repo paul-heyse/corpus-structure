@@ -196,6 +196,16 @@ exposes a tuple of the scalar values, and native closure compares those values i
 Whole-product and member references omit the key. The prepared display and tagged schemas
 reject fractional and boolean integer parts.
 
+The live binding projection returns producing input metadata for declared scalar reference roles.
+Each returned address must be an exact input of the producing derivation and appear in the
+current fulfilled use. The PostgreSQL control verifies disclosure for the authentic pin and
+excludes an equal-content substitute and hidden or undeclared siblings
+(`1f79ee2c6e3f41f9988f6396f5a4f83d`). Symbolic normalization now publishes its occurrence
+reference by role. Symbol scope compares that producing edge with its separately admitted
+occurrence input. All five symbolic-math cases passed (`bbc42264ea9c4f528f0715db48d895a9`).
+The resolver reuses a decoded index for the same authenticated digest and address paths, with
+authorization checked for each occurrence (`481f8700fa034696b5b6ef45229dc986`).
+
 The assessment, characterization, structural reports, contribution/facet and rich families
 still require production migration. Several legacy member references name nested graph nodes.
 Give those nodes an actual declared addressed collection or a true admitted member before
