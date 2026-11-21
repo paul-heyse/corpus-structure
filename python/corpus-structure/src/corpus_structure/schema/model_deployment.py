@@ -110,6 +110,8 @@ class Candidate(BaseModel):
         *,
         runtime: RuntimeBinding | None = None,
     ) -> Candidate:
+        if preview.application_capture_required:
+            raise ModelError(["applied generated source requires application capture"])
         if (
             not preview.target
             or not preview.target_profile

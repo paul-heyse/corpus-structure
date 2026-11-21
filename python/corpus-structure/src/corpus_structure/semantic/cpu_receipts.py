@@ -16,12 +16,12 @@ from .identity import canonical_bytes
 class CPUExecutionReceipt:
     __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
-    request_digest: Annotated[str, Field(strict=True, pattern=r"^[0-9a-f]{64}$")]
+    request_digest: Annotated[str, Field(strict=True, min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")]
     pid: Annotated[int, Field(strict=True, ge=1)]
     main_thread: Annotated[bool, Field(strict=True)]
     native_thread_limit: Annotated[int, Field(strict=True, ge=1)] | None
     native_pools_json: Annotated[bytes, Field(strict=True, min_length=2)]
-    result_digest: Annotated[str, Field(strict=True, pattern=r"^[0-9a-f]{64}$")]
+    result_digest: Annotated[str, Field(strict=True, min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")]
 
     def __post_init__(self) -> None:
         if not re.fullmatch(r"[0-9a-f]{64}", self.request_digest):

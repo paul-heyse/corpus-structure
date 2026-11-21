@@ -251,6 +251,8 @@ class ChangePreview(BaseModel):
     query_analysis: ProjectionAnalysisComparison | None = None
     preparation_fingerprint: str | None = None
     inspection_sha256: str | None = None
+    application_capture_required: bool = False
+    captured_from: str | None = None
 
     @model_validator(mode="after")
     def runtime_matches_application(self):
@@ -1120,6 +1122,11 @@ def prepare_preview(
             admission_applicable=bool(local_release),
             release=release_effect,
             checks=tuple(checks),
+        ),
+        application_capture_required=bool(
+            request.data_operations
+            and admission
+            and any(file.path.endswith(".py") for file in files)
         ),
         comparison=comparison,
         model_comparison=model_comparison,

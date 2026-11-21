@@ -90,6 +90,50 @@ def _inspect(result_id, *args):
     return CliRunner().invoke(app, ["model", "change", "inspect", result_id, *args])
 
 
+def test_applied_source_guidance_requires_capture_before_candidate(monkeypatch):
+    from typer import Context
+    from typer.main import get_command
+
+    from corpus_structure.cli import recipes
+    from corpus_structure.schema import model_change
+    from corpus_structure.semantic.storage_target import StorageTarget
+
+    staged = _preview().model_copy(update={
+        "application_capture_required": True,
+        "target_profile": "development",
+        "target_identity": StorageTarget(
+            database="test", database_oid=1, system_identifier="1",
+            host="socket", port=5434, purpose="maintenance",
+        ),
+        "release_manifest_sha256": "m",
+        "release_artifacts_sha256": "a",
+        "effects": _preview().effects.model_copy(update={"admission": True}),
+    })
+    monkeypatch.setattr(recipes, "checkout", lambda _: Path("/bound"))
+    monkeypatch.setattr(model_change, "check_preview", lambda *_, **__: None)
+    guidance = model._preview_guidance(Context(get_command(app)), staged, "approved", True)
+    assert guidance.next_command == "ci model change capture approved"
+
+
+def test_capture_refuses_unapplied_or_changed_approved_source(model_results, monkeypatch):
+    from corpus_structure.cli import recipes
+    from corpus_structure.schema import model_change
+    from corpus_structure.schema.declarations import ModelError
+
+    staged = _preview().model_copy(update={"application_capture_required": True})
+    result_id, _ = _publish(model_results, "model.preview", "preview", staged.model_dump_json().encode())
+    monkeypatch.setattr(recipes, "checkout", lambda _: Path("/bound"))
+
+    def stale(*_, applied=False):
+        assert applied
+        raise ModelError(["stale model input generated.py"])
+
+    monkeypatch.setattr(model_change, "check_preview", stale)
+    result = CliRunner().invoke(app, ["model", "change", "capture", result_id, "--json"])
+    assert result.exit_code == 1
+    assert "stale model input generated.py" in result.stdout
+
+
 @pytest.mark.parametrize("subject", ["preview", "candidate"])
 def test_summary_keeps_chain_context_without_expanding_retained_file_inventory(
     model_results, subject

@@ -11,7 +11,9 @@ from contextvars import Context, copy_context
 from dataclasses import asdict, dataclass, field, replace
 from hashlib import sha256
 from threading import BoundedSemaphore, Event, Lock, Thread
-from typing import Any, Literal
+from typing import Annotated, Any, ClassVar, Literal
+
+from pydantic import ConfigDict, Field
 
 from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 from corpus_structure.core.method import PreparedWork
@@ -32,33 +34,39 @@ from .native_profiles import NativeSelection, pm2_selection
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
 
 
+_ReceiptText = Annotated[str, Field(min_length=1)]
+
 @dataclass(frozen=True)
 class LogicalProviderMember:
     """Exact producing attempt and contiguous ordered native-input membership."""
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
-    request_id: str
+
+    request_id: _ReceiptText
     generation: int
     task_id: int
     attempt: int
-    member: str
+    member: _ReceiptText
     start: int
     count: int
-    input_digest: str
+    input_digest: _ReceiptText
 
 
 @dataclass(frozen=True)
 class ProviderExecutionReceipt:
     """Immutable original-work/cohort scatter and physical exchange correspondence."""
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
-    correlation: str
-    cohort_digest: str
+
+    correlation: _ReceiptText
+    cohort_digest: _ReceiptText
     member_offset: int
     member_count: int
-    native_member_digests: tuple[str, ...]
+    native_member_digests: tuple[_ReceiptText, ...]
     logical_members: tuple[LogicalProviderMember, ...]
     physical: tuple[NativeExecutionReceipt, ...]
-    cohort_members: tuple[str, ...]
-    work_members: tuple[tuple[str, int, int], ...]
+    cohort_members: tuple[_ReceiptText, ...]
+    work_members: tuple[tuple[_ReceiptText, int, int], ...]
 
 
 def _native_members(request):

@@ -6,7 +6,7 @@ import copy
 import json
 
 from .data_operation_values import semantic_value
-from .data_operation_wire import checked_json_schema, generated_json_schema, validate_wire_schema
+from .data_operation_wire import NativeJsonSchema, checked_json_schema, validate_wire_schema
 
 
 def compile_nominal_parameters(parameters, *, schema, definitions, vocabularies, kinds):
@@ -112,7 +112,7 @@ def compile_nominal_parameters(parameters, *, schema, definitions, vocabularies,
     }
     for name, definition in nominal.items():
         kind = kinds[definition["kind"]]
-        wrapper = generated_json_schema(adapters[wrappers[name]].json_schema())
+        wrapper = adapters[wrappers[name]].json_schema(schema_generator=NativeJsonSchema, mode="validation")
         body = {
             "$schema": "http://json-schema.org/draft-07/schema#",
             **({"definitions": wrapper["definitions"]} if "definitions" in wrapper else {}),

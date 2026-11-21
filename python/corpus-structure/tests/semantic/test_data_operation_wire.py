@@ -119,6 +119,37 @@ def test_prepared_schema_requires_declared_dialect_and_cannot_retrieve_remote_re
         validator.validate(1)
 
 
+def test_prepared_schema_resources_are_captured_and_participate_in_cache_identity():
+    from jsonschema import ValidationError
+
+    from corpus_structure.semantic.schema_validation import prepared_schema_validator
+
+    root = b'{"$schema":"https://json-schema.org/draft/2020-12/schema","$ref":"urn:captured:count"}'
+    one = b'{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"integer","minimum":1}'
+    two = one.replace(b'"minimum":1', b'"minimum":2')
+    first = prepared_schema_validator(root, (("urn:captured:count", one),))
+    second = prepared_schema_validator(root, (("urn:captured:count", two),))
+    first.validate(1)
+    with pytest.raises(ValidationError):
+        second.validate(1)
+    with pytest.raises(ValueError, match="duplicate captured"):
+        prepared_schema_validator(root, (("urn:captured:count", one), ("urn:captured:count", two)))
+
+
+def test_native_pydantic_generator_retains_tuple_elements_and_literal_payloads():
+    from pydantic import TypeAdapter
+    from jsonschema import Draft7Validator, ValidationError
+
+    from corpus_structure.semantic.data_operation_wire import NativeJsonSchema
+
+    schema = TypeAdapter(tuple[int, str]).json_schema(schema_generator=NativeJsonSchema)
+    assert schema["items"] == [{"type": "integer"}, {"type": "string"}]
+    validator = Draft7Validator(schema)
+    validator.validate([1, "ready"])
+    with pytest.raises(ValidationError):
+        validator.validate([1, 2])
+
+
 def controlled_wire_declaration():
     declaration: dict[str, Any] = contract(
         id="controlled.claim_data_requests",

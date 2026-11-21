@@ -24,6 +24,8 @@ from jsonschema import Draft7Validator
 from jsonschema.exceptions import SchemaError, ValidationError
 from jsonschema.protocols import Validator
 from pydantic import TypeAdapter
+from pydantic.json_schema import GenerateJsonSchema, JsonSchemaMode, JsonSchemaValue
+from pydantic_core import core_schema
 
 from .data_operation_json import json_bytes, own_wire_json_value
 from .identity import canonical_bytes
@@ -481,7 +483,16 @@ def generated_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
     normalized = _generated_schema_node(copy.deepcopy(schema))
     if not isinstance(normalized, dict):
         raise ValueError("native wire kind requires an object schema")
-    return checked_json_schema(normalized)
+    return checked_json_schema({"$schema": DRAFT7, **normalized})
+
+
+class NativeJsonSchema(GenerateJsonSchema):
+    """Project Pydantic-owned constraints into the selected native Draft 7 dialect."""
+
+    def generate(
+        self, schema: core_schema.CoreSchema, mode: JsonSchemaMode = "validation"
+    ) -> JsonSchemaValue:
+        return generated_json_schema(super().generate(schema, mode=mode))
 
 
 def schema_closure(root: dict[str, Any], definitions: dict[str, Any]) -> dict[str, Any]:

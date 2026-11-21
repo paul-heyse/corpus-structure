@@ -112,6 +112,13 @@ def test_release_candidate_must_match_the_reviewed_release(model_checkout):
     )
     assert accepted.release == "reviewed"
     assert accepted.release_artifacts_sha256 == prepared.artifacts_sha256
+    with pytest.raises(ModelError, match="requires application capture"):
+        Candidate.from_preview(
+            preview.model_copy(update={"application_capture_required": True}),
+            None,
+            prepared,
+            {},
+        )
     from corpus_structure.schema.model_change import compilation_fingerprint
     from corpus_structure.schema.model_deployment import check_candidate_files
 
@@ -216,6 +223,9 @@ def test_deployment_preview_binds_separate_authoring_and_destination(model_check
     # The routing fixture has no installed native catalog. Generated-statement
     # comparison is exercised against captured models by the preview controls.
     monkeypatch.setattr(model_change, "preview_native_delta", lambda *_args, **_kwargs: None)
+    from corpus_structure.schema import model_explanation
+
+    monkeypatch.setattr(model_explanation, "frozen_sql_snapshot", lambda *_args, **_kwargs: {})
     settings = Settings(
         database={"url": "postgresql://dev:private@localhost/development"},
         deployment={"url": "postgresql://prod:secret@localhost/approved-destination"},

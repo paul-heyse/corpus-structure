@@ -15,7 +15,10 @@ from dataclasses import dataclass, field
 from hashlib import sha256
 from queue import Queue
 from threading import BoundedSemaphore, Condition, Event, Lock, Thread, Timer, current_thread
+from typing import Annotated, ClassVar
 from uuid import uuid4
+
+from pydantic import ConfigDict, Field
 
 from corpus_structure.core.process_lifetime import _live_group, physical_retirement_uncertain
 from corpus_structure.core.work import PhysicalRetirementUncertain
@@ -71,17 +74,21 @@ def payload_digest(payload) -> str:
     ).hexdigest()
 
 
+_ReceiptText = Annotated[str, Field(min_length=1)]
+
 @dataclass(frozen=True)
 class NativeExecutionReceipt:
     """Matched private-host response custody, separate from semantic request identity."""
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
-    host_generation: str
-    request_id: str
-    provider: str
-    profile: str
-    runtime: str
-    input_digest: str
-    output_digest: str
+
+    host_generation: _ReceiptText
+    request_id: _ReceiptText
+    provider: _ReceiptText
+    profile: _ReceiptText
+    runtime: _ReceiptText
+    input_digest: _ReceiptText
+    output_digest: _ReceiptText
 
 
 @dataclass(frozen=True)

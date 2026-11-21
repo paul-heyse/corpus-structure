@@ -48,27 +48,13 @@ class NativeExecutionEvidence(BaseModel):
 @cache
 def execution_evidence_schema() -> bytes:
     """Derive actual host fields; closed wire policy adds no parallel field inventory."""
-    schema = TypeAdapter(NativeExecutionEvidence).json_schema(ref_template="#/definitions/{model}")
-    if "$defs" in schema:
-        schema["definitions"] = schema.pop("$defs")
+    from .data_operation_wire import NativeJsonSchema
 
-    def close(node):
-        if isinstance(node, dict):
-            if node.get("type") == "object":
-                node["additionalProperties"] = False
-            if node.get("type") == "string":
-                node.setdefault("minLength", 1)
-            for value in node.values():
-                close(value)
-        elif isinstance(node, list):
-            for value in node:
-                close(value)
-
-    close(schema)
+    schema = TypeAdapter(NativeExecutionEvidence).json_schema(
+        ref_template="#/definitions/{model}", schema_generator=NativeJsonSchema, mode="validation"
+    )
     schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    from .data_operation_wire import generated_json_schema
-
-    result = canonical_bytes(generated_json_schema(schema))
+    result = canonical_bytes(schema)
     prepared_schema_validator(result)
     return result
 

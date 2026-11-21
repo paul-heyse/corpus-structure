@@ -617,7 +617,11 @@ def _preview_guidance(
                 if staged.effects.native:
                     conditions.append("verify the bound development target and native predecessor")
                 return EffectGuidance(
-                    next_command=f"ci model change candidate {preview_id}",
+                    next_command=(
+                        f"ci model change capture {preview_id}"
+                        if staged.application_capture_required
+                        else f"ci model change candidate {preview_id}"
+                    ),
                     action_conditions=tuple(conditions),
                 )
         check_preview(root, staged)
@@ -1496,6 +1500,17 @@ def preview(
     ] = False,
 ) -> None:
     """Validate and stage an inspectable patch without changing tracked or native state."""
+    _preview(ctx, request, json_=json_, explain_reuse=explain_reuse)
+
+
+def _preview(
+    ctx: typer.Context,
+    request: str,
+    *,
+    json_: bool,
+    explain_reuse: bool = False,
+    capture_after_apply: bool = False,
+) -> None:
     import yaml
 
     from corpus_structure.cli.managed import ResultError, result_store
@@ -1522,14 +1537,31 @@ def preview(
     with explain_code_reuse(explain_reuse) as explanations, refusal(json_, expected=expected):
         store = result_store(ctx)
         root = checkout(ctx)
-        with managed_operation(store, "model.preview", json=json_, expected=expected) as result:
+        with managed_operation(
+            store, "model.preview", json=json_, expected=expected,
+            scope={"source_preview": request} if capture_after_apply else None,
+        ) as result:
             model_stage(result, "resolve request")
+            source_stage = None
             if re.fullmatch(r"[a-f0-9]{32}", request) and not Path(request).is_file():
                 with store.lease(request):
-                    bound = ChangePreview.model_validate_json(
+                    prior_preview = ChangePreview.model_validate_json(
                         _load_artifact(store, request, "model.preview", "preview")
-                    ).request
+                    )
+                    bound = prior_preview.request
+                    if capture_after_apply:
+                        from corpus_structure.schema.model_change import check_preview
+
+                        if not prior_preview.application_capture_required:
+                            raise ModelError(["preview has no deferred application capture"])
+                        check_preview(root, prior_preview, applied=True)
+                        source_stage = prior_preview
+                        # These edits have already been applied and authenticated.
+                        # Capture from their after-state without executing a codemod again.
+                        bound = bound.model_copy(update={"source_migrations": ()})
             else:
+                if capture_after_apply:
+                    raise ModelError(["application capture requires an applied managed preview ID"])
                 raw = read_request_bytes(request)
                 bound = ChangeRequest.model_validate(yaml.safe_load(raw.decode("utf-8")))
             native_delta = preview_native_delta(root, bound, predecessor=bound.native_predecessor)
@@ -1608,6 +1640,27 @@ def preview(
                         )
                     }
                 )
+                if source_stage is not None and (
+                    target != source_stage.target
+                    or authoring_target != source_stage.authoring_target
+                    or target_identity != source_stage.target_identity
+                    or authoring_identity != source_stage.authoring_identity
+                    or (
+                        native_base.model_dump(exclude={"execution_context"})
+                        if native_base is not None else None
+                    ) != (
+                        source_stage.native_base.model_dump(exclude={"execution_context"})
+                        if source_stage.native_base is not None else None
+                    )
+                    or (
+                        deployment_base.model_dump(exclude={"execution_context"})
+                        if deployment_base is not None else None
+                    ) != (
+                        source_stage.deployment_base.model_dump(exclude={"execution_context"})
+                        if source_stage.deployment_base is not None else None
+                    )
+                ):
+                    raise ModelError(["applied source capture target or predecessor changed"])
                 impact = None
                 source_impact = None
                 query_analysis = None
@@ -1743,7 +1796,18 @@ def preview(
                             "changes": (*sql_holder[0].changes, *staged.sql_explanation.changes),
                         }
                     )
-                if staged.effects.admission and bound.data_operations:
+                if source_stage is not None:
+                    from corpus_structure.schema.model_change import check_preview
+
+                    check_preview(root, source_stage, applied=True)
+                    if staged.application_capture_required:
+                        raise ModelError(["generated source changed after the approved apply"])
+                    staged = staged.model_copy(update={"captured_from": request})
+                if (
+                    staged.effects.admission
+                    and bound.data_operations
+                    and not staged.application_capture_required
+                ):
                     from corpus_structure.semantic.data_operation_runtime import (
                         prepare_data_operation_runtime,
                     )
@@ -1818,6 +1882,16 @@ def preview(
             ),
             json=json_,
         )
+
+
+@changes.command("capture")
+def capture(
+    ctx: typer.Context,
+    change: Annotated[str, typer.Argument(help="Applied generated-source preview ID.")],
+    json_: JsonOpt = False,
+) -> None:
+    """Capture the application from approved generated bytes after source apply."""
+    _preview(ctx, change, json_=json_, capture_after_apply=True)
 
 
 @changes.command(
@@ -1984,6 +2058,10 @@ def candidate(
             staged = ChangePreview.model_validate_json(
                 _load_artifact(store, change, "model.preview", "preview")
             )
+            if staged.application_capture_required:
+                raise ModelError(
+                    [f"apply the approved source, then run ci model change capture {change}"]
+                )
             from corpus_structure.schema.model_explanation import ModelChangeExplanation
 
             if "sql_explanation" in store.show(change).artifacts:

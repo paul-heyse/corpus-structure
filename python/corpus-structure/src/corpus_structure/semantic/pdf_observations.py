@@ -15,7 +15,7 @@ from .identity import canonical_bytes
 _Identifier = Annotated[str, Field(min_length=1, strict=True)]
 _Positive = Annotated[int, Field(ge=1, strict=True)]
 _Ordinal = Annotated[int, Field(ge=0, strict=True)]
-_Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$", strict=True)]
+_Digest = Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$", strict=True)]
 MEANING_SPEC = "pdf-domain/schema/pdf_observation_meaning"
 PROFILE_CONTRACT = "pdf-recognition/policy-v1"
 PROFILE_REFERENCE = "frozen-native-recognition-policy"

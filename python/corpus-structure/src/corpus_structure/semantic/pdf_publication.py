@@ -15,9 +15,10 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, TypedDict
 
 import pyarrow as pa
+from pydantic import ConfigDict, Field
 from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
@@ -50,6 +51,8 @@ class _PdfFrozenScope(TypedDict):
     holder: str
     frozen_digest: str
 
+
+_ReceiptText = Annotated[str, Field(min_length=1)]
 
 @dataclass(frozen=True, slots=True)
 class PdfCompanionRecord(Mapping[str, Any]):
@@ -84,16 +87,18 @@ class PdfValidationOutcome:
 
 @dataclass(frozen=True, slots=True)
 class PublishedPdfDocumentRef:
-    build_id: str
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
+
+    build_id: _ReceiptText
     task_id: int
-    product_key: str
-    logical_digest: str
-    release_id: str
-    source_digest: str
-    schema_digest: str
-    recipe_digest: str
-    frozen_digest: str
-    kind: str
+    product_key: _ReceiptText
+    logical_digest: _ReceiptText
+    release_id: _ReceiptText
+    source_digest: _ReceiptText
+    schema_digest: _ReceiptText
+    recipe_digest: _ReceiptText
+    frozen_digest: _ReceiptText
+    kind: _ReceiptText
 
     @property
     def product_id(self) -> str:
@@ -111,34 +116,40 @@ class PublishedPdfDocumentRef:
 
 @dataclass(frozen=True, slots=True)
 class PdfSpoolContributorReceipt:
-    producer_id: str
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
+
+    producer_id: _ReceiptText
     task_id: int
     producer_attempt: int
-    producer_holder: str
-    runtime_id: str
-    runtime_manifest_digest: str
-    manifest_digest: str
-    selection_digest: str
+    producer_holder: _ReceiptText
+    runtime_id: _ReceiptText
+    runtime_manifest_digest: _ReceiptText
+    manifest_digest: _ReceiptText
+    selection_digest: _ReceiptText
     adopter_attempt: int
-    adopter_holder: str
+    adopter_holder: _ReceiptText
 
 
 @dataclass(frozen=True, slots=True)
 class PdfPublicationCertification:
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
+
     basis: Literal["producer-certified", "round-trip-verified"]
-    lowering_identity: str
-    attested_logical_digest: str
-    native_document_digest: str
-    oracle_receipt_id: str
+    lowering_identity: _ReceiptText
+    attested_logical_digest: _ReceiptText
+    native_document_digest: _ReceiptText
+    oracle_receipt_id: _ReceiptText
 
 
 @dataclass(frozen=True, slots=True)
 class PdfExecutionReceipt:
     """Actual sealed publisher, distinct from a later completion's admitting claim."""
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
+
 
     publication: PublishedPdfDocumentRef
     publisher_attempt: int
-    publisher_holder: str
+    publisher_holder: _ReceiptText
     contributors: tuple[PdfSpoolContributorReceipt, ...]
     certification: PdfPublicationCertification
 

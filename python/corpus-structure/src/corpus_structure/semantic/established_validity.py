@@ -28,11 +28,11 @@ class ProductValidation(BaseModel):
         "characterization/construction-assets",
         "characterization/contextual-assets",
     ]
-    validator_revision: str = Field(pattern=r"^[0-9a-f]{64}$")
-    body_id: str = Field(pattern=r"^body:[0-9a-f]{64}$")
+    validator_revision: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+    body_id: str = Field(min_length=69, max_length=69, pattern=r"^body:[0-9a-f]{64}$")
     source_json: str = Field(min_length=1)
     selectors_json: str = Field(min_length=1)
-    subject_context_json: str | None
+    subject_context_json: str | None = Field(min_length=1)
 
 
 def admitted_validator_revision(model, contract):
