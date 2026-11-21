@@ -46,6 +46,48 @@ enums:
       changed: {}
       unknown: {}
 classes:
+  OperationProducerRequirement:
+    attributes:
+      output_role: {range: UrString}
+      requires_cpu: {range: UrBoolean, required: true}
+      required_effect: {range: UrString}
+      required_family: {range: UrString, required: true}
+  OperationRoleExplanation:
+    attributes:
+      name: {range: UrString, required: true}
+      kind: {range: UrString, required: true}
+      kind_contract: {range: UrString, required: true}
+      direction: {range: UrString, required: true}
+      minimum: {range: UrInteger, required: true}
+      maximum: {range: UrInteger}
+      collection: {range: UrString, required: true}
+      presence: {range: UrString, required: true}
+      families: {range: UrString, multivalued: true}
+      producer_requirement: {range: OperationProducerRequirement, inlined: true}
+  OperationEffectExplanation:
+    attributes:
+      name: {range: UrString, required: true}
+      authorization: {range: UrString, multivalued: true}
+      idempotency: {range: UrString, required: true}
+      fulfillment: {range: UrString, required: true}
+  OperationUseStanding:
+    attributes:
+      use_id: {range: UrString, required: true}
+      obligation_id: {range: UrString, required: true}
+      fate: {range: UrString, required: true}
+      historical_fate: {range: UrString, required: true}
+      request_id: {range: UrString}
+      generation: {range: UrInteger}
+      derivation_id: {range: UrString}
+  OperationNativeObservation:
+    attributes:
+      demand_id: {range: UrString, required: true}
+      project_id: {range: UrString, required: true}
+      release_id: {range: UrString, required: true}
+      runtime_id: {range: UrString, required: true}
+      read_id: {range: UrString, required: true}
+      uses: {range: OperationUseStanding, multivalued: true, inlined_as_list: true}
+      complete: {range: UrBoolean, required: true}
   PresentationCoverage:
     attributes:
       max_errors: {range: UrInteger, required: true}
@@ -164,6 +206,17 @@ classes:
         range: UrString
         required: true
         slot_uri: ur:OperationExplanation_support_json
+      roles:
+        range: OperationRoleExplanation
+        multivalued: true
+        inlined_as_list: true
+      effects:
+        range: OperationEffectExplanation
+        multivalued: true
+        inlined_as_list: true
+      validity_families: {range: UrString, multivalued: true}
+      validity_conservative: {range: UrBoolean}
+      native_observation: {range: OperationNativeObservation, inlined: true}
       coverage_description:
         range: UrString
         required: true

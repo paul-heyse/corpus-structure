@@ -36,6 +36,11 @@ def test_actual_cli_and_mcp_reports_share_current_archived_declaration_and_front
     release = ddo_kernel.prepared.release_id
     operation = "urn:ddo-test:source"
     try:
+        declaration = explain_operation(ddo_kernel.prepared, operation).model_dump(mode="json")
+        assert declaration["observation_status"] == "not_requested"
+        assert declaration.get("native_observation") is None
+        assert declaration["roles"]
+        assert isinstance(declaration["validity_conservative"], bool)
         explained = cli(
             "schema",
             "explain-operation",
@@ -59,6 +64,14 @@ def test_actual_cli_and_mcp_reports_share_current_archived_declaration_and_front
         assert frontier["cut"]["release_id"] == release
         assert frontier["items"][0]["obligation"]["operation_id"] == operation
         assert frontier["items"][0]["uses"][0]["fate"] == "attached"
+        native = observation["native_observation"]
+        assert native["demand_id"] == demand["demand_id"]
+        assert native["read_id"] == frontier["cut"]["read_id"]
+        assert native["uses"][0]["fate"] == "attached"
+        assert native["uses"][0]["use_id"] == frontier["items"][0]["uses"][0]["use_id"]
+        output = next(role for role in observation["roles"] if role["direction"] == "output")
+        assert output["kind_contract"] == ddo_kernel.kind
+        assert output["kind"] != output["kind_contract"]
         compared = cli("schema", "diff", release, release, "--json", settings=lambda: settings)
         assert compared.exit_code == 0, compared.output
         impact = json.loads(compared.stdout)
@@ -89,11 +102,13 @@ def test_actual_cli_and_mcp_reports_share_current_archived_declaration_and_front
                 )
                 result = answer.structured_content
                 assert result is not None
-                assert {k: v for k, v in result.items() if k != "observation_json"} == {
-                    k: v for k, v in observation.items() if k != "observation_json"
+                assert {k: v for k, v in result.items() if k not in {"observation_json", "native_observation"}} == {
+                    k: v for k, v in observation.items() if k not in {"observation_json", "native_observation"}
                 }
                 selected = json.loads(result["observation_json"])
                 assert selected["items"] == frontier["items"]
+                assert result["native_observation"]["uses"] == native["uses"]
+                assert result["native_observation"]["read_id"] == selected["cut"]["read_id"]
                 # Separate fresh reads own separate read/snapshot pins. Compare the
                 # actual demand/release and frontier rather than relabelling cuts.
                 for field in ("release_id", "project_id", "demand_id"):

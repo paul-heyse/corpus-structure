@@ -293,12 +293,28 @@ def test_report_schema_is_the_real_model_bound_public_shape():
     properties = schema["properties"]
     assert isinstance(properties, dict)
     assert "binding_json" in properties
+    assert {"roles", "effects", "validity_families", "validity_conservative", "native_observation"} <= set(properties)
     version = properties["report_version"]
     assert isinstance(version, dict)
     assert type(version["minimum"]) is type(version["maximum"]) is int
     Draft202012Validator.check_schema(schema)
     with pytest.raises(SemanticRefusal):
         report_schema("Unknown")
+
+
+def test_typed_operation_explanation_preserves_declared_roles_without_native_authority():
+    from corpus_structure.semantic.operation_reporting import explain_operation
+    from semantic.data_operation_kernel_support import STORAGE, prepare_kernel
+
+    preparation = prepare_kernel(STORAGE)
+    report = explain_operation(preparation.prepared, "urn:ddo-test:source").model_dump(mode="json")
+    assert report["observation_status"] == "not_requested"
+    assert report.get("native_observation") is None
+    assert report["authority"] == "declaration_and_observation_only"
+    output = next(role for role in report["roles"] if role["direction"] == "output")
+    assert output["kind_contract"] != output["kind"]
+    assert isinstance(output["minimum"], int)
+    assert isinstance(report["validity_conservative"], bool)
 
 
 def test_registration_and_invocation_share_the_captured_schema_source(monkeypatch):

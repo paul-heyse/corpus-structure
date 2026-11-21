@@ -178,6 +178,7 @@ def explain_operation(
         ) from exc
     projection = read_native_definition_projection(prepared, model=model)
     native = next(row for row in projection["operations"] if row["operation_id"] == operation)
+    kinds = {kind["kind"]: kind for kind in projection["kinds"]}
     selected = None
     if observation is not None:
         if (
@@ -207,6 +208,38 @@ def explain_operation(
             eligibility_json=found.eligibility.decode(),
             binding_json=canonical_bytes(native["binding"]).decode(),
             support_json=canonical_bytes(native["support_contract"]).decode(),
+            roles=[
+                dict(
+                    name=role.name,
+                    kind=role.kind,
+                    kind_contract=kinds[role.kind]["kind_contract"],
+                    direction=role.direction,
+                    minimum=role.minimum,
+                    maximum=role.maximum,
+                    collection=role.collection,
+                    presence=role.presence,
+                    families=kinds[role.kind]["families"],
+                    producer_requirement=None if role.producer_requirement is None
+                    else asdict(role.producer_requirement),
+                )
+                for role in found.roles
+            ],
+            effects=[asdict(effect) for effect in found.effects],
+            validity_families=native["validity_families"],
+            validity_conservative=native["validity_conservative"],
+            native_observation=None if selected is None else dict(
+                **{key: selected["cut"][key] for key in (
+                    "demand_id", "project_id", "release_id", "runtime_id", "read_id"
+                )},
+                uses=[
+                    {key: use[key] for key in (
+                        "use_id", "obligation_id", "fate", "historical_fate",
+                        "request_id", "generation", "derivation_id"
+                    )}
+                    for item in selected["items"] for use in item["uses"]
+                ],
+                complete=selected["page_complete"],
+            ),
             precision_description=found.precision_description,
             coverage_description=found.coverage.description,
             observation_status="not_requested" if selected is None else "observed",
