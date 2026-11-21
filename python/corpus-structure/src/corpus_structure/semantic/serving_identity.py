@@ -30,7 +30,9 @@ def _read_wire_validator(entry):
 
 
 @lru_cache(maxsize=64)
-def _installed_read_basis(contract, entry, profile, model_identity, *, callables, wire_digest):
+def _installed_read_basis(
+    installation_digest, contract, entry, profile, model_identity, *, callables, wire_digest
+):
     from corpus_structure.semantic.code_identity import CodeUnknown, capture_code_identity
     from corpus_structure.semantic.external_runtime import acquire_codec_runtime
 
@@ -53,20 +55,23 @@ def _installed_read_basis(contract, entry, profile, model_identity, *, callables
                 ),
             ),
         )
-    meaning = json_loads(basis.meaning)
-    identity = sha256(
+    query_contract = contract.model_json_schema()
+    reuse_identity = sha256(
         json_bytes(
             dict(
                 version=profile,
-                code=meaning,
+                code=json_loads(basis.meaning),
                 model=model_identity,
-                query_contract=contract.model_json_schema(),
+                query_contract=query_contract,
                 unicode=unicodedata.unidata_version,
                 **({"generated_wire": wire_digest} if entry in _GENERATED_WIRE_WORKLOADS else {}),
             )
         )
     ).hexdigest()
-    return identity, basis
+    continuation_identity = _continuation_identity(
+        installation_digest, entry, profile, model_identity, query_contract, wire_digest
+    )
+    return continuation_identity, reuse_identity, basis
 
 
 @contextmanager
@@ -87,16 +92,14 @@ def installed_read_implementation(contract, *, entry, profile, callables):
             validator.check()
         wire_digest = validator.digest if validator is not None else None
         model_identity = running_model().identity
-        reuse_identity, basis = _installed_read_basis(
+        identity, reuse_identity, basis = _installed_read_basis(
+            installation.digest,
             contract,
             entry,
             profile,
             model_identity,
             callables=callables,
             wire_digest=wire_digest,
-        )
-        identity = _continuation_identity(
-            installation.digest, contract, entry, profile, model_identity, wire_digest
         )
         custody = (
             authenticate_workload(installation.root, basis) if basis.complete else nullcontext()
@@ -120,8 +123,7 @@ def installed_read_implementation(contract, *, entry, profile, callables):
                 installation.check()
 
 
-@lru_cache(maxsize=64)
-def _continuation_identity(installation, contract, entry, profile, model, wire):
+def _continuation_identity(installation, entry, profile, model, query_contract, wire):
     return sha256(
         json_bytes(
             [
@@ -129,7 +131,7 @@ def _continuation_identity(installation, contract, entry, profile, model, wire):
                 entry,
                 profile,
                 model,
-                contract.model_json_schema(),
+                query_contract,
                 wire,
                 unicodedata.unidata_version,
             ]
