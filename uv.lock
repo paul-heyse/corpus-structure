@@ -738,6 +738,7 @@ dependencies = [
     { name = "astroid" },
     { name = "cachetools" },
     { name = "cattrs" },
+    { name = "cloudpickle" },
     { name = "cupy-cuda13x" },
     { name = "docling", extra = ["asr", "easyocr", "htmlrender", "ocrmac", "onnxruntime", "rapidocr", "remote-serving", "tesserocr", "vlm", "xbrl"] },
     { name = "docling-core" },
@@ -758,7 +759,9 @@ dependencies = [
     { name = "linkml-term-validator" },
     { name = "networkx" },
     { name = "numpy" },
+    { name = "nvidia-ml-py" },
     { name = "oaklib" },
+    { name = "packaging" },
     { name = "pglast" },
     { name = "pgpq" },
     { name = "pgvector" },
@@ -791,6 +794,7 @@ dependencies = [
     { name = "transformers" },
     { name = "typer" },
     { name = "valuesets" },
+    { name = "wcwidth" },
 ]
 
 [package.metadata]
@@ -801,6 +805,7 @@ requires-dist = [
     { name = "astroid", specifier = "==4.3.4" },
     { name = "cachetools", specifier = "==8.0.1" },
     { name = "cattrs", specifier = "==26.2.1" },
+    { name = "cloudpickle", specifier = "==3.1.2" },
     { name = "cupy-cuda13x", specifier = "==14.2.0" },
     { name = "docling", extras = ["asr", "easyocr", "htmlrender", "ocrmac", "onnxruntime", "rapidocr", "remote-serving", "tesserocr", "vlm", "xbrl"], specifier = "==2.148.0" },
     { name = "docling-core", specifier = "==2.106.0" },
@@ -821,7 +826,9 @@ requires-dist = [
     { name = "linkml-term-validator", specifier = "==0.4.5" },
     { name = "networkx", specifier = "==3.7" },
     { name = "numpy", specifier = "==2.5.4" },
+    { name = "nvidia-ml-py", specifier = "==13.615.71" },
     { name = "oaklib", specifier = "==0.7.4" },
+    { name = "packaging", specifier = "==26.3" },
     { name = "pglast", specifier = "==8.7" },
     { name = "pgpq", specifier = "==0.12.0" },
     { name = "pgvector", specifier = "==0.5.1" },
@@ -854,6 +861,7 @@ requires-dist = [
     { name = "transformers", specifier = "==5.22.1" },
     { name = "typer", specifier = "==0.28.0" },
     { name = "valuesets", specifier = "==0.4.2" },
+    { name = "wcwidth", specifier = "==0.9.4" },
 ]
 
 [[package]]

@@ -56,24 +56,25 @@ def pdf_capture_assets(recipe, *, standard_producer=None):
 
     from .pdf_lowering import lowering_code_complete
 
-    standard = standard_producer
-    if standard is not None:
-        standard.check()
+    declaration = {
+        "version": "native-pdf-capture-v1",
+        "recipe": recipe.to_bytes().hex(),
+        "libraries": pdf_package_versions(),
+        "model": _MODEL.read_bytes().hex(),
+    }
+    if standard_producer is not None:
+        standard_producer.check()
+        declaration["standard_producer"] = json.loads(standard_producer.content)
 
     return SourceArtifact(
         "pdf-capture/profile-assets",
-        canonical_bytes(
-            {
-                "version": "native-pdf-capture-v1",
-                "recipe": recipe.to_bytes().hex(),
-                "libraries": pdf_package_versions(),
-                "model": _MODEL.read_bytes().hex(),
-                "standard_producer": json.loads(standard.content) if standard is not None else None,
-            }
+        canonical_bytes(declaration),
+        reuse_eligible=(
+            bool(recipe.model_artifacts) and bool(recipe.model_revisions)
+            if standard_producer is not None
+            else lowering_code_complete()
         ),
-        reuse_eligible=(bool(recipe.model_artifacts) and bool(recipe.model_revisions)) if standard is not None else lowering_code_complete(),
     )
-
 
 
 def standard_producer_from_sources(capture_sources):
@@ -84,7 +85,11 @@ def standard_producer_from_sources(capture_sources):
     """
     from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
 
-    candidates = [item for item in capture_sources.boundary_contracts if item.name == "pdf-capture/profile-assets"]
+    candidates = [
+        item
+        for item in capture_sources.boundary_contracts
+        if item.name == "pdf-capture/profile-assets"
+    ]
     if not candidates:
         return None
     if len(candidates) != 1:
@@ -149,7 +154,12 @@ def pdf_capture_custody(
 
 
 def pdf_capture_operation_sources(
-    recipe, assets, *, directory, nemotron_endpoint=None, require_nemotron_handoff=False,
+    recipe,
+    assets,
+    *,
+    directory,
+    nemotron_endpoint=None,
+    require_nemotron_handoff=False,
     standard_producer=None,
 ):
     from .pdf_domain import pdf_helper_asset
@@ -389,7 +399,13 @@ class PreparedPdfCapturePort:
             self.operation,
             self.sources,
             self.custody,
-            assets=(pdf_capture_assets(self.profile.recipe, standard_producer=standard_producer_from_sources(self.sources)), acquired),
+            assets=(
+                pdf_capture_assets(
+                    self.profile.recipe,
+                    standard_producer=standard_producer_from_sources(self.sources),
+                ),
+                acquired,
+            ),
             functions=(
                 (self.operation.callable_surfaces[0].declaration, PdfCaptureOperation.run),
                 ("corpus_structure.semantic.pdf_capture.execute_pdf_capture", execute_pdf_capture),

@@ -153,7 +153,7 @@ def primary_operation_inputs(
     from .formal_products import formal_operation_sources
     from .hanlp_products import hanlp_operation_sources, hanlp_product_inputs
     from .native_protocol_authoring import native_operation_declarations, native_protocol_sources
-    from .pdf_capture import pdf_capture_inputs
+    from .pdf_capture import pdf_capture_inputs, standard_producer_from_sources
     from .pdf_domain import pdf_domain_dependencies
     from .sentence_products import sentence_operation_sources
     from .source_discovery import source_discovery_inputs, source_discovery_operation_sources
@@ -167,7 +167,9 @@ def primary_operation_inputs(
         from .native_requests import pdf_region_inputs
 
         bundle = pdf_region_inputs(pdf_capture_inputs(bundle))
-        dependencies = pdf_domain_dependencies(dependencies)
+        dependencies = pdf_domain_dependencies(
+            dependencies, standard_producer=standard_producer_from_sources(capture_sources)
+        )
     bundle = hanlp_product_inputs(
         construction_product_inputs(source_profile_inputs(source_discovery_inputs(bundle)))
     )

@@ -63,6 +63,10 @@ dependencies = [
     "python-rapidjson==1.25",
     "ast-grep-py==0.51.2",
     "cachetools==8.0.1",
+    "packaging==26.3",
+    "cloudpickle==3.1.2",
+    "nvidia-ml-py==13.615.71",
+    "wcwidth==0.9.4",
 ]
 
 [project.scripts]

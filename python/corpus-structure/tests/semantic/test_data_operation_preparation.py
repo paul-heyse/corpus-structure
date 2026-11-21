@@ -538,7 +538,11 @@ def test_primary_selection_authenticates_current_asset_population(tmp_path, monk
         )
 
 
-def test_capture_profile_acquires_only_its_pdf_configuration(tmp_path, monkeypatch):
+@pytest.mark.parametrize("use_selected_producer", [False, True])
+def test_capture_profile_acquires_only_its_pdf_configuration(
+    tmp_path, monkeypatch, use_selected_producer
+):
+    from corpus_structure.ingest import pdf_producer_contract
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.semantic import pdf_capture
     from corpus_structure.semantic.data_operation_preparation import (
@@ -555,6 +559,9 @@ def test_capture_profile_acquires_only_its_pdf_configuration(tmp_path, monkeypat
                 "assets_manifest": "pdf-assets",
                 "assets_root": str(tmp_path),
                 "directory": str(tmp_path / "capture"),
+                "standard_producer": (
+                    "standard-pdf-producer-files-v1" if use_selected_producer else None
+                ),
             },
         }
     )
@@ -570,14 +577,24 @@ def test_capture_profile_acquires_only_its_pdf_configuration(tmp_path, monkeypat
         reads.append(name)
         return files[name]
 
-    capture_sources = object()
-    monkeypatch.setattr(
-        pdf_capture, "pdf_capture_operation_sources", lambda *args, **kwargs: capture_sources
-    )
+    capture_sources, producer = object(), object()
+    calls = []
+
+    def acquire_producer():
+        calls.append("selected Standard producer")
+        return producer
+
+    def acquire_capture_sources(*args, standard_producer, **kwargs):
+        assert standard_producer is (producer if use_selected_producer else None)
+        return capture_sources
+
+    monkeypatch.setattr(pdf_producer_contract, "standard_pdf_contract", acquire_producer)
+    monkeypatch.setattr(pdf_capture, "pdf_capture_operation_sources", acquire_capture_sources)
     acquired = _acquire_primary_profile(
         profile, read, tmp_path, selected_modules=frozenset({"corpus_structure.ingest.pdf_capture"})
     )
     assert reads == ["pdf-recipe", "pdf-assets"]
+    assert calls == (["selected Standard producer"] if use_selected_producer else [])
     assert acquired["capture_sources"] is capture_sources
     assert acquired["sentence_configuration"] is None
     assert acquired["hanlp_selection"] is None

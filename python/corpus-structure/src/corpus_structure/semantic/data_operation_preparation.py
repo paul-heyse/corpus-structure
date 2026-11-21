@@ -69,6 +69,7 @@ class PrimaryCaptureInputs(BaseModel):
     organization_policy: str | None = None
     enrichment_options: str | None = None
     recognition: PrimaryRecognitionInputs | None = None
+    standard_producer: Literal["standard-pdf-producer-files-v1"] | None = None
 
 
 class LiteralM1Inputs(BaseModel):
@@ -541,12 +542,24 @@ def _acquire_primary_profile(
         ) or len({name for name, _digest in assets.files}) != len(assets.files):
             raise ValueError("PDF asset manifest requires unique relative artifact names")
         assets.verify()
+        standard_producer = None
+        if capture.standard_producer is not None:
+            from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
+
+            if (
+                recipe.recipe_id != "docling-standard-pdf-stream-v1"
+                or capture.recognition is not None
+                or capture.enrichment_options is not None
+            ):
+                raise ValueError("selected Standard producer requires a Standard capture profile")
+            standard_producer = standard_pdf_contract()
         arguments["capture_sources"] = pdf_capture_operation_sources(
             recipe,
             assets,
             directory=location(capture.directory),
             nemotron_endpoint=capture.nemotron_endpoint,
             require_nemotron_handoff=capture.require_nemotron_handoff,
+            standard_producer=standard_producer,
         )
         if capture.organization_policy is not None and needs(
             selected_modules, "ingest.pdf_organization_operation"
