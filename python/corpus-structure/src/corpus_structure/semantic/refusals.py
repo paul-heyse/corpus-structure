@@ -67,11 +67,18 @@ class SemanticOperationRefusal(SemanticRefusal):
 
 
 def semantic_failure_fields(error: BaseException) -> dict[str, Any]:
+    from .data_operation_prepared_products import PreparedProductRefusal
+
     reason = getattr(error, "semantic_reason", None)
     ordinary_reason = getattr(error, "reason", None)
     fields: dict[str, Any] = {"reason": ordinary_reason} if isinstance(ordinary_reason, str) else {}
     if isinstance(reason, SemanticReason):
         fields.update(code=reason.code, semantic_reason=asdict(reason))
+    if isinstance(error, PreparedProductRefusal):
+        fields["preparation"] = {
+            name: _safe_refusal_fields(value)[:256] if value is not None else None
+            for name, value in asdict(error.diagnostic).items()
+        }
     return fields
 
 

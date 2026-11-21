@@ -9,8 +9,9 @@ import sys
 from pathlib import Path
 
 import pytest
+import typer
 
-from corpus_structure.cli.managed import ResultError, ResultStore
+from corpus_structure.cli.managed import ResultError, ResultStore, managed_operation
 from corpus_structure.cli.output import safe_text
 
 
@@ -72,6 +73,44 @@ def test_grouped_execution_failure_preserves_unresolved_physical_custody(tmp_pat
     assert manifest.operation_account.cleanup == "unresolved"
     assert not manifest.custody_settled()
     assert store.collect(apply=True, now=manifest.expiry()).removed == []
+
+
+@pytest.mark.parametrize("machine", [False, True])
+def test_preparation_refusal_reports_and_retains_the_observed_facts(tmp_path, capsys, machine):
+    from corpus_structure.semantic.data_operation_prepared_products import (
+        PreparedProductDiagnostic,
+        PreparedProductRefusal,
+    )
+
+    store = ResultStore(tmp_path)
+    observed = PreparedProductDiagnostic(
+        "spacy.distributions_sha256",
+        "expected-inventory",
+        "token=private-secret",
+        "shared-host-runtime",
+    )
+    with (
+        pytest.raises(typer.Exit),
+        managed_operation(store, "run", json=machine, expected=(PreparedProductRefusal,)) as result,
+    ):
+        raise PreparedProductRefusal("selected runtime changed", observed)
+
+    output = capsys.readouterr()
+    account = store.show(result.id).operation_account
+    assert account is not None and account.failure is not None
+    retained = account.failure.model_dump(mode="json")["preparation"]
+    assert retained == {
+        "resource": "spacy.distributions_sha256",
+        "expected": "expected-inventory",
+        "actual": "token=**********",
+        "prerequisite": "shared-host-runtime",
+    }
+    assert "private-secret" not in output.out + output.err
+    if machine:
+        assert json.loads(output.out)["error"]["preparation"] == retained
+    else:
+        assert not output.out
+        assert all(value in output.err for value in retained.values())
 
 
 def test_interrupted_effect_retains_its_exact_input_for_recovery(tmp_path):

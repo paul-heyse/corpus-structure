@@ -16,6 +16,7 @@ from corpus_structure.semantic.refusal_types import SemanticRefusal
 from corpus_structure.semantic.refusals import (
     FailureContext,
     safe_failure_message,
+    semantic_failure_fields,
     semantic_refusal_report,
 )
 
@@ -90,6 +91,7 @@ def failure_boundary(
         detail: dict[str, Any] = {
             "code": type(error).__name__,
             "message": safe_failure_message(error, context=context),
+            **semantic_failure_fields(error),
         }
         if report_expected_validation or not isinstance(error, expected):
             unavailable = (
@@ -136,6 +138,16 @@ def failure_boundary(
             )
         else:
             diagnostic(f"refused: {detail['message']}")
+            if preparation := detail.get("preparation"):
+                message = (
+                    f"Preparation requires {preparation['prerequisite']} "
+                    f"for {preparation['resource']}"
+                )
+                if preparation["expected"] is not None:
+                    message += f" · expected {preparation['expected']}"
+                if preparation["actual"] is not None:
+                    message += f" · observed {preparation['actual']}"
+                diagnostic(message)
             if detail.get("diagnostic_unavailable"):
                 diagnostic(detail["diagnostic_unavailable"])
             validation = detail.get("validation")

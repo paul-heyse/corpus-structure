@@ -31,6 +31,7 @@ from corpus_structure.cli.output import JsonOpt, diagnostic, emit, safe_text, st
 from corpus_structure.cli.recipes import RecipeError, checkout
 from corpus_structure.cli.result_inspection import ResultInspection
 from corpus_structure.core.db.store import EffectKnowledge
+from corpus_structure.semantic.data_operation_prepared_products import PreparedProductDiagnostic
 from corpus_structure.semantic.storage_target import StorageTarget
 
 _ID = re.compile(r"[a-f0-9]{32}")
@@ -51,6 +52,7 @@ class OperationFailure(BaseModel):
     reason: str | None = None
     operation_id: str | None = None
     database_effects: EffectKnowledge | None = None
+    preparation: PreparedProductDiagnostic | None = None
 
 
 class RoutingProgress(BaseModel):
@@ -437,6 +439,9 @@ class Invocation:
                 else None,
                 database_effects=EffectKnowledge(effects)
                 if effects in tuple(EffectKnowledge)
+                else None,
+                preparation=PreparedProductDiagnostic(**detail["preparation"])
+                if "preparation" in detail
                 else None,
             )
         )
