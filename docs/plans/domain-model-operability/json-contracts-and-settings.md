@@ -26,12 +26,17 @@ The typed producer, verifier and structural review consumers share the checked m
 The integrated native export, cursor and historical draft selection passed 28 cases
 (`6fcc78d918a04a60accf6bccfd6b162c`).
 
-The next typed native read is the frontier and its continuation. The frontier excludes the open
-relation-dispatched support body. Declare D1 scope semantics at the relevant schema fields. Both
-the ambient storage and captured generated call decoders must classify original numeric tokens with
-that contract, then pass interpreted values to the detached or cursor owner. Prepared arrays,
-ordinary nested payloads, and declared D1 scope have separate field behavior. Support-view rows
-still need their captured relation and schema ownership. [Consumer transition](#consumer-transition-and-retirement)
+The native frontier and its continuation now use declared field roles. The captured wire
+correspondence binds contextual JSON to specific schema pointers. Ambient storage and generated
+captured calls validate original tokens before projecting finite values and D1 scopes. The compact
+read context carries JSON text to the same numeric owner. Exact page member bytes own cut identity,
+including ordinary float exponent spellings, while the v3 manifest retains its versioned framing.
+The 17 final frontier controls passed (`b39ede9341b1412b86ffa59adf540a8b`), including generated
+call custody and independent ordinary nested key, integer and exponent cases. The wire and native
+kernel digests matched the installed N44 contract. Support-view rows still need their captured
+relation and kind ownership. The integrated PostgreSQL frontier, compact context, fractional scope
+and JSONL/Parquet export selection passed all 49 checks on `3ce84119c`
+(`994995652f1a4373a1ad83aa5ae4a8e5`). [Consumer transition](#consumer-transition-and-retirement)
 
 The private facade trial exposed a preview routing defect and now sends native wire declarations
 to their native compiler. Preview `8c07c1b1827141f1bea9a14da5d867fc` and apply
@@ -199,6 +204,17 @@ before a later slice changes both generated native and Python contract bytes.
 [N44 I05][n44-i05] · [N43 review I09](../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I09) ·
 [Detached export owner](../../../python/corpus-structure/src/corpus_structure/serve/demand_export.py#L435) ·
 [LinkML effective slots](../../libraries/data_model/linkml.md#5-python-runtime-and-programmatic-schema-manipulation)
+
+The 2026-11-21 inventory locates the remaining transitions at their current encoding boundaries.
+Recheck their active consumers before deleting the shared spelling-based decoder.
+
+| Boundary | Current owner and remaining obligation |
+| --- | --- |
+| Native requests and results | The storage text envelope and captured generated calls must preserve numeric tokens until their declared validators run. Frontier reads have a closed field model. The support view and prepared relation rows need the selected relation or nominal kind before interpreting their record bodies. [Native storage](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_storage.py) · [Call generation](../../../python/corpus-structure/src/corpus_structure/semantic/native_call_generation.py) |
+| Same-cut support and local indexes | Interpret the bounded page once and classify record bodies from their captured relational role. Preserve the pinned cut, original native support identity and independent live authority. [Selected read owner](../../../python/corpus-structure/src/corpus_structure/semantic/demand_results.py) · [Record index](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_read_index.py) |
+| Demand execution and retained work | Move execution-basis, binding, trust and draft documents through their declared writers. Preserve original writer bytes and the D1 meaning of explicitly selected scopes. A missing historical writer has an explicit regeneration route. [Execution owner](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py) · [Draft custody](../../../python/corpus-structure/src/corpus_structure/semantic/completion_drafts.py) |
+| Detached archives and prepared packs | The typed v3 manifest now frames verified files. The page, support and captured contract readers still classify some payloads with the shared decoder. Preserve authenticated bytes and use the captured page or kind schema for each structural read. [Detached archive owner](../../../python/corpus-structure/src/corpus_structure/serve/demand_export.py) · [Prepared compilation](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_compilation.py) |
+| Worker and operator routes | Keep the worker's finite standard-library envelopes and the existing typed execution evidence. Migrate native request files, richer cursors and remaining CLI/MCP selected results at their respective boundaries. PostgreSQL connection adaptation already uses the public Psycopg finite JSON hooks. [Execution evidence](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_execution_evidence.py) · [Continuation owner](../../../python/corpus-structure/src/corpus_structure/semantic/continuation_codec.py) · [Connection adaptation](../../../python/corpus-structure/src/corpus_structure/core/db/store.py) |
 
 Migrate wire and row aliases, execution evidence and exports with their owning contracts, then
 remove the superseded branch in `wire_json_loads`. Replace encode-to-validate paths with the

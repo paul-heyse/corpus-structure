@@ -17,6 +17,15 @@ distinct-cut and changed-authority controls passed (`78cebfe84bd349f5b124632ea6b
 (`f4503916cb92457eb4d24605c4c11126`). The remaining actual consumer journeys and regional
 attribution are still required for broader closure.
 
+On source `96c98d670`, the actual event score and rejection of same-kind authored parameters
+passed. The ordinary-purpose check reached PostgreSQL's function grant and received an
+insufficient-privilege refusal. Its expected error text still described the inner policy.
+The repaired check asserts the actual PostgreSQL privilege refusal and runs on the frame fixture
+without preparing fit or issuer products. Its replay on source `63bde42ee` passed both ordinary
+purpose and substituted-use refusal. The direct receipts from
+`uv run python scripts/test_receipts.py run` are in `build/dmo01-06/n44-event-selected-pages`
+and `build/dmo01-06/n44-event-frame-refusal`.
+
 **Execution checkpoint · 2026-11-20.** The admitted consuming role now carries the prepared
 producer requirement. Rich native admission uses it for output role, CPU witness, effect and
 family. The event issuer and authored parameter checks retain their specialized authority.
