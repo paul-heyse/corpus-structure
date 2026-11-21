@@ -258,6 +258,15 @@ and captured support selection passed 43 cases (`b260e33425b546138661637c3f47200
 Original-source selection records now use their typed reference reader. The managed selection
 with CLI and composite delivery passed 38 cases (`b0f195d778b34cb583da4270cf4b921c`).
 
+Native execution snapshots now use the declared demand projection before finite receipt
+serialization. Frozen intent, attachment, population evidence, ready bindings and product
+members use named native records for field interpretation. Their prepared schema closures are
+retained by checked protocol bytes and field roles. Trust identifiers and draft-origin selectors
+read the original tokens. The combined managed selection covered 247 wire, binding, port and
+CLI cases (`4276e5cdd7e74866b1b246fa73e439fc`). Remaining uses of the contextual decoder include
+compilation evidence, external and visual packets, retained result and export readers, and one
+CLI inspection branch. Move each with its owning contract and retained-format disposition.
+
 Deliver the migration by complete consumer boundary. The execution-evidence finite codec,
 v3 detached manifest framing and native frontier/continuation are implemented foundations with
 the scoped receipts above. Preserve authentication of manifest bytes before metadata interpretation
@@ -820,6 +829,13 @@ unchanged premises that supply the retained guarantee.
 Use a bounded call-count check or trace on affected routes to confirm one structural check at the
 actual request/result boundary and the separate detached-export check. Verify stable owned values
 under caller mutation. Reacquire the current cut, epochs and principal before new protected reads.
+Generated wire models now supply fields directly to the existing port ingress traversal. The
+single traversal retains validation and a detached result, and public getters retain their defensive
+copies. The focused port selection passed 107 cases on the integration worktree. The native result
+reader still reinterprets the admitted page when `DemandResult` first opens it. Retain the admitted
+view and exact cut framing at the live constructor, then verify one projection and isolation from
+caller mutation. Raw-byte and detached verification retain independent admission and continued
+live disclosure reacquires current authority.
 Check native artifact parity and legitimate client acquisition after the coordinated transition.
 Use the scoped tuple trial and the [changed-contract cases](#contract-specific-rollout) to select
 the remaining checks. Reobserve affected staged or justified prospective routes, including

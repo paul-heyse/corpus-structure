@@ -364,7 +364,17 @@ for the members projection refused. The retained genuine two-region demand also 
 N47 with its original release and a single acquired cut. The managed CLI, original support,
 rich and composite delivery selection passed 38 cases (`b0f195d778b34cb583da4270cf4b921c`),
 including target and project refusal controls.
-Broader changed-authority and regional interrupted-journey cases retain their acceptance.
+The fresh N47 regional trial covered the held-sibling interruption described above. Broader
+changed-authority and diagnostic failure cases retain their acceptance.
+
+**Shared-host reacquisition · 2026-11-21.** Grouped preparation refusals retain a unique typed
+shared-host prerequisite. Inspection binds the conditional `ci release reacquire-host` command
+to the captured release, runtime and complete storage target. The command verifies the target
+before reacquisition, including when two clusters have the same database OID. Ambiguous
+prerequisites and missing target custody stay explicit. The 23 focused command and report cases
+passed (`26477d097e8c441494bd82724df15019`). The earlier installed N47 regional run separately
+verified that reacquisition could admit a successor runtime for the same release after startup
+drift (`238dbb39fed746aa991c9af1cfb27c94`).
 
 **Scoped implementation · 2026-11-20.** The executor records preparation refusals with the
 operation and available resource/digest prerequisites before provider submission or a work claim.
