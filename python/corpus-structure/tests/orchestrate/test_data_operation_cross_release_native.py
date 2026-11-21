@@ -357,3 +357,92 @@ def test_active_release_admits_fresh_unleased_capture_and_preserves_existing_aut
                 )
                 == 1
             )
+
+
+@pytest.mark.parametrize("ddo_kernel", [EXECUTION], indirect=True, ids=["execution"])
+@pytest.mark.parametrize("committed", [True, False], ids=["lost-commit-ack", "known-rollback"])
+def test_native_publication_outcome_is_read_before_a_fresh_executor_retries(
+    ddo_kernel, monkeypatch, committed
+):
+    from psycopg import OperationalError
+
+    from corpus_structure.semantic.claim_lifetime import ClaimOwner, ClaimSettlementUncertain
+
+    preparation = ddo_kernel.preparation
+    monkeypatch.syspath_prepend(str(preparation.directory))
+    with ddo_kernel.engine.begin() as connection:
+        demand = _register(connection, preparation)
+    (selected,), errors = _ready(ddo_kernel, preparation, demand)
+    assert errors == ()
+    original = json.loads(selected.native)
+    # Mark only the publication connection. Renewal and intent-retention commits
+    # continue normally, so the fault concerns the actual final native effect.
+    settle = ClaimOwner.settle
+    commit = ddo_kernel.engine.dialect.do_commit
+    publication_connections = set()
+    lost = []
+
+    def mark_publication(owner, claim, completion):
+        def marked(connection):
+            result = completion(connection)
+            if isinstance(result, dict) and "derivation_id" in result:
+                publication_connections.add(id(connection.connection.driver_connection))
+                if not committed:
+                    lost.append(False)
+                    raise RuntimeError("controlled rollback before publication commit")
+            return result
+
+        return settle(owner, claim, marked)
+
+    def lose_acknowledgement(connection):
+        driver = getattr(connection, "driver_connection", connection)
+        selected = id(driver) in publication_connections
+        if committed and selected and len(lost) < 2:
+            publication_connections.discard(id(driver))
+            commit(connection)
+            lost.append(True)
+            raise OperationalError("controlled publication acknowledgement loss")
+        commit(connection)
+
+    with monkeypatch.context() as faults:
+        faults.setattr(ClaimOwner, "settle", mark_publication)
+        faults.setattr(ddo_kernel.engine.dialect, "do_commit", lose_acknowledgement)
+        with pytest.raises(NativeDemandExecutionError) as caught:
+            execute_data_demand(
+                ddo_kernel.engine, demand, source_root=preparation.directory, database_capacity=6
+            )
+    if committed:
+        assert any(
+            isinstance(error, ClaimSettlementUncertain) for error in caught.value.failures
+        ), caught.value.failures
+        assert lost == [True, True]
+    else:
+        assert any(
+            "controlled rollback" in str(error) for error in caught.value.failures
+        ), caught.value.failures
+        assert lost == [False]
+    with ddo_kernel.engine.connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == int(committed)
+        producer = connection.execute(
+            text("SELECT producer_task_id,producer_attempt FROM ops.data_completion_intent")
+        ).one()
+        assert producer.producer_task_id == original["task_id"] and producer.producer_attempt == 1
+
+    def forbidden_execution(*args, **options):
+        raise AssertionError("committed intent recovery must not resolve the producer again")
+
+    with monkeypatch.context() as retry:
+        retry.setattr(NativeDemandExecutor, "_basis_context", forbidden_execution)
+        result = execute_data_demand(
+            ddo_kernel.engine, demand, source_root=preparation.directory, database_capacity=6
+        )
+    assert result.receipt_count == int(not committed)
+    with ddo_kernel.engine.connect() as connection:
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM ops.task WHERE status='running'")) == 0
+        assert connection.scalar(text("SELECT canonical_body FROM kb.data_product")) == ["integer", "7"]
+    assert execute_data_demand(
+        ddo_kernel.engine, demand, source_root=preparation.directory, database_capacity=6
+    ).receipt_count == 0
