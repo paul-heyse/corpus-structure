@@ -33,7 +33,7 @@ from corpus_structure.semantic._data_operation_wire import (
     WireSelectDataPopulationRequest,
 )
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.data_operation_identity import SemanticRequestKey
+from corpus_structure.semantic.data_operation_identity import SemanticRequestKey, canonical_identity
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
@@ -959,7 +959,11 @@ def test_actual_writer_rejects_independently_authored_binding_substitutions(ddo_
             "23514",
             "semantic request member differs from native product/member",
         ),
-        ("member-removed", "23514", "selected input support set has no exact native binding row"),
+        (
+            "member-removed",
+            "23514",
+            "semantic binding has no exact native manifest member for role source",
+        ),
         (
             "position-substitution",
             "23514",
@@ -1150,7 +1154,7 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
     # or project_operation_binding supplies the admission envelope.
     members = (
         {
-            "product": product,
+            "product": canonical_identity("body", {"value": 15, "document_subject": "doc"}).key,
             "kind": sample_kind,
             "subject": "item:15",
             "subject_definition": "original-occurrence",
@@ -1163,7 +1167,7 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
             "support_episodes": (episode,),
         },
         {
-            "product": product,
+            "product": canonical_identity("body", {"value": 16, "document_subject": "doc"}).key,
             "kind": sample_kind,
             "subject": "item:16",
             "subject_definition": "original-occurrence",
@@ -1283,7 +1287,7 @@ def test_actual_writer_requires_exact_authored_closed_population_binding(ddo_ker
         (
             "witness-receipt-missing",
             "23514",
-            "population witness lacks authenticated native receipt reference",
+            "population meaning lacks exact native receipt locator",
         ),
     )
     with ddo_kernel.purpose("write").begin() as writer, ddo_kernel["engine"].connect() as observer:
@@ -2858,28 +2862,25 @@ def test_overlapping_differing_intents_preserve_one_answer_and_its_publication(d
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 1
 
 
+def test_native_nominal_topology_capture_requires_the_execution_declaration():
+    name = "native/data-operation-graph-execution.json"
+    sources = native_protocol_sources()
+    assert name in {source.name for source in sources}
+    with pytest.raises(ValueError, match="captured"):
+        native_source_digest(tuple(source for source in sources if source.name != name))
+    altered = tuple(
+        replace(source, content=source.content + b"\n") if source.name == name else source
+        for source in sources
+    )
+    assert native_source_digest(altered) == native_source_digest(sources)
+
+
 @pytest.mark.parametrize(
     "name",
     [
         "native/data-operation-kind-refinements.py",
         "native/data-operation-graph-topology.py",
         "native/data-operation-graph-runtime.py",
-        "native/data-operation-graph-execution.json",
-    ],
-)
-def test_native_nominal_topology_capture_requires_every_selected_dependency(name):
-    sources = native_protocol_sources()
-    assert name in {source.name for source in sources}
-    with pytest.raises(ValueError, match="captured"):
-        native_source_digest(tuple(source for source in sources if source.name != name))
-
-
-@pytest.mark.parametrize(
-    "name",
-    [
-        "native/data-operation-graph-topology.py",
-        "native/data-operation-graph-runtime.py",
-        "native/data-operation-graph-execution.json",
     ],
 )
 def test_native_program_manifest_keeps_topology_provenance_out_of_program_identity(name):
@@ -2890,7 +2891,9 @@ def test_native_program_manifest_keeps_topology_provenance_out_of_program_identi
         for source in sources
     )
     assert native_source_digest(altered) == initial
-    assert native_source_digest(sources) == initial
+    assert (
+        native_source_digest(tuple(source for source in sources if source.name != name)) == initial
+    )
 
 
 def test_native_graph_execution_capture_names_selected_engine_and_library():
@@ -2977,16 +2980,27 @@ def test_native_completion_receipt_records_actual_validator_not_release_expectat
         assert seal["generation"] == fence["generation"]
         assert seal["runtime"] == ddo_kernel["runtime"]
         assert seal["trust"] and all(epoch == 0 for epoch in seal["trust"].values())
-        assert seal["kernel"] == connection.scalar(
+        source_digest = connection.scalar(
             text("SELECT sem.data_operation_native_descriptor()->>'source_digest'")
         )
+        validators = connection.scalar(
+            text(
+                "SELECT ops.ddo_current_validation_identities(release_id, operation_id) "
+                "FROM ops.data_request WHERE id=:id"
+            ),
+            {"id": fence["request_id"]},
+        )
+        assert seal["validators"] == validators
     receipt = publish(ddo_kernel, fence, intent)
     with ddo_kernel["engine"].begin() as connection:
-        actual = connection.scalar(
-            text("SELECT validating_kernel_digest FROM ops.data_publication_receipt WHERE id=:id"),
+        actual = connection.execute(
+            text(
+                "SELECT validating_kernel_digest, validation_identities "
+                "FROM ops.data_publication_receipt WHERE id=:id"
+            ),
             {"id": receipt["receipt_id"]},
-        )
-        assert actual == seal["kernel"]
+        ).one()
+        assert tuple(actual) == (source_digest, validators)
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
@@ -3172,8 +3186,8 @@ def test_installed_validity_closure_matches_authored_reference_graph(ddo_kernel,
 
 
 @pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
-@pytest.mark.parametrize("seal", ["current", "other", "absent", "battery"])
-def test_historical_completion_rechecks_only_when_validator_seal_changes(ddo_kernel, seal):
+@pytest.mark.parametrize("seal", ["current", "other", "absent", "invariant"])
+def test_historical_completion_always_checks_retained_intent_integrity(ddo_kernel, seal):
     from native_refusals import native_refusal
 
     _, _, _, attached = attach(ddo_kernel)
@@ -3196,26 +3210,20 @@ def test_historical_completion_rechecks_only_when_validator_seal_changes(ddo_ker
                 connection.exec_driver_sql(
                     "ALTER TABLE " + relation + " DISABLE TRIGGER semantic_immutable"
                 )
-            connection.execute(
-                text(
-                    "UPDATE ops.data_completion_intent SET payload=payload||CAST(:corruption AS jsonb) WHERE id=:id"
-                ),
-                {
-                    "id": intent["intent_id"],
-                    "corruption": json.dumps({"controlled_corruption": True}),
-                },
-            )
-            if seal != "current":
+            if seal in {"other", "absent"}:
                 connection.execute(
                     text(
-                        "UPDATE ops.data_publication_receipt SET validating_kernel_digest=:digest WHERE id=:id"
+                        "UPDATE ops.data_publication_receipt "
+                        "SET validation_identities=CAST(:identities AS jsonb) WHERE id=:id"
                     ),
                     {
                         "id": receipt["receipt_id"],
-                        "digest": None if seal == "absent" else "other-validating-kernel",
+                        "identities": None
+                        if seal == "absent"
+                        else json.dumps({"conservative": "other-validator"}),
                     },
                 )
-            if seal == "battery":
+            if seal == "invariant":
                 connection.execute(
                     text(
                         "UPDATE ops.data_completion_intent SET payload=jsonb_set(payload,'{execution_evidence}',"
@@ -3234,15 +3242,19 @@ def test_historical_completion_rechecks_only_when_validator_seal_changes(ddo_ker
                     ),
                     {"id": intent["intent_id"]},
                 )
-            if seal == "current":
-                assert connection.scalar(check, params) == fence["request_id"]
+                reason = "non-PDF computation cannot acquire a PDF execution event"
             else:
-                reason = (
-                    "non-PDF computation cannot acquire a PDF execution event"
-                    if seal == "battery"
-                    else "historical intent payload digest differs"
+                connection.execute(
+                    text(
+                        "UPDATE ops.data_completion_intent SET payload=payload||CAST(:corruption AS jsonb) WHERE id=:id"
+                    ),
+                    {
+                        "id": intent["intent_id"],
+                        "corruption": json.dumps({"controlled_corruption": True}),
+                    },
                 )
-                with native_refusal("23514", message=reason):
-                    connection.execute(check, params)
+                reason = "historical intent payload digest differs"
+            with native_refusal("23514", message=reason):
+                connection.execute(check, params)
         finally:
             transaction.rollback()

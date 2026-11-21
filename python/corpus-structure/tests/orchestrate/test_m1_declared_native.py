@@ -62,7 +62,7 @@ def _recipe():
             {
                 **cfg.model_dump(),
                 "local_schema": None,
-                "region_pointers": ("#/texts/0",),
+                "region_pointers": None,
                 "max_context_chars": 512,
             }
         )
