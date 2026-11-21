@@ -627,7 +627,7 @@ def admitted_data_read(
         subject,
         _binding_context_parameter(original_source, name="data_binding_source"),
         _binding_context_parameter(analyzed_scope, name="data_binding_scope"),
-        bindparam("data_binding_selected", selected_pins, type_=JSONB),
+        bindparam("data_binding_selected", selected_pins, type_=JSONB(none_as_null=True)),
     ).table_valued(*columns)
     # The admitted TVF authenticates this statement once. Role aliases and
     # constraint checks share its rows without sharing authority across reads.
