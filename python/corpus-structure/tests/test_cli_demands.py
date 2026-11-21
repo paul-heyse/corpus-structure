@@ -280,12 +280,14 @@ def test_execute_keeps_scope_numbers_in_retained_snapshot(cli, tmp_path, monkeyp
 
     from corpus_structure.orchestrate.data_operations import DemandAdvance
     from corpus_structure.semantic import data_operation_service
-    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+    from semantic.demand_result_support import demand_result_page
 
     number = "0.12345678901234567890123456789"
-    snapshot = (
-        '{"demand_id":"demand:exact","analyzed_scope":{"fraction":' + number + "}}"
-    ).encode()
+    native_page = demand_result_page()
+    native_page["demand_id"] = "demand:exact"
+    native_page["obligations"][0]["analyzed_scope"] = {"fraction": Decimal(number)}
+    snapshot = json_bytes(native_page)
     monkeypatch.setattr(
         data_operation_service,
         "execute_data_demand",
@@ -301,9 +303,8 @@ def test_execute_keeps_scope_numbers_in_retained_snapshot(cli, tmp_path, monkeyp
         env={"CORPUS_CI_RESULTS": str(tmp_path / "results")},
     )
     assert result.exit_code == 0, result.output
-    assert json_loads(result.stdout)["native"]["snapshot"]["analyzed_scope"]["fraction"] == Decimal(
-        number
-    )
+    reported = json_loads(result.stdout)["native"]["snapshot"]
+    assert reported["obligations"][0]["analyzed_scope"]["fraction"] == Decimal(number)
 
 
 @pytest.mark.parametrize("invalid", ["missing-root", "missing-demand", "workflow-override"])

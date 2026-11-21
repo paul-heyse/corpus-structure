@@ -2242,9 +2242,10 @@ class NativeDemandExecutor:
                 self._claim_owner = owner
                 for _ in range(max_rounds):
                     progress = False
+                    cancelled = False
 
                     def pages():
-                        nonlocal progress
+                        nonlocal progress, cancelled
                         continuation = None
                         while True:
                             with self.native_io.transaction() as connection:
@@ -2269,7 +2270,8 @@ class NativeDemandExecutor:
                                         "execution context differs from native demand custody"
                                     )
                                 self._last_snapshot = json_bytes(page)
-                                if page.get("state") == "cancelled":
+                                cancelled = page.get("state") == "cancelled"
+                                if cancelled:
                                     return
                             with self.native_io.transaction() as connection:
                                 planner = connection.planner(self.model)
@@ -2334,10 +2336,8 @@ class NativeDemandExecutor:
                         pages(), authorization, owner
                     )
                     self._member_failures.extend(errors)
-                    if (
-                        self._last_snapshot
-                        and wire_json_loads(self._last_snapshot).get("state") == "cancelled"
-                    ):
+                    if cancelled:
+                        assert self._last_snapshot is not None
                         return self._result(demand, self._last_snapshot)
                     progress = progress or bool(settled) or bool(selected) or bool(logical_progress)
                     if not progress:

@@ -26,6 +26,30 @@ def test_generated_demand_decode_preserves_optional_fields_numbers_and_tagged_va
     assert decode_wire_demand_result(content)["uses"]
 
 
+def test_execution_delivery_projects_native_scope_and_ordinary_body_separately():
+    from corpus_structure.orchestrate.data_operations import DemandAdvance
+    from corpus_structure.orchestrate.source_reporting import native_demand_result
+
+    source = demand_result_page()
+    product = source["uses"][0]["products"][0]
+    fraction = Decimal("0.123456789012345678901234")
+    product["analyzed_scope"] = {"scale": fraction}
+    product["body"] = {"analyzed_scope": {"scale": fraction}}
+    receipt = {
+        "derivation_id": "derivation:one",
+        "receipt_id": "receipt:one",
+        "replayed": False,
+        "trust_snapshot": {"source:one": 9},
+    }
+    report = native_demand_result(
+        DemandAdvance(source["demand_id"], json_bytes(source), (json_bytes(receipt),), 1)
+    )
+    delivered = report["snapshot"]["uses"][0]["products"][0]
+    assert delivered["analyzed_scope"] == {"scale": fraction}
+    assert delivered["body"]["analyzed_scope"]["scale"] == 0.12345678901234568
+    assert report["receipts"] == [receipt]
+
+
 @pytest.mark.parametrize("mutation", ["extra", "wrong-list", "wrong-integer", "wrong-literal"])
 def test_generated_demand_decode_refuses_shape_and_unknown_keys(mutation):
     source = demand_result_page()

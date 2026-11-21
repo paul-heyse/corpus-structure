@@ -1,6 +1,11 @@
 """Managed reporting binds exact native demand custody, never synthetic run IDs."""
 
-from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
+from corpus_structure.semantic.data_operation_json import (
+    finite_json_loads,
+    json_bytes,
+    native_json_loads,
+)
+from corpus_structure.semantic.demand_wire import interpret_demand_record
 
 
 def record_native_demand(invocation, snapshot, target):
@@ -18,11 +23,11 @@ def record_native_demand(invocation, snapshot, target):
 def native_demand_result(result):
     return {
         "demand_id": result.demand_id,
-        "snapshot": wire_json_loads(result.snapshot),
+        "snapshot": interpret_demand_record(native_json_loads(result.snapshot)),
         "snapshot_standing": result.snapshot_standing,
         "receipt_count": result.receipt_count,
         "receipts_truncated": result.receipts_truncated,
-        "receipts": [wire_json_loads(value) for value in result.receipts],
+        "receipts": [finite_json_loads(value) for value in result.receipts],
     }
 
 
