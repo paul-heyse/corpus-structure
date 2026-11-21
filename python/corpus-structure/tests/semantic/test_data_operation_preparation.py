@@ -538,10 +538,24 @@ def test_primary_selection_authenticates_current_asset_population(tmp_path, monk
         )
 
 
-@pytest.mark.parametrize("use_selected_producer", [False, True])
-def test_capture_profile_acquires_only_its_pdf_configuration(
-    tmp_path, monkeypatch, use_selected_producer
-):
+@pytest.mark.parametrize(
+    "companion",
+    [
+        pytest.param({}, id="standard"),
+        pytest.param({"enrichment_options": "unselected-enrichment"}, id="enriched"),
+        pytest.param(
+            {
+                "recognition": {
+                    "recipe": "unselected-recognition-recipe",
+                    "options": "unselected-recognition-options",
+                    "resources": "unselected-recognition-resources",
+                }
+            },
+            id="integrated",
+        ),
+    ],
+)
+def test_capture_profile_acquires_only_its_pdf_configuration(tmp_path, monkeypatch, companion):
     from corpus_structure.ingest import pdf_producer_contract
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.semantic import pdf_capture
@@ -559,9 +573,7 @@ def test_capture_profile_acquires_only_its_pdf_configuration(
                 "assets_manifest": "pdf-assets",
                 "assets_root": str(tmp_path),
                 "directory": str(tmp_path / "capture"),
-                "standard_producer": (
-                    "standard-pdf-producer-files-v1" if use_selected_producer else None
-                ),
+                **companion,
             },
         }
     )
@@ -585,7 +597,7 @@ def test_capture_profile_acquires_only_its_pdf_configuration(
         return producer
 
     def acquire_capture_sources(*args, standard_producer, **kwargs):
-        assert standard_producer is (producer if use_selected_producer else None)
+        assert standard_producer is (None if companion else producer)
         return capture_sources
 
     monkeypatch.setattr(pdf_producer_contract, "standard_pdf_contract", acquire_producer)
@@ -594,7 +606,7 @@ def test_capture_profile_acquires_only_its_pdf_configuration(
         profile, read, tmp_path, selected_modules=frozenset({"corpus_structure.ingest.pdf_capture"})
     )
     assert reads == ["pdf-recipe", "pdf-assets"]
-    assert calls == (["selected Standard producer"] if use_selected_producer else [])
+    assert calls == ([] if companion else ["selected Standard producer"])
     assert acquired["capture_sources"] is capture_sources
     assert acquired["sentence_configuration"] is None
     assert acquired["hanlp_selection"] is None
