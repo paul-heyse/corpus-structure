@@ -172,11 +172,11 @@ class SelectedReferenceSnapshotOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": "output_members",
+                        "output_field": "output_addresses",
                         "input": {
                             "role": "reference",
                             "projection": "https://corpus-structure.dev/semantic/data-operation-assessment/DdoSelectedReference",
-                            "field": "/output_members",
+                            "field": "/output_addresses",
                         },
                         "encoding": "value",
                     },

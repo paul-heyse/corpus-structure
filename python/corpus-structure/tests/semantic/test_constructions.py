@@ -45,7 +45,7 @@ def nominal_product(builder, view, *, value=None):
             builder.facts(),
             interpreted_member_contracts(profile.prepared, profile.model),
             (),
-        )
+        ) | {"annotation_support": []}
     return validate_interpreted_product(
         profile.prepared, profile.model, value, selected, (), subject_context=context
     )
@@ -299,7 +299,6 @@ def native_case(words, heads, deps, pos, morphs=None):
         retained_native_documents,
         retained_native_vocab,
     )
-    from corpus_structure.semantic.data_product_reference import DataProductReference
 
     vocab = English().vocab
     doc = Doc(
@@ -325,7 +324,6 @@ def native_case(words, heads, deps, pos, morphs=None):
     )
     builder.native(
         view,
-        DataProductReference(native.semantic_id),
         block,
         retained,
         annotations,
@@ -337,7 +335,7 @@ def native_case(words, heads, deps, pos, morphs=None):
 
 @pytest.mark.parametrize("separator", ["\n", "\t", "\n\n", "  "])
 def test_native_layout_tokens_are_not_semantic_participants(separator):
-    builder, native = native_case(
+    builder, _ = native_case(
         ["Rain", separator, "falls"],
         [2, 2, 2],
         ["nsubj", "dep", "ROOT"],
@@ -350,7 +348,8 @@ def test_native_layout_tokens_are_not_semantic_participants(separator):
     ]
     assert {term["value"] for term in participants} == {"rain", "falls"}
     assert all(
-        premise["member_id"] != native.inventory("token")[1]["local_id"]
+        premise["item_key"]
+        != [{"kind": "text", "text": "token"}, {"kind": "integer", "integer": 1}]
         for term in participants
         for premise in term["external_premises"]
     )
@@ -369,12 +368,15 @@ def test_native_layout_tokens_are_not_semantic_participants(separator):
 
 @pytest.mark.parametrize("spelling", ["X\n+\nY", "X\r\n+\tY"])
 def test_multiline_native_atom_keeps_spelling_beside_interpreted_lexical_label(spelling):
-    builder, native = native_case([spelling, "varies"], [1, 1], ["nsubj", "ROOT"], ["NOUN", "VERB"])
+    builder, _ = native_case([spelling, "varies"], [1, 1], ["nsubj", "ROOT"], ["NOUN", "VERB"])
     participant = next(term for term in builder.terms.values() if term["value"] == "x + y")
     assert participant["provenance"] == ["lexical-normalization:whitespace-folding-1"]
     assert participant["external_premises"][0] == {
-        "product_id": native.semantic_id,
-        "member_id": native.inventory("token")[0]["local_id"],
+        "variant": "partition-item",
+        "role": "sentences",
+        "collection": "rows",
+        "partition_key": "#/texts/1",
+        "item_key": [{"kind": "text", "text": "token"}, {"kind": "integer", "integer": 0}],
     }
     assert [
         extent["text"]

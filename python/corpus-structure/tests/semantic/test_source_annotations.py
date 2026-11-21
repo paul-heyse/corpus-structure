@@ -178,6 +178,7 @@ def test_annotation_consumer_refuses_equal_source_body_from_another_selected_car
 ):
     from corpus_structure.semantic.learned_primary import maverick_input
     from corpus_structure.semantic.model_characterization import prepare_model_scope
+    from corpus_structure.semantic.sentence_products import source_annotation_blocks
 
     prepared, model, configuration, _ = acquired
     source, value = detached
@@ -210,8 +211,9 @@ def test_annotation_consumer_refuses_equal_source_body_from_another_selected_car
     mapping = prepare_model_scope(
         foreign, (block.start, block.end), (block.start, block.end)
     ).mapping
+    (annotation_block,) = source_annotation_blocks(product)
     with pytest.raises(ValueError, match="different selected source carrier"):
-        maverick_input(source, product, foreign, block, mapping)
+        maverick_input(annotation_block["annotation"], foreign, block, mapping)
 
 
 @pytest.mark.parametrize("detached", [" X  X\né x+y [3]."], indirect=True)

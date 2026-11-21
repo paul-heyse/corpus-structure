@@ -39,6 +39,24 @@ def structural_report(scope, selected):
     root = read_nonrich_root(scope.model, selected)
     if root.structural is None:
         raise ValueError("selected output has no current structural report contract")
+    condition = root.structural.condition_qualification
+    if condition is not None:
+        from .data_product_reference import read_semantic_reference
+        from .live_reference_resolution import require_selected_output_reference
+
+        attachment = read_semantic_reference(condition.attachment)
+        body = require_selected_output_reference(
+            scope, selected, attachment, path="/condition_qualification/attachment"
+        )
+        identifier = body.get("contribution_id") if isinstance(body, dict) else None
+        if (
+            not isinstance(body, dict)
+            or body.get("candidate_type") != "contribution"
+            or body.get("semantic_type") != "structural.predicate_qualification"
+            or not isinstance(identifier, str)
+            or attachment.member_id != "contribution:" + identifier
+        ):
+            raise ValueError("selected condition attachment does not resolve its qualification")
     return root.structural
 
 

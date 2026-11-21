@@ -4,7 +4,6 @@ from pathlib import Path
 
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection, pm2_selection
-from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.predicate_products import (
     predicate_inputs,
@@ -15,7 +14,8 @@ from corpus_structure.semantic.primary_operations import (
     combine_primary_sources,
     primary_operation_inputs,
 )
-from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
+from corpus_structure.semantic.scoped_products import scoped_operation_sources
+from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
 def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses(
@@ -30,7 +30,7 @@ def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses
             NativeProfile(
                 "spacy",
                 {"controlled": "preparation"},
-                {},
+                {"files": {}},
                 configuration.model_dump(mode="json"),
                 "float32",
                 "cupy",
@@ -45,11 +45,13 @@ def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses
         SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)),
         sentence_configuration=SentenceConfig(),
         hanlp_selection=pm2_selection("hanlp", tmp_path, {"controlled": "preparation"}, {}),
+        extra_sources=combine_primary_sources(
+            predicate_operation_sources(), scoped_operation_sources()
+        ),
     )
-    sources = combine_primary_sources(base.sources, predicate_operation_sources())
     prepared = prepare_release(
         predicate_inputs(base.bundle),
-        data_operation_dependencies(ResolvedDependencies(), python_sources=sources),
+        base.dependencies,
         base.profile,
     )
     model = bound_data_operation_model(prepared)
@@ -69,3 +71,23 @@ def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses
     assert operation.output_witnesses and all(
         witness.input_role == "source" for witness in operation.output_witnesses
     )
+    retained_syntax = {
+        "text.formal_evidence/literal-source-geometry",
+        "text.formal_evidence/symbolic-inventory-positions",
+    }
+    lexical_reading = retained_syntax | {
+        "text.formal_evidence/examined-scope",
+        "text.formal_evidence/lexical-inventory-links",
+        "text.formal_evidence/unique-coverage-family",
+    }
+    for semantic_id, rules in (
+        ("structure.predicate_evidence/declared", retained_syntax),
+        ("structure.scoped_relations/declared", retained_syntax),
+        ("text.constructions/source-native", lexical_reading),
+        ("text.contextual_evaluation/source-native", lexical_reading),
+    ):
+        consumer = model.operation(semantic_id)
+        assert (
+            set(next(role.required_rules for role in consumer.roles if role.name == "formal"))
+            == rules
+        )

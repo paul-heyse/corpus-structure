@@ -84,9 +84,6 @@ class SelectedCharacterizationInventories(Mapping):
             role="roles",
             term="terms",
             choice="choices",
-            native_block="native_block",
-            native_token="native_token",
-            native_sentence="native_sentence",
         )
         inventory = {name: [] for name in names.values()}
         seen = set()
@@ -99,29 +96,12 @@ class SelectedCharacterizationInventories(Mapping):
             if packet["member_id"] != identifier or identifier in seen:
                 raise ValueError("selected characterization has ambiguous semantic member identity")
             seen.add(identifier)
-            if kind in {"native_block", "native_token", "native_sentence"}:
-                from .sentence_products import _id
-                from .source_products import source_subject
-
-                context = dict(
-                    subject=source_subject(body["source"]),
-                    subject_definition="original-source-view",
-                    original_source=body["source"]["document"],
-                    analyzed_scope=dict(source=body["source"], selectors=body["selectors"]),
-                )
-                if packet["context"] != context or identifier != _id(
-                    body["source"],
-                    kind.removeprefix("native_"),
-                    member["block_id"],
-                    member["start"],
-                    member["end"],
-                ):
-                    raise ValueError("selected native member changes its declared source identity")
             inventory[names[kind]].append(member)
         inventory.update(
             source=body["source"],
             selectors=body["selectors"],
             dependencies=body.get("dependencies", []),
+            annotation_support=body.get("annotation_support", []),
         )
         return DeclaredFormalInventory(reference, json_bytes(inventory))
 

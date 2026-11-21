@@ -10,7 +10,13 @@ from .data_operation_model import BoundRoleMember, EffectiveDataOperationModel
 from .data_operation_storage import AdmittedDataRead, admitted_data_read
 from .data_operation_support import support_reference_records
 from .data_operation_values import decode_semantic_value
-from .reference_resolution import AcquiredReferencePartition, ProducingReferenceInput
+from .reference_resolution import (
+    AcquiredReferencePartition,
+    ProducingReferenceBindings,
+    ProducingReferenceInput,
+    ReferenceResolver,
+    ReferenceTarget,
+)
 
 
 class LiveReferenceAccess:
@@ -154,3 +160,77 @@ class LiveReferenceAccess:
         return AcquiredReferencePartition(
             packet["partition_digest"], packet["body"], tuple(declarations[0]["address"])
         )
+
+
+def require_selected_output_reference(scope, selected, reference, *, path):
+    """Resolve one scalar output reference from its acquired selected-use closure."""
+    from .detached_reference_resolution import IndexedReferenceAccess
+
+    def row_map(relation, *fields):
+        return scope.index.mapping(relation, fields)
+
+    cut = scope.cut.record
+    # An ordinary report disclosed through a protected issuer can be selected
+    # by its exact support edge even when it is outside the issuer frontier.
+    use = row_map("ops.demand_use", "id").get(selected.use_id)
+    if use is None or use["fate"] != "fulfilled" or use["derivation_id"] != selected.derivation_id:
+        raise ValueError("selected reference lacks its exact fulfilled producing use")
+    selection = use["selection"]
+    episode = row_map("ops.data_derivation", "id")[selected.derivation_id]
+    definitions = row_map("sem.data_operation_definition", "release_id", "operation_id")
+    definition = definitions[episode["release_id"], selected.operation_id]
+    targets = tuple(
+        target
+        for target in definition["support_contract"].get("reference_targets", ())
+        if target["output_role"] == selected.output["role"]
+        and target.get("output_collection") is None
+        and target["path"] == path
+    )
+    if len(targets) != 1 or targets[0].get("occurrence_field") is not None:
+        raise ValueError("selected reference requires its one scalar declared output target")
+    (target,) = targets
+    role = target["input_role"]
+    current_support = {
+        (pin["position"], pin["product_id"], pin.get("member_id"), pin["multiplicity"])
+        for pin in selection["inputs"]
+        if pin["role"] == role
+    }
+    originals = tuple(
+        scope.index.rows_for(
+            "ops.data_derivation_input", derivation_id=selected.derivation_id, role=role
+        )
+    )
+    if len(originals) != 1:
+        raise ValueError("selected reference lacks its scalar original input")
+    (original,) = originals
+    product_id, member_id = original["product_id"], original.get("member_id")
+    if (
+        original["position"],
+        product_id,
+        member_id,
+        original["multiplicity"],
+    ) not in current_support:
+        raise ValueError("original reference parent is unavailable in the exact selected use")
+
+    access = IndexedReferenceAccess(row_map, cut["project_id"])
+    parent = access.products.get(product_id)
+    if parent is None or parent["project_id"] != cut["project_id"]:
+        raise ValueError("selected reference parent is unavailable in the acquired closure")
+    bound_packet = parent if member_id is None else access.members.get((product_id, member_id))
+    if bound_packet is None:
+        raise ValueError("selected reference member is unavailable in the acquired closure")
+    kind_contract = bound_packet["kind_contract"]
+    if access.kinds[kind_contract]["kind"] != target["input_kind"]:
+        raise ValueError("selected reference differs from its declared producing input kind")
+    binding = ProducingReferenceInput(
+        original["role"],
+        product_id,
+        kind_contract,
+        member_id,
+        multiplicity=original["multiplicity"],
+    )
+    return ReferenceResolver(
+        ProducingReferenceBindings(selected.derivation_id, (binding,)), access
+    ).resolve(
+        reference, ReferenceTarget(role, target["variant"], kind_contract, target.get("collection"))
+    )

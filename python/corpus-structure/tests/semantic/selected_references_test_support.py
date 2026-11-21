@@ -38,7 +38,7 @@ def reference_body() -> dict[str, Any]:
         source_release_id=source["release_id"],
         source_runtime_id=source["runtime_id"],
         source_members=[member],
-        output_members=[],
+        output_addresses=[],
         cases=[
             dict(
                 case_id="case:root",

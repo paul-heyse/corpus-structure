@@ -12,8 +12,8 @@ from typing import Any
 from corpus_structure.semantic.characterization import occurrence_id
 from corpus_structure.semantic.identity import canonical_bytes
 
-from ..data_product_reference import member_reference
 from ..native_source_view import NativeSourceView, thaw_native
+from ..sentence_partitions import construction_annotation_reference
 from .declarations import DECLARATIONS, FAMILIES, GRAMMAR_FAMILIES, MODAL_FORCES, REVISION
 from .forest import ProtectedAtom, identity, recognize
 from .lexical import PositionedTerminal
@@ -311,7 +311,7 @@ class ConstructionLayer:
             )
         return result
 
-    def native(self, view, pin, container, doc, annotations, offset, prepared):
+    def native(self, view, container, doc, annotations, offset, prepared):
         """Keep native matches and their actual members separate from grammar claims."""
         matches, unavailable = prepared.match(doc)
         admitted = tuple(
@@ -338,8 +338,10 @@ class ConstructionLayer:
             # newlines; their original bytes remain in occurrences/native premises.
             label = " ".join(lexical.split()) or " ".join(token.text.split())
             occurrence = self.occurrence(view, offset + token.idx, offset + token.idx + len(token))
-            external = member_reference(pin, annotation["local_id"]).values()
-            key = identity("native-participant", [pin.values(), annotation["local_id"]])
+            external = construction_annotation_reference(
+                container, "token", annotation["native_token"]["index"]
+            )
+            key = identity("native-participant", external)
             participant_ids[index] = key
             self.terms[key] = dict(
                 local_id=key,
@@ -361,7 +363,10 @@ class ConstructionLayer:
             token = doc[index]
             if index not in participant_ids or token.pos_ not in {"VERB", "AUX", "ADJ", "NOUN"}:
                 continue
-            key = identity("native-predication", [pin.values(), annotation["local_id"]])
+            external = construction_annotation_reference(
+                container, "token", annotation["native_token"]["index"]
+            )
+            key = identity("native-predication", external)
             predicate_terms[index] = key
             children = [dict(role="predicate", target=participant_ids[index], structural=True)]
             for child in token.children:
@@ -403,7 +408,7 @@ class ConstructionLayer:
                 children=children,
                 occurrences=self.terms[participant_ids[index]]["occurrences"],
                 provenance=["grammatical-role-scheme:spacy-english-dependency-1"],
-                external_premises=[member_reference(pin, annotation["local_id"]).values()],
+                external_premises=[external],
             )
             morph = token.morph.to_dict()
             for feature, values in morph.items():
@@ -455,7 +460,9 @@ class ConstructionLayer:
             if not members:
                 continue
             premises = [
-                member_reference(pin, annotations[i]["local_id"]).values()
+                construction_annotation_reference(
+                    container, "token", annotations[i]["native_token"]["index"]
+                )
                 for i in dict.fromkeys(members)
             ]
             occurrences = list(
@@ -463,9 +470,7 @@ class ConstructionLayer:
                     o for i in members for o in self.terms[participant_ids[i]]["occurrences"]
                 )
             )
-            key = identity(
-                "native-construction", [pin.values(), container, match.rule_id, match.bindings]
-            )
+            key = identity("native-construction", [container, match.rule_id, match.bindings])
             self.annotations[key] = dict(
                 local_id=key,
                 kind="construction",
@@ -625,10 +630,12 @@ class ConstructionLayer:
                     premises=[key],
                     external_premises=premises,
                 )
-        self._native_scope(view, pin, doc, annotations, offset, participant_ids, predicate_terms)
+        self._native_scope(
+            view, container, doc, annotations, offset, participant_ids, predicate_terms
+        )
         return matches, unavailable
 
-    def _native_scope(self, view, pin, doc, annotations, offset, participants, predicates):
+    def _native_scope(self, view, container, doc, annotations, offset, participants, predicates):
         for index, annotation in annotations.items():
             token = doc[index]
             word = token.lower_
@@ -659,7 +666,9 @@ class ConstructionLayer:
                 governor = governor.head
             target = predicates.get(governor.i)
             if target is None:
-                target = identity("unknown-target", [pin.values(), annotation["local_id"]])
+                target = identity(
+                    "unknown-target", [container, annotation["native_token"]["index"]]
+                )
                 self.terms[target] = dict(
                     local_id=target,
                     family="construction.scope",
@@ -669,16 +678,17 @@ class ConstructionLayer:
                     status="unknown",
                     occurrences=[],
                 )
-            external = [member_reference(pin, annotation["local_id"]).values()]
+            address = construction_annotation_reference(
+                container, "token", annotation["native_token"]["index"]
+            )
+            external = [address]
             cue = participants[index]
             occurrences = self.terms[cue]["occurrences"]
             if word in {"every", "all", "each", "some", "any", "no"}:
                 restrictor = participants.get(token.head.i)
                 if restrictor is None or token.dep_ not in {"det", "predet"}:
                     continue
-                variable = identity(
-                    "bound-variable", [pin.values(), annotation["local_id"], target]
-                )
+                variable = identity("bound-variable", [address, target])
                 self.terms[variable] = dict(
                     local_id=variable,
                     family="construction.scope",
@@ -702,7 +712,7 @@ class ConstructionLayer:
                     ],
                     "external_premises": external + original.get("external_premises", []),
                 }
-                binder = identity("native-binder", [pin.values(), annotation["local_id"], target])
+                binder = identity("native-binder", [address, target])
                 self.terms[binder] = dict(
                     local_id=binder,
                     family="construction.scope",
@@ -720,7 +730,7 @@ class ConstructionLayer:
                     external_premises=external,
                 )
             elif word in {"not", "never"}:
-                key = identity("native-negative", [pin.values(), annotation["local_id"], target])
+                key = identity("native-negative", [address, target])
                 self.terms[key] = dict(
                     local_id=key,
                     family="construction.scope",
@@ -739,9 +749,7 @@ class ConstructionLayer:
                 forces = MODAL_FORCES[word]
                 roots = []
                 for force in forces:
-                    key = identity(
-                        "native-modal", [pin.values(), annotation["local_id"], target, force]
-                    )
+                    key = identity("native-modal", [address, target, force])
                     self.terms[key] = dict(
                         local_id=key,
                         family="construction.scope",
@@ -758,9 +766,7 @@ class ConstructionLayer:
                     )
                     roots.append(key)
                 if len(roots) > 1:
-                    group = identity(
-                        "modal-force-choice", [pin.values(), annotation["local_id"], target]
-                    )
+                    group = identity("modal-force-choice", [address, target])
                     self.choices[group] = dict(
                         local_id=group,
                         family="construction.scope",

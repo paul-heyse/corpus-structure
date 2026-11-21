@@ -28,6 +28,32 @@ from corpus_structure.semantic.source_products import FrozenNativeSource, source
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 
 
+def partition_controlled_annotations(
+    prepared, model, value, source, *, configuration=None, subject_context=None
+):
+    from corpus_structure.semantic.characterization_manifests import manifest_contract
+    from corpus_structure.semantic.data_operation_partitions import partition_header
+    from corpus_structure.semantic.sentence_partitions import partition_source_annotations
+    from corpus_structure.semantic.sentence_products import (
+        annotation_manifest,
+        validate_source_annotations,
+    )
+
+    manifest = annotation_manifest(
+        value, kind_contract=manifest_contract(prepared, model, "DdoSourceAnnotationManifest")
+    )
+    header, rows = partition_source_annotations({**value, "members": [manifest]})
+    return validate_source_annotations(
+        prepared,
+        model,
+        {**header, "rows": partition_header(rows)},
+        source,
+        configuration=configuration,
+        subject_context=subject_context,
+        partitions=tuple(canonical_bytes(row) for row in rows),
+    )
+
+
 @pytest.fixture(scope="module")
 def acquired(tmp_path_factory):
     directory = tmp_path_factory.mktemp("controlled-annotations")

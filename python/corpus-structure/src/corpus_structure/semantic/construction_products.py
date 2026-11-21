@@ -32,7 +32,13 @@ from .constructions.layers import ConstructionLayer, ConstructionSource
 from .constructions.math_scope import Binders, NativeDomainRule
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
-from .data_product_reference import DataProductReference, member_reference, reference_inputs
+from .data_product_reference import (
+    DataProductReference,
+    SemanticReference,
+    member_reference,
+    read_semantic_reference,
+    reference_inputs,
+)
 from .established_validity import ProductValidation
 from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
@@ -90,6 +96,9 @@ def _basis_projection(content: bytes, characterization: bytes) -> bytes:
         return value
 
     for name in sorted(family):
+        if name == "CharacterizationNavigationToken":
+            # The source role owns the address separately from this token's label and index.
+            continue
         body = retarget(copy.deepcopy(original[name]))
         parent = original[name].get("is_a")
         if parent in family and parent != "CharacterizationAttachmentBasis":
@@ -451,7 +460,6 @@ def construction_product_values(
             admitted=lambda a, b: any(start <= a < b <= end for start, end in requested),
         )
         patterns = PreparedConstructions(vocab)
-        pin = DataProductReference(native.semantic_id)
         for block, doc, annotations, start, _end in retained_native_documents(
             source, native, vocab
         ):
@@ -468,9 +476,7 @@ def construction_product_values(
             }
             if not selected_annotations:
                 continue
-            _, unavailable = builder.native(
-                view, pin, block, doc, selected_annotations, start, patterns
-            )
+            _, unavailable = builder.native(view, block, doc, selected_annotations, start, patterns)
             if unavailable:
                 for family in GRAMMAR_FAMILIES:
                     for selector in selected["selectors"]:
@@ -534,12 +540,248 @@ def construction_product_values(
                     "partial",
                     "native-dependent construction coverage unavailable; source grammar retained",
                 )
-    return interpreted_product_value(
+    facts = builder.facts()
+    support = _stage_annotation_support(facts)
+    value = interpreted_product_value(
         source,
-        builder.facts(),
+        facts,
         member_contracts,
         (*formal, *((native,) if native is not None else ())),
     )
+    return {**value, "annotation_support": support}
+
+
+_BINDING_USES = {
+    "named_binding_head",
+    "named_binding_member",
+    "named_binding_antecedent",
+}
+_ANNOTATION_USES = _BINDING_USES | {
+    "external_premise",
+    "basis_external_premise",
+    "named_node",
+    "navigation_token",
+}
+
+
+def _annotation_item(value) -> SemanticReference:
+    reference = read_semantic_reference(value)
+    key = reference.item_key
+    if (
+        reference.variant != "partition-item"
+        or reference.role != "sentences"
+        or reference.collection != "rows"
+        or reference.occurrence is not None
+        or key is None
+        or len(key) != 2
+        or key[0] not in {"sentence", "token"}
+        or type(key[1]) is not int
+        or key[1] < 0
+    ):
+        raise ValueError("annotation support requires an exact selected sentence or token item")
+    return reference
+
+
+def annotation_support_index(value):
+    """Index primary annotation evidence by local graph owner and declared use."""
+    result: dict[tuple[str, str, int | None], dict[int, SemanticReference]] = {}
+    for row in value.get("annotation_support", ()):
+        owner, use, position = row["owner"], row["use"], row["position"]
+        binding = row.get("binding_position")
+        if (
+            use not in _ANNOTATION_USES
+            or type(position) is not int
+            or position < 0
+            or (binding is not None and (type(binding) is not int or binding < 0))
+            or ((binding is not None) != (use in _BINDING_USES))
+        ):
+            raise ValueError("annotation support has an invalid position or use")
+        group = result.setdefault((owner, use, binding), {})
+        if position in group:
+            raise ValueError("annotation support repeats a graph slot")
+        reference = _annotation_item(row["target"])
+        if use not in {"external_premise", "basis_external_premise"} and (
+            reference.item_key is None or reference.item_key[0] != "token"
+        ):
+            raise ValueError("named and navigation support requires a selected token item")
+        group[position] = reference
+    return {key: tuple(sorted(rows.items())) for key, rows in result.items()}
+
+
+def _stage_annotation_support(facts):
+    """Lift native annotation addresses out of shared polymorphic member bodies."""
+    references = []
+
+    def entry(owner, use, position, value, binding=None):
+        references.append(
+            {
+                "owner": owner,
+                "use": use,
+                "position": position,
+                **({"binding_position": binding} if binding is not None else {}),
+                "target": _annotation_item(value).values(),
+            }
+        )
+
+    def split_premises(owner, use, record):
+        if "external_premises" not in record:
+            return
+        retained = []
+        for position, value in enumerate(record["external_premises"]):
+            if value.get("role") == "sentences":
+                entry(owner, use, position, value)
+            else:
+                retained.append(value)
+        record["external_premises"] = retained
+
+    nodes = (
+        row
+        for name, _ in _INVENTORIES
+        for item in facts[name]
+        for row in ((item, *item["members"]) if name == "choices" else (item,))
+    )
+    for node in nodes:
+        owner = node["local_id"]
+        split_premises(owner, "external_premise", node)
+        if "basis" in node:
+            node["basis"] = dict(node["basis"])
+            split_premises(owner, "basis_external_premise", node["basis"])
+        if "named_match" in node:
+            named = node["named_match"] = dict(node["named_match"])
+            for position, ref in enumerate(named.pop("nodes", ())):
+                entry(owner, "named_node", position, ref)
+            if "bindings" in named:
+                named["bindings"] = [dict(row) for row in named["bindings"]]
+            for binding, row in enumerate(named.get("bindings", ())):
+                entry(owner, "named_binding_head", 0, row.pop("head"), binding)
+                for name, use in (
+                    ("members", "named_binding_member"),
+                    ("antecedent_members", "named_binding_antecedent"),
+                ):
+                    for position, ref in enumerate(row.pop(name, ())):
+                        entry(owner, use, position, ref, binding)
+        if node.get("navigation", {}).get("native_tokens"):
+            navigation = node["navigation"] = dict(node["navigation"])
+            tokens = navigation["native_tokens"] = [
+                dict(row) for row in navigation["native_tokens"]
+            ]
+            for position, token in enumerate(tokens):
+                entry(owner, "navigation_token", position, token.pop("native_node"))
+    return sorted(
+        references,
+        key=lambda row: (
+            row["owner"],
+            row["use"],
+            row.get("binding_position", -1),
+            row["position"],
+        ),
+    )
+
+
+def _annotation_dependency(body):
+    return "execution_profile" in body and "block_coverage" in body
+
+
+def _validated_annotation_support(value, selected, inventory, nodes):
+    """Authenticate the local evidence slots using the selected annotation population."""
+    from .data_operation_partitions import partition_header
+    from .sentence_partitions import blocks_from_packets
+
+    support = annotation_support_index(value)
+    annotations = inventory["annotations"]
+    if not support and not any(
+        "named_match" in row or row.get("navigation", {}).get("native_tokens")
+        for row in annotations
+    ):
+        return {}
+    native = []
+    for product in selected:
+        retained = getattr(product, "partitions", None)
+        if retained is None:
+            continue
+        body = json.loads(product.content)
+        if _annotation_dependency(body) and "block_layouts" in body:
+            native.append((body, retained))
+    if len(native) != 1:
+        raise ValueError("construction requires its exact selected annotation partitions")
+    ((body, retained),) = native
+    packets = tuple(json.loads(packet) for packet in retained)
+    if partition_header(packets) != body["rows"]:
+        raise ValueError("construction annotation support differs from selected rows")
+    items = {
+        (block.key, (row["record_type"], row["ordinal"]))
+        for block in blocks_from_packets(packets)
+        for row in block.rows
+    }
+    layouts = {
+        row["annotation"]["block_id"]: row["annotation"]["dependency_digest"]
+        for row in body["block_layouts"]
+    }
+    for (owner, use, binding), rows in support.items():
+        node = nodes.get(owner)
+        if node is None or any((ref.partition_key, ref.item_key) not in items for _, ref in rows):
+            raise ValueError(
+                "construction annotation support does not resolve an exact graph/item address"
+            )
+        named = node.get("named_match")
+        if use in {"external_premise", "basis_external_premise"}:
+            record = node if use == "external_premise" else node.get("basis")
+            if record is None or any(
+                position >= len(rows) + len(record.get("external_premises", ()))
+                for position, _ in rows
+            ):
+                raise ValueError("construction annotation premise leaves its graph slot")
+        elif use == "navigation_token":
+            tokens = node.get("navigation", {}).get("native_tokens", ())
+            if tuple(position for position, _ in rows) != tuple(range(len(tokens))) or any(
+                ref.item_key != ("token", token["index"])
+                for (_, ref), token in zip(rows, tokens, strict=True)
+            ):
+                raise ValueError("construction navigation support changes its native token layout")
+        elif (
+            named is None
+            or (binding is not None and binding >= len(named.get("bindings", ())))
+            or tuple(position for position, _ in rows) != tuple(range(len(rows)))
+            or any(ref.partition_key != named["block_id"] for _, ref in rows)
+        ):
+            raise ValueError("named rule token leaves its exact original native block")
+
+    navigation = {}
+    for node in annotations:
+        owner = node["local_id"]
+        if named := node.get("named_match"):
+            if layouts.get(named["block_id"]) != named["dependency_digest"]:
+                raise ValueError("named rule lacks its exact original native block")
+            node_refs = support.get((owner, "named_node", None), ())
+            if tuple(ref.item_key for _, ref in node_refs) != tuple(
+                ("token", row["token_index"]) for row in named.get("sentences", ())
+            ) or any(
+                len(support.get((owner, "named_binding_head", position), ())) != 1
+                for position in range(len(named.get("bindings", ())))
+            ):
+                raise ValueError("named rule lacks its exact native node or binding head")
+        if tokens := node.get("navigation", {}).get("native_tokens"):
+            references = support.get((owner, "navigation_token", None), ())
+            if len(references) != len(tokens):
+                raise ValueError("construction navigation lacks its exact selected tokens")
+            navigation[owner] = {
+                **node,
+                "external_premises": [
+                    *node.get("external_premises", ()),
+                    *(
+                        ref.values()
+                        for _, ref in support.get((owner, "external_premise", None), ())
+                    ),
+                ],
+                "navigation": {
+                    **node["navigation"],
+                    "native_tokens": [
+                        {**token, "native_node": ref.values()}
+                        for token, (_, ref) in zip(tokens, references, strict=True)
+                    ],
+                },
+            }
+    return navigation
 
 
 def interpreted_product_value(source, facts, member_contracts, dependencies):
@@ -580,6 +822,21 @@ def interpreted_product_value(source, facts, member_contracts, dependencies):
     return append_manifest(value, member_contracts["construction_manifest"])
 
 
+def verify_interpreted_literal_source(product, source):
+    """Check interpreted occurrences against the selected source and examined scope."""
+    if product["source"] != source["source"] or product["selectors"] != source["selectors"]:
+        raise ValueError("construction product changes its exact original source/scope")
+    text = source["text"]
+    for packet in product["members"]:
+        body = packet["body"]
+        if body["record_type"] != "occurrence":
+            continue
+        for extent in body["extents"]:
+            start, end = extent["start"], extent["end"]
+            if not 0 <= start <= end <= len(text) or extent["text"] != text[start:end]:
+                raise ValueError("construction occurrence changes original positioned source")
+
+
 def validate_interpreted_product(
     prepared,
     model,
@@ -596,8 +853,7 @@ def validate_interpreted_product(
         checked, manifest_contract(prepared, model, product_type.manifest_name)
     )
     selected = source.value
-    if checked["source"] != selected["source"] or checked["selectors"] != selected["selectors"]:
-        raise ValueError("construction product changes its exact original source/scope")
+    verify_interpreted_literal_source(checked, selected)
     selected_products = tuple((product.semantic_id, product.content) for product in formal)
     expected_dependencies = [
         DataProductReference(product_id).values() for product_id, _ in selected_products
@@ -652,16 +908,15 @@ def validate_interpreted_product(
         if occurrence["local_id"] != occurrence_id(selected["source"], occurrence["extents"]):
             raise ValueError("construction occurrence changes original source identity")
         for extent in occurrence["extents"]:
-            if (
-                not source_extent_selected(selected, extent, selector_index=selector_index)
-                or extent["text"] != selected["text"][extent["start"] : extent["end"]]
-                or not source.view.matches_occurrence_extent(extent)
-            ):
+            if not source_extent_selected(
+                selected, extent, selector_index=selector_index
+            ) or not source.view.matches_occurrence_extent(extent):
                 raise ValueError("construction occurrence changes original positioned source")
     dependencies = {product_id: json.loads(content) for product_id, content in selected_products}
     external = {
         (product_id, packet["member_id"]): packet["body"]
         for product_id, dependency in dependencies.items()
+        if product_type is not ConstructionProduct or not _annotation_dependency(dependency)
         for packet in dependency["members"]
     }
     external_choices = {
@@ -681,41 +936,11 @@ def validate_interpreted_product(
         ):
             if (ref["product_id"], ref["member_id"]) not in external_choices:
                 raise ValueError("construction requires an actual primary choice alternative")
-    for annotation in inventory["annotations"]:
-        named = annotation.get("named_match")
-        if named is None:
-            continue
-        container = named["native_container"]
-        dependency = dependencies.get(container["product_id"])
-        if dependency is None:
-            raise ValueError("named rule lacks its exact original native block")
-        blocks = [
-            block["annotation"]
-            for block in dependency.get("blocks", ())
-            if block["annotation"]["block_id"] == container["block_id"]
-        ]
-        if len(blocks) != 1 or blocks[0]["dependency_digest"] != named["dependency_digest"]:
-            raise ValueError("named rule lacks its exact original native block")
-        for ref in (
-            *named["nodes"],
-            *(
-                ref
-                for binding in named["bindings"]
-                for ref in (
-                    binding["head"],
-                    *binding["members"],
-                    *binding.get("antecedent_members", ()),
-                )
-            ),
-        ):
-            token = external.get((ref["product_id"], ref["member_id"]))
-            if (
-                ref["product_id"] != container["product_id"]
-                or token is None
-                or token.get("record_type") != "native_token"
-                or token["block_id"] != container["block_id"]
-            ):
-                raise ValueError("named rule token leaves its exact original native block")
+    navigation = (
+        _validated_annotation_support(checked, formal, inventory, all_nodes)
+        if product_type is ConstructionProduct
+        else {}
+    )
     policies = attachment_policies(prepared)
 
     def validate_basis(basis):
@@ -730,7 +955,7 @@ def validate_interpreted_product(
             policies.get("released_construction", {}).get("rules", {}).get(basis.get("rule_id"), {})
         )
 
-    validate_navigation_evidence(indexes)
+    validate_navigation_evidence({**indexes, "annotations": indexes["annotations"] | navigation})
     validate_inventory_graph(inventory, indexes, all_nodes, choices, validate_basis)
     covered_families = {row["family"] for row in checked["coverage"]}
     if len(covered_families) != len(checked["coverage"]):
@@ -877,7 +1102,9 @@ class PreparedConstructionProfile:
         native = None
         if sentences is not None:
             SourceAnnotationReadings(sentences, source)
-            native = CharacterizationSnapshot(sentences.semantic_id, sentences.content)
+            native = CharacterizationSnapshot(
+                sentences.semantic_id, sentences.content, sentences.partitions
+            )
         value = construction_product_values(
             source,
             snapshots,
@@ -943,7 +1170,10 @@ class PreparedContextualProfile:
         products = (*formal, *supporting, *checked)
         symbolic = tuple(product.reference for product in checked)
         snapshots = tuple(
-            CharacterizationSnapshot(product.semantic_id, product.content) for product in products
+            CharacterizationSnapshot(
+                product.semantic_id, product.content, getattr(product, "partitions", None)
+            )
+            for product in products
         )
         value = contextual_product_values(
             source,

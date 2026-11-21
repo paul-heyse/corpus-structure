@@ -45,6 +45,45 @@ def _body(index, product, member=None):
     return row, decode_semantic_value(row["canonical_body" if member is None else "body"])
 
 
+def _partition(index, product_id, collection, partition_key):
+    rows = tuple(
+        index.rows_for(
+            "kb.data_product_partition",
+            product_id=product_id,
+            collection=collection,
+            partition_key=partition_key,
+        )
+    )
+    if len(rows) != 1:
+        raise SelectedReferenceRefusal(
+            "reference partition is outside the exact selected native closure"
+        )
+    return rows[0]
+
+
+def _output_address(row):
+    if not isinstance(row.get("product_id"), str) or not row["product_id"]:
+        raise SelectedReferenceRefusal("reference output requires a selected parent product")
+    if (
+        row.get("variant") == "member"
+        and set(row) == {"variant", "product_id", "member_id"}
+        and isinstance(row["member_id"], str)
+        and row["member_id"]
+    ):
+        return row["product_id"], "member", row["member_id"]
+    if (
+        row.get("variant") == "partition"
+        and set(row) == {"variant", "product_id", "collection", "partition_key"}
+        and row["collection"] == "rows"
+        and isinstance(row["partition_key"], str)
+        and row["partition_key"]
+    ):
+        return row["product_id"], "partition", row["partition_key"]
+    raise SelectedReferenceRefusal(
+        "reference output requires one exact member or annotation partition address"
+    )
+
+
 def _reference_invariants(body):
     source_cut = CutSelection(json_bytes(source_python(body["source_cut"])))
     pins = source_cut.record
@@ -64,14 +103,17 @@ def _reference_invariants(body):
         raise SelectedReferenceRefusal(
             "reference question differs from its immutable original source cut"
         )
-    if body["direction"] == "source_first" and body["output_members"]:
+    if body["direction"] == "source_first" and body["output_addresses"]:
         raise SelectedReferenceRefusal(
             "source-first reference cannot freeze exposed prediction outputs"
         )
-    if body["direction"] == "output_first" and not body["output_members"]:
+    if body["direction"] == "output_first" and not body["output_addresses"]:
         raise SelectedReferenceRefusal(
             "output-first reference requires its exact frozen output population"
         )
+    addresses = [_output_address(row) for row in body["output_addresses"]]
+    if len(set(addresses)) != len(addresses):
+        raise SelectedReferenceRefusal("independent reference repeats an output address")
     cases = [case["case_id"] for case in body["cases"]]
     if len(set(cases)) != len(cases):
         raise SelectedReferenceRefusal("independent reference repeats a case identity")
@@ -149,8 +191,12 @@ def _authenticate_reference_sources(connection, body, *, project_id, max_bytes=8
                 raise SelectedReferenceRefusal(
                     "reference source member differs from its native source/context"
                 )
-        for output in body["output_members"]:
-            _body(index, output["product_id"], output["member_id"])
+        for output in body["output_addresses"]:
+            parent, variant, address = _output_address(output)
+            if variant == "partition":
+                _partition(index, parent, output["collection"], address)
+            else:
+                _body(index, parent, address)
 
 
 def author_selected_references(engine, prepared, *, request):
@@ -205,7 +251,9 @@ class SelectedReferenceEvaluationRequest(BaseModel):
     reference_product_id: str = Field(min_length=1)
     prediction_demand_id: str = Field(min_length=1)
     prediction_product_id: str = Field(min_length=1)
-    assignments: dict[str, str]
+    assignments: dict[str, str] = Field(
+        description="Selected member IDs for graph and field cases, or block partition keys for native cases."
+    )
     applicability: ReferenceApplicability
     reference_cut: WireCutSelection | None = None
     prediction_cut: WireCutSelection | None = None
@@ -231,6 +279,8 @@ class PreparedNativeReferenceScoring:
     def __init__(self, prepared, index, cut, product_id):
         self.prepared, self.index, self.cut, self.product_id = prepared, index, cut, product_id
         self._sources = {}
+        self._packets = {}
+        self._products = {}
         self.views = {}
 
     @cached_property
@@ -241,27 +291,20 @@ class PreparedNativeReferenceScoring:
         owner = (
             "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations"
         )
-        checked = (
-            None
-            if row["kind_contract"] != kinds.get(owner)
-            else self.prepared.validate_json("DdoSourceAnnotations", json_bytes(body)).model_dump(
-                mode="json", exclude_unset=True
-            )
-        )
-        return checked, projection, kinds
+        return (body if row["kind_contract"] == kinds.get(owner) else None), projection
 
     @cached_property
     def blocks(self):
-        checked, _, _ = self.product
+        checked, _ = self.product
         result = {}
-        for block in checked["blocks"] if checked is not None else ():
-            result.setdefault(block["annotation"]["block_id"], []).append(block)
+        for layout in checked["block_layouts"] if checked is not None else ():
+            result.setdefault(layout["annotation"]["block_id"], []).append(layout)
         return result
 
     @cached_property
     def authenticated_sources(self):
         prepared, index, cut, product_id = self.prepared, self.index, self.cut, self.product_id
-        _, projection, _ = self.product
+        _, projection = self.product
         producing = {
             row["derivation_id"]
             for row in index.rows_for("ops.data_derivation_output", product_id=product_id)
@@ -318,23 +361,16 @@ class PreparedNativeReferenceScoring:
         )
 
     def source(self, pin):
-        from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
-        from corpus_structure.semantic.data_operation_json import json_loads
         from corpus_structure.semantic.data_operation_model import SubjectContext
         from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
-        from corpus_structure.semantic.sentence_products import (
-            retained_source_annotation_products,
-            validate_source_annotations,
-        )
         from corpus_structure.semantic.source_products import FrozenNativeSource
 
         key = json_bytes(pin)
         if key in self._sources:
             return self._sources[key]
         prepared, index, cut = self.prepared, self.index, self.cut
-        checked, _, kinds = self.product
-        if checked is None:
-            raise SelectedReferenceRefusal("native scoring requires its nominal annotation product")
+        _, projection = self.product
+        kinds = {kind["kind"]: kind["kind_contract"] for kind in projection["kinds"]}
         source_row, source_body = _body(index, pin["source_product"], pin.get("source_member"))
         source_kind = (
             "https://corpus-structure.dev/semantic/data-operation-source/DdoSelectedNativeSource"
@@ -365,21 +401,17 @@ class PreparedNativeReferenceScoring:
             )
         if (pin["source_product"], pin.get("source_member")) not in self.authenticated_sources:
             raise SelectedReferenceRefusal("native block lacks its actual selected source input")
-        model = bound_data_operation_model(prepared)
-        native = validate_source_annotations(prepared, model, checked, source)
-        packets, products = {}, {}
-        for packet in json_loads(native.content)["members"]:
-            packets.setdefault(packet["member_id"], []).append(packet)
-        for product in retained_source_annotation_products(source, native):
-            products.setdefault(product.block_id, []).append(product)
-        self._sources[key] = source_row, source, native, packets, products
+        self._sources[key] = source_row, source
         return self._sources[key]
 
-    def score(self, member_id, expected, source_members):
+    def score(self, partition_key, expected, source_members):
         from spacy.vocab import Vocab
 
         from corpus_structure.ingest.annotation_views import annotation_view
         from corpus_structure.ingest.annotations import AnnotationUnavailable
+        from corpus_structure.semantic.sentence_products import (
+            restore_selected_annotation_partition,
+        )
 
         from .native_scoring import SelectedNativeScoringQuestion, score_native
 
@@ -390,30 +422,27 @@ class PreparedNativeReferenceScoring:
             return dict(score_native(None, question.reference), reason=reason)
 
         index, product_id = stage.index, stage.product_id
-        checked, _projection, kinds = stage.product
-        namespace = "https://corpus-structure.dev/semantic/data-operation-sentences/"
+        checked, _ = stage.product
         if checked is None:
             return unavailable("native_annotation_kind_unavailable")
-        member_row, member = _body(index, product_id, member_id)
-        if (
-            member_row["kind_contract"] != kinds.get(namespace + "DdoNativeBlock")
-            or member.get("record_type") != "native_block"
-        ):
-            raise SelectedReferenceRefusal("native scoring requires an explicit whole-block member")
-        blocks = stage.blocks.get(member["block_id"], ())
+        if partition_key not in self._packets:
+            self._packets[partition_key] = _partition(index, product_id, "rows", partition_key)
+        packet = self._packets[partition_key]
+        blocks = stage.blocks.get(partition_key, ())
         if len(blocks) != 1:
             raise SelectedReferenceRefusal(
-                "selected native block differs from its actual population"
+                "selected annotation block differs from its actual layout"
             )
-        annotation = blocks[0]["annotation"]
+        (layout,) = blocks
+        annotation = layout["annotation"]
         if (question.projection, question.start, question.end) != (
             checked["source"]["projection"],
             annotation["block_start"],
             annotation["block_end"],
-        ) or (member["start"], member["end"]) != (question.start, question.end):
+        ) or packet["placement"] != dict(start=question.start, end=question.end):
             raise SelectedReferenceRefusal("native question differs from the selected whole block")
         pin = annotation["source"]
-        source_row, source, _native, packets, products = stage.source(pin)
+        source_row, source = stage.source(pin)
         if not any(
             all(
                 item[name] == source_row[name]
@@ -426,25 +455,11 @@ class PreparedNativeReferenceScoring:
             raise SelectedReferenceRefusal(
                 "native source is outside the independent question scope"
             )
-        packets = packets.get(member_id, ())
-        if (
-            len(packets) != 1
-            or json_bytes(packets[0]["body"]) != json_bytes(member)
-            or packets[0]["kind_contract"] != member_row["kind_contract"]
-            or any(
-                packets[0]["context"][name] != member_row[name]
-                for name in ("subject", "subject_definition", "original_source")
-            )
-            or json_context_meaning(json_bytes(packets[0]["context"]["analyzed_scope"]))
-            != json_context_meaning(json_bytes(member_row["analyzed_scope"]))
-        ):
-            raise SelectedReferenceRefusal("native block member differs from its actual parent")
         text = source.value["text"][question.start : question.end]
         if text != question.reference.text:
             raise SelectedReferenceRefusal("native gold text differs from the exact original block")
         if not question.reference.inspected:
             return score_native(None, question.reference)
-        (product,) = products[member["block_id"]]
         required = (
             ("DEP",)
             if question.reference.kind == "dependencies"
@@ -453,14 +468,24 @@ class PreparedNativeReferenceScoring:
             else ()
         )
         try:
-            key = json_bytes(pin), member["block_id"], required
+            key = json_bytes(pin), partition_key, required
             if key not in stage.views:
+                if partition_key not in stage._products:
+                    stage._products[partition_key] = restore_selected_annotation_partition(
+                        source, checked, layout, packet
+                    )
+                product = stage._products[partition_key]
                 stage.views[key] = annotation_view(product, text, Vocab(), required=required)
             view = stage.views[key]
         except AnnotationUnavailable:
             return unavailable("native_required_columns_unavailable")
         result = score_native(view.doc, question.reference)
-        result["prediction_reference"] = dict(product_id=product_id, member_id=member_id)
+        result["prediction_reference"] = dict(
+            variant="partition",
+            product_id=product_id,
+            collection="rows",
+            partition_key=partition_key,
+        )
         result["source_scope"] = dict(
             projection=question.projection, start=question.start, end=question.end
         )
@@ -480,7 +505,12 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
     )
     from corpus_structure.semantic.releases import open_release
 
-    from .characterization_assessment import LayerProjection, _matches, graph_equal
+    from .characterization_assessment import (
+        LayerProjection,
+        SelectedAnnotationTargets,
+        _matches,
+        graph_equal,
+    )
 
     # A pin owns its original scope. Narrowing it while retaining its read ID
     # would silently substitute a different native selection.
@@ -653,12 +683,15 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
                     "assessment assignments differ from the frozen assessed cases"
                 )
             if reference["direction"] == "output_first":
-                frozen = {
-                    (row["product_id"], row["member_id"]) for row in reference["output_members"]
-                }
+                frozen = {_output_address(row) for row in reference["output_addresses"]}
                 actual = {
-                    (request.prediction_product_id, member)
-                    for member in request.assignments.values()
+                    (
+                        request.prediction_product_id,
+                        "partition" if case["matcher"] == "spacy_native" else "member",
+                        request.assignments[case["case_id"]],
+                    )
+                    for case in reference["cases"]
+                    if case["case_id"] in request.assignments
                 }
                 if actual != frozen:
                     raise SelectedReferenceRefusal(
@@ -667,7 +700,8 @@ def evaluate_selected_references(connection, request: SelectedReferenceEvaluatio
             products = predictions.mapping("kb.data_product", ("id",))
             inventories = SelectedCharacterizationInventories(products)
             projection = LayerProjection(
-                lambda pin: inventories[DataProductReference(pin["product_id"])].payload
+                lambda pin: inventories[DataProductReference(pin["product_id"])].payload,
+                SelectedAnnotationTargets(predictions, prediction_cut),
             )
             payload = (
                 inventories[DataProductReference(request.prediction_product_id)].payload

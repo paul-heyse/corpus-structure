@@ -25,6 +25,8 @@ _PATHS = (
     "semantic/interpretation_questions.py",
     "semantic/declared_candidate_products.py",
     "semantic/structural_products.py",
+    "semantic/sentence_partitions.py",
+    "semantic/data_product_reference.py",
     "semantic/declared_record_sources.py",
 )
 
@@ -44,7 +46,7 @@ def clause_profile_assets():
         "clauses/profile-assets",
         canonical_bytes(
             {
-                "version": "declared-clause-functions-v1",
+                "version": "declared-clause-functions-v2",
                 "files": [
                     (
                         name,
@@ -81,7 +83,34 @@ def clause_operation_sources():
     )
 
 
+def canonical_context_rows(header, packets, *, text_length):
+    """Index admitted sentence extents once and retain their stable row ordinals."""
+    from .data_operation_partitions import partition_header
+    from .sentence_partitions import COLLECTION, blocks_from_packets
+
+    if header[COLLECTION] != partition_header(packets):
+        raise ValueError("clause canonical rows differ from their selected commitment")
+    result = {}
+    for block in blocks_from_packets(packets):
+        if not 0 <= block.start <= block.end <= text_length:
+            raise ValueError("clause canonical block exceeds its original source")
+        sentences = []
+        for row in block.rows:
+            if row["record_type"] != "sentence":
+                continue
+            if (
+                row["ordinal"] != len(sentences)
+                or not 0 <= row["start"] < row["end"] <= block.end - block.start
+            ):
+                raise ValueError("clause canonical sentence has invalid block-local address")
+            sentences.append((row["ordinal"], block.start + row["start"], block.start + row["end"]))
+        result[block.key] = tuple(sorted(sentences, key=lambda row: row[1]))
+    return result
+
+
 def declared_clause_focus(selection, passage, frame, contributions, canonical, *, context_policy):
+    from .data_product_reference import SemanticReference
+    from .sentence_partitions import COLLECTION
     from .structural_products import LocatedDefinitionSpan
 
     rows = tuple(
@@ -114,19 +143,12 @@ def declared_clause_focus(selection, passage, frame, contributions, canonical, *
 
     extent = members[0]["extents"][0]
     focus = span(extent["start"], extent["end"])
-    sentences = sorted(
-        (
-            packet
-            for packet in canonical["members"]
-            if packet["body"]["record_type"] == "sentence"
-            and packet["body"]["block_id"] == component["block"]
-        ),
-        key=lambda packet: packet["body"]["start"],
-    )
+    block = component["block"]
+    sentences = canonical.get(block, ())
     containing = tuple(
         index
-        for index, packet in enumerate(sentences)
-        if packet["body"]["start"] <= focus.start < focus.end <= packet["body"]["end"]
+        for index, (_, start, end) in enumerate(sentences)
+        if start <= focus.start < focus.end <= end
     )
     if len(containing) != 1:
         raise ValueError("clause focus lacks one exact retained canonical sentence")
@@ -135,24 +157,26 @@ def declared_clause_focus(selection, passage, frame, contributions, canonical, *
     def neighbor(index):
         if not 0 <= index < len(sentences):
             return None
-        sentence = sentences[index]["body"]
-        if passage.start <= sentence["start"] < sentence["end"] <= passage.end:
-            return span(sentence["start"], sentence["end"])
+        _, start, end = sentences[index]
+        if passage.start <= start < end <= passage.end:
+            return span(start, end)
         return None
 
     preceding = neighbor(position - 1) if context_policy == "adjacent_sentences" else None
     following = neighbor(position + 1) if context_policy == "adjacent_sentences" else None
-    # The caller qualifies canonical references with the actual selected product ID.
-    canonical_members = tuple(
-        sentences[index]["member_id"]
-        for index in range(max(0, position - 1), min(len(sentences), position + 2))
-        if (index == position or context_policy == "adjacent_sentences")
-        and passage.start
-        <= sentences[index]["body"]["start"]
-        < sentences[index]["body"]["end"]
-        <= passage.end
+    neighbors = (
+        range(max(0, position - 1), min(len(sentences), position + 2))
+        if context_policy == "adjacent_sentences"
+        else (position,)
     )
-    return focus, preceding, following, canonical_members
+    references = []
+    for index in neighbors:
+        ordinal, start, end = sentences[index]
+        if passage.start <= start < end <= passage.end:
+            references.append(
+                SemanticReference.item("canonical", COLLECTION, block, ("sentence", ordinal))
+            )
+    return focus, preceding, following, tuple(references)
 
 
 def retained_clause_functions(prepared, frame, focus, examined, pairs):
@@ -350,7 +374,6 @@ def execute_clause_classification(
         DeclaredClauseFocusSelection,
         DeclaredClauseModelReading,
         DeclaredClauseReport,
-        DeclaredPrimaryReference,
         DeclaredStructuralInput,
         StructuralPassage,
     )
@@ -383,14 +406,34 @@ def execute_clause_classification(
         for row in rows
     ):
         raise ValueError("clause predicate member substitutes its retained source-bound identity")
-    canonical = profile.prepared.validate_json(
-        "DdoCanonicalSentences", json_bytes(canonical)
-    ).model_dump(mode="json", exclude_unset=True)
+    from .data_operation_identity import body_identity, contextual_product_identity
+
+    canonical_header = canonical["header"]
     if (
-        canonical["source"] != frame.value["source"]
-        or canonical["selectors"] != frame.value["selectors"]
+        canonical_header["source"] != frame.value["source"]
+        or canonical_header["selectors"] != frame.value["selectors"]
     ):
         raise ValueError("clause canonical units differ from their exact original source and scope")
+    (canonical_member,) = profile.members("canonical")
+    canonical_context = SubjectContext(
+        profile.context.project_id,
+        canonical_member.subject,
+        canonical_member.original_source,
+        canonical_member.analyzed_scope,
+        subject_definition=canonical_member.subject_definition,
+    )
+    if (
+        contextual_product_identity(
+            kind=canonical_member.kind_contract,
+            context=canonical_context,
+            body=body_identity(canonical_header).key,
+        ).key
+        != canonical_member.product
+    ):
+        raise ValueError("clause canonical header differs from its exact bound product")
+    canonical_rows = canonical_context_rows(
+        canonical_header, canonical["partitions"], text_length=len(frame.text)
+    )
     pairs = []
     for prefix, observations, candidates, observation_class, candidate_class in (
         (
@@ -483,7 +526,7 @@ def execute_clause_classification(
                 text=frame.text[block["start"] : block["end"]],
                 scope=frame.source_key,
             )
-            for block in canonical["block_coverage"]
+            for block in canonical_header["block_coverage"]
             if block["outcome"] == "complete"
         )
     if not chosen_passages:
@@ -523,7 +566,6 @@ def execute_clause_classification(
         )
     inspected, unavailable, readings = [], [], []
     (predicate_member,) = profile.members("predicates")
-    (canonical_member,) = profile.members("canonical")
     for identifier in chosen:
         profile.check_active()
         reference = DeclaredContributionRef.from_bound(
@@ -536,8 +578,8 @@ def execute_clause_classification(
             unavailable.append(reference)
             continue
         selection = DeclaredClauseFocusSelection(passage_id=passage.passage_id, frame=reference)
-        focus, preceding, following, canonical_members = declared_clause_focus(
-            selection, passage, frame, rows, canonical, context_policy=context_policy
+        focus, preceding, following, canonical_references = declared_clause_focus(
+            selection, passage, frame, rows, canonical_rows, context_policy=context_policy
         )
         examined = (
             preceding.start if preceding is not None else focus.start,
@@ -572,10 +614,7 @@ def execute_clause_classification(
                 reason=reason,
                 primary_functions=references,
                 primary_context=tuple(
-                    DeclaredPrimaryReference(
-                        product_id=canonical_member.product, member_id=identifier
-                    )
-                    for identifier in canonical_members
+                    reference.partition_value() for reference in canonical_references
                 ),
             )
         )

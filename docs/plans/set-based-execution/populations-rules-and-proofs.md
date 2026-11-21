@@ -389,11 +389,38 @@ and CPU authority cases (`075365d01bed4d3ca79febc23861cdd8`).
 The real HanLP-to-declaration syntax chain passed under native settlement
 (`ce9ecaff99cb4d2c9ce00cfdd29fdc05`).
 The annotation reader groups tokens by sentence during one traversal and builds both indexes from
-the same row view. Construction outputs, clauses, external extraction, named definitions, and assessment
-still have consumers of synthetic annotation member identities or flattened payloads. Move those
-reads to the typed row view and declare their producing input references before removing the
-recovery and validation paths for the old shapes. Preserve required source, manifest and
-population behavior. Repeated-text and split/merge correspondence controls remain open.
+the same row view. Source validation decodes that view once and locates the native-piece range
+from indexed source offsets. Maverick consumes the exact retained block's grouped sentence
+ordinals and token spans, with no annotation member ID round trip.
+Clause classification reads canonical sentence rows and publishes the focal and selected neighbor
+addresses through the `canonical` role. The native annotation scorer takes an exact retained block
+partition address and restores the selected block once across cases. The 21 controlled clause and
+protected-reference cases passed (`e3f0c9e2f4ac457a9756939665de3866`). The full prepared downstream
+profile compiled the clause target (`c0c23e138edf443a9077e66bde8bbce3`).
+All 20 direct annotation, Maverick projection, native establishment and role-relative reference
+cases passed (`52868352c55f4aa0ac1b768beeb69f6b`).
+The real protected scorer passed on a fresh native target with CUDA annotations. It authenticated
+the output-first partition pin, restored one selected block for multiple judgments, and refused a
+substituted partition (`75226d5da21e475b87376d96b712d38d`).
+
+The primary construction producer records annotation premises separately from its polymorphic graph
+members. A declared link names the graph owner, use, position and its item under the producing
+`sentences` role. Working native documents read token and dependency ordinals directly. Named
+definition and characterization graph readers recover the actual producing input before following
+these addresses. The 33 assessment graph controls passed, including hidden, missing and
+substituted input cases (`9a85fcc81b4c4f9dbb4a5e36ed4ac37c`).
+The real primary construction operation published the links on a fresh PostgreSQL target and
+selected readback matched a published address to its admitted row
+(`c4eb6a263e694c1cbf3103f22f0d1929`). The two named producer-to-reader roundtrips and the source
+geometry control passed (`cbc3b1a85fee409f9ff34b925c4dd540`). The named definition capture
+selected its actual dependencies without the learned provider configuration
+(`43857f99949d45f8b98f016ee39cfe92`).
+External extraction retains
+the whole annotation validation path. Its CPU input basis must commit to the same header and
+partition premises on the Python and PostgreSQL routes before removing that validator.
+The focused renumbered duplicate case preserves each current address and placement even with
+equal row digests (`d140ca92e7a94a0780f9f022b344ee60`). Cross-source split and merge
+correspondence remains open.
 
 **Vision.** Sentence annotation, canonical projection and HanLP publish partitions. Their
 consumers read partitions through one row view and name tokens and sentences by address.
@@ -456,14 +483,26 @@ Formal completion also emits separate checks for examined source scope and cover
 and positioned symbols and their containment. The shared 113-case selection passed on stable source,
 including the prepared formal CPU route and native rule cases
 (`481f8700fa034696b5b6ef45229dc986`).
+Annotation and canonical admissions declare separate dense ordinal groups for sentence and token
+rows. Annotation admission also checks source ordering. The 32-case native program, rule and
+annotation selection passed the grouped acceptance and refusal controls
+(`19796fc2da3e47ee8f14df1935b978bf`).
+Construction and contextual completions emit a literal occurrence proof tied to the original
+source coordinate, selectors and text. Contextual evaluation requires it on the construction
+input. Prepared completions and changed-source refusal passed (`50c88d3a39334a0390c18a85f980a58d`).
+Construction and contextual evaluation require formal lexical and coverage proofs alongside
+source and symbol geometry. Predicate and scoped-relation operations require the latter group.
+A native control established that a body-only consumer can bind independently of the
+source-dependent proof (`21d285c2d8214b5a977b029eefc0eae4`). The consumer role assertions passed
+with the full acquired primary declarations and numerical policy (`1bbf7aa1e5ac40f2aa8fa64e4344f72c`).
 
 Removed the coordinate, role, endpoint, coverage and choice side tables from the target compiler
 and generated wire. The generated successor passed rollback-only candidate authoring against N47
 (`27c37c0e9aaa403ebbb53817d6cee671`). Native binding uses derivation output position and
 multiplicity. Native product admission still checks exact nominal member rows. The rest of the
 formal inventory graph, numeric normalization and occurrence page, selector and address checks,
-the construction and contextual validator splits, required consumer declarations, and
-`ProductValidation` receipt retirement remain open. Resolve
+the remaining construction and contextual graph, cross-product, selector and coverage checks,
+remaining consumer declarations, and `ProductValidation` receipt retirement remain open. Resolve
 member-level output retirement against the actual output declarations and native consumers before
 deleting that path.
 

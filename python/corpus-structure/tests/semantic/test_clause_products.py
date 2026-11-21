@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from corpus_structure.semantic.clause_products import (
+    canonical_context_rows,
     declared_clause_focus,
     retained_clause_functions,
 )
@@ -195,14 +196,22 @@ def current_focus_inputs():
             ),
         )
     ]
-    canonical = dict(
-        members=[
-            dict(
-                member_id=name,
-                body=dict(record_type="sentence", block_id="native-block", start=lo, end=hi),
-            )
-            for name, lo, hi in (("before", 20, 27), ("focus", 28, 34), ("after", 35, 40))
-        ]
+    from corpus_structure.semantic.data_operation_partitions import partition_header
+    from corpus_structure.semantic.sentence_partitions import SentenceBlock
+
+    packet = SentenceBlock(
+        "native-block",
+        0,
+        20,
+        40,
+        tuple(
+            dict(record_type="sentence", ordinal=ordinal, start=lo, end=hi, extent=20)
+            for ordinal, (lo, hi) in enumerate(((0, 7), (8, 14), (15, 20)))
+        ),
+    ).packet()
+    packets = (packet,)
+    canonical = canonical_context_rows(
+        dict(rows=partition_header(packets)), packets, text_length=len(text)
     )
     return selection, passage, frame, contributions, canonical
 
@@ -210,16 +219,24 @@ def current_focus_inputs():
 @pytest.mark.parametrize("policy", ["exact_focus", "adjacent_sentences"])
 def test_declared_clause_focus_preserves_original_extent_and_source_owned_context(policy):
     args = current_focus_inputs()
-    focus, preceding, following, members = declared_clause_focus(*args, context_policy=policy)
+    focus, preceding, following, references = declared_clause_focus(*args, context_policy=policy)
     assert (focus.start, focus.end, focus.text) == (28, 33, "Focus")
     if policy == "adjacent_sentences":
         assert preceding is not None and following is not None
         assert (preceding.start, preceding.end, preceding.text) == (20, 27, "Before.")
         assert (following.start, following.end, following.text) == (35, 40, "Next.")
-        assert members == ("before", "focus", "after")
+        ordinals = (0, 1, 2)
     else:
         assert preceding is None and following is None
-        assert members == ("focus",)
+        ordinals = (1,)
+    assert [reference.item_key for reference in references] == [
+        ("sentence", ordinal) for ordinal in ordinals
+    ]
+    assert all(
+        (reference.role, reference.collection, reference.partition_key)
+        == ("canonical", "rows", "native-block")
+        for reference in references
+    )
 
 
 @pytest.mark.parametrize("change", ["partial", "foreign-source", "ambiguous-frame"])

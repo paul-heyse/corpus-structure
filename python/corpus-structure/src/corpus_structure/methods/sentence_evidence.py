@@ -31,6 +31,24 @@ class SentenceEvidenceOperation:
         "entrypoints": ["run"],
         "rules": [
             {
+                "id": "segment.sentences/native-dense-ordinal",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
+                "collection": "rows",
+                "scope": "partition",
+                "form": "dense_ordinal",
+                "checker": "admission",
+                "parameters": {"path": "ordinal", "group_by": ["record_type"]},
+            },
+            {
+                "id": "segment.sentences/native-source-order",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
+                "collection": "rows",
+                "scope": "partition",
+                "form": "ordered_by",
+                "checker": "admission",
+                "parameters": {"paths": ["record_type", "start"]},
+            },
+            {
                 "id": "segment.sentences/native-row-span",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
                 "collection": "rows",

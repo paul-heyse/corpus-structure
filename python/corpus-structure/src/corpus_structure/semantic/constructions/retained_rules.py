@@ -1957,14 +1957,7 @@ def populate_source_reading_products(
     admitted=lambda a, b: True,
 ):
     """Run finite primary source rules over genuine native units, retaining semantic addresses."""
-    from corpus_structure.semantic.data_product_reference import (
-        DataProductReference,
-        member_reference,
-    )
-    from corpus_structure.semantic.sentence_products import (
-        retained_source_annotation_products,
-        source_annotation_member_values,
-    )
+    from corpus_structure.semantic.sentence_products import retained_source_annotation_products
 
     from .matching import retained_native_vocab
 
@@ -1989,22 +1982,10 @@ def populate_source_reading_products(
                     "unsupported",
                     "selected source scope cuts a whole native block; no silent linguistic cut",
                 )
-    pin = DataProductReference(native.semantic_id)
-    tokens = {
-        (row["block_id"], row["ordinal"]): row
-        for row in source_annotation_member_values(native)
-        if row["record_type"] == "token"
-    }
-    references = {
-        key: member_reference(pin, row["local_id"]).values() for key, row in tokens.items()
-    }
     return _populate_source_readings(
         layer,
         view,
-        pin,
         products,
-        references,
-        {product.block_id: [] for product in products},
         projection=view.projection,
         vocab=vocab,
         check_active=check_active,
@@ -2014,15 +1995,13 @@ def populate_source_reading_products(
 def _populate_source_readings(
     layer,
     view,
-    native_pin,
     products,
-    native_references,
-    block_references,
     *,
     projection,
     vocab,
     check_active,
 ):
+    from ..sentence_partitions import construction_annotation_reference
     from .forest import identity
 
     family = PRIMARY_RULE_FAMILY
@@ -2031,10 +2010,13 @@ def _populate_source_readings(
     layout_headings = {}
 
     def located(product, span, label):
-        key = identity("source-role", [native_pin.values(), product.block_id, span.tokens, label])
+        key = identity("source-role", [product.block_id, span.tokens, label])
         if key not in layer.terms:
             occurrences = [layer.occurrence(view, a, b) for a, b in span.extents]
-            premises = [native_references[product.block_id, index] for index in span.tokens]
+            premises = [
+                construction_annotation_reference(product.block_id, "token", index)
+                for index in span.tokens
+            ]
             layer.terms[key] = dict(
                 local_id=key,
                 family=family,
@@ -2059,7 +2041,7 @@ def _populate_source_readings(
             native_label=variant,
             status="interpreted",
             occurrences=occurrences,
-            external_premises=block_references[product.block_id],
+            external_premises=[],
             context=layout_contexts[product.block_id],
         )
         heading = layout_headings[product.block_id]
@@ -2090,7 +2072,6 @@ def _populate_source_readings(
         key = identity(
             "source-cue",
             [
-                native_pin.values(),
                 product.block_id,
                 candidate.kind,
                 candidate.variant,
@@ -2201,7 +2182,7 @@ def _populate_source_readings(
         for frame in result.frames:
             key = identity(
                 "source-predication",
-                [native_pin.values(), product.block_id, frame.predicate.tokens],
+                [product.block_id, frame.predicate.tokens],
             )
             frame_ids[product.block_id, frame.predicate.tokens[0]] = key
             occurrences = [layer.occurrence(view, a, b) for a, b in frame.focus.extents]

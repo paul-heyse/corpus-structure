@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from collections.abc import Mapping
+from functools import lru_cache
 
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_model import (
@@ -119,20 +120,33 @@ def _carrier_variant(kind):
     if kind.semantic_id == _REFERENCE_KIND:
         return "any"
     schema = json.loads(kind.facts).get("json_schema", {})
-    if schema.get("x-ddo-role-reference") != "product":
+    variant = schema.get("x-ddo-role-reference")
+    if variant is None:
         return None
-    fields = schema.get("properties", {})
-    role, variant = fields.get("role", {}), fields.get("variant", {})
-    if (
-        schema.get("type") != "object"
-        or schema.get("additionalProperties") is not False
-        or set(fields) != {"role", "variant"}
-        or set(schema.get("required", ())) != set(fields)
-        or (role.get("type"), role.get("minLength")) != ("string", 1)
-        or (variant.get("type"), variant.get("const")) != ("string", "product")
-    ):
-        raise ValueError("nominal whole reference must match the shared scalar product carrier")
-    return "product"
+    if not isinstance(variant, str) or json_bytes(schema) != _nominal_reference_schema(variant):
+        raise ValueError("nominal output reference must match the shared scalar reference carrier")
+    return variant
+
+
+@lru_cache(maxsize=3)
+def _nominal_reference_schema(variant: str):
+    from pydantic import TypeAdapter
+
+    from .data_operation_wire import generated_json_schema
+    from .data_product_reference import (
+        SemanticMemberReference,
+        SemanticPartitionReference,
+        SemanticWholeReference,
+    )
+
+    carrier = {
+        "product": SemanticWholeReference,
+        "member": SemanticMemberReference,
+        "partition-item": SemanticPartitionReference,
+    }.get(variant)
+    if carrier is None:
+        raise ValueError("unsupported nominal output reference variant")
+    return json_bytes(generated_json_schema(TypeAdapter(carrier).json_schema()))
 
 
 def compile_reference_targets(raw, roles, kinds, output_paths):
@@ -184,6 +198,8 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
         carrier = _carrier_variant(kinds[_record_kind(kinds, owner, target["path"])])
         if carrier not in {"any", variant}:
             raise ValueError("reference path must identify the shared semantic reference class")
+        if carrier != "any" and occurrence_field is not None:
+            raise ValueError("scalar nominal reference cannot include an occurrence discriminator")
         if occurrence_field is None:
             if source.maximum != 1:
                 raise ValueError(

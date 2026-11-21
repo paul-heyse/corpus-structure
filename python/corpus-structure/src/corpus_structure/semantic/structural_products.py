@@ -24,6 +24,7 @@ from .artifact_identity import (
     artifact_nomination_invariants,
     source_artifact_invariants,
 )
+from .data_product_reference import SemanticMemberReference, SemanticPartitionReference
 from .declared_structural_references import (
     DeclaredComponentRef,
     DeclaredContributionRef,
@@ -534,7 +535,7 @@ class DeclaredDossierProduct(StructuralValue):
 
 class DeclaredConditionQualificationProduct(StructuralValue):
     relation: Literal["condition", "assumption"]
-    attachment: DeclaredContributionRef
+    attachment: SemanticMemberReference
     effective_version: Nonempty | None = Field(default=None, exclude_if=lambda value: value is None)
     qualifier: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
     host_predicate: tuple[ConditionRoleCitation, ...] = Field(min_length=1)
@@ -687,7 +688,7 @@ class DeclaredClauseModelReading(StructuralValue):
     primary_functions: tuple[DeclaredPrimaryReference, ...] = Field(
         default=(), exclude_if=lambda value: not value
     )
-    primary_context: tuple[DeclaredPrimaryReference, ...] = Field(
+    primary_context: tuple[SemanticPartitionReference, ...] = Field(
         default=(), exclude_if=lambda value: not value
     )
 
@@ -912,7 +913,6 @@ class DeclaredConditionReport(DeclaredStructuralProductReport):
     comparison: None = None
     dossier: None = None
     source_input: DeclaredStructuralInputPin
-    report_input: DeclaredStructuralInputPin
 
 
 class DeclaredDefinitionComponentsReport(DeclaredStructuralProductReport):

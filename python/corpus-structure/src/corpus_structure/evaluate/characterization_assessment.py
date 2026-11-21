@@ -360,9 +360,110 @@ def _graph_member(value):
     return reference.product.values(), reference.member_id
 
 
+class SelectedAnnotationTargets:
+    """Resolve annotation evidence against one acquired graph cut's producing inputs."""
+
+    def __init__(self, index, cut):
+        from corpus_structure.semantic.detached_reference_resolution import IndexedReferenceAccess
+
+        self.index = index
+        self.demand_id = cut.record["demand_id"]
+        self.access = IndexedReferenceAccess(
+            lambda relation, *keys: index.mapping(relation, keys), cut.record["project_id"]
+        )
+        self.producers = {}
+
+    def __call__(self, owner, reference):
+        from corpus_structure.semantic.reference_resolution import (
+            ProducingReferenceBindings,
+            ProducingReferenceInput,
+            ReferenceResolver,
+            ReferenceTarget,
+        )
+
+        product_id = owner["product_id"]
+        if product_id not in self.producers:
+            output_episodes = {
+                row["derivation_id"]
+                for row in self.index.rows_for("ops.data_derivation_output", product_id=product_id)
+                if row["role"] == "result"
+            }
+            selected = {
+                episode
+                for episode in output_episodes
+                if next(
+                    self.index.rows_for(
+                        "ops.demand_use",
+                        demand_id=self.demand_id,
+                        fate="fulfilled",
+                        derivation_id=episode,
+                    ),
+                    None,
+                )
+                is not None
+            }
+            if len(selected) != 1:
+                raise ReferenceError(
+                    "annotation witness requires one exact selected producing derivation"
+                )
+            (episode,) = selected
+            bindings = []
+            for row in self.index.rows_for(
+                "ops.data_derivation_input", derivation_id=episode, role="sentences"
+            ):
+                parent = self.access.products.get(row["product_id"])
+                if parent is None or row.get("member_id") is not None:
+                    raise ReferenceError(
+                        "annotation witness requires the selected whole population"
+                    )
+                contract = parent["kind_contract"]
+                kind = self.access.kinds.get(contract)
+                if kind is None or kind["kind"] != (
+                    "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations"
+                ):
+                    raise ReferenceError("annotation witness has another nominal input population")
+                bindings.append(
+                    ProducingReferenceInput(
+                        "sentences", row["product_id"], contract, multiplicity=row["multiplicity"]
+                    )
+                )
+            if len(bindings) != 1:
+                raise ReferenceError(
+                    "annotation witness requires one exact selected input population"
+                )
+            (binding,) = bindings
+            original = ProducingReferenceBindings(episode, tuple(bindings))
+            root = self.access.product(product_id)
+            self.access.authorize(binding)
+            native = self.access.product(binding.product_id)
+            if any(root[field] != native[field] for field in ("source", "selectors")):
+                raise ReferenceError("annotation witness changes original source or analyzed scope")
+            self.producers[product_id] = ReferenceResolver(original, self.access), binding
+        resolver, binding = self.producers[product_id]
+        try:
+            row = resolver.resolve(
+                reference,
+                ReferenceTarget("sentences", "partition-item", binding.kind_contract, "rows"),
+            )
+            packet = self.access.partitions[
+                binding.product_id, reference.collection, reference.partition_key
+            ]
+        except (KeyError, ValueError) as error:
+            raise ReferenceError(
+                "annotation witness is outside the exact selected partition"
+            ) from error
+        return (
+            {"product_id": binding.product_id},
+            dict(packet["placement"], ordinal=packet["ordinal"]),
+            row,
+        )
+
+
 class LayerProjection:
-    def __init__(self, load):
+    def __init__(self, load, annotation_targets=None):
         self.load = load
+        self.annotation_targets = annotation_targets
+        self.annotation_support = {}
         self.layers = {}
         self.indexes = {}
         self.choice_groups = {}
@@ -377,8 +478,14 @@ class LayerProjection:
                     "graph witness product is absent from selected closure"
                 ) from error
             self.layers[key] = body
+            if body.get("annotation_support"):
+                from corpus_structure.semantic.construction_products import annotation_support_index
+
+                self.annotation_support[key] = annotation_support_index(body)
+            else:
+                self.annotation_support[key] = {}
             index = {}
-            for collection in (*COLLECTIONS, *ASSESSMENT_NATIVE_COLLECTIONS):
+            for collection in COLLECTIONS:
                 for row in body.get(collection, ()):
                     local = (
                         "@coverage:" + row["family"]
@@ -400,53 +507,28 @@ class LayerProjection:
             self.indexes[key] = index
         return self.layers[key]
 
-    def native_block(self, owner, reference):
-        """Resolve a physical native block through its declared semantic packet."""
-        from corpus_structure.semantic.sentence_products import _id
-
-        if (
-            not isinstance(reference, Mapping)
-            or set(reference) != {"product_id", "block_id"}
-            or not isinstance(reference["block_id"], str)
-            or not reference["block_id"]
-        ):
-            raise ReferenceError("native block witness requires its typed physical block reference")
-        pin = {"product_id": reference["product_id"]}
-        pin_key(pin)
-        source = self.layer(owner)
-        if pin not in source.get("dependencies", ()):
-            raise ReferenceError("native block witness is outside declared product dependencies")
-        native = self.layer(pin)
-        if (
-            not {"source", "selectors"} <= source.keys()
-            or not {"source", "selectors"} <= native.keys()
-            or source["source"] != native["source"]
-            or source["selectors"] != native["selectors"]
-        ):
-            raise ReferenceError("native block witness changes original source or analyzed scope")
-        blocks = [
-            row
-            for row in native.get("native_block", ())
-            if row["block_id"] == reference["block_id"]
-        ]
-        if len(blocks) != 1:
-            raise ReferenceError("native block witness lacks one exact declared block member")
-        (block,) = blocks
-        if block["local_id"] != _id(
-            native["source"], "block", block["block_id"], block["start"], block["end"]
-        ):
-            raise ReferenceError("native block witness changes its declared member identity")
-        return pin, block
-
-    def named_token(self, reference, pin, block):
-        target_pin, identifier = _graph_member(reference)
-        if target_pin != pin:
-            raise ReferenceError("named token witness leaves its original native product")
-        self.layer(target_pin)
-        pair = self.indexes[pin_key(target_pin)].get(identifier)
-        if pair is None or pair[0] != "native_token" or pair[1]["block_id"] != block["block_id"]:
-            raise ReferenceError("named token witness leaves its exact declared native block")
-        return target_pin, identifier
+    def annotation_item(self, owner, reference):
+        if self.annotation_targets is None:
+            raise ReferenceError("annotation witness requires an authenticated producing cut")
+        pin, placement, row = self.annotation_targets(owner, reference)
+        self.layer(pin)
+        collection = "native_" + row["record_type"]
+        key = ("partition-item", reference.collection, reference.partition_key, reference.item_key)
+        payload = {
+            **row,
+            "record_type": collection,
+            "block_id": reference.partition_key,
+            "start": placement["start"] + row["start"],
+            "end": placement["start"] + row["end"],
+        }
+        block = ("partition", reference.collection, reference.partition_key)
+        index = self.indexes[pin_key(pin)]
+        index[key] = collection, payload
+        index[block] = (
+            "native_block",
+            dict(record_type="native_block", block_id=reference.partition_key, **placement),
+        )
+        return pin, key, block
 
     def project(self, output, *, include_graph=True):
         output_key(output)
@@ -519,6 +601,74 @@ class LayerProjection:
                     )
                 edges.append(dict(label=label, target=names[q], **fields))
 
+            supports = self.annotation_support[key]
+
+            def native_edges(
+                label,
+                use,
+                owner,
+                binding=None,
+                *,
+                block_id=None,
+                supports=supports,
+                current_pin=current_pin,
+                edge=edge,
+            ):
+                references = supports.get((owner, use, binding), ())
+                locations = []
+                for position, reference in references:
+                    if block_id is not None and reference.partition_key != block_id:
+                        raise ReferenceError("annotation witness leaves its exact named block")
+                    target_pin, item, block = self.annotation_item(current_pin, reference)
+                    fields = {} if label == "head" else {"position": position}
+                    edge(label, item, target_pin, **fields)
+                    locations.append((target_pin, block))
+                return locations
+
+            def external_edges(
+                label,
+                data,
+                use=None,
+                *,
+                supports=supports,
+                identity=identity,
+                current_pin=current_pin,
+                edge=edge,
+            ):
+                native = dict(supports.get((identity, use, None), ())) if use else {}
+                if native and max(native) >= len(data) + len(native):
+                    raise ReferenceError(
+                        "annotation witness position exceeds the original premise list"
+                    )
+                retained = iter(data)
+                for position in range(len(data) + len(native)):
+                    if position in native:
+                        target_pin, item, _ = self.annotation_item(current_pin, native[position])
+                        edge(label, item, target_pin, position=position)
+                    else:
+                        target_pin, target = _graph_member(next(retained))
+                        edge(label, target, target_pin, position=position)
+
+            if collection == "named_binding":
+                _, owner, binding = identity
+                block_id = self.indexes[key][owner][1]["named_match"]["block_id"]
+                if not native_edges(
+                    "head", "named_binding_head", owner, binding, block_id=block_id
+                ):
+                    raise ReferenceError("named binding lacks its exact native head")
+                native_edges("members", "named_binding_member", owner, binding, block_id=block_id)
+                native_edges(
+                    "antecedent_members",
+                    "named_binding_antecedent",
+                    owner,
+                    binding,
+                    block_id=block_id,
+                )
+            if "external_premises" in row or (identity, "external_premise", None) in supports:
+                external_edges(
+                    "external_premises", row.get("external_premises", ()), "external_premise"
+                )
+
             if witness_closure and collection == "choice_member":
                 edge("choice_group", self.choice_groups[(*key, identity)])
             for name, data in sorted(row.items()):
@@ -529,21 +679,10 @@ class LayerProjection:
                 elif name in {"occurrences", "premises", "required_choices"}:
                     for position, target in enumerate(data):
                         edge(name, target, position=position)
-                elif name in {"external_premises", "required_external_choices"}:
-                    for position, target in enumerate(data):
-                        target_pin, target_member = _graph_member(target)
-                        edge(name, target_member, target_pin, position=position)
-                elif (
-                    name in {"head", "members", "antecedent_members"}
-                    and collection == "named_binding"
-                ):
-                    match = self.indexes[key][identity[1]][1]["named_match"]
-                    native_pin, block = self.native_block(current_pin, match["native_container"])
-                    targets = ((None, data),) if name == "head" else enumerate(data)
-                    for position, target in targets:
-                        target_pin, target_member = self.named_token(target, native_pin, block)
-                        fields = {} if position is None else {"position": position}
-                        edge(name, target_member, target_pin, **fields)
+                elif name == "external_premises":
+                    continue
+                elif name == "required_external_choices":
+                    external_edges(name, data)
                 elif name in {"native_token", "native_mention", "native_edu"} and witness_closure:
                     detail = dict(data)
                     for field in ("container", "sentence"):
@@ -553,16 +692,14 @@ class LayerProjection:
                     value[name] = detail
                 elif name == "named_match":
                     match = dict(data)
-                    container = match.pop("native_container", None)
-                    if container is None:
-                        raise ReferenceError(
-                            "named witness lacks its actual native block reference"
-                        )
-                    native_pin, block = self.native_block(current_pin, container)
-                    edge("named_match.native_container", block["local_id"], native_pin)
-                    for position, target in enumerate(match.pop("nodes", ())):
-                        target_pin, target_member = self.named_token(target, native_pin, block)
-                        edge("named_match.nodes", target_member, target_pin, position=position)
+                    block_id = match.pop("block_id")
+                    locations = native_edges(
+                        "named_match.nodes", "named_node", identity, block_id=block_id
+                    )
+                    if not locations:
+                        raise ReferenceError("named witness lacks its actual annotation partition")
+                    native_pin, block = locations[0]
+                    edge("named_match.native_container", block, native_pin)
                     for position, _ in enumerate(match.pop("bindings", ())):
                         edge(
                             "named_match.binding",
@@ -595,21 +732,21 @@ class LayerProjection:
                             retained.append(metadata)
                         detail[field] = retained
                     if "native_tokens" in detail:
-                        retained = []
-                        for position, token in enumerate(detail["native_tokens"]):
-                            metadata = {
-                                key: value for key, value in token.items() if key != "native_node"
-                            }
-                            target = token["native_node"]
+                        tokens = detail["native_tokens"]
+                        references = supports.get((identity, "navigation_token", None), ())
+                        if tuple(position for position, _ in references) != tuple(
+                            range(len(tokens))
+                        ):
+                            raise ReferenceError("navigation has incomplete native token evidence")
+                        for position, reference in references:
+                            target_pin, item, _ = self.annotation_item(current_pin, reference)
                             edge(
                                 "navigation.native_tokens.native_node",
-                                _graph_member(target)[1],
-                                _graph_member(target)[0],
+                                item,
+                                target_pin,
                                 position=position,
-                                **metadata,
+                                **tokens[position],
                             )
-                            retained.append(metadata)
-                        detail["native_tokens"] = retained
                     value[name] = detail
                 elif name in {"formal_input", "formal"}:
                     detail = dict(data)
@@ -649,14 +786,15 @@ class LayerProjection:
                     for field in ("premises", "choice_refs"):
                         for position, target in enumerate(basis.pop(field, ())):
                             edge("basis." + field, target, position=position)
-                    for field in ("external_premises", "required_external_choices"):
-                        for position, target in enumerate(basis.pop(field, ())):
-                            edge(
-                                "basis." + field,
-                                _graph_member(target)[1],
-                                _graph_member(target)[0],
-                                position=position,
-                            )
+                    external_edges(
+                        "basis.external_premises",
+                        basis.pop("external_premises", ()),
+                        "basis_external_premise",
+                    )
+                    external_edges(
+                        "basis.required_external_choices",
+                        basis.pop("required_external_choices", ()),
+                    )
                     value[name] = basis
                 elif name == "children":
                     for position, target in enumerate(
@@ -677,15 +815,22 @@ class LayerProjection:
                         edge("alternative", target["local_id"], position=position)
                 else:
                     value[name] = data
-            qualified = (
-                dict(product_id=current_pin["product_id"], member_id=identity)
-                if isinstance(identity, str)
-                else dict(
+            if isinstance(identity, str):
+                qualified = dict(product_id=current_pin["product_id"], member_id=identity)
+            elif identity[0] == "named_binding":
+                qualified = dict(
                     product_id=current_pin["product_id"],
                     member_id=identity[1],
                     path=["named_match", "bindings", identity[2]],
                 )
-            )
+            else:
+                qualified = dict(
+                    product_id=current_pin["product_id"],
+                    collection=identity[1],
+                    partition_key=identity[2],
+                )
+                if identity[0] == "partition-item":
+                    qualified["item_key"] = list(identity[3])
             if collection not in ASSESSMENT_NODE_KINDS:
                 raise ReferenceError(
                     "witness node kind is outside the admitted assessment projection"

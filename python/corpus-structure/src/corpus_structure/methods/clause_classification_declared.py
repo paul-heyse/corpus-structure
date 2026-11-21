@@ -24,6 +24,15 @@ class ClauseClassificationOperation:
             "exact-released-question-pairs",
         ],
         "entrypoints": ["run"],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/clause_classification/readings/*/primary_context/*",
+                "input_role": "canonical",
+                "variant": "partition-item",
+                "collection": "rows",
+            }
+        ],
         "roles": [
             {
                 "name": "source",

@@ -26,6 +26,9 @@ _FILES = (
     "semantic/data_operation_prepared_call.py",
     "methods/definition_named_declared.py",
     "semantic/constructions/declared_named.py",
+    "semantic/construction_products.py",
+    "semantic/reference_resolution.py",
+    "semantic/sentence_products.py",
     "methods/model_observation.json",
     "methods/predicate_frames.py",
 )
@@ -256,11 +259,14 @@ def _component_authority_kernel(
         raise ValueError(
             "definition component authority requires its exact scalar input population"
         )
+    body_values = {name: (arguments[name],) for name in names}
+    if named:
+        body_values["annotations"] = (arguments["annotations"]["header"],)
     require_consumed_cpu_basis(
         input_basis,
         context,
         roles,
-        {name: (arguments[name],) for name in names},
+        body_values,
         parameters=canonical_bytes(
             semantic_value({key: value for key, value in arguments.items() if key not in names})
         ),
@@ -307,6 +313,9 @@ class DefinitionComponentsCallPlan:
             raise ValueError("definition components require their exact qualified binding")
         from .data_operation_cpu_basis import cpu_input_basis_from_binding
 
+        body_values = {role.role: (arguments.arguments[role.role],) for role in binding.roles}
+        if self.kernel is named_definition_components_kernel:
+            body_values["annotations"] = (arguments.arguments["annotations"]["header"],)
         signature = inspect.signature(self.kernel, eval_str=True)
         bound = signature.bind(
             arguments=arguments.arguments,
@@ -315,7 +324,7 @@ class DefinitionComponentsCallPlan:
             input_basis=cpu_input_basis_from_binding(
                 self.port.identity.recipe,
                 binding,
-                {role.role: (arguments.arguments[role.role],) for role in binding.roles},
+                body_values,
             ),
             prepared=self.prepared,
             check_active=check_active,
@@ -420,10 +429,11 @@ def project_named_definition_components(
 
     from .construction_products import CharacterizationSnapshot
     from .constructions.declared_named import DeclaredNamedRules
-    from .data_product_reference import DataProductMemberReference
+    from .data_product_reference import DataProductMemberReference, SemanticReference
     from .declared_record_sources import DeclaredNativeFrameSource
     from .declared_structural_calls import _passage
     from .declared_structural_references import DeclaredProductRef
+    from .reference_resolution import require_selected_whole_reference
     from .sentence_products import retained_source_annotation_products
     from .source_products import FrozenNativeSource
     from .structural_products import (
@@ -450,12 +460,25 @@ def project_named_definition_components(
     frame = DeclaredNativeFrameSource.acquire(
         prepared, source, member("source"), project=context.project_id
     )
-    for body in (annotations, constructions):
+    annotation_header = annotations["header"]
+    for body in (annotation_header, constructions):
         if body["source"] != source["source"] or body["selectors"] != source["selectors"]:
             raise ValueError("named definition input differs from its exact original source/scope")
-    native = CharacterizationSnapshot(member("annotations").product, canonical_bytes(annotations))
+    annotation_member = member("annotations")
+    construction_member = member("constructions")
+    require_selected_whole_reference(
+        SemanticReference.whole("sentences"),
+        role="sentences",
+        producing=construction_member,
+        selected=annotation_member,
+    )
+    native = CharacterizationSnapshot(
+        annotation_member.product,
+        canonical_bytes(annotation_header),
+        tuple(canonical_bytes(packet) for packet in annotations["partitions"]),
+    )
     primary = (
-        CharacterizationSnapshot(member("constructions").product, canonical_bytes(constructions)),
+        CharacterizationSnapshot(construction_member.product, canonical_bytes(constructions)),
     )
     products = retained_source_annotation_products(selected, native)
     if not products:

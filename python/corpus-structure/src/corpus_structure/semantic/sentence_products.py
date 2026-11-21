@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import inspect
 import json
+from bisect import bisect_left
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field, replace
@@ -186,78 +187,74 @@ def source_annotation_blocks(
     if partition_header(packets) != body[COLLECTION]:
         raise ValueError("annotation rows differ from their selected collection commitment")
     rows = blocks_from_packets(packets)
-    result = []
-    for layout, block in zip(body["block_layouts"], rows, strict=True):
-        annotation = layout["annotation"]
-        if (annotation["block_id"], annotation["block_start"], annotation["block_end"]) != (
-            block.key,
-            block.start,
-            block.end,
-        ):
-            raise ValueError("annotation layout differs from its selected row partition")
-        tokens, sentences, lexemes = [], [], []
-        for row in block.rows:
-            position = dict(start=block.start + row["start"], end=block.start + row["end"])
-            if row["record_type"] == "sentence":
-                if row["ordinal"] != len(sentences):
-                    raise ValueError("annotation sentence ordinals must be contiguous")
-                sentences.append(position)
-            elif row["record_type"] == "token":
-                if row["ordinal"] != len(tokens):
-                    raise ValueError("annotation token ordinals must be contiguous")
-                tokens.append({key: row[key] for key in _TOKEN_FIELDS if key in row} | position)
-                lexemes.append(
-                    {
-                        key: item
-                        for key, item in row.items()
-                        if key not in _TOKEN_FIELDS | {"record_type", "ordinal", "extent"}
-                    }
-                )
-            else:
-                raise ValueError("unknown annotation record type")
-        result.append(
-            dict(
-                annotation=dict(annotation, tokens=tokens, sentences=sentences),
-                piece_offset=layout["piece_offset"],
-                lexemes=lexemes,
+    return tuple(
+        _annotation_block(layout, block)
+        for layout, block in zip(body["block_layouts"], rows, strict=True)
+    )
+
+
+def _annotation_block(layout, block):
+    annotation = layout["annotation"]
+    if (annotation["block_id"], annotation["block_start"], annotation["block_end"]) != (
+        block.key,
+        block.start,
+        block.end,
+    ):
+        raise ValueError("annotation layout differs from its selected row partition")
+    tokens, sentences, lexemes = [], [], []
+    for row in block.rows:
+        position = dict(start=block.start + row["start"], end=block.start + row["end"])
+        if row["record_type"] == "sentence":
+            if row["ordinal"] != len(sentences):
+                raise ValueError("annotation sentence ordinals must be contiguous")
+            sentences.append(position)
+        elif row["record_type"] == "token":
+            if row["ordinal"] != len(tokens):
+                raise ValueError("annotation token ordinals must be contiguous")
+            tokens.append({key: row[key] for key in _TOKEN_FIELDS if key in row} | position)
+            lexemes.append(
+                {
+                    key: item
+                    for key, item in row.items()
+                    if key not in _TOKEN_FIELDS | {"record_type", "ordinal", "extent"}
+                }
             )
-        )
-    return tuple(result)
+        else:
+            raise ValueError("unknown annotation record type")
+    return dict(
+        annotation=dict(annotation, tokens=tokens, sentences=sentences),
+        piece_offset=layout["piece_offset"],
+        lexemes=lexemes,
+    )
+
+
+def _annotation_row(block) -> dict[str, Any]:
+    annotation = block["annotation"]
+    return {
+        **annotation,
+        "source": {"content": canonical_bytes(annotation["source"]).decode()},
+        "display_spans": [[span["start"], span["end"]] for span in annotation["display_spans"]],
+        "native_pieces": [
+            {"item_ref": None, "cell_index": None, "source_field": None, **piece}
+            for piece in annotation["native_pieces"]
+        ],
+        "tokens": [{"sentence": None, **token} for token in annotation["tokens"]],
+    }
 
 
 def source_annotation_rows(value: Mapping[str, Any] | AnnotationView) -> tuple[dict[str, Any], ...]:
-    """Restore the existing AnnotationProduct wire shape from its typed nominal projection."""
-    rows = []
-    for block in source_annotation_blocks(value):
-        annotation = block["annotation"]
-        rows.append(
-            {
-                **annotation,
-                "source": {"content": canonical_bytes(annotation["source"]).decode()},
-                "display_spans": [
-                    [span["start"], span["end"]] for span in annotation["display_spans"]
-                ],
-                "native_pieces": [
-                    {"item_ref": None, "cell_index": None, "source_field": None, **piece}
-                    for piece in annotation["native_pieces"]
-                ],
-                "tokens": [{"sentence": None, **token} for token in annotation["tokens"]],
-            }
-        )
-    return tuple(rows)
+    """Restore the working AnnotationProduct columns without creating retained members."""
+    return tuple(_annotation_row(block) for block in source_annotation_blocks(value))
 
 
-def retained_source_annotation_products(source, native):
-    """Restore captured blocks once from an authenticated nominal annotation input."""
+def _restore_selected_annotation_rows(source, value, rows):
     from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
 
     from .declared_record_sources import DeclaredNativeFrameSource
 
-    value = json.loads(native.content)
     selected = source.value
     if value["source"] != selected["source"] or value["selectors"] != selected["selectors"]:
         raise ValueError("retained annotations differ from their exact original source/scope")
-    rows = source_annotation_rows(native)
     if not rows:
         return ()
     frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
@@ -270,6 +267,23 @@ def retained_source_annotation_products(source, native):
         ),
         require_complete=False,
     )
+
+
+def retained_source_annotation_products(source, native):
+    """Restore captured blocks once from an authenticated nominal annotation input."""
+    return _restore_selected_annotation_rows(
+        source, json.loads(native.content), source_annotation_rows(native)
+    )
+
+
+def restore_selected_annotation_partition(source, header, layout, packet):
+    """Read one block packet already acquired through its exact selected parent."""
+    from .sentence_partitions import blocks_from_packets
+
+    (block,) = blocks_from_packets((packet,))
+    row = _annotation_row(_annotation_block(layout, block))
+    (product,) = _restore_selected_annotation_rows(source, header, (row,))
+    return product
 
 
 def source_annotation_member_values(
@@ -440,10 +454,11 @@ def validate_source_annotations(
     result = SourceAnnotations(
         canonical_bytes(checked), prepared, model, receipts, subject_context, partitions
     )
-    rows = source_annotation_rows(result)
-    if rows:
+    blocks = source_annotation_blocks(result)
+    if blocks:
         if configuration is None:
             raise ValueError("annotation validation requires its captured model configuration")
+        rows = tuple(_annotation_row(block) for block in blocks)
         frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
         products = restore_annotations(
             rows,
@@ -453,25 +468,18 @@ def validate_source_annotations(
             ),
             require_complete=False,
         )
-        for product, block in zip(products, source_annotation_blocks(result), strict=True):
+        pieces = selected["pieces"]
+        piece_starts = [piece["start"] for piece in pieces]
+        for product, block in zip(products, blocks, strict=True):
             if len(product.tokens) != len(block["lexemes"]):
                 raise ValueError("native lexical columns differ from their actual token population")
-            expected = [
-                piece
-                for piece in selected["pieces"]
-                if piece["start"] < product.block_end and product.block_start < piece["end"]
-            ]
+            first = bisect_left(piece_starts, product.block_start)
+            stop = bisect_left(piece_starts, product.block_end, lo=first)
             if (
-                block["piece_offset"]
-                != next(
-                    (
-                        index
-                        for index, piece in enumerate(selected["pieces"])
-                        if piece["start"] == product.block_start
-                    ),
-                    -1,
-                )
-                or [piece.to_wire() for piece in product.native_pieces] != expected
+                first == len(pieces)
+                or piece_starts[first] != product.block_start
+                or block["piece_offset"] != first
+                or [piece.to_wire() for piece in product.native_pieces] != pieces[first:stop]
             ):
                 raise ValueError("annotations differ from original selected native pieces")
             if any(

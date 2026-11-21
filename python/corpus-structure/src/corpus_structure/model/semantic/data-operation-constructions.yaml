@@ -5,6 +5,16 @@ prefixes:
   cs: https://corpus-structure.dev/semantic/
 default_prefix: dco
 default_range: string
+enums:
+  DdoConstructionAnnotationSupportUse:
+    permissible_values:
+      external_premise:
+      basis_external_premise:
+      named_node:
+      named_binding_head:
+      named_binding_member:
+      named_binding_antecedent:
+      navigation_token:
 classes:
   DdoInterpretedMember:
     is_a: SourceRecordProduct
@@ -159,6 +169,21 @@ classes:
     description: Primary source grammar, navigation and mathematical scope from retained formal and native annotations.
     annotations:
       cs:data_universe: ordinary
+    attributes:
+      annotation_support:
+        range: DdoConstructionAnnotationSupport
+        inlined: true
+        multivalued: true
+        value_presence: PRESENT
+        minimum_cardinality: 0
+  DdoConstructionAnnotationSupport:
+    is_a: SourceRecordProduct
+    attributes:
+      owner: {required: true, pattern: '^.+$(?![\s\S])'}
+      use: {range: DdoConstructionAnnotationSupportUse, required: true}
+      position: {range: integer, minimum_value: 0, required: true}
+      binding_position: {range: integer, minimum_value: 0}
+      target: {range: DdoSemanticReference, inlined: true, required: true}
   DdoDeclarationSyntaxProduct:
     is_a: DdoConstructionProduct
     description: Distinct declaration syntax from exact canonical sentences and independently retained HanLP heads.
@@ -374,20 +399,34 @@ classes:
     mixins:
     - DdoCharacterizedProduct
 
-  DdoNativeBlockReference:
-    is_a: DdoSemanticProductReference
-    description: An actual retained native block inside the exact annotation product; not a member address.
+  DdoSemanticNavigationToken:
+    is_a: SourceRecordProduct
     attributes:
-      block_id: {required: true, pattern: '^.+$(?![\s\S])'}
+      name: {required: true, pattern: '^.+$(?![\s\S])'}
+      index: {range: integer, required: true, minimum_value: 0}
   DdoNamedBinding:
-    is_a: CharacterizationNamedBinding
-    slot_usage:
-      head: {range: DdoSemanticMemberReference}
-      members: {range: DdoSemanticMemberReference}
-      antecedent_members: {range: DdoSemanticMemberReference}
+    is_a: SourceRecordProduct
+    attributes:
+      demonstrative: {range: boolean}
+      antecedent_status: {pattern: '^(resolved|unresolved|unavailable|not_applicable)$(?![\s\S])'}
+      antecedent_reason: {}
+      role: {required: true}
+      node: {required: true}
+      expansion: {required: true}
+      status: {required: true}
+      reason: {}
   DdoNamedMatch:
-    is_a: CharacterizationNamedMatch
-    slot_usage:
-      native_container: {range: DdoNativeBlockReference}
-      nodes: {range: DdoSemanticMemberReference}
-      bindings: {range: DdoNamedBinding}
+    is_a: SourceRecordProduct
+    attributes:
+      rule: {required: true}
+      variant: {required: true}
+      mechanism: {required: true}
+      protocol: {required: true}
+      dependency_digest: {required: true, pattern: '^[0-9a-f]{64}$(?![\s\S])'}
+      block_id: {required: true, pattern: '^.+$(?![\s\S])'}
+      piece_indices: {range: integer, multivalued: true, minimum_value: 0}
+      sentences: {range: CharacterizationNamedSentence, inlined: true, multivalued: true}
+      bindings: {range: DdoNamedBinding, inlined: true, multivalued: true}
+      status: {required: true}
+      reason: {}
+      negation_occurrences: {multivalued: true}

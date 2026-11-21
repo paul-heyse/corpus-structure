@@ -1,4 +1,4 @@
-"""Retained named bindings addressed by genuine semantic product/member references."""
+"""Retained named bindings resolved against the actual selected annotation rows."""
 
 from __future__ import annotations
 
@@ -18,12 +18,13 @@ class DeclaredNamedRules:
     """Index the supplied immutable products once; never rerun a matcher."""
 
     def __init__(self, constructions, annotations):
-        self.annotations = annotations
-        self.native = {
-            packet["member_id"]: packet["body"]
-            for packet in json.loads(annotations.content)["members"]
+        from ..construction_products import annotation_support_index
+        from ..sentence_products import source_annotation_blocks
+
+        self.blocks = {
+            row["annotation"]["block_id"]: row["annotation"]["tokens"]
+            for row in source_annotation_blocks(annotations)
         }
-        self.blocks = {row["block_id"] for row in self.native.values() if "block_id" in row}
         self.matches = []
         self.occurrences = {}
         self._decoded = {}
@@ -32,6 +33,7 @@ class DeclaredNamedRules:
             body = json.loads(product.content)
             if body["source"] != source["source"] or body["selectors"] != source["selectors"]:
                 raise ValueError("named products differ from their exact native source and scope")
+            support = annotation_support_index(body)
             inventory = product.inventory()
             for occurrence in inventory["occurrences"]:
                 identifier = occurrence["local_id"]
@@ -41,11 +43,7 @@ class DeclaredNamedRules:
             for row in inventory["annotations"]:
                 if "named_match" not in row:
                     continue
-                container = row["named_match"]["native_container"]
-                if (
-                    container["product_id"] != annotations.semantic_id
-                    or container["block_id"] not in self.blocks
-                ):
+                if row["named_match"]["block_id"] not in self.blocks:
                     raise ValueError("named binding lacks its actual selected native block")
                 self.matches.append(
                     (
@@ -53,6 +51,7 @@ class DeclaredNamedRules:
                             product_id=product.semantic_id, member_id=row["local_id"]
                         ),
                         row,
+                        support,
                     )
                 )
 
@@ -64,31 +63,35 @@ class DeclaredNamedRules:
 
     def _decode(self, product):
         matches, availability, references, nominations, rule_ids = [], {}, {}, {}, {}
-        container = {"product_id": self.annotations.semantic_id, "block_id": product.block_id}
 
         def token(ref):
-            body = self.native.get(ref["member_id"])
+            retained = self.blocks[product.block_id]
             if (
-                ref["product_id"] != self.annotations.semantic_id
-                or body is None
-                or body.get("record_type") != "native_token"
-                or body["block_id"] != product.block_id
+                ref.role != "sentences"
+                or ref.collection != "rows"
+                or ref.partition_key != product.block_id
+                or ref.item_key is None
+                or len(ref.item_key) != 2
+                or ref.item_key[0] != "token"
+                or type(ref.item_key[1]) is not int
+                or not 0 <= ref.item_key[1] < min(len(product.tokens), len(retained))
             ):
-                raise ValueError("named binding lacks its exact native token member")
-            index = body["ordinal"]
-            if index >= len(product.tokens) or (
-                product.tokens[index].start,
-                product.tokens[index].end,
-            ) != (body["start"], body["end"]):
+                raise ValueError("named binding lacks its exact native token row")
+            index = ref.item_key[1]
+            expected = retained[index]
+            if (product.tokens[index].start, product.tokens[index].end) != (
+                expected["start"],
+                expected["end"],
+            ):
                 raise ValueError("named binding changes original native token coordinates")
-            return body
+            return index
 
         def spans(refs):
-            return tuple((token(ref)["start"], token(ref)["end"]) for ref in refs)
+            return tuple((product.tokens[index].start, product.tokens[index].end) for index in refs)
 
-        for origin, annotation in self.matches:
+        for origin, annotation, support in self.matches:
             body = annotation["named_match"]
-            if body["native_container"] != container:
+            if body["block_id"] != product.block_id:
                 continue
             if body["dependency_digest"] != product.dependency_digest:
                 raise ValueError("named binding changes its native dependency columns")
@@ -104,20 +107,29 @@ class DeclaredNamedRules:
                 continue
             if annotation["kind"] != "construction.named_binding":
                 continue
-            roles = tuple(
-                LocatedRole(
+            owner = annotation["local_id"]
+
+            def indices_for(use, binding_position=None, *, owner=owner, support=support):
+                return tuple(
+                    token(ref) for _, ref in support.get((owner, use, binding_position), ())
+                )
+
+            def located(role, position):
+                (head,) = indices_for("named_binding_head", position)
+                members = indices_for("named_binding_member", position)
+                return LocatedRole(
                     role["role"],
                     role["node"],
-                    token(role["head"])["ordinal"],
+                    head,
                     role["expansion"],
-                    tuple(token(ref)["ordinal"] for ref in role["members"]),
-                    spans(role["members"]),
+                    members,
+                    spans(members),
                     role["status"],
                     role.get("reason"),
                 )
-                for role in body["bindings"]
-            )
-            indices = tuple(token(ref)["ordinal"] for ref in body["nodes"])
+
+            roles = tuple(located(role, position) for position, role in enumerate(body["bindings"]))
+            indices = indices_for("named_node")
             sentences = {row["token_index"]: row.get("sentence") for row in body["sentences"]}
             negative = tuple(
                 (
@@ -131,7 +143,7 @@ class DeclaredNamedRules:
                 body["variant"],
                 body["mechanism"],
                 indices,
-                tuple(sorted(set(spans(body["nodes"])))),
+                tuple(sorted(set(spans(indices)))),
                 tuple(body["piece_indices"]),
                 tuple(sentences[index] for index in indices),
                 body["dependency_digest"],
@@ -143,11 +155,10 @@ class DeclaredNamedRules:
                 raise ValueError("named binding has competing actual semantic member origins")
             matches.append(match)
             references[match] = origin
-            for binding in body["bindings"]:
+            for position, binding in enumerate(body["bindings"]):
                 if "antecedent_status" not in binding:
                     continue
-                refs = binding.get("antecedent_members", ())
-                nodes = tuple(token(ref)["ordinal"] for ref in refs)
+                nodes = indices_for("named_binding_antecedent", position)
                 context_start = None
                 if nodes:
                     sentence = product.tokens[nodes[0]].sentence
@@ -158,7 +169,7 @@ class DeclaredNamedRules:
                     binding.get("demonstrative"),
                     binding["antecedent_status"],
                     nodes,
-                    spans(refs),
+                    spans(nodes),
                     context_start,
                     binding.get("antecedent_reason"),
                 )

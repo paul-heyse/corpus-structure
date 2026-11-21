@@ -51,6 +51,71 @@ classes:
         prepared.validate_json("Event", b'{"at":"2030-01-02T03:04:05"}')
 
 
+def test_tagged_nominal_projection_is_stable_with_an_unrelated_integer_property():
+    from pydantic import TypeAdapter
+
+    from corpus_structure.semantic.composed import data_operation_dependencies
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_storage import kind_meaning_schema
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.data_operation_version import MODEL_VERSION
+    from corpus_structure.semantic.data_operation_wire import validate_wire_schema
+    from corpus_structure.semantic.data_product_reference import SemanticPartitionReference
+    from corpus_structure.semantic.nominal_schema_kinds import nominal_schema_kinds
+    from corpus_structure.semantic.prepare import prepare_release
+    from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
+
+    definition = b"""id: urn:stable-visual
+name: visual
+prefixes: {v: 'urn:stable-visual:'}
+default_prefix: v
+types:
+  integer: {base: int}
+  PageNumber: {base: int}
+classes:
+  Visual:
+    attributes:
+      width: {range: integer, required: true}
+      page: {range: PageNumber, required: true}
+"""
+    bundle = SourceBundle("visual", (SourceArtifact("visual", definition),))
+    captured = SourceArtifact(
+        "unrelated/nominal-kinds.json",
+        json_bytes(
+            {
+                "version": MODEL_VERSION,
+                "kinds": nominal_schema_kinds(
+                    TypeAdapter(SemanticPartitionReference).json_schema(),
+                    namespace="urn:unrelated:",
+                    root_name="UnrelatedReference",
+                ),
+            }
+        ),
+    )
+
+    def projection(declarations):
+        prepared = prepare_release(
+            bundle, data_operation_dependencies(ResolvedDependencies(), declarations)
+        )
+        model = bound_data_operation_model(prepared)
+        owner = prepared.index.definitions["Visual"].iri
+        kind = next(kind for kind in model.kinds if kind.semantic_id == owner)
+        identity = next(
+            item.key for item in model.identities if item.owner == owner and item.domain == "kind"
+        )
+        meaning = kind_meaning_schema(
+            kind, model.kinds, prepared.index.definitions, prepared.enum_members
+        )
+        return identity, meaning
+
+    first = projection(())
+    assert projection((captured,)) == first
+    _, schema = first
+    validate_wire_schema(schema, semantic_value({"width": 612, "page": 1}))
+    with pytest.raises(ValueError):
+        validate_wire_schema(schema, semantic_value({"width": "612", "page": 1}))
+
+
 def _captured(**changes):
     operations = changes.get("operations", [])
     coverage = {

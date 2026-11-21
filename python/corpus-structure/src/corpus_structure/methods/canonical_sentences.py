@@ -24,6 +24,17 @@ class CanonicalSentenceProjection:
         "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
+        "rules": [
+            {
+                "id": "segment.sentences/canonical-dense-ordinal",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoCanonicalSentences",
+                "collection": "rows",
+                "scope": "partition",
+                "form": "dense_ordinal",
+                "checker": "admission",
+                "parameters": {"path": "ordinal", "group_by": ["record_type"]},
+            },
+        ],
         "reference_targets": [
             {
                 "output_role": "result",
@@ -39,7 +50,9 @@ class CanonicalSentenceProjection:
                 "name": "inventory",
                 "parameter": "inventory",
                 "required_rules": [
+                    "segment.sentences/native-dense-ordinal",
                     "segment.sentences/native-row-span",
+                    "segment.sentences/native-source-order",
                     "segment.sentences/exact-source-scope",
                 ],
                 "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",

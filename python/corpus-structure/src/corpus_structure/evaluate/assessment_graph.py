@@ -18,7 +18,11 @@ from corpus_structure.semantic.declared_formal_readings import SelectedCharacter
 from corpus_structure.semantic.graph_inspection import GraphNode, GraphOccurrence, GraphSnapshot
 from corpus_structure.semantic.graph_topology import rooted_closure
 
-from .characterization_assessment import LayerProjection, WitnessGraphBudgetExceeded
+from .characterization_assessment import (
+    LayerProjection,
+    SelectedAnnotationTargets,
+    WitnessGraphBudgetExceeded,
+)
 
 
 def assessment_graph_snapshot(prepared, cut, index, *, members, max_bytes=8388608):
@@ -112,7 +116,8 @@ def assessment_graph_snapshot(prepared, cut, index, *, members, max_bytes=838860
             )
     inventories = SelectedCharacterizationInventories(ChainMap(product_records, products))
     projection = LayerProjection(
-        lambda pin: inventories[DataProductReference(pin["product_id"])].payload
+        lambda pin: inventories[DataProductReference(pin["product_id"])].payload,
+        SelectedAnnotationTargets(index, cut),
     )
     try:
         graph = projection.graph_many(

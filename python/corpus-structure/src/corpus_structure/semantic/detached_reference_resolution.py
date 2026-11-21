@@ -17,7 +17,9 @@ from .reference_resolution import (
 )
 
 
-class _CapturedReferenceAccess:
+class IndexedReferenceAccess:
+    """Keyed body packets from a support index already acquired by its caller."""
+
     def __init__(self, row_map, project_id: str):
         self.project_id = project_id
         self.products = row_map("kb.data_product", "id")
@@ -105,7 +107,7 @@ def require_detached_output_references(
     outputs: Sequence[WireOutputMember],
 ) -> None:
     """Check output references after authenticating their producing derivation and manifest."""
-    access = _CapturedReferenceAccess(row_map, project_id)
+    access = IndexedReferenceAccess(row_map, project_id)
     captured = tuple(rows_for("ops.data_derivation_input", derivation_id=derivation_id))
     for target in targets:
         bindings = []

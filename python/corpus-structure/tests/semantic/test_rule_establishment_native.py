@@ -336,13 +336,17 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         parameters=b'{"input_reads":{"source":["tokens"]}}',
     )
     conn.execute(
-        insert(model.tables["sem.data_rule"]).values(
-            release_id="source-release",
-            rule_id=source_rule.id,
-            kind_contract=source_rule.kind_contract,
-            fingerprint=source_rule.fingerprint,
-            specification=source_rule.record,
-        )
+        insert(model.tables["sem.data_rule"]),
+        [
+            dict(
+                release_id="source-release",
+                rule_id=checker.id,
+                kind_contract=checker.kind_contract,
+                fingerprint=checker.fingerprint,
+                specification=checker.record,
+            )
+            for checker in (body_rule, source_rule)
+        ],
     )
     conn.execute(
         insert(model.tables["ops.data_derivation_input"]).values(
@@ -365,14 +369,15 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         ).model_dump(mode="json")
 
     source_request = {**producer, "release_id": "source-release"}
+    run_bind(required="body", release="source-release")
     with pytest.raises(DBAPIError, match="rule"), conn.begin_nested():
         run_bind(required="source-dependent", release="source-release")
     with pytest.raises(DBAPIError, match="missing or conflicting"), conn.begin_nested():
-        run_settle([source_claim({"tokens": []})], "second", source_request)
+        run_settle([claim(body_rule), source_claim({"tokens": []})], "second", source_request)
     actual_source = decode_semantic_value(result["product"]["body"])
     declared_claim = source_claim(actual_source)
     assert source_claim({**actual_source, "unobserved": "different"}) == declared_claim
-    run_settle([declared_claim], "second", source_request)
+    run_settle([claim(body_rule), declared_claim], "second", source_request)
     observed_at = conn.execute(text("SELECT clock_timestamp()")).scalar_one()
     run_bind(
         required="source-dependent",

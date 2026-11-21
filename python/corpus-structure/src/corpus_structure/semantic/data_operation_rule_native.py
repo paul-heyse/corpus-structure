@@ -471,6 +471,7 @@ def _evaluator(model, output):
         .cte("source_rule_items")
     )
     paths = _rows(params["paths"], "rule_paths")
+    group_paths = _rows(params["group_by"], "rule_group_paths")
     target_paths = _rows(params["target_paths"], "rule_target_paths")
 
     def field(body, path):
@@ -498,6 +499,7 @@ def _evaluator(model, output):
 
     order = (rows.c.part_order, rows.c.item)
     equality_keys = tuple_key(rows, paths)
+    ordinal_group = tuple_key(rows, group_paths)
     annotated = select(
         rows.c.key,
         rows.c.item,
@@ -506,7 +508,8 @@ def _evaluator(model, output):
         equality_keys.label("values"),
         func.count().over(partition_by=equality_keys).label("duplicates"),
         func.lag(rows.c.body).over(order_by=order).label("previous"),
-        func.row_number().over(order_by=order).label("rank"),
+        func.row_number().over(partition_by=ordinal_group, order_by=order).label("rank"),
+        ordinal_group.label("ordinal_group"),
         value(rows, params["path"].astext).label("ordinal_value"),
     ).subquery("ordinal_rule_rows")
     ordinal_value = annotated.c.ordinal_value
@@ -590,6 +593,7 @@ def _evaluator(model, output):
         "dense_ordinal": (
             annotated,
             or_(
+                and_(params.has_key("group_by"), annotated.c.ordinal_group.is_(None)),
                 ordinal_value[0].astext.is_distinct_from("integer"),
                 cast(ordinal_value[1].astext, BigInteger()).is_distinct_from(
                     annotated.c.rank - 1 + cast(params["start"].astext, BigInteger())

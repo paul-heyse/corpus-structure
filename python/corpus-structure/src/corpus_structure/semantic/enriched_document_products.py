@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import ClassVar
 
 from .characterization import characterization_profiles
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_model import EffectiveDataOperationModel, SubjectContext
+from .data_operation_partitions import partition_header
 from .data_operation_source_sets import FrozenSourceSet, SelectedSourceSetEntry
 from .data_product_reference import DataProductMemberReference, DataProductReference
 from .identity import canonical_bytes
@@ -27,9 +29,10 @@ class RetainedCharacterizationProduct:
     subject_context: SubjectContext | None = None
     selected_product: str | None = None
     selected_member: str | None = None
+    partitions: tuple[bytes, ...] | None = None
 
     @classmethod
-    def acquire(cls, prepared, model, kind, content, *, subject_context=None):
+    def acquire(cls, prepared, model, kind, content, *, subject_context=None, partitions=None):
         definition = next((row for row in prepared.definitions if row.iri == kind), None)
         if (
             definition is None
@@ -37,10 +40,25 @@ class RetainedCharacterizationProduct:
             or "DdoCharacterizationEnvelope" not in definition.ancestors
         ):
             raise ValueError("view input lacks a concrete declared characterization kind")
-        value = prepared.validate_json(definition.name, content)
+        product = cls(content, prepared, model, kind, subject_context, partitions=partitions)
+        value = product.value
         from .data_operation_ports import project_product_members
 
-        project_product_members(model, kind, value.model_dump(mode="python", exclude_unset=True))
+        raw = value.model_dump(mode="python", exclude_unset=True)
+        project_product_members(model, kind, raw)
+        if partitions is not None:
+            packet_groups = defaultdict(list)
+            for packet in map(json.loads, partitions):
+                packet_groups[packet["collection"]].append(packet)
+            header = json.loads(content)
+            collections = product._partition_collections()
+            if packet_groups.keys() - collections or any(
+                partition_header(packet_groups[name]) != header.get(name) for name in collections
+            ):
+                raise ValueError(
+                    "retained characterization differs from selected partition commitments"
+                )
+            return product
         return cls(
             canonical_bytes(value.model_dump(mode="json", exclude_unset=True)),
             prepared,
@@ -48,6 +66,14 @@ class RetainedCharacterizationProduct:
             kind,
             subject_context,
         )
+
+    def _partition_collections(self) -> set[str]:
+        owner = next(kind for kind in self.model.kinds if kind.semantic_id == self.kind)
+        return {
+            name
+            for name, spec in json.loads(owner.facts).get("collections", {}).items()
+            if spec["unit"] == "partitioned"
+        }
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -59,7 +85,13 @@ class RetainedCharacterizationProduct:
     @property
     def value(self):
         definition = next(row for row in self.prepared.definitions if row.iri == self.kind)
-        return self.prepared.validate_json(definition.name, self.content)
+        content = self.content
+        if self.partitions is not None:
+            header = json.loads(content)
+            for name in self._partition_collections():
+                header.pop(name)
+            content = canonical_bytes(header)
+        return self.prepared.validate_json(definition.name, content)
 
     @property
     def semantic_id(self):
@@ -70,7 +102,11 @@ class RetainedCharacterizationProduct:
             for row in self.model.identities
             if row.owner == self.kind and row.domain == "kind"
         )
-        value = self.value.model_dump(mode="python", exclude_unset=True)
+        value = (
+            json.loads(self.content)
+            if self.partitions is not None
+            else self.value.model_dump(mode="python", exclude_unset=True)
+        )
         return contextual_product_identity(
             kind=kind, context=self._publication_context(), body=body_identity(value).key
         ).key

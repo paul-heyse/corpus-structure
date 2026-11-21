@@ -38,12 +38,12 @@ from semantic.structural_production_native_support import (
 from semantic.test_target_installation_native import install_target_root
 
 
-def _recipe(directory, *, declaration=False):
+def _recipe(directory, *, target="canonical"):
     original = current_pdf_recipe(directory)
     captured = original.captured_inputs
     assert captured is not None
     dependencies, declarations, sources = split_captured_operations(captured)
-    if declaration:
+    if target == "declaration":
         from corpus_structure.semantic.declaration_products import (
             declaration_inputs,
             declaration_operation_sources,
@@ -57,14 +57,19 @@ def _recipe(directory, *, declaration=False):
         operations = combine_primary_sources(
             hanlp_operation_sources(prepare_hanlp_selection()), declaration_operation_sources()
         )
+    elif target == "construction":
+        from corpus_structure.ingest.sentences import SentenceConfig
+        from corpus_structure.semantic.characterization_ports import construction_operation_sources
+        from corpus_structure.semantic.construction_products import construction_product_inputs
+
+        bundle = construction_product_inputs(captured.bundle)
+        operations = construction_operation_sources(sentence_configuration=SentenceConfig())
     else:
         bundle = sentence_product_inputs(captured.bundle)
         operations = canonical_sentence_operation_sources()
     return replace(
         original,
-        name="hanlp-declaration-partition-chain"
-        if declaration
-        else "annotation-canonical-partition-chain",
+        name="annotation-partition-chain-" + target,
         captured_inputs=CapturedKernelInputs(
             bundle,
             data_operation_dependencies(
@@ -178,7 +183,7 @@ def test_actual_hanlp_declaration_binds_the_historical_canonical_input(
         semantic_bare_engine, native_settings, tmp_path, monkeypatch, text
     ) as source:
         kernel = admit_current_target(
-            source, _recipe(tmp_path / "recipe", declaration=True), tmp_path / "target"
+            source, _recipe(tmp_path / "recipe", target="declaration"), tmp_path / "target"
         )
         retained, original, products, _ = produce_source_reports(source, kernel, target, text=text)
         (hanlp,) = selected_for_source(
@@ -194,3 +199,50 @@ def test_actual_hanlp_declaration_binds_the_historical_canonical_input(
         assert any(row["family"] == DECLARATION_FAMILY for row in syntax.body["coverage"])
         repeated = execute_captured_kernel_demand(kernel, retained["demand_id"])
         assert repeated.receipt_count == 0
+
+
+@pytest.mark.gpu
+@pytest.mark.provider_evidence
+def test_actual_construction_names_admitted_annotation_rows(
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+):
+    text = "If it rains, Ada waits."
+    with _private_source(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch, text
+    ) as source:
+        kernel = admit_current_target(
+            source, _recipe(tmp_path / "recipe", target="construction"), tmp_path / "target"
+        )
+        retained, original, products, _ = produce_source_reports(
+            source, kernel, "text.constructions/source-native", text=text
+        )
+        (construction,) = selected_for_source(
+            kernel,
+            products,
+            "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+            original,
+        )
+        native_support = construction.body["annotation_support"]
+        assert native_support
+        assert all(
+            row["target"]["role"] == "sentences"
+            and row["target"]["collection"] == "rows"
+            and row["target"]["variant"] == "partition-item"
+            for row in native_support
+        )
+        with kernel.purpose("read").begin() as connection:
+            page = read_demand_result(
+                connection, retained["demand_id"], project_id=PROJECT, limit=1000
+            )
+            rows = [
+                decode_semantic_value(packet["body"])
+                for entry in stream_selected_support(connection, page, whole_read=True)
+                if entry["relation"] == "kb.data_product_partition"
+                and (packet := entry["record"])["partition_key"]
+                == native_support[0]["target"]["partition_key"]
+            ]
+        (selected,) = rows
+        key = native_support[0]["target"]["item_key"]
+        assert (key[0]["text"], key[1]["integer"]) in {
+            (row["record_type"], row["ordinal"]) for row in selected
+        }

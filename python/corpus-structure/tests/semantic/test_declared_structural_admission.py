@@ -488,15 +488,18 @@ def finite_report(variant):
     ]
     pin = base.sources_input[0].model_dump(mode="python")
     if variant == "condition_qualification":
-        reference = base.comparison.left_reading.model_dump(mode="python")
+        contribution = base.comparison.left_reading.contribution_id
         return DeclaredConditionReport.model_validate(
             dict(
                 inputs=inputs,
                 source_input=pin,
-                report_input=base.reports_input[0].model_dump(mode="python"),
                 condition_qualification=dict(
                     relation="condition",
-                    attachment=reference,
+                    attachment={
+                        "role": "report",
+                        "variant": "member",
+                        "member_id": "contribution:" + contribution,
+                    },
                     qualifier=[
                         dict(
                             source_pointer="#/texts/0",

@@ -7,9 +7,14 @@ from typing import Any
 from ._data_operation_wire import WireProductPartition
 from .data_operation_partitions import partition_header, partition_packet
 from .data_operation_values import decode_semantic_value, semantic_value
+from .data_product_reference import SemanticReference
 from .identity import canonical_bytes
 
 COLLECTION = "rows"
+
+
+def construction_annotation_reference(block_key: str, row_type: str, ordinal: int):
+    return SemanticReference.item("sentences", COLLECTION, block_key, (row_type, ordinal)).values()
 
 
 @dataclass(frozen=True, slots=True)

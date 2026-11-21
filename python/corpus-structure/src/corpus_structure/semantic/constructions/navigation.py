@@ -818,12 +818,9 @@ def populate_navigation_products(
     check_active=lambda: None,
     admitted=lambda a, b: True,
 ):
-    """Use exact native products and semantic member references in the shared kernel."""
-    from ..data_product_reference import DataProductReference, member_reference
-    from ..sentence_products import (
-        retained_source_annotation_products,
-        source_annotation_member_values,
-    )
+    """Use exact native products and partition item references in the shared kernel."""
+    from ..sentence_partitions import construction_annotation_reference
+    from ..sentence_products import retained_source_annotation_products
 
     products, tokens = (), {}
     if native is not None:
@@ -838,11 +835,10 @@ def populate_navigation_products(
             raise ValueError(
                 "navigation native input differs from its original source and analyzed scope"
             )
-        product = DataProductReference(native.semantic_id)
-        for token in source_annotation_member_values(native):
-            if token["record_type"] == "token":
-                tokens.setdefault((token["block_id"], token["ordinal"]), []).append(
-                    member_reference(product, token["local_id"]).values()
+        for product in products:
+            for index in range(len(product.tokens)):
+                tokens.setdefault((product.block_id, index), []).append(
+                    construction_annotation_reference(product.block_id, "token", index)
                 )
     return _populate_navigation(
         layer,

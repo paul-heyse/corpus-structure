@@ -12,6 +12,7 @@ from corpus_structure.semantic.model_characterization import prepare_model_scope
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.sentence_products import (
     _blocks,
+    source_annotation_blocks,
     source_annotation_rows,
     validate_source_annotations,
 )
@@ -32,7 +33,8 @@ def test_declared_maverick_mapping_retains_original_contributions_and_context_hy
     )
     (block,), _ = _blocks(source)
     mapping = prepare_model_scope(frame, (block.start, block.end), (block.start, block.end)).mapping
-    tokens, request = maverick_input(source, product, frame, block, mapping)
+    (annotation_block,) = source_annotation_blocks(product)
+    tokens, request = maverick_input(annotation_block["annotation"], frame, block, mapping)
     native = {
         "outcome": "succeeded",
         "tokens": [token.text for token in tokens.tokens],

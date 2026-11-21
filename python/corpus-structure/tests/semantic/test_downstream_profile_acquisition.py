@@ -36,6 +36,8 @@ def _write_manifest(root, value):
 def test_public_learned_math_downstream_profile_has_complete_captured_factories(
     tmp_path, monkeypatch
 ):
+    from hashlib import sha256
+
     from corpus_structure.methods import native_profiles
     from corpus_structure.methods.native_host import NativeHostGroup
     from corpus_structure.semantic.composed import read_data_operation_inputs
@@ -45,7 +47,17 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
     for provider in ("hanlp", "maverick", "dipo", "d1"):
         selected = pm2_selection(provider, assets, {"controlled": "acquisition-only"}, {})
         (root / (provider + ".json")).write_bytes(canonical_bytes(selected.declaration()))
-    gliner = replace(gliner_profile().profile, snapshot=assets, version=CUDA_WHITESPACE_PROFILE)
+    profile = gliner_profile().profile
+    artifacts = []
+    for name, _ in profile.artifact_hashes:
+        path = assets / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        content = canonical_bytes({"acquisition_fixture": name})
+        path.write_bytes(content)
+        artifacts.append((name, sha256(content).hexdigest()))
+    gliner = replace(
+        profile, snapshot=assets, version=CUDA_WHITESPACE_PROFILE, artifact_hashes=tuple(artifacts)
+    )
     selected_gliner = gliner_selection(gliner, {"controlled": "acquisition-only"})
     (root / "gliner.json").write_bytes(canonical_bytes(selected_gliner.declaration()))
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"

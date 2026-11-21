@@ -147,7 +147,9 @@ def test_reference_model_governs_evaluator_universe_and_preserves_independent_so
     _reference_invariants(checked)
     assert checked["source_release_id"] == "release:original-source"
     bad = deepcopy(body)
-    bad["output_members"] = [dict(product_id="product:prediction", member_id="root")]
+    bad["output_addresses"] = [
+        dict(variant="member", product_id="product:prediction", member_id="root")
+    ]
     with pytest.raises(ValueError, match="source-first"):
         _reference_invariants(bad)
     bad = deepcopy(body)
@@ -312,17 +314,6 @@ def selected_fixture(tmp_path, monkeypatch, acquired):
             native.update(
                 demand_id=demand_id,
                 scope=scope,
-                selection=dict(
-                    version="data-demand-intent-v2",
-                    model="model:test",
-                    execution_profile="test",
-                    inference="none",
-                    targets=["op:A"],
-                    root_operations=["op:A"],
-                    operations=[],
-                    roots=[],
-                    discovery=[],
-                ),
                 release_id="release:reference"
                 if demand_id == "demand:reference"
                 else "release:prediction",
@@ -525,7 +516,7 @@ def test_native_reference_recipe_prepares_complete_snapshot_witnesses():
         "source_runtime_id",
         "source_cut",
         "source_members",
-        "output_members",
+        "output_addresses",
         "cases",
         "retained_correspondence",
     }

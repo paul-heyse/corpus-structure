@@ -205,9 +205,19 @@ reference by role. Symbol scope compares that producing edge with its separately
 occurrence input. All five symbolic-math cases passed (`bbc42264ea9c4f528f0715db48d895a9`).
 The resolver reuses a decoded index for the same authenticated digest and address paths, with
 authorization checked for each occurrence (`481f8700fa034696b5b6ef45229dc986`).
+Condition reports name the stored qualification contribution through their producing `report`
+role. Clause reports name canonical sentence rows through their producing `canonical` role.
+The same compiler checks the nominal member and partition-item shape in captured Python output
+schemas. The condition producer and admission contract checks passed
+(`d16c8bf496654f4eaae69a2b431f1cb8`, `b7eaddf0c4b444a79b6f4f7faed16775`).
+An exact PostgreSQL condition member control and cross-demand selected-use refusal passed
+(`b02e5d4666ce411dac16a3aef51ee5ea`). The full condition provider and protected issuer route
+stopped during native release admission (`37d5e35585ed4893b7edb9821dde8b38`).
 
-The assessment, characterization, structural reports, contribution/facet and rich families
-still require production migration. Several legacy member references name nested graph nodes.
+The primary construction annotation premises, named interpretation and assessment graph now use
+declared partition addresses and producing input custody. Remaining characterization,
+structural report, contribution/facet and rich reference slots still require migration. Several
+legacy member references name nested graph nodes.
 Give those nodes an actual declared addressed collection or a true admitted member before
 converting references. Migrate affected serving and evaluation readers to supply the original
 bindings and exact current support. Remove the old model types, native reference paths, and

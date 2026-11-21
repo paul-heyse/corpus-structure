@@ -62,6 +62,10 @@ class ScopedRelationsOperation:
                 "parameter": "formal",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
                 "direction": "input",
+                "required_rules": [
+                    "text.formal_evidence/literal-source-geometry",
+                    "text.formal_evidence/symbolic-inventory-positions",
+                ],
                 "minimum": 1,
                 "maximum": None,
                 "collection": "sequence",

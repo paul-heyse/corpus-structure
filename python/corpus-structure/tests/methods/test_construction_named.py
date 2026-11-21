@@ -7,6 +7,7 @@ import pytest
 from semantic.construction_products_test_support import profiles as profiles
 from semantic.construction_products_test_support import publication_context
 from semantic.source_annotations_test_support import detached as detached
+from semantic.source_annotations_test_support import partition_controlled_annotations
 
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.annotation_rules import (
@@ -20,10 +21,7 @@ from corpus_structure.semantic.constructions.declared_named import DeclaredNamed
 from corpus_structure.semantic.constructions.named import rule_identity
 from corpus_structure.semantic.constructions.named_nominations import naming_nomination
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions
-from corpus_structure.semantic.sentence_products import (
-    retained_source_annotation_products,
-    validate_source_annotations,
-)
+from corpus_structure.semantic.sentence_products import retained_source_annotation_products
 
 
 @pytest.fixture(scope="module")
@@ -52,7 +50,7 @@ def test_named_rules_execute_upstream_once_and_replay_exact_roles_without_nlp(
     prepared, model, configuration, _selection = acquired
     source, value = detached
     context = publication_context(source)
-    retained = validate_source_annotations(
+    retained = partition_controlled_annotations(
         prepared, model, value, source, configuration=configuration, subject_context=context
     )
     (product,) = retained_source_annotation_products(source, retained)

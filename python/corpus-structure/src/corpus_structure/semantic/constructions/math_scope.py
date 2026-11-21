@@ -16,6 +16,7 @@ from spacy.tokens import Doc, Token
 
 from corpus_structure.semantic.data_product_reference import member_reference
 
+from ..sentence_partitions import construction_annotation_reference
 from .nodes import identity
 
 FAMILY = "construction.math_scope"
@@ -116,34 +117,35 @@ def populate_math_scope_products(
     import json
 
     from corpus_structure.semantic.data_product_reference import DataProductReference
-    from corpus_structure.semantic.sentence_products import source_annotation_member_values
+    from corpus_structure.semantic.sentence_products import source_annotation_blocks
 
     from .matching import retained_native_documents
 
     blocks, fields = [], []
     if native is not None:
-        pin = DataProductReference(native.semantic_id)
-        rows = source_annotation_member_values(native)
-        tokens = {
-            (row["block_id"], row["ordinal"]): row for row in rows if row["record_type"] == "token"
-        }
-        sentences = {
-            row["local_id"]: (row["start"], row["end"])
-            for row in rows
-            if row["record_type"] == "sentence"
+        by_block = {
+            layout["annotation"]["block_id"]: layout["annotation"]
+            for layout in source_annotation_blocks(native)
         }
         for block, doc, annotations, start, end in retained_native_documents(source, native, vocab):
+            rows = by_block[block]
             columns = {}
             for index, annotation in annotations.items():
-                token = tokens[block, annotation["native_token"]["index"]]
+                ordinal = annotation["native_token"]["index"]
+                token = rows["tokens"][ordinal]
                 columns[index] = dict(
-                    local_id=token["local_id"],
+                    ordinal=ordinal,
                     native_token={
                         "source_role": token["role"],
-                        **({"sentence": token["sentence_ref"]} if "sentence_ref" in token else {}),
+                        **(
+                            {"sentence": token["sentence"]}
+                            if token.get("sentence") is not None
+                            else {}
+                        ),
                     },
                 )
-            blocks.append((pin, block, doc, columns, start, end, sentences))
+            sentences = tuple((row["start"], row["end"]) for row in rows["sentences"])
+            blocks.append((block, doc, columns, start, end, sentences))
     for product in formal:
         value = json.loads(product.content)
         occurrences = {
@@ -248,7 +250,7 @@ def _populate_math_scope(
         )
 
     examined = []
-    for pin, container, native_doc, columns, offset, end, sentence_extents in blocks:
+    for container, native_doc, columns, offset, end, sentence_extents in blocks:
         check_active()
         if not admitted(offset, end):
             continue
@@ -299,7 +301,7 @@ def _populate_math_scope(
             native_sentence = next(iter(native_sentences))
             a, b = sentence_extents[native_sentence]
             external = [
-                member_reference(pin, columns[token.i]["local_id"]).values()
+                construction_annotation_reference(container, "token", columns[token.i]["ordinal"])
                 for token in sent
                 if token.i in columns
             ]
@@ -308,7 +310,10 @@ def _populate_math_scope(
                 a,
                 b,
                 label=container,
-                external=[member_reference(pin, native_sentence).values(), *external],
+                external=[
+                    construction_annotation_reference(container, "sentence", native_sentence),
+                    *external,
+                ],
             )
             sentences[sent.start] = sentence
             for token in sent:
@@ -317,14 +322,18 @@ def _populate_math_scope(
                         "scope_atom",
                         offset + token.idx,
                         offset + token.idx + len(token),
-                        external=[member_reference(pin, columns[token.i]["local_id"]).values()],
+                        external=[
+                            construction_annotation_reference(
+                                container, "token", columns[token.i]["ordinal"]
+                            )
+                        ],
                     )
                     atoms[token.i] = atom
                     member(sentence, atom, "math_atom")
         matches = prepared.match(doc)
         for kind, a, b in matches:
             external = [
-                member_reference(pin, columns[token.i]["local_id"]).values()
+                construction_annotation_reference(container, "token", columns[token.i]["ordinal"])
                 for token in doc[a:b]
                 if token.i in columns
             ]

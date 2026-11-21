@@ -611,6 +611,18 @@ def test_acquired_partition_lookup_keeps_parent_kind_and_project_authority(produ
         ("unique", {"paths": ["start"]}, ("start",), True),
         ("dense_ordinal", {"path": "start", "start": 0}, ("start",), False),
         ("dense_ordinal", {"path": "start", "start": 2}, ("start",), True),
+        (
+            "dense_ordinal",
+            {"path": "start", "start": 0, "group_by": ["end"]},
+            ("start", "end"),
+            False,
+        ),
+        (
+            "dense_ordinal",
+            {"path": "start", "start": 0, "group_by": ["end"]},
+            ("start", "end"),
+            True,
+        ),
         ("ordered_by", {"paths": ["start"]}, ("start",), False),
         ("ordered_by", {"paths": ["end"]}, ("end",), True),
         (
@@ -666,7 +678,7 @@ def test_declared_rules_establish_or_reject_admission_atomically(
         {"start": 0, "end": 3, "limit": 4, "wrong_limit": 0, "link": 1, "dangling": 5},
         {"start": 1, "end": 2, "limit": 4, "wrong_limit": 0, "link": 0, "dangling": 5},
     ]
-    if form == "unique" and violates:
+    if (form == "unique" and violates) or ("group_by" in parameters and not violates):
         body[1]["start"] = 0
     packets = [partition_packet("tokens", "only", 0, 0, 5, body)]
     product["body"] = semantic_value({"tokens": partition_header(packets)})

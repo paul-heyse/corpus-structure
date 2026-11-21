@@ -14,12 +14,7 @@ from corpus_structure.semantic.data_operation_service import DemandOperationSele
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
-from semantic.current_pdf_source_support import (
-    admit_current_target,
-)
-from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory,
-)
+from semantic.current_pdf_source_support import admit_current_target
 from semantic.structural_admission_native_support import ISSUER, execute, request, selected
 from semantic.structural_production_native_support import (
     CONDITION,
@@ -32,6 +27,7 @@ from semantic.structural_production_native_support import (
     selected_for_source,
     source_pin,
 )
+from semantic.test_sentence_partition_chain_native import _private_source
 
 
 @pytest.mark.parametrize(
@@ -51,9 +47,11 @@ from semantic.structural_production_native_support import (
     ids=("textbook", "business"),
 )
 def test_condition_admits_only_the_exact_supported_roles(
-    current_pdf_source_factory, native_settings, literal, qualifier, host, tmp_path
+    semantic_bare_engine, native_settings, literal, qualifier, host, tmp_path, monkeypatch
 ):
-    with current_pdf_source_factory((("text", literal, literal, None),)) as source:
+    with _private_source(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch, literal
+    ) as source:
         kernel = admit_current_target(source, recipe(tmp_path / "recipe"), tmp_path / "consumer")
         _, original, products, _ = produce_source_reports(source, kernel, PREDICATES, text=literal)
         (predicates,) = selected_for_source(
@@ -63,7 +61,7 @@ def test_condition_admits_only_the_exact_supported_roles(
             original,
         )
         attachments = [
-            member["body"]
+            member
             for member in predicates.body["members"]
             if member["body"].get("component", {}).get("qualifier_kind") == "condition"
         ]
@@ -74,7 +72,7 @@ def test_condition_admits_only_the_exact_supported_roles(
                 start=0,
                 end=len(literal),
                 passage_id="condition",
-                attachment=attachments[0]["contribution_id"],
+                attachment=attachments[0]["body"]["contribution_id"],
                 question="Which exact predicate is qualified?",
                 scope="condition-scope",
                 inventory_id="actual-native-condition",
@@ -97,6 +95,13 @@ def test_condition_admits_only_the_exact_supported_roles(
         (report,) = selected(
             kernel, retained["demand_id"], kind="urn:corpus:structural:DeclaredConditionReport"
         )
+        assert report.body["condition_qualification"]["attachment"] == {
+            "variant": "member",
+            "role": "report",
+            "member_id": attachments[0]["member_id"],
+        }
+        assert "report_input" not in report.body
+        assert predicates.row["product_id"] not in report.body["inputs"]["dependencies"]
         pointer = next(
             piece["item_ref"] for piece in original.body["pieces"] if piece["kind"] == "native_text"
         )

@@ -5,8 +5,10 @@ and genuine upstream predicate production retain their separate acceptance oblig
 """
 
 import copy
+from dataclasses import asdict
 from functools import lru_cache
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -33,6 +35,7 @@ from corpus_structure.semantic.structural_products import (
     StructuralPassage,
 )
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
+from semantic.test_data_product_admission_programs import product_connection as product_connection
 
 
 @lru_cache(maxsize=1)
@@ -59,8 +62,156 @@ def test_structural_current_producers_have_closed_original_callable_and_nominal_
         assert operation.consumer_selection is not None
         assert operation.dependencies == ()
         assert len(operation.output_witnesses) == (
-            4 if operation.semantic_id == "structure.compare/declared" else 3
+            4 if operation.semantic_id == "structure.compare/declared" else 2
         )
+    condition = model.operation("structure.condition_qualification/declared")
+    (attachment,) = condition.reference_targets
+    assert (attachment.path, attachment.input_role, attachment.variant) == (
+        "/condition_qualification/attachment",
+        "report",
+        "member",
+    )
+
+
+def test_selected_condition_attachment_keeps_original_binding_separate_from_current_support():
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.data_product_reference import SemanticReference
+    from corpus_structure.semantic.live_reference_resolution import (
+        require_selected_output_reference,
+    )
+
+    operation = "structure.condition_qualification/declared"
+    path = "/condition_qualification/attachment"
+    target = {
+        "output_role": "result",
+        "path": path,
+        "input_role": "report",
+        "variant": "member",
+        "input_kind": "predicate-inspection",
+    }
+    body = {"candidate_type": "contribution", "semantic_type": "structural.predicate_qualification"}
+    maps = {
+        "ops.data_derivation": {"episode": {"release_id": "producer-release"}},
+        "sem.data_operation_definition": {
+            ("producer-release", operation): {"support_contract": {"reference_targets": [target]}},
+        },
+        "kb.data_product": {"original": {"project_id": "project", "kind_contract": "kind:report"}},
+        "kb.data_product_member": {("original", "qualifier"): {"body": semantic_value(body)}},
+        "kb.data_product_partition": {},
+        "sem.data_kind_contract": {"kind:report": {"kind": target["input_kind"]}},
+    }
+    original = {"role": "report", "product_id": "original", "position": 0, "multiplicity": 1}
+    use = {
+        "demand_id": "report-demand",
+        "fate": "fulfilled",
+        "derivation_id": "episode",
+        "selection": {"inputs": [original]},
+    }
+    maps["ops.demand_use"] = {"use": use}
+    selected = SimpleNamespace(
+        operation_id=operation, derivation_id="episode", use_id="use", output={"role": "result"}
+    )
+
+    def original_edges(relation, **fields):
+        assert relation == "ops.data_derivation_input"
+        assert fields == {"derivation_id": "episode", "role": "report"}
+        return (original,)
+
+    scope = SimpleNamespace(
+        cut=SimpleNamespace(record={"project_id": "project", "demand_id": "issuer-demand"}),
+        index=SimpleNamespace(
+            mapping=lambda relation, fields: maps[relation],
+            rows_for=original_edges,
+        ),
+    )
+    reference = SemanticReference.member("report", "qualifier")
+    assert require_selected_output_reference(scope, selected, reference, path=path) == body
+    use["selection"]["inputs"] = [{**original, "product_id": "equal-content-replacement"}]
+    with pytest.raises(ValueError, match="unavailable in the exact selected use"):
+        require_selected_output_reference(scope, selected, reference, path=path)
+
+
+def test_native_condition_target_requires_the_actual_bound_report_member(product_connection):
+    from sqlalchemy import bindparam, text
+    from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy.exc import DBAPIError
+    from sqlalchemy.schema import CreateTable
+
+    from corpus_structure.semantic.data_completion_settlement_native import (
+        completion_settlement_native_programs,
+    )
+    from corpus_structure.semantic.data_operation_read_native import read_native_programs
+    from corpus_structure.semantic.data_operation_reference_native import reference_native_programs
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.data_product_reference import SemanticReference
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.native_objects import execute_native_sql
+    from semantic.test_data_product_admission_programs import product_packet, realize
+
+    model, _, _ = compiled()
+    operation = model.operation("structure.condition_qualification/declared")
+    (target,) = operation.reference_targets
+    conn = product_connection
+    metadata = get_metadata()
+    kinds = metadata.tables["sem.data_kind_contract"]
+    conn.execute(
+        kinds.update().where(kinds.c.kind_contract == "container").values(kind=target.input_kind)
+    )
+    member_id = "contribution:source-contribution:" + "1" * 64
+    context, product = product_packet((member_id,))
+    parent = realize(conn, context, product)
+    conn.execute(
+        CreateTable(metadata.tables["ops.data_request"], include_foreign_key_constraints=[])
+    )
+    conn.exec_driver_sql(
+        "CREATE TABLE sem.data_operation_definition "
+        "(release_id text, operation_id text, support_contract jsonb)"
+    )
+    programs = (
+        *completion_settlement_native_programs(metadata),
+        *(item.routine for item in read_native_programs(metadata)),
+        *reference_native_programs(metadata),
+    )
+    for name in (
+        "ddo_witness_path",
+        "ddo_witness_records",
+        "ddo_binding_body_access",
+        "ddo_assert_output_references",
+    ):
+        execute_native_sql(
+            conn, next(program for program in programs if program.name == name).render()
+        )
+    conn.execute(
+        text(
+            "INSERT INTO sem.data_operation_definition VALUES ('release', :operation, :contract)"
+        ).bindparams(bindparam("contract", type_=JSONB())),
+        {"operation": operation.semantic_id, "contract": {"reference_targets": [asdict(target)]}},
+    )
+    request = {
+        "project_id": context["project_id"],
+        "release_id": "release",
+        "operation_id": operation.semantic_id,
+        "binding": {"inputs": [{"role": "report", "product_id": parent}]},
+    }
+
+    def check(reference):
+        body = semantic_value({"condition_qualification": {"attachment": reference.member_value()}})
+        conn.execute(
+            text(
+                "SELECT ops.ddo_assert_output_references("
+                "jsonb_populate_record(NULL::ops.data_request,:request),:completion)"
+            ).bindparams(
+                bindparam("request", type_=JSONB()), bindparam("completion", type_=JSONB())
+            ),
+            {
+                "request": request,
+                "completion": {"outputs": [{"role": "result", "product": {"body": body}}]},
+            },
+        )
+
+    check(SemanticReference.member("report", member_id))
+    with pytest.raises(DBAPIError, match="does not resolve address"), conn.begin_nested():
+        check(SemanticReference.member("report", "contribution:source-contribution:" + "2" * 64))
 
 
 def exact_source(document, product, subject):

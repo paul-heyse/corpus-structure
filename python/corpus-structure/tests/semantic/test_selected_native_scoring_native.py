@@ -41,12 +41,10 @@ from semantic.current_pdf_source_support import (
     admit_current_target,
     current_pdf_recipe,
 )
-from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory,
-)
 from semantic.data_operation_kernel_support import CapturedKernelInputs, split_captured_operations
 from semantic.structural_admission_native_support import request
 from semantic.structural_production_native_support import produce_source_reports
+from semantic.test_sentence_partition_chain_native import _private_source
 
 TEXT = "Ada acts."
 SENTENCES = "segment.sentences/source-native"
@@ -78,12 +76,14 @@ def scoring_recipe(directory):
     )
 
 
+@pytest.mark.gpu
+@pytest.mark.provider_evidence
 def test_native_whole_block_questions_keep_exact_custody_and_missing_populations(
-    current_pdf_source_factory,
-    tmp_path,
-    monkeypatch,
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch
 ):
-    with current_pdf_source_factory((("text", TEXT, TEXT, None),)) as source:
+    with _private_source(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch, TEXT
+    ) as source:
         kernel = admit_current_target(
             source, scoring_recipe(tmp_path / "recipe"), tmp_path / "target"
         )
@@ -97,12 +97,10 @@ def test_native_whole_block_questions_keep_exact_custody_and_missing_populations
             == kernel.identities[NAMESPACE + "DdoSourceAnnotations", "kind"]
             and item.body["source"] == original.body["source"]
         ]
-        (block,) = [
-            packet
-            for packet in annotations.body["members"]
-            if packet["body"]["record_type"] == "native_block"
-        ]
-        assert (block["body"]["start"], block["body"]["end"]) == (0, 9)
+        (layout,) = annotations.body["block_layouts"]
+        block = layout["annotation"]
+        partition_key = block["block_id"]
+        assert (block["block_start"], block["block_end"]) == (0, 9)
         with kernel.purpose("evaluate").begin() as connection:
             selected = read_demand_result(
                 connection, retained["demand_id"], project_id=PROJECT, limit=1000
@@ -145,8 +143,13 @@ def test_native_whole_block_questions_keep_exact_custody_and_missing_populations
             source_release_id=kernel.prepared.release_id,
             source_runtime_id=kernel.runtime,
             source_members=[source_member],
-            output_members=[
-                dict(product_id=annotations.row["product_id"], member_id=block["member_id"])
+            output_addresses=[
+                dict(
+                    variant="partition",
+                    product_id=annotations.row["product_id"],
+                    collection="rows",
+                    partition_key=partition_key,
+                )
             ],
             cases=[
                 dict(
@@ -211,7 +214,7 @@ def test_native_whole_block_questions_keep_exact_custody_and_missing_populations
                 prediction_demand_id=retained["demand_id"],
                 prediction_product_id=annotations.row["product_id"],
                 prediction_cut=cast(WireCutSelection, selected.cut.record),
-                assignments={name: block["member_id"] for name in questions},
+                assignments={name: partition_key for name in questions},
                 applicability=ReferenceApplicability(
                     reference_source_release_id=kernel.prepared.release_id,
                     reference_source_cut_id=selected.cut.identity,
@@ -224,38 +227,40 @@ def test_native_whole_block_questions_keep_exact_custody_and_missing_populations
             )
             from corpus_structure.semantic import sentence_products
 
-            validations = []
-            original_validate = sentence_products.validate_source_annotations
+            restored = []
+            restore = sentence_products.restore_selected_annotation_partition
 
-            def count_validation(*args, **kwargs):
-                validations.append(1)
-                return original_validate(*args, **kwargs)
+            def count_restoration(source, header, layout, packet):
+                restored.append(packet["partition_key"])
+                return restore(source, header, layout, packet)
 
-            monkeypatch.setattr(sentence_products, "validate_source_annotations", count_validation)
+            monkeypatch.setattr(
+                sentence_products, "restore_selected_annotation_partition", count_restoration
+            )
             report = cast(dict[str, Any], evaluate_selected_references(connection, comparison))
-            assert validations == [1]
+            assert restored == [partition_key]
 
             cases = {case["case_id"]: case["native"] for case in report["cases"]}
             assert cases["tokens"]["scores"]["token_f"] == 1.0
             assert cases["tokens"]["coverage"]["reference"]["eligible"] == 3
-            assert cases["tokens"]["prediction_reference"]["member_id"] == block["member_id"]
+            assert cases["tokens"]["prediction_reference"] == dict(
+                variant="partition",
+                product_id=annotations.row["product_id"],
+                collection="rows",
+                partition_key=partition_key,
+            )
             assert cases["uninspected"]["status"] == "uninspected"
             assert cases["uninspected"]["scores"] == {}
             assert cases["categories"]["status"] == "unavailable"
             assert cases["categories"]["scores"] == {}
             assert report["opportunity_denominator"] == 1
-            token = next(
-                packet
-                for packet in annotations.body["members"]
-                if packet["body"]["record_type"] == "native_token"
-            )
-            # Output-first binding refuses substituting a token before any block expansion.
+            # Output-first binding refuses a substitute partition before reading a body.
             with pytest.raises(ValueError, match="frozen prediction population"):
                 evaluate_selected_references(
                     connection,
                     comparison.model_copy(
                         update={
-                            "assignments": {name: token["member_id"] for name in questions},
+                            "assignments": {name: "another-partition" for name in questions},
                         }
                     ),
                 )

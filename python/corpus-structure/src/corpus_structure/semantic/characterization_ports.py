@@ -115,15 +115,17 @@ def _execution_custody() -> SourceArtifact:
 
 
 def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
-    path = Path(__file__).parents[1] / "methods" / (module + ".py")
+    path = Path(__file__)
+    sources = (
+        ("semantic.characterization_ports", path),
+        ("methods." + module, path.parents[1] / "methods" / (module + ".py")),
+    )
+    if profile in {"construction", "contextual"}:
+        sources += (("semantic.construction_products", path.with_name("construction_products.py")),)
     return PythonSourceCollection(
-        (
-            PythonSource(
-                "corpus_structure.semantic.characterization_ports",
-                Path(__file__).read_bytes(),
-                str(Path(__file__)),
-            ),
-            PythonSource("corpus_structure.methods." + module, path.read_bytes(), str(path)),
+        tuple(
+            PythonSource("corpus_structure." + name, file.read_bytes(), str(file))
+            for name, file in sources
         ),
         boundary_contracts=(_semantic_assets(profile), _execution_custody()),
     )
@@ -391,6 +393,8 @@ class PreparedCharacterizationPort(ABC):
             ("corpus_structure.semantic.characterization_ports." + bridge_name, self.bridge),
         )
         if self.family != "view":
+            from .construction_products import verify_interpreted_literal_source
+
             functions = (
                 *functions,
                 (
@@ -398,6 +402,10 @@ class PreparedCharacterizationPort(ABC):
                     + self.family
                     + "_kernel",
                     self.kernel,
+                ),
+                (
+                    "corpus_structure.semantic.construction_products.verify_interpreted_literal_source",
+                    verify_interpreted_literal_source,
                 ),
             )
         verify_prepared_product(
@@ -542,6 +550,7 @@ class PreparedCharacterizationPort(ABC):
                     value.kind,
                     value.content,
                     subject_context=value.subject_context,
+                    partitions=value.partitions,
                 )
                 for value in raw
             )
@@ -562,11 +571,17 @@ class PreparedCharacterizationPort(ABC):
             if kind is None:
                 raise PortRefusal("view member has no admitted concrete nominal kind")
             definition = next(row for row in self.prepared.definitions if row.iri == kind)
+            partitioned = isinstance(value, dict) and set(value) == {"header", "partitions"}
             product = RetainedCharacterizationProduct.acquire(
                 self.prepared,
                 self.model,
                 kind,
-                canonical_bytes(_body(self.prepared, definition.name, value)),
+                canonical_bytes(
+                    value["header"] if partitioned else _body(self.prepared, definition.name, value)
+                ),
+                partitions=tuple(map(canonical_bytes, value["partitions"]))
+                if partitioned
+                else None,
             )
             if member.member is not None:
                 from .data_operation_model import SubjectContext
@@ -690,7 +705,7 @@ class PreparedCharacterizationPort(ABC):
         )
         return _ContextualInputs(source, formal, constructions, supporting)
 
-    def _completion(self, product, binding=None):
+    def _completion(self, product, binding=None, *, source=None):
         if product is None:
             from .data_operation_ports import PortCompletion, PortRefusal
 
@@ -703,7 +718,13 @@ class PreparedCharacterizationPort(ABC):
             if binding.subject_context is None:
                 raise ValueError("publication requires acquired output subject context")
             product = replace(product, subject_context=binding.subject_context)
+        from ._data_operation_wire import WireKindContract, WireOutputMember
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
+        from .established_validity import (
+            RuleObservedInput,
+            bind_product_validation,
+            successful_rule_attestation,
+        )
 
         output = next(role for role in self.operation.roles if role.direction == "output")
         kind = next(
@@ -712,13 +733,47 @@ class PreparedCharacterizationPort(ABC):
             if item.owner == output.kind and item.domain == "kind"
         )
         value = product.value.model_dump(mode="python", exclude_unset=True)
-        from .established_validity import bind_product_validation
-
         proof = (
             bind_product_validation(product, product.subject_context)
             if hasattr(product, "established_validity")
             else None
         )
+        meaning = semantic_value(value)
+        members = project_product_members(self.model, output.kind, value)
+        attestations = ()
+        if binding is not None and isinstance(
+            product, (ConstructionProduct, ContextualMeaningProduct)
+        ):
+            if source is None or product.subject_context is None:
+                raise ValueError("interpreted attestation requires its selected source and subject")
+            rule = next(
+                rule
+                for rule in self.model.rules
+                if rule.checker_operation == self.operation.semantic_id
+                and rule.checker_callable
+                == "corpus_structure.semantic.construction_products.verify_interpreted_literal_source"
+            )
+            owner_kind = next(item for item in self.model.kinds if item.semantic_id == output.kind)
+            packet: WireOutputMember = {
+                "role": output.name,
+                "position": 0,
+                "multiplicity": 1,
+                "product": {
+                    "kind_contract": WireKindContract(kind),
+                    "body": meaning,
+                    "members": [json.loads(member) for member in members],
+                },
+            }
+            attestations = (
+                successful_rule_attestation(
+                    rule,
+                    owner_kind,
+                    self.operation.semantic_id,
+                    packet,
+                    product.subject_context,
+                    selected_inputs={"source": (RuleObservedInput(source.value),)},
+                ),
+            )
         return PortCompletion(
             self.operation.semantic_id,
             (
@@ -726,12 +781,13 @@ class PreparedCharacterizationPort(ABC):
                     output.name,
                     kind,
                     product.content,
-                    canonical_bytes(semantic_value(value)),
-                    project_product_members(self.model, output.kind, value),
+                    canonical_bytes(meaning),
+                    members,
                 ),
             ),
             outcome=successful_return_outcome(self.operation),
             product_validation_evidence=None if proof is None else proof.model_dump_json().encode(),
+            rule_attestations=attestations,
         )
 
     def invoke_python(self, values, *, binding=None, check_active=lambda: None):
@@ -769,7 +825,10 @@ class PreparedCharacterizationPort(ABC):
             )
         check_active()
         self._verify()
-        return self._completion(product, binding)
+        source = (
+            inputs.source if isinstance(inputs, (_ConstructionInputs, _ContextualInputs)) else None
+        )
+        return self._completion(product, binding, source=source)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from .construction_products import validate_interpreted_product
@@ -820,7 +879,9 @@ class PreparedCharacterizationPort(ABC):
             arguments = dict(
                 source=inputs.source,
                 products=tuple(
-                    CharacterizationSnapshot(product.semantic_id, product.content)
+                    CharacterizationSnapshot(
+                        product.semantic_id, product.content, getattr(product, "partitions", None)
+                    )
                     for product in products
                 ),
                 symbolic=tuple(product.reference for product in constructions),
@@ -887,8 +948,11 @@ class PreparedCharacterizationPort(ABC):
                 product_type=ContextualMeaningProduct,
             )
         self._verify()
+        source = (
+            inputs.source if isinstance(inputs, (_ConstructionInputs, _ContextualInputs)) else None
+        )
         return replace(
-            self._completion(product, binding),
+            self._completion(product, binding, source=source),
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
         )
 

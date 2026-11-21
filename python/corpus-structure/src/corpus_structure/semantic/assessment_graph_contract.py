@@ -13,6 +13,7 @@ ASSESSMENT_COLLECTIONS = (
     "choices",
     "coverage",
 )
+# Native witness labels are rendered from selected block partitions and item addresses.
 ASSESSMENT_NATIVE_COLLECTIONS = ("native_block", "native_token", "native_sentence")
 ASSESSMENT_NODE_KINDS = (
     *ASSESSMENT_COLLECTIONS,

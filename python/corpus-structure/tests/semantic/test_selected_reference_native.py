@@ -62,7 +62,7 @@ def test_evaluator_snapshot_executes_and_preserves_complete_authored_reference(d
                 kind_contract=kernel.kind,
             )
         ],
-        output_members=[],
+        output_addresses=[],
         cases=[],
         retained_correspondence=source_value(None),
     )

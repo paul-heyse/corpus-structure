@@ -30,27 +30,15 @@ def populate_named_products(
     check_active=lambda: None,
     admitted=lambda a, b: True,
 ):
-    """Interpret actual detached native blocks, with governed product/member addresses."""
-    from corpus_structure.semantic.data_product_reference import (
-        DataProductReference,
-        member_reference,
-    )
-    from corpus_structure.semantic.sentence_products import (
-        retained_source_annotation_products,
-        source_annotation_member_values,
-    )
+    """Interpret actual detached native blocks with role-relative row addresses."""
+    from ..sentence_partitions import construction_annotation_reference
+    from ..sentence_products import retained_source_annotation_products
 
     products = (
         retained_source_annotation_products(source, native)
         if annotation_products is None
         else annotation_products
     )
-    pin = DataProductReference(native.semantic_id)
-    tokens = {
-        (row["block_id"], row["ordinal"]): row
-        for row in source_annotation_member_values(native)
-        if row["record_type"] == "token"
-    }
 
     def blocks():
         for product in products:
@@ -61,9 +49,8 @@ def populate_named_products(
                 required=(),
             )
             refs = {
-                index: member_reference(pin, row["local_id"]).values()
-                for (owner, index), row in tokens.items()
-                if owner == product.block_id
+                index: construction_annotation_reference(product.block_id, "token", index)
+                for index in range(len(product.tokens))
             }
 
             def occurrences(index, *, product=product):
@@ -73,19 +60,18 @@ def populate_named_products(
             yield (
                 product,
                 native_view,
-                dict(product_id=pin.product_id, block_id=product.block_id),
                 refs,
                 occurrences,
             )
 
     _populate_named_blocks(
-        layer, view, pin, prepared, blocks(), check_active=check_active, admitted=admitted
+        layer, view, prepared, blocks(), check_active=check_active, admitted=admitted
     )
 
 
-def _populate_named_blocks(layer, view, native_pin, prepared, blocks, *, check_active, admitted):
+def _populate_named_blocks(layer, view, prepared, blocks, *, check_active, admitted):
     rules = {(r.rule, r.variant): r for r in prepared.rules}
-    for product, native, container, token_refs, token_occurrences in blocks:
+    for product, native, token_refs, token_occurrences in blocks:
         check_active()
         selector = dict(
             projection=layer.scope["selectors"][0]["projection"],
@@ -103,7 +89,7 @@ def _populate_named_blocks(layer, view, native_pin, prepared, blocks, *, check_a
                 mechanism=declaration.mechanism,
                 protocol=NAMED_VOCABULARY,
                 dependency_digest=product.dependency_digest,
-                native_container=container,
+                block_id=product.block_id,
                 nodes=[],
                 piece_indices=[],
                 sentences=[],
@@ -113,7 +99,7 @@ def _populate_named_blocks(layer, view, native_pin, prepared, blocks, *, check_a
             )
             key = identity(
                 "named-rule-availability",
-                [native_pin.values(), container, rule_identity(declaration)],
+                [product.block_id, rule_identity(declaration)],
             )
             layer.annotations[key] = dict(
                 local_id=key,
@@ -131,7 +117,7 @@ def _populate_named_blocks(layer, view, native_pin, prepared, blocks, *, check_a
         for match in result.matches:
             declaration = rules[match.rule, match.variant]
 
-            def token(index, *, container=container, token_refs=token_refs):
+            def token(index, *, token_refs=token_refs):
                 return token_refs[index]
 
             bindings: list[dict[str, Any]] = []
@@ -165,7 +151,7 @@ def _populate_named_blocks(layer, view, native_pin, prepared, blocks, *, check_a
                 mechanism=match.mechanism,
                 protocol=match.protocol,
                 dependency_digest=match.dependency_digest,
-                native_container=container,
+                block_id=product.block_id,
                 nodes=[token(index) for index in match.nodes],
                 piece_indices=list(match.piece_indices),
                 sentences=[
@@ -183,9 +169,7 @@ def _populate_named_blocks(layer, view, native_pin, prepared, blocks, *, check_a
                 if all(role.status == "complete" for role in match.roles)
                 else "partial",
             )
-            key = identity(
-                "named-binding", [native_pin.values(), container, rule_identity(declaration), body]
-            )
+            key = identity("named-binding", [product.block_id, rule_identity(declaration), body])
             occurrences = [layer.occurrence(view, a, b) for a, b in match.extents]
             layer.annotations[key] = dict(
                 local_id=key,
@@ -234,9 +218,7 @@ def _populate_named_blocks(layer, view, native_pin, prepared, blocks, *, check_a
                     )
             for binding in bindings:
                 for order, endpoint in enumerate(binding.get("antecedent_members", ())):
-                    occurrences = token_occurrences(
-                        next(index for index, ref in token_refs.items() if ref == endpoint)
-                    )
+                    occurrences = token_occurrences(endpoint["item_key"][1]["integer"])
                     for oid in occurrences:
                         if oid not in layer.annotations[key]["occurrences"]:
                             layer.annotations[key]["occurrences"].append(oid)

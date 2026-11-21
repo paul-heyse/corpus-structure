@@ -146,6 +146,7 @@ def test_constructed_separator_and_epsilon_extents_preserve_projection_authority
         interpreted_member_contracts(construction.prepared, construction.model),
         (),
     )
+    body["annotation_support"] = []
     checked = validate_construction_product(
         construction.prepared,
         construction.model,
@@ -418,10 +419,7 @@ def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(m
 
     from corpus_structure.ingest import annotations as annotation_owner
     from corpus_structure.ingest.annotations import AnnotationProfile, annotate
-    from corpus_structure.semantic.sentence_products import (
-        source_annotation_packets,
-        validate_source_annotations,
-    )
+    from semantic.source_annotations_test_support import partition_controlled_annotations
 
     controlled = ControlledPipeline()
     request, source, frame, context = selected_item(
@@ -448,8 +446,7 @@ def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(m
         )
         for token in original
     ]
-    value["members"] = source_annotation_packets(native.prepared, native.model, value)
-    native = validate_source_annotations(
+    native = partition_controlled_annotations(
         native.prepared,
         native.model,
         value,
@@ -598,7 +595,7 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
         source_slice,
     )
 
-    rows = source_annotation_rows(json.loads(annotations.content))
+    rows = source_annotation_rows(annotations)
     frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
     native_context = NativeSourceContext(
         frame,
@@ -636,17 +633,21 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
     assert len(bindings) == 1
     match = bindings[0]["named_match"]
     assert match["rule"] == "copula" and match["status"] == "matched"
-    assert match["native_container"] == {
-        "product_id": annotations.semantic_id,
-        "block_id": "#/texts/0",
-    }
-    native_members = {
-        row["member_id"]: row["body"] for row in json.loads(annotations.content)["members"]
-    }
-    (ref,) = match["nodes"]
-    assert ref["product_id"] == annotations.semantic_id
-    token = native_members[ref["member_id"]]
-    assert source.value["text"][token["start"] : token["end"]] == "is"
+    assert match["block_id"] == "#/texts/0"
+    from corpus_structure.semantic.construction_products import annotation_support_index
+    from corpus_structure.semantic.sentence_partitions import blocks_from_packets
+
+    support = annotation_support_index(json.loads(product.content))
+    ((position, reference),) = support[bindings[0]["local_id"], "named_node", None]
+    assert position == 0 and reference.partition_key == match["block_id"]
+    assert reference.role == "sentences"
+    assert annotations.partitions is not None
+    blocks = blocks_from_packets(tuple(json.loads(packet) for packet in annotations.partitions))
+    (block,) = (block for block in blocks if block.key == reference.partition_key)
+    (token,) = (
+        row for row in block.rows if (row["record_type"], row["ordinal"]) == reference.item_key
+    )
+    assert source.value["text"][block.start + token["start"] : block.start + token["end"]] == "is"
     assert any(
         row["family"] == "construction.named_rules" and row["outcome"] == "complete"
         for row in json.loads(product.content)["coverage"]
@@ -654,7 +655,7 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
     forged = json.loads(product.content)
     for packet in forged["members"]:
         if packet["body"].get("kind") == "construction.named_binding":
-            packet["body"]["named_match"]["native_container"]["block_id"] = "#/texts/foreign"
+            packet["body"]["named_match"]["block_id"] = "#/texts/foreign"
     with pytest.raises(ValueError, match="exact original native block"):
         validate_construction_product(
             construction.prepared,

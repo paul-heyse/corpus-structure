@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -95,7 +95,13 @@ def acquired(tmp_path_factory):
 def admitted(acquired, operation, factory):
     bundle, sources, prepared, model, _ = acquired
     selected_op = model.operation(operation)
-    base = python_port_identity(model, sources, operation, schema=bundle, prepared=prepared)
+    archived = replace(
+        sources,
+        sources=tuple(
+            replace(source, filename=source.logical_filename) for source in sources.sources
+        ),
+    )
+    base = python_port_identity(model, archived, operation, schema=bundle, prepared=prepared)
     boundaries = (
         *selected_op.assets,
         *(
@@ -188,11 +194,10 @@ def test_named_attachment_variants_survive_the_actual_retained_producer_roundtri
         _blocks,
         _detach_annotation_block,
         retained_source_annotation_products,
-        source_annotation_packets,
         spacy_family_coverage,
-        validate_source_annotations,
     )
     from corpus_structure.semantic.structural_products import StructuralPassage
+    from semantic.source_annotations_test_support import partition_controlled_annotations
 
     _, _, prepared, model, formal = acquired
     source = selected(formal, text)
@@ -257,8 +262,7 @@ def test_named_attachment_variants_survive_the_actual_retained_producer_roundtri
         configuration=configuration.model_dump(mode="json"),
         execution_profile="unadmitted:authored-parse-columns",
     )
-    annotations["members"] = source_annotation_packets(prepared, model, annotations)
-    native = validate_source_annotations(
+    native = partition_controlled_annotations(
         prepared, model, annotations, source, subject_context=context
     )
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
@@ -271,7 +275,9 @@ def test_named_attachment_variants_survive_the_actual_retained_producer_roundtri
         subject_context=context,
     )
     snapshot = CharacterizationSnapshot(construction.semantic_id, construction.content)
-    native_snapshot = CharacterizationSnapshot(native.semantic_id, native.content)
+    native_snapshot = CharacterizationSnapshot(
+        native.semantic_id, native.content, native.partitions
+    )
     (restored,) = retained_source_annotation_products(source, native_snapshot)
     result, refs, nominations, rule_ids = DeclaredNamedRules((snapshot,), native_snapshot).decode(
         restored
@@ -330,10 +336,9 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
     from corpus_structure.semantic.sentence_products import (
         _blocks,
         _detach_annotation_block,
-        source_annotation_packets,
         spacy_family_coverage,
-        validate_source_annotations,
     )
+    from semantic.source_annotations_test_support import partition_controlled_annotations
 
     _, _, prepared, model, formal = acquired
     source = selected(formal, "Not every trial succeeds.")
@@ -402,8 +407,7 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
         configuration=configuration.model_dump(mode="json"),
         execution_profile="unadmitted:controlled-lexical-columns",
     )
-    annotations["members"] = source_annotation_packets(prepared, model, annotations)
-    native = validate_source_annotations(
+    native = partition_controlled_annotations(
         prepared, model, annotations, source, subject_context=_publication_context(source)
     )
     inputs = values(port, source=source.value, formal=(primary,), sentences=native)
@@ -483,6 +487,134 @@ def _publication_context(source, *, document=False):
         canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
         subject_definition="original-source-view",
     )
+
+
+def test_interpreted_completions_attest_literal_geometry_for_the_exact_source(acquired):
+    from corpus_structure.semantic.construction_products import (
+        PreparedConstructionProfile,
+        PreparedContextualProfile,
+        verify_interpreted_literal_source,
+    )
+
+    _, _, prepared, model, formal = acquired
+    source = selected(formal, "All samples are finite.")
+    context = _publication_context(source)
+    primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
+    construction = PreparedConstructionProfile(prepared, model).run(
+        source, (primary,), subject_context=context
+    )
+    contextual = PreparedContextualProfile(prepared, model).run(
+        source, (construction,), (primary,), subject_context=context
+    )
+    for operation, resolver, product, required in (
+        (
+            "text.constructions/source-native",
+            resolve_construction_port,
+            construction,
+            "text.constructions/literal-source",
+        ),
+        (
+            "text.contextual_evaluation/source-native",
+            resolve_contextual_port,
+            contextual,
+            "text.contextual_evaluation/literal-source",
+        ),
+    ):
+        port = admitted(acquired, operation, resolver)
+        result = port._completion(product, SimpleNamespace(subject_context=context), source=source)
+        (proof,) = result.rule_attestations
+        assert proof.rule_id == required
+        assert proof.output_role == "result"
+        assert proof.output_position == 0
+
+    consumer = model.operation("text.contextual_evaluation/source-native")
+    (role,) = (role for role in consumer.roles if role.name == "constructions")
+    assert role.required_rules == ("text.constructions/literal-source",)
+    (reference_target,) = model.operation("text.constructions/source-native").reference_targets
+    assert (reference_target.path, reference_target.input_role, reference_target.collection) == (
+        "/annotation_support/*/target",
+        "sentences",
+        "rows",
+    )
+    assert not consumer.reference_targets
+    product = {
+        "source": source.value["source"],
+        "selectors": source.value["selectors"],
+        "members": [
+            {
+                "body": {
+                    "record_type": "occurrence",
+                    "extents": [{"start": 0, "end": 3, "text": "All"}],
+                }
+            }
+        ],
+    }
+    verify_interpreted_literal_source(product, source.value)
+    with pytest.raises(ValueError, match="changes original positioned source"):
+        verify_interpreted_literal_source(
+            product, {**source.value, "text": "Few samples are finite."}
+        )
+
+
+def test_primary_support_uses_real_annotation_rows_and_preserves_formal_premises():
+    from corpus_structure.semantic.construction_products import (
+        CharacterizationSnapshot,
+        _stage_annotation_support,
+        _validated_annotation_support,
+        annotation_support_index,
+    )
+    from corpus_structure.semantic.data_operation_partitions import (
+        partition_header,
+        partition_packet,
+    )
+    from corpus_structure.semantic.data_product_reference import SemanticReference
+
+    formal = {"product_id": "formal", "member_id": "literal"}
+    token = SemanticReference.item("sentences", "rows", "block", ("token", 0))
+    sentence = SemanticReference.item("sentences", "rows", "block", ("sentence", 0))
+    term = {"local_id": "term", "external_premises": [formal, token.values(), sentence.values()]}
+    facts = {
+        "occurrences": [],
+        "annotations": [],
+        "memberships": [],
+        "roles": [],
+        "choices": [],
+        "terms": [term],
+    }
+    links = {"annotation_support": _stage_annotation_support(facts)}
+    assert term["external_premises"] == [formal]
+    assert annotation_support_index(links)["term", "external_premise", None] == (
+        (1, token),
+        (2, sentence),
+    )
+
+    rows = partition_packet(
+        "rows",
+        "block",
+        0,
+        0,
+        2,
+        [{"record_type": "sentence", "ordinal": 0}, {"record_type": "token", "ordinal": 0}],
+    )
+    native = CharacterizationSnapshot(
+        "selected-annotations",
+        canonical_bytes(
+            {
+                "execution_profile": "controlled",
+                "block_coverage": [],
+                "block_layouts": [],
+                "rows": partition_header((rows,)),
+            }
+        ),
+        (canonical_bytes(rows),),
+    )
+    assert _validated_annotation_support(links, (native,), facts, {"term": term}) == {}
+    with pytest.raises(ValueError, match="exact selected annotation partitions"):
+        _validated_annotation_support(
+            links, (replace(native, partitions=None),), facts, {"term": term}
+        )
+    with pytest.raises(ValueError, match="exact graph/item address"):
+        _validated_annotation_support(links, (native,), facts, {})
 
 
 def test_retained_family_ingress_uses_selected_member_context_and_checks_native_id(acquired):

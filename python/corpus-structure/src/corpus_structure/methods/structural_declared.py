@@ -738,6 +738,14 @@ class DeclaredConditionQualification:
             "operator": "all",
             "children": [{"operator": "scan", "roles": ["source", "report"]}],
         },
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/condition_qualification/attachment",
+                "input_role": "report",
+                "variant": "member",
+            },
+        ],
         "output_witnesses": [
             {
                 "output_role": "result",
@@ -811,85 +819,6 @@ class DeclaredConditionQualification:
                         "output_field": "analyzed_scope_meaning",
                         "input": {
                             "role": "source",
-                            "projection": "selected-input",
-                            "field": "analyzed_scope",
-                        },
-                        "encoding": "context-meaning-json",
-                    },
-                ],
-            },
-            {
-                "output_role": "result",
-                "records": "/report_input",
-                "input_role": "report",
-                "comparisons": [
-                    {
-                        "output_field": "product_id",
-                        "input": {
-                            "role": "report",
-                            "projection": "selected-input",
-                            "field": "product",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "reference",
-                        "input": {
-                            "role": "report",
-                            "projection": "selected-input",
-                            "field": "reference",
-                        },
-                        "encoding": "json",
-                    },
-                    {
-                        "output_field": "kind_contract",
-                        "input": {
-                            "role": "report",
-                            "projection": "selected-input",
-                            "field": "kind_contract",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "project_id",
-                        "input": {
-                            "role": "report",
-                            "projection": "selected-input",
-                            "field": "project_id",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject",
-                        "input": {
-                            "role": "report",
-                            "projection": "selected-input",
-                            "field": "subject",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject_definition",
-                        "input": {
-                            "role": "report",
-                            "projection": "selected-input",
-                            "field": "subject_definition",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "original_source",
-                        "input": {
-                            "role": "report",
-                            "projection": "selected-input",
-                            "field": "original_source",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "analyzed_scope_meaning",
-                        "input": {
-                            "role": "report",
                             "projection": "selected-input",
                             "field": "analyzed_scope",
                         },

@@ -315,12 +315,14 @@ def compile_data_rule(raw, kinds, aliases, frontend):
             fields({"paths"})
             normalized = {"paths": [name for name, _ in paths(parameters["paths"])]}
         elif form == "dense_ordinal":
-            fields({"path"}, optional={"start"})
+            fields({"path"}, optional={"start", "group_by"})
             base = parameters.get("start", 0)
             if type(base) is not int:
                 raise ValueError("dense ordinal base requires an integer")
             ordinal, _ = path(parameters["path"], integral=True)
             normalized = {"path": ordinal, "start": base}
+            if "group_by" in parameters:
+                normalized["group_by"] = [name for name, _ in paths(parameters["group_by"])]
         elif form == "span_within":
             fields({"start", "end", "limit", "coordinates"})
             coordinates = parameters["coordinates"]

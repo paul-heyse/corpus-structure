@@ -301,17 +301,19 @@ def retained_native_vocab(source, native):
         ("IS_QUOTE", "is_quote"),
         ("LIKE_NUM", "like_num"),
     )
-    from ..sentence_products import source_annotation_member_values
+    from ..sentence_products import source_annotation_blocks
 
-    for token in source_annotation_member_values(native):
-        if token["record_type"] != "token":
-            continue
-        spelling = text[token["start"] : token["end"]]
-        values = {name: token[field] for name, field in attributes}
-        if spelling in seen and seen[spelling] != values:
-            raise ValueError("retained native lexeme attributes disagree for one original spelling")
-        seen[spelling] = values
-        vocab[spelling].set_attrs(**values)
+    for block in source_annotation_blocks(native):
+        tokens = block["annotation"]["tokens"]
+        for token, lexeme in zip(tokens, block["lexemes"], strict=True):
+            spelling = text[token["start"] : token["end"]]
+            values = {name: lexeme[field] for name, field in attributes}
+            if spelling in seen and seen[spelling] != values:
+                raise ValueError(
+                    "retained native lexeme attributes disagree for one original spelling"
+                )
+            seen[spelling] = values
+            vocab[spelling].set_attrs(**values)
     # Only new authored pattern words use language getters; every original source
     # token lexeme was already acquired above without running those getters.
     vocab.lex_attr_getters = cast(Any, English().vocab).lex_attr_getters
@@ -321,44 +323,32 @@ def retained_native_vocab(source, native):
 def retained_native_documents(source, native, vocab):
     """Materialize actual retained token columns; no tokenization or NLP call."""
     text = source.value["text"]
-    groups = {}
-    from ..sentence_products import source_annotation_blocks, source_annotation_member_values
+    from ..sentence_products import source_annotation_blocks
 
-    for token in source_annotation_member_values(native):
-        if token["record_type"] == "token":
-            groups.setdefault(token["block_id"], []).append(token)
     for item in source_annotation_blocks(native):
         annotation = item["annotation"]
-        block = dict(
-            block_id=annotation["block_id"],
-            start=annotation["block_start"],
-            end=annotation["block_end"],
-        )
-        tokens = sorted(groups.get(block["block_id"], ()), key=lambda row: row["ordinal"])
+        tokens = annotation["tokens"]
         if not tokens:
             continue
-        if [row["ordinal"] for row in tokens] != list(range(len(tokens))):
-            raise ValueError("retained native token ordinals do not form their actual block")
-        by_id = {row["local_id"]: row["ordinal"] for row in tokens}
         rows = []
-        for token in tokens:
+        for ordinal, (token, lexeme) in enumerate(zip(tokens, item["lexemes"], strict=True)):
             columns = dict(
-                index=token["ordinal"],
+                index=ordinal,
                 text=text[token["start"] : token["end"]],
                 **{
                     key: token[key]
-                    for key in ("lemma", "pos", "tag", "morphology", "dependency", "sent_start")
+                    for key in ("lemma", "pos", "tag", "morphology", "dependency")
                     if key in token
                 },
             )
-            if token.get("head_ref") is not None:
-                if token["head_ref"] not in by_id:
+            if "sent_start" in lexeme:
+                columns["sent_start"] = lexeme["sent_start"]
+            if token.get("dependency"):
+                if not 0 <= token["head"] < len(tokens):
                     raise ValueError("retained native dependency head leaves its original block")
-                columns["native_head"] = by_id[token["head_ref"]]
-            # This is an internal column view for the shared working-Doc owner,
-            # never a fabricated released annotation or published member packet.
-            evidence = dict(local_id=token["local_id"], native_token=columns)
+                columns["native_head"] = token["head"]
+            evidence = dict(native_token=columns)
             rows.append((evidence, token["start"], token["end"]))
-        start, end = block["start"], block["end"]
+        start, end = annotation["block_start"], annotation["block_end"]
         doc, annotations = _working_document(text, start, end, rows, vocab)
-        yield block["block_id"], doc, annotations, start, end
+        yield annotation["block_id"], doc, annotations, start, end

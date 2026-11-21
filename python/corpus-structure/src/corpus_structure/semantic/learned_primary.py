@@ -315,7 +315,7 @@ class PreparedLearnedPrimary:
             prepare_model_scope,
         )
         from .observations import source_value
-        from .sentence_products import _blocks
+        from .sentence_products import _blocks, source_annotation_blocks
 
         if binding.subject_context is None or execution_owner.claim is None:
             raise ValueError("learned provider requires actual request and source custody")
@@ -328,6 +328,17 @@ class PreparedLearnedPrimary:
             self.prepared, source.value, selected[0], project=binding.subject_context.project_id
         )
         blocks, block_standing = _blocks(source)
+        annotations_by_block = {}
+        if self.family == "maverick":
+            if annotations is None:
+                raise ValueError("Maverick requires its actual shared source annotation product")
+            for retained in source_annotation_blocks(annotations):
+                annotation = retained["annotation"]
+                if annotation["source"] != frame.pin.values():
+                    raise ValueError(
+                        "Maverick annotations name a different selected source carrier"
+                    )
+                annotations_by_block[annotation["block_id"]] = annotation
         focused = bool(focuses)
         if focused:
             if self.family not in {"d1_source", "gliner_function"}:
@@ -734,7 +745,9 @@ class PreparedLearnedPrimary:
             if self.family in {"maverick", "dipo"}:
                 mapping = scope.mapping
                 if self.family == "maverick":
-                    mapping, request = maverick_input(source, annotations, frame, block, mapping)
+                    mapping, request = maverick_input(
+                        annotations_by_block.get(block.block_id), frame, block, mapping
+                    )
                 else:
                     request = {"text": mapping.provider_text, "mode": "learned"}
                 (reply,) = yield (request_work(request, block.block_id),)
@@ -1089,36 +1102,35 @@ def uncovered_focal_scopes(frame, scopes):
             yield dict(projection=frame.projection_digest, start=cursor, end=end)
 
 
-def maverick_input(source, annotations, frame, block, mapping):
+def maverick_input(annotation, frame, block, mapping):
     from corpus_structure.methods.pm2_source import PM2TokenMap, ProviderToken
 
-    from .sentence_products import SourceAnnotationReadings, source_annotation_rows
-
-    if annotations is None:
-        raise ValueError("Maverick requires its actual shared source annotation product")
-    rows = source_annotation_rows(annotations)
-    if any(row["source"]["content"] != frame.pin.content for row in rows):
+    if annotation is None or (
+        annotation["block_id"],
+        annotation["block_start"],
+        annotation["block_end"],
+    ) != (block.block_id, block.start, block.end):
+        raise ValueError("Maverick requires its actual retained source block")
+    if annotation["source"] != frame.pin.values():
         raise ValueError("Maverick annotations name a different selected source carrier")
-    readings = SourceAnnotationReadings(annotations, source)
-    sentences = readings.sentences(start=block.start, end=block.end)
-    tokens, values = [], []
-    for ordinal, sentence in enumerate(sentences):
-        selected = readings.tokens(sentence["local_id"])
-        words = []
-        for token in selected:
-            text = frame.text[token["start"] : token["end"]]
-            if text.strip():
-                words.append(text)
-                tokens.append(
-                    ProviderToken(
-                        text, token["start"] - block.start, token["end"] - block.start, ordinal
-                    )
+    grouped: list[list[ProviderToken]] = [[] for _ in annotation["sentences"]]
+    for token in annotation["tokens"]:
+        ordinal = token.get("sentence")
+        if ordinal is None:
+            continue
+        text = frame.text[token["start"] : token["end"]]
+        if text.strip():
+            grouped[ordinal].append(
+                ProviderToken(
+                    text, token["start"] - block.start, token["end"] - block.start, ordinal
                 )
-        if words:
-            values.append(words)
+            )
+    tokens = tuple(token for group in grouped for token in group)
     if not tokens:
         raise ValueError("Maverick original block lacks a complete canonical sentence population")
-    return PM2TokenMap(mapping, tuple(tokens)), {"sentences": values}
+    return PM2TokenMap(mapping, tokens), {
+        "sentences": [[token.text for token in group] for group in grouped if group]
+    }
 
 
 def execute_learned_primary(

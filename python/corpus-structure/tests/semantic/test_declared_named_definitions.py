@@ -10,6 +10,7 @@ from corpus_structure.methods.definition_applicability import (
 )
 from corpus_structure.semantic.construction_products import CharacterizationSnapshot
 from corpus_structure.semantic.constructions.declared_named import DeclaredNamedRules
+from corpus_structure.semantic.data_operation_partitions import partition_header, partition_packet
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.structural_products import (
     StructuralPassage,
@@ -19,31 +20,47 @@ from corpus_structure.semantic.structural_products import (
 def population():
     text = "We define variance as spread."
     spans = ((0, 2), (3, 9), (10, 18), (19, 21), (22, 28), (28, 29))
+    packet = partition_packet(
+        "rows",
+        "native-block",
+        0,
+        0,
+        len(text),
+        [
+            {"record_type": "token", "ordinal": index, "start": start, "end": end}
+            for index, (start, end) in enumerate(spans)
+        ],
+    )
     native = CharacterizationSnapshot(
         "native-product",
         canonical_bytes(
             {
                 "source": {"document": "book"},
                 "selectors": [],
-                "members": [
+                "rows": partition_header((packet,)),
+                "block_layouts": [
                     {
-                        "member_id": f"token-{index}",
-                        "body": {
-                            "record_type": "native_token",
+                        "annotation": {
                             "block_id": "native-block",
-                            "ordinal": index,
-                            "start": start,
-                            "end": end,
+                            "block_start": 0,
+                            "block_end": len(text),
                         },
+                        "piece_offset": 0,
                     }
-                    for index, (start, end) in enumerate(spans)
                 ],
             }
         ),
+        (canonical_bytes(packet),),
     )
 
     def ref(index):
-        return {"product_id": native.semantic_id, "member_id": f"token-{index}"}
+        return {
+            "variant": "partition-item",
+            "role": "sentences",
+            "collection": "rows",
+            "partition_key": "native-block",
+            "item_key": [{"kind": "text", "text": "token"}, {"kind": "integer", "integer": index}],
+        }
 
     common = {
         "rule": "defining",
@@ -51,8 +68,7 @@ def population():
         "mechanism": "dependency",
         "protocol": "named-annotation-match-2",
         "dependency_digest": "a" * 64,
-        "native_container": {"product_id": native.semantic_id, "block_id": "native-block"},
-        "nodes": [],
+        "block_id": "native-block",
         "piece_indices": [],
         "sentences": [],
         "bindings": [],
@@ -62,6 +78,21 @@ def population():
         "source": {"document": "book"},
         "selectors": [],
         "coverage": [],
+        "annotation_support": [
+            {"owner": "match", "use": "named_node", "position": position, "target": ref(index)}
+            for position, index in enumerate((1, 2, 4))
+        ]
+        + [
+            {
+                "owner": "match",
+                "use": use,
+                "position": 0,
+                "binding_position": position,
+                "target": ref(index),
+            }
+            for position, index in enumerate((1, 2, 4))
+            for use in ("named_binding_head", "named_binding_member")
+        ],
         "members": [
             {
                 "body": {
@@ -81,21 +112,18 @@ def population():
                     "named_match": {
                         **common,
                         "status": "matched",
-                        "nodes": [ref(1), ref(2), ref(4)],
                         "sentences": [{"token_index": index, "sentence": 0} for index in (1, 2, 4)],
                         "bindings": [
                             {
                                 "role": role,
                                 "node": role,
-                                "head": ref(index),
-                                "members": [ref(index)],
                                 "expansion": "exact",
                                 "status": "complete",
                             }
-                            for role, index in (
-                                ("defining_cue", 1),
-                                ("defined_term", 2),
-                                ("defining_content", 4),
+                            for role in (
+                                "defining_cue",
+                                "defined_term",
+                                "defining_content",
                             )
                         ],
                     },
@@ -148,7 +176,7 @@ def test_declared_named_reader_keeps_actual_member_origin_and_original_role_algo
 
 @pytest.mark.parametrize(
     "mutation",
-    ["native-product", "native-block", "token-position", "availability", "source", "scope"],
+    ["reference-role", "native-block", "token-position", "availability", "source", "scope"],
 )
 def test_declared_named_reader_refuses_wrong_native_members_and_unperformed_variant(mutation):
     import json
@@ -156,12 +184,12 @@ def test_declared_named_reader_refuses_wrong_native_members_and_unperformed_vari
     _, native, primary, product = population()
     body = json.loads(primary.content)
     match = body["members"][1]["body"]["named_match"]
-    if mutation == "native-product":
-        match["native_container"]["product_id"] = "foreign-native"
+    if mutation == "reference-role":
+        body["annotation_support"][0]["target"]["role"] = "foreign"
     elif mutation == "native-block":
-        match["native_container"]["block_id"] = "foreign-block"
+        match["block_id"] = "foreign-block"
     elif mutation == "token-position":
-        match["nodes"][0]["member_id"] = "token-0"
+        body["annotation_support"][0]["target"]["item_key"][1]["integer"] = 0
         product.tokens = (SimpleNamespace(start=100, end=102, sentence=0), *product.tokens[1:])
     elif mutation == "availability":
         body["members"] = body["members"][1:]
@@ -182,6 +210,7 @@ def test_examined_empty_named_variant_remains_distinct_from_unavailable_or_unper
     _, native, primary, product = population()
     body = json.loads(primary.content)
     body["members"] = body["members"][:1] if state is not None else []
+    body["annotation_support"] = []
     if state is not None:
         body["members"][0]["body"]["named_match"]["status"] = state
     result, references, nominations, _ = DeclaredNamedRules(
@@ -194,7 +223,7 @@ def test_examined_empty_named_variant_remains_distinct_from_unavailable_or_unper
 def test_named_definition_acquisition_compiles_without_model_provider_dependencies(tmp_path):
     from pathlib import Path
 
-    from corpus_structure.semantic.characterization_ports import characterization_operation_sources
+    from corpus_structure.semantic.characterization_ports import construction_operation_sources
     from corpus_structure.semantic.data_operation_compilation import compile_data_operations
     from corpus_structure.semantic.declared_structural_calls import (
         structural_operation_declarations,
@@ -221,7 +250,7 @@ def test_named_definition_acquisition_compiles_without_model_provider_dependenci
         NativeProfile(
             "spacy",
             {"controlled": "runtime"},
-            {},
+            {"files": {}},
             configuration.model_dump(mode="json"),
             "float32",
             "cupy",
@@ -232,7 +261,7 @@ def test_named_definition_acquisition_compiles_without_model_provider_dependenci
     )
     sources = combine_primary_sources(
         formal_operation_sources(),
-        characterization_operation_sources(include_dependencies=False),
+        construction_operation_sources(include_dependencies=False),
         sentence_operation_sources(configuration, selection=selection),
         definition_component_operation_sources(),
     )

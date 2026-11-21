@@ -13,6 +13,24 @@ from .identity import canonical_bytes
 
 ReferenceVariant = Literal["product", "member", "partition-item"]
 ReferenceKey = tuple[str | int, ...]
+_Nonempty = Annotated[str, Field(min_length=1)]
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class ReferenceTextKeyPart(TypedDict):
+    kind: Literal["text"]
+    text: _Nonempty
+
+
+@with_config(ConfigDict(extra="forbid", strict=True))
+class ReferenceIntegerKeyPart(TypedDict):
+    kind: Literal["integer"]
+    integer: int
+
+
+ReferenceKeyPart = Annotated[
+    ReferenceTextKeyPart | ReferenceIntegerKeyPart, Field(discriminator="kind")
+]
 
 
 @with_config(ConfigDict(extra="forbid", json_schema_extra={"x-ddo-role-reference": "product"}))
@@ -20,7 +38,29 @@ class SemanticWholeReference(TypedDict):
     """Nominal JSON projection of the shared whole-product variant without an occurrence."""
 
     variant: Literal["product"]
-    role: Annotated[str, Field(min_length=1)]
+    role: _Nonempty
+
+
+@with_config(ConfigDict(extra="forbid", json_schema_extra={"x-ddo-role-reference": "member"}))
+class SemanticMemberReference(TypedDict):
+    """Nominal JSON projection of one identified member of a scalar producing input."""
+
+    variant: Literal["member"]
+    role: _Nonempty
+    member_id: _Nonempty
+
+
+@with_config(
+    ConfigDict(extra="forbid", json_schema_extra={"x-ddo-role-reference": "partition-item"})
+)
+class SemanticPartitionReference(TypedDict):
+    """Nominal JSON projection of one addressed item of a scalar producing input."""
+
+    variant: Literal["partition-item"]
+    role: _Nonempty
+    collection: _Nonempty
+    partition_key: _Nonempty
+    item_key: Annotated[list[ReferenceKeyPart], Field(min_length=1)]
 
 
 def _identifier(value: object) -> bool:
@@ -100,12 +140,7 @@ class SemanticReference:
             value.update(
                 collection=self.collection,
                 partition_key=self.partition_key,
-                item_key=[
-                    {"kind": "text", "text": part}
-                    if isinstance(part, str)
-                    else {"kind": "integer", "integer": part}
-                    for part in self.item_key
-                ],
+                item_key=[_write_reference_key_part(part) for part in self.item_key],
             )
         return value
 
@@ -113,6 +148,28 @@ class SemanticReference:
         if self.variant != "product" or self.occurrence is not None:
             raise ValueError("scalar product reference required")
         return {"variant": "product", "role": self.role}
+
+    def member_value(self) -> SemanticMemberReference:
+        if self.variant != "member" or self.occurrence is not None or self.member_id is None:
+            raise ValueError("scalar member reference required")
+        return {"variant": "member", "role": self.role, "member_id": self.member_id}
+
+    def partition_value(self) -> SemanticPartitionReference:
+        if (
+            self.variant != "partition-item"
+            or self.occurrence is not None
+            or self.collection is None
+            or self.partition_key is None
+            or self.item_key is None
+        ):
+            raise ValueError("scalar partition-item reference required")
+        return {
+            "variant": "partition-item",
+            "role": self.role,
+            "collection": self.collection,
+            "partition_key": self.partition_key,
+            "item_key": [_write_reference_key_part(part) for part in self.item_key],
+        }
 
 
 def read_semantic_reference(value) -> SemanticReference:
@@ -144,6 +201,12 @@ def _read_reference_key_part(part: object) -> str | int:
             if type(number) is int:
                 return number
     raise ValueError("reference key part requires one exact text or integer value")
+
+
+def _write_reference_key_part(value: str | int) -> ReferenceKeyPart:
+    if isinstance(value, str):
+        return {"kind": "text", "text": value}
+    return {"kind": "integer", "integer": value}
 
 
 def reference_inputs(bundle):

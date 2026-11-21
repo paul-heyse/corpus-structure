@@ -69,6 +69,9 @@ authoring against N47 (`27c37c0e9aaa403ebbb53817d6cee671`).
 The extended real spaCy, canonical, HanLP and declaration syntax chain verified complete HanLP
 output and admitted syntax coverage. The same demand repeated with zero new receipts
 (`ce9ecaff99cb4d2c9ce00cfdd29fdc05`).
+The successor with grouped ordinal admission, scoped construction proofs, and clause and condition
+references passed preview and rollback-only authoring against N47
+(`87857b59d542418f862b1636429cac00`, `345c61ef93b247d09e166540a72d6191`).
 
 Run this focused integration before spreading its assumptions through whole producer and consumer
 families. It closes the early shared-boundary uncertainty. SBX-20 still owns the single registered

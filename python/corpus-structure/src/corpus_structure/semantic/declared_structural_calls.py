@@ -414,7 +414,7 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
 
 
 def execute_condition(receiver, source, report, **selection):
-    from corpus_structure.methods.structural_products import produce_condition_qualification
+    from corpus_structure.methods.structural_products import condition_qualification
 
     from .structural_products import DeclaredConditionReport, DeclaredStructuralInput
 
@@ -437,15 +437,14 @@ def execute_condition(receiver, source, report, **selection):
         policy_id=selection["policy_id"],
         sources=(address,),
         passages=(passage,),
-        dependencies=(reference.product_id, reference.contribution_id),
+        dependencies=(address.source_product,),
     )
-    value = produce_condition_qualification(inputs, attachment=reference, retained=retained)
-    return DeclaredConditionReport.model_validate(
-        {
-            **value.model_dump(mode="python"),
-            "source_input": profile.reference("source"),
-            "report_input": profile.reference("report"),
-        }
+    return DeclaredConditionReport(
+        inputs=inputs,
+        source_input=profile.reference("source"),
+        condition_qualification=condition_qualification(
+            inputs, reference.contribution_id, retained, project_id=profile.project
+        ),
     ).model_dump(mode="json")
 
 

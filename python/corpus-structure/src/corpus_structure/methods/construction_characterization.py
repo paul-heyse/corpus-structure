@@ -15,6 +15,21 @@ class ConstructionOperation:
     __data_operation__: ClassVar[dict] = {
         "validity_family": ["none"],
         "id": "text.constructions/source-native",
+        "rules": [
+            {
+                "id": "text.constructions/literal-source",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.constructions/source-native",
+                "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_literal_source",
+                "parameters": {
+                    "paths": ["source", "selectors", "members"],
+                    "input_reads": {"source": ["source", "selectors", "text"]},
+                },
+            },
+        ],
         "profile": "derivation",
         "subject": "original-source-view",
         "subject_definition": {
@@ -47,6 +62,13 @@ class ConstructionOperation:
                 "name": "formal",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
                 "direction": "input",
+                "required_rules": [
+                    "text.formal_evidence/examined-scope",
+                    "text.formal_evidence/lexical-inventory-links",
+                    "text.formal_evidence/literal-source-geometry",
+                    "text.formal_evidence/symbolic-inventory-positions",
+                    "text.formal_evidence/unique-coverage-family",
+                ],
                 "minimum": 1,
                 "maximum": None,
                 "collection": "sequence",
@@ -103,6 +125,15 @@ class ConstructionOperation:
         "dependencies": [
             "text.formal_evidence/source-native",
             "segment.sentences/source-native",
+        ],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/annotation_support/*/target",
+                "input_role": "sentences",
+                "variant": "partition-item",
+                "collection": "rows",
+            },
         ],
         "effects": [],
         "capabilities": {

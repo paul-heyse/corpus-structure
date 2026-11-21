@@ -1431,18 +1431,9 @@ def produce_structural_dossier(
     )
 
 
-def produce_condition_qualification(inputs, *, attachment, retained):
-    """Qualify only the exact retained source-supported directed attachment."""
-
-    return DeclaredStructuralProductReport(
-        kind="condition_qualification",
-        inputs=inputs,
-        condition_qualification=condition_qualification(inputs, attachment, retained),
-    )
-
-
-def condition_qualification(inputs, attachment, retained):
+def condition_qualification(inputs, contribution_id, retained, *, project_id):
     """Project only the condition and the declared host predicate, under retained custody."""
+    from corpus_structure.semantic.data_product_reference import SemanticReference
     from corpus_structure.semantic.observations import source_python
     from corpus_structure.semantic.structural_products import (
         ConditionRoleCitation,
@@ -1450,7 +1441,7 @@ def condition_qualification(inputs, attachment, retained):
     )
 
     rows = {row["contribution_id"]: row for row in retained["contributions"]}
-    relation = rows.get(attachment.contribution_id)
+    relation = rows.get(contribution_id)
     if (
         relation is None
         or relation.get("semantic_type") != "structural.predicate_qualification"
@@ -1524,7 +1515,7 @@ def condition_qualification(inputs, attachment, retained):
     pin = relation["pin"]
 
     def selected_source(source):
-        return source.project_id == attachment.project_id and source.matches_pin(pin)
+        return source.project_id == project_id and source.matches_pin(pin)
 
     (source,) = (source for source in inputs.sources if selected_source(source))
     (projection,) = (row["projection"] for row in retained["sources"] if row["pin"] == pin)
@@ -1577,7 +1568,9 @@ def condition_qualification(inputs, attachment, retained):
 
     return DeclaredConditionQualificationProduct(
         relation=relation_kind,
-        attachment=attachment,
+        attachment=SemanticReference.member(
+            "report", "contribution:" + contribution_id
+        ).member_value(),
         effective_version=effective,
         qualifier=locations(cue),
         host_predicate=locations(member),

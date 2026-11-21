@@ -609,29 +609,16 @@ def test_named_coverage_counts_selected_blocks_once_and_does_not_assume_absence(
 
 
 def _assert_public_condition_projection(view, relation, rows, predicate):
-    from copy import deepcopy
-
     from corpus_structure.methods.structural_products import condition_qualification
-    from corpus_structure.semantic.declared_structural_references import (
-        DeclaredContributionRef,
-        DeclaredStructuralSource,
-    )
+    from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.structural_admission import structural_statement
     from corpus_structure.semantic.structural_products import DeclaredStructuralProductReport
 
     pin = relation["pin"]
     scope = relation["component"]["scope"]
     selected = DeclaredStructuralSource.model_validate(pin)
-    ref = DeclaredContributionRef(
-        contribution_id=relation["contribution_id"],
-        product_id="unadmitted:condition-fixture",
-        kind_contract="unadmitted:retained-contributions",
-        project_id=pin["project_id"],
-        subject=pin["subject"],
-        subject_definition=pin["subject_definition"],
-        original_source=pin["original_source"],
-        analyzed_scope_meaning=pin["analyzed_scope_meaning"],
-    )
+    attachment = relation["contribution_id"]
+    project_id = pin["project_id"]
     inputs = DeclaredStructuralInput(
         question="Which condition limits this predicate?",
         scope=scope,
@@ -654,7 +641,24 @@ def _assert_public_condition_projection(view, relation, rows, predicate):
         "contributions": tuple(rows.values()),
         "sources": [{"pin": pin, "projection": {"text": view.text, "pieces": view.pieces}}],
     }
-    projected = condition_qualification(inputs, ref, payload)
+
+    def changed_components(changes):
+        return {
+            **payload,
+            "contributions": [
+                {**row, "component": {**row["component"], **changes[row["contribution_id"]]}}
+                if row["contribution_id"] in changes
+                else row
+                for row in payload["contributions"]
+            ],
+        }
+
+    projected = condition_qualification(inputs, attachment, payload, project_id=project_id)
+    assert projected.attachment == {
+        "variant": "member",
+        "role": "report",
+        "member_id": "contribution:" + attachment,
+    }
     report = DeclaredStructuralProductReport(
         kind="condition_qualification",
         inputs=inputs,
@@ -670,25 +674,25 @@ def _assert_public_condition_projection(view, relation, rows, predicate):
         update={"passage_id": "other-source-version", "effective_version": "revision-2"}
     )
     versioned = inputs.model_copy(update={"passages": (original, other_version)})
-    assert condition_qualification(versioned, ref, payload) == projected
+    assert (
+        condition_qualification(versioned, attachment, payload, project_id=project_id) == projected
+    )
 
-    changed = deepcopy(payload)
-    (cue,) = [
-        row
-        for row in changed["contributions"]
-        if row["contribution_id"] == relation["component"]["qualifier_contribution_id"]
-    ]
-    cue["component"]["candidate_tokens"] = (*cue["component"]["candidate_tokens"], 1000)
+    qualifier_id = relation["component"]["qualifier_contribution_id"]
+    cue = next(row for row in payload["contributions"] if row["contribution_id"] == qualifier_id)
+    changed = changed_components(
+        {qualifier_id: {"candidate_tokens": (*cue["component"]["candidate_tokens"], 1000)}}
+    )
     with pytest.raises(ValueError, match="uniquely located host"):
-        condition_qualification(inputs, ref, changed)
+        condition_qualification(inputs, attachment, changed, project_id=project_id)
 
     # An assumption in the condition family remains an assumption in public
     # meaning; the cue and relation must declare the same subtype.
-    changed = deepcopy(payload)
-    for row in changed["contributions"]:
-        if row["contribution_id"] == ref.contribution_id:
-            row["component"]["qualifier_kind"] = "assumption"
-        if row["contribution_id"] == relation["component"]["qualifier_contribution_id"]:
-            row["component"]["cue_kind"] = "assumption"
-    assumption = condition_qualification(inputs, ref, changed)
+    changed = changed_components(
+        {
+            attachment: {"qualifier_kind": "assumption"},
+            qualifier_id: {"cue_kind": "assumption"},
+        }
+    )
+    assumption = condition_qualification(inputs, attachment, changed, project_id=project_id)
     assert assumption.relation == "assumption"
