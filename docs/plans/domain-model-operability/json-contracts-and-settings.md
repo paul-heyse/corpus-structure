@@ -1,6 +1,6 @@
 # JSON contracts and settings
 
-**Status:** Partial implementation and N44 stage admission. **Created:** 2026-11-20.
+**Status:** Partial implementation and N45 native stage installation. **Created:** 2026-11-20.
 
 This companion owns DMO-05 and DMO-06. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns package state, source dispositions, rule decisions and completion. This target is **Proposed**.
@@ -11,13 +11,58 @@ are scheduled work. The 2026-11-21 amendment consumes the [N44 review][n44] at `
 including its inspected source `6a445d6b6`. N44 I02, I05 and I06 refine host grouping, complete
 JSON consumer migrations and the staged facade trial below. The execution follow-up at `101d67a53`
 supplies scheduled [I02][followup-i02], [I03][followup-i03] and [I06][followup-i06] work for captured
-support interpretation, contract-specific rollout and complete consumer paths. Their implementation
-and broader qualification remain open. The existing package pins are Pydantic 2.14.1,
+support interpretation, contract-specific rollout and complete consumer paths. The selected
+implementation and its remaining qualification are described below. The existing package pins are Pydantic 2.14.1,
 pydantic-settings 2.16.1, jsonschema 4.26.0, Psycopg 3.3.6 and python-rapidjson 1.25.
 The retained comparison used referencing 0.37.0 and pg_jsonschema 0.3.4. Execution must compare
 those selections with the current lock and installed extension before relying on the results.
 [Integrated review O05–O09](../../functional_reviews/udm-operability-and-json_2026-11-20.md#O05)
 [Retained library contracts](../../design_review/evidence/2026-11-20_json-boundary-contracts/README.md)
+
+**Execution follow-up · 2026-11-21.** The native support projection and captured reader
+declare the selected relation fields and nominal kind semantics used by the index, verifier and
+Parquet exporter. A retained archive that lacks the captured interpretation explicitly requests
+regeneration. Its original hashes and bytes remain meaningful. The full selected private export
+and reader selection passed (`0b1a5c4b83f54905bb4887738151bde9`). Rich continuations use
+strict native token decoding to preserve applicable exact fractional comparisons. Ordinary detached
+framing and schemas use finite parsing. The detached v3 manifest writer embeds the acquired
+cut's original bytes. The decoder captures the embedded object before interpretation and
+validates its identity separately from the declared number roles. Detached structural replay
+and graph readback consume the captured cut owner. This retires the manifest's recursive
+field-name heuristic without changing the historical format. The 48 focused framing, wire and
+role cases passed (`e7bcfca078af48849ae7c0a1f0b0a9e2`). Native JSONL, Parquet and
+live/offline graph cases passed in the isolated N45 selection `9b26f62e560047cab0e1079e23f4feb6`.
+Three fixture failures in that selection passed on exact retry
+(`b593948a32bc44a497464a53168fe696`). Native binding, retained draft and D1 consumers with
+historical conventions still have typed migration and retirement work.
+
+Run, preview, resume and draft retirement now share the settings policy resolution. Explicit files
+remain subject to duplicate-key and empty-document refusal. Binding a selected connection profile
+uses validated settings without reopening ambient configuration. The matching settings and report
+selections passed (`323d85dc5390424b925d2f8368143b80`, `752f4535d89b41f1a6471166c570b2dd`).
+
+Typed model-change effects now attribute generated output, application material and runtime,
+installed native contract and target prerequisites by their owners. Missing observations stay
+uncompared. The generated Draft 7 portability changes preserve fixed and variable collection
+semantics, share JSON Schema preparation and distinguish advisory formats from constraints
+enforced by their domain owner. Independent Python and PostgreSQL controls passed
+(`2f67b797c6b542398f51e91a90b4ed85`, `fac8698c0fc54768a75077be0cb82748`). Forward
+N45 installation passed on dedicated stage OID `130661481` with N44 as predecessor. The
+managed preview `0575bc8f8e924c2ca4f4ec812df99933` identified a native program change with
+zero source paths to apply. Rollback-only candidate `aa24e7c94ece440fa4b44857d5d451b6` and
+registration `088956758326494f934337117d7bff6d` established the frozen revision.
+Deployment `ea346d25fe964765b862a41779810a79` verified migration and the installed contract
+on that target. The prior failed rollback-only candidate `a10b3ee835dd46bb8059d54632bd23f1`
+caught the producer effect's composite argument mismatch and recorded zero applied effects.
+Separate Standard and Integrated previews `7198e52cdc394f89815f8fa4054a9c4b` and
+`e7bba199c59e4db29f33b67f5af756ae` acquired their own application runtimes on source
+`2721db56f`. Both previews showed no new native installation requirement. The Integrated
+candidate `b6b4cf24814f402b9d8e8d4b642a2a9e` passed guarded archive, admission and readback
+(`f0ae5616c0a54f41b6a1529fecf008a8`). Independent `ci release check --native-proof` confirmed
+its installed native proof. The Standard candidate `8a5c22944abe420698cb39c69d9790f8` passed
+the same separate effects (`8147b825dcd8413283d1348de1467702`) and independent native proof.
+These admissions establish the exact staged releases at `2721db56f`. Later PDF and detached
+reader source changes have their own scoped checks and final-source applicability.
 
 **N44 execution checkpoint · 2026-11-21.** Detached export authenticates v3 manifest bytes before
 typing its metadata and checking content coverage. Its captured kind reader uses the native Draft 7

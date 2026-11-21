@@ -62,6 +62,22 @@ earlier watchdog results stay failed. Statement-level attribution and wider case
 <a id="dmo-03"></a>
 ## DMO-03 · Derive typed consumer requirements
 
+**Execution follow-up · 2026-11-21.** Binding preparation compares observed producer facts
+against the compiled consuming role. The selected native row carries the producing derivation,
+release and runtime, publication and CPU receipt standing, admitted effect names and validity
+families under the existing bound-reader authority. The same CPU witness expression serves native
+enforcement. A missing observation remains explicit and native enforcement retains final authority.
+Nine focused cases passed on the private source (`198680360dca484ab3ee6083d27fa9b7`). The
+authorized binding and revocation case was blocked at fixture setup by the installed N44 kernel.
+The standalone rollback-only compiler caught an incorrect argument type for the native effect
+predicate. The typed composite fix passed PostgreSQL compilation
+(`aeb00bd9207b4689936412485b7bedb5`). After N45 registration, the real private
+reader returned the independently anchored producer. Direct protected-table access and a read
+after revocation both refused. The 35-case native selection also covered JSONL and Parquet exports and
+execution-evidence behavior (`2f4e4d67e5474a5c9a96889fccbc627c`). Eighteen rich admission
+controls passed on N45 (`e3f1381d00d64418a5c47d6ead58395f`). The planned mixed-family journey
+retains its own acceptance.
+
 N40 applied current presentation authority to historical fit support. N41 asked an ordinary
 policy issuer to supply a rich producer family. The bounded N42 fixes passed the actual rich
 journey and 18 native controls. The admitted facts already distinguished issuer, historical
@@ -121,6 +137,14 @@ in one requirement affects its dependent consumer while an independently valid s
 
 <a id="dmo-04"></a>
 ## DMO-04 · Acquire only the support a cut requires
+
+**Execution follow-up · 2026-11-21.** The selected request/product relation and kind now
+travel together through native support projection, the index, detached verification and export.
+The portable reader contract supplies historical relation and kind meaning, and the same cut
+owns support selection and current disclosure. Seventy-seven focused private cases passed
+(`0b1a5c4b83f54905bb4887738151bde9`), including native JSONL and Parquet exports.
+The later-page use on a regional population, broader migration and statement-level attribution
+retain their acceptance below.
 
 The earlier event journey published frame, fit and authorization, then exhausted the watchdog
 at scorer attachment. N44's later attempts moved that failure boundary to whole-demand delivery

@@ -124,12 +124,12 @@ decision before dependent cutover.
 | Package | Delivered change | Entry and completion boundary |
 | --- | --- | --- |
 | DMO-00 | Current baseline, scoped contracts and rule decisions | Complete. Both targets and the active book binding were observed. Binding changes remain with their dependent packages. [Evidence][entry-baseline] |
-| [DMO-01][p01] | Selected executable acquisition and early shared-host preparation | Preparation, declaration and reacquisition share the single-environment rule. The initialized PDF runtime guard passed actual three-page spool resume. The parent still needs the authenticated selected producer contract for attachment. |
-| [DMO-02][p02] | Material identity, cross-demand capture reuse and compatible recovery | The ready-item disposition and captured writer-contract paths are implemented. Real lost acknowledgement with CPU producer retirement preserved exactly one publication. The first real two-demand Standard reuse case and remaining identity work stay open. |
-| [DMO-03][p03] | Typed consumer requirements and current/historical authority | The compiled consuming role owns rich producer requirements. Targeted rich controls and the event fit, issuer and scorer journey passed on N44. Remaining mixed-family and live authority cases retain their own acceptance. |
-| [DMO-04][p04] | Compact cut acquisition and scoped support | Event and record-grade consumers select uses or obligations. Carry the captured relation and kind through the same cut, then qualify continued use, regional read work and any set-wise recovery change. |
-| [DMO-05][p05] | Numeric roles, consumer-by-consumer interchange and validated settings | Detached metadata, cursors, frontier and compact context use declared roles. Extend through the selected request/product support slice and its detached export, then complete consumer migration and retirement. |
-| [DMO-06][p06] | Generated source custody, equivalent schemas and validation retirement | The private tuple trial verified matching generated and native contracts, drift refusal, same-candidate recovery and both admissions. Use contract-specific comparisons for the support slice and complete the validation inventory. |
+| [DMO-01][p01] | Selected executable acquisition and early shared-host preparation | The explicit Standard producer profile connects parent acquisition and worker preparation. Full-custody provider execution and remaining selected binding work stay open. |
+| [DMO-02][p02] | Material identity, cross-demand capture reuse and compatible recovery | Ready-item recovery records the scoped observation. Binding comparison distinguishes literal values from legacy numeric tags. Two Standard previews agreed on release and differed in runtime for a spool-only edit. Actual two-demand reuse and the remaining identity transitions stay open. |
+| [DMO-03][p03] | Typed consumer requirements and current/historical authority | Preparation compares selected producer facts against the compiled consuming role. The N45 private binding and revocation controls passed. The mixed-family journey and broader consumer migration retain their own acceptance. |
+| [DMO-04][p04] | Compact cut acquisition and scoped support | The request/product support slice carries captured relation and kind through selected read, index and export. Broader continuation, regional read work and any set-wise recovery change retain their acceptance. |
+| [DMO-05][p05] | Numeric roles, consumer-by-consumer interchange and validated settings | Captured support and detached framing now join the earlier frontier, cursor and metadata slices. Run and recovery share validated settings policy. Remaining consumer migration and retirement stay open. |
+| [DMO-06][p06] | Generated source custody, equivalent schemas and validation retirement | Contract-specific rollout and portable schema changes are implemented. Guarded N45 installation and the separately captured Standard and Integrated admissions passed. Validation inventory and final-source applicability remain scoped work. |
 | [DMO-07][p07] | Attributed operator diagnostics | Preparation and source comparison expose scoped reasons. Carry rollout and recovery dispositions from their owners into scoped next actions and verify the installed command and delivery paths. |
 | [DMO-08][p08] | Final-source stage and functional qualification | Enter after functional delivery, consumer migration and retirement. Reconcile the managed evidence union against final source and acquired context. Broad qualification is pending. |
 | [DMO-09][p09] | Guarded canonical adoption and whole-book qualification | DMO-08 on the selected final release. Verify original custody, complete the book, and independently verify interruption/reuse and zero new work on repeat. |
@@ -240,15 +240,22 @@ actual scope, retain failed receipts, and leave unavailable required cases open 
 prerequisite. [Qualification and adoption][p08]
 
 **Current state · 2026-11-21.** DMO-00 entry is complete. DMO-01 through DMO-06 have scoped
-implementation and verification. The dedicated stage installed generated N44 and admitted
-Standard and Integrated from `0ed2825f9`. A focused managed selection passed 361 cases on
+implementation and verification. The dedicated stage holds generated N45 and admit proofs for
+the separately captured Standard and Integrated applications on source `2721db56f`. A focused
+managed selection passed 361 cases on
 its recorded source (`f2d7690917444606a7d3e953105e697b`). The generated-wire, host and model
 command selection passed 57 cases on `cbd1658f5` (`f400dbb6c44449c18e2123b9b3319efe`). The N44
 event scorer and M1 cases passed through their selected read paths. The 2026-11-21 increment
 verified the initialized Docling spool, shared-host refusal and composite CPU/native recovery.
 It narrowed selected support, migrated detached metadata, cursor framing and frontier field
-roles, and completed the private tuple trial with both applications admitted. The [N44 dispositions](#n44-disposition)
-retain the acceptance that remains. DMO-08 owns final-source qualification before canonical adoption.
+roles, and completed the private tuple trial with both applications admitted. The execution
+follow-up integrated the captured request/product path, typed producer observations, policy
+resolution and contract-specific rollout and schema preparation. Managed private selections
+passed the selected export and schema behavior. The PDF-only adapter passed real same-spool
+recovery. Real cold Standard attachment and the remaining affected migrations still govern
+package completion. DMO-08 owns
+final-source qualification before canonical adoption.
+[N44 dispositions](#n44-disposition) · [Follow-up dispositions](#execution-followup-disposition)
 [Identity and recovery][p02] · [Consumer and read paths][p04] · [JSON and generated source][p06]
 
 [predecessor]: unified-domain-model-and-execution_2026-11-19.md

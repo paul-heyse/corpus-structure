@@ -374,6 +374,14 @@ heading hierarchy. Full Docling with the operator-selected extras supplies avail
 installation does not activate every backend or change PDF-only applicability. Replace obsolete
 DOM/CSS, delimiter, macro-acquisition and rendering-conversion paths as consumers migrate.
 
+**Implemented, scoped Tested (2026-11-21).** The serial PDF worker owns a prepared
+`StandardPdfPipeline` and uses Docling's `InputDocument` and explicit threaded PDF backend
+for retained source bytes. Native input validation, page limits, invalid-input diagnostics and
+backend release keep their Docling owners. The adapter removes multi-format registration from
+the selected PDF route and preserves the record and companion interfaces. Real missing-page
+resume and same-spool reassembly passed at the recorded source. Cross-demand reuse has a
+separate acceptance boundary. [DMO execution evidence](../plans/domain-model-operability/execution-identity-and-recovery.md)
+
 Formula items provide recognized LaTeX directly to native SymPy parsing. M09 retains consumed
 occurrence positions/multiplicity, M11 retains lazy contextual/scientific assessment, and M13
 retains source-qualified scope/binding. Native values cannot replace source occurrences. Unknown

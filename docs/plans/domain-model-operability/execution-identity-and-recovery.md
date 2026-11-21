@@ -11,6 +11,47 @@ The execution follow-up at `101d67a53` integrates [I01][followup-i01], [I04][fol
 and the acquisition/recovery sequencing in [I06][followup-i06].
 The execution checkpoint retains its recorded source and verification scope.
 
+**Execution follow-up · 2026-11-21.** The Standard streaming capture profile can explicitly
+acquire the `standard-pdf-producer-files-v1` declaration before preparing an operation.
+The parent retains its relative source and installed file identities. The spawned worker
+checks the handed-off custody and its initialized report before conversion or restored-page use.
+The v3 spool receipt binds that declaration. The default continues to use demand-scoped
+eligibility. The producer checkpoint now compares binding values through the existing typed
+semantic representation, which distinguishes a Decimal from a literal object with the same
+legacy tag spelling. This leaves historical D1 and archive byte identities on their existing
+basis. Ready-item reconciliation records the actual native intent or draft observation for the
+requested recovery action. The 117 selected recovery, settings and CLI cases passed
+(`323d85dc5390424b925d2f8368143b80`).
+
+The real v3 Docling attempt `7b8c03b6ea2e4056b9fa6639d5adaaae` reached full-custody
+worker startup and failed before inference on an optional JSON Schema format dependency.
+The updated file handoff and shared occurrence helpers passed the actual default v2 interruption,
+missing-page resume and all-page rebuild (`95d1e0d18ce34ab886b419b64b8f0f77`). Investigation of
+the selected route found that the top-level multi-format converter loads XBRL dependencies during
+initialization. The pinned PDF pipeline, input document and backend can import directly. The
+PDF-only adapter passed actual interrupted-page recovery, all-page rebuild and exact emitted
+record comparison on its recorded source (`4ddb0f2e74604a8fa866ab0c86d5d747`).
+The selected direct-route trial first refused a generated dataclass constructor
+(`dd8debd9c75b47bfb0d5637f0b887199`). Code derivation now includes its declared
+`__post_init__`. The next strict retry refused `colorama` at Torch Inductor initialization
+(`fcdfdde246464de4a6d329275350c088`). After adding that installed dependency, the real
+Heron layout stage reached Transformers' SentencePiece import
+(`845b359eb375495f968e87b2c206b2a0`). The producer now acquires the pinned Transformers
+`sentencepiece` extra and its declared dependencies. The next attempt refused the source
+comparison for Torch's generated context-decorator frame names
+(`d1598c40f55f4b8fa926d853c76bec5c`). The supported comparison re-derives only the two
+display names in the pinned wrapper templates and still compares their executable code.
+The narrow N45 application preview passed with zero effects
+(`b0aacc73daef427d9e80aa0e5a87bbd2`). Two further previews changed only the spool directory.
+On `377f13b81` they selected the same release, different runtimes and zero applied effects
+(`ce2d834e00de45b1b7a7c6be5958b736`, `d75899ae9f764fc58cbdbc8f5bb18b83`). This establishes
+the application boundary for that transport change. Publication and second-demand attachment
+have separate acceptance.
+The qualification boundary must account for runtime-generated Python, the determining native
+runtime and library resources, and correctness of restored-page assembly. Independent observation
+of the original derivation, attempt and provider activity across two actual demands and a
+determining edit remains required before enabling reuse for this profile.
+
 **N44 execution checkpoint · 2026-11-21.** Resident declaration, preparation and guarded
 reacquisition now enforce one project, interpreter and worker script for a physical shared host.
 Mixed environments refuse before preflight or declaration. The 80 managed host and execution
@@ -282,22 +323,37 @@ the complete determining surface is established.
 [Selected Docling initialization](../../../python/corpus-structure/src/corpus_structure/ingest/pdf.py#L223) ·
 [Runtime acquisition profiles](../../../python/corpus-structure/src/corpus_structure/semantic/external_runtime.py#L52)
 
-**Docling realization.** Use Docling 2.148.0 `DocumentConverter.initialize_pipeline` at the existing
-initialization boundary to acquire the selected pipeline. Its `_get_pipeline` implementation reuses
-instances by pipeline class and options hash, and `StandardPdfPipeline._init_models` invokes the
-selected factories with options and the artifact path. Keep that pipeline instance for its useful
-worker lifetime. Observe the actual repository subclasses and inserted stages after initialization,
-authenticate their loaded bindings and selected resource files, and recheck mutable premises at
-worker startup. Docling Core 2.106.0 supplies the selected output contracts where serialized
-meaning depends on them. The options hash establishes Docling's instance-cache selection. The
-acquisition owner supplies code and resource correspondence. Python `inspect`, distribution
+**Docling realization.** The PDF-only adapter uses Docling 2.148.0 `InputDocument`,
+`DocumentLimits` and `ThreadedDoclingParseDocumentBackend` for retained bytes, backend validation
+and exact physical page ranges. The serial worker owns one prepared `StandardPdfPipeline`
+subclass. `StandardPdfPipeline._init_models` invokes the selected factories with options and
+the artifact path. The adapter calls the native `execute` interface, uses native invalid-input
+diagnostics and owns input release. Using the PDF classes directly removes the multi-format
+converter and its optional backend imports from this route. Observe the actual subclasses and
+inserted stages after initialization, authenticate their loaded bindings and selected resource
+files, and recheck mutable premises at worker startup. Docling Core 2.106.0 supplies the selected
+output contracts where serialized meaning depends on them. Python `inspect`, distribution
 records and existing external-runtime checks supply runtime facts. ty and LibCST resolve first-party definitions
 where useful, and the declared NetworkX projection supplies reachability. Preserve unresolved facts
 at their owner until the complete selected boundary can support reuse.
-[Docling converter at v2.148.0](https://github.com/docling-project/docling/blob/v2.148.0/docling/document_converter.py) ·
+[Docling input document at v2.148.0](https://github.com/docling-project/docling/blob/v2.148.0/docling/datamodel/document.py) ·
 [Standard pipeline at v2.148.0](https://github.com/docling-project/docling/blob/v2.148.0/docling/pipeline/standard_pdf_pipeline.py) ·
 [Docling capabilities](../../libraries/primary_intake/docling.md) ·
 [LibCST capabilities](../../libraries/python_introspection/libcst.md)
+
+The worker sets Hugging Face offline mode before model startup and verifies the files of the
+prepared revision-specific snapshots. The Transformers reference covers processor artifacts and
+optional tokenizer backends. It describes 5.22.2. The selected 5.22.1 dependency closure uses
+the installed package's `sentencepiece` extra, as observed through the pinned Docling processor
+load and package metadata. Retain the actual processor configuration alongside the model weights.
+PyTorch 2.15.0 context decorators can change display names on their generated code. The source
+comparison checks wrapper code and closure layout. Worker startup independently observes the
+prepared stage bindings.
+PyTorch's precision and determinism contracts make device, selected kernel and runtime settings
+relevant when broadening reuse to a different execution environment.
+[Prepared PDF assets](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_assets.py) ·
+[Transformers offline artifacts](../../libraries/parsing/transformers.md#123-reproducible-and-offline-execution) ·
+[PyTorch determinism](../../libraries/parsing/torch.md#113-determinism-and-numerical-precision)
 
 Cachetools 8.0.1 `LRUCache` may bound reusable process-local prepared observations keyed by
 their already acquired facts where an actual consumer repeats that preparation. Native attachment standing
@@ -354,6 +410,20 @@ Retire canonical calls handling size, presentation or round-trip validation once
 owners migrate. Use a named transition and frozen forward generation when required bytes change.
 Keep the prior canonical profiles only where authenticated historical interpretation requires them.
 [Contextual identities](../../adr/0100-ddo-contextual-identities.md) · [D1 keys](../../design/D1-knowledge-representation.md)
+
+**Current identity owners and remaining transitions**
+
+| Role | Existing owner and determining representation | Transition boundary |
+| --- | --- | --- |
+| D1 subject scope | `SubjectContext.identity_record` interprets integral and fractional tokens as decimal values for JSONB-equivalent scope equality. `identity_content` includes project, subject definition, subject and explicit original-source standing. [Subject context](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_model.py) | Keep the installed scope key basis and independent Python/PostgreSQL vectors when changing ingress. |
+| Typed semantic value | The tagged value codec distinguishes mappings, decimals, booleans and typed floats. Float bit semantics, including signed zero, are preserved where those typed values determine identity. `_prepare_ready` and `_generation_ready` compare binding values on this basis. [Value codec](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_value_codec.py) | Remaining uses of the older JSON tag convention require a caller-level decision about value meaning or preserved archive bytes. |
+| Byte custody | Cut identity uses `CutSelection.content`. Detached v3 manifests keep the original cut member bytes and original manifest bytes. Source and captured artifact hashes are computed over the original content. [Cut owner](../../../python/corpus-structure/src/corpus_structure/semantic/demand_results.py) · [Detached manifest](../../../python/corpus-structure/src/corpus_structure/serve/demand_export_manifest.py) | Use the interpreted value only for domain comparisons. Format changes require an explicit archive version or exact byte preservation. |
+| Operation material | `recipe_fingerprint` and the captured implementation owner supply the comparison for recipe and implementation changes. `source_comparison` carries the changed material path for the affected operation. [Identity owner](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_identity.py) · [Source comparison](../../../python/corpus-structure/src/corpus_structure/semantic/source_comparison.py) | The opt-in PDF contract still combines reconstruction, process custody and production files. Classify the actual producer and lowerer surface before excluding a file from the material comparison. |
+
+The 68 selected D1, JSON and tagged-value controls passed on N45
+(`4072a679d9274baeb9204ef649be6411`). The independent PostgreSQL vectors include integral
+spellings and fractional JSONB scope. Python controls retain the typed distinctions used in
+the ready-item comparison.
 
 **Material comparison.** Project the result-affecting implementation/resources, input/support
 meaning, parameters, selection, output contract and replicate. Retain release, generation,
