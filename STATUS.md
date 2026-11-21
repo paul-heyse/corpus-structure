@@ -56,5 +56,5 @@ _Updated 2026-11-21. DMO-01 through DMO-06 have scoped implementation. The dedic
 
 ## Next execution
 
-- The [amended DMO queue](docs/plans/domain-model-operability_2026-11-20.md#execution-queue) prioritizes the parent executable contract for [Standard reuse across two demands](docs/plans/domain-model-operability/execution-identity-and-recovery.md#standard-cross-demand-reuse). The typed frontier matches the installed N44 digest. The support view still needs its relation-specific numeric contracts. [N44 dispositions](docs/plans/domain-model-operability_2026-11-20.md#n44-disposition)
+- The [amended DMO queue](docs/plans/domain-model-operability_2026-11-20.md#execution-queue) prioritizes the parent executable contract for [Standard reuse across two demands](docs/plans/domain-model-operability/execution-identity-and-recovery.md#standard-cross-demand-reuse). The support view still needs relation-specific numeric contracts. The [execution follow-up review](docs/plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md) records proposed improvements for plan revision.
 - After consumer migration and retirement, [DMO-08 and DMO-09](docs/plans/domain-model-operability/qualification-and-adoption.md) own final-source qualification, guarded adoption and the whole-book journey.

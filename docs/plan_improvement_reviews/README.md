@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Domain Model Operability after the N44 execution slices](domain-model-operability-execution-followup_2026-11-21.md).
+  Proposes parent-side Standard reuse, captured support interpretation, contract-specific rollout,
+  owner-supplied recovery actions, and qualification by claim.
+
 - [Domain Model Operability after N44](domain-model-operability-after-n44_2026-11-20.md).
   Reassesses Standard producer custody, shared host acquisition, recovery selection, authenticated
   reads, JSON migration, generated-facade cutover, diagnostics and qualification using N44 evidence.
