@@ -279,7 +279,7 @@ def test_registered_mcp_and_cli_preserve_exact_query_parameters_and_pinned_resou
         ],
     )
     assert result.exit_code == 0, result.output
-    assert json_loads(result.stdout)["rows"][0]["fraction"] == fraction
+    assert json_loads(result.stdout)["rows"][0]["fraction"] == Decimal(str(float(fraction)))
 
     async def check():
         async with Client(
@@ -292,11 +292,11 @@ def test_registered_mcp_and_cli_preserve_exact_query_parameters_and_pinned_resou
             assert not result.is_error
             report = result.structured_content
             assert report is not None
-            assert json_loads(report["exact_json"])["rows"][0]["fraction"] == fraction
+            assert report["result"]["rows"][0]["fraction"] == float(fraction)
             resource = await client.read_resource(report["resource"])
             assert isinstance(resource[0], TextResourceContents)
             exact = json_loads(resource[0].text)
-            assert json_loads(exact["exact_json"])["rows"][0]["fraction"] == fraction
+            assert exact["result"]["rows"][0]["fraction"] == Decimal(str(float(fraction)))
             refused = await client.call_tool(
                 "query_knowledge",
                 {

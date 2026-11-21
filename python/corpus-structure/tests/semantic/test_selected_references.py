@@ -579,11 +579,11 @@ def test_current_evaluator_tool_and_resource_keep_both_selection_pins(
                 "compare_selected_reference", {"request": request.model_dump(mode="python")}
             )
             assert result.structured_content is not None
-            report = json_loads(result.structured_content["exact_json"])
+            report = result.structured_content["result"]
             assert report["cases"][0]["outcome"] == "match"
             resource = await client.read_resource(result.structured_content["resource"])
             assert hasattr(resource[0], "text")
-            replayed = json_loads(json_loads(resource[0].text)["exact_json"])
+            replayed = json_loads(resource[0].text)["result"]
             assert replayed["reference"]["cut_id"] == report["reference"]["cut_id"]
             assert replayed["prediction"]["cut_id"] == report["prediction"]["cut_id"]
 

@@ -596,8 +596,8 @@ def test_mcp_neighborhood_uses_same_selected_reader_and_exact_pins(
             assert not result.is_error
             envelope = result.structured_content
             assert envelope is not None
-            assert envelope["format"] == "demand-result-exact-json-v1"
-            report = json_loads(envelope["exact_json"])
+            assert envelope["format"] == "demand-result-structured-v2"
+            report = envelope["result"]
             assert report["product_id"] == "selected"
             assert report["cut_id"] == read.cut.identity
             assert {output["use_id"] for output in report["selected_outputs"]} == {
@@ -607,7 +607,7 @@ def test_mcp_neighborhood_uses_same_selected_reader_and_exact_pins(
             assert envelope["resource"].startswith("corpus://selected-neighborhood/")
             resource = await client.read_resource(envelope["resource"])
             assert isinstance(resource[0], TextResourceContents)
-            replay = json_loads(json_loads(resource[0].text)["exact_json"])
+            replay = json_loads(resource[0].text)["result"]
             assert replay == report
             for field in ("project_id", "demand_id") if server_kind == "main" else ("project_id",):
                 before = len(read.reads)

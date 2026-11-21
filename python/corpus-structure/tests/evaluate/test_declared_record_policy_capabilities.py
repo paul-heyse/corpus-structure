@@ -219,7 +219,6 @@ def test_preliminary_fit_emits_current_policy_without_changing_original_lineage(
 
 
 def test_evaluator_mcp_fitting_uses_separate_fit_connection(monkeypatch):
-    import json
 
     import anyio
     from fastmcp import Client
@@ -254,7 +253,7 @@ def test_evaluator_mcp_fitting_uses_separate_fit_connection(monkeypatch):
                 "fit_complete_record_features", {"request": request.model_dump(mode="json")}
             )
             assert result.structured_content is not None
-            body = json.loads(result.structured_content["exact_json"])
+            body = result.structured_content["result"]
             assert body["fit"]["diagnostics"]["standing"] == "provisional"
             assert body["reading_policy"] is None
 

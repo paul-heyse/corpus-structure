@@ -48,7 +48,7 @@ def _read(stream, limit):
         return None
     if len(line) > limit or not line.endswith(b"\n"):
         raise ValueError("native host request exceeds frame byte bound")
-    return json.loads(line, object_pairs_hook=_object, parse_float=_float)
+    return json.loads(line, object_pairs_hook=_object, parse_float=_float, parse_constant=_float)
 
 
 def _configure(profiles):
@@ -332,7 +332,16 @@ def serve(input_stream, output_stream, *, configure=_configure, loader=_load):
 if __name__ == "__main__":
     with os.fdopen(os.dup(sys.stdout.fileno()), "wb") as protocol:
         os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
-        if len(sys.argv) > 1 and sys.argv[1] == "--preflight":
+        if len(sys.argv) > 1 and sys.argv[1] == "--preflight-residents":
+            adapter = runpy.run_path(str(Path(__file__).with_name("pm2_native.py")))
+            try:
+                result = adapter["_runtime_identity"](tuple(sys.argv[2:]))
+                message = dict(kind="ready", payload=dict(runtime_identity=result))
+            except Exception as error:
+                message = dict(kind="error", message=f"{type(error).__name__}: {error}"[:1800])
+            protocol.write(_canonical(message) + b"\n")
+            protocol.flush()
+        elif len(sys.argv) > 1 and sys.argv[1] == "--preflight":
             adapter = runpy.run_path(str(Path(__file__).with_name("pm2_native.py")))
             try:
                 provider, assets = sys.argv[2], Path(sys.argv[3])

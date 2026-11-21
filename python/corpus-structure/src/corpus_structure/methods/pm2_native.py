@@ -171,15 +171,17 @@ def _load_d1(assets: Path, device: str) -> tuple[Payload, Inference]:
     }, infer
 
 
-def _runtime_identity(provider: str, *, project: Path | None = None) -> Payload:
+def _runtime_identity(provider: str | tuple[str, ...], *, project: Path | None = None) -> Payload:
     """Identify this isolated interpreter without importing any model packages."""
     python = platform.python_version()
     expected_python = "3.14.10"
     if python != expected_python:
         raise ValueError(f"{provider} requires CPython {expected_python}, got {python}")
-    packages = {name: version(name) for name in _RUNTIME_PACKAGES[provider]}
-    if packages != _RUNTIME_PACKAGES[provider]:
-        raise ValueError(f"{provider} package identity differs: {packages}")
+    providers = (provider,) if isinstance(provider, str) else provider
+    for resident in providers:
+        packages = {name: version(name) for name in _RUNTIME_PACKAGES[resident]}
+        if packages != _RUNTIME_PACKAGES[resident]:
+            raise ValueError(f"{resident} package identity differs: {packages}")
     from corpus_structure.semantic.file_custody import observed_file
 
     inventory = {}

@@ -202,7 +202,10 @@ def test_current_principal_authentication_uses_one_explicit_native_purpose_route
             self.calls = []
 
         def execute(self, statement, parameters=None):
-            self.calls.append((str(statement), parameters))
+            compiled = statement.compile()
+            self.calls.append(
+                (str(compiled), compiled.params if parameters is None else parameters)
+            )
             return GuardResult()
 
     connection = ObservedConnection()
@@ -210,8 +213,12 @@ def test_current_principal_authentication_uses_one_explicit_native_purpose_route
     if purpose == "maintenance":
         assert connection.calls == []
     elif purpose == "fit":
-        assert connection.calls == [("SELECT ops.ddo_require_feature_fit_principal()", None)]
+        assert len(connection.calls) == 1
+        statement, parameters = connection.calls[0]
+        assert statement.startswith("SELECT ops.ddo_require_feature_fit_principal()")
+        assert parameters == {}
     else:
-        assert connection.calls == [
-            ("SELECT data.require_runtime_principal(:purpose)", {"purpose": purpose})
-        ]
+        assert len(connection.calls) == 1
+        statement, parameters = connection.calls[0]
+        assert statement.startswith("SELECT data.require_runtime_principal(:")
+        assert list(parameters.values()) == [purpose]

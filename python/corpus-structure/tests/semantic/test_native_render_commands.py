@@ -11,7 +11,6 @@ from corpus_structure.intervene.native_render_tools import (
     execute_native_render,
 )
 from corpus_structure.orchestrate.native_execution import execute_native_intent
-from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.native_requests import TARGET
 from corpus_structure.settings import AnalyticsSettings, Settings
 
@@ -95,11 +94,9 @@ def test_current_render_uses_shared_executor_and_preserves_exact_native_result(m
     assert opened == ["write", "admit"]
     assert calls[0]["required_targets"] == (TARGET,) and calls[0]["demand"] == "demand:one"
     assert calls[0]["project"] == "project:one" and calls[0]["request"] is None
-    from decimal import Decimal
-
-    assert json_loads(response.exact_json)["snapshot"]["analyzed_scope"]["value"] == Decimal(
-        "0.123456789012345678901"
-    )
+    snapshot = response.result["snapshot"]
+    assert isinstance(snapshot, dict)
+    assert snapshot["analyzed_scope"] == {"value": float("0.123456789012345678901")}
 
 
 def test_retained_reader_surface_remains_read_only():

@@ -56,7 +56,8 @@ def connection_settings(settings: Settings, purpose: Purpose = "write") -> Setti
         database=source.database,
         query={key: value for key, value in source.query.items() if key not in authentication},
     ).render_as_string(hide_password=False)
-    return settings.model_copy(update={"database": database.model_copy(update={"url": url})})
+    scoped_database = type(database).model_validate({**database.model_dump(), "url": url})
+    return settings.model_copy(update={"database": scoped_database})
 
 
 def require_runtime_principal(conn: Connection, *, purpose: Purpose) -> None:

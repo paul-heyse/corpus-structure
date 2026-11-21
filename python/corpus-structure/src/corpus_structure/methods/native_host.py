@@ -270,7 +270,10 @@ class NativeHost:
                     if len(line) + 1 > self.policy.max_native_reply_bytes:
                         raise Pm2WorkerError("native host reply exceeds frame byte bound")
                     message = json.loads(
-                        line, object_pairs_hook=_json_object, parse_float=_finite_float
+                        line,
+                        object_pairs_hook=_json_object,
+                        parse_float=_finite_float,
+                        parse_constant=_finite_float,
                     )
                     self._route(message)
                     message = line = rest = None

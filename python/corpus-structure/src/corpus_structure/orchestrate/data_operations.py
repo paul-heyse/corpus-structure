@@ -453,6 +453,7 @@ class _RunExecution:
         self.executor = executor
         self._selected_operations = None
         self._target_ports = None
+        self._prepared_residents = set()
 
     def __enter__(self):
         self.executor._preparation_bytes = 0
@@ -464,7 +465,14 @@ class _RunExecution:
 
     def declare_operations(self, operations, context):
         """Declare frozen native profiles before the shared host starts serving."""
+        from corpus_structure.methods.pm2_worker import Pm2WorkerRefused, preflight_pm2_residents
+        from corpus_structure.semantic.data_operation_prepared_products import (
+            PreparedProductDiagnostic,
+            PreparedProductRefusal,
+        )
+
         ports = []
+        residents = {}
         for operation in operations:
             selected = context.model.operation(operation)
             if (
@@ -472,9 +480,70 @@ class _RunExecution:
                 or selected.capabilities.prepared_factory is not None
             ):
                 port = self.executor._port(operation, context)
-                self.native_hosts.declare(port.native_selections)
                 ports.append(port)
+                for selection in port.native_selections:
+                    residents.setdefault(
+                        (selection.project, selection.python, selection.script), {}
+                    ).setdefault(selection.identity, (operation, selection))
+        for (project, python, script), population in residents.items():
+            pending = [
+                (operation, selection)
+                for key, (operation, selection) in population.items()
+                if key not in self._prepared_residents
+            ]
+            if not pending:
+                continue
+            providers = tuple(dict.fromkeys(selection.provider for _, selection in pending))
+            try:
+                observation = preflight_pm2_residents(
+                    python=python, script=script, project=project, providers=providers
+                )
+            except Pm2WorkerRefused as error:
+                raise PreparedProductRefusal(
+                    str(error),
+                    PreparedProductDiagnostic(
+                        ", ".join(providers), None, None, "shared-host-environment"
+                    ),
+                ) from error
+            for operation, selection in pending:
+                expected = selection.native.runtime_identity
+                if observation != expected:
+                    changed = tuple(
+                        key
+                        for key in sorted(expected.keys() | observation.keys())
+                        if expected.get(key) != observation.get(key)
+                    )
+                    field = changed[0]
+                    raise PreparedProductRefusal(
+                        f"{operation}: {selection.provider} shared host runtime changed in "
+                        f"{', '.join(changed)}; reacquire the selected release runtime",
+                        PreparedProductDiagnostic(
+                            f"{selection.provider}.{field}",
+                            str(expected.get(field)),
+                            str(observation.get(field)),
+                            "shared-host-runtime",
+                        ),
+                    )
+                selection.declaration()
+        if residents:
+            self.native_hosts.declare(
+                selection
+                for population in residents.values()
+                for _, selection in population.values()
+            )
+            self._prepared_residents.update(
+                key for population in residents.values() for key in population
+            )
         return tuple(ports)
+
+    def prepare_target_hosts(self, operations):
+        ports = self._target_ports
+        if ports is None:
+            ports = self.declare_operations(
+                self._selected_operations or operations, self.executor._target_context
+            )
+            self._target_ports = ports
+        return ports
 
     def freeze_target_operations(self, operations):
         """Keep one frozen target closure without acquiring its capabilities."""
@@ -488,12 +557,9 @@ class _RunExecution:
         if context is None:
             self.freeze_target_operations(operations)
             context = self.executor._target_context
-        if self._target_ports is None:
-            self._target_ports = self.declare_operations(
-                self._selected_operations or operations, self.executor._target_context
-            )
+        target_ports = self.prepare_target_hosts(operations)
         ports = (
-            self._target_ports
+            target_ports
             if context is self.executor._target_context
             else self.declare_operations(operations, context)
         )
@@ -1920,6 +1986,7 @@ class NativeDemandExecutor:
                         claimed = isinstance(first, _ClaimedReady)
                         item_limit = self.policy.max_claims if batch else 1
                         if not recovery and not claimed and operation is not None:
+                            self._physical.prepare_target_hosts((ready.operation,))
                             if operation.external is None:
                                 self._physical.select_operations((ready.operation,), context)
                             if batch:

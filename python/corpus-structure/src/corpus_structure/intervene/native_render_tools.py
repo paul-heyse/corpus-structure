@@ -6,6 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from corpus_structure.semantic.data_operation_json import FiniteJsonValue, finite_result_record
 from corpus_structure.semantic.data_operation_service import NativeDemandRequest
 from corpus_structure.semantic.native_requests import TARGET
 
@@ -33,9 +34,9 @@ class NativeRenderRequest(BaseModel):
 
 
 class NativeRenderResponse(BaseModel):
-    format: Literal["native-render-exact-json-v1"] = "native-render-exact-json-v1"
+    format: Literal["native-render-structured-v2"] = "native-render-structured-v2"
     demand_id: str
-    exact_json: str
+    result: dict[str, FiniteJsonValue]
 
 
 def execute_native_render(
@@ -44,7 +45,6 @@ def execute_native_render(
     from corpus_structure.orchestrate.native_execution import execute_native_intent
     from corpus_structure.orchestrate.source_reporting import native_demand_result
     from corpus_structure.orchestrate.source_request import method_settings
-    from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     if selection.project_id != project:
@@ -80,14 +80,14 @@ def execute_native_render(
             analytics_settings=settings.analytics,
         )
     return NativeRenderResponse(
-        demand_id=result.demand_id, exact_json=json_bytes(native_demand_result(result)).decode()
+        demand_id=result.demand_id, result=finite_result_record(native_demand_result(result))
     )
 
 
 def register_native_render_tools(server, *, settings, project=None, demand=None, engines=None):
     from fastmcp import Context
 
-    from corpus_structure.intervene.mcp_results import bounded_mcp_result
+    from corpus_structure.intervene.mcp_results import bounded_structured_result
     from corpus_structure.semantic.refusals import tool_refusals
 
     @server.tool(annotations={"readOnlyHint": False})
@@ -98,7 +98,7 @@ def register_native_render_tools(server, *, settings, project=None, demand=None,
         The current native effect/claim/publication owners retain image custody.
         This command never chooses a latest source or accepts private task aliases.
         """
-        return bounded_mcp_result(
+        return bounded_structured_result(
             execute_native_render(
                 request,
                 settings=settings,

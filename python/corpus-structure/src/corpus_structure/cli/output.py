@@ -38,9 +38,23 @@ class CliState:
 
     def settings(self) -> Settings:
         if self._settings is None:
+            from pydantic import ValidationError
+            from pydantic_settings import SettingsError
+
             from corpus_structure.caches import configure
 
-            self._settings = self.settings_factory()
+            try:
+                self._settings = self.settings_factory()
+            except SettingsError as error:
+                raise typer.BadParameter(str(error), param_hint="application settings") from error
+            except ValidationError as error:
+                first = error.errors(include_url=False, include_context=False, include_input=False)[
+                    0
+                ]
+                field = ".".join(map(str, first["loc"])) or "settings"
+                raise typer.BadParameter(
+                    f"{field}: {first['type']}", param_hint="application settings"
+                ) from error
             configure(self._settings.cache)
             from corpus_structure.analytics import configure as configure_analytics
 

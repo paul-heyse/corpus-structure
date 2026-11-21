@@ -382,10 +382,7 @@ def test_comparison_mcp_and_cli_keep_two_cuts_exact_values_and_retention_after_t
             assert not response.is_error and response.structured_content is not None
             assert response.structured_content["cut_ids"] == ["cut:before", "cut:after"]
             assert (
-                json_loads(response.structured_content["exact_json"])["changes"][0][
-                    "alignment_score"
-                ]
-                == fraction
+                response.structured_content["result"]["changes"][0]["alignment_score"] == fraction
             )
             changed = selected.model_copy(
                 update={"after": selected.after.model_copy(update={"project_id": "other-project"})}

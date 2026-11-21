@@ -1161,11 +1161,14 @@ claim keys and evidence locators so a consumer can cite.
 Source search is a separate current `ci source find REQUEST` / MCP `find` operation over
 explicit selected PDF publication/source-section populations. It uses the existing English
 PostgreSQL full-text ranking and preserves exact retrievable source handles and bounded continuation.
-MCP source search returns `selected-source-search-exact-json-v1` with a native cut identity and
-`exact_json`, preserving fractional cut scope and numeric scores through SDK serialization. The
-complete SDK response remains byte-bounded. The old named `find` multiplexer and run-shaped
-source-hit DTO are retired. Entity label/alias lookup
+MCP source search returns `selected-source-search-structured-v2` with a native cut identity and
+a structured `result` object containing finite JSON numbers. Selected demand and related MCP
+reads use the same delivery pattern and preserve their pinned replay handles. Use the native cut
+identity and handles for exact interpretation. The complete SDK response remains byte-bounded.
+Entity label/alias lookup
 continues through `entity(label=...)`; these entity rows do not confer source-coordinate authority.
+
+> Decision: [ADR-0142](../adr/0142-structured-selected-result-delivery.md)
 
 ### 5.2 Statistics
 

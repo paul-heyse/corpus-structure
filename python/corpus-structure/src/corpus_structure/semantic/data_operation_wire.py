@@ -25,7 +25,7 @@ from jsonschema.exceptions import SchemaError, ValidationError
 from jsonschema.protocols import Validator
 from pydantic import TypeAdapter
 
-from .data_operation_json import json_bytes, wire_json_loads
+from .data_operation_json import json_bytes, own_wire_json_value
 from .identity import canonical_bytes
 from .schema_validation import prepared_schema_validator
 from .types import SourceArtifact
@@ -604,9 +604,7 @@ def prepare_wire_schema(schema: dict[str, Any] | bytes) -> Callable[[Any], Any]:
 
 def _validate_wire_value(validator: Validator, value: Any) -> Any:
     checked = _JSON_VALUE.validate_python(value, strict=True)
-    snapshot = json_bytes(checked)  # also excludes non-finite JSON numbers
-    result = wire_json_loads(snapshot)
-    json_bytes(result)  # finite non-context numbers must remain representable as floats
+    result = own_wire_json_value(checked)
     try:
         validator.validate(result)
     except ValidationError as exc:

@@ -12,10 +12,10 @@ ignored, so `settings_report` lists every `CORPUS_*` name that matches no field.
 
 from __future__ import annotations
 
-import inspect
 import json
 import os
 from collections.abc import Mapping
+from contextvars import ContextVar
 from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import Any, Literal, get_args
@@ -211,24 +211,29 @@ def _source_paths(model, values, prefix=""):
                 yield from _contribution_paths(field_value, path)
 
 
-class _ObservedSettingsSource(PydanticBaseSettingsSource):
-    """Observe names/paths while native settings owns source execution and merging."""
+class _SettingsOrigins(PydanticBaseSettingsSource):
+    """Capture names only after the native value sources have run."""
 
-    def __init__(self, source):
-        super().__init__(source.settings_cls, _init_state=source._init_state)
-        self.source = source
-        self.__name__ = type(source).__name__
-        self.paths = ()
+    def __init__(self, init: InitSettingsSource, env: EnvSettingsSource):
+        super().__init__(env.settings_cls)
+        self.init = init
+        self.env = env
+        self.origins: dict[str, str] = {}
 
     def get_field_value(self, field, field_name):
-        return self.source.get_field_value(field, field_name)
+        return None, field_name, False
 
     def __call__(self):
-        self.source._set_current_state(self.current_state)
-        self.source._set_settings_sources_data(self.settings_sources_data)
-        values = self.source()
-        self.paths = tuple(_source_paths(self.settings_cls, values))
-        return values
+        for source, origin in ((self.init, "constructor"), (self.env, "environment")):
+            values = self.settings_sources_data.get(type(source).__name__, {})
+            for path in _source_paths(self.settings_cls, values):
+                self.origins.setdefault(path, origin)
+        return {}
+
+
+_settings_origins: ContextVar[list[_SettingsOrigins] | None] = ContextVar(
+    "settings_origins", default=None
+)
 
 
 class Settings(BaseSettings):
@@ -269,48 +274,31 @@ class Settings(BaseSettings):
         return value
 
     def __init__(self, **values: Any) -> None:
-        # These pinned 2.16.1 native hooks prepare sources once and give them back to
-        # BaseSettings; they avoid a second environment read or a parallel merge engine.
-        options = inspect.signature(type(self)._settings_init_sources).parameters
-        source_options = {key: value for key, value in values.items() if key in options}
-        init_values = {key: value for key, value in values.items() if key not in options}
-        sources, init_kwargs = type(self)._settings_init_sources(
-            _init_kwargs=init_values, **source_options
-        )
-        observed = tuple(
-            _ObservedSettingsSource(source)
-            if isinstance(source, (InitSettingsSource, EnvSettingsSource))
-            else source
-            for source in sources
-        )
-        super().__init__(_build_sources=(observed, init_kwargs))
-        for source in observed:
-            if isinstance(source, _ObservedSettingsSource):
-                origin = (
-                    "constructor"
-                    if isinstance(source.source, InitSettingsSource)
-                    else "environment"
+        reports: list[_SettingsOrigins] = []
+        token = _settings_origins.set(reports)
+        try:
+            super().__init__(**values)
+        finally:
+            _settings_origins.reset(token)
+        if reports:
+            report = reports[0]
+            self._origins.update(report.origins)
+            env = report.env
+            self._source_policy = dict(
+                prefix=env.env_prefix,
+                delimiter=env.env_nested_delimiter,
+                case_sensitive=env.case_sensitive,
+            )
+            self._known_names = known_env_names(env)
+            normalize = _identity_name if env.case_sensitive else str.casefold
+            prefix = normalize(env.env_prefix)
+            self._environment_names = tuple(
+                sorted(
+                    name if env.case_sensitive else name.upper()
+                    for name in env.env_vars
+                    if normalize(name).startswith(prefix) or normalize(name) in self._known_names
                 )
-                for path in source.paths:
-                    self._origins.setdefault(path, origin)
-                if isinstance(source.source, EnvSettingsSource):
-                    env = source.source
-                    self._source_policy = dict(
-                        prefix=env.env_prefix,
-                        delimiter=env.env_nested_delimiter,
-                        case_sensitive=env.case_sensitive,
-                    )
-                    self._known_names = known_env_names(env)
-                    normalize = _identity_name if env.case_sensitive else str.casefold
-                    prefix = normalize(env.env_prefix)
-                    self._environment_names = tuple(
-                        sorted(
-                            name if env.case_sensitive else name.upper()
-                            for name in env.env_vars
-                            if normalize(name).startswith(prefix)
-                            or normalize(name) in self._known_names
-                        )
-                    )
+            )
         for path in _contribution_paths(self.model_dump(mode="python")):
             self._origins.setdefault(path, "default")
 
@@ -324,7 +312,15 @@ class Settings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         # Constructor over environment; no dotenv or secrets directory (direnv owns the env).
-        return (init_settings, env_settings)
+        reports = _settings_origins.get()
+        if reports is None or not (
+            isinstance(init_settings, InitSettingsSource)
+            and isinstance(env_settings, EnvSettingsSource)
+        ):
+            return (init_settings, env_settings)
+        report = _SettingsOrigins(init_settings, env_settings)
+        reports.append(report)
+        return (init_settings, env_settings, report)
 
 
 class SettingsReport(BaseModel):

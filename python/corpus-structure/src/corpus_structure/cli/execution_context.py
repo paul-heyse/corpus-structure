@@ -79,14 +79,12 @@ class ExecutionPreview(BaseModel):
 
 def execution_methods(settings, policy_file: Path | None = None, *, inherited=None):
     """Resolve once so captured values and executed bounds are the same object."""
-    import json
-
     from corpus_structure.orchestrate.source_request import method_settings
 
+    from .characterization_options import read_execution_policy
+
     try:
-        explicit = {} if policy_file is None else json.loads(policy_file.read_bytes())
-        if not isinstance(explicit, dict):
-            raise ValueError("execution policy must be an object")
+        explicit = {} if policy_file is None else read_execution_policy(policy_file)
         overrides = {} if inherited is None else asdict(inherited.execution_policy)
         overrides.update(explicit)
         return method_settings(settings, overrides), tuple(sorted(explicit))

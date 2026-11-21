@@ -24,6 +24,24 @@ def preflight_pm2_runtime(
     *, python: Path, script: Path, project: Path, provider: str, assets: Path
 ) -> dict[str, Any]:
     """Verify the selected installed lock and authenticated assets before task reuse."""
+    return _preflight_pm2(
+        python, script, project, provider, ["--preflight", provider, str(assets.absolute())]
+    )
+
+
+def preflight_pm2_residents(
+    *, python: Path, script: Path, project: Path, providers: tuple[str, ...]
+) -> dict[str, Any]:
+    """Observe one installation for the complete selected resident population."""
+    payload = _preflight_pm2(
+        python, script, project, ", ".join(providers), ["--preflight-residents", *providers]
+    )
+    return payload["runtime_identity"]
+
+
+def _preflight_pm2(
+    python: Path, script: Path, project: Path, provider: str, arguments: list[str]
+) -> dict[str, Any]:
     uv = shutil.which("uv")
     if uv is None:
         raise Pm2WorkerRefused("uv is unavailable for the PM2 locked environment check")
@@ -69,16 +87,19 @@ def preflight_pm2_runtime(
                 "-I",
                 "-u",
                 str(script.absolute()),
-                "--preflight",
-                provider,
-                str(assets.absolute()),
+                *arguments,
             ],
             env={"PATH": os.defpath},
             capture_output=True,
             timeout=90,
             check=True,
         )
-        reply = json.loads(probe.stdout, object_pairs_hook=_json_object, parse_float=_finite_float)
+        reply = json.loads(
+            probe.stdout,
+            object_pairs_hook=_json_object,
+            parse_float=_finite_float,
+            parse_constant=_finite_float,
+        )
         if not isinstance(reply, dict):
             raise Pm2WorkerRefused("PM2 runtime preflight requires an object reply")
         if reply.get("kind") == "error":

@@ -115,7 +115,6 @@ def test_main_mcp_private_proposal_tool_preserves_exact_scope_and_server_selecti
 
     from corpus_structure.intervene import interpretation_tools
     from corpus_structure.intervene.server import build_server
-    from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.serve.interpretations import answer
 
     seen = []
@@ -154,7 +153,7 @@ def test_main_mcp_private_proposal_tool_preserves_exact_scope_and_server_selecti
                 assert response.is_error == (project == "project:foreign")
                 if not response.is_error:
                     assert response.structured_content is not None
-                    content = json_loads(response.structured_content["exact_json"])
+                    content = response.structured_content["result"]
                     assert content["body"]["cut"]["analyzed_scope"]["fraction"] == Decimal(
                         "0.123456789012345678901"
                     )

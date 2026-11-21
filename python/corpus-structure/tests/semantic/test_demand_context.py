@@ -183,14 +183,14 @@ def test_actual_query12_tool_and_resource_preserve_pinned_semantic_refs(monkeypa
                 "inspect_query_context", {"request": request.model_dump(mode="json")}
             )
             assert result.structured_content is not None
-            report = json_loads(result.structured_content["exact_json"])
+            report = result.structured_content["result"]
             assert report["context"]["evidence"] == {
                 "product_id": "product:primary",
                 "member_id": "frame",
             }
             resource = await client.read_resource(result.structured_content["resource"])
             assert hasattr(resource[0], "text")
-            replayed = json_loads(json_loads(resource[0].text)["exact_json"])
+            replayed = json_loads(resource[0].text)["result"]
             assert replayed["context"] == report["context"]
             assert calls[-1][3]["continuation"]["read_id"] == "read:A"
 

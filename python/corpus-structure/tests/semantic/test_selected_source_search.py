@@ -124,7 +124,6 @@ def test_current_find_mcp_preserves_selected_handles_unicode_and_fractional_cut(
 
     monkeypatch.setattr("corpus_structure.serve.source_search.search_source", search)
     from corpus_structure.intervene.server import build_server
-    from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.demand_results import CutSelection
 
     server = (
@@ -138,10 +137,10 @@ def test_current_find_mcp_preserves_selected_handles_unicode_and_fractional_cut(
             result = await client.call_tool("find", {"request": request().model_dump(mode="json")})
             assert not result.is_error
             assert result.structured_content is not None
-            assert result.structured_content["format"] == "selected-source-search-exact-json-v1"
-            exact = json_loads(result.structured_content["exact_json"])
-            assert exact["cut"]["scope"]["fraction"] == Decimal("0.123456789012345678901")
-            assert exact["rows"][0]["score"] == Decimal("0.5")
+            assert result.structured_content["format"] == "selected-source-search-structured-v2"
+            exact = result.structured_content["result"]
+            assert exact["cut"]["scope"]["fraction"] == float("0.123456789012345678901")
+            assert exact["rows"][0]["score"] == 0.5
             from corpus_structure.semantic.data_operation_json import json_bytes
 
             assert result.structured_content["cut_id"] == CutSelection(json_bytes(cut)).identity
@@ -149,7 +148,7 @@ def test_current_find_mcp_preserves_selected_handles_unicode_and_fractional_cut(
             assert row["excerpt"] == payload
             assert row["source"] == pin.model_dump()
             assert row["selection"]["product_id"] == pin.product_id
-            assert exact["cut"] == cut
+            assert exact["cut"] == {**cut, "scope": {"fraction": float(cut["scope"]["fraction"])}}
             refused = await client.call_tool(
                 "find",
                 {"request": request(max_bytes=1024).model_dump(mode="json")},

@@ -19,10 +19,69 @@ from orchestrate.executor_support import (
     prepared as prepared,
 )
 
+from corpus_structure.methods.native_host import NativeHostGroup
+from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+from corpus_structure.methods.pm2_worker import preflight_pm2_residents
 from corpus_structure.orchestrate import data_operations
 from corpus_structure.semantic.cpu_execution import CPUExecutionScope, release_capsule
 from corpus_structure.semantic.data_operation_cpu import PythonCPUDescriptor
+from corpus_structure.semantic.data_operation_prepared_products import PreparedProductRefusal
 from corpus_structure.semantic.identity import canonical_bytes
+
+
+@pytest.mark.parametrize("stale", [None, "spacy", "hanlp"])
+def test_selected_host_population_is_prepared_before_declaration(monkeypatch, tmp_path, stale):
+    def resident(provider, artifacts, backend):
+        return NativeSelection(
+            NativeProfile(
+                provider,
+                {"distributions_sha256": "stale" if provider == stale else "current"},
+                artifacts,
+                {},
+                "float32",
+                backend,
+            ),
+            tmp_path,
+        )
+
+    selections = {
+        "sentence": resident("spacy", {"files": {}}, "cupy"),
+        "parse": resident("hanlp", {}, "sdpa"),
+    }
+    preflight_calls = []
+
+    def preflight(**request):
+        preflight_calls.append(request["providers"])
+        return {"distributions_sha256": "current"}
+
+    monkeypatch.setattr(f"{preflight_pm2_residents.__module__}.preflight_pm2_residents", preflight)
+    policy = SimpleNamespace(provider_threads=4, provider_interop_threads=1)
+    native_hosts = NativeHostGroup(policy)
+    context = SimpleNamespace(model=SimpleNamespace(operation=lambda operation: None))
+    executor = SimpleNamespace(
+        capability_factories=selections,
+        _port=lambda operation, context: SimpleNamespace(
+            native_selections=(selections[operation],)
+        ),
+        _target_context=context,
+    )
+    host = SimpleNamespace(
+        resources=SimpleNamespace(pool=None, cpu=None, native_hosts=native_hosts, providers=None)
+    )
+    running = data_operations._RunExecution(executor, host)
+    running.freeze_target_operations(selections)
+    if stale is None:
+        running.prepare_target_hosts(("sentence",))
+        running.prepare_target_hosts(("parse",))
+        assert set(native_hosts.declared_selections) == set(selections.values())
+    else:
+        with pytest.raises(PreparedProductRefusal) as refusal:
+            running.prepare_target_hosts(("sentence",))
+        assert refusal.value.diagnostic.resource == f"{stale}.distributions_sha256"
+        assert refusal.value.diagnostic.expected == "stale"
+        assert refusal.value.diagnostic.actual == "current"
+        assert not native_hosts.declared_selections
+    assert preflight_calls == [("hanlp", "spacy")]
 
 
 def attached_basis():

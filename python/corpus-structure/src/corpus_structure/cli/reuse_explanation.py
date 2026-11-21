@@ -39,15 +39,15 @@ def emit_selected_result(result, *, json: bool, explain: bool):
 
     from corpus_structure.cli.output import emit, write_report_text
     from corpus_structure.semantic.code_reuse import ReuseExplanationReport
-    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_json import finite_result_bytes
 
     if json or not explain:
-        write_report_text(json_bytes(result).decode() + "\n")
+        write_report_text(finite_result_bytes(result).decode() + "\n")
         return
 
     def render(value):
         report = ReuseExplanationReport.model_validate(value.root["reuse_explanation"])
         body = {key: item for key, item in value.root.items() if key != "reuse_explanation"}
-        return Group(Text(json_bytes(body).decode()), render_reuse_explanation(report))
+        return Group(Text(finite_result_bytes(body).decode()), render_reuse_explanation(report))
 
     emit(RootModel[dict[str, Any]](result), json=False, render=render)

@@ -5,7 +5,7 @@ from typing import Literal
 from fastmcp import Context
 from pydantic import BaseModel
 
-from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_json import FiniteJsonValue, finite_result_record
 from corpus_structure.semantic.grouped_record_interpretations import GroupedInterpretationRequest
 from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.serve.interpretations import (
@@ -16,21 +16,19 @@ from corpus_structure.serve.interpretations import (
 )
 
 
-class ExactInterpretationResult(BaseModel):
-    format: Literal["interpretation-exact-json-v1"] = "interpretation-exact-json-v1"
-    exact_json: str
+class InterpretationResult(BaseModel):
+    format: Literal["interpretation-structured-v2"] = "interpretation-structured-v2"
+    result: dict[str, FiniteJsonValue]
 
 
 def register_interpretation_tools(
     server, metadata_reader, selected_reader, *, project=None, demand=None
 ):
-    from corpus_structure.intervene.mcp_results import bounded_mcp_result
+    from corpus_structure.intervene.mcp_results import bounded_structured_result
 
     def present(result, max_bytes):
-        return bounded_mcp_result(
-            ExactInterpretationResult(
-                exact_json=json_bytes(result.model_dump(mode="python")).decode()
-            ),
+        return bounded_structured_result(
+            InterpretationResult(result=finite_result_record(result.model_dump(mode="python"))),
             max_bytes,
         )
 

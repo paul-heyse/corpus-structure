@@ -14,10 +14,14 @@ from corpus_structure.evaluate.selected_references import (
     SelectedReferenceEvaluationRequest,
     evaluate_selected_references,
 )
-from corpus_structure.intervene.mcp_results import bounded_mcp_result
+from corpus_structure.intervene.mcp_results import bounded_structured_result
 from corpus_structure.semantic.continuation_codec import decode_cursor as _decode
 from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
-from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_json import (
+    FiniteJsonValue,
+    finite_result_record,
+    json_bytes,
+)
 from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.settings import Settings
 
@@ -30,16 +34,16 @@ def _feature_fit_json(value):
     return DdoRecordFeatureFitRequest.model_validate_json(json_bytes(value))
 
 
-class ExactRecordFeatureFit(BaseModel):
-    format: Literal["record-feature-fit-exact-json-1"] = "record-feature-fit-exact-json-1"
-    exact_json: str
+class RecordFeatureFitResult(BaseModel):
+    format: Literal["record-feature-fit-structured-v2"] = "record-feature-fit-structured-v2"
+    result: dict[str, FiniteJsonValue]
 
 
-class ExactReferenceComparison(BaseModel):
-    format: Literal["selected-reference-comparison-exact-json-v1"] = (
-        "selected-reference-comparison-exact-json-v1"
+class ReferenceComparisonResult(BaseModel):
+    format: Literal["selected-reference-comparison-structured-v2"] = (
+        "selected-reference-comparison-structured-v2"
     )
-    exact_json: str
+    result: dict[str, FiniteJsonValue]
     resource: str
 
 
@@ -92,8 +96,8 @@ def build_evaluator_server(
             raise ValueError("record feature fitting belongs to another evaluator project")
         with fitter() as connection:
             report = prepare_record_feature_policy(connection, request)
-        return bounded_mcp_result(
-            ExactRecordFeatureFit(exact_json=json_bytes(report).decode()), 8388608
+        return bounded_structured_result(
+            RecordFeatureFitResult(result=finite_result_record(report)), 8388608
         )
 
     def compare(request):
@@ -107,8 +111,8 @@ def build_evaluator_server(
                 prediction_cut=report["prediction"]["cut"],
             )
         )
-        return ExactReferenceComparison(
-            exact_json=json_bytes(report).decode(),
+        return ReferenceComparisonResult(
+            result=finite_result_record(report),
             resource="corpus://selected-reference-comparison/"
             + _cursor(replay.model_dump(mode="python")),
         )
@@ -117,7 +121,7 @@ def build_evaluator_server(
     @tool_refusals(ValueError, KeyError)
     def compare_selected_reference(ctx: Context, request: SelectedReferenceEvaluationRequest):
         """Compare independent protected reference and prediction under distinct exact cuts; no inference."""
-        return bounded_mcp_result(compare(request), request.max_bytes)
+        return bounded_structured_result(compare(request), request.max_bytes)
 
     @server.resource("corpus://selected-reference-comparison/{handle}")
     def reference_comparison(handle: str) -> str:

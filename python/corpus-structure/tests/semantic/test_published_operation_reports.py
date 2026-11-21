@@ -121,7 +121,7 @@ def test_cli_mcp_current_projection_observations_are_read_only_and_preserve_unkn
                 },
             )
             assert missing.structured_content is not None
-            empty = json.loads(missing.structured_content["exact_json"])
+            empty = missing.structured_content["result"]
             assert empty["items"] == [] and empty["knowledge"] == "unknown"
             refused = await client.call_tool(
                 "explain_operation",

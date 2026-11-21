@@ -4,7 +4,7 @@ from fastmcp import Context
 
 from corpus_structure.semantic.continuation_codec import decode_rich_cursor
 from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
-from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_json import finite_result_record
 from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.serve.source_decision_journey import (
     SelectedSourceDecisionJourneyRequest,
@@ -18,8 +18,8 @@ from corpus_structure.serve.structural_products import (
     inspect_selected_structures,
 )
 
-from .demand_read_tools import ExactSelectedResult
-from .mcp_results import bounded_mcp_result
+from .demand_read_tools import SelectedResult
+from .mcp_results import bounded_structured_result
 
 
 def register_structural_read_tools(server, reader, *, project=None, demand=None):
@@ -38,9 +38,9 @@ def register_structural_read_tools(server, reader, *, project=None, demand=None)
             )
         )
         handle = _cursor(pinned.model_dump(mode="python"))
-        return ExactSelectedResult(
+        return SelectedResult(
             cut_id=report["cut_id"],
-            exact_json=json_bytes(report).decode(),
+            result=finite_result_record(report),
             resource="corpus://" + name + "/" + handle,
         )
 
@@ -48,7 +48,7 @@ def register_structural_read_tools(server, reader, *, project=None, demand=None)
     @tool_refusals(ValueError, KeyError)
     def inspect_structures(ctx: Context, request: SelectedStructuralRequest):
         """Read explicit selected structural roots with original use and support custody."""
-        return bounded_mcp_result(
+        return bounded_structured_result(
             execute(request, inspect_selected_structures, "selected-structures"), request.max_bytes
         )
 
@@ -56,7 +56,7 @@ def register_structural_read_tools(server, reader, *, project=None, demand=None)
     @tool_refusals(ValueError, KeyError)
     def inspect_dossier(ctx: Context, request: SelectedDossierRequest):
         """Page exact immutable membership or its display; private standing stays explicit."""
-        return bounded_mcp_result(
+        return bounded_structured_result(
             execute(request, inspect_selected_dossier, "selected-dossier"), request.max_bytes
         )
 
@@ -64,7 +64,7 @@ def register_structural_read_tools(server, reader, *, project=None, demand=None)
     @tool_refusals(ValueError, KeyError)
     def inspect_structural_gap(ctx: Context, request: SelectedGapRequest):
         """Read recorded decisions and premises. Missing data establishes no absence."""
-        return bounded_mcp_result(
+        return bounded_structured_result(
             execute(request, inspect_selected_gap, "selected-structural-gap"), request.max_bytes
         )
 
@@ -72,7 +72,7 @@ def register_structural_read_tools(server, reader, *, project=None, demand=None)
     @tool_refusals(ValueError, KeyError)
     def inspect_source_journey(ctx: Context, request: SelectedSourceDecisionJourneyRequest):
         """Follow one native source opportunity through explicit roots in the same read."""
-        return bounded_mcp_result(
+        return bounded_structured_result(
             execute(request, inspect_selected_source_journey, "selected-source-journey"),
             request.max_bytes,
         )

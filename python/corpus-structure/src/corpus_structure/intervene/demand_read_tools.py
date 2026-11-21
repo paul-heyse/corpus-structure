@@ -9,7 +9,7 @@ from fastmcp import Context
 from pydantic import BaseModel
 
 from corpus_structure.semantic.continuation_codec import decode_cursor as _decode
-from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_json import FiniteJsonValue, finite_result_record
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.serve.characterization import (
     DemandCharacterizationRequest,
@@ -24,17 +24,17 @@ from corpus_structure.serve.selected_neighborhood import (
 )
 
 
-class ExactSelectedResult(BaseModel):
-    format: Literal["demand-result-exact-json-v1"] = "demand-result-exact-json-v1"
+class SelectedResult(BaseModel):
+    format: Literal["demand-result-structured-v2"] = "demand-result-structured-v2"
     cut_id: str
-    exact_json: str
+    result: dict[str, FiniteJsonValue]
     resource: str | None = None
 
 
 def register_demand_read_tools(
     server, *, settings, read_engine=None, engine_provider=None, project=None, demand=None
 ):
-    from corpus_structure.intervene.mcp_results import bounded_mcp_result
+    from corpus_structure.intervene.mcp_results import bounded_structured_result
     from corpus_structure.semantic.refusals import tool_refusals
 
     if read_engine is None and engine_provider is None:
@@ -96,9 +96,9 @@ def register_demand_read_tools(
             raise ValueError("selected result belongs to another server demand")
         with reader() as connection:
             report = projection(connection, request)
-        return ExactSelectedResult(
+        return SelectedResult(
             cut_id=report["cut_id"],
-            exact_json=json_bytes(report).decode(),
+            result=finite_result_record(report),
             resource="corpus://" + scheme + "/" + report["resource_handle"]
             if report.get("resource_handle") is not None
             else None,
@@ -109,10 +109,10 @@ def register_demand_read_tools(
     def read_result(ctx: Context, request: DemandQueryRequest):
         """Read selected members/operations/source/support with explicit demand/project pins.
 
-        exact_json is authoritative for Decimal, context JSON and semantic tags.
+        The structured result carries its native cut identity and selected data.
         Protected reference answers require evaluator purpose and cannot be read here.
         """
-        return bounded_mcp_result(selected(request), request.max_bytes)
+        return bounded_structured_result(selected(request), request.max_bytes)
 
     @server.resource("corpus://selected-result/{handle}")
     def selected_result(handle: str) -> str:
@@ -129,7 +129,7 @@ def register_demand_read_tools(
     @tool_refusals(ValueError, KeyError)
     def inspect_characterization(ctx: Context, request: DemandCharacterizationRequest):
         """Inspect selected nominal annotations/terms/choices and explicit source coverage."""
-        return bounded_mcp_result(
+        return bounded_structured_result(
             selected(request, inspect_demand_characterization), request.max_bytes
         )
 
@@ -137,13 +137,15 @@ def register_demand_read_tools(
     @tool_refusals(ValueError, KeyError)
     def inspect_definition(ctx: Context, request: DemandDefinitionRequest):
         """Read actual definition components/applicability/location with private standing."""
-        return bounded_mcp_result(selected(request, inspect_demand_definition), request.max_bytes)
+        return bounded_structured_result(
+            selected(request, inspect_demand_definition), request.max_bytes
+        )
 
     @server.tool(annotations={"readOnlyHint": True})
     @tool_refusals(ValueError, KeyError)
     def inspect_query_context(ctx: Context, request: DemandContextRequest):
         """Project one exact frame/referent/discourse recipe; no recognition or inference."""
-        return bounded_mcp_result(
+        return bounded_structured_result(
             selected(request, inspect_demand_context, scheme="selected-context"), request.max_bytes
         )
 
@@ -162,10 +164,10 @@ def register_demand_read_tools(
     def inspect_neighborhood(ctx: Context, request: DemandNeighborhoodRequest):
         """Read actual selected mutual neighbors and their producing use/derivation references.
 
-        Exact JSON retains native distance values. Reading performs no encoding,
+        The result carries the finite distance values. Reading performs no encoding,
         ranking or relationship inference.
         """
-        return bounded_mcp_result(
+        return bounded_structured_result(
             selected(request, inspect_demand_neighborhood, scheme="selected-neighborhood"),
             request.max_bytes,
         )

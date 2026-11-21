@@ -1,19 +1,19 @@
-"""Exact-JSON MCP transport for actual selected rich knowledge queries."""
+"""Structured MCP delivery for actual selected rich knowledge queries."""
 
 from __future__ import annotations
 
 from fastmcp import Context
 
 from corpus_structure.semantic.continuation_codec import decode_rich_cursor
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.semantic.data_operation_json import finite_result_record, json_loads
 from corpus_structure.semantic.refusals import tool_refusals
 from corpus_structure.serve.rich_queries import (
     RichQueryRequest,
     serve_rich_query,
 )
 
-from .demand_read_tools import ExactSelectedResult
-from .mcp_results import bounded_mcp_result
+from .demand_read_tools import SelectedResult
+from .mcp_results import bounded_structured_result
 
 
 def register_rich_query_tools(server, reader, *, project=None, demand=None):
@@ -24,9 +24,9 @@ def register_rich_query_tools(server, reader, *, project=None, demand=None):
             raise ValueError("rich query belongs to another server demand")
         with reader() as connection:
             report = serve_rich_query(connection, request)
-        return ExactSelectedResult(
+        return SelectedResult(
             cut_id=report["cut_id"],
-            exact_json=json_bytes(report).decode(),
+            result=finite_result_record(report),
             resource="corpus://rich-query/" + report["resource_handle"],
         )
 
@@ -43,12 +43,12 @@ def register_rich_query_tools(server, reader, *, project=None, demand=None):
         parameter_mapping(family, construction); families_where(predicate, value?);
         relations_between(a, b, depth<=4, max_edges?, max_frontier?, max_state_bytes?).
         Common query options: population=selected|retained, include_suppositions.
-        The JSON string preserves Decimal literals. Returned exact_json is authoritative;
+        The request string preserves its declared input values. The structured result is bounded;
         source readings never establish scientific truth. Cursors retain exact native
         selection and installed query meaning; use the returned resource to replay a page.
         """
         request = RichQueryRequest.model_validate(json_loads(request_json))
-        return bounded_mcp_result(execute(request), request.max_bytes)
+        return bounded_structured_result(execute(request), request.max_bytes)
 
     @server.resource("corpus://rich-query/{handle}")
     def rich_query(handle: str) -> str:

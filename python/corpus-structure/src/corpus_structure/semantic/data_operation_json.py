@@ -8,7 +8,7 @@ and https://python-rapidjson.readthedocs.io/en/latest/dumps.html .
 import json
 import math
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import rapidjson
 
@@ -16,6 +16,9 @@ import rapidjson
 # and native admission retain their own interpretation/authorization contracts.
 type DdoJsonValue = (
     bool | int | float | Decimal | str | list[DdoJsonValue] | dict[str, DdoJsonValue] | None
+)
+type FiniteJsonValue = (
+    bool | int | float | str | list[FiniteJsonValue] | dict[str, FiniteJsonValue] | None
 )
 
 
@@ -61,18 +64,31 @@ def finite_json_loads(content: str | bytes) -> Any:
 def finite_json_bytes(value: Any) -> bytes:
     """Encode owned finite JSON; identity and retained original bytes have separate owners."""
     try:
-        return json.dumps(
-            _own_finite_json(value),
-            allow_nan=False,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode("utf-8")
+        return _encode_finite_json(_own_finite_json(value))
     except (TypeError, ValueError, RecursionError) as error:
         raise JsonBoundaryError("unsupported finite JSON value") from error
 
 
-def _own_finite_json(value):
+def finite_result_record(value: dict[str, Any]) -> dict[str, FiniteJsonValue]:
+    """Project a prepared result onto JSON interchange numbers at delivery."""
+    try:
+        return cast(dict[str, FiniteJsonValue], _own_finite_json(value, project_numbers=True))
+    except (TypeError, ValueError, RecursionError) as error:
+        raise JsonBoundaryError("unsupported structured result value") from error
+
+
+def finite_result_bytes(value: dict[str, Any]) -> bytes:
+    """Encode the projected result for text delivery."""
+    return _encode_finite_json(finite_result_record(value))
+
+
+def _encode_finite_json(value: FiniteJsonValue) -> bytes:
+    return json.dumps(
+        value, allow_nan=False, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+
+
+def _own_finite_json(value, *, project_numbers=False):
     if value is None or type(value) in (bool, int):
         return value
     if type(value) is str:
@@ -82,10 +98,17 @@ def _own_finite_json(value):
         return value
     if type(value) is float and math.isfinite(value):
         return value
-    if type(value) is list:
-        return [_own_finite_json(item) for item in value]
+    if project_numbers and type(value) is Decimal and value.is_finite():
+        if value == value.to_integral_value():
+            return int(value)
+        return _json_float(str(value))
+    if type(value) is list or (project_numbers and type(value) is tuple):
+        return [_own_finite_json(item, project_numbers=project_numbers) for item in value]
     if type(value) is dict and all(type(key) is str for key in value):
-        return {_own_finite_json(key): _own_finite_json(item) for key, item in value.items()}
+        return {
+            _own_finite_json(key): _own_finite_json(item, project_numbers=project_numbers)
+            for key, item in value.items()
+        }
     raise JsonBoundaryError("finite JSON requires owned inert values")
 
 
@@ -113,18 +136,41 @@ def scope_identity(value: Any) -> Any:
 
 def wire_json_loads(content: str | bytes) -> Any:
     """Keep scope JSON exact while retaining existing non-context float values."""
+    try:
+        value = json.loads(
+            content,
+            parse_float=Decimal,
+            object_pairs_hook=_json_object,
+            parse_constant=_json_constant,
+        )
+        return own_wire_json_value(value)
+    except (ValueError, RecursionError) as error:
+        raise JsonBoundaryError("invalid native JSON document") from error
 
-    def presentation(value, *, scope=False):
+
+def own_wire_json_value(value: Any) -> Any:
+    """Detach strict JSON values and keep existing native contextual number meaning."""
+
+    def project(value, *, scope=False):
         if type(value) is dict:
+            if not all(type(name) is str for name in value):
+                raise JsonBoundaryError("native JSON requires string keys")
             return {
-                name: presentation(item, scope=scope or name == "analyzed_scope")
+                _own_finite_json(name): project(item, scope=scope or name == "analyzed_scope")
                 for name, item in value.items()
             }
         if type(value) is list:
-            return [presentation(item, scope=scope) for item in value]
-        return float(value) if type(value) is Decimal and not scope else value
+            return [project(item, scope=scope) for item in value]
+        if type(value) is Decimal and value.is_finite():
+            return value if scope else _json_float(str(value))
+        if type(value) is float and math.isfinite(value):
+            return Decimal(str(value)) if scope else value
+        return _own_finite_json(value)
 
-    return presentation(json_loads(content))
+    try:
+        return project(value)
+    except (ValueError, RecursionError) as error:
+        raise JsonBoundaryError("unsupported native JSON value") from error
 
 
 def own_json_value(value):

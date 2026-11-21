@@ -9,7 +9,7 @@ from fastmcp import Client
 from sqlalchemy import create_engine
 
 from corpus_structure.semantic.continuation_codec import decode_cursor as _decode
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.semantic.demand_results import CutSelection, DemandResult
@@ -139,7 +139,7 @@ def test_waiting_and_completed_empty_operations_do_not_claim_absence(monkeypatch
     assert result["items"] == [] and result["knowledge"] == "unknown"
 
 
-def test_actual_main_mcp_read_and_resource_use_same_owner_and_exact_json(monkeypatch):
+def test_actual_main_mcp_read_and_resource_use_same_structured_owner(monkeypatch):
     from corpus_structure.intervene.server import build_server
     from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
     from corpus_structure.semantic.data_operation_external import ExternalDataSession
@@ -174,8 +174,9 @@ def test_actual_main_mcp_read_and_resource_use_same_owner_and_exact_json(monkeyp
                 "read_result", {"request": request.model_dump(mode="json")}
             )
             assert result.structured_content is not None
-            exact = json_loads(result.structured_content["exact_json"])
-            assert exact["items"][0]["amount"] == Decimal("10000000000.00000000001")
+            report = result.structured_content["result"]
+            assert report["items"][0]["amount"] == 10000000000.0
+            assert report["cut_id"] == "cut:A"
             resource = await client.read_resource(result.structured_content["resource"])
             assert resource and len(calls) == 2
             denied = await client.call_tool(

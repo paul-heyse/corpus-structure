@@ -277,6 +277,6 @@ def assert_native_transport_parity(kernel, native_settings, pending, page, direc
                 "inspect_structures", {"request": pinned.model_dump(mode="json")}
             )
             assert not response.is_error and response.structured_content is not None
-            assert json_loads(response.structured_content["exact_json"]) == page
+            assert response.structured_content["result"] == page
 
     anyio.run(inspect)

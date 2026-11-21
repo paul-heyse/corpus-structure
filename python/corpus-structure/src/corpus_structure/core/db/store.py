@@ -44,11 +44,6 @@ FENCING_CONSTRAINT = "uq_observation_task_id_ordinal"
 LOG = logging.getLogger("corpus_structure.database")
 
 
-def dumps(value: Any) -> str:
-    """The JSON text written to `jsonb`: compact, UTF-8 as is (key order the dump's)."""
-    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
-
-
 class PooledConnection(psycopg.Connection[Any]):
     """A physical session may be initialized by multiple SQLAlchemy connection records."""
 
@@ -62,8 +57,10 @@ class PooledConnection(psycopg.Connection[Any]):
 
 def configure(conn: psycopg.Connection[Any]) -> None:
     """The pool's `configure`: JSON adapters only; no query, no transaction, no check."""
-    set_json_dumps(dumps, context=conn)
-    set_json_loads(json.loads, context=conn)
+    from corpus_structure.semantic.data_operation_json import finite_json_bytes, finite_json_loads
+
+    set_json_dumps(finite_json_bytes, context=conn)
+    set_json_loads(finite_json_loads, context=conn)
     conn.add_notice_handler(_notice)
 
 

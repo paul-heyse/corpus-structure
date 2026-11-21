@@ -79,9 +79,7 @@ def test_installed_cli_and_actual_mcp_use_exact_selected_structural_request(monk
             assert not response.is_error
             result = response.structured_content
             assert result is not None
-            assert json_loads(result["exact_json"])["exact_scope"] == Decimal(
-                "0.12345678901234567890123456789"
-            )
+            assert result["result"]["exact_scope"] == float("0.12345678901234567890123456789")
             resource = await client.read_resource(result["resource"])
             assert resource and captured[-1]["read_id"] == "read:actual"
             assert captured[-1]["expected_cut"] == "cut:actual"

@@ -64,7 +64,7 @@ def test_source_search_requires_only_source_demand_and_mcp_returns_exact_handles
                 },
             )
             assert not response.is_error and response.structured_content is not None
-            rows = json_loads(response.structured_content["exact_json"])["rows"]
+            rows = response.structured_content["result"]["rows"]
             assert rows and rows[0]["selection"]["product_id"] == pin.product_id
             inspected = await client.call_tool("inspect_source", {"request": rows[0]["selection"]})
             assert not inspected.is_error and inspected.structured_content is not None

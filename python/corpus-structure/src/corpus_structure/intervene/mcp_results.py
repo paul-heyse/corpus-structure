@@ -10,6 +10,11 @@ from pydantic import BaseModel
 MCP_SERVER_NAME = "corpus-structure"
 
 
+def bounded_structured_result(value: BaseModel, max_bytes: int) -> ToolResult:
+    """Deliver the bounded structured payload once, with a short text description."""
+    return bounded_mcp_result(value, max_bytes, presentation="Structured result")
+
+
 def _stamp_mcp_result(wire: CallToolResult) -> CallToolResult:
     """Include SDK delivery metadata before admitting any bounded tool result."""
     meta = dict(wire.meta or {})
