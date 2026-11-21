@@ -46,9 +46,6 @@ def test_authorized_binding_observes_producer_without_disclosing_protected_suppo
     from corpus_structure.semantic.producer_requirements import SelectedProducerContract
 
     clone, stage = declared_serving_case, declared_serving_case.stage.agent
-    # The owned clone keeps its public frontdoor and existing purpose grants.
-    with clone.admin.begin() as connection:
-        _install_binding_projection(connection)
     model = bound_data_operation_model(stage.prepared)
     with clone.reader.begin() as connection:
         page = read_demand_result(
