@@ -7,7 +7,7 @@ import pytest
 from native_refusals import native_refusal
 from pglast import ast, parse_sql
 from pglast.stream import RawStream
-from sqlalchemy import Column, MetaData, Table, text
+from sqlalchemy import Column, MetaData, Table, func, select, text
 from sqlalchemy.schema import CreateTable
 
 from corpus_structure.semantic.metadata import get_metadata
@@ -304,6 +304,100 @@ def test_installed_certification_entrypoints_require_exact_writer_fence(
                 ),
                 {"build": build.build_id},
             ).all() == [("interrupted", "authored interrupted oracle control")]
+
+
+def test_native_lowering_authenticates_selected_scope_and_keeps_v2_certification(native_rollback):
+    import json
+    from hashlib import sha256
+
+    from corpus_structure.semantic.pdf_certification_native import pdf_certification_native_programs
+    from corpus_structure.semantic.pdf_domain import pdf_domain_sources
+    from corpus_structure.semantic.pdf_domain_native import pdf_domain_native_programs
+    from corpus_structure.semantic.types import SourceArtifact
+
+    model = get_metadata()
+    fixture = Table(
+        "certification_archive",
+        MetaData(),
+        *(
+            Column(column.name, column.type, nullable=column.nullable)
+            for column in model.tables["sem.input"].c
+        ),
+        schema="pg_temp",
+    )
+    supplied = SimpleNamespace(tables={**model.tables, "sem.input": fixture})
+    contract, *baseline = pdf_domain_sources(include_producer=False)
+    implementation = SourceArtifact(
+        "pdf-domain/implementation/pdf/lowering/code/meaning.json", b'{"selected":"fixture"}'
+    )
+    selected = {
+        "complete": True,
+        "sha256": sha256(implementation.content).hexdigest(),
+        "scope": "docling-standard-pdf-stream-v1",
+    }
+
+    def archived(release, version, code):
+        lowering = SourceArtifact(
+            "pdf-domain/implementation/pdf/lowering-contract.json",
+            json.dumps(
+                {
+                    "profile": f"pdf-record-lowering-contract-{version}",
+                    "compiler_policy": "fixture",
+                    "code_identity": code,
+                    "inputs": [{"name": implementation.name, "sha256": implementation.digest}],
+                    "libraries": {"fixture": "1"},
+                }
+            ).encode(),
+        )
+        sources = [*baseline, implementation, lowering]
+        document = json.loads(contract.content)
+        document["inputs"] = [{"name": source.name, "sha256": source.digest} for source in sources]
+        sources.append(SourceArtifact(contract.name, json.dumps(document).encode()))
+        connection.execute(
+            fixture.insert(),
+            [
+                {
+                    "release_id": release,
+                    "input_kind": "dependency",
+                    "input_name": source.name,
+                    "content": source.content,
+                    "content_digest": source.digest,
+                }
+                for source in sources
+            ],
+        )
+        return sha256(lowering.content).hexdigest()
+
+    connection = native_rollback.connection
+    archive_reader = next(
+        program
+        for program in pdf_domain_native_programs(target_metadata=supplied)
+        if program.routine.name == "pdf_contract_input"
+    )
+    lowering = next(
+        program
+        for program in pdf_certification_native_programs()
+        if program.routine.name == "pdf_lowering_identity"
+    )
+    with native_owner(connection, "corpus_sem_publisher"):
+        connection.execute(CreateTable(fixture))
+        execute_native_sql(connection, archive_reader.routine.render())
+        execute_native_sql(connection, lowering.routine.render())
+        previous = archived("previous", "v2", {"complete": False, "sha256": None})
+        accepted = archived("selected", "v3", selected)
+        archived("wrong-scope", "v3", {**selected, "scope": "unrelated"})
+        archived("incomplete", "v3", {**selected, "complete": False, "sha256": None})
+        archived("wrong-code", "v3", {**selected, "sha256": "0" * 64})
+
+    assert connection.scalar(select(func.ops.pdf_lowering_identity("previous"))) == previous
+    assert connection.scalar(select(func.ops.pdf_lowering_identity("selected"))) == accepted
+    for release, message in (
+        ("wrong-scope", "unsupported released PDF lowering contract"),
+        ("incomplete", "unsupported released PDF lowering contract"),
+        ("wrong-code", "selected PDF producer identity differs from its captured code"),
+    ):
+        with native_refusal("23514", message=message), connection.begin_nested():
+            connection.execute(select(func.ops.pdf_lowering_identity(release)))
 
 
 def test_generated_stream_inventory_matches_independent_python_frames(native_rollback):
