@@ -4,10 +4,13 @@
 Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
-This companion owns how one product refers to another and how a consumer is keyed on what it
-reads. It owns SBX-05 to SBX-07. It consumes the collection, partition, field-group and proof
-contracts of [Populations, rules and proofs](populations-rules-and-proofs.md). Source facts are
-**Inspected** at `7a415d18d`; design statements are **Proposed**.
+This companion owns how one product refers to another, how a consumer is keyed on what it
+reads and how native changes reach those consumers. It owns SBX-05 to SBX-07. It consumes the
+collection, partition, field-group and proof contracts of
+[Populations, rules and proofs](populations-rules-and-proofs.md). The original baseline is
+**Inspected** at `7a415d18d`. Push-propagation source observations use the
+[amendment baseline](../set-based-execution_2026-11-21.md#push-propagation-amendment).
+Design statements are **Proposed**.
 
 The [post-SBX-01 amendment](../set-based-execution_2026-11-21.md#post-sbx-01-review-amendment)
 integrates review [I01–I04](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I01)
@@ -304,26 +307,14 @@ exercises this interface before the remaining families migrate.
 <a id="sbx-06"></a>
 ## SBX-06 — Projection-keyed request identity
 
-**Vision.** Consumer roles declare projections; kernels receive them; request identity uses
-projection digests; PostgreSQL computes them at binding from stored group digests and Python
-computes the same.
-
-Change detection reads only the authenticated digest metadata for the declared input projections.
-Publication computes and stores those digests once, including a group root for whole-population
-reads and keyed digests for partition reads. Binding compares the current declared digest tuple
-with the tuple recorded for the prior computation. An equal tuple stops invalidation at that
-operation even if an upstream input received a different product ID. Current authority and
-applicable proof establishment are separate metadata checks. Hydration takes place after the
-decision, when execution needs the affected projections. Dependency propagation can follow
-declared edges and digest metadata without loading the input contents.
-
-**Owns.** The projection declaration and its graph edges; the read-set analysis and its report;
-the envelope change that hands projections to kernels on all three execution routes; the request
-key formula in both languages; attachment of an existing derivation whose recorded input differs
-from the use's selection; the complete projection-equivalence basis used by authority ports,
-with exact current authorization independent; the fingerprint change for recipes and
-definitions. Shared metadata preparation also serves SBX-02 without forcing rules and kernels
-to hash the same observations.
+**Target · Proposed.** Consumer roles declare projections, kernels receive those projections,
+and reusable computation uses their versioned specifications and digests. PostgreSQL acquires
+the digest tuple from authenticated stored metadata before hydration. Python computes the same
+identity from the same premises. Publication stores keyed field-group commitments once. Prepare
+whole-group roots for repeated whole reads where they repay preparation and retention. The
+read-set analysis advises the declarations, and the envelope enforces them on all three
+execution routes. SBX-02 can share keyed metadata acquisition while rules and kernels hash
+their own observations.
 
 **Binding decision dependency.** [ADR-0100](../../adr/0100-ddo-contextual-identities.md) currently
 requires the same complete SubjectContext in canonical request and native product identity.
@@ -331,15 +322,122 @@ Before changing request identity, SBX-06 must record a scoped successor through 
 and update the owning architectural section. It separates reusable computation identity from
 exact current occurrence binding and publication; project/original/analyzed-context custody
 remains authenticated, and any context fact determining output remains in the projection.
-This planned amendment does not itself supersede the accepted ADR or authorize implementation
-under a conflicting identity formula. Preserve ADR-0146's independent authority requirements.
+The current request row has a unique key and also owns exact project, release, runtime,
+subject context, binding and generation. Lowering the hash alone would let distinct
+occurrences collide at the claim owner. Specify separate computation lookup and exact
+request, claim and use identities in the successor, including the admitted reuse namespace
+and the transition of Python and native key constructors. The use authenticates its current
+selection and the derivation retains its producing inputs. Reuse follows the declared
+substitution policy and ADR-0146's independent proof and authority requirements.
+[Native attachment](../../../python/corpus-structure/src/corpus_structure/semantic/request_attachment_native.py#L1535) ·
+[Validity decision](../../adr/0146-sbx-content-validity.md)
 
-**Order within the package.** Declarations and enforcement first, with keys unchanged, so that a
-kernel reading outside its projection fails in tests before any reuse depends on it. Keys change
-last. Settle the shared premise and establishment contract with SBX-02/04/05 first, using the
-[change scenarios](cutover-and-qualification.md#change-scenarios). Integrate the real
-[early Revision A chain](cutover-and-qualification.md#early-revision-a-integration) before
-whole-family conversion; final Revision A cutover remains SBX-20.
+<a id="change-origins"></a>
+### Change origins and selectors
+
+| Governed origin | Change basis |
+|---|---|
+| Evidence selection | An authorized transition makes evidence current for an explicitly named scope. A new immutable document registration affects a new or open inventory selector only where that selector observes registration. Exact frozen demands keep their release, originals and choices. A governed selection advances through its owner and an explicitly admitted successor when those choices change. |
+| Release activation | Compare effective recipes and relevant policies for computation, and eligibility, membership and dependency declarations for discovery or binding. A new release identifier or descriptive edit can leave both determinants stable. Capture actual activation with old and new coordinates and the owning generation. |
+| Native publication | Use the committed output role, addresses, collections, fields and scope, including membership and placement changes, as the basis for matching immediate consumers. |
+
+The current acquisition and demand paths establish exact pins. The scoped inspection found
+no general live selection owner there. Start with a native, authorized selection of an exact
+demand for the early scope. Confirm whether an existing native selection can hold the
+governed name and its explicit successor. Add that scoped relation at the native selection
+owner if a compatible one is unavailable. Review the owner and authority with SBX-11 before
+fixing the acquisition contract.
+
+Derive reverse selectors from the effective model in PostgreSQL. Existing uses contribute
+their actual selected addresses, including substitutions. Declared population and waiting
+selectors cover additions, removals and first matches, including an input that had no address
+when the waiter was recorded. Preserve distinct role and edge occurrences, partition scope,
+and observed order and placement. Share determinant comparison with `changed_operations`.
+Its conservative walk over old and new topology explains candidates. Native delivery advances
+one dependency step at a time. An explicitly scoped NetworkX projection can order or explain
+those dependencies from the same typed relationships. Support validity retains its own native
+fixpoint and semantics.
+[Original registration](../../../python/corpus-structure/src/corpus_structure/semantic/original_documents.py#L91) ·
+[Frozen demand](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_service.py#L67) ·
+[Activation](../../../python/corpus-structure/src/corpus_structure/semantic/closure_native.py#L560) ·
+[Change-impact preview](../../../python/corpus-structure/src/corpus_structure/semantic/change_impact.py#L157) ·
+[Support validity](../../adr/0122-set-wise-support-validity.md)
+
+<a id="settlement-coverage"></a>
+### Settlement and coverage
+
+Commit recoverable origin facts with each governed transition. The current publication receipt
+is immutable and settles atomically with outputs, establishments and fulfilled uses. Reuse it
+and its output facts as the publication anchor. The activation compare-and-swap furnishes a
+fence, while its mutable project pointer alone loses earlier transitions. For each origin check
+whether its native records can replay the transition and identify affected work. Where history
+or delivery custody is missing, add the smallest durable transition fact or work reference in
+the same transaction. Confirm the selection transition's owner and authority before choosing
+its storage. A lost acknowledgement after commit must recover the same origin and work.
+[Publication settlement](../../../python/corpus-structure/src/corpus_structure/semantic/data_derivation_native.py#L653) ·
+[Durable recovery](../../adr/0140-durable-recovery-and-exact-stop.md)
+
+Process affected immediate recipients in bounded sets through the existing executor's claims,
+admission, retry and settlement. Coalesce repeated notifications for the same current binding
+and generation while retaining every relevant reason. At a join, settle the combined key
+after the relevant arms reach the same selection, including an arm that settles unchanged.
+Fence advancement against the current selection so superseded work can retain a legitimately
+published historical result without advancing the current selection. Computation remains
+demand-driven. For an eligible current binding, equal observed input and operation
+determinants preserve computation. A changed determinant can run the producer. Equal
+declared output after it settles ends computational propagation toward that consumer.
+Current-use attachment and readiness still settle through their native owners.
+
+Advance coverage for a governed selection only when all relevant committed changes and
+upstream decisions for the scoped cut are accounted for, including branches that settle
+unchanged. An empty local queue cannot establish coverage while a change is between edges.
+Supply that scoped evidence to [SBX-11](owner-resolved-reads.md#sbx-11). A scope can settle
+independently of unrelated work. A changed computation awaiting authorized demand leaves
+the affected coverage pending. A resolved binding with no eligible result can establish
+unavailability. Digest-only demand checks remain useful for a newly requested
+or rarely read result. Durable push earns its keep by avoiding repeated discovery and work
+where observed projections stabilize. Broad fan-out and whole-population or cohort premises
+can still require broad work. Automatic refresh requires separately selected maintenance
+interest and effect authority.
+
+<a id="readiness-delivery"></a>
+### Readiness delivery and retirement
+
+Deliver a separate reason to reconsider binding when an exact waiter gains a usable episode
+or fulfilled use, an exact original is admitted, discovery gains or loses members or closes,
+applicable proof establishment changes, or trust changes. Attachment can make a use
+available without a new publication, and an equally digested product can become bindable
+through a second authentic producing episode. Use compact selector facts and let the
+binding owner make the precise decision. Prefer faithful admitted metadata for matching.
+For body-dependent predicates, allow a conservative wake followed by one scoped binding
+check. Keep the computational digest comparison body-free.
+[Exact-pin readiness control](../../../python/corpus-structure/tests/semantic/test_data_operation_pinned_reuse_native.py#L538) ·
+[Native attachment](../../../python/corpus-structure/src/corpus_structure/semantic/request_attachment_native.py#L1778)
+
+**Migration investigation.** Trace the watermark projected on native demand-result pages
+and the shared record-grade census through waiting fates, retained planner state, discovery
+and frontier sweeps, wire records and diagnostic or export readers. For each route, identify
+the scoped decision or evidence it needs and the write that wakes it. Use the early chain
+to verify wake, recovery, refusal, exact resume, bounded selection and waiting-owner reporting.
+Retire redundant ancestry expansion, watermark hashing and replaced discovery sweeps with
+their last consumers. Keep any uncovered route explicitly open with its consumer and missing
+wake or observation contract. SBX-11 supplies keyed reads and SBX-12 preserves pinned and
+detached evidence.
+[Watermark projection](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_projections.py#L2004) ·
+[Planner waiting decision](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_demands.py#L739) ·
+[Executor sweep](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py#L2240) ·
+[Record-grade read](../../../python/corpus-structure/src/corpus_structure/semantic/record_grade_native.py#L447)
+
+**Order within the package.** Settle the origin, selector and identity design together.
+Confirm direct keyed replay versus a transactional reference per origin from the authoritative
+write and its recovery behavior. If that inspection leaves a material gap, use a bounded
+rollback-only commit/retry control on the affected origin before integrating delivery. Resolve
+scope and coverage semantics with the SBX-11 read owner before the two packages fix their
+interfaces. Enforce the declared envelope before enabling projection-based reuse. Use the
+runnable SBX-03–05 slices and shared SBX-02 premises to prove native publication, cutoff and
+readiness in the [early Revision A chain](cutover-and-qualification.md#early-revision-a-integration).
+Extend writer and consumer adoption from that slice and close each replacement path before
+retiring its old reader. SBX-20 owns the registered cutover.
 
 **Failure behaviour.** A kernel that reads a field group outside its projection fails with the
 group named, because the value is absent. A role with no declared projection defaults to whole
@@ -364,14 +462,23 @@ split-block control. Independently state which cases establish equal computation
 proofs and exact attachment. Check actual binding decisions and attempts as well as keys;
 relative-only reuse must still read back under the current occurrence and authority.
 
+Extend the [equal-output successor-demand control](../../../python/corpus-structure/tests/semantic/test_change_impact.py#L522)
+through actual delivery from the publishing transaction. In the annotation-to-canonical
+chain, lexical edits can leave the observed projection equal. Coverage, source, selectors,
+placement, order and role-relative addresses enter wherever canonical forwards them. Use
+the [propagation scenarios](cutover-and-qualification.md#propagation-scenarios) for native
+stopping, join, supersession, lost acknowledgement and exact-pin wake evidence.
+[Push-propagation review I01–I03](../../plan_improvement_reviews/set-based-execution-push-propagation_2026-11-21.md#I01)
+
 <a id="sbx-07"></a>
 ## SBX-07 — Partition memo for block-local kernels
 
 **Vision.** For a kernel whose projection scope is `partition` or `halo`, the envelope computes a
 key per output partition from the recipe, the parameters and the projection digests of that
 partition's inputs, looks up a retained result, and runs the kernel only for partitions without
-one. The product-level derivation, claim and receipt are unchanged; work is proportional to what
-changed.
+one. The product-level derivation, claim and receipt retain their roles. A change can limit
+computation to affected partitions when the host and declared premises establish locality.
+SBX-06 owns product-level change delivery, readiness and current settlement.
 
 **Conditions, checked at entry.** Eligibility is per actual host implementation and numerical
 and replicate policy, not inferred from a block-shaped input. Compare the same block with

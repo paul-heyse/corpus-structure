@@ -115,6 +115,13 @@ or must be retired.
 **Depends.** SBX-18; validated carriers (SBX-08) so inputs are acquired once; the reference
 carrier (SBX-05), since participants and relations are references.
 
+When adopting [SBX-06 projections](references-and-projection-keys.md#read-projections) for the
+trial, declare the source frame, navigation, formal and predicate inputs it actually reads and
+their observed ordering and membership. The whole-source premises govern this trial unless
+the analytical owner establishes a narrower determining scope. Trial preparation can proceed
+on its stated dependencies. Any qualification of projection-keyed reuse consumes SBX-06's
+runnable binding contract.
+
 **Vision.** `discover_relations` becomes: build tables from carriers; a sequence of named
 relational steps; the Python seam for text rules, anchors and ids; assembly of the report. The
 repeated re-acquisition and re-validation at the kernel's entry is already gone by SBX-08.

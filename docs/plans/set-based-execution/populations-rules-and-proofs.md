@@ -357,6 +357,12 @@ authoring. SBX-20 owns registration of the integrated Revision A, including subs
 <a id="sbx-03"></a>
 ## SBX-03 — The first populations
 
+The annotation-to-canonical chain supplies the runnable occurrence addresses and population
+observations for [SBX-06's early propagation slice](cutover-and-qualification.md#early-revision-a-integration).
+Keep the declared membership and closure observations usable for first matches, removals and
+empty populations. The existing chain receipts establish their captured producer, binding and
+readback scope. SBX-06 adds evidence for delivery from the originating native commit.
+
 **Implementation checkpoint · 2026-11-21.** Source annotations publish one block-local rows
 partition and a compact manifest for composition. Canonical projection consumes the authenticated
 partition envelope, preserves block-local offsets, and emits role-relative references to the
@@ -505,6 +511,11 @@ A constructions result on the fixture equals today's after mapping token ids to 
 
 <a id="sbx-04"></a>
 ## SBX-04 — One stance on validity
+
+Supply the applicable establishment and support facts at the native binding boundary for
+[SBX-06 readiness delivery](references-and-projection-keys.md#readiness-delivery). An additional
+admissible establishment or a support revocation can change readiness with unchanged proof
+premises and unchanged computational input. SBX-06 owns delivery to affected waiters.
 
 **Implementation checkpoint · 2026-11-21.** Producer attestations can name selected input role
 paths. Native settlement reconstructs those paths from the producing bindings, preserving their

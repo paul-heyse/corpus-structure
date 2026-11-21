@@ -32,6 +32,12 @@ authority to its caller. These are the preparation and disclosure boundaries thi
 [Graph-input path](../../../python/corpus-structure/src/corpus_structure/semantic/selected_contribution_input.py#L169) ·
 [Private partition acquisition](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_partition_native.py#L438)
 
+**Push propagation baseline · Inspected 2026-11-21 at `3ceeadfbc`.** The live result read
+requires an explicit demand and project. Its cursor continues the acquired cut. The
+freshness-aware read below adds a governed selection scope alongside these exact reads.
+[Live demand read](../../../python/corpus-structure/src/corpus_structure/semantic/demand_results.py#L171) ·
+[Exact CLI selection](../../../python/corpus-structure/src/corpus_structure/cli/selected_results.py#L22)
+
 **Precedent for a family of programs.** `read_selected_pdf_source`, the observation and visual
 reads, the feature-fit frame and `data_binding_rows` are already separate programs that
 authenticate a pinned cut through shared projections. `acquire_data_read_context` performs the
@@ -99,6 +105,33 @@ projection-keyed binding in [SBX-06](references-and-projection-keys.md#sbx-06) d
 before any body hydration. Expose digest-only answers through the same keyed programs and scope
 their authority to the selected metadata.
 
+<a id="freshness-aware-reads"></a>
+### Freshness for an explicitly governed selection
+
+**Proposed.** A caller opts in by naming a governed selection and its project. The authorized
+owner advances that selection through an explicit transition or an explicitly selected successor
+demand. Execution starts through the existing demand path. In the same native acquisition,
+resolve the governed scope, authorize the result and its freshness metadata, and acquire the
+result or its cut with the [settlement coverage supplied by SBX-06](references-and-projection-keys.md#settlement-coverage).
+Expose these outcomes for the requested scope.
+
+| Outcome | What the native acquisition establishes |
+|---|---|
+| Fresh | A result or cut is available and settlement covers the relevant committed changes. |
+| Pending | A relevant committed change still needs a downstream decision or a demanded result. |
+| Unavailable | The scope is resolved and the owner establishes that no eligible result can be supplied for it. |
+| Unknown | The owner lacks sufficient coverage evidence to determine freshness or availability. |
+
+A queued item at the immediate consumer is only one sign of pending work. Coverage must include
+committed upstream changes whose propagation has yet to reach that consumer. A branch that
+settles unchanged can advance coverage without a new provider attempt. Independently covered
+scopes stay readable. A caller can explicitly request the last settled cut, identified as such,
+if the current native checks authorize it. Scope, selection and leaf disclosure rules also
+apply to freshness metadata. Responses preserve existing refusal and masking rules for
+protected state, including where disclosing pending work would expose a protected dependency.
+[Push-propagation review I04](../../plan_improvement_reviews/set-based-execution-push-propagation_2026-11-21.md#I04) ·
+[Disclosure owner](../../adr/0147-sbx-owner-resolved-reads.md)
+
 **Online readers ask; replaying readers carry.** A reader with no offline entry point asks for
 the shape it needs and decodes bodies. The structural family and export verification keep one
 implementation over the raw relations, run from PostgreSQL rows online and from the export
@@ -123,7 +156,10 @@ DuckDB is not introduced here.
 
 **One cursor.** Version, implementation identity, selection digest, cut, and a position that is a
 keyset where the data is row-addressable and an ordinal where rows are derived. Clients do not
-see native keysets.
+see native keysets. A freshness-aware first page binds its authorized cut. Continuation follows
+that exact cut even if the governed selection advances. Each live page reacquires authority
+and checks current revocation. Detached replay establishes captured custody under the exported
+cut and evidence.
 
 **A substantive cache key.** Implementation, selection digest and the digests of what the answer
 read: product body digests, partition digests, rule fingerprints. The key survives a fresh cut
@@ -134,6 +170,7 @@ its per-call check. For an answer about proof absence or completeness, a cache h
 establish current membership in the relevant proof and establishment relations. Bypass answer
 reuse for that shape if current membership cannot be established from scoped reads. A new
 matching proof can change that answer with the same content digest and rule fingerprint.
+Coverage and authority are established by the native read even on a semantic answer cache hit.
 [Shared change scenarios](cutover-and-qualification.md#change-scenarios) ·
 [Continuation authority](../../adr/0141-serving-continuation-and-reuse.md)
 
@@ -150,7 +187,7 @@ projection, which is what makes replay meaningless.
 <a id="sbx-11"></a>
 ## SBX-11 — The read programs
 
-**Additional scope and evidence (I04, I09).** Demonstrate a keyed read, a legitimate empty
+**Additional scope and evidence.** Demonstrate a keyed read, a legitimate empty
 answer, and a filtered continuation with unrelated partitions, frontier uses and protected
 leaves present. Use independent expected rows and authority outcomes. Apply the read contract's
 missing-address outcome for a missing item inside an authorized partition and preserve
@@ -158,10 +195,20 @@ non-disclosure for a protected parent. Reacquire authority on continuation and e
 revocation between pages. Use a narrow decoded-body or examined-row check where it distinguishes
 bounded acquisition from a broader scan. Retain the genuine selected-use and native export
 controls under the [shared development evidence policy](cutover-and-qualification.md#cutover-policy).
+[Post-SBX-01 review I04](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I04) ·
+[Post-SBX-01 review I09](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I09)
 
 **Owns.** The outputs, partitions, derivation-facts and proofs programs; their disclosure checks,
 which restate body access, kind disclosure and leaf masking per row returned; their wire records;
 the membership of each in the read closure; migration of every online-only reader to them.
+
+**Freshness slice.** Integrate the opt-in selection and coverage observation above into the native
+read boundary and its wire contract. This slice consumes SBX-06's working settlement coverage.
+Other keyed read shapes can advance against their partition, proof and reference prerequisites.
+Use the shared propagation scenarios to verify pending coverage between edges, an unchanged
+branch advancing coverage, a separately resolved scope, and disclosure of freshness metadata.
+Compare scoped metadata acquisition with a body request under the same authority.
+[Propagation scenarios](cutover-and-qualification.md#propagation-scenarios)
 
 **Consumer scope (complete).** The demand query path; contribution scope and its readers
 (facets, neighbourhood, interpretations, identity-exclusion comparison); selected math; demand
@@ -194,6 +241,11 @@ treatment of partitions (recompute each partition digest and the root) and of pr
 claims, with fingerprints recomputed from the captured release); the unified cursor; the cache
 key; the transaction scope of readers.
 
+Keep the freshness-aware first page and its exact pinned continuation distinct. Exercise a
+selection advance between pages, authority loss during continuation, and detached replay of
+the earlier authorized cut. The earlier cut and its captured interpretation stay exact. Only
+the live acquisition establishes current authority and freshness.
+
 **Decided here.** Whether an export may carry digests only for products no replaying reader
 reads; the proposal is that the manifest names any relation carried without bodies, and the
 verifier's identity guarantee for those products is stated as header-level.
@@ -217,6 +269,13 @@ different demand. Interpret a published role-relative reference through its prod
 Check current selected support through the live read boundary and verify captured conclusions
 and establishment custody through the detached boundary. Include the protected issuer and
 first matching proof cases.
+
+Retain the native textbook condition as separate structural-read and export acceptance for
+SBX-11/12. Confirm selected structural body acquisition and direct, CLI and MCP delivery within
+the declared scope, and exercise genuine closure export and detached replay. A metadata-only
+freshness result establishes its own access bounds. The recorded MCP timeout remains open
+evidence for the structural closure path.
+[Textbook condition and retained failure](references-and-projection-keys.md#sbx-05)
 
 <a id="sbx-13"></a>
 ## SBX-13 — Evaluation preflight

@@ -1,14 +1,15 @@
 # Cutover and qualification
 
-**Status:** Early Revision A producer chain passed in a private target. Cutover and final qualification proposed.
+**Status:** Early Revision A producer chain passed in a private target. The SBX-06 propagation
+slice, cutover and final qualification are proposed.
 Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns how the series lands: the native revisions, regeneration, retirement and the
 assembled evidence. It owns SBX-20 to SBX-22 and the shared early integration and change scenarios
 used by the preceding packages. Source observations below are **Inspected** at `d36e07594`.
-Design and acceptance statements are **Proposed**. The coordinator owns current package state and
-[review dispositions](../set-based-execution_2026-11-21.md#post-sbx-01-review-amendment).
+Design and acceptance statements are **Proposed**. The [coordinator](../set-based-execution_2026-11-21.md)
+owns current package state and review dispositions.
 
 ## Cutover policy
 
@@ -86,10 +87,21 @@ The successor with the regenerated report schemas and selected rich read authori
 preview and rollback-only authoring (`e144d0867344411ab6fe1b96eef1c015`,
 `31a8c3350bfa478da58f8a4caf3bab85`).
 
-Run this focused integration before spreading its assumptions through whole producer and consumer
-families. It closes the early shared-boundary uncertainty. SBX-20 still owns the single registered
-Revision A cutover and SBX-22 the assembled required union.
+These results establish the early partition, proof and reference path for the tested chain.
+SBX-20 owns the single registered Revision A cutover and SBX-22 the assembled required union.
 [Review I05](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I05)
+
+**Next early slice · Proposed.** Extend the same annotation-to-canonical chain after the
+relevant SBX-03–05 contracts are runnable. Settle the SBX-06 identity decision before changing
+native keys. In a rollback-only Revision A candidate, drive a governed commit through native
+delivery, current binding and settlement. Check that an unread lexical edit preserves canonical
+computation and that a materially changed producer can settle an equal declared output with no
+downstream attempt. Contrast the local-geometry case with a moved block whose observed placement
+changes the assembled canonical projection. Use native coverage and selected readback for this
+slice. Revision B supplies the public freshness read. Establish the publication-to-consumer
+stopping behavior before broad propagation adoption. The recorded unchanged repeats exercise
+the same frozen demand and leave these change and recovery cases open.
+[SBX-06](references-and-projection-keys.md#sbx-06) · [Propagation scenarios](#propagation-scenarios)
 
 ## Native revisions
 
@@ -101,14 +113,18 @@ comparing candidates.
 
 | Revision | Carries | Why together |
 |---|---|---|
-| A, identity | Partition table and admission; rule and proof tables, form evaluators, establish routine, required proofs in binding; the reference carrier in admission and completion programs; projection digests in binding and attachment; retirement of the projection family tables, their checks and readers | Each changes what a product body holds or what a request key hashes. Product ids and request keys move once. |
-| B, reads | The outputs, partitions, derivation-facts and proofs programs; the support export's relation list; the read closure membership | Group read and export changes. Check their producer identity and receipt effects separately from shared wire and descriptor changes. |
+| A, identity and propagation | Partition table and admission; rule and proof tables, form evaluators, establish routine and required proofs in binding; reference carrier; projection digests in binding and attachment; durable change delivery, readiness and scoped settlement coverage; retirement of the projection family tables, their checks and readers | Land material product and request identity effects once. Carry the native owner of settlement coverage with the transition it governs. |
+| B, reads | The outputs, partitions, derivation-facts and proofs programs; the public freshness observation for a governed selection; the support export's relation list and read closure membership | Group read and export changes. Check their producer identity and receipt effects separately from shared wire and descriptor changes. |
 | C, PDF | The paged row read for the rebuild; access derivation and the reduced checker; staging without build columns and the adopt program; typed capture reads | Lowering identity and the standard producer contract move once. |
 
 A, B and C are development strands. A and C can be developed independently. B consumes A's
-partition and proof contracts. Author each candidate against its exact predecessor snapshot and
-register the resulting chain in dependency order. Candidate effects, including shared descriptor
-admission, determine whether a development strand can be installed independently.
+partition and proof contracts. Its freshness slice also consumes A's native settlement coverage.
+Other read design can proceed while coverage is under development. Author each candidate against
+its exact predecessor snapshot and register the resulting chain in dependency order. Candidate
+effects, including shared descriptor admission, determine whether a development strand can be
+installed independently.
+[Coverage contract](references-and-projection-keys.md#settlement-coverage) ·
+[Public read](owner-resolved-reads.md#sbx-11)
 
 Attribute candidate differences to direct SQL or physical changes, shared wire and descriptor
 changes, privileges, application admission, and material producer changes. One digest change can
@@ -132,7 +148,9 @@ and re-key everything downstream again, and outstanding receipts would be invali
 
 **Order of regeneration.** PDF capture and publication under revision C; then the operation
 chains under A in dependency order, each product admitted with its partitions and proofs;
-reads and exports under B. The retained book's project binding is recreated, not migrated.
+reads and exports under B. Recreate the retained book's project binding and establish coverage
+for the newly governed selection from the regenerated facts. A newly selected scope needs an
+established position before a current read can report it as settled.
 
 **Checks at each registration.** The repository's native candidate comparison accounts for direct
 and shared changes against the exact predecessor. The release prepares under the new kernel,
@@ -149,6 +167,12 @@ policy above. Establish same-target interruption recovery for the registered tra
 rollback-only candidate establishes its captured authoring and validation scope.
 Registration, application admission and regenerated production results require their own managed
 receipts.
+
+For A, include a committed change and a native settlement or recoverable pending outcome on
+the registered chain. For B, exercise the authorized freshness read against A's scope and
+coverage, including a pending upstream change and subsequent unchanged settlement. Retain the
+separate selected-read and export evidence. Attribute any producer, admission or receipt effects
+of the new read wire through the existing predecessor comparison.
 
 <a id="sbx-21"></a>
 ## SBX-21 — Retirement sweep
@@ -175,6 +199,12 @@ specific to the old mechanism.
   independent evaluator coordinates and protected-reference controls as duplicate preflight is
   removed. Preserve malformed input, interpretation and current-authority expectations through
   the corresponding replacements.
+- Confirm retirement of covered recursive readiness watermarks, stored wait hashes and repeated
+  discovery sweeps after SBX-06 validates their replacement. Follow consumers in the planner,
+  execution, demand reads, record grading and retained evidence. Preserve ordinary pinned reads,
+  bounded scheduling and waiting-owner reports. Keep any unresolved coverage with SBX-06 until
+  its owner migrates. A covered recursive path with a remaining caller is an open retirement
+  obligation. [Readiness delivery](references-and-projection-keys.md#readiness-delivery)
 
 **Evidence.** Importing every production module succeeds. The searches find no reference to a
 retired name outside history. The documentation check passes.
@@ -202,6 +232,12 @@ Use the shared [change scenarios](#change-scenarios) throughout implementation a
 applicable results for assembled qualification. Derive expected effects from the declarations
 and observed checker or consumer boundary before executing a case. Preserve independent
 expectations when testing the rule or projection mechanism itself.
+
+Qualify the native stopping cases, readiness-only wake, join, supersession, recovery and read
+visibility on the registered source and appropriate targets. Keep the textbook MCP closure
+timeout as an open structural read obligation under SBX-11/12. Digest-only freshness work and
+structural body or replay acquisition establish separate acceptance claims.
+[Textbook condition evidence](references-and-projection-keys.md#sbx-05)
 
 <a id="change-scenarios"></a>
 ### Shared change scenarios
@@ -239,6 +275,26 @@ by the checker. For consumers, include only premises read at the declared bounda
 projection can serve both paths while each hashes its own observations. Prepare or retain an
 immutable whole-collection group root only for an actual repeated consumer whose avoided reads
 justify its write and retention responsibility.
+
+<a id="propagation-scenarios"></a>
+### Propagation scenarios
+
+Use the existing placement, order, membership, pointer, proof and authority scenarios above
+through the delivery path. For the additional cases below, assert native decisions, selected
+bindings, attempts or receipts and the read outcome as applicable. A small controlled fixture
+can distinguish execution paths. Use the actual native boundary for durability and authority.
+[Push review I01–I04](../../plan_improvement_reviews/set-based-execution-push-propagation_2026-11-21.md#I01)
+
+| Scenario | Independent expectation |
+|---|---|
+| Register unrelated original bytes, then explicitly replace the evidence for a named selection | Registration leaves the existing selection's computation and coverage alone. Replacement affects the selected scope and preserves previously frozen demands. A newly acquired all-inventory selection can observe its own membership change. |
+| Add or remove the first eligible population member, including return to empty; route a change to parallel roles that observe different fields | Declared selectors wake the affected bindings even when there was no prior selected address. Role identity and observed field groups determine which computations change. Confirm closure and distinguish an authorized empty result from unresolved coverage. |
+| Activate a release with a material producer edit and a descriptive edit | The material determinant puts its operation in scope. The descriptive edit preserves computation identity. Eligibility edits can affect binding or discovery. An activation alone leaves the release pinned by an existing frozen demand intact. |
+| Change an unread annotation field, then separately change the producer recipe and settle equal canonical input projections | An unread field leaves the consumer computation reusable. The material recipe change creates a producer attempt. Equal declared output projection creates no downstream attempt once the owner settles it. Compare with a changed observed span or placement, and verify the exact current attachment independently. |
+| Publish another usable episode for the same exact pinned product; exercise late discovery, original admission, proof establishment and support revocation | An unrelated episode leaves the waiter waiting. Applicable support can wake the exact waiter with a stable computational digest. Native binding establishes its decision and revocation can refuse unchanged content. Revisit settled work and check that a covered request avoids the recursive watermark scan. |
+| Settle a diamond where one arm changes and one ends unchanged | The join sees both current arms before comparing its combined key. The unchanged arm contributes settlement without another provider attempt at its downstream boundary. |
+| Supersede a selection during execution; lose acknowledgement after a native commit | A late valid publication retains its historical meaning but cannot advance the superseding selection. Replay recovers committed change delivery and settles it without duplicate attempts or publication. |
+| Pause delivery between edges after the upstream commit, while the immediate read target has no queued work | The authorized freshness-aware read reports pending for the affected scope, the pinned read retains its selected cut subject to current authority, and an independently covered scope stays available. After unchanged settlement, the governed scope advances without a new provider attempt. Check unavailable or unknown where coverage cannot be established, and confirm digest acquisition stays body-free alongside explicit body and export requests. |
 
 **The point check.** A partition-local rule and a single addressed-item lookup each decode at
 most one body. Acquire needed metadata and authority through scoped keys. A rule that observes
