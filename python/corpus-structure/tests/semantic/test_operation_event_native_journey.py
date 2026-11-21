@@ -52,8 +52,8 @@ from semantic.structural_production_native_support import (
 from test_preparation import preparation_fixture
 
 
-@preparation_fixture("operation-event-native", scope="module")
-def operation_event_journey(published_pdf_source_factory, tmp_path_factory):
+@preparation_fixture("operation-event-frame-native", scope="module")
+def framed_operation_event(published_pdf_source_factory, tmp_path_factory):
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.semantic.native_definition_projection import (
@@ -249,45 +249,51 @@ def operation_event_journey(published_pdf_source_factory, tmp_path_factory):
             ),
             algorithm=OperationEventAlgorithm(),
         )
-        specification = authored(
-            kernel,
-            project_context(kernel),
-            "current-event-fit-spec",
-            spec.model_dump(mode="json"),
-            author="independent procedure author",
-            kind=NAMESPACE + "DdoOperationEventFitSpecification",
-        )
-        pending = request(
-            kernel,
-            ("operation_event.fit", "operation_event.authorize"),
-            project_context(kernel),
-            originals=(specification,),
-            source_sets=(
-                FrozenSourceSet.from_selected("operation-event-frames", (frame_product.entry(),)),
-            ),
-            inference="actual-current-event-fit-and-issuer",
-        )
-        fitted, execution = execute(kernel, pending, authored=True)
-        assert execution.receipt_count == 2
-        fit_page, (fit_product,) = selected(
-            kernel,
-            fitted["demand_id"],
-            NAMESPACE + "DdoOperationEventFit",
-            scope={"operation_id": "operation_event.fit"},
-        )
-        fit = DdoOperationEventFit.model_validate_json(json_bytes(fit_product.body))
         yield dict(
             kernel=kernel,
             originals=originals,
             reports=reports,
             frame=frame,
             frame_product=frame_product,
-            fit=fit,
-            fit_page=fit_page,
-            fitted=fitted,
             spec=spec,
             question=question,
         )
+
+
+@preparation_fixture("operation-event-fit-native", scope="module")
+def operation_event_journey(framed_operation_event):
+    case = framed_operation_event
+    kernel = case["kernel"]
+    specification = authored(
+        kernel,
+        project_context(kernel),
+        "current-event-fit-spec",
+        case["spec"].model_dump(mode="json"),
+        author="independent procedure author",
+        kind=NAMESPACE + "DdoOperationEventFitSpecification",
+    )
+    pending = request(
+        kernel,
+        ("operation_event.fit", "operation_event.authorize"),
+        project_context(kernel),
+        originals=(specification,),
+        source_sets=(
+            FrozenSourceSet.from_selected(
+                "operation-event-frames", (case["frame_product"].entry(),)
+            ),
+        ),
+        inference="actual-current-event-fit-and-issuer",
+    )
+    fitted, execution = execute(kernel, pending, authored=True)
+    assert execution.receipt_count == 2
+    fit_page, (fit_product,) = selected(
+        kernel,
+        fitted["demand_id"],
+        NAMESPACE + "DdoOperationEventFit",
+        scope={"operation_id": "operation_event.fit"},
+    )
+    fit = DdoOperationEventFit.model_validate_json(json_bytes(fit_product.body))
+    return {**case, "fit": fit, "fit_page": fit_page, "fitted": fitted}
 
 
 def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private_basis(
@@ -406,12 +412,14 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
 
 
 def test_actual_restricted_event_frame_read_refuses_ordinary_purpose_and_substituted_use(
-    operation_event_journey,
+    framed_operation_event,
 ):
+    from psycopg.errors import InsufficientPrivilege
+
     from corpus_structure.semantic.demand_results import CutSelection
     from corpus_structure.semantic.record_policy_native import read_selected_feature_fit_frame
 
-    case = operation_event_journey
+    case = framed_operation_event
     selected_frame = case["spec"].frame
     arguments = dict(
         variant="operation-event-frame",
@@ -427,10 +435,14 @@ def test_actual_restricted_event_frame_read_refuses_ordinary_purpose_and_substit
     )
     with (
         case["kernel"].purpose("read").begin() as connection,
-        pytest.raises(DBAPIError, match="feature fit"),
+        pytest.raises(DBAPIError) as refusal,
         connection.begin_nested(),
     ):
         read_selected_feature_fit_frame(connection, **arguments)
+    assert isinstance(refusal.value.orig, InsufficientPrivilege)
+    assert "permission denied for function read_selected_feature_fit_frame" in str(
+        refusal.value.orig
+    )
     with (
         case["kernel"].purpose("fit").begin() as connection,
         pytest.raises(DBAPIError),

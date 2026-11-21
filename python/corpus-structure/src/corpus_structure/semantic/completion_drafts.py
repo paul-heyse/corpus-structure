@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import uuid4
 
-from .data_operation_json import json_bytes, wire_json_loads
+from .data_operation_json import json_bytes, native_json_loads, wire_json_loads
 from .data_operation_wire import validate_wire_schema
 
 if TYPE_CHECKING:
@@ -245,6 +245,12 @@ class CompletionDraftStore:
                 )
             try:
                 writer_schema = self.writer_schema_for_release(value["release_id"])
+            except KeyError as error:
+                if error.args != (value["release_id"],):
+                    raise
+                raise DraftWriterContractUnavailable(
+                    "retained completion writer release is unavailable"
+                ) from error
             except (ValueError, FileNotFoundError) as error:
                 raise DraftWriterContractUnavailable(
                     "retained completion writer contract cannot be acquired"
@@ -258,7 +264,7 @@ class CompletionDraftStore:
         )
         if sha256(request).hexdigest() != value["request_sha256"]:
             raise ValueError("completion draft differs from its acknowledged body")
-        validate_wire_schema(writer_schema, wire_json_loads(request))
+        validate_wire_schema(writer_schema, native_json_loads(request))
         return CompletionDraft(
             identity, value["release_id"], value["operation"], json_bytes(value["basis"]), request
         )

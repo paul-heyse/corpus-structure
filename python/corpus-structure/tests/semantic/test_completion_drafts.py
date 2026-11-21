@@ -307,6 +307,16 @@ def test_legacy_draft_requires_authenticated_writer_basis(tmp_path):
     (tmp_path / (identity + ".body")).write_bytes(draft.request)
     with pytest.raises(DraftWriterContractUnavailable):
         store.open(identity)
+
+    def missing_writer(release):
+        raise KeyError(release)
+
+    unavailable = CompletionDraftStore(
+        tmp_path, max_bytes=65536, writer_schema_for_release=missing_writer
+    )
+    with pytest.raises(DraftWriterContractUnavailable, match="writer release is unavailable"):
+        unavailable.open(identity)
+
     acquired = []
 
     def writer(release):
