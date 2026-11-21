@@ -2,6 +2,9 @@
 
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from typing import Any, cast
+
+import pytest
 
 from corpus_structure.cli.observations import Bindings, Observation, ObservationPage
 from corpus_structure.cli.operation_observation import operational_observation
@@ -12,6 +15,269 @@ from corpus_structure.semantic.serving_code import (
     serving_code,
     serving_report,
 )
+
+
+@pytest.mark.parametrize(
+    ("descriptor", "standing"),
+    [
+        (None, "unavailable"),
+        ({"version": "other"}, "unavailable"),
+        ({"version": "data-operation-native-v1", "source_digest": "expected"}, "matching"),
+        ({"version": "data-operation-native-v1", "source_digest": "different"}, "mismatch"),
+    ],
+)
+def test_native_kernel_observation_only_reads_descriptor(descriptor, standing):
+    from corpus_structure.semantic.data_operation_storage import observe_native_kernel
+
+    class Connection:
+        def scalar(self, statement):
+            assert str(statement) == "SELECT sem.data_operation_native_descriptor()"
+            return descriptor
+
+    observed = observe_native_kernel(
+        cast(Any, Connection()), cast(Any, SimpleNamespace(native_kernel_digest="expected"))
+    )
+    assert observed.standing == standing
+    assert observed.expected_digest == "expected"
+
+
+@pytest.mark.parametrize("standing", ["matching", "mismatch", "unavailable"])
+def test_inspection_current_kernel_keeps_resume_prerequisites(standing, tmp_path, monkeypatch):
+    import typer
+
+    from corpus_structure.cli.app import build_full_app
+    from corpus_structure.cli.managed import ResultStore
+    from corpus_structure.cli.observations import ObservationSelection
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.cli.result_inspection import NativeInspection, inspect_result
+    from corpus_structure.semantic.data_operation_storage import NativeKernelObservation
+
+    store = ResultStore(tmp_path / "results")
+    with store.operation("run") as invocation:
+        path = invocation.directory / "execution-context.json"
+        path.write_text("{}")
+        invocation.publish("execution_context", path)
+    monkeypatch.setattr(
+        "corpus_structure.cli.execution_context.read_execution_context",
+        lambda *args: SimpleNamespace(
+            demand_id="demand:one",
+            model_dump=lambda **kwargs: {
+                "configured_target": {"profile": "development"},
+                "source_root": "/actual source",
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        "corpus_structure.cli.result_inspection.native_inspection",
+        lambda *args: NativeInspection(
+            kernel=NativeKernelObservation(
+                standing=standing,
+                expected_digest="expected",
+                observed_digest="different" if standing == "mismatch" else "expected",
+            )
+        ),
+    )
+    ctx = typer.Context(typer.main.get_command(build_full_app()), obj=CliState())
+    report = inspect_result(ctx, store, invocation.id, ObservationSelection())
+    kinds = {action.kind for action in report.next_actions}
+    if standing == "mismatch":
+        assert "resume_result" not in kinds
+        successor = next(
+            action for action in report.next_actions if action.kind == "successor_admission"
+        )
+        assert successor.standing == "observed" and successor.command is None
+        assert "reviewed_successor_release" in successor.required_inputs
+    else:
+        resume = next(action for action in report.next_actions if action.kind == "resume_result")
+        assert resume.standing == "conditional"
+        assert resume.reason is not None
+        assert "Current execution admission" in resume.reason
+
+
+def test_recovery_actions_keep_owner_observations_and_guard_fresh_query_target(
+    tmp_path, monkeypatch
+):
+    import shlex
+
+    import typer
+
+    from corpus_structure.cli.app import build_full_app
+    from corpus_structure.cli.managed import ResultStore
+    from corpus_structure.cli.observations import ObservationSelection
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.cli.result_inspection import NativeInspection, inspect_result
+    from corpus_structure.semantic.storage_target import StorageTarget
+
+    target = StorageTarget(
+        database="captured",
+        database_oid=21,
+        system_identifier="cluster:one",
+        host="localhost",
+        port=5434,
+        purpose="read",
+    )
+    store = ResultStore(tmp_path / "results")
+    with store.operation("controlled", observations=True) as invocation:
+        invocation.bind_observations(demand_id="demand:one", project="project with spaces")
+        invocation.stage("selected", native_source_root="/actual source")
+    bindings = Bindings(invocation_id=invocation.id, demand_id="demand:one")
+    refusal = Observation(
+        sequence=1,
+        producer_sequence=1,
+        timestamp="2026-11-21T00:00:00Z",
+        kind="event",
+        producer="executor",
+        bindings=bindings,
+        message="native_demand.prepared_acquisition_refused",
+        fields={"prerequisite": "model-resource", "expected": "first", "actual": "second"},
+    )
+    recovery = refusal.model_copy(
+        update={
+            "sequence": 2,
+            "producer_sequence": 2,
+            "message": "native_demand.recovery_selected",
+            "fields": {
+                "recovery_action": "reconcile",
+                "observation_scope": "checked committed claim",
+            },
+        }
+    )
+    native = NativeInspection(
+        availability="available",
+        expected_target=target.model_dump(mode="json"),
+        demand={
+            "demand_id": "demand:one",
+            "project_id": "project with spaces",
+            "read_id": "old-read",
+            "continuation": {"native_only": True},
+        },
+    )
+    monkeypatch.setattr(
+        "corpus_structure.cli.result_inspection.native_inspection", lambda *args: native
+    )
+    ctx = typer.Context(typer.main.get_command(build_full_app()), obj=CliState())
+    report = inspect_result(
+        ctx,
+        store,
+        invocation.id,
+        ObservationSelection(limit=7),
+        page=ObservationPage(result=invocation.id, rows=[refusal, recovery]),
+    )
+    assert report.preparation_refusal == refusal
+    assert report.recovery_observation == recovery
+    resume = next(action for action in report.next_actions if action.kind == "resume_demand")
+    assert resume.standing == "conditional"
+    action = next(action for action in report.next_actions if action.kind == "query")
+    assert action.read_scope == "fresh_current"
+    assert action.expected_target == target
+    assert action.query is not None and action.query.cursor is None
+    assert action.command is not None
+    args = shlex.split(action.command)
+    assert args[:3] == ["ci", "query", "operations"]
+    assert args[args.index("--project") + 1] == "project with spaces"
+    assert args[args.index("--limit") + 1] == "7"
+    assert StorageTarget.model_validate_json(args[args.index("--expected-target") + 1]) == target
+    assert "--cursor" not in args
+
+
+def test_query_target_handoff_is_verified_before_read(cli, monkeypatch):
+    import json
+    from contextlib import contextmanager
+
+    from corpus_structure.cli import selected_results
+    from corpus_structure.semantic import runtime, storage_target
+
+    target = storage_target.StorageTarget(
+        database="captured",
+        database_oid=21,
+        system_identifier="cluster:one",
+        host="localhost",
+        port=5434,
+        purpose="read",
+    )
+    connection = object()
+    calls = []
+
+    @contextmanager
+    def engine(*args, **kwargs):
+        class Engine:
+            @contextmanager
+            def begin(self):
+                yield connection
+
+        yield Engine()
+
+    def verify(conn, expected, *, purpose):
+        assert conn is connection and expected == target and purpose == "read"
+        calls.append("verified")
+
+    def query(conn, request):
+        assert calls == ["verified"]
+        assert request.project_id == "project:one" and request.demand_id == "demand:one"
+        return {"items": [], "continuation": None}
+
+    monkeypatch.setattr(runtime, "open_runtime_engine", engine)
+    monkeypatch.setattr(storage_target, "verify_target", verify)
+    monkeypatch.setattr(selected_results, "serve_demand_query", query)
+    args = (
+        "query",
+        "operations",
+        "--demand",
+        "demand:one",
+        "--project",
+        "project:one",
+        "--expected-target",
+        target.model_dump_json(),
+        "--json",
+    )
+    result = cli(*args)
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["items"] == []
+
+    def refuse(*args, **kwargs):
+        raise storage_target.StorageTargetError("different PostgreSQL target")
+
+    monkeypatch.setattr(storage_target, "verify_target", refuse)
+    result = cli(*args)
+    assert result.exit_code != 0
+    assert "different PostgreSQL target" in result.stdout
+
+
+def test_deployment_inspection_preserves_candidate_target_and_settled_effects(tmp_path):
+    import shlex
+
+    import typer
+
+    from corpus_structure.cli.app import build_full_app
+    from corpus_structure.cli.managed import ResultStore
+    from corpus_structure.cli.observations import ObservationSelection
+    from corpus_structure.cli.output import CliState
+    from corpus_structure.cli.result_inspection import inspect_result
+    from corpus_structure.semantic.storage_target import StorageTarget
+
+    target = StorageTarget(
+        database="stage",
+        database_oid=21,
+        system_identifier="cluster:one",
+        host="localhost",
+        port=5434,
+        purpose="maintenance",
+    )
+    store = ResultStore(tmp_path / "results")
+    with store.operation(
+        "model.deploy", scope={"candidate": "captured-candidate"}, account=True
+    ) as invocation:
+        invocation.record_deployment_checkpoint(target, "N45", "N46", "release:one", "migration")
+        invocation.settle("interrupted")
+    ctx = typer.Context(typer.main.get_command(build_full_app()), obj=CliState())
+    report = inspect_result(ctx, store, invocation.id, ObservationSelection())
+    assert report.deployment is not None
+    assert report.deployment.settled_effects == ("migration",)
+    assert report.deployment.acquired_target == target
+    action = next(action for action in report.next_actions if action.kind == "resume_deployment")
+    assert action.command is not None
+    assert shlex.split(action.command) == ["ci", "model", "change", "deploy", "captured-candidate"]
+    assert action.standing == "conditional" and action.expected_target == target
 
 
 def event(phase, *, age=0):

@@ -52,6 +52,12 @@ def query(
             help="Explain this read's actual code reuse custody.", rich_help_panel="Diagnostics"
         ),
     ] = False,
+    expected_target: Annotated[
+        str | None,
+        typer.Option(
+            help="Acquired StorageTarget JSON identity required by a recorded query handoff."
+        ),
+    ] = None,
 ) -> None:
     """Read native standing or named knowledge from an explicit accepted product.
 
@@ -69,11 +75,15 @@ def query(
     from corpus_structure.cli.reuse_explanation import emit_selected_result
     from corpus_structure.semantic.code_reuse import attach_reuse_explanation, explain_code_reuse
     from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.storage_target import StorageTarget, verify_target
 
     with (
         failure_boundary(json, expected=(ValueError, KeyError)),
         explain_code_reuse(explain_reuse) as explanations,
     ):
+        target = (
+            None if expected_target is None else StorageTarget.model_validate_json(expected_target)
+        )
         if without_original_source and original_source is not None:
             raise ValueError(
                 "select either an exact original source or explicit no original source"
@@ -115,6 +125,8 @@ def query(
                 ) as engine,
                 engine.begin() as connection,
             ):
+                if target is not None:
+                    verify_target(connection, target, purpose="read")
                 result = serve_rich_query(connection, rich_request)
             if explain_reuse:
                 result = attach_reuse_explanation(result, explanations)
@@ -143,6 +155,8 @@ def query(
             ) as engine,
             engine.begin() as connection,
         ):
+            if target is not None:
+                verify_target(connection, target, purpose="read")
             result = serve_demand_query(connection, request)
         if explain_reuse:
             result = attach_reuse_explanation(result, explanations)

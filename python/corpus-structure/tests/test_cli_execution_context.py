@@ -109,6 +109,17 @@ def test_preparation_failure_retains_recoverable_request_and_policy(
     manifest = json.loads((folder / "manifest.json").read_text())
     assert manifest["outcome"] == "failed"
     assert manifest["artifacts"]["execution_context"] == "execution-context.json"
+    inspected = cli(
+        "results", "inspect", folder.name, "--json", env={"CORPUS_CI_RESULTS": str(results)}
+    )
+    assert inspected.exit_code == 0, inspected.output
+    action = next(
+        item
+        for item in json.loads(inspected.stdout)["next_actions"]
+        if item["kind"] == "resume_result"
+    )
+    assert action["standing"] == "conditional"
+    assert "Current execution admission" in action["reason"]
 
 
 def test_managed_resume_keeps_policy_after_file_and_defaults_change(

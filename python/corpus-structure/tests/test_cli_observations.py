@@ -420,6 +420,7 @@ def test_inspection_bounds_joined_zero_rows_and_withholds_sole_row_cursor(tmp_pa
         "project_id": "nondefault project's space",
     }
     action = next(item for item in report.next_actions if item.kind == "resume_demand")
+    assert action.command is not None
     assert shlex.split(action.command) == [
         "ci",
         "demands",

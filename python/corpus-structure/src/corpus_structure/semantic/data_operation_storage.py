@@ -11,9 +11,9 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
-from pydantic import ConfigDict, TypeAdapter, with_config
+from pydantic import BaseModel, ConfigDict, TypeAdapter, with_config
 from sqlalchemy import Text, bindparam, cast, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -140,16 +140,44 @@ def require_data_operation_native(connection: Connection, prepared: PreparedRele
     return _require_native_kernel(connection, prepared)
 
 
-def _require_native_kernel(connection: Connection, prepared: PreparedRelease) -> str:
+class NativeKernelObservation(BaseModel):
+    """Current descriptor correspondence alone confers no execution admission."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    standing: Literal["matching", "mismatch", "unavailable"]
+    expected_digest: str
+    observed_digest: str | None = None
+    reason: str | None = None
+
+
+def observe_native_kernel(
+    connection: Connection, prepared: PreparedRelease
+) -> NativeKernelObservation:
+    """Read the current descriptor without acquiring or renewing an admission receipt."""
     expected = prepared.native_kernel_digest
     actual = connection.scalar(text("SELECT sem.data_operation_native_descriptor()"))
     if (
         not isinstance(actual, dict)
         or actual.get("version") != "data-operation-native-v1"
-        or actual.get("source_digest") != expected
+        or not isinstance(actual.get("source_digest"), str)
     ):
+        return NativeKernelObservation(
+            standing="unavailable",
+            expected_digest=expected,
+            reason="Current native kernel descriptor is unavailable or malformed.",
+        )
+    return NativeKernelObservation(
+        standing="matching" if actual["source_digest"] == expected else "mismatch",
+        expected_digest=expected,
+        observed_digest=actual["source_digest"],
+    )
+
+
+def _require_native_kernel(connection: Connection, prepared: PreparedRelease) -> str:
+    observed = observe_native_kernel(connection, prepared)
+    if observed.standing != "matching":
         raise ValueError("release was prepared for a different native kernel; re-prepare it")
-    return expected
+    return observed.expected_digest
 
 
 def _kind_schema(prepared: PreparedRelease, kind) -> dict[str, Any]:

@@ -12,24 +12,45 @@ from rich.console import Group
 from rich.table import Table
 from rich.text import Text
 
-from corpus_structure.cli.observations import Bindings, ObservationPage, ObservationSelection
+from corpus_structure.cli.observations import (
+    Bindings,
+    Observation,
+    ObservationPage,
+    ObservationSelection,
+)
 from corpus_structure.cli.operation_observation import (
     OperationalObservation,
     operational_observation,
 )
 from corpus_structure.semantic.code_reuse import ReuseExplanationReport
+from corpus_structure.semantic.data_operation_storage import NativeKernelObservation
+from corpus_structure.semantic.demand_queries import DemandQueryRequest
+from corpus_structure.semantic.storage_target import StorageTarget
 
 
 class NextAction(BaseModel):
     kind: Literal[
-        "watch", "inspect", "resume_demand", "resume_result", "recover_result", "native_status"
+        "watch",
+        "inspect",
+        "resume_demand",
+        "resume_result",
+        "recover_result",
+        "native_status",
+        "query",
+        "successor_admission",
+        "resume_deployment",
     ]
-    command: str
-    owner: Literal["managed_result", "native_demand"]
+    command: str | None = None
+    owner: Literal["managed_result", "native_demand", "model_deployment"]
     result_id: str | None = None
     demand_id: str | None = None
     required_inputs: tuple[str, ...] = ()
     target_profile: str | None = None
+    standing: Literal["recorded", "conditional", "observed"] = "recorded"
+    reason: str | None = None
+    expected_target: StorageTarget | None = None
+    query: DemandQueryRequest | None = None
+    read_scope: Literal["fresh_current"] | None = None
 
 
 class NativeInspection(BaseModel):
@@ -42,6 +63,19 @@ class NativeInspection(BaseModel):
     observed_at: str | None = None
     configured_selection: dict[str, Any] | None = None
     expected_target: dict[str, Any] | None = None
+    kernel: NativeKernelObservation | None = None
+
+
+class DeploymentObservation(BaseModel):
+    """Recorded deployment effects retain their owner and target across interruption."""
+
+    standing: Literal["retained"] = "retained"
+    candidate_id: str
+    settled_effects: tuple[str, ...] | None
+    acquired_target: StorageTarget | None = None
+    predecessor: str | None = None
+    reached_revision: str | None = None
+    release_id: str | None = None
 
 
 class ResultInspection(BaseModel):
@@ -60,6 +94,10 @@ class ResultInspection(BaseModel):
     execution_context: dict[str, Any] | None = None
     recovery_unavailable_reason: str | None = None
     reuse_explanation: ReuseExplanationReport | None = None
+    preparation_refusal: Observation | None = None
+    recovery_observation: Observation | None = None
+    deployment: DeploymentObservation | None = None
+    owner_observations_omitted: bool = False
     next_actions: tuple[NextAction, ...] = ()
     correlation: Literal["recorded_bindings_only"] = "recorded_bindings_only"
     timeline_ordering: Literal[
@@ -67,6 +105,22 @@ class ResultInspection(BaseModel):
     ] = "parent_journal_sequence; timestamps do not establish cross-process causality"
     provider_receipts: tuple[str, ...] = ()
     provider_receipts_omitted: int = 0
+
+
+def _kernel_observation(connection, release_id):
+    """Observe archived kernel correspondence without admitting the archived release."""
+    from sqlalchemy.exc import SQLAlchemyError
+
+    from corpus_structure.semantic.data_operation_storage import observe_native_kernel
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
+    from corpus_structure.semantic.releases import open_release
+
+    with connection.begin_nested() as observation:
+        try:
+            return observe_native_kernel(connection, open_release(connection, release_id))
+        except SQLAlchemyError, SemanticRefusal, ValueError:
+            observation.rollback()
+    return None
 
 
 def native_inspection(
@@ -98,6 +152,7 @@ def native_inspection(
         mode="json"
     )
     observed_at = datetime.now(UTC).isoformat()
+    kernel = None
     try:
         from corpus_structure.semantic.demand_results import selected_read_snapshot
 
@@ -107,6 +162,8 @@ def native_inspection(
             selected_read_snapshot(engine) as conn,
         ):
             verify_target(conn, expected, purpose="read")
+            if bindings.get("release_id") is not None:
+                kernel = _kernel_observation(conn, bindings["release_id"])
             from corpus_structure.semantic.data_operation_service import read_data_demand
 
             snapshot = read_data_demand(conn, demand_id, limit=min(selection.limit, 16))
@@ -119,11 +176,14 @@ def native_inspection(
                     return NativeInspection(
                         reason="Recorded demand custody differs from the native demand."
                     )
+            if kernel is None:
+                kernel = _kernel_observation(conn, snapshot["release_id"])
             return NativeInspection(
                 availability="available",
                 observed_at=observed_at,
                 configured_selection=configured,
                 expected_target=target,
+                kernel=kernel,
                 demand={
                     key: snapshot[key]
                     for key in (
@@ -157,6 +217,7 @@ def native_inspection(
             observed_at=observed_at,
             configured_selection=configured,
             expected_target=target,
+            kernel=kernel,
         )
 
 
@@ -233,7 +294,26 @@ def inspect_result(
                     kind="watch", command=f"ci results watch {result}", owner="managed_result"
                 )
             )
-        if captured is not None:
+        if (
+            captured is not None
+            and native.kernel is not None
+            and native.kernel.standing == "mismatch"
+        ):
+            actions.append(
+                NextAction(
+                    kind="successor_admission",
+                    owner="native_demand",
+                    result_id=result,
+                    demand_id=bindings.demand_id,
+                    standing="observed",
+                    required_inputs=("reviewed_successor_release", "current_execution_admission"),
+                    reason=(
+                        "The captured release's kernel differs from the current descriptor. "
+                        "Prepare and admit a reviewed successor before attempting compatible recovery."
+                    ),
+                )
+            )
+        elif captured is not None:
             actions.append(
                 NextAction(
                     kind="resume_result",
@@ -243,6 +323,15 @@ def inspect_result(
                     demand_id=bindings.demand_id,
                     required_inputs=() if captured.get("source_root") else ("source_root",),
                     target_profile=captured["configured_target"]["profile"],
+                    standing="conditional",
+                    reason=(
+                        "The recorded release/runtime and policy will be resumed. Current "
+                        "execution admission, support, claim and retained-file custody must "
+                        "be acquired before recorded work can be used."
+                    ),
+                    expected_target=StorageTarget.model_validate(native.expected_target)
+                    if native.expected_target is not None
+                    else None,
                 )
             )
         if bindings.demand_id is not None:
@@ -271,6 +360,8 @@ def inspect_result(
                         owner="native_demand",
                         demand_id=bindings.demand_id,
                         required_inputs=("execution_policy",),
+                        standing="conditional",
+                        reason="Current execution admission, support and recovery custody require observation.",
                     )
                 )
             if manifest.settled is not None and "native" in manifest.artifacts:
@@ -279,6 +370,50 @@ def inspect_result(
                 retained = wire_json_loads(store.read_artifact(result, "native"))
                 if retained.get("demand_id") == bindings.demand_id:
                     native.execution_receipts = tuple(retained.get("receipts", ()))
+        if (
+            native.availability == "available"
+            and native.demand is not None
+            and native.expected_target is not None
+            and native.demand.get("project_id") is not None
+        ):
+            query = DemandQueryRequest(
+                demand_id=native.demand["demand_id"],
+                project_id=native.demand["project_id"],
+                view="operations",
+                limit=min(selection.limit, 16),
+                max_bytes=selection.max_bytes,
+            )
+            target = StorageTarget.model_validate(native.expected_target)
+            actions.append(
+                NextAction(
+                    kind="query",
+                    command=shlex.join(
+                        [
+                            "ci",
+                            "query",
+                            query.view,
+                            "--demand",
+                            query.demand_id,
+                            "--project",
+                            query.project_id,
+                            "--limit",
+                            str(query.limit),
+                            "--max-bytes",
+                            str(query.max_bytes),
+                            "--expected-target",
+                            target.model_dump_json(),
+                            "--json",
+                        ]
+                    ),
+                    owner="native_demand",
+                    demand_id=query.demand_id,
+                    standing="conditional",
+                    reason="Acquire a fresh current read on the recorded target with current disclosure authority.",
+                    expected_target=target,
+                    query=query,
+                    read_scope="fresh_current",
+                )
+            )
         if manifest.action in {"test", "test.retry"} and not manifest.custody_settled():
             actions.append(
                 NextAction(
@@ -287,6 +422,33 @@ def inspect_result(
                     owner="managed_result",
                 )
             )
+        deployment = None
+        candidate = manifest.scope.get("candidate")
+        account = manifest.operation_account
+        if manifest.action == "model.deploy" and isinstance(candidate, str) and account is not None:
+            deployment = DeploymentObservation(
+                candidate_id=candidate,
+                settled_effects=account.known_effects,
+                acquired_target=account.acquired_target,
+                predecessor=account.predecessor,
+                reached_revision=account.reached_revision,
+                release_id=account.release,
+            )
+            if manifest.outcome != "passed":
+                actions.append(
+                    NextAction(
+                        kind="resume_deployment",
+                        owner="model_deployment",
+                        command=shlex.join(["ci", "model", "change", "deploy", candidate]),
+                        result_id=result,
+                        standing="conditional",
+                        expected_target=account.acquired_target,
+                        reason=(
+                            "Reconcile this candidate's recorded effects on its exact target. "
+                            "The deployment owner checks current migration, archive and admission standing."
+                        ),
+                    )
+                )
         receipts = tuple(
             dict.fromkeys(
                 row.fields["provider_receipt"]
@@ -324,6 +486,23 @@ def inspect_result(
             execution_context=captured,
             recovery_unavailable_reason=unavailable_reason,
             reuse_explanation=reuse,
+            preparation_refusal=next(
+                (
+                    row
+                    for row in page.rows
+                    if row.message == "native_demand.prepared_acquisition_refused"
+                ),
+                None,
+            ),
+            recovery_observation=next(
+                (
+                    row
+                    for row in reversed(page.rows)
+                    if row.message == "native_demand.recovery_selected"
+                ),
+                None,
+            ),
+            deployment=deployment,
             next_actions=tuple(actions),
             provider_receipts=receipts,
             provider_receipts_omitted=len(all_receipts) - len(receipts),
@@ -359,6 +538,11 @@ def inspect_result(
                 }
             )
         if len(report.model_dump_json().encode()) > selection.max_bytes:
+            report.owner_observations_omitted = (
+                report.preparation_refusal is not None or report.recovery_observation is not None
+            )
+            report.preparation_refusal = None
+            report.recovery_observation = None
             report.provider_receipts_omitted += len(report.provider_receipts)
             report.provider_receipts = ()
         while (
@@ -461,5 +645,28 @@ def render_inspection(report: ResultInspection) -> Group:
         parts.append(Text(f"Continue observations with --after {report.observations.next_after}"))
     if report.observations.collection_omitted:
         parts.append(Text(f"Collection omitted {report.observations.collection_omitted} events."))
-    parts.extend(Text(action.command) for action in report.next_actions)
+    for observation in (report.preparation_refusal, report.recovery_observation):
+        if observation is not None:
+            parts.append(
+                Text(f"{observation.message} · retained observation at {observation.timestamp}")
+            )
+            parts.append(Text(str(observation.fields)))
+    if report.deployment is not None:
+        parts.append(
+            Text(
+                f"Candidate {report.deployment.candidate_id} · retained settled effects: "
+                + (
+                    "unavailable"
+                    if report.deployment.settled_effects is None
+                    else ", ".join(report.deployment.settled_effects) or "none recorded"
+                )
+            )
+        )
+    if report.owner_observations_omitted:
+        parts.append(Text("Owner observation detail omitted by response byte limit."))
+    for action in report.next_actions:
+        if action.command is not None:
+            parts.append(Text(action.command))
+        if action.reason:
+            parts.append(Text(f"{action.standing}: {action.reason}"))
     return Group(*parts)
