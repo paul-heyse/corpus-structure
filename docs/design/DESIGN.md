@@ -238,6 +238,17 @@ The [audit-closure coordinator](../plans/audit-closure_2026-11-03.md) owns remai
 
 > Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
 
+**Accepted set-based target · implementation and qualification Proposed · 2026-11-21.**
+Homogeneous populations use declared partition addresses, with relative item coordinates and
+content digests distinct from authenticated occurrence placement and order. Individually bound
+and identified graph members retain their addressed units. Body references name declared input
+roles and resolve through the producing derivation's recorded inputs. A use-facing support
+reader consumes the exact use's selection, including when several uses share one derivation.
+The effective model and identity contract in §B5 govern projection-keyed requests and the single
+reference carrier. [SBX contract](../plans/set-based-execution/references-and-projection-keys.md)
+
+> Decision: [ADR-0144](../adr/0144-sbx-partitioned-products.md)
+
 
 **Accepted selected-support target; implementation/qualification Proposed · 2026-11-17.**
 A semantic product/member address does not choose a producing proof. Explicit acquisition retains
@@ -379,6 +390,23 @@ semantic decoder fallback.
 
 > Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
 
+**Accepted SBX cutover target · implementation and qualification Proposed · 2026-11-21.**
+Affected derived values are regenerated through the target population, reference and identity
+contracts. Original custody, native publication and current-authority guarantees govern the
+new effects. Retained artifacts keep their dated evidence standing. The
+[SBX series](../plans/set-based-execution_2026-11-21.md) owns this direct cutover and its final
+qualification, with coordinated identity, read and PDF revisions.
+
+> Decision: [ADR-0143](../adr/0143-sbx-direct-cutover.md)
+
+**Accepted kernel-trial target · implementation and qualification Proposed · 2026-11-21.**
+One scoped-relations family is rebuilt through typed set operations under the analytical owner.
+Explicit ordinals and phase order preserve output meaning. Python retains identity encoding and
+text operations whose library semantics differ. The complete trial ends in a recorded decision
+on further family adoption. [Trial owner](../plans/set-based-execution/kernel-trial.md)
+
+> Decision: [ADR-0148](../adr/0148-sbx-kernel-trial.md)
+
 
 **Accepted target; implementation/qualification Proposed · 2026-11-17.** Physical calls use one
 pre-hydration worst-case byte reservation, reduced by its sole owner after measured hydration
@@ -490,6 +518,16 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 
 ### §B3 Agents work the semantic queue through supervised or interactive MCP sessions
 
+**Accepted SBX read target · implementation and qualification Proposed · 2026-11-21.**
+Native disclosure supplies filtered, paged output and partition answers to online readers, which
+retain its resolved relationships. Replaying readers run one projection over live acquired or
+authenticated exported relations. Every continued native disclosure reacquires current authority.
+Use selections and original derivation inputs retain their distinct support and reference roles.
+The [read owner](../plans/set-based-execution/owner-resolved-reads.md) consolidates cursors and
+substantive cache semantics under the existing continuation and cache separation.
+
+> Decision: [ADR-0147](../adr/0147-sbx-owner-resolved-reads.md)
+
 **Accepted target; implementation/qualification Proposed · 2026-11-20.** D8 separates
 continuation compatibility from cache eligibility. A stable managed-installation fingerprint
 binds source and resource content, model, query/profile and runtime/dependency inventory.
@@ -525,6 +563,16 @@ legacy wait barrier rather than implying that every old option is supported.
 
 > Decision: [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md)
 
+**Accepted partition and proof target · implementation and qualification Proposed · 2026-11-21.**
+Generated admission recomputes submitted partition, group and collection commitments and admits
+the header and partition set atomically. Keyed disclosure follows the parent product and acquired
+cut. Declared rule proofs are immutable facts keyed by the rule fingerprint and the complete
+evaluated premise, including groups, membership, order, placement and external facts the rule
+observes. Required proof lookup occurs at binding outside the support-validity fixpoint.
+[Population and proof owner](../plans/set-based-execution/populations-rules-and-proofs.md)
+
+> Decision: [ADR-0144](../adr/0144-sbx-partitioned-products.md), [ADR-0146](../adr/0146-sbx-content-validity.md)
+
 
 **Accepted target · 2026-11-17.** Maintained native PostgreSQL behavior compiles from model-owned
 relations, call contracts and typed Python programs. Candidate authoring validates the exact
@@ -539,6 +587,14 @@ program comparison and remaining analytical placement observation are owned by t
 [UDM analytical companion](../plans/unified-domain-model-and-execution/analytical-placement-sql-and-retirement.md#execution-evidence).
 
 > Decision: ADR-0135
+
+**Accepted SBX store target · implementation and qualification Proposed · 2026-11-21.**
+Online reads use native owner-resolved answers. Replaying consumers use one projection over
+live or exported typed relations. Invocation-owned scratch storage remains where that consumer
+needs it. As those responsibilities migrate, the current five-store inventory changes with the
+retirement of its owners. [Read contract](../plans/set-based-execution/owner-resolved-reads.md)
+
+> Decision: [ADR-0147](../adr/0147-sbx-owner-resolved-reads.md)
 
 
 **Accepted target; implementation/qualification Proposed · 2026-11-17.** Support validity is
@@ -880,6 +936,25 @@ and later consumer adoption. SP-01 deploys no database or engine change.
 <a id="section-b5"></a>
 
 ### §B5 One LinkML semantic release governs interpretation and generated representations
+
+**Accepted SBX model target · implementation and qualification Proposed · 2026-11-21.**
+Effective LinkML slots declare collections, field groups, addresses and reference targets.
+Generated Python and native contracts consume that one interpretation. A consumer receives only
+its declared read projection, whose digest replaces the whole input product id in request
+identity. Position- and order-sensitive consumers include those authenticated facts. One
+reference carrier resolves role-relative addresses through original derivation inputs, with the
+explicit product-index and rich-support variants owned by the reference contract. Unknown
+dependencies conservatively widen the premise. [Shared SBX contracts](../plans/set-based-execution_2026-11-21.md#shared-contracts)
+
+> Decision: [ADR-0143](../adr/0143-sbx-direct-cutover.md), [ADR-0144](../adr/0144-sbx-partitioned-products.md), [ADR-0146](../adr/0146-sbx-content-validity.md), [ADR-0148](../adr/0148-sbx-kernel-trial.md)
+
+**Accepted validated-carrier target · implementation and qualification Proposed · 2026-11-21.**
+The admitting constructor retains immutable bytes and one frozen interpreted value through the
+process. Workers accept sealed bytes through a named boundary. Derived views are memoized under
+their actual content and context. This closes unchecked construction before consumers rely on
+the carrier's admitted standing. [Carrier owner](../plans/set-based-execution/validated-values-and-handoff.md)
+
+> Decision: [ADR-0145](../adr/0145-sbx-custody-boundary.md)
 
 **Accepted target · 2026-11-17.** One captured LinkML closure supplies physical types, slot and
 value-set facts for SQL, upload layout and caller generation. A single composer owns each
@@ -1290,6 +1365,14 @@ Captured-source discovery, source editing, semantic drift and explicit navigatio
 > Decision: [ADR-0108](../adr/0108-declared-graph-realization.md), [ADR-0107](../adr/0107-ddo-source-change-inspection.md)
 
 ### §B6 Escalation is routed by versioned policies over measurements
+
+**Accepted code-custody target · implementation and qualification Proposed · 2026-11-21.**
+Each port prepares its authenticated code slice once and checks it before submission and after
+reply collection. The second boundary covers modules first imported during computation. Request
+digest correspondence, current native support, claim fences and publication remain with their
+effect owners. [Verification owner](../plans/set-based-execution/validated-values-and-handoff.md#sbx-09)
+
+> Decision: [ADR-0145](../adr/0145-sbx-custody-boundary.md)
 
 **Accepted target, Proposed until implemented (2026-11-03).** M1 selects a separate CPU extraction allowlist and run-owned resident admission policy,
 retaining parent task fencing, cancellation and database custody. A qualified NONDEFAULT release

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "sbx00.entry-partition-premises",
+  "title": "Retained sentence blocks support bounded partition entry premises",
+  "group": null,
+  "package": "SBX-00",
+  "finalized": "2026-11-21",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Do retained block populations and current owners support the first collection/partition contract and identify later reference and memoization obligations?",
+  "answers": [
+    "SBX-00",
+    "SBX-01",
+    "SBX-02",
+    "SBX-03",
+    "SBX-05",
+    "SBX-07"
+  ],
+  "method": "Verify content-addressed historical draft acknowledgement and request bytes, decode its tagged sentence body, census block extents and field populations, then inspect current native validity and provider contracts.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-21_sbx-entry/block_census.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "block_census.py",
+      "role": "Read-only retained block census",
+      "sha256": "e9bd55824568195da0091cb7dcdebe0d767fc192c3569a45c9dacd80fc2ca03c"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "block-census.json",
+      "role": "Observed block sizes, membership and optional-field population",
+      "sha256": "e0602ceb23884dcf32513263383b590464b817ac0aafb182fd9f002fc3188b2a"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "observed blocks",
+      "value": 1002,
+      "of": null,
+      "unit": null,
+      "note": "Historical 66-page retained answer"
+    },
+    {
+      "name": "largest serialized block",
+      "value": 100614,
+      "of": null,
+      "unit": "bytes",
+      "note": "Existing annotation shape including lexemes"
+    }
+  ],
+  "outcome": "partial",
+  "conclusion": "The retained 1002-block answer passed token/sentence containment and has no oversized block relative to existing core defaults. Source inspection selects proof lookup outside the validity fixpoint. Cross-original key correspondence, complete citation-role mapping and numerical peer independence remain with their dependent packages. No full-book or actual-provider claim is established.",
+  "consumed_by": [
+    "SBX-00",
+    "SBX-01",
+    "SBX-02",
+    "SBX-03",
+    "SBX-05",
+    "SBX-07"
+  ]
+}

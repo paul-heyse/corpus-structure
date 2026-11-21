@@ -1,0 +1,73 @@
+{
+  "absent_token_fields": {},
+  "block_bytes": {
+    "max": 100614,
+    "median": 6122,
+    "min": 3295,
+    "p95": 36522,
+    "total": 11046101
+  },
+  "blocks": 1002,
+  "draft_id": "531b190420630bdd3146514bf9d97f6b1edf3193ce0ce97a8291e77d314cc7a0",
+  "explicit_null_token_fields": {},
+  "largest_blocks": [
+    {
+      "block_id": "#/texts/86",
+      "bytes": 100614,
+      "end": 16593,
+      "sentences": 13,
+      "start": 15102,
+      "tokens": 311
+    },
+    {
+      "block_id": "#/texts/1036",
+      "bytes": 67008,
+      "end": 137224,
+      "sentences": 10,
+      "start": 136248,
+      "tokens": 203
+    },
+    {
+      "block_id": "#/texts/742",
+      "bytes": 66551,
+      "end": 102221,
+      "sentences": 9,
+      "start": 101371,
+      "tokens": 201
+    },
+    {
+      "block_id": "#/texts/617",
+      "bytes": 66465,
+      "end": 85854,
+      "sentences": 9,
+      "start": 84920,
+      "tokens": 203
+    },
+    {
+      "block_id": "#/texts/19",
+      "bytes": 64299,
+      "end": 4721,
+      "sentences": 6,
+      "start": 3802,
+      "tokens": 195
+    }
+  ],
+  "outcome": "passed",
+  "request_bytes": 92292593,
+  "request_sha256": "b34d5a3756b869f30207964d8b543337778a7f53cba62811f02fdca8f4143bb9",
+  "scope": "authenticated local historical sentence answer; no native publication or full-book claim",
+  "sentences": {
+    "max": 13,
+    "median": 1,
+    "min": 1,
+    "p95": 5,
+    "total": 1842
+  },
+  "tokens": {
+    "max": 311,
+    "median": 10,
+    "min": 1,
+    "p95": 107,
+    "total": 25543
+  }
+}
