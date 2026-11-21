@@ -226,7 +226,7 @@ def kind_meaning_schema(
     """Constrain the typed meaning before JSON projection can erase numeric/type tags."""
     definitions: dict[str, Any] = {}
     kinds = {item.semantic_id: item for item in kind_records}
-    kinds.update({item.name: item for item in kind_records})
+    declarations = {definition.iri: definition for definition in class_definitions.values()}
 
     def array(*items):
         return {
@@ -315,17 +315,17 @@ def kind_meaning_schema(
             return primitive(primitive_name)
         if current.category == "enum":
             return tagged("string", {"type": "string", "enum": sorted(enum_members(current.name))})
-        if current.category != "class" or current.name not in class_definitions:
+        if current.category != "class" or current.semantic_id not in declarations:
             raise ValueError(f"no native tagged body contract for {current.semantic_id}")
         key = current.name
         if key in definitions:
             return {"$ref": "#/definitions/" + key}
         definitions[key] = {}
-        definition = class_definitions[current.name]
+        definition = declarations[current.semantic_id]
         if definition.abstract:
             concrete = [
                 child
-                for child in class_definitions.values()
+                for child in declarations.values()
                 if current.name in child.ancestors and not child.abstract
             ]
             if not concrete:
@@ -334,13 +334,12 @@ def kind_meaning_schema(
             return {"$ref": "#/definitions/" + key}
         choices, required = [], []
         for prop in definition.properties:
-            target = kinds.get(prop.range)
+            field = kinds[definition.iri + "/property/" + prop.name]
+            target = kinds[json.loads(field.facts)["range"]]
             value = (
                 tagged("string", {"type": "string"})
-                if target and target.category == "class" and not prop.inlined
+                if target.category == "class" and not prop.inlined
                 else build(target)
-                if target
-                else primitive(prop.range)
             )
             if prop.multivalued:
                 sequence = {"type": "array", "items": value}

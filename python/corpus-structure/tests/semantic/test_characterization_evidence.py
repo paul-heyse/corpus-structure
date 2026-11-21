@@ -65,10 +65,7 @@ def navigation_product():
     from methods.navigation_fixture import source_primary_products
 
     from corpus_structure.ingest.annotations import AnnotationProfile
-    from corpus_structure.semantic.data_product_reference import (
-        DataProductReference,
-        member_reference,
-    )
+    from corpus_structure.semantic.sentence_partitions import construction_annotation_reference
 
     controlled = ControlledPipeline()
     text = "Table 5.1 (numbering namespace: Main)"
@@ -93,13 +90,13 @@ def navigation_product():
         for packet in body["members"]
         if packet["body"].get("navigation", {}).get("source_labels")
     )
-    reference = member_reference(
-        DataProductReference(native.semantic_id), token["local_id"]
-    ).values()
-    navigation["navigation"]["native_tokens"] = [
-        dict(name="subject", index=0, native_node=reference)
-    ]
-    navigation["external_premises"] = [reference]
+    reference = construction_annotation_reference(token["block_id"], "token", token["ordinal"])
+    navigation["navigation"]["native_tokens"] = [dict(name="subject", index=0)]
+    navigation["external_premises"] = []
+    body["annotation_support"].extend(
+        dict(owner=navigation["local_id"], use=use, position=0, target=reference)
+        for use in ("navigation_token", "external_premise")
+    )
     return primary, body, navigation["local_id"]
 
 
@@ -135,7 +132,11 @@ def test_navigation_source_and_native_premise_conservation(navigation_product, m
     elif mutation == "label_text":
         navigation["source_labels"][0]["value"] = "invented"
     elif mutation == "missing_premise":
-        annotation["external_premises"] = []
+        body["annotation_support"] = [
+            row
+            for row in body["annotation_support"]
+            if (row["owner"], row["use"]) != (local_id, "external_premise")
+        ]
 
     def validate():
         return validate_construction_product(

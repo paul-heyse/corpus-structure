@@ -13,11 +13,10 @@ import json
 from bisect import bisect_left
 from collections.abc import Callable, Mapping
 from contextlib import nullcontext
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, replace
 from functools import cached_property
 from hashlib import sha256
 from pathlib import Path
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Protocol
 
 import yaml
@@ -77,22 +76,14 @@ def sentence_product_inputs(
     )
 
 
-def _id(source, kind, block_id, start, end):
-    return sha256(
-        canonical_bytes(
-            {"source": source, "kind": kind, "block_id": block_id, "start": start, "end": end}
-        )
-    ).hexdigest()
-
-
 @dataclass(frozen=True)
 class SourceAnnotations:
     content: bytes
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
+    partitions: tuple[bytes, ...]
     execution_receipts: tuple[bytes, ...] = ()
     subject_context: SubjectContext | None = None
-    partitions: tuple[bytes, ...] | None = None
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -111,15 +102,10 @@ class SourceAnnotations:
             if identity.owner == self.prepared.index.definitions["DdoSourceAnnotations"].iri
             and identity.domain == "kind"
         )
-        value = (
-            json.loads(self.content)
-            if self.partitions is not None
-            else self.value.model_dump(mode="python", exclude_unset=True)
-        )
         return contextual_product_identity(
             kind=kind,
             context=self._publication_context(),
-            body=body_identity(value).key,
+            body=body_identity(json.loads(self.content)).key,
         ).key
 
     @property
@@ -128,19 +114,28 @@ class SourceAnnotations:
 
     @property
     def value(self) -> BaseModel:
-        content = self.content
-        if self.partitions is not None:
-            body = json.loads(content)
-            body.pop("rows")
-            content = canonical_bytes(body)
-        return self.prepared.validate_json("DdoSourceAnnotations", content)
+        body = json.loads(self.content)
+        body.pop("rows")
+        return self.prepared.validate_json("DdoSourceAnnotations", canonical_bytes(body))
 
     def inventory(self, kind: str) -> tuple[dict[str, Any], ...]:
         if kind not in {"sentence", "token"}:
             raise ValueError("unknown native sentence inventory kind")
-        return tuple(
-            row for row in source_annotation_member_values(self) if row["record_type"] == kind
-        )
+        rows = []
+        for block in source_annotation_blocks(self):
+            annotation = block["annotation"]
+            members = annotation["sentences"] if kind == "sentence" else annotation["tokens"]
+            for ordinal, row in enumerate(members):
+                value: dict[str, Any] = dict(
+                    row, block_id=annotation["block_id"], ordinal=ordinal, record_type=kind
+                )
+                if kind == "token":
+                    value.update(block["lexemes"][ordinal])
+                    value["piece_indices"] = [
+                        block["piece_offset"] + index for index in row["piece_indices"]
+                    ]
+                rows.append(value)
+        return tuple(rows)
 
 
 _TOKEN_FIELDS = frozenset(
@@ -182,7 +177,7 @@ def source_annotation_blocks(
         partitions = value.partitions
         body = json.loads(value.content)
     if partitions is None:
-        return tuple(body["blocks"])
+        raise ValueError("annotation reads require their admitted row partitions")
     packets = tuple(json.loads(packet) for packet in partitions)
     if partition_header(packets) != body[COLLECTION]:
         raise ValueError("annotation rows differ from their selected collection commitment")
@@ -242,7 +237,7 @@ def _annotation_row(block) -> dict[str, Any]:
     }
 
 
-def source_annotation_rows(value: Mapping[str, Any] | AnnotationView) -> tuple[dict[str, Any], ...]:
+def source_annotation_rows(value: AnnotationView) -> tuple[dict[str, Any], ...]:
     """Restore the working AnnotationProduct columns without creating retained members."""
     return tuple(_annotation_row(block) for block in source_annotation_blocks(value))
 
@@ -286,131 +281,6 @@ def restore_selected_annotation_partition(source, header, layout, packet):
     return product
 
 
-def source_annotation_member_values(
-    value: Mapping[str, Any] | AnnotationView,
-) -> tuple[dict[str, Any], ...]:
-    """Read original units from detached annotations; no second stored token inventory."""
-    result = []
-    blocks = source_annotation_blocks(value)
-    if not isinstance(value, Mapping):
-        value = json.loads(value.content)
-    for block in blocks:
-        annotation, lexemes = block["annotation"], block["lexemes"]
-        sentences = annotation["sentences"]
-        sentence_ids = [
-            _id(value["source"], "sentence", annotation["block_id"], row["start"], row["end"])
-            for row in sentences
-        ]
-        token_ids = [
-            _id(value["source"], "token", annotation["block_id"], row["start"], row["end"])
-            for row in annotation["tokens"]
-        ]
-        tokens_by_sentence: dict[str, list[str]] = {}
-        for ordinal, (token, lexeme) in enumerate(zip(annotation["tokens"], lexemes, strict=True)):
-            piece_indices = [block["piece_offset"] + index for index in token["piece_indices"]]
-            body = {
-                "record_type": "token",
-                "local_id": token_ids[ordinal],
-                "block_id": annotation["block_id"],
-                "ordinal": ordinal,
-                **{
-                    key: token[key]
-                    for key in (
-                        "start",
-                        "end",
-                        "space",
-                        "role",
-                        "lemma",
-                        "pos",
-                        "tag",
-                        "morphology",
-                        "dependency",
-                    )
-                },
-                **lexeme,
-                "piece_indices": piece_indices,
-            }
-            if token.get("sentence") is not None:
-                sentence_id = sentence_ids[token["sentence"]]
-                body["sentence_ref"] = sentence_id
-                tokens_by_sentence.setdefault(sentence_id, []).append(token_ids[ordinal])
-            if token["dependency"]:
-                body["head_ref"] = token_ids[token["head"]]
-            result.append(body)
-        for ordinal, (sentence, identifier) in enumerate(zip(sentences, sentence_ids, strict=True)):
-            result.append(
-                {
-                    "record_type": "sentence",
-                    "local_id": identifier,
-                    "block_id": annotation["block_id"],
-                    "ordinal": ordinal,
-                    **sentence,
-                    "token_ids": tokens_by_sentence.get(identifier, []),
-                }
-            )
-    return tuple(result)
-
-
-def source_annotation_packets(prepared, model, value):
-    """Publish genuine native units from the already retained annotation population."""
-    from .characterization_manifests import manifest_contract
-
-    context = dict(
-        subject=source_subject(value["source"]),
-        subject_definition="original-source-view",
-        original_source=value["source"]["document"],
-        analyzed_scope=dict(source=value["source"], selectors=value["selectors"]),
-    )
-    contracts = {
-        name: manifest_contract(prepared, model, name)
-        for name in (
-            "DdoNativeBlock",
-            "DdoNativeToken",
-            "DdoNativeSentence",
-            "DdoSourceAnnotationManifest",
-        )
-    }
-    packets = []
-    for ordinal, block in enumerate(value["blocks"]):
-        annotation = block["annotation"]
-        start, end = annotation["block_start"], annotation["block_end"]
-        identifier = _id(value["source"], "block", annotation["block_id"], start, end)
-        packets.append(
-            dict(
-                member_id=identifier,
-                kind_contract=contracts["DdoNativeBlock"],
-                context=context,
-                body=dict(
-                    record_type="native_block",
-                    local_id=identifier,
-                    block_id=annotation["block_id"],
-                    ordinal=ordinal,
-                    start=start,
-                    end=end,
-                ),
-            )
-        )
-    for row in source_annotation_member_values(value):
-        name = "DdoNativeToken" if row["record_type"] == "token" else "DdoNativeSentence"
-        body = {key: row[key] for key in ("local_id", "block_id", "ordinal", "start", "end")}
-        body["record_type"] = "native_" + row["record_type"]
-        packets.append(
-            dict(
-                member_id=row["local_id"],
-                kind_contract=contracts[name],
-                context=context,
-                body=body,
-            )
-        )
-    return [
-        *packets,
-        annotation_manifest(
-            value,
-            kind_contract=contracts["DdoSourceAnnotationManifest"],
-        ),
-    ]
-
-
 def annotation_manifest(value, *, kind_contract):
     from .characterization_manifests import compact_manifest
 
@@ -438,12 +308,13 @@ def validate_source_annotations(
             raise ValueError("explicit annotation partitions repeat the selected envelope")
         partitions = tuple(canonical_bytes(packet) for packet in raw["partitions"])
         raw = raw["header"]
-    commitment = raw.pop("rows") if partitions is not None else None
+    if partitions is None or "rows" not in raw:
+        raise ValueError("source annotations require an admitted header and row partitions")
+    commitment = raw.pop("rows")
     checked = prepared.validate_json("DdoSourceAnnotations", canonical_bytes(raw)).model_dump(
         mode="json", exclude_unset=True
     )
-    if commitment is not None:
-        checked["rows"] = commitment
+    checked["rows"] = commitment
     selected = source.value
     frozen_configuration = SentenceConfig.model_validate(checked["configuration"])
     if configuration is not None and configuration != frozen_configuration:
@@ -452,7 +323,7 @@ def validate_source_annotations(
     if checked["source"] != selected["source"] or checked["selectors"] != selected["selectors"]:
         raise ValueError("source annotations differ from exact original source/scope")
     result = SourceAnnotations(
-        canonical_bytes(checked), prepared, model, receipts, subject_context, partitions
+        canonical_bytes(checked), prepared, model, partitions, receipts, subject_context
     )
     blocks = source_annotation_blocks(result)
     if blocks:
@@ -513,19 +384,13 @@ def validate_source_annotations(
         else "partial"
     ):
         raise ValueError("native product outcome differs from actual family coverage")
-    if partitions is not None:
-        from .characterization_manifests import manifest_contract
+    from .characterization_manifests import manifest_contract
 
-        expected_members = [
-            annotation_manifest(
-                checked,
-                kind_contract=manifest_contract(prepared, model, "DdoSourceAnnotationManifest"),
-            )
-        ]
-    else:
-        expected_members = source_annotation_packets(prepared, model, checked)
-    if checked["members"] != expected_members:
-        raise ValueError("annotation members differ from their actual retained native population")
+    expected = annotation_manifest(
+        checked, kind_contract=manifest_contract(prepared, model, "DdoSourceAnnotationManifest")
+    )
+    if checked["members"] != [expected]:
+        raise ValueError("annotation manifest differs from its actual retained native population")
     return result
 
 
@@ -950,7 +815,7 @@ def prepare_sentence_profile(
     if (
         not {
             "DdoSelectedNativeSource",
-            "DdoAnnotationToken",
+            "DdoAnnotationPartitionRow",
             "DdoSourceAnnotationManifest",
             "DdoSourceAnnotations",
         }
@@ -1094,84 +959,6 @@ def execute_sentence_profile(receiver, source: FrozenNativeSource) -> SourceAnno
         host=receiver.host,
         source_pin=receiver.source_pin,
     )
-
-
-@dataclass(frozen=True)
-class SourceAnnotationReadings:
-    """Immediate native/construction boundary consumes retained canonical units only."""
-
-    product: SourceAnnotations
-    source: FrozenNativeSource
-    _sentences: tuple[bytes, ...] = field(init=False, repr=False)
-    _sentence_by_id: Mapping[str, bytes] = field(init=False, repr=False)
-    _token_by_id: Mapping[str, bytes] = field(init=False, repr=False)
-
-    def __post_init__(self):
-        validate_source_annotations(
-            self.product.prepared,
-            self.product.model,
-            json.loads(self.product.content),
-            self.source,
-            configuration=self.product.configuration,
-            partitions=self.product.partitions,
-        )
-        ordered_sentences, sentences, tokens = [], {}, {}
-        for row in source_annotation_member_values(self.product):
-            content = canonical_bytes(row)
-            if row["record_type"] == "sentence":
-                ordered_sentences.append(content)
-                sentences[row["local_id"]] = content
-            else:
-                tokens[row["local_id"]] = content
-        object.__setattr__(self, "_sentences", tuple(ordered_sentences))
-        object.__setattr__(
-            self,
-            "_sentence_by_id",
-            MappingProxyType(sentences),
-        )
-        object.__setattr__(
-            self,
-            "_token_by_id",
-            MappingProxyType(tokens),
-        )
-
-    def sentences(self, *, start: int = 0, end: int | None = None):
-        text = self.source.value["text"]
-        end = len(text) if end is None else end
-        if not 0 <= start <= end <= len(text):
-            raise ValueError("sentence read scope exceeds original source")
-        return tuple(
-            row
-            for content in self._sentences
-            for row in (json.loads(content),)
-            if start <= row["start"] < row["end"] <= end
-        )
-
-    def tokens(self, sentence: str):
-        selected = self._sentence_by_id.get(sentence)
-        if selected is None:
-            raise ValueError("sentence read requires a retained original sentence ID")
-        return tuple(
-            json.loads(self._token_by_id[identifier])
-            for identifier in json.loads(selected)["token_ids"]
-        )
-
-    def native_annotations(self, sentence: str):
-        """Retained actual columns for this canonical sentence, with no NLP call."""
-        return self.tokens(sentence)
-
-    def annotation_availability(self):
-        body = json.loads(self.product.content)
-        layouts = body["block_layouts"] if self.product.partitions is not None else body["blocks"]
-        return tuple(
-            dict(
-                block_id=row["block_id"],
-                start=row["block_start"],
-                end=row["block_end"],
-                attributes={item["attribute"]: item["status"] for item in row["availability"]},
-            )
-            for row in (layout["annotation"] for layout in layouts)
-        )
 
 
 @dataclass(frozen=True)
@@ -1394,14 +1181,12 @@ class PreparedSentencePort:
         if binding is not None:
             product = replace(product, subject_context=binding.subject_context)
         from ._data_operation_wire import WireKindContract, WireOutputMember
-        from .data_operation_ports import PortCompletion, PortRefusal
+        from .data_operation_ports import PortCompletion
         from .established_validity import RuleObservedInput, successful_rule_attestation
         from .sentence_partitions import partitioned_role
 
         # Product meaning uses the exact typed record's fields; display JSON and native
         # member packets are deliberate projections of that same validated product.
-        if product.partitions is None:
-            raise PortRefusal("annotation completion requires its partitioned population")
         model_value = json.loads(product.content)
         partitions = tuple(json.loads(packet) for packet in product.partitions)
         output = next(role for role in self.operation.roles if role.direction == "output")

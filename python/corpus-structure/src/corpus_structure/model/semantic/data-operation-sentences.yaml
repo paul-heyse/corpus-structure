@@ -189,79 +189,6 @@ classes:
         range: integer
       source_field:
         range: string
-  DdoAnnotationToken:
-    is_a: SourceRecordProduct
-    attributes:
-      start:
-        range: integer
-        required: true
-        minimum_value: 0
-      end:
-        range: integer
-        required: true
-        minimum_value: 1
-      space:
-        range: boolean
-        required: true
-      role:
-        range: string
-        required: true
-        pattern: '^(prose|math|reference)$(?![\s\S])'
-      lemma:
-        range: string
-        required: true
-      pos:
-        range: string
-        required: true
-      tag:
-        range: string
-        required: true
-      dependency:
-        range: string
-        required: true
-      morphology:
-        range: string
-        inlined: false
-        multivalued: true
-        minimum_cardinality: 0
-        value_presence: PRESENT
-      head:
-        range: integer
-        required: true
-        minimum_value: 0
-      sentence:
-        range: integer
-        minimum_value: 0
-      piece_indices:
-        range: integer
-        inlined: false
-        multivalued: true
-        minimum_cardinality: 1
-        value_presence: PRESENT
-        required: true
-  DdoAnnotationLexeme:
-    is_a: SourceRecordProduct
-    attributes:
-      lower:
-        range: string
-        required: true
-      is_alpha:
-        range: boolean
-        required: true
-      is_space:
-        range: boolean
-        required: true
-      is_punct:
-        range: boolean
-        required: true
-      is_quote:
-        range: boolean
-        required: true
-      like_num:
-        range: boolean
-        required: true
-      sent_start:
-        range: boolean
   DdoAnnotationBlockLayout:
     is_a: SourceRecordProduct
     attributes:
@@ -338,38 +265,6 @@ classes:
         multivalued: true
         minimum_cardinality: 0
         value_presence: PRESENT
-  DdoAnnotationProduct:
-    is_a: DdoAnnotationBlockLayout
-    attributes:
-      tokens:
-        range: DdoAnnotationToken
-        inlined: true
-        multivalued: true
-        minimum_cardinality: 0
-        value_presence: PRESENT
-      sentences:
-        range: DdoAnnotationExtent
-        inlined: true
-        multivalued: true
-        minimum_cardinality: 0
-        value_presence: PRESENT
-  DdoSourceAnnotationBlock:
-    is_a: SourceRecordProduct
-    attributes:
-      annotation:
-        range: DdoAnnotationProduct
-        required: true
-        inlined: true
-      lexemes:
-        range: DdoAnnotationLexeme
-        inlined: true
-        multivalued: true
-        minimum_cardinality: 0
-        value_presence: PRESENT
-      piece_offset:
-        range: integer
-        required: true
-        minimum_value: 0
   DdoSourceAnnotationPlacement:
     is_a: SourceRecordProduct
     attributes:
@@ -382,10 +277,11 @@ classes:
         required: true
         minimum_value: 0
   DdoSourceAnnotationManifest:
-    is_a: DdoSourceAnnotationMember
+    is_a: SourceRecordProduct
     mixins:
     - DdoCharacterizedProduct
     attributes:
+      record_type: {required: true, equals_string: manifest}
       source:
         range: DdoNativeSourceCoordinate
         required: true
@@ -407,42 +303,6 @@ classes:
         range: string
         required: true
         pattern: '^(complete|partial)$(?![\s\S])'
-  DdoSourceAnnotationMember:
-    is_a: SourceRecordProduct
-    abstract: true
-    attributes:
-      record_type: {required: true}
-  DdoNativeBlock:
-    annotations: {cs:data_universe: source}
-    is_a: DdoSourceAnnotationMember
-    description: One actual complete retained annotation block; no token or sentence expands into it.
-    attributes:
-      record_type: {required: true, equals_string: native_block}
-      local_id: {required: true}
-      block_id: {required: true}
-      ordinal: {range: integer, required: true, minimum_value: 0}
-      start: {range: integer, required: true, minimum_value: 0}
-      end: {range: integer, required: true, minimum_value: 1}
-  DdoNativeToken:
-    annotations: {cs:data_universe: source}
-    is_a: DdoSourceAnnotationMember
-    attributes:
-      record_type: {required: true, equals_string: native_token}
-      local_id: {required: true}
-      block_id: {required: true}
-      ordinal: {range: integer, required: true, minimum_value: 0}
-      start: {range: integer, required: true, minimum_value: 0}
-      end: {range: integer, required: true, minimum_value: 1}
-  DdoNativeSentence:
-    annotations: {cs:data_universe: source}
-    is_a: DdoSourceAnnotationMember
-    attributes:
-      record_type: {required: true, equals_string: native_sentence}
-      local_id: {required: true}
-      block_id: {required: true}
-      ordinal: {range: integer, required: true, minimum_value: 0}
-      start: {range: integer, required: true, minimum_value: 0}
-      end: {range: integer, required: true, minimum_value: 1}
   DdoSourceAnnotationPacket:
     is_a: SourceRecordProduct
     attributes:
@@ -457,7 +317,7 @@ classes:
         required: true
         inlined: true
       body:
-        range: DdoSourceAnnotationMember
+        range: DdoSourceAnnotationManifest
         required: true
         inlined: true
   DdoSourceAnnotations:
@@ -497,11 +357,6 @@ classes:
         multivalued: true
         minimum_cardinality: 0
         value_presence: PRESENT
-      blocks:
-        range: DdoSourceAnnotationBlock
-        inlined: true
-        multivalued: true
-        minimum_cardinality: 0
       block_layouts:
         range: DdoSourceAnnotationPlacement
         inlined: true

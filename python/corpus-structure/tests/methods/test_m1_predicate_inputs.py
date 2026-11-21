@@ -1,5 +1,6 @@
 """Current selected M1 qualification from controlled columns, without provider evidence."""
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import pytest
 from annotation_support import controlled as controlled
 from semantic.m1_declared_products_test_support import configuration, record_schemas, sources
 from semantic.source_annotations_test_support import detached as detached
+from semantic.source_annotations_test_support import partition_controlled_annotations
 
 from corpus_structure.methods.assertion_qualification import AssertionQualification
 from corpus_structure.methods.m1_source import M1CandidateProduct, configured_packs
@@ -26,7 +28,6 @@ from corpus_structure.semantic.formal_products import FormalEvidenceOptions, pre
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.m1_products import PreparedM1Inputs, m1_operation_inputs
 from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.sentence_products import validate_source_annotations
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
     PreparedNativeSources,
@@ -113,7 +114,7 @@ def selected_inputs(acquired, detached):
         canonical_bytes(dict(source=source.value["source"], selectors=source.value["selectors"])),
         subject_definition="original-source-view",
     )
-    annotations = validate_source_annotations(
+    annotations = partition_controlled_annotations(
         prepared, model, value, source, subject_context=context, configuration=config
     )
     formal = prepare_formal_evidence(prepared, model, grammar=grammar_identity()).run(
@@ -169,7 +170,11 @@ def selected_inputs(acquired, detached):
         context.project_id,
         lambda: None,
     )
-    return profile, source, value, construction, context
+    inventory = {
+        "header": json.loads(annotations.content),
+        "partitions": list(map(json.loads, annotations.partitions)),
+    }
+    return profile, source, inventory, construction, context
 
 
 @pytest.mark.parametrize(

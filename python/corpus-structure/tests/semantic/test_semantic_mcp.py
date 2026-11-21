@@ -11,7 +11,6 @@ from corpus_structure.semantic.data_operation_model import ExternalExecutorContr
 from corpus_structure.semantic.declared_math_products import math_operation_declarations
 from corpus_structure.semantic.external_extraction import (
     external_extraction_inputs,
-    external_extraction_operation_sources,
     locate_external_extraction,
     rich_external_declarations,
 )
@@ -19,7 +18,7 @@ from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.proposals import ProposalRefused
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.proposals_support import batch
-from semantic.test_external_rich_extraction import frame, packet
+from semantic.test_external_rich_extraction import controlled_external_sources, frame, packet
 
 
 @pytest.fixture(scope="module")
@@ -61,7 +60,7 @@ def scoped_rich_release(scoped_rich_bundle):
 
 
 @pytest.fixture(scope="module")
-def scoped_rich_model(scoped_rich_bundle):
+def scoped_rich_model(scoped_rich_bundle, tmp_path_factory):
     protocol = ExternalExecutorContract(
         "external-executor-v1",
         "Read exact declared source inputs and emit rich proposals.",
@@ -72,7 +71,7 @@ def scoped_rich_model(scoped_rich_bundle):
     return compile_data_operations(
         scoped_rich_bundle,
         declarations=(math_operation_declarations(), rich_external_declarations(protocol)),
-        python_sources=external_extraction_operation_sources(),
+        python_sources=controlled_external_sources(tmp_path_factory.mktemp("mcp-rich-source")),
     )
 
 
@@ -80,7 +79,7 @@ def raw_scoped_batch():
     value = batch()
     value["unit_ref"] = frame().unit_ref
     value["statements"][0]["anchor"] = frame().unit_ref
-    value["claims"][0]["evidence"][0]["sentence"] = "native_evidence:1"
+    value["claims"][0]["evidence"][0]["sentence"] = "native_evidence:2"
     exact = "1.23456789012345678901234567890123456789"
     numerical = deepcopy(value["claims"][0])
     numerical.update(

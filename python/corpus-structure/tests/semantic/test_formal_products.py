@@ -910,7 +910,34 @@ def test_prepared_family_completion_preserves_declared_success_outcome(profile):
         "text.formal_evidence/examined-scope",
         "text.formal_evidence/lexical-inventory-links",
         "text.formal_evidence/symbolic-inventory-positions",
+        "text.formal_evidence/occurrence-origin",
     }
+
+
+def test_formal_occurrence_origin_requires_actual_page_and_selector_ancestry():
+    from corpus_structure.semantic.formal_products import verify_formal_occurrence_origin
+
+    selected = {
+        "source": {"projection": "original"},
+        "text": "alpha",
+        "items": [{"self_ref": "#/texts/1", "parent": "#/groups/2", "prov": [{"page_no": 3}]}],
+        "ancestors": [{"self_ref": "#/groups/2", "parent": "#/body"}],
+        "selectors": [{"native_pointer": "#/body", "page": 3, "start": 1, "end": 4}],
+    }
+    extent = {
+        "native_pointer": "#/texts/1",
+        "projection": "original",
+        "page": 3,
+        "start": 1,
+        "end": 4,
+    }
+    verify_formal_occurrence_origin(({"extents": [extent]},), selected)
+    with pytest.raises(ValueError, match="another original page"):
+        verify_formal_occurrence_origin(({"extents": [{**extent, "page": 2}]},), selected)
+    with pytest.raises(ValueError, match="escapes the selected examined scope"):
+        verify_formal_occurrence_origin(({"extents": [extent]},), {**selected, "ancestors": []})
+    with pytest.raises(ValueError, match="escapes the selected examined scope"):
+        verify_formal_occurrence_origin(({"extents": [{**extent, "end": 5}]},), selected)
 
 
 def test_declared_formal_adapter_retains_inline_symbol_addresses_without_task_aliases(profile):

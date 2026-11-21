@@ -419,6 +419,7 @@ def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(m
 
     from corpus_structure.ingest import annotations as annotation_owner
     from corpus_structure.ingest.annotations import AnnotationProfile, annotate
+    from corpus_structure.semantic.sentence_products import source_annotation_blocks
     from semantic.source_annotations_test_support import partition_controlled_annotations
 
     controlled = ControlledPipeline()
@@ -434,6 +435,7 @@ def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(m
     )
     native = retained_source_annotations(source, frame, context, (annotation,), annotation_profile)
     value = json.loads(native.content)
+    value["blocks"] = list(source_annotation_blocks(native))
     value["blocks"][0]["lexemes"] = [
         dict(
             lower=token.lower_,

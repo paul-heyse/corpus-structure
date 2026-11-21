@@ -14,10 +14,10 @@ from corpus_structure.semantic.sentence_products import (
     _blocks,
     source_annotation_blocks,
     source_annotation_rows,
-    validate_source_annotations,
 )
 from semantic.source_annotations_test_support import acquired as acquired
 from semantic.source_annotations_test_support import detached as detached
+from semantic.source_annotations_test_support import partition_controlled_annotations
 
 
 def test_declared_maverick_mapping_retains_original_contributions_and_context_hypotheses(
@@ -25,11 +25,11 @@ def test_declared_maverick_mapping_retains_original_contributions_and_context_hy
 ):
     prepared, model, configuration, _ = acquired
     source, annotation = detached
-    product = validate_source_annotations(
+    product = partition_controlled_annotations(
         prepared, model, annotation, source, configuration=configuration
     )
     frame = DeclaredNativeFrameSource(
-        source.content.decode(), source_annotation_rows(annotation)[0]["source"]["content"]
+        source.content.decode(), source_annotation_rows(product)[0]["source"]["content"]
     )
     (block,), _ = _blocks(source)
     mapping = prepare_model_scope(frame, (block.start, block.end), (block.start, block.end)).mapping

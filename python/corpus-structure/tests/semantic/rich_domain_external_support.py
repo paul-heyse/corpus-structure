@@ -128,6 +128,7 @@ def publish_external_report(journey, source, response_factory, *, inference):
     pending = pending.model_copy(
         update=dict(
             roots=(
+                *pending.roots,
                 DemandRoot(
                     subject=original.root.subject,
                     original_source=original.root.original_source,

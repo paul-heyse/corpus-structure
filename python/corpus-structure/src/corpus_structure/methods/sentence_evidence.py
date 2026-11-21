@@ -161,7 +161,7 @@ class SentenceEvidenceOperation:
         "output_witnesses": [
             {
                 "output_role": "result",
-                "records": "/blocks/*/annotation/source",
+                "records": "/block_layouts/*/annotation/source",
                 "input_role": "source",
                 "comparisons": [
                     {

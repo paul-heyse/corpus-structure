@@ -11,6 +11,7 @@ from hashlib import sha256
 from pathlib import Path
 
 from pydantic import JsonValue
+from semantic.source_annotations_test_support import partition_controlled_annotations
 from spacy.lang.en import English
 
 from corpus_structure.ingest.annotation_views import annotation_view
@@ -35,9 +36,7 @@ from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.sentence_products import (
     _blocks,
-    source_annotation_packets,
     spacy_family_coverage,
-    validate_source_annotations,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_subject
 from corpus_structure.semantic.types import (
@@ -201,8 +200,7 @@ def retained_source_annotations(source, frame, context, products, profile):
         if all(row["outcome"] in {"complete", "empty"} for row in value["coverage"])
         else "partial"
     )
-    value["members"] = source_annotation_packets(construction.prepared, construction.model, value)
-    native = validate_source_annotations(
+    return partition_controlled_annotations(
         construction.prepared,
         construction.model,
         value,
@@ -210,7 +208,6 @@ def retained_source_annotations(source, frame, context, products, profile):
         configuration=profile.configuration,
         subject_context=context,
     )
-    return native
 
 
 def retained_products(source, frame, context, products, profile):

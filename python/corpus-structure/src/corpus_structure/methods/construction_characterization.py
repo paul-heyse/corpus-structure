@@ -66,6 +66,7 @@ class ConstructionOperation:
                     "text.formal_evidence/examined-scope",
                     "text.formal_evidence/lexical-inventory-links",
                     "text.formal_evidence/literal-source-geometry",
+                    "text.formal_evidence/occurrence-origin",
                     "text.formal_evidence/symbolic-inventory-positions",
                     "text.formal_evidence/unique-coverage-family",
                 ],

@@ -19,7 +19,6 @@ from corpus_structure.semantic.data_operation_support import (
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.declared_math_products import math_operation_declarations
 from corpus_structure.semantic.external_extraction import (
-    external_extraction_operation_sources,
     locate_external_extraction,
     rich_external_declarations,
 )
@@ -46,10 +45,10 @@ from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 from semantic.proposals_support import batch
 from semantic.record_contracts_support import release_inputs
-from semantic.test_external_rich_extraction import packet
+from semantic.test_external_rich_extraction import controlled_external_sources, packet
 
 
-def test_actual_source_proposal_context_and_constraint_survive_rich_cpu_lowering():
+def test_actual_source_proposal_context_and_constraint_survive_rich_cpu_lowering(tmp_path):
     bundle = release_inputs()[0]
     source = SourceArtifact(
         "source-rich-example",
@@ -82,7 +81,7 @@ classes:
     )
     rich_sources, source_sources = (
         rich_knowledge_operation_sources(),
-        external_extraction_operation_sources(),
+        controlled_external_sources(tmp_path),
     )
     sources = PythonSourceCollection(
         tuple(

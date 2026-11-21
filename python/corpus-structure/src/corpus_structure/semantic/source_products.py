@@ -150,6 +150,62 @@ def _native_atoms(items):
     return atoms
 
 
+def _record_field(record, key, default):
+    if key not in record:
+        return default
+    return record[key]
+
+
+def native_selector_facts(items, ancestors):
+    """Derive parent and page facts without adding ancestry to the selected atoms."""
+    parents = {
+        item["self_ref"]: _record_field(item, "parent", None) for item in (*items, *ancestors)
+    }
+    pages = {
+        item["self_ref"]: frozenset(row["page_no"] for row in _record_field(item, "prov", ()))
+        for item in items
+    }
+    return parents, pages
+
+
+def _native_selector_matches_ptr(parents, selector, pointer):
+    target = _record_field(selector, "native_pointer", None)
+    if target is None:
+        return True
+    seen = set()
+    current = pointer
+    while current is not None:
+        if current == target:
+            return True
+        if current in seen or current not in parents:
+            return None
+        seen |= {current}
+        current = parents[current]
+    return False
+
+
+def native_selector_covers_extent(parents, pages, selectors, extent, text_length):
+    """Check one extent against original page, ancestry and selected text bounds."""
+    pointer = extent["native_pointer"]
+    if pointer not in pages:
+        return False
+    start, end = extent["start"], extent["end"]
+    if start > end:
+        return False
+    item_pages = pages[pointer]
+    if "page" in extent and item_pages != {extent["page"]}:
+        return False
+    return any(
+        _native_selector_matches_ptr(parents, selector, pointer) is True
+        and ("page" not in selector or item_pages == {selector["page"]})
+        and _record_field(selector, "start", 0)
+        <= start
+        <= end
+        <= _record_field(selector, "end", text_length)
+        for selector in selectors
+    )
+
+
 @dataclass(frozen=True)
 class NativeSourceSelectorIndex:
     """One immutable parent lookup; unknown ancestry never becomes non-membership."""
@@ -160,39 +216,18 @@ class NativeSourceSelectorIndex:
 
     @classmethod
     def from_value(cls, value):
+        parents, pages = native_selector_facts(value["items"], value.get("ancestors", ()))
         return cls(
-            MappingProxyType(
-                {
-                    item["self_ref"]: item.get("parent")
-                    for item in (*value["items"], *value.get("ancestors", []))
-                }
-            ),
-            frozenset(item["self_ref"] for item in value["items"]),
-            MappingProxyType(
-                {
-                    item["self_ref"]: frozenset(row["page_no"] for row in item.get("prov", ()))
-                    for item in value["items"]
-                }
-            ),
+            MappingProxyType(parents),
+            frozenset(pages),
+            MappingProxyType(pages),
         )
 
     def matches(self, selector: Mapping[str, Any], pointer: str) -> bool | None:
         """Only captured selected atoms are candidates; ancestry is context, never expansion."""
         if pointer not in self.selected:
             raise ValueError("native selector candidate is outside captured selected items")
-        target = selector.get("native_pointer")
-        if target is None:
-            return True
-        seen = set()
-        current = pointer
-        while current is not None:
-            if current == target:
-                return True
-            if current in seen or current not in self.parents:
-                return None
-            seen.add(current)
-            current = self.parents[current]
-        return False
+        return _native_selector_matches_ptr(self.parents, selector, pointer)
 
 
 def selected_source_ranges(value, selectors, *, selector_index=None, include_unknown=False):
@@ -256,17 +291,8 @@ def source_extent_selected(value, extent, *, selector_index):
         return False
     if extent["projection"] != value["source"]["projection"]:
         return False
-    start, end = extent["start"], extent["end"]
-    if start > end:
-        return False
-    pages = selector_index.pages[pointer]
-    if "page" in extent and pages != {extent["page"]}:
-        return False
-    return any(
-        selector_index.matches(selector, pointer) is True
-        and ("page" not in selector or pages == {selector["page"]})
-        and selector.get("start", 0) <= start <= end <= selector.get("end", len(value["text"]))
-        for selector in value["selectors"]
+    return native_selector_covers_extent(
+        selector_index.parents, selector_index.pages, value["selectors"], extent, len(value["text"])
     )
 
 

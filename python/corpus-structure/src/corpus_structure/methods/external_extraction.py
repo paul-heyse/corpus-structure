@@ -40,6 +40,12 @@ class RichExtractionInputOperation:
             {
                 "name": "annotations",
                 "parameter": "annotations",
+                "required_rules": [
+                    "segment.sentences/native-dense-ordinal",
+                    "segment.sentences/native-row-span",
+                    "segment.sentences/native-source-order",
+                    "segment.sentences/exact-source-scope",
+                ],
                 "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
                 "direction": "input",
                 "minimum": 1,
@@ -99,6 +105,12 @@ class RichExtractionInputOperation:
             {
                 "name": "context_annotations",
                 "parameter": "context_annotations",
+                "required_rules": [
+                    "segment.sentences/native-dense-ordinal",
+                    "segment.sentences/native-row-span",
+                    "segment.sentences/native-source-order",
+                    "segment.sentences/exact-source-scope",
+                ],
                 "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
                 "direction": "input",
                 "minimum": 0,
@@ -160,7 +172,7 @@ class RichExtractionInputOperation:
         },
         "outcomes": ["success"],
         "precision_description": "mechanically-checked-source-report",
-        "dependencies": [],
+        "dependencies": ["segment.sentences/source-native"],
         "effects": [],
         "capabilities": {
             "forms": ["scalar"],

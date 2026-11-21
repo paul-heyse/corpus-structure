@@ -28,6 +28,7 @@ from semantic.source_annotations_test_support import (
 from semantic.source_annotations_test_support import (
     detached as detached,
 )
+from semantic.source_annotations_test_support import partition_controlled_annotations
 
 
 def test_one_annotation_population_preserves_existing_payload_and_compact_manifest(
@@ -35,10 +36,10 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
 ):
     prepared, model, configuration, _selection = acquired
     source, value = detached
-    product = validate_source_annotations(
+    product = partition_controlled_annotations(
         prepared, model, value, source, configuration=configuration
     )
-    rows = source_annotation_rows(json.loads(product.content))
+    rows = source_annotation_rows(product)
     frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
     restored = annotations.restore_annotations(
         rows,
@@ -51,13 +52,10 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
     assert len(restored) == 1 and len(restored[0].tokens) == 4
     assert restored[0].block_start == 0 and restored[0].block_end == len(source.value["text"])
     assert product.value.model_dump(mode="json")["outcome"] == "partial"
-    kinds = [packet["body"]["record_type"] for packet in value["members"]]
-    assert {kind: kinds.count(kind) for kind in set(kinds)} == {
-        "native_block": 1,
-        "native_token": 4,
-        "native_sentence": 1,
-        "manifest": 1,
-    }
+    header = json.loads(product.content)
+    assert len(product.inventory("sentence")) == 1
+    assert len(product.inventory("token")) == 4
+    assert [packet["body"]["record_type"] for packet in header["members"]] == ["manifest"]
     manifest = next(
         packet for packet in value["members"] if packet["body"]["record_type"] == "manifest"
     )
@@ -96,9 +94,9 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
         ]
     }
     operation = model.operation("segment.sentences/source-native")
-    validate_output_witnesses(operation, {"result": [value]}, selected)
-    foreign = copy.deepcopy(value)
-    foreign["blocks"][0]["annotation"]["source"]["source_product"] = "foreign-parent"
+    validate_output_witnesses(operation, {"result": [header]}, selected)
+    foreign = copy.deepcopy(header)
+    foreign["block_layouts"][0]["annotation"]["source"]["source_product"] = "foreign-parent"
     with pytest.raises(ValueError, match="complete selected input member"):
         validate_output_witnesses(operation, {"result": [foreign]}, selected)
 
@@ -182,7 +180,7 @@ def test_annotation_consumer_refuses_equal_source_body_from_another_selected_car
 
     prepared, model, configuration, _ = acquired
     source, value = detached
-    product = validate_source_annotations(
+    product = partition_controlled_annotations(
         prepared, model, value, source, configuration=configuration
     )
     operation = model.operation("segment.sentences/source-native")
@@ -259,7 +257,7 @@ def test_current_native_columns_restore_whole_doc_without_pipeline_and_preserve_
         ("missing_lexeme", "actual token population"),
         ("foreign_sentence", "token/sentence membership"),
         ("changed_source_text", "text differs from its pinned source"),
-        ("duplicate_block", "duplicate native blocks"),
+        ("duplicate_block", "duplicate partition key"),
     ),
 )
 def test_current_annotation_validator_refuses_invalid_retained_populations(
@@ -284,4 +282,6 @@ def test_current_annotation_validator_refuses_invalid_retained_populations(
     elif mutation == "duplicate_block":
         value["blocks"].append(copy.deepcopy(block))
     with pytest.raises(ValueError, match=message):
-        validate_source_annotations(prepared, model, value, source, configuration=configuration)
+        partition_controlled_annotations(
+            prepared, model, value, source, configuration=configuration
+        )

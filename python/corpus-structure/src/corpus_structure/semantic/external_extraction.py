@@ -7,11 +7,13 @@ import re
 from dataclasses import asdict, dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+from ._data_operation_wire import WireProductPartition
 from .data_operation_json import json_bytes, wire_json_loads
 from .identity import canonical_bytes
 from .python_module_projection import admitted_operation_module_meaning
+from .sentence_partitions import SentenceBlock
 from .types import PreparationProfile, SourceArtifact, SourceBundle
 
 _ROOT = Path(__file__).parents[1]
@@ -26,8 +28,11 @@ _FILES = (
     "semantic/property_constraints.py",
     "semantic/declared_record_sources.py",
     "semantic/data_operation_cpu_basis.py",
+    "semantic/data_operation_identity.py",
+    "semantic/data_operation_partitions.py",
     "methods/llm/cascade.py",
-    "semantic/sentence_products.py",
+    "semantic/sentence_partitions.py",
+    "semantic/source_products.py",
     "semantic/analysis_policies.py",
     "semantic/declared_math_products.py",
     "semantic/declared_structural_references.py",
@@ -37,6 +42,38 @@ _FILES = (
 )
 _NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-external-extraction/"
 _PACKET = _NAMESPACE + "DdoExternalExtractionPacket"
+_ANNOTATION_ROLES = ("annotations", "context_annotations")
+
+
+@dataclass(frozen=True)
+class RichAnnotationsInput:
+    header: dict
+    blocks: tuple[SentenceBlock, ...]
+
+
+@dataclass(frozen=True)
+class RichAnnotationPackets:
+    """Packets for one exact annotation occurrence in the CPU authority basis."""
+
+    role: Literal["annotations", "context_annotations"]
+    position: int | None
+    packets: tuple[WireProductPartition, ...]
+
+    def attach(self, header: dict) -> RichAnnotationsInput:
+        from .data_operation_identity import canonical_identity
+        from .data_operation_partitions import partition_header
+        from .sentence_partitions import COLLECTION, blocks_from_packets
+
+        if partition_header(self.packets) != header.get(COLLECTION):
+            raise ValueError("rich extraction annotation packets differ from their selected header")
+        blocks = blocks_from_packets(self.packets)
+        digests = {packet["partition_key"]: packet["partition_digest"] for packet in self.packets}
+        if any(
+            canonical_identity("partition", list(block.rows)).key != digests[block.key]
+            for block in blocks
+        ):
+            raise ValueError("rich extraction annotation packet differs from its content digest")
+        return RichAnnotationsInput(header, blocks)
 
 
 def external_extraction_inputs(
@@ -248,30 +285,43 @@ def rich_external_declarations(protocol):
     )
 
 
-def _proposal_source(prepared, model, source, annotations, pin):
+def _proposal_source(prepared, source, annotations: RichAnnotationsInput, pin):
     from .declared_proposal_frames import DeclaredProposalSource
     from .declared_record_sources import DeclaredNativeFrameSource
     from .proposals import ProposalSentence, native_address
-    from .sentence_products import source_annotation_blocks, validate_source_annotations
     from .source_products import FrozenNativeSource
 
     native = FrozenNativeSource.acquire(prepared, source)
     base = DeclaredNativeFrameSource(native.content.decode(), canonical_bytes(pin).decode())
-    checked = validate_source_annotations(prepared, model, annotations, native)
-    if any(block["annotation"]["source"] != pin for block in source_annotation_blocks(checked)):
-        raise ValueError(
-            "retained sentences differ from the actual selected native source/member context"
-        )
-    rows = checked.inventory("sentence")
-    sentences = [
-        ProposalSentence(
-            row["local_id"],
-            native_address(base, start=row["start"], end=row["end"]),
-            row["start"],
-            row["end"],
-        )
-        for row in rows
-    ]
+    header = annotations.header
+    if (
+        header["source"] != native.value["source"]
+        or header["selectors"] != native.value["selectors"]
+    ):
+        raise ValueError("source annotations differ from exact original source/scope")
+    sentences = []
+    for layout, block in zip(header["block_layouts"], annotations.blocks, strict=True):
+        annotation = layout["annotation"]
+        if annotation["source"] != pin or (
+            annotation["block_id"],
+            annotation["block_start"],
+            annotation["block_end"],
+        ) != (block.key, block.start, block.end):
+            raise ValueError(
+                "retained sentences differ from the actual selected native source/member context"
+            )
+        for row in block.rows:
+            if row["record_type"] != "sentence":
+                continue
+            start, end = block.start + row["start"], block.start + row["end"]
+            sentences.append(
+                ProposalSentence(
+                    f"sentence:{block.ordinal}:{row['ordinal']}",
+                    native_address(base, start=start, end=end),
+                    start,
+                    end,
+                )
+            )
     sentences.extend(
         ProposalSentence(
             "native_evidence:" + str(index),
@@ -289,7 +339,7 @@ def _proposal_source(prepared, model, source, annotations, pin):
     )
 
 
-def prepare_external_packet(prepared, model, values, source_pins, *, check_active):
+def prepare_external_packet(prepared, values, source_pins, *, check_active):
     from corpus_structure.core.evidence import MACRO_NAME, MacroDef
 
     from .declared_proposal_frames import DeclaredProposalFrame
@@ -328,7 +378,7 @@ def prepare_external_packet(prepared, model, values, source_pins, *, check_activ
         raise ValueError("macro context requires actual control-word names")
     check_active()
     primary = _proposal_source(
-        prepared, model, values["source"], values["annotations"], source_pins["source"][0]
+        prepared, values["source"], values["annotations"], source_pins["source"][0]
     )
     contexts = []
     available = {}
@@ -339,7 +389,7 @@ def prepare_external_packet(prepared, model, values, source_pins, *, check_activ
         available[key] = (value, pin)
     annotation_index = {}
     for annotation in values["context_annotations"]:
-        header = annotation.get("header", annotation)
+        header = annotation.header
         key = canonical_bytes([header["source"], header["selectors"]])
         if key in annotation_index:
             raise ValueError("context annotation coordinate is ambiguous")
@@ -356,7 +406,7 @@ def prepare_external_packet(prepared, model, values, source_pins, *, check_activ
         annotation = annotation_index.get(canonical_bytes([value["source"], value["selectors"]]))
         if annotation is None:
             raise ValueError("explicit ancestor lacks its separately admitted retained sentences")
-        contexts.append(_proposal_source(prepared, model, value, annotation, pin))
+        contexts.append(_proposal_source(prepared, value, annotation, pin))
     frame = DeclaredProposalFrame(
         primary.source_content,
         primary.pin_content,
@@ -474,7 +524,7 @@ def execute_rich_profile(receiver, values):
     return receiver.execute(values)
 
 
-def _rich_kernel_inputs(action, input_basis, *, prepared, asset_content):
+def _rich_kernel_inputs(action, input_basis, annotation_packets, *, prepared, asset_content):
     """Read actual child operands and captured policy, without parent pin claims."""
     from .data_operation_admission import bound_data_operation_model
     from .data_operation_values import decode_semantic_value
@@ -503,6 +553,18 @@ def _rich_kernel_inputs(action, input_basis, *, prepared, asset_content):
     declarations = {role.name: role for role in operation.roles if role.direction == "input"}
     if set(roles) - declarations.keys():
         raise ValueError("rich extraction CPU basis has an undeclared input role")
+    attachments = {(entry.role, entry.position): entry for entry in annotation_packets}
+    if len(attachments) != len(annotation_packets):
+        raise ValueError("rich extraction annotation packets repeat a selected occurrence")
+
+    def body_for(row):
+        if row["role"] not in _ANNOTATION_ROLES:
+            return row["body"]
+        selected = attachments.pop((row["role"], row["position"]), None)
+        if selected is None:
+            raise ValueError("rich extraction annotation packets lack a selected occurrence")
+        return selected.attach(row["body"])
+
     values = {}
     for name, declaration in declarations.items():
         rows = roles.setdefault(name, [])
@@ -513,14 +575,16 @@ def _rich_kernel_inputs(action, input_basis, *, prepared, asset_content):
         ):
             raise ValueError("rich extraction CPU basis differs from its actual input population")
         if declaration.collection == "scalar":
-            values[name] = rows[0]["body"]
+            values[name] = body_for(rows[0])
         else:
             positions = [row["position"] for row in rows]
             if any(position is None for position in positions) or len(set(positions)) != len(
                 positions
             ):
                 raise ValueError("rich extraction sequence requires its exact selected order")
-            values[name] = tuple(row["body"] for row in rows)
+            values[name] = tuple(body_for(row) for row in rows)
+    if attachments:
+        raise ValueError("rich extraction annotation packets include an unselected occurrence")
     return model, basis, roles, values, policy
 
 
@@ -555,7 +619,13 @@ def _rich_source_pin(prepared, row):
 
 
 def execute_rich_kernel(
-    action: str, input_basis: list, asset_content: str, *, prepared, check_active
+    action: str,
+    input_basis: list,
+    asset_content: str,
+    *,
+    annotation_packets: tuple[RichAnnotationPackets, ...] = (),
+    prepared,
+    check_active,
 ) -> dict:
     from .data_operation_cpu_basis import cpu_authority_reply
 
@@ -564,6 +634,7 @@ def execute_rich_kernel(
     model, _basis, roles, values, policy = _rich_kernel_inputs(
         action,
         input_basis,
+        annotation_packets,
         prepared=prepared,
         asset_content=asset_content,
     )
@@ -573,9 +644,7 @@ def execute_rich_kernel(
             role: [_rich_source_pin(prepared, row) for row in roles[role]]
             for role in ("source", "context_sources")
         }
-        result = prepare_external_packet(
-            prepared, model, values, source_pins, check_active=check_active
-        )
+        result = prepare_external_packet(prepared, values, source_pins, check_active=check_active)
     else:
         from corpus_structure.methods.llm.cascade import PlacementPolicy
 
@@ -615,19 +684,31 @@ class RichInvocationPlan:
             for role in self.model.operation(self.operation).roles
             if role.direction == "input"
         }
-        input_basis = cpu_input_basis_from_binding(
-            recipe,
-            binding,
-            {
-                name: (values[name],) if role.collection == "scalar" else tuple(values[name])
-                for name, role in declarations.items()
-            },
-        )
+        bodies = {
+            name: (values[name],) if role.collection == "scalar" else tuple(values[name])
+            for name, role in declarations.items()
+        }
+        annotation_packets = []
+        selected_roles = {role.role: role.members for role in binding.roles}
+        for name in _ANNOTATION_ROLES:
+            if name not in declarations:
+                continue
+            headers = []
+            for member, value in zip(selected_roles[name], bodies[name], strict=True):
+                if set(value) != {"header", "partitions"}:
+                    raise ValueError("rich extraction requires selected annotation partitions")
+                headers.append(value["header"])
+                annotation_packets.append(
+                    RichAnnotationPackets(name, member.position, tuple(value["partitions"]))
+                )
+            bodies[name] = tuple(headers)
+        input_basis = cpu_input_basis_from_binding(recipe, binding, bodies)
         signature = inspect.signature(execute_rich_kernel, eval_str=True)
         bound = signature.bind(
             action=self.operation,
             input_basis=input_basis,
             asset_content=self.asset_content,
+            annotation_packets=tuple(annotation_packets),
             prepared=self.prepared,
             check_active=check_active,
         )

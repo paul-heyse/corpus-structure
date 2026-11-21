@@ -43,7 +43,12 @@ from .established_validity import ProductValidation
 from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
 from .identity import canonical_bytes
-from .sentence_products import SourceAnnotationReadings, SourceAnnotations, sentence_product_inputs
+from .sentence_products import (
+    SourceAnnotations,
+    retained_source_annotation_products,
+    sentence_product_inputs,
+    validate_source_annotations,
+)
 from .source_products import (
     FrozenNativeSource,
     selected_source_ranges,
@@ -370,13 +375,13 @@ def construction_product_values(
                 for a, b in requested
                 if max(region["start"], a) < min(region["end"], b)
             )
+    native_products = ()
     if native is not None:
-        from .sentence_products import source_annotation_member_values
-
+        native_products = retained_source_annotation_products(source, native)
         boundaries = [
-            row
-            for row in source_annotation_member_values(native)
-            if row["record_type"] == "sentence"
+            {"start": row.start, "end": row.end}
+            for product in native_products
+            for row in product.sentences
         ]
         regions = _clip_sentence_regions(regions, boundaries)
         sentence_coverage = [
@@ -437,7 +442,6 @@ def construction_product_values(
                         for ref in atom_references.get(atom.occurrence, ())
                     ]
     vocab = None
-    native_products = ()
     if native is not None:
         from .constructions.matching import (
             PreparedConstructions,
@@ -445,9 +449,7 @@ def construction_product_values(
             retained_native_vocab,
         )
         from .constructions.retained_rules import populate_source_reading_products
-        from .sentence_products import retained_source_annotation_products
 
-        native_products = retained_source_annotation_products(source, native)
         vocab = retained_native_vocab(source, native)
         populate_source_reading_products(
             builder,
@@ -1101,7 +1103,16 @@ class PreparedConstructionProfile:
         )
         native = None
         if sentences is not None:
-            SourceAnnotationReadings(sentences, source)
+            sentences = validate_source_annotations(
+                self.prepared,
+                self.model,
+                json.loads(sentences.content),
+                source,
+                receipts=sentences.execution_receipts,
+                configuration=sentences.configuration,
+                subject_context=sentences.subject_context,
+                partitions=sentences.partitions,
+            )
             native = CharacterizationSnapshot(
                 sentences.semantic_id, sentences.content, sentences.partitions
             )

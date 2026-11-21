@@ -31,12 +31,12 @@ from corpus_structure.semantic.data_operation_model import (
     ResolvedRoleBinding,
     SubjectContext,
 )
+from corpus_structure.semantic.data_operation_partitions import partition_header, partition_packet
 from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.external_extraction import (
+    RichAnnotationPackets,
     execute_rich_kernel,
-    external_extraction_assets,
-    external_extraction_operation_sources,
     rich_external_declarations,
 )
 from corpus_structure.semantic.identity import canonical_bytes
@@ -44,12 +44,12 @@ from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import ResolvedDependencies
 from semantic.proposals_support import batch
-from semantic.test_external_rich_extraction import frame, packet
+from semantic.test_external_rich_extraction import controlled_external_sources, frame, packet
 from semantic.test_external_rich_extraction import rich_bundle as rich_bundle
 
 
 @pytest.fixture(scope="module")
-def captured_rich(rich_bundle):
+def captured_rich(rich_bundle, tmp_path_factory):
     from corpus_structure.semantic.declared_math_products import math_operation_declarations
 
     declarations = (
@@ -64,11 +64,19 @@ def captured_rich(rich_bundle):
             )
         ),
     )
-    dependencies = data_operation_dependencies(
-        ResolvedDependencies(), declarations, external_extraction_operation_sources()
-    )
+    sources = controlled_external_sources(tmp_path_factory.mktemp("rich-cpu-source"))
+    dependencies = data_operation_dependencies(ResolvedDependencies(), declarations, sources)
     prepared = prepare_release(rich_bundle, dependencies)
-    return prepared, bound_data_operation_model(prepared)
+    return prepared, bound_data_operation_model(prepared), sources
+
+
+def placement_asset(sources):
+    (asset,) = tuple(
+        asset
+        for asset in sources.boundary_contracts
+        if asset.name == "external-extraction/algorithm-assets"
+    )
+    return asset.content.decode()
 
 
 def bound_inputs(model, operation, values, context):
@@ -130,7 +138,7 @@ def locate_basis(model):
     raw = batch()
     raw["unit_ref"] = actual.unit_ref
     raw["statements"][0]["anchor"] = actual.unit_ref
-    raw["claims"][0]["evidence"][0]["sentence"] = "native_evidence:1"
+    raw["claims"][0]["evidence"][0]["sentence"] = "native_evidence:2"
     context = SubjectContext(
         "project:one",
         "subject:one",
@@ -144,9 +152,10 @@ def locate_basis(model):
 
 
 def prepare_basis(prepared, model, *, with_context=False):
+    from corpus_structure.semantic.characterization_manifests import manifest_contract
     from corpus_structure.semantic.original_documents import original_document_subject
     from corpus_structure.semantic.sentence_products import (
-        source_annotation_packets,
+        annotation_manifest,
         spacy_family_coverage,
     )
     from corpus_structure.semantic.source_products import (
@@ -180,11 +189,13 @@ def prepare_basis(prepared, model, *, with_context=False):
         outcome="complete",
         block_coverage=[],
         coverage=spacy_family_coverage(source, [], []),
-        blocks=[],
+        block_layouts=[],
+        rows=partition_header(()),
         configuration=SentenceConfig().model_dump(mode="json"),
         execution_profile="unadmitted:empty-scalar-profile",
     )
-    annotations["members"] = source_annotation_packets(prepared, model, annotations)
+    kind = manifest_contract(prepared, model, "DdoSourceAnnotationManifest")
+    annotations["members"] = [annotation_manifest(annotations, kind_contract=kind)]
     policy = {
         "version": "external-extraction-policy-1",
         "guideline": "Read the actual empty source.",
@@ -220,9 +231,9 @@ def prepare_basis(prepared, model, *, with_context=False):
             selectors=parent["selectors"],
             coverage=spacy_family_coverage(parent, [], []),
         )
-        parent_annotations["members"] = source_annotation_packets(
-            prepared, model, parent_annotations
-        )
+        parent_annotations["members"] = [
+            annotation_manifest(parent_annotations, kind_contract=kind)
+        ]
         contexts, context_annotations = (parent,), (parent_annotations,)
         policy["context_sources"] = ['["unadmitted:input:context_sources:0",null]']
     return bound_inputs(
@@ -242,9 +253,8 @@ def prepare_basis(prepared, model, *, with_context=False):
 
 @pytest.fixture(scope="module")
 def actual_extraction_replies(captured_rich):
-    prepared, model = captured_rich
-    sources = external_extraction_operation_sources()
-    asset = external_extraction_assets().content.decode()
+    prepared, model, sources = captured_rich
+    asset = placement_asset(sources)
     signature = inspect.signature(execute_rich_kernel, eval_str=True)
     replies = {}
     cpu = CPUExecutionScope(prepared, CharacterizationExecutionPolicy(workers=1, max_submissions=1))
@@ -258,14 +268,19 @@ def actual_extraction_replies(captured_rich):
             prepared_parameter="prepared",
             prepared_release_id=prepared.release_id,
         )
-        for action, basis in (
-            ("prepare.external_extraction", prepare_basis(prepared, model)),
-            ("locate.external_extraction", locate_basis(model)),
+        for action, basis, annotations in (
+            (
+                "prepare.external_extraction",
+                prepare_basis(prepared, model),
+                (RichAnnotationPackets("annotations", 0, ()),),
+            ),
+            ("locate.external_extraction", locate_basis(model), ()),
         ):
             bound = signature.bind(
                 action=action,
                 input_basis=basis,
                 asset_content=asset,
+                annotation_packets=annotations,
                 prepared=prepared,
                 check_active=lambda: None,
             )
@@ -321,10 +336,10 @@ def test_actual_locate_reply_retains_placement_and_exact_input_basis(actual_extr
 
 
 def test_child_refuses_changed_policy_bytes_under_unchanged_basis(captured_rich):
-    prepared, model = captured_rich
+    prepared, model, sources = captured_rich
     from corpus_structure.semantic.data_operation_json import wire_json_loads
 
-    asset = wire_json_loads(external_extraction_assets().content)
+    asset = wire_json_loads(placement_asset(sources))
     asset["placement_policy"]["token_cutoff"] += 1
     with pytest.raises(ValueError, match="actual captured asset"):
         execute_rich_kernel(
@@ -337,8 +352,8 @@ def test_child_refuses_changed_policy_bytes_under_unchanged_basis(captured_rich)
 
 
 def test_child_refuses_other_recipe_and_wrong_source_context(captured_rich):
-    prepared, model = captured_rich
-    asset = external_extraction_assets().content.decode()
+    prepared, model, sources = captured_rich
+    asset = placement_asset(sources)
     basis = decode_semantic_value(locate_basis(model))
     basis["recipe"] = "unadmitted:other-recipe"
     with pytest.raises(ValueError, match="actual admitted recipe"):
@@ -358,13 +373,14 @@ def test_child_refuses_other_recipe_and_wrong_source_context(captured_rich):
             "prepare.external_extraction",
             semantic_value(basis),
             asset,
+            annotation_packets=(RichAnnotationPackets("annotations", 0, ()),),
             prepared=prepared,
             check_active=lambda: None,
         )
 
 
 def test_child_preserves_actual_nondense_sequence_positions(captured_rich):
-    prepared, model = captured_rich
+    prepared, model, sources = captured_rich
     basis = decode_semantic_value(prepare_basis(prepared, model, with_context=True))
     next(row for row in basis["roles"] if row["role"] == "context_sources")["position"] = 7
     next(row for row in basis["roles"] if row["role"] == "context_annotations")["position"] = 12
@@ -372,7 +388,11 @@ def test_child_preserves_actual_nondense_sequence_positions(captured_rich):
     reply = execute_rich_kernel(
         "prepare.external_extraction",
         tagged,
-        external_extraction_assets().content.decode(),
+        placement_asset(sources),
+        annotation_packets=(
+            RichAnnotationPackets("context_annotations", 12, ()),
+            RichAnnotationPackets("annotations", 0, ()),
+        ),
         prepared=prepared,
         check_active=lambda: None,
     )
@@ -386,3 +406,41 @@ def test_child_preserves_actual_nondense_sequence_positions(captured_rich):
     assert context_pin["source_product"] == "unadmitted:input:context_sources:0"
     assert context_pin["section_pointer"] == "#/groups/parent"
     assert context_pin["membership"] == "direct"
+
+
+def test_annotation_packet_authenticates_rows_and_placement_against_selected_header():
+    packet = partition_packet("rows", "block-one", 0, 5, 8, [{"ordinal": 0, "end": 3}])
+    header = {"rows": partition_header((packet,))}
+    (block,) = RichAnnotationPackets("annotations", None, (packet,)).attach(header).blocks
+    assert (block.key, block.start, block.end, block.rows) == (
+        "block-one",
+        5,
+        8,
+        ({"ordinal": 0, "end": 3},),
+    )
+    replaced = deepcopy(packet)
+    replaced["body"] = semantic_value([{"ordinal": 0, "end": 2}])
+    with pytest.raises(ValueError, match="content digest"):
+        RichAnnotationPackets("annotations", None, (replaced,)).attach(header)
+    moved = deepcopy(packet)
+    moved["placement"] = {"start": 10, "end": 13}
+    with pytest.raises(ValueError, match="selected header"):
+        RichAnnotationPackets("annotations", None, (moved,)).attach(header)
+    with pytest.raises(ValueError, match="selected header"):
+        RichAnnotationPackets("annotations", None, ()).attach(header)
+
+
+def test_child_refuses_packets_at_unselected_sequence_position(captured_rich):
+    prepared, model, sources = captured_rich
+    with pytest.raises(ValueError, match="unselected occurrence"):
+        execute_rich_kernel(
+            "prepare.external_extraction",
+            prepare_basis(prepared, model),
+            placement_asset(sources),
+            annotation_packets=(
+                RichAnnotationPackets("annotations", 0, ()),
+                RichAnnotationPackets("context_annotations", 7, ()),
+            ),
+            prepared=prepared,
+            check_active=lambda: None,
+        )

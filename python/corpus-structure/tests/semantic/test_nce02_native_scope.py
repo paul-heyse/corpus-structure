@@ -80,6 +80,7 @@ def authored_product(monkeypatch, spelling, columns):
 def actual_basis(kernel, original, products):
     """Restore only authenticated current products returned by the native selected read."""
     from corpus_structure.semantic.construction_products import CharacterizationSnapshot
+    from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
     from corpus_structure.semantic.sentence_products import (
         retained_source_annotation_products,
         validate_source_annotations,
@@ -108,8 +109,34 @@ def actual_basis(kernel, original, products):
         "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
         original,
     )
+    read = sentences.read
+    cut = CutSelection(read.cut_canonical_json.encode())
+    with (
+        kernel.purpose("read").begin() as connection,
+        selected_record_index(
+            connection,
+            read.demand_id,
+            project_id=read.project_id,
+            read_id=read.read_id,
+            expected_cut=read.cut_id,
+            scope=cut.record["scope"],
+        ) as (_, index),
+    ):
+        partitions = tuple(
+            canonical_bytes(row)
+            for row in index.rows_for(
+                "kb.data_product_partition",
+                product_id=sentences.row["product_id"],
+                collection="rows",
+            )
+        )
     native = validate_source_annotations(
-        kernel.prepared, kernel.model, sentences.body, source, subject_context=sentences.context
+        kernel.prepared,
+        kernel.model,
+        sentences.body,
+        source,
+        subject_context=sentences.context,
+        partitions=partitions,
     )
     assert native.semantic_id == sentences.row["product_id"]
     (construction,) = selected_for_source(

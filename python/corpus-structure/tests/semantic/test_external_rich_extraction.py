@@ -28,6 +28,32 @@ from corpus_structure.semantic.types import SourceArtifact, SourceBundle
 from semantic.proposals_support import batch
 
 
+def controlled_external_sources(directory):
+    from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+    from corpus_structure.semantic.primary_operations import combine_primary_sources
+    from corpus_structure.semantic.sentence_products import sentence_operation_sources
+
+    configuration = SentenceConfig(exclude=("ner",))
+    selection = NativeSelection(
+        NativeProfile(
+            "spacy",
+            {"controlled": "runtime"},
+            {"files": {}},
+            configuration.model_dump(mode="json"),
+            "float32",
+            "cupy",
+            4,
+            1,
+        ),
+        directory,
+    )
+    return combine_primary_sources(
+        sentence_operation_sources(configuration, selection=selection),
+        external_extraction_operation_sources(),
+    )
+
+
 @pytest.fixture(scope="module")
 def rich_bundle():
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
@@ -56,7 +82,7 @@ def rich_prepared(rich_bundle):
 
 
 @pytest.fixture(scope="module")
-def rich_model(rich_bundle):
+def rich_model(rich_bundle, tmp_path_factory):
     from corpus_structure.semantic.declared_math_products import math_operation_declarations
 
     protocol = ExternalExecutorContract(
@@ -69,7 +95,7 @@ def rich_model(rich_bundle):
     return compile_data_operations(
         rich_bundle,
         declarations=(math_operation_declarations(), rich_external_declarations(protocol)),
-        python_sources=external_extraction_operation_sources(),
+        python_sources=controlled_external_sources(tmp_path_factory.mktemp("rich-source")),
     )
 
 
@@ -160,7 +186,9 @@ def packet():
     }
 
 
-def test_rich_family_declares_actual_authored_batch_and_complete_captured_placement(rich_bundle):
+def test_rich_family_declares_actual_authored_batch_and_complete_captured_placement(
+    rich_bundle, tmp_path
+):
     from corpus_structure.semantic.declared_math_products import math_operation_declarations
 
     protocol = ExternalExecutorContract(
@@ -173,7 +201,7 @@ def test_rich_family_declares_actual_authored_batch_and_complete_captured_placem
     model = compile_data_operations(
         rich_bundle,
         declarations=(math_operation_declarations(), rich_external_declarations(protocol)),
-        python_sources=external_extraction_operation_sources(),
+        python_sources=controlled_external_sources(tmp_path),
     )
     authored = model.operation("extract.rich_external")
     assert authored.external == protocol and authored.implementation_root is None
@@ -182,6 +210,10 @@ def test_rich_family_declares_actual_authored_batch_and_complete_captured_placem
         == "https://corpus-structure.dev/semantic/agent/AgentAuthoredBatch"
     )
     assert model.operation("locate.external_extraction").capabilities.prepared_factory is not None
+    for role in model.operation("prepare.external_extraction").roles:
+        if role.name in {"annotations", "context_annotations"}:
+            assert "segment.sentences/exact-source-scope" in role.required_rules
+            assert "segment.sentences/native-row-span" in role.required_rules
     assert all(slice.complete for slice in model.implementation_slices)
 
 

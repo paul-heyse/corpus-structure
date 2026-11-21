@@ -12,7 +12,6 @@ from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.sentence_products import (
-    SourceAnnotationReadings,
     sentence_operation_sources,
     sentence_product_inputs,
     validate_source_annotations,
@@ -238,7 +237,7 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         token["is_alpha"] == text[token["start"] : token["end"]].isalpha()
         for token in original_tokens
     )
-    assert all(token.get("head_ref") for token in original_tokens if token["dependency"])
+    assert all(type(token["head"]) is int for token in original_tokens if token["dependency"])
     assert any(token["lemma"] for token in original_tokens)
     assert all(
         next(
@@ -264,20 +263,25 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         "corpus_structure.semantic.sentence_products.pipeline",
         lambda *_: pytest.fail("sentence reader reran NLP"),
     )
-    reader = SourceAnnotationReadings(product, source)
-    assert reader.sentences() == sentences
-    assert reader.annotation_availability()
+    assert product.inventory("sentence") == sentences
     assert all(
-        row["start"] == 0 and row["end"] == len(text) for row in reader.annotation_availability()
+        row["annotation"]["block_start"] == 0 and row["annotation"]["block_end"] == len(text)
+        for row in json.loads(product.content)["block_layouts"]
     )
     assert all("sent_start" in token for token in original_tokens)
     assert product.semantic_id.startswith("product:")
-    assert reader.native_annotations(sentences[0]["local_id"]) == reader.tokens(
-        sentences[0]["local_id"]
-    )
     for sentence in sentences:
-        tokens = reader.tokens(sentence["local_id"])
-        assert all(token["sentence_ref"] == sentence["local_id"] for token in tokens)
+        tokens = [
+            token
+            for token in original_tokens
+            if token.get("sentence") == sentence["ordinal"]
+            and token["block_id"] == sentence["block_id"]
+        ]
+        assert tokens
+        assert all(
+            sentence["start"] <= token["start"] < token["end"] <= sentence["end"]
+            for token in tokens
+        )
         assert all(text[token["start"] : token["end"]] for token in tokens)
         assert all(token["piece_indices"] == [0] for token in tokens)
     changed = json.loads(product.content)
@@ -380,15 +384,7 @@ def test_sentence_members_derive_from_actual_nominal_body_graph(nominal_profile)
     from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
 
     container = profile.prepared.index.definitions["DdoSourceAnnotations"].iri
-    expected = {
-        profile.prepared.index.definitions[name].iri
-        for name in (
-            "DdoNativeBlock",
-            "DdoNativeToken",
-            "DdoNativeSentence",
-            "DdoSourceAnnotationManifest",
-        )
-    }
+    expected = {profile.prepared.index.definitions["DdoSourceAnnotationManifest"].iri}
     assert set(derive_member_kinds(profile.model, container)) == expected
 
 
@@ -520,10 +516,10 @@ def test_native_inventory_keeps_original_synthetic_piece_and_block_whitespace(mo
     from corpus_structure.ingest import annotations
     from corpus_structure.ingest.sentences import Block, make_doc, prepare_layout
     from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin
+    from corpus_structure.semantic.sentence_partitions import annotation_blocks
     from corpus_structure.semantic.sentence_products import (
         _Block,
         _detach_annotation_block,
-        source_annotation_member_values,
     )
 
     nlp = spacy.blank("en")
@@ -554,15 +550,16 @@ def test_native_inventory_keeps_original_synthetic_piece_and_block_whitespace(mo
         SentenceConfig(exclude=("ner",)),
         "controlled-profile",
     )
-    records = source_annotation_member_values({"source": source["source"], "blocks": [block]})
-    tokens = [body for body in records if body["record_type"] == "token"]
+    (retained,) = annotation_blocks({"blocks": [block]})
+    tokens = [row for row in retained.rows if row["record_type"] == "token"]
     assert any(1 in token["piece_indices"] for token in tokens)
     assert all(
         token["piece_indices"]
         == [
             index
             for index, piece in enumerate(source["pieces"])
-            if piece["start"] < token["end"] and token["start"] < piece["end"]
+            if piece["start"] < retained.start + token["end"]
+            and retained.start + token["start"] < piece["end"]
         ]
         for token in tokens
     )
@@ -687,49 +684,3 @@ def test_unprojected_requested_native_text_is_unknown_instead_of_empty_language(
     )
     assert result.value.outcome == "partial" and result.inventory("token") == ()
     assert all(row.outcome == "unsupported" and row.unexamined for row in result.value.coverage)
-
-
-def test_native_whole_blocks_have_their_own_exact_member_population(nominal_profile):
-    """Unadmitted packet projection; no provider or native publication claim."""
-    from corpus_structure.semantic.sentence_products import source_annotation_packets
-
-    profile = nominal_profile
-    source = selected(profile)
-    value = dict(
-        source=source.value["source"],
-        selectors=source.value["selectors"],
-        outcome="partial",
-        coverage=[],
-        blocks=[
-            dict(
-                annotation=dict(
-                    block_id="#/texts/0",
-                    block_start=0,
-                    block_end=len(source.value["text"]),
-                    tokens=[],
-                    sentences=[],
-                ),
-                lexemes=[],
-            )
-        ],
-    )
-    packets = source_annotation_packets(profile.prepared, profile.model, value)
-    (block,) = [row for row in packets if row["body"]["record_type"] == "native_block"]
-    assert block["body"] == dict(
-        record_type="native_block",
-        local_id=block["member_id"],
-        block_id="#/texts/0",
-        ordinal=0,
-        start=0,
-        end=len(source.value["text"]),
-    )
-    assert block["kind_contract"] == next(
-        item.key
-        for item in profile.model.identities
-        if item.domain == "kind"
-        and item.owner == profile.prepared.index.definitions["DdoNativeBlock"].iri
-    )
-    assert block["context"]["analyzed_scope"] == dict(
-        source=source.value["source"], selectors=source.value["selectors"]
-    )
-    profile.prepared.validate_json("DdoNativeBlock", canonical_bytes(block["body"]))

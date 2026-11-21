@@ -292,7 +292,7 @@ def test_current_annotation_consumer_reuses_columns_and_refuses_profile_or_sourc
         native.configuration,
         execution_profile=native.value.model_dump(mode="json")["execution_profile"],
     )
-    rows = source_annotation_rows(json.loads(native.content))
+    rows = source_annotation_rows(native)
     for changed in (
         replace(profile, configuration=SentenceConfig(exclude=("ner",), batch_size=1)),
         replace(profile, configuration=SentenceConfig(exclude=("ner",), model_version="0.0.0")),

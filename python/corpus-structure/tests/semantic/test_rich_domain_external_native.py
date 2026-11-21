@@ -1,8 +1,10 @@
 """Real external task/native source custody for controlled, independently expected domain meaning."""
 
+from contextlib import ExitStack, contextmanager
 from datetime import date
 from decimal import Decimal
 from functools import partial
+from types import SimpleNamespace
 
 import pytest
 
@@ -21,6 +23,42 @@ from semantic.rich_domain_external_support import (
     external_recipe,
     publish_external_report,
 )
+
+
+@contextmanager
+def current_external_journey(admin, native_settings, tmp_path, monkeypatch, *, recipe, content):
+    from evaluate.declared_record_native_support import _capture_record_policy
+    from pdf_controlled_support import controlled_pdf_converter
+
+    from corpus_structure.schema.model_change import native_model_inputs
+    from corpus_structure.semantic import migrations
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.target_installation import capture_target_installation
+    from native_test_support import principal_engine
+    from semantic.current_pdf_source_support import ROOT
+    from semantic.data_operation_kernel_support import Kernel, build_kernel
+    from semantic.test_target_installation_native import install_target_root
+
+    epoch = capture_target_installation(get_metadata(), logical_sources=native_model_inputs(ROOT))
+    *_, revision_path = install_target_root(admin, epoch, tmp_path)
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+    preparation = tmp_path / "current-external-kernel"
+    preparation.mkdir()
+    with ExitStack() as resources, controlled_pdf_converter(content):
+        purposes = {}
+
+        def purpose(name):
+            if name not in purposes:
+                engine = principal_engine(native_settings, name, admin.url.database)
+                resources.callback(engine.dispose)
+                purposes[name] = engine
+            return purposes[name]
+
+        stage = build_kernel(recipe, admin, purpose("write"), preparation, purpose_engine=purpose)
+        kernel = Kernel(
+            admin, stage.preparation, stage.identities, recipe, SimpleNamespace(purpose=purpose)
+        )
+        yield _capture_record_policy(kernel, tmp_path, source_count=1)
 
 
 @pytest.mark.parametrize("domain", ("statistics", "toy"))
@@ -44,16 +82,17 @@ def test_external_domain_recipe_composes_existing_sentence_and_packet_owners(tmp
     )
 
 
+@pytest.mark.gpu
+@pytest.mark.provider_evidence
 @pytest.mark.parametrize("case", ("T1", "T2", "T4", "toy"))
 def test_native_controlled_external_source_retains_exact_statistics_meaning(
-    scenario_seeds, tmp_path, monkeypatch, case
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch, case
 ):
-    from evaluate import declared_record_native_support as support
-
     from semantic.rich_domain_native_support import decimal_source_content
 
-    with support.current_record_policy_journey(
-        scenario_seeds,
+    with current_external_journey(
+        semantic_bare_engine,
+        native_settings,
         tmp_path,
         monkeypatch,
         recipe=external_recipe(tmp_path, domain="toy" if case == "toy" else "statistics"),

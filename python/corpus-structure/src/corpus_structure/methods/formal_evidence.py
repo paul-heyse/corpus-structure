@@ -6,9 +6,9 @@ from typing import ClassVar
 
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceProduct,
-    FrozenFormalSource,
     execute_formal_profile,
 )
+from corpus_structure.semantic.source_products import FrozenNativeSource
 
 
 class FormalEvidenceOperation:
@@ -94,6 +94,21 @@ class FormalEvidenceOperation:
                 "checker_callable": "corpus_structure.semantic.characterization_evidence.validate_formal_positions",
                 "parameters": {"paths": ["members"]},
             },
+            {
+                "id": "text.formal_evidence/occurrence-origin",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.formal_evidence/source-native",
+                "checker_callable": "corpus_structure.semantic.formal_products.verify_formal_occurrence_origin",
+                "parameters": {
+                    "paths": ["members"],
+                    "input_reads": {
+                        "source": ["source.projection", "items", "ancestors", "selectors", "text"],
+                    },
+                },
+            },
         ],
         "profile": "derivation",
         "subject": "original-source-view",
@@ -165,7 +180,7 @@ class FormalEvidenceOperation:
                 "role": "prepared-parser",
             },
             {
-                "reference": "corpus_structure.semantic.formal_products.FrozenFormalSource",
+                "reference": "corpus_structure.semantic.source_products.FrozenNativeSource",
                 "contract": "formal/profile-assets",
                 "role": "selected-source-boundary",
             },
@@ -204,5 +219,5 @@ class FormalEvidenceOperation:
         self.options = options
         self.check_active = check_active
 
-    def run(self, source: FrozenFormalSource) -> FormalEvidenceProduct:
+    def run(self, source: FrozenNativeSource) -> FormalEvidenceProduct:
         return execute_formal_profile(self, source)

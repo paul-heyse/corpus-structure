@@ -69,6 +69,8 @@ def annotation_blocks(value: Mapping) -> tuple[SentenceBlock, ...]:
     for index, block in enumerate(value["blocks"]):
         annotation = block["annotation"]
         start, end = annotation["block_start"], annotation["block_end"]
+        if len(annotation["tokens"]) != len(block["lexemes"]):
+            raise ValueError("native lexical columns differ from their actual token population")
         rows = []
         for ordinal, (token, lexeme) in enumerate(
             zip(annotation["tokens"], block["lexemes"], strict=True)
@@ -114,8 +116,5 @@ def partition_source_annotations(
             "piece_offset": block["piece_offset"],
         }
         for block in header.pop("blocks")
-    ]
-    header["members"] = [
-        packet for packet in header["members"] if packet["body"]["record_type"] == "manifest"
     ]
     return header, tuple(block.packet() for block in annotation_blocks(value))

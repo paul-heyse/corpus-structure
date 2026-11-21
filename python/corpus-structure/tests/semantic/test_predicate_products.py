@@ -83,7 +83,10 @@ def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses
     for semantic_id, rules in (
         ("structure.predicate_evidence/declared", retained_syntax),
         ("structure.scoped_relations/declared", retained_syntax),
-        ("text.constructions/source-native", lexical_reading),
+        (
+            "text.constructions/source-native",
+            lexical_reading | {"text.formal_evidence/occurrence-origin"},
+        ),
         ("text.contextual_evaluation/source-native", lexical_reading),
     ):
         consumer = model.operation(semantic_id)

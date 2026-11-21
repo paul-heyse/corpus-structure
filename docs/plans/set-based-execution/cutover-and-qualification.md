@@ -72,6 +72,9 @@ output and admitted syntax coverage. The same demand repeated with zero new rece
 The successor with grouped ordinal admission, scoped construction proofs, and clause and condition
 references passed preview and rollback-only authoring against N47
 (`87857b59d542418f862b1636429cac00`, `345c61ef93b247d09e166540a72d6191`).
+Rollback-only authoring after the construction reference and annotation packet changes passed
+against N47 (`eafcec5626fc4f11a652f2cc835b8714`). Maintenance readback reported development N29 and
+stage N47.
 
 Run this focused integration before spreading its assumptions through whole producer and consumer
 families. It closes the early shared-boundary uncertainty. SBX-20 still owns the single registered

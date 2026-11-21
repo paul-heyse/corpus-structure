@@ -19,6 +19,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.methods.math import grammar as math_grammar
+from corpus_structure.semantic.source_products import (
+    native_selector_covers_extent,
+    native_selector_facts,
+)
 
 from .characterization import (
     occurrence_id,
@@ -309,6 +313,26 @@ def verify_formal_lexical_links(occurrences, lexicon):
             raise ValueError("unsupported primary lexicon cannot assert characterized terminals")
 
 
+def verify_formal_occurrence_origin(occurrences, selected):
+    """Check actual original atoms, pages and selected ranges for occurrence extents."""
+    parents, pages = native_selector_facts(selected["items"], selected["ancestors"])
+    projection = selected["source"]["projection"]
+    text_length = len(selected["text"])
+    for occurrence in occurrences:
+        for extent in occurrence["extents"]:
+            pointer = extent["native_pointer"]
+            if pointer not in pages:
+                raise ValueError("formal occurrence has no original native atom")
+            if "page" in extent and pages[pointer] != {extent["page"]}:
+                raise ValueError("formal occurrence has another original page")
+            if extent["projection"] != projection:
+                raise ValueError("formal occurrence has another original projection")
+            if "start" in extent and not native_selector_covers_extent(
+                parents, pages, selected["selectors"], extent, text_length
+            ):
+                raise ValueError("formal occurrence escapes the selected examined scope")
+
+
 def validate_formal_product(
     prepared: PreparedRelease,
     value: Mapping[str, Any],
@@ -360,28 +384,10 @@ def validate_formal_product(
                 raise ValueError("formal choice member repeats local identity")
             all_nodes[member["local_id"]] = member
             choices[member["local_id"]] = group
-    from .source_products import source_extent_selected
-
-    selector_index = source.selector_index()
-    original_items = {item["self_ref"]: item for item in selected["items"]}
     for occurrence in data["occurrences"]:
         if occurrence["local_id"] != occurrence_id(checked["source"], occurrence["extents"]):
             raise ValueError("formal occurrence differs from original semantic source address")
-        for extent in occurrence["extents"]:
-            pointer = extent["native_pointer"]
-            original = original_items.get(pointer)
-            if original is None:
-                raise ValueError("formal occurrence has no original native atom")
-            if "page" in extent and {row["page_no"] for row in original.get("prov", ())} != {
-                extent["page"]
-            }:
-                raise ValueError("formal occurrence has another original page")
-            if extent["projection"] != checked["source"]["projection"]:
-                raise ValueError("formal occurrence has another original projection")
-            if "start" in extent and not source_extent_selected(
-                selected, extent, selector_index=selector_index
-            ):
-                raise ValueError("formal occurrence escapes the selected examined scope")
+    verify_formal_occurrence_origin(data["occurrences"], selected)
     verify_formal_lexical_links(indexes["occurrences"], checked["lexicon"])
     validate_formal_positions(indexes)
     validate_formal_normalization(indexes["annotations"])
@@ -704,6 +710,7 @@ def formal_execution_custody() -> SourceArtifact:
     names = (
         "formal_products.py",
         "characterization_evidence.py",
+        "source_products.py",
         "established_validity.py",
         "cpu_execution.py",
         "cpu_receipts.py",
@@ -749,7 +756,7 @@ def formal_operation_sources():
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     path = Path(__file__).parents[1] / "methods/formal_evidence.py"
-    evidence = Path(__file__).with_name("characterization_evidence.py")
+    semantic = Path(__file__).parent
     return PythonSourceCollection(
         (
             PythonSource(
@@ -762,10 +769,13 @@ def formal_operation_sources():
                 path.read_bytes(),
                 str(path),
             ),
-            PythonSource(
-                "corpus_structure.semantic.characterization_evidence",
-                evidence.read_bytes(),
-                str(evidence),
+            *(
+                PythonSource(
+                    "corpus_structure.semantic." + module,
+                    (semantic / (module + ".py")).read_bytes(),
+                    str(semantic / (module + ".py")),
+                )
+                for module in ("characterization_evidence", "source_products")
             ),
         ),
         boundary_contracts=(formal_profile_assets(), formal_execution_custody()),
@@ -827,6 +837,18 @@ class PreparedFormalEvidencePort:
                 (
                     "corpus_structure.semantic.formal_products.PreparedFormalEvidence.run",
                     self.profile.run.__func__,
+                ),
+                (
+                    "corpus_structure.semantic.formal_products.verify_formal_occurrence_origin",
+                    verify_formal_occurrence_origin,
+                ),
+                (
+                    "corpus_structure.semantic.source_products.native_selector_covers_extent",
+                    native_selector_covers_extent,
+                ),
+                (
+                    "corpus_structure.semantic.source_products.native_selector_facts",
+                    native_selector_facts,
                 ),
             ),
             authorize=self.authorize,
@@ -903,6 +925,7 @@ class PreparedFormalEvidencePort:
                 "text.formal_evidence/literal-source-geometry": selected,
                 "text.formal_evidence/packed-choice-members": None,
                 "text.formal_evidence/examined-scope": selected,
+                "text.formal_evidence/occurrence-origin": selected,
                 "text.formal_evidence/lexical-inventory-links": None,
                 "text.formal_evidence/symbolic-inventory-positions": None,
             }

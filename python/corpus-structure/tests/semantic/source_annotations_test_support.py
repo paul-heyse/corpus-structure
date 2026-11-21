@@ -8,6 +8,7 @@ import spacy
 from corpus_structure.ingest import annotations
 from corpus_structure.ingest.sentences import SentenceConfig, make_doc, prepare_layout
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+from corpus_structure.semantic.characterization_manifests import manifest_contract
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_model import BoundRoleMember
 from corpus_structure.semantic.declared_record_sources import (
@@ -19,9 +20,9 @@ from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.sentence_products import (
     _blocks,
     _detach_annotation_block,
+    annotation_manifest,
     sentence_operation_sources,
     sentence_product_inputs,
-    source_annotation_packets,
     spacy_family_coverage,
 )
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_subject
@@ -172,5 +173,9 @@ def detached(acquired, monkeypatch, request):
         if all(row["outcome"] in {"complete", "empty"} for row in value["coverage"])
         else "partial"
     )
-    value["members"] = source_annotation_packets(prepared, model, value)
+    value["members"] = [
+        annotation_manifest(
+            value, kind_contract=manifest_contract(prepared, model, "DdoSourceAnnotationManifest")
+        )
+    ]
     return source, value

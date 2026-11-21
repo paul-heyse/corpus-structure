@@ -388,10 +388,11 @@ definition cases passed (`ea29fc34aa564baba414dc14b0d2465b`), along with seven c
 and CPU authority cases (`075365d01bed4d3ca79febc23861cdd8`).
 The real HanLP-to-declaration syntax chain passed under native settlement
 (`ce9ecaff99cb4d2c9ce00cfdd29fdc05`).
-The annotation reader groups tokens by sentence during one traversal and builds both indexes from
-the same row view. Source validation decodes that view once and locates the native-piece range
-from indexed source offsets. Maverick consumes the exact retained block's grouped sentence
-ordinals and token spans, with no annotation member ID round trip.
+Source validation decodes the annotation row view once and locates the native-piece range from
+indexed source offsets. Maverick groups the selected block's token spans by sentence ordinal.
+The retired packet producer, native block/token/sentence member kinds, synthetic token and sentence
+IDs, and their revalidation reader have been removed. The annotation source witness now checks the
+actual `block_layouts` path on the admitted header. The compact manifest is the only member kind.
 Clause classification reads canonical sentence rows and publishes the focal and selected neighbor
 addresses through the `canonical` role. The native annotation scorer takes an exact retained block
 partition address and restores the selected block once across cases. The 21 controlled clause and
@@ -415,12 +416,19 @@ selected readback matched a published address to its admitted row
 geometry control passed (`cbc3b1a85fee409f9ff34b925c4dd540`). The named definition capture
 selected its actual dependencies without the learned provider configuration
 (`43857f99949d45f8b98f016ee39cfe92`).
-External extraction retains
-the whole annotation validation path. Its CPU input basis must commit to the same header and
-partition premises on the Python and PostgreSQL routes before removing that validator.
+External extraction uses the admitted header as its CPU input basis and carries rows in a
+separate authenticated packet envelope. The child checks packet digests and the recorded content
+and placement commitments before constructing prompt-local labels. Its annotation roles now
+require the ordinal, span, order and source-scope proofs. The focused controlled CPU and rich
+extraction selections passed the original authority split (`4d9dcb0626254a6d9abd2ae7d352e4fa`).
+The 19 proof-backed CPU, external and MCP checks passed (`8577445596f3403eb4f83311a1d232a0`).
+Rich source and context references remain in SBX-05.
 The focused renumbered duplicate case preserves each current address and placement even with
 equal row digests (`d140ca92e7a94a0780f9f022b344ee60`). Cross-source split and merge
 correspondence remains open.
+Construction, predicate and learned operation ingress still includes whole annotation validation.
+Move real consumer requirements into their compiled bindings before deleting the duplicate
+validation, while keeping direct standalone input validation at its own unauthenticated boundary.
 
 **Vision.** Sentence annotation, canonical projection and HanLP publish partitions. Their
 consumers read partitions through one row view and name tokens and sentences by address.
@@ -495,16 +503,26 @@ source and symbol geometry. Predicate and scoped-relation operations require the
 A native control established that a body-only consumer can bind independently of the
 source-dependent proof (`21d285c2d8214b5a977b029eefc0eae4`). The consumer role assertions passed
 with the full acquired primary declarations and numerical policy (`1bbf7aa1e5ac40f2aa8fa64e4344f72c`).
+Formal completion also attests actual native occurrence pointer, page, projection and positioned
+selector membership. Primary construction requires that proof. The formal port and two named
+roundtrips passed with that rule (`4f02fe32b1e94034aac3e1c041f77cfa`).
 
 Removed the coordinate, role, endpoint, coverage and choice side tables from the target compiler
 and generated wire. The generated successor passed rollback-only candidate authoring against N47
 (`27c37c0e9aaa403ebbb53817d6cee671`). Native binding uses derivation output position and
 multiplicity. Native product admission still checks exact nominal member rows. The rest of the
-formal inventory graph, numeric normalization and occurrence page, selector and address checks,
+formal inventory graph, numeric normalization and occurrence ID checks,
 the remaining construction and contextual graph, cross-product, selector and coverage checks,
 remaining consumer declarations, and `ProductValidation` receipt retirement remain open. Resolve
 member-level output retirement against the actual output declarations and native consumers before
 deleting that path.
+
+Formal completion still needs separate internal graph and normalization conclusions. Check exact
+family roster and occurrence identity alongside the existing nominal member enforcement. Bind
+the needed proofs on mathematical and learned consumers and optional structural formal inputs.
+Construction and contextual completion still need their graph, cross-input and coverage authority.
+Remove the shared completion receipt field, binding projection and settlement programs after those
+three producer families have replaced their obligations.
 
 **Vision.** Every existing semantic validator becomes one or more rules. Consumers accept proofs
 and no hand-off differs in stance.

@@ -213,6 +213,10 @@ schemas. The condition producer and admission contract checks passed
 An exact PostgreSQL condition member control and cross-demand selected-use refusal passed
 (`b02e5d4666ce411dac16a3aef51ee5ea`). The full condition provider and protected issuer route
 stopped during native release admission (`37d5e35585ed4893b7edb9821dde8b38`).
+The captured integer key field shadowed the compiled integer primitive in native meaning-schema
+lowering. Exact property and range IDs now drive lowering, preserving the existing equality guard.
+All 15 projection tests passed after reproducing and correcting the conflict
+(`08bb0b05b1b041baa7b19fb1b95d01dc`, `22d4ccc1773340f69ef6a42c40c43811`).
 
 The primary construction annotation premises, named interpretation and assessment graph now use
 declared partition addresses and producing input custody. Remaining characterization,
