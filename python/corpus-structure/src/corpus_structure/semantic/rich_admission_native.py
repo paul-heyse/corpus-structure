@@ -323,8 +323,10 @@ def _rich_input_programs(p):
         p.row("definition", "sem.data_operation_definition", "support_contract"),
         p.row("intent", "ops.data_completion_intent", "payload"),
     )
-    required_effect = _value("required_effect", Text())
-    required_family = _value("required_family", Text())
+    requirement = _value("requirement")
+    required_effect = requirement["required_effect"].astext
+    required_family = requirement["required_family"].astext
+    consumer_roles = _items(definitions.c.input_roles, "consumer_role")
     admitted_families = p.row("definition", "sem.data_operation_definition", "validity_families")
     effect_granted = func.ops.ddo_privileged_effect_admitted(
         core_variable("definition", JSONB()), required_effect
@@ -332,14 +334,31 @@ def _rich_input_programs(p):
     p.add(
         "ddo_rich_producing_request",
         (
-            ("project", "text"),
+            ("consumer", "ops.data_request"),
             ("selected", "jsonb"),
-            ("output_role", "text"),
-            ("requires_cpu", "boolean"),
-            ("required_effect", "text"),
-            ("required_family", "text"),
+            ("role", "text"),
         ),
         (
+            SelectInto(
+                select(consumer_roles.c.value["producer_requirement"])
+                .select_from(definitions.join(consumer_roles, literal(True)))
+                .where(
+                    definitions.c.release_id == p.row("consumer", "ops.data_request", "release_id"),
+                    definitions.c.operation_id == p.row("consumer", "ops.data_request", "operation_id"),
+                    consumer_roles.c.value["name"].astext == _value("role", Text()),
+                ),
+                ("requirement",),
+                strict=True,
+            ),
+            _reject(
+                or_(
+                    requirement.is_(None),
+                    required_family.is_(None),
+                    required_family == "undetermined",
+                    func.jsonb_typeof(requirement["requires_cpu"]).is_distinct_from("boolean"),
+                ),
+                "consumer role has unresolved producer requirements",
+            ),
             SelectInto(
                 select(core_relation_row(episodes))
                 .select_from(
@@ -355,8 +374,8 @@ def _rich_input_programs(p):
                     outputs.c.product_id == selected["product_id"].astext,
                     outputs.c.member_id.is_(None),
                     or_(
-                        _value("output_role", Text()).is_(None),
-                        outputs.c.role == _value("output_role", Text()),
+                        requirement["output_role"].astext.is_(None),
+                        outputs.c.role == requirement["output_role"].astext,
                     ),
                     outputs.c.multiplicity == 1,
                     episodes.c.outcome == "success",
@@ -375,7 +394,7 @@ def _rich_input_programs(p):
                 "request",
                 "ops.data_request",
                 requests.c.id == p.row("producer", "ops.data_derivation", "request_id"),
-                requests.c.project_id == _value("project", Text()),
+                requests.c.project_id == p.row("consumer", "ops.data_request", "project_id"),
             ),
             p.lookup(
                 "definition",
@@ -390,7 +409,7 @@ def _rich_input_programs(p):
             ),
             _reject(
                 and_(
-                    required_family.is_not(None),
+                    required_family != "none",
                     admitted_families.contains(array([required_family])).is_not(True),
                 ),
                 "rich selection producer lacks its required validity family",
@@ -419,7 +438,7 @@ def _rich_input_programs(p):
                         p.row("definition", "sem.data_operation_definition", "recipe")
                     ),
                     and_(
-                        _value("requires_cpu", Boolean()),
+                        cast(requirement["requires_cpu"].astext, Boolean()),
                         or_(
                             p.row(
                                 "definition", "sem.data_operation_definition", "profile"
@@ -439,6 +458,7 @@ def _rich_input_programs(p):
             Return(p.row("request", "ops.data_request")),
         ),
         (
+            p.local("requirement"),
             p.local("request", "ops.data_request"),
             p.local("producer", "ops.data_derivation"),
             p.local("definition", "sem.data_operation_definition"),
@@ -885,7 +905,7 @@ def _rich_preparation_programs(p):
                 (
                     Perform(
                         func.ops.ddo_rich_require_proposal_inputs(
-                            p.row("r", "ops.data_request", "project_id"),
+                            request,
                             func.ops.ddo_cpu_input_basis(request),
                         )
                     ),
@@ -895,7 +915,7 @@ def _rich_preparation_programs(p):
         validity=(ProgramValidity("rich", "completion_guard"),),
     )
     selected, reference, item = (_value(name) for name in ("selected", "reference", "item"))
-    basis, project = _value("basis"), _value("project", Text())
+    basis, project = _value("basis"), p.row("r", "ops.data_request", "project_id")
     headers = (
         func.ops.ddo_rich_role_headers(basis)
         .table_valued(column("value", JSONB()))
@@ -919,7 +939,7 @@ def _rich_preparation_programs(p):
             Assign(
                 request_name,
                 func.ops.ddo_rich_producing_request(
-                    project, reference, "result", True, None, "rich"
+                    p.row("r", "ops.data_request"), reference, role
                 ),
             ),
             _retained_completion(p, request_name, reference),
@@ -952,7 +972,7 @@ def _rich_preparation_programs(p):
         )
     p.add(
         "ddo_rich_require_proposal_inputs",
-        (("project", "text"), ("basis", "jsonb")),
+        (("r", "ops.data_request"), ("basis", "jsonb")),
         tuple(loops),
         (
             *(p.local(name) for name in ("selected", "reference", "item")),
@@ -1182,7 +1202,7 @@ def _rich_admission_program(p):
             Assign(
                 "consolidation_request",
                 func.ops.ddo_rich_producing_request(
-                    project, admission["consolidation"], "consolidated", True, None, "rich"
+                    request, admission["consolidation"], "consolidation"
                 ),
             ),
             _retained_completion(p, "consolidation_request", admission["consolidation"]),
@@ -1227,7 +1247,9 @@ def _rich_admission_program(p):
                 ),
                 "rich admission changes actual rule eligibility or its checked policy basis",
             ),
-            Perform(func.ops.ddo_rich_require_proposal_inputs(project, consolidation_basis)),
+            Perform(func.ops.ddo_rich_require_proposal_inputs(
+                p.row("consolidation_request", "ops.data_request"), consolidation_basis
+            )),
             ForQuery(
                 ("selected",),
                 select(bound.c.value).where(bound.c.value["role"].astext == "known_universe"),
@@ -1236,12 +1258,9 @@ def _rich_admission_program(p):
                     Assign(
                         "known_request",
                         func.ops.ddo_rich_producing_request(
-                            project,
+                            p.row("consolidation_request", "ops.data_request"),
                             reference,
-                            "admission",
-                            False,
-                            "native-rich-knowledge-admission",
-                            "rich",
+                            "known_universe",
                         ),
                     ),
                     producer_episode("known_request", "known_episode"),
@@ -1345,12 +1364,7 @@ def _rich_admission_program(p):
                     Assign(
                         "authorization_request",
                         func.ops.ddo_rich_producing_request(
-                            project,
-                            reference,
-                            "authorization",
-                            False,
-                            "native-evaluator-policy-authorization",
-                            None,
+                            request, reference, "policy_authorizations",
                         ),
                     ),
                     _reject(
@@ -1394,7 +1408,7 @@ def _rich_admission_program(p):
                     Assign("reference", _selected_reference(selected)),
                     Perform(
                         func.ops.ddo_rich_producing_request(
-                            project, reference, literal(None), True, None, None
+                            request, reference, "records"
                         )
                     ),
                     SelectInto(
@@ -1423,7 +1437,7 @@ def _rich_admission_program(p):
                     Assign(
                         "resolution_request",
                         func.ops.ddo_rich_producing_request(
-                            project, reference, "result", True, None, None
+                            request, reference, "readings"
                         ),
                     ),
                     Assign(

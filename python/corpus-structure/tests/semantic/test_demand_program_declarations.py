@@ -13,7 +13,11 @@ from corpus_structure.semantic.demand_authority_native import demand_authority_p
 from corpus_structure.semantic.demand_registration_native import demand_intent_programs
 from corpus_structure.semantic.demand_result_native import demand_result_programs
 from corpus_structure.semantic.metadata import get_metadata
-from corpus_structure.semantic.native_objects import INTERNAL_PROGRAM, execute_native_sql
+from corpus_structure.semantic.native_objects import (
+    INTERNAL_PROGRAM,
+    NativeProgramAccess,
+    execute_native_sql,
+)
 from corpus_structure.semantic.native_program import NativeRoutine
 
 
@@ -51,7 +55,10 @@ def test_demand_producers_hold_structured_private_programs_until_authoring(monke
         assert declaration.owner == role_name("publisher")
         # The wire authoring owner renames these implementation declarations and
         # owns the separate public purpose wrappers.
-        assert declaration.access == INTERNAL_PROGRAM
+        if declaration.identity.name == "acquire_data_read_context":
+            assert declaration.access == NativeProgramAccess(purposes=("read", "write", "evaluate"))
+        else:
+            assert declaration.access == INTERNAL_PROGRAM
 
 
 def test_validity_and_authority_default_arguments_keep_their_full_native_identity():
@@ -117,3 +124,22 @@ def test_selected_typed_demand_programs_enforce_closed_semantic_controls(infrast
         )
     with pytest.raises(DBAPIError, match="exceeds max_bytes"), connection.begin_nested():
         connection.execute(text("SELECT ops.ddo_result_bytes_refusal()"))
+
+
+def test_context_acquisition_authenticates_read_without_constructing_frontier(monkeypatch):
+    from corpus_structure.semantic.demand_result_native import _read_demand_result
+
+    def refuse_frontier(*args, **kwargs):
+        raise AssertionError("compact context acquisition constructed a result page")
+
+    monkeypatch.setattr(
+        "corpus_structure.semantic.demand_result_native.read_page", refuse_frontier
+    )
+    routine = _read_demand_result(get_metadata(), context_only=True)
+    sql = routine.render()
+    assert routine.name == "acquire_data_read_context"
+    assert "ddo_require_read_current" in sql
+    assert "trust snapshot changed; reacquire demand read" in sql
+    assert "read scope differs from its pinned acquisition" in sql
+    assert "jsonb_build_object('demand_id'" in sql
+    assert "ops.ddo_authorize" in sql

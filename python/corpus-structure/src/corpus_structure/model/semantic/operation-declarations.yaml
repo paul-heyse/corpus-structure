@@ -87,11 +87,18 @@ classes:
       collection: {range: SemanticText, required: true}
       presence: {range: SemanticText, required: true}
       support: {range: OperationInputSupport, inlined: true}
+      producer_requirement: {range: OperationProducerRequirement, inlined: true}
       parameter: {range: SemanticText}
       alternatives: {range: SemanticText, multivalued: true}
       selected: {range: SemanticText}
       subject_field: {range: SemanticText}
       subject_target: {range: SemanticText}
+  OperationProducerRequirement:
+    attributes:
+      output_role: {range: SemanticText}
+      requires_cpu: {range: boolean, required: true}
+      required_effect: {range: SemanticText}
+      required_family: {range: SemanticText, required: true}
   OperationInputSupport:
     attributes:
       provenance: {range: SemanticText, required: true}

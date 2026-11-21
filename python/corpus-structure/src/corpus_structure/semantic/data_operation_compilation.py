@@ -45,6 +45,7 @@ from .data_operation_model import (
     NumericalPolicyReference,
     OpaqueBoundary,
     OperationRole,
+    ProducerRequirement,
     RelationalBinding,
     ReplicatePolicy,
     SemanticEdge,
@@ -1248,6 +1249,27 @@ def compile_data_operations(
                     subject_field_kind(kinds, kind, subject_field)
                 except ValueError as error:
                     _fail(semantic_id, str(error))
+            producer_requirement = None
+            if record.get("producer_requirement") is not None:
+                if direction != "input":
+                    _fail(semantic_id, "producer requirements belong to input roles")
+                requirement = _mapping(record["producer_requirement"], semantic_id)
+                requires_cpu = requirement.get("requires_cpu")
+                if type(requires_cpu) is not bool:
+                    _fail(semantic_id, "producer CPU requirement must be an explicit boolean")
+                family = _text(requirement.get("required_family"), semantic_id)
+                from corpus_structure.schema.operation_declarations import vocabulary
+
+                if family not in vocabulary("ValidityFamily").members:
+                    _fail(semantic_id, "producer requirement names an undeclared validity family")
+                producer_requirement = ProducerRequirement(
+                    None if requirement.get("output_role") is None else
+                    _text(requirement["output_role"], semantic_id),
+                    requires_cpu,
+                    None if requirement.get("required_effect") is None else
+                    _text(requirement["required_effect"], semantic_id),
+                    family,
+                )
             roles.append(
                 OperationRole(
                     name,
@@ -1263,6 +1285,7 @@ def compile_data_operations(
                     selected,
                     subject_field,
                     cast(Any, subject_target),
+                    producer_requirement,
                 )
             )
         if semantic_id in kinds or semantic_id in nodes:
@@ -2450,6 +2473,9 @@ def project_operation_binding(
     support = {}
     for name, role in input_roles.items():
         actual = bound_roles[name]
+        requirement = role.producer_requirement
+        if actual.members and requirement is not None and requirement.required_family == "undetermined":
+            _fail(name, "consumer role has unresolved producer requirements")
         if actual.state not in {"present", "known-absent", "unavailable", "unknown"}:
             _fail(name, "unknown resolved role state")
         if actual.state != "present" and actual.members:

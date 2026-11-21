@@ -1856,3 +1856,35 @@ def test_python_asset_and_opaque_boundaries_retain_actual_reuse_eligibility():
     # A captured immutable digest authenticates observed execution meaning; it
     # cannot turn the incomplete generating implementation into reusable code.
     assert model.operations[0].assets[0].content_digest == captured.digest
+
+
+@pytest.mark.parametrize("family", ["none", "undetermined", "rich"])
+def test_consuming_role_retains_explicit_producer_requirement_in_captured_contract(family):
+    from corpus_structure.semantic.data_operation_model import (
+        ProducerRequirement,
+        operation_role_record,
+    )
+
+    declaration = contract()
+    declaration["roles"][0]["producer_requirement"] = dict(
+        output_role="result", requires_cpu=True, required_effect=None, required_family=family
+    )
+    model = compile_data_operations(declarations=declarations(declaration))
+    role = model.operations[0].roles[0]
+    assert role.producer_requirement == ProducerRequirement("result", True, None, family)
+    assert operation_role_record(role)["producer_requirement"] == dict(
+        output_role="result", requires_cpu=True, required_effect=None, required_family=family
+    )
+    baseline = compile_data_operations(declarations=declarations(contract()))
+    assert model.operations[0].recipe != baseline.operations[0].recipe
+
+
+@pytest.mark.parametrize("change", [dict(requires_cpu="yes"), dict(required_family="missing")])
+def test_invalid_consuming_role_producer_requirement_refuses_at_preparation(change):
+    declaration = contract()
+    declaration["roles"][0]["producer_requirement"] = dict(
+        output_role="result", requires_cpu=True, required_effect=None, required_family="rich"
+    )
+    declaration["roles"][0]["producer_requirement"].update(change)
+    with pytest.raises(PreparationError):
+        compile_data_operations(declarations=declarations(declaration))

@@ -140,6 +140,7 @@ def hydrate_consumer_selection(
         raise ValueError("native consumer hydration requires its acquired subject context")
     if type(max_bytes) is not int or max_bytes <= 0:
         raise ValueError("native hydration requires explicit positive packet capacity")
+    declarations = {role.name: role for role in model.operation(binding.operation).roles}
     read = admitted_data_read(
         connection,
         demand_id,
@@ -150,11 +151,18 @@ def hydrate_consumer_selection(
         subject=context.subject,
         original_source=context.original_source,
         analyzed_scope=json_loads(context.analyzed_scope),
+        selected_pins=[
+            {"product_id": product, "member_id": member}
+            for product, member in dict.fromkeys(
+                (member.product, member.member)
+                for role in binding.roles
+                for member in role.members
+            )
+        ],
     )
     expected_evidence = {read.admission_evidence} if read.accepted_kind_contracts else set()
     if set(binding.admission_evidence) != expected_evidence:
         raise ValueError("retained consumer binding belongs to a different native read boundary")
-    declarations = {role.name: role for role in model.operation(binding.operation).roles}
     relation = read.relation
     pin_names = (
         "product",

@@ -39,7 +39,7 @@ from .demand_registration_native import (
     _required,
     _xid,
 )
-from .native_objects import INTERNAL_PROGRAM, native_sql_script
+from .native_objects import INTERNAL_PROGRAM, NativeProgramAccess, native_sql_script
 from .native_program import (
     Assign,
     Block,
@@ -78,7 +78,7 @@ def _endpoint(name, body, locals_, *, request=True):
     )
 
 
-def _read_demand_result(model):
+def _read_demand_result(model, *, context_only=False):
     demand = model.tables["ops.data_demand"]
     read = model.tables["ops.data_demand_read"]
     read_scope = model.tables["ops.data_demand_read_scope"]
@@ -125,7 +125,7 @@ def _read_demand_result(model):
     capture_row = {name: pinned(name) for name in boundary_columns}
     capture_row["trust_snapshot"] = snapshot
     return _endpoint(
-        "read_demand_result",
+        "acquire_data_read_context" if context_only else "read_demand_result",
         (
             SelectInto(
                 _exact_row(demand, demand.c.id == payload["demand_id"].astext), ("d",), strict=True
@@ -299,15 +299,32 @@ def _read_demand_result(model):
                     universe_rows
                 )
             ),
-            SelectInto(read_page(model), ("results",)),
-            _refusal(
-                and_(
-                    view.in_(("products", "support")),
-                    func.octet_length(func.data.canonical_json(results)) > max_bytes,
-                ),
-                "complete native product page envelope exceeds max_bytes; reduce the page limit",
+            *(
+                (
+                    Return(
+                        func.jsonb_build_object(
+                            "demand_id", demand_id,
+                            "selection", read_selection(),
+                            "trust_snapshot", snapshot,
+                            "read_id", pinned("id"),
+                            "read_snapshot", pinned("read_snapshot"),
+                            "frontier_at", pinned("frontier_at"),
+                        )
+                    ),
+                )
+                if context_only
+                else (
+                    SelectInto(read_page(model), ("results",)),
+                    _refusal(
+                        and_(
+                            view.in_(("products", "support")),
+                            func.octet_length(func.data.canonical_json(results)) > max_bytes,
+                        ),
+                        "complete native product page envelope exceeds max_bytes; reduce the page limit",
+                    ),
+                    Return(results),
+                )
             ),
-            Return(results),
         ),
         (
             Local("p", pg_type("jsonb"), argument),
@@ -484,13 +501,16 @@ def demand_result_programs(model: MetaData) -> tuple[ProgramDeclaration, ...]:
             request=False,
         ),
         _read_demand_result(model),
+        _read_demand_result(model, context_only=True),
     )
     return tuple(
         ProgramDeclaration(
             routine,
             source="data-operations:forward",
             owner=role_name("publisher"),
-            access=INTERNAL_PROGRAM,
+            access=NativeProgramAccess(purposes=("read", "write", "evaluate"))
+            if routine.name == "acquire_data_read_context"
+            else INTERNAL_PROGRAM,
         )
         for routine in routines
     )

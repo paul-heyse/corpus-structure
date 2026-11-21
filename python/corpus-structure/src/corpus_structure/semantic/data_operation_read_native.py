@@ -718,14 +718,15 @@ def _binding_programs(model):
     )
     rows = (
         func.ops.ddo_binding_rows(
-            p_demand, p_operation, trust, p_read, p_subject, source, scope, True, None
+            p_demand, p_operation, trust, p_read, p_subject, source, scope, True,
+            core_variable("p_selected", JSONB()),
         )
         .table_valued(*binding_columns())
         .alias("binding_rows")
     )
     public = _program(
         "data_binding_rows",
-        parameters,
+        (*parameters, Parameter("p_selected", pg_type("jsonb"), pg_literal(None))),
         (ReturnQuery(select(*rows.c)),),
         returns=set_record,
         table_columns=columns,

@@ -45,3 +45,13 @@ def test_actual_current_rich_method_factories_and_native_effect_compile_without_
         "policy",
     }
     assert [effect.name for effect in admit.effects] == ["native-rich-knowledge-admission"]
+    inputs = {role.name: role for role in admit.roles if role.direction == "input"}
+    issuer = inputs["policy_authorizations"].producer_requirement
+    assert issuer is not None
+    assert issuer.required_family == "none"
+    assert issuer.required_effect == "native-evaluator-policy-authorization"
+    assert issuer.requires_cpu is False
+    consolidation = inputs["consolidation"].producer_requirement
+    assert consolidation is not None
+    assert consolidation.required_family == "rich"
+    assert consolidation.requires_cpu is True

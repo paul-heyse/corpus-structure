@@ -1459,6 +1459,15 @@ def test_frontier_view_defers_bodies_and_same_receipt_can_read_products(ddo_kern
         storage = DataOperationStorage(connection)
         frontier = storage.read_demand_result(typing_cast(WireReadDemandResultRequest, demand))
         assert frontier["view"] == "frontier"
+        compact = storage.acquire_data_read_context(
+            frontier["demand_id"], frontier["read_id"], frontier["trust_snapshot"]
+        )
+        assert compact == {
+            name: frontier[name]
+            for name in (
+                "demand_id", "selection", "trust_snapshot", "read_id", "read_snapshot", "frontier_at"
+            )
+        }
         product = frontier["uses"][0]["products"][0]
         assert product["body_state"] == "not_requested" and "body" not in product
         hydrated = storage.read_demand_result(

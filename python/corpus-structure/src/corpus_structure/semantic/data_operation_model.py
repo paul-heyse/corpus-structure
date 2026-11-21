@@ -113,6 +113,16 @@ class InputSupport:
 
 
 @dataclass(frozen=True)
+class ProducerRequirement:
+    """The consuming role's required authenticated producer properties."""
+
+    output_role: str | None
+    requires_cpu: bool
+    required_effect: str | None
+    required_family: str
+
+
+@dataclass(frozen=True)
 class OperationRole:
     name: str
     kind: str
@@ -127,11 +137,14 @@ class OperationRole:
     selected: str | None = None
     subject_field: str | None = None
     subject_target: Literal["subject", "original-source", "source-set"] = "subject"
+    producer_requirement: ProducerRequirement | None = None
 
 
 def operation_role_record(role: OperationRole, *, result_only: bool = False) -> dict:
     """Export absent subject association under its original archived meaning."""
     record = asdict(role)
+    if role.producer_requirement is None:
+        record.pop("producer_requirement")
     if role.subject_target == "subject":
         record.pop("subject_target")
     if role.subject_field is None:
@@ -1044,6 +1057,8 @@ class EffectiveDataOperationModel:
             if operation["external"] is None:
                 operation.pop("external")
             for role in operation["roles"]:
+                if role["producer_requirement"] is None:
+                    role.pop("producer_requirement")
                 if role["subject_target"] == "subject":
                     role.pop("subject_target")
                 if role["subject_field"] is None:

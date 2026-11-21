@@ -361,7 +361,15 @@ def program_closures(definitions: tuple[NativeDefinition, ...], wire_names) -> P
                 "function", "sem", "ddo_lower_data_operation_definitions", ("jsonb", "boolean")
             )
         ),
-        read=closure(operation("read_demand_result")),
+        read=closure(
+            operation("read_demand_result"),
+            *(
+                identity
+                for identity in fingerprints
+                if identity.schema == "ops"
+                and identity.name in {"acquire_data_read_context", "data_binding_rows"}
+            ),
+        ),
         validators={name: closure(*roots) for name, roots in sorted(families.items())},
         operations={name: closure(operation(name)) for name in sorted(wire_names)},
     )

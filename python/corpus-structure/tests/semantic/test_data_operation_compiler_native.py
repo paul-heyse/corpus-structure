@@ -11,11 +11,15 @@ from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import DBAPIError
 
-from corpus_structure.semantic.data_operation_compiler_native import compiler_native_sql
+from corpus_structure.semantic.data_operation_compiler_native import (
+    compiler_native_sql,
+    data_operation_native_descriptor_program,
+)
 from corpus_structure.semantic.data_operation_subjects import subject_scope_values
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
+from corpus_structure.semantic.native_program_registry import ProgramClosures
 from semantic.data_operation_kernel_support import STORAGE
 from semantic.test_data_operation_provider_profiles import _facts
 
@@ -28,8 +32,11 @@ def _install(connection):
     digest = sha256(program.encode()).hexdigest()
     execute_native_sql(
         connection,
-        program.replace("__DDO_SOURCE_DIGEST__", SOURCE).replace("__DDO_LOWERING_DIGEST__", digest),
+        data_operation_native_descriptor_program(
+            SOURCE, ProgramClosures(digest, digest, {}, {})
+        ).render(),
     )
+    execute_native_sql(connection, program)
     return digest
 
 
@@ -44,6 +51,7 @@ def _archive(connection, *, binding=None, mutation=None, provider=None):
         binding="literal-binding",
         behavior="literal-implementation",
         profile="deterministic",
+        validity=dict(families=[], conservative=False),
         support_policy={},
         coverage={},
         outcomes=[],
@@ -103,6 +111,8 @@ def _archive(connection, *, binding=None, mutation=None, provider=None):
         subject_definition=operation["subject"],
         recipe="recipe:literal",
         profile="deterministic",
+        validity_families=[],
+        validity_conservative=False,
         implementation_revision="literal-implementation",
         input_roles=[],
         output_roles=[

@@ -10,15 +10,11 @@ import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
+from pydantic import ConfigDict, TypeAdapter, with_config
 from sqlalchemy import Text, bindparam, cast, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
-
-from corpus_structure.semantic._data_operation_wire import (
-    WireDemandId,
-    WireReadIdentity,
-)
 
 from ._data_operation_wire import DataOperationCalls
 from .data_operation_json import wire_json_loads
@@ -33,11 +29,41 @@ if TYPE_CHECKING:
     from .types import PreparedRelease
 
 
+@with_config(ConfigDict(extra="forbid"))
+class AcquiredDataReadContext(TypedDict):
+    demand_id: str
+    selection: dict[str, Any]
+    trust_snapshot: dict[str, int]
+    read_id: str
+    read_snapshot: str
+    frontier_at: str
+
+
+_READ_CONTEXT = TypeAdapter(AcquiredDataReadContext)
+
+
 class DataOperationStorage(DataOperationCalls):
     """Connection-scoped invocation; transaction and commit custody stay with the caller."""
 
     def __init__(self, connection: Connection):
         self.connection = connection
+
+    def acquire_data_read_context(
+        self, demand_id: str, read_id: str, trust_snapshot: dict
+    ) -> AcquiredDataReadContext:
+        """Authenticate the exact read without constructing an output frontier."""
+        acquired = self.connection.scalar(
+            select(func.ops.acquire_data_read_context(bindparam("read_context", type_=JSONB))),
+            {"read_context": {
+                "demand_id": demand_id,
+                "trust_snapshot": trust_snapshot,
+                "read_id": read_id,
+            }},
+        )
+        context = _READ_CONTEXT.validate_python(acquired, strict=True)
+        if context["read_id"] != read_id or context["demand_id"] != demand_id:
+            raise ValueError("native read context differs from its exact acquisition")
+        return context
 
     def _invoke(self, name: str, payload: Any) -> Any:
         from .data_operation_wire import (
@@ -564,6 +590,7 @@ def admitted_data_read(
     subject: str | None = None,
     original_source: Any = _UNQUALIFIED_CONTEXT_FIELD,
     analyzed_scope: Any = _UNQUALIFIED_CONTEXT_FIELD,
+    selected_pins: list[dict[str, str | None]] | None = None,
 ):
     """Construct SQL bindings only through the demand-pinned native admission reader.
 
@@ -580,13 +607,8 @@ def admitted_data_read(
     ):
         raise ValueError("source filter requires a nonempty identifier or explicit None")
     # Acquire the exact demand now; execution of the TVF repeats its pin check.
-    acquired = DataOperationStorage(connection).read_demand_result(
-        {
-            "demand_id": WireDemandId(demand_id),
-            "trust_snapshot": trust_snapshot,
-            "read_id": WireReadIdentity(read_id),
-            "limit": 1,
-        }
+    acquired = DataOperationStorage(connection).acquire_data_read_context(
+        demand_id, read_id, trust_snapshot
     )
     # The native reader validates epoch meaning against this exact read_id.
     # Keep its canonical pins: a lazily materialized zero is not revocation.
@@ -605,6 +627,7 @@ def admitted_data_read(
         subject,
         _binding_context_parameter(original_source, name="data_binding_source"),
         _binding_context_parameter(analyzed_scope, name="data_binding_scope"),
+        bindparam("data_binding_selected", selected_pins, type_=JSONB),
     ).table_valued(*columns)
     # The admitted TVF authenticates this statement once. Role aliases and
     # constraint checks share its rows without sharing authority across reads.
