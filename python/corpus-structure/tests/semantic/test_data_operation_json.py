@@ -12,6 +12,7 @@ from corpus_structure.semantic.data_operation_json import (
     finite_json_loads,
     json_bytes,
     json_loads,
+    native_json_loads,
     wire_json_loads,
 )
 from corpus_structure.semantic.data_operation_jsonb import ContextJSONB
@@ -20,6 +21,44 @@ from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.data_operation_wire import validate_native_wire
 
 PRECISE = b'{"coordinate":0.12345678901234567890123456789,"page":1}'
+
+
+@pytest.mark.parametrize(
+    ("token", "expected"),
+    [
+        ("1", True), ("1.0", True), ("1e0", True), ("-0.0", True),
+        ("true", False), ("1.25", False), ("1.00000000000000000000001", False),
+        ("9007199254740993.1", False), ("1e-999", False),
+        ("9223372036854775807", True), ("9223372036854775808", False),
+    ],
+)
+def test_typed_integer_tokens_match_native_before_float_projection(native_rollback, token, expected):
+    from jsonschema import ValidationError
+    from sqlalchemy import JSON, func
+
+    from corpus_structure.semantic.schema_validation import prepared_schema_validator
+
+    schema = b'{"$schema":"http://json-schema.org/draft-07/schema#","type":"integer","minimum":-9223372036854775808,"maximum":9223372036854775807}'
+    validator = prepared_schema_validator(schema)
+    if expected:
+        validator.validate(native_json_loads(token))
+    else:
+        with pytest.raises(ValidationError):
+            validator.validate(native_json_loads(token))
+    actual = native_rollback.connection.scalar(
+        select(func.public.json_matches_schema(cast(bindparam("schema"), JSON), cast(bindparam("value"), JSON))),
+        {"schema": schema.decode(), "value": token},
+    )
+    assert actual is expected
+
+
+def test_integer_wire_boundary_rejects_fraction_before_approximate_projection():
+    from corpus_structure.semantic.data_operation_wire import prepare_wire_schema
+
+    validate = prepare_wire_schema({"type":"object", "properties":{"count":{"type":"integer"}}, "required":["count"]})
+    with pytest.raises(ValueError, match="schema"):
+        validate(native_json_loads('{"count":1.00000000000000000000001}'))
+    assert validate(native_json_loads('{"count":1.0}')) == {"count": 1}
 
 
 @pytest.mark.parametrize(

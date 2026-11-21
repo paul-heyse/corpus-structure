@@ -137,6 +137,29 @@ def test_prepared_schema_resources_are_captured_and_participate_in_cache_identit
         prepared_schema_validator(root, (("urn:captured:count", one), ("urn:captured:count", two)))
 
 
+def test_schema_numeric_adapter_preserves_limits_literals_and_captured_reference_classification():
+    from decimal import Decimal
+    from jsonschema import ValidationError
+    from corpus_structure.semantic.schema_validation import prepared_schema_validator
+
+    schema = b'{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"number","minimum":0.1,"maximum":0.3,"multipleOf":0.1}'
+    validator = prepared_schema_validator(schema)
+    validator.validate(0.1)
+    validator.validate(0.3)
+    with pytest.raises(ValidationError):
+        validator.validate(Decimal("0.30000000000000000000000001"))
+    with pytest.raises(ValidationError):
+        validator.validate(Decimal("0.10000000000000000000000001"))
+    literal = prepared_schema_validator(b'{"$schema":"http://json-schema.org/draft-07/schema#","enum":[0.1]}')
+    literal.validate(0.1)
+    with pytest.raises(ValidationError):
+        literal.validate(Decimal("0.10000000000000000000000001"))
+    root = b'{"$schema":"https://json-schema.org/draft/2020-12/schema","$ref":"urn:captured:integer"}'
+    integer = b'{"$schema":"http://json-schema.org/draft-07/schema#","type":"integer"}'
+    with pytest.raises(ValidationError):
+        prepared_schema_validator(root, (("urn:captured:integer", integer),)).validate(Decimal("1.000000000000000000001"))
+
+
 def test_native_pydantic_generator_retains_tuple_elements_and_literal_payloads():
     from jsonschema import Draft7Validator, ValidationError
     from pydantic import TypeAdapter

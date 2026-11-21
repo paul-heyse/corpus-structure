@@ -457,7 +457,9 @@ def external(
         json=json,
         expected=(ValueError, KeyError, OSError, TypeError),
     ) as invocation:
-        payload = wire_json_loads(read_request_bytes(request))
+        from corpus_structure.semantic.data_operation_json import native_json_loads
+
+        payload = native_json_loads(read_request_bytes(request))
         if not isinstance(payload, dict):
             raise ValueError("external action arguments must be a JSON object")
         argument_path = invocation.directory / "request.json"

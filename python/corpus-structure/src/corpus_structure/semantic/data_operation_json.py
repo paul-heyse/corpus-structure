@@ -134,18 +134,22 @@ def scope_identity(value: Any) -> Any:
     return json.loads(json_bytes(value), parse_int=Decimal, parse_float=Decimal)
 
 
-def wire_json_loads(content: str | bytes) -> Any:
-    """Keep scope JSON exact while retaining existing non-context float values."""
+def native_json_loads(content: str | bytes) -> Any:
+    """Retain numeric tokens until the typed native boundary has classified them."""
     try:
-        value = json.loads(
+        return json.loads(
             content,
             parse_float=Decimal,
             object_pairs_hook=_json_object,
             parse_constant=_json_constant,
         )
-        return own_wire_json_value(value)
     except (ValueError, RecursionError) as error:
         raise JsonBoundaryError("invalid native JSON document") from error
+
+
+def wire_json_loads(content: str | bytes) -> Any:
+    """Keep scope JSON exact while retaining existing non-context float values."""
+    return own_wire_json_value(native_json_loads(content))
 
 
 def own_wire_json_value(value: Any) -> Any:

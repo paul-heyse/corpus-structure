@@ -17,7 +17,7 @@ from sqlalchemy import Text, bindparam, cast, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from ._data_operation_wire import DataOperationCalls
-from .data_operation_json import wire_json_loads
+from .data_operation_json import native_json_loads
 from .data_operation_jsonb import ContextJSONB, json_context_value
 from .identity import canonical_bytes
 
@@ -92,7 +92,7 @@ class DataOperationStorage(DataOperationCalls):
         with native_result_scope("data." + name, result_kind):
             if not isinstance(encoded, str):
                 raise ValueError("native data operation returned a malformed fixed envelope")
-            value = wire_json_loads(encoded)
+            value = native_json_loads(encoded)
             if (
                 not isinstance(value, dict)
                 or set(value) != {"payload", "contract_digest"}

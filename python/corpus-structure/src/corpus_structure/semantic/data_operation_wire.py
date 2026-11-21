@@ -22,14 +22,13 @@ from typing import Any, Literal
 import yaml
 from jsonschema import Draft7Validator
 from jsonschema.exceptions import SchemaError, ValidationError
-from jsonschema.protocols import Validator
 from pydantic import TypeAdapter
 from pydantic.json_schema import GenerateJsonSchema, JsonSchemaMode, JsonSchemaValue
 from pydantic_core import core_schema
 
 from .data_operation_json import json_bytes, own_wire_json_value
 from .identity import canonical_bytes
-from .schema_validation import prepared_schema_validator
+from .schema_validation import PreparedSchemaValidator, prepared_schema_validator
 from .types import SourceArtifact
 
 DRAFT7 = "http://json-schema.org/draft-07/schema#"
@@ -591,7 +590,7 @@ def wire_contracts(sources: tuple[SourceArtifact, ...] | None = None) -> dict[st
 
 
 @lru_cache(maxsize=256)
-def _validator(content: bytes) -> Validator:
+def _validator(content: bytes) -> PreparedSchemaValidator:
     schema = checked_json_schema(json.loads(content))
     return prepared_schema_validator(canonical_bytes({"$schema": DRAFT7, **schema}))
 
@@ -613,15 +612,14 @@ def prepare_wire_schema(schema: dict[str, Any] | bytes) -> Callable[[Any], Any]:
     return validate
 
 
-def _validate_wire_value(validator: Validator, value: Any) -> Any:
+def _validate_wire_value(validator: PreparedSchemaValidator, value: Any) -> Any:
     checked = _JSON_VALUE.validate_python(value, strict=True)
-    result = own_wire_json_value(checked)
     try:
-        validator.validate(result)
+        validator.validate(checked)
     except ValidationError as exc:
         path = "/".join(str(part) for part in exc.absolute_path) or "<root>"
         raise ValueError("native wire violates schema at " + path + ": " + exc.message) from exc
-    return result
+    return own_wire_json_value(checked)
 
 
 def validate_native_wire(
