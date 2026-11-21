@@ -69,12 +69,22 @@ authoring against N47 (`27c37c0e9aaa403ebbb53817d6cee671`).
 The extended real spaCy, canonical, HanLP and declaration syntax chain verified complete HanLP
 output and admitted syntax coverage. The same demand repeated with zero new receipts
 (`ce9ecaff99cb4d2c9ce00cfdd29fdc05`).
+The extended chain passed again after retiring the annotation packet types and moving the source
+witness to the actual block layout path (`b487ae1c0fc340c983cff21339a58c1c`).
 The successor with grouped ordinal admission, scoped construction proofs, and clause and condition
 references passed preview and rollback-only authoring against N47
 (`87857b59d542418f862b1636429cac00`, `345c61ef93b247d09e166540a72d6191`).
 Rollback-only authoring after the construction reference and annotation packet changes passed
 against N47 (`eafcec5626fc4f11a652f2cc835b8714`). Maintenance readback reported development N29 and
 stage N47.
+The successor with disclosure-aware support export passed preview and rollback-only authoring
+(`1df6637ca17049f492bfbac36b011a44`, `d36ce26f134c4fa3b08001c29f9ee61b`).
+The candidate also passed with formal roster and member-address attestations and the new
+construction input requirements (`d27bda9ca1db47f7891adf4964bef7a4`,
+`6ef50175ca1b4243b1621a6f78cf06c7`).
+The successor with the regenerated report schemas and selected rich read authority passed
+preview and rollback-only authoring (`e144d0867344411ab6fe1b96eef1c015`,
+`31a8c3350bfa478da58f8a4caf3bab85`).
 
 Run this focused integration before spreading its assumptions through whole producer and consumer
 families. It closes the early shared-boundary uncertainty. SBX-20 still owns the single registered

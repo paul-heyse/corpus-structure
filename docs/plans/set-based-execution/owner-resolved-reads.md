@@ -87,6 +87,18 @@ legitimate empty answer follows from the authorized selection and filter, with u
 partitions kept outside absence claims. Genuine export and replay still acquire the required
 transitive closure. Proof reads follow the rule's [premise and establishment contract](populations-rules-and-proofs.md#proofs).
 
+The response page budget covers delivered rows. For a structural point read, use the exact
+selected use and producing role to fetch the named member or partition and the support needed
+for its authority. The online backing should follow additional keys only when the reader asks
+for them. An algorithm that needs a graph can build it from that acquired subset. Apply the
+existing textbook condition and protected-admission control with unrelated support present to
+verify that this point read avoids building an index of the whole selected closure.
+
+Change-only reads use product headers, projection digests and declared dependency edges. The
+projection-keyed binding in [SBX-06](references-and-projection-keys.md#sbx-06) determines change
+before any body hydration. Expose digest-only answers through the same keyed programs and scope
+their authority to the selected metadata.
+
 **Online readers ask; replaying readers carry.** A reader with no offline entry point asks for
 the shape it needs and decodes bodies. The structural family and export verification keep one
 implementation over the raw relations, run from PostgreSQL rows online and from the export

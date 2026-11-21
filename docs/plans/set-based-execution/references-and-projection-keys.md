@@ -217,6 +217,42 @@ The captured integer key field shadowed the compiled integer primitive in native
 lowering. Exact property and range IDs now drive lowering, preserving the existing equality guard.
 All 15 projection tests passed after reproducing and correcting the conflict
 (`08bb0b05b1b041baa7b19fb1b95d01dc`, `22d4ccc1773340f69ef6a42c40c43811`).
+The fresh textbook route then admitted both releases, ran actual annotation and predicate
+producers, and published the condition proposal with its role-relative attachment. The same
+attempt stopped at the protected issuer's missing evaluator grant
+(`01b7f38ece3c45e2a1a6b158485114b7`).
+With the fixture grant in place, the protected issuer published its statement. Selected support
+export then called the raising evaluator body-access guard on a redacted closure product
+(`8f498d206f7647e2b92ffb6ce6783777`). The native export must apply the acquired disclosure
+decision before calling the per-kind authority function.
+The export now gates its body-access aggregate and partition read with the original disclosure
+decision. All eight native disclosure controls passed, including public omission of evaluator
+rows and refusal of protected bodies outside their allowed acquisition
+(`325ce569e9f9483c9374ff91a252e91f`).
+The next textbook run reached structural readback after protected publication and disclosure.
+Its exact two roots exceeded the fixture's 8 MiB examined-closure capacity
+(`9a32de37f2b54367b1a0c1dea616ba26`). The fixture now selects 32 MiB on the existing request,
+with the same roots and 1 MB response limit. Direct serving completed and matched the exact
+protected admission and authority. The CLI parity assertion then failed
+(`8f9ffdfa6331410bab69a2a1a03db45a`). Complete CLI and MCP parity remains open. SBX-12 owns
+reducing the amount transferred for selected support.
+Structural delivery now converts the internal implementation value to its public string. The
+transport control compares the full output in each existing JSON representation, including
+nested arrays and its numeric profile. The regenerated operation-report schemas match the
+current reference model. The controlled CLI and stdio MCP test passed
+(`25a38114f1fa422f8d33d942468acfd7`).
+The textbook rerun completed direct native readback and byte-exact CLI delivery. Its 15-minute
+watchdog fired while the stdio MCP tool was rereading the selected closure
+(`4247c76fb4fb4a9d991862f0f93ea7d4`). Full native MCP parity and the remaining refusal controls
+are open. The scoped direct and transport results remain available separately.
+
+The combined rule, disclosure and selected-reference run passed 15 controls. The authored
+evaluator snapshot case stopped in the shared fixture because its installed N47 descriptor
+differs from the target source (`ab9d7a128fb941e5bf547e178b05de29`). The snapshot control now
+uses the owned current target and records the actual source subject definition in its authored
+reference. It passed native publication, complete authored-reference readback and original
+support lookup (`0599f05c6cb94a1fbc20a6962669aea6`). SBX-20 owns registered installation and
+the matching shared fixture.
 
 The primary construction annotation premises, named interpretation and assessment graph now use
 declared partition addresses and producing input custody. Remaining characterization,
@@ -226,11 +262,17 @@ Give those nodes an actual declared addressed collection or a true admitted memb
 converting references. Migrate affected serving and evaluation readers to supply the original
 bindings and exact current support. Remove the old model types, native reference paths, and
 producer checks after their consumers move.
+Native settlement and the detached adapter can already consult a declared occurrence field on a
+multivalued input. Live selected-use metadata currently exposes only scalar producing roles.
+Extend that projection for the migrated multivalued roles using their declared occurrence field
+and exact current support match. Refuse missing or repeated occurrence values before resolving
+the original member or partition. Positional ordering of the selected list provides no semantic
+occurrence evidence.
 
 **Vision.** Every reference in the model declares its target; bodies refer by role; one carrier
 and one resolver serve all families; closure is a declared rule or an attested one.
 
-**Consumer scope (complete).** The model files that declare reference slots; the Python reference
+**Consumer scope.** The model files that declare reference slots; the Python reference
 types (`data_product_reference.py`, `declared_structural_references.py`, the structural,
 rich, source-set and interpretation reference classes) and the generated wire types; every
 producer and resolver listed under [migration scope](#migration-scope); the output-witness
@@ -266,6 +308,15 @@ exercises this interface before the remaining families migrate.
 projection digests; PostgreSQL computes them at binding from stored group digests and Python
 computes the same.
 
+Change detection reads only the authenticated digest metadata for the declared input projections.
+Publication computes and stores those digests once, including a group root for whole-population
+reads and keyed digests for partition reads. Binding compares the current declared digest tuple
+with the tuple recorded for the prior computation. An equal tuple stops invalidation at that
+operation even if an upstream input received a different product ID. Current authority and
+applicable proof establishment are separate metadata checks. Hydration takes place after the
+decision, when execution needs the affected projections. Dependency propagation can follow
+declared edges and digest metadata without loading the input contents.
+
 **Owns.** The projection declaration and its graph edges; the read-set analysis and its report;
 the envelope change that hands projections to kernels on all three execution routes; the request
 key formula in both languages; attachment of an existing derivation whose recorded input differs
@@ -297,7 +348,8 @@ scope over all groups, which is today's behaviour.
 **Evidence.** Changing only lexical labels of an upstream sentence product leaves the request key
 of a consumer that reads geometry unchanged, and a second demand attaches the existing
 derivation with no new attempt; changing a token span changes the key. The expectation in each
-case is stated from the declaration, not computed by the code under test. A consumer declared to
+case is stated from the declaration, not computed by the code under test. Both change decisions
+use stored digests and leave product and partition bodies unopened. A consumer declared to
 read geometry that touches a label fails. Where declared substitution permits the equivalent
 current selection and every required attestation has an admissible establishment, revoking the
 product a reused derivation was computed from leaves the use valid while its selected product
