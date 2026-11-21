@@ -13,13 +13,13 @@ retains its separate audit prerequisite and review conventions.
 
 ## Outputs and traceability
 
-The [columnar execution review](columnar-execution-outside-postgresql_2026-11-21.md) asks
-whether execution outside PostgreSQL can move onto DuckDB 2.0 and PyArrow. The row operations
-are expressible as typed window and span expressions, but the waste found is redundant
-serialization, most of it removable in place. O01–O10 cover the PDF certification round trips,
-selected-record lookups, decoding operation inputs once and one span vocabulary. An independent
-challenge withdrew the DuckDB span layer, the Arrow worker packet and a second identity encoder.
-A broader columnar-kernel direction is described with the trial that would decide it.
+The [execution outside PostgreSQL review](columnar-execution-outside-postgresql_2026-11-21.md)
+asks whether the row-wise Python outside the database should exist as rows at all. In member
+packaging, the operation envelope, hand-off between operations and the readers, most of it is
+sets handled as items, re-derivation of what an owner already resolved, or repetition on the
+same bytes; kernels are mostly procedural and were sampled, not traced. T1–T9 state the target
+design and O11–O19 the changes, with O01–O10 from the first publication kept and cross-referenced.
+DuckDB and PyArrow are named as carriers of stated needs, not as goals. Six defects are listed.
 Recommendations remain Proposed.
 
 The [UDM operability and JSON review](udm-operability-and-json_2026-11-20.md) integrates the

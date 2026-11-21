@@ -1,512 +1,525 @@
-# Columnar execution outside PostgreSQL: functional extension review
+# Execution outside PostgreSQL: what the row work is for, and what should replace it
 
-**Proposed · 2026-11-21.** The operator asked whether the model-driven design now makes it
-practical to move what executes outside PostgreSQL onto DuckDB 2.0 and PyArrow, on one columnar,
-model-derived basis. The answer has two parts. The row operations performed today can be
-expressed as window functions, span joins, grouped aggregates and set operations, through typed
-expressions and with matching results; that was tested. But expressing them is mostly not where
-the gain is. The waste the code shows is redundant serialization: the same rows encoded to JSON,
-copied into SQLite and decoded again, several times per pathway. Most of it can be removed where
-it stands. A columnar engine pays in a narrower set of places than the hypothesis hoped, because
-the consuming end of most steps is per-row Python: hash folds, the value codec, pydantic,
-validators, and spaCy, Lark and Docling objects. A broader shift is possible, but it is a decision
-to rewrite kernels against relations, not something that follows from the changes already made.
-This review recommends the removals, states where columnar execution fits now, and describes the
-broader direction with the trial that would decide it. PostgreSQL keeps every responsibility it
-has today.
+**Proposed · 2026-11-21, revised the same day.** The first publication of this review took each
+row-wise step outside PostgreSQL as given and asked whether DuckDB or PyArrow could express it.
+The answer was narrow. The operator then asked the prior question: traced backward to where its
+data comes from and forward to who relies on it, should that work exist as rows at all? This
+revision answers that for the layers around the kernels, and it changes the conclusion.
 
-## Scope and evidence
+In four layers, most of the row-wise Python is not required by what the system accomplishes: the
+packaging of product members, the envelope around every operation, the hand-off between
+operations, and the readers. There it falls into three kinds. Homogeneous populations are
+packaged, stored and validated as individually addressed items that nothing addresses
+individually. Python rebuilds relationships and derived data that an upstream owner, usually
+PostgreSQL or the producing operation, had already resolved. And values are decoded, validated
+and hashed again with no boundary crossed since the last time. The PDF path has the same three
+kinds around a central proof that is sound. Inside the kernels the picture is different: there
+the procedural cores dominate, an independent sample put the removable share at a minority, and
+most kernel code was not examined.
 
-The lens was the operator's: take the row operations performed today, ask whether each can be
-expressed as a window function or otherwise in columnar terms, and ask what that unlocks next.
-Two scope decisions were taken on 2026-11-21: the form in which rows cross the PostgreSQL boundary
-and reach worker processes is in scope, and accepted rules are worked within by default and
-reopened only where one blocks a valuable opportunity.
+The target is therefore a design, not a library: a homogeneous population stored once and
+validated as a set, an address only for what is addressed, one proof per boundary, and each
+relationship resolved where its owner is. Rules about custody and about which tool is used where
+are means to those ends and are treated as changeable. PostgreSQL keeps its authority, and several
+proposals move work toward it.
 
-`cs/` means `python/corpus-structure/src/corpus_structure/`. The `*_native.py` generators and
-`semantic/_pdf_native_calls.py` produce programs that run inside PostgreSQL; they are the boundary
-and were not analysed. The Rust crate is outside the review.
+## Scope, evidence and what changed
 
-**Inspected · 2026-11-21.** By operator direction the review reads current code and not earlier
-documents; the 2026-11-18 analytical inventory and its placement table are not premises. Three
-code-only passes traced the pathways end to end and then applied the lens step by step: the PDF
-path, declared-operation execution with its kernel families, and reads, exports, change impact and
-evaluation. They read the tree at `c671c2fbf`. An independent design assessment then challenged
-the draft at head `8597d8ba6` with twelve production files carrying uncommitted Domain Model
-Operability edits; it withdrew or narrowed five of ten draft opportunities, and this document is
-the result. Line references are to that working tree and will drift while that work continues;
-function names are given where drift was seen.
+`cs/` is `python/corpus-structure/src/corpus_structure/`. The Rust crate is outside the review.
 
-**Tested · 2026-11-21.** `uv run python docs/design_review/evidence/2026-11-21_columnar-execution-review/columnar_fidelity.py`
-ran on duckdb 2.0.0 and pyarrow 26.0.0 over synthetic rows in memory. Statements marked **[F]**
-cite its lines. The passes also compared DuckDB expressions with production functions on random
-synthetic inputs; those are reported as **observed in review, not retained**.
+**Inspected · 2026-11-21.** By operator direction the review reads current code and no document
+older than the two latest plans. Ten purpose traces read the working tree between `3a449d134` and
+`5d2ba51e5` while Domain Model Operability work continued in it: three spot checks (token and
+sentence members, the selected-record hub, PDF certification) and seven wider traces (member
+packaging in every producer family, the operation envelope as a trust map, hand-off along three
+operation chains, the remaining readers, the rest of the PDF path, evaluation, and a coverage
+sweep). Each trace was briefed neutrally and had to report the strongest evidence that the
+row-wise form is required. An independent design assessment then challenged the draft, applying
+the operator's test that a rule is judged by the end it serves; it narrowed the headline and
+three recommendations and corrected several facts. Findings marked **[V]** were re-read in the
+code by the reviewer or the challenger, and re-checked at head `f5713f9f6`. Line references drift
+while that work continues, so functions are named.
 
-**Not established.** No timing was taken and no benefit is quantified. Row volumes are the bounds
-and batch sizes the code declares. O03 and O04 were not independently challenged in detail.
+**Tested · 2026-11-21.** Library behaviour cited as **[F]** is reproduced by
+`uv run python docs/design_review/evidence/2026-11-21_columnar-execution-review/columnar_fidelity.py`.
 
-Library orientation came from the [DuckDB 2.0](../libraries/analytical_infrastructure/duckdb_2.md),
-[DuckDB CLI](../libraries/analytical_infrastructure/duckdb_2_cli.md) and
-[PyArrow](../libraries/analytical_infrastructure/pyarrow.md) overviews and the installed
-packages. Design judgment applies FP-04, FP-07 and A4 of the
-[design standard](../design_review/design_principles/standard.toml).
+**Not established.** Nothing was executed against PostgreSQL and no timing was taken. Counts of
+repeated work are static counts of call sites, not measurements. Not re-verified after the
+traces: the PDF repeat counts, the evaluation preflight, the resolver counts, and the math-chain
+claims. [Coverage](#coverage) lists what was not examined; it includes the method libraries where
+most kernel row work lives.
 
-## What runs outside PostgreSQL today
+**What changed from the first publication.** The question, the method and the conclusion. O01 to
+O10 keep their references; [correspondence](#correspondence-with-the-first-publication) says what
+became of each. O11 to O19 are new.
 
-### The PDF path
+## Method
 
-`ingest/`, `orchestrate/pdf_streaming.py` and `semantic/pdf_*` take an original to published
-records. Lowered records, companions and candidate pages are Arrow IPC files with model-derived
-schemas (`semantic/pdf_record_model.py:105-127`, `semantic/pdf_payloads.py:87-123`), and adoption
-into PostgreSQL is Arrow to binary `COPY` (`semantic/arrow_transfer.py:134-171`). Between those
-points the rows change form repeatedly. In certification each native row goes `to_pylist`,
-`json.dumps`, a SQLite table, `json.loads` (`semantic/pdf_certification.py:142-160, 286-296`);
-artifact part bodies are hex-encoded on the way in and decoded again (`:157`,
-`semantic/pdf_payload_validation.py:118-125`). Identity frames are then computed per row in
-Python, written to a second table and read back in key order for the fold (`:286-350`). After
-publication, validation reads the frozen rows from PostgreSQL as JSON, writes them to an Arrow
-file whose two columns are a family name and a JSON string, and loads a second SQLite store
-(`semantic/pdf_publication.py:542-565, 822-846, 286-300`).
+Each trace established, for one subsystem: what it produces and for whom; what is ever selected,
+referenced or revoked individually, and by which mechanism; what each check or digest proves,
+across which boundary, and what failure its removal would allow; where bytes are re-examined with
+no boundary in between; where something is recomputed that an owner already resolved; and what
+would have nothing left to do if the unit of work were the set. Every row-wise step was classed:
 
-### Declared operations
+| Class | Meaning | Consequence |
+|---|---|---|
+| R1 | The unit of a proof across a trust boundary | Keep; name the boundary |
+| R2 | Individually addressed, or an identity across products | Keep the address; ask whether it must be a stored packet |
+| A1 | A homogeneous set handled as items with no individual consumer | The unit becomes the set |
+| A2 | Re-derivation of what an owner already resolved | Ask the owner, or keep its answer |
+| A3 | Repetition on the same bytes with no boundary crossed | Once per boundary |
+| P | Procedural core: object graph, model or library semantics | Keep |
 
-Every operation pays the same envelope around its body. PostgreSQL selects inputs and returns
-references. Bodies are fetched one row at a time as tagged JSONB, deliberately, so the packet
-capacity check can run before a batch arrives (`semantic/data_operation_consumers.py:235-237`).
-Each is decoded and canonically re-encoded (`:244-249`), then decoded again on each of two later
-calls (`:65-72`, called at `orchestrate/data_operations.py:1046, 1059`); the decoder itself
-re-encodes to check canonical form (`semantic/data_operation_value_codec.py:17-24`). Arguments are
-validated per role, dumped and re-validated, deep-copied (`semantic/data_operation_ports.py:211-213, 820`),
-serialized as JSON strings inside a JSON packet for a spawned worker
-(`semantic/data_operation_cpu.py:115-140`), validated in the worker, and the reply validated twice
-in the parent (`data_operation_ports.py:600, 934`). Operations never hand data to each other;
-every hop is a publication and a new read.
+A rule the code states about custody is not a reason to class a step as required. The test is
+what failure the rule prevents, across which boundary, and whether a simpler mechanism prevents
+it too.
 
-The bodies are about fourteen kernel families in `methods/` and `semantic/`. Much of their row
-logic is positional: tokens, sentences, pieces, blocks, formal atoms and annotations are half-open
-character intervals. About twenty interval indexes answer containment, overlap and nearest
-questions, each built by its consumer; they are bisect-based and logarithmic, and kernels call
-them as point queries interleaved with procedural logic. Inputs are whole nested products
-validated as pydantic models, which the kernels walk as objects.
+## What the traces found
 
-### Reads, exports, change impact and evaluation
+### Members: four kinds are addressed
 
-PostgreSQL answers a selected read with one JSON document per call
-(`semantic/data_operation_storage.py:98-132`). Support rows are copied into a SQLite scratch table
-as JSON blobs with expression indexes (`semantic/data_operation_read_index.py:16-50`), and every
-lookup parses the whole row and projects it through the captured contract (`:79`,
-`semantic/selected_support_contract.py:163-183`). That index is the hub for contributions,
-structures, dossier, exclusions, graph inspection, change impact, export verification and
-evaluation. By executed work point lookups dominate, because they sit inside Python loops and
-repeat: about five per output row in the contributions reader, several for the same row
-(`semantic/selected_contribution_input.py:80-121`). The keys are columns; what consumers read is
-mostly inside nested JSON.
+A product may carry `members[]`, each a packet of id, kind, context and body, stored again as a
+`kb.data_product_member` row and admitted with per-member checks
+(`semantic/data_product_admission_native.py`, `_install_product`).
 
-### Columnar footholds already present
+Of 299 declared roles, four member kinds are bound individually through PostgreSQL **[V]**:
 
-DuckDB has one owner with an expression-only relation wrapper and three consumers
-(`cs/analytics.py`: candidate geometry, the recognition replay sort, companion inventory and
-comparison). Arrow schemas are derived from the model in four places
-(`semantic/arrow_types.py:13-33`, `pdf_record_model.py`, `companion_projection.py:497-516`,
-`pdf_payloads.py`). Companion export brings rows out of PostgreSQL as Arrow under an imported
-read-only snapshot (`serve/companion_export.py:123-198`). The detached export writes Parquet per
-support relation from a captured Arrow schema (`serve/demand_export.py:369-433`).
+| Kind | Input roles | Why it is a member |
+|---|---|---|
+| Source views | 48 | Each has its own subject and scope |
+| Product manifests | 14 | Compact summaries selected across independently produced families |
+| Contextual target members | 1 | One derivation per member under its own subject |
+| Candidate contributions | 3 | Cues pinned individually from several reports |
 
-## What the lens found
+All are inputs selected from a population or across products. No output role is a member **[V]**.
 
-**The window and span forms are available as typed expressions.** Containment as an inequality
-join, ordinal within parent, previous-end gaps, running sums with row frames, integer range
-frames, gaps-and-islands, first-per-key, nearest preceding by ASOF join and bag difference all
-gave the expected rows without SQL text **[F: E1–E8]**. Recursion is the one form the expression
-interface lacks.
+Every other member kind is referenced only or never addressed. They divide in two.
 
-**Ordering agrees where digests depend on it.** DuckDB's default string order, PyArrow's sort,
-SQLite's `BINARY` collation and Python's string order all equal UTF-8 byte order on mixed-case,
-multi-byte, astral and prefix keys **[F: O1]**.
+*Homogeneous populations.* Tokens, sentences and HanLP units. For tokens and sentences **[V]**:
+no role binds them; every consumer pins the whole product and several raise on a member; the
+packets are derived from the nested annotation and the product is rejected if a recomputation
+differs (`semantic/sentence_products.py`, `validate_source_annotations`); and a token's dependency
+head goes from an ordinal to a hashed id and back to an ordinal
+(`semantic/constructions/matching.py`, `retained_native_documents`). A token packet's body is
+already a five-column row. What surrounds it is a context identical for every member of the
+product, a kind contract and a hash, held in the body, again as a row, and shipped a third time
+by the support export, which sends every member row of every reached product.
 
-**Identity bytes belong to Python.** DuckDB's JSON equals the project's canonical bytes only for
-strings, integers, booleans and nulls with fields in sorted order **[F: I1–I2]**; floats and
-decimals are spelled differently **[F: I3–I4]**, and sequential hash folds are not aggregates.
+*Heterogeneous graphs.* Formal and construction inventories, rich proposals and graph members.
+Their ids are content hashes that do real work: a rich member's id is its body hash, retained
+admissions match packets across products by it, and PostgreSQL fetches single members by key to
+validate rich references (`semantic/rich_admission_native.py`). These are an identity across
+products, not a set dressed as items.
 
-**Several look-alike functions are not equivalent.** Regular-expression classes are ASCII-only
-with no lookaround, edit distance counts bytes, `bool_and` over no rows is null where `all([])`
-is true, float sums differ from Python 3.14's, NULLs sort last where the project's keys put
-`None` first, a dense Arrow union does not import, and an extension type over text comes back as
-plain text and sorts as text **[F: S1–S5, O3, X1–X2]**.
+For both groups the rules that matter are set rules: uniqueness, ordering, containment, closed
+membership, referential closure, coverage, equality between stored copies. PostgreSQL enforces
+shape, uniqueness and count. Closure and ordering are enforced only in Python, by the producer
+and again by consumers.
 
-**The consuming end is usually per-row Python.** This is what limits the hypothesis. In the PDF
-certification store, the one place that is Arrow on both sides at rest, the frames the fold
-consumes are not in the files: each is computed in Python from nested JSON columns with a lookup
-per field (`semantic/pdf_records.py:874-896`), and the membership sort key is derived, not a
-column (`:925-932`). In the read hub, values are inside JSON bodies. In the kernels, span queries
-are point queries inside procedural code over object trees. In each case a relation in the
-middle is converted from objects and back to objects.
+**The reference model has no owner.** Products point at members of other products with stored
+`{product, member}` pairs, resolved by about fifteen hand-written Python resolvers and about seven
+database-side ones. References inside bodies are followed by PostgreSQL in two places only.
+Dangling-reference checks exist in producers' Python for some fields.
 
-**Size argues against most isolated moves.** Structural comparison works on two passages, table
-interpretation on at most sixteen edges, model batches on eight or sixteen items, interactive read
-pages on one to a hundred rows. A keyed filter through DuckDB over a hundred thousand rows took
-about a millisecond in the challenge's check, against a dictionary lookup.
+**A precedent that was not adopted.** Five typed member projection tables exist, are validated at
+admission, and include the only database-native member-to-member foreign key. No kind declares
+them **[V]**, so they are never populated, yet binding selection and the support export read
+them. Member-level outputs are likewise checked and used by no role. A generic typed-table
+mechanism was built and nothing took it up.
 
-**Some work is not row-shaped.** Docling tree edits, record lowering, parser forests, model
-inference, sympy, the rule engine, graph algorithms, greedy selections, and the reconciliation
-matching loop, where each decision changes the candidate set the next one sees
-(`ingest/pdf_reconciliation.py:699-1005`).
+### The envelope: ten boundaries, sound intent, residue around it
 
-So the second-order question has a conditional answer. Moving one step unlocks its neighbours
-only if the neighbours' inputs and outputs are relations too. They are not today, and making them
-so means writing kernels against columns in place of objects. That is a coherent target and this
-review describes it under [the broader direction](#the-broader-direction), but it is a choice, and
-the evidence here supports the narrower set first.
+Between binding and publication a value crosses ten real boundaries: database to parent, parent
+to worker, worker to parent, parent to model host, parent to database, principal, producer to
+consumer, file custody, release and runtime, and time under a lease. The code states its
+principle: each owner checks its own premises and caches carry no authority. PostgreSQL
+independently recomputes the request key, product identity, the input basis of authority ports,
+schemas and output witnesses, and a seal at publication skips correspondence checks when nothing
+changed.
+
+Steps with nothing left to guard, same bytes in the same process:
+
+- the second and third decode of each input body **[V]** (`orchestrate/data_operations.py`,
+  `_hydrate`);
+- a deep copy straight after an owned copy (`semantic/data_operation_ports.py`, `_arguments`);
+- receipt digests computed and then checked against the same parent bytes;
+- a second read of the same source file in the worker, and per-call rebuilding of a descriptor
+  with re-hashing of sources on prepared ports;
+- three of the four per-call re-verifications of loaded source files. One bracket around the
+  computation serves the end, which is real: imports inside functions mean a module can first
+  load mid-call.
+
+Python prechecks of rules PostgreSQL enforces authoritatively (member packets, output witnesses)
+buy an earlier failure and nothing else. Work in progress is already moving this way: `f5713f9f6`
+retired repeated field copying at port ingress.
+
+*Required.* Claim and support re-checks at retain and at publish guard time and revocation. The
+worker's check that imported code is the hashed code. The reply's echo of the request digest,
+which ties a reply to its request across a process. A consumer running a producer's validator
+where no proof of validity exists, because PostgreSQL admits on schema and identity only.
+
+### Hand-off: products are re-established and re-derived at every hop
+
+Along three declared chains (sentences to definitions; formal evidence and sentences to scoped
+relations; formal evidence to symbol scope):
+
+- **One source view is fully validated seven or more times per chain**, twice inside the sentence
+  operation alone **[V]**. The end is that a hand-built source object carries no authority. If
+  acquisition is the only way to construct one, the type is the proof within a process and one
+  acquisition per process serves the same end. The formal operation already works this way.
+- **Token and sentence rows are rebuilt from the nested annotation at seven call sites in the
+  constructions library** **[V]** and again in the canonical projection, predicate evidence and
+  the producer itself. The function is pure over immutable bytes.
+- **Typed wrappers re-validate on every property access.** Reading the canonical product's
+  reference validates and hashes the whole product, and the HanLP path reads it once per token
+  **[V]** (`semantic/hanlp_products.py`, `detach_hanlp_sentence`). Neighbouring classes already
+  cache the same kind of value, and the wrappers are frozen over bytes, so caching loses nothing.
+- **A proof of validity exists and is half used.** A producer can record that its validator
+  passed on a body under a release (`semantic/established_validity.py`); PostgreSQL checks the
+  record's correspondence at completion and hands it to consumers. Only formal evidence and
+  constructions emit one. The sentence product has none, and its full validator is re-run from
+  five consumer modules **[V]**. Where a proof exists some consumers ignore it, and consumers of
+  construction products check identity only **[V]**. The stance differs hop by hop.
+- **The math chain rebuilds each formula's context about four times** to prove a stage key
+  (not re-verified).
+
+*Required.* A proof matches only within one release, so a consumer under another release must
+validate. Validating against the consumer's own source catches a body that does not belong to it.
+
+### Reads: five shapes, implemented many times
+
+No role can read the underlying tables; one security-definer program answers a selected read with
+a JSON document per page, applying disclosure per row. Every reader needs one of five shapes: the
+cut and its frontier; output or member rows with bodies; raw support rows for a scope; PDF source
+rows and ranked hits; a pair of releases.
+
+- **PostgreSQL builds the use-to-output-to-product join; the index strips it and Python rebuilds
+  it** **[V]** (`semantic/data_operation_read_index.py`, `append_page`;
+  `semantic/selected_contribution_input.py`, `SelectedContributionScope.products`), one keyed
+  lookup and a full row parse per step. The same loop is written in at least five modules.
+- **Member filters run after the fact.** Kind, member, record type and family are applied in
+  Python after whole bodies are fetched and decoded.
+- **Paging is one obligation per call**, because the database cannot page inside a JSON body.
+- **Four frontier walks, four root-product selectors, six cursor schemes, five whole-body
+  decode-and-validate paths.**
+- **Summaries are computed from full bodies**; the catalog makes a full source acquisition per
+  row; the neighbourhood reader pulls the frontier and whole support closure to read one body.
+- **The same page bytes are parsed at least three times**; cached rows are encoded, decoded and
+  re-encoded as a check; page assembly re-renders the envelope and a cursor per appended row.
+
+*Required.* One family (structures, dossier, gaps, journey) re-runs on an exported file and
+compares bytes with the recorded response. The end is that someone without the database can
+confirm a served response follows from the exported closure. What carries that end is one
+implementation running over two sources of rows; byte equality is only the cheapest comparator.
+The authority recheck on every page, the cursor's binding to cut and code version, and the graph
+models, reports and statistics are required or Python-owned.
+
+### PDF: the central proof is sound; copies and repeats surround it
+
+The per-row identity fold is a two-language protocol and the only link between Python's
+validation and the stored rows; it stays. Around it:
+
+- **Each item is stored three ways:** rows, a JSON copy in the access table, and each box again
+  in a region table nothing queries by page or geometry. The copy is built by separate Python and
+  staged from a file, so about 430 lines of SQL reconcile it with the rows
+  (`semantic/pdf_record_access_native.py`). That reconciliation is today what makes served items
+  equal certified ones, and the JSON copy has many readers.
+- **Two routines rebuild a document from rows.** The round-trip proof exercises one; every
+  transform builds its whole-document input from the other **[V]**. The rows are authenticated
+  either way, so this is two algorithms over the same certified data, not an unguarded boundary.
+- **One enrich operation serializes the whole document about seven times, parses it about eight
+  and runs full Docling validation six times**; two of those cross a boundary (not re-verified).
+- **A page payload is decoded and validated about seven times in one operation**; a fresh record
+  file is hashed five times, twice back to back (not re-verified).
+- **Recovery rewrites every row** because the build identifier is a column of each row.
+
+*Required.* The page payload encoding preserves absent against null and integer against float;
+PostgreSQL cannot read it, so the Python digest check is the only one. Publishing recognition
+observations is the durable hand-off between two operations. Spool files cross attempts and
+processes. Docling validation before lowering is needed because transforms mutate the document.
+
+### Evaluation
+
+Protected reference data, a fitter role restricted to its partitions, and held-out calibration
+are enforced by PostgreSQL through role-restricted disclosure, and its completion guards recompute
+grade and event-frame facts in more detail than the Python preflight. The preflight opens a second
+record index, re-derives facts the binding established, and compares bodies with arguments it
+already holds. One check has no database equivalent and stays: authored reference coordinates
+against retained source text.
+
+### Kernels: sampled, not traced
+
+The challenge classified four modules no trace had cited (rich graph validation, the contextual
+layer, record assembly, source acquisition, about 4,100 lines). Their row-wise work is mostly
+type-driven traversal of heterogeneous graphs, procedural construction from model replies, and
+validation at a real boundary. The removable share was a minority, on the order of a sixth to a
+third by a qualitative read. The hypothesis that row work collapses does not extend to the
+kernels on this evidence.
+
+### Coverage
+
+Traced: the areas above. Swept and judged not to carry corpus-sized row work: release preparation
+and model compilation, code and source custody, caches, terminology, CLI reporting. Swept and
+worth a later look: demand planning, which reads and compiles a binding per pending obligation
+that PostgreSQL re-verifies; release persistence, which re-prepares a release to verify bytes it
+was handed. Not examined: the native generators as programs (about 63k lines), `methods/` (about
+50k lines, where most kernel row work lives), model-host internals, and `core/`.
+
+## What remains when the artifacts are removed
+
+| Layer | What the system needs |
+|---|---|
+| Member populations | Four addressed kinds; content-hash identities for the graph families; for homogeneous populations a handful of set rules per record type. One way to name an item and one way to resolve a name. |
+| Envelope | One check on each side of each of ten boundaries; values carried validated in between. |
+| Hand-off | One validation per product per release, recorded and accepted; one acquisition of a source view per process; derived rows computed once. |
+| Reads | Five answer shapes; over the raw subgraph about five join shapes (key lookup, children by foreign key, filtered scan, embedded reference to child rows, whole-graph edge listing). |
+| PDF | The identity and stream folds; set checks on containment, ordinals, inventory and endpoints; one derivation of the access columns; one document rebuild; one decode per page and one hash per file per boundary. |
+| Evaluation | Role-restricted disclosure, completion guards, the coordinate check, and the kernels. |
+| Kernels | Largely as they are. |
+
+## Target design
+
+Stated as properties, with what each would retire.
+
+**T1. A homogeneous population is stored once, carries no per-item context, and is validated as
+a set.** *Retires:* per-item packets and context for those kinds, shape checks repeated at three
+layers, and equality checks between stored copies.
+
+**T2. An item has an address when something addresses it, and the address says what kind it is.**
+Three cases: no address; an address derived from a natural key (a token's span within its block,
+which survives a projection that drops tokens, where an ordinal would not); an identity across
+products, which stays a content hash. The four bound kinds keep member binding. *Retires:* ids
+computed only to be translated back.
+
+**T3. References have one model and one resolver, and closure is checked once, by whoever holds
+both ends.** *Retires:* the per-family resolvers and dangling checks; *adds* the missing ones.
+
+**T4. One proof per boundary, and a validated value stays validated.** *Retires:* the residue
+listed under the envelope and hand-off findings.
+
+**T5. Validity is established once per product per release and accepted.** *Retires:* repeated
+full validations and the hop-by-hop difference in stance.
+
+**T6. Derived data is computed once: by its producer if consumers need it, otherwise once per
+process.** *Retires:* repeated rebuilding of token rows, navigation indexes, interval indexes and
+formula contexts.
+
+**T7. A relationship is resolved by its owner and the answer is kept.** Readers that never run
+offline ask for the answer; the raw subgraph is a deliberate capability for the readers that
+replay. *Retires:* rebuilt joins, hand-written mirrors, after-the-fact filters and most cursor
+schemes.
+
+**T8. A derived copy is derived in one place from its source, and one algorithm does one job.**
+*Retires:* copies with no reader, and the second document rebuild.
+
+**T9. Every real boundary has a proof.** *Adds:* reference closure; the round-trip validation
+using the captured policy.
+
+## Realization: where DuckDB, PyArrow, PostgreSQL and plain Python fit
+
+These are today's carriers for the properties above. Each entry states the need so that the
+choice can change without the design changing.
+
+| Need | Carrier today | Why | What would change the choice |
+|---|---|---|---|
+| A population held once and typed (T1) | PostgreSQL as the store of record. In process, plain typed rows, or Arrow where a model host or kernel produces and consumes columns | The store can enforce set rules where the data lives | Value forms Arrow cannot hold exactly stay text or stay in the canonical body **[F: X1–X2]** |
+| Set rules at admission (T1, T3) | PostgreSQL | Closure is unchecked there today | Requires a declared per-record-type rule vocabulary in the model and generator support, a new mechanism with a cost. The unadopted projection tables are the warning. |
+| Values carried validated (T4, T6) | Plain Python: memoised frozen wrappers | No representation change is needed | None |
+| The answer shapes for online-only readers (T7) | PostgreSQL programs | The joins, filters and keysets are over its tables, under its disclosure rules | Not DuckDB work |
+| Joins over the raw subgraph for replaying readers (T7) | Python over the existing index; DuckDB only if those projections are rewritten as joins | Point lookups dominate what they do today **[first publication]** | A rewrite of the projections as set operations, which would then run identically over an export |
+| PDF certification scans (T4) | Arrow IPC files read directly; Python folds | Both ends are already Arrow | The engine for the frame sort is open (O02) |
+| Access columns (T8) | PostgreSQL, derived once at publication from the certified rows | Removes one staged derivation | The JSON copy is not derived this way; see O17 |
+| Span and ordinal work inside kernels | The Python span vocabulary (O07) | Kernels ask span questions one at a time inside procedural code, and T1 changes what is stored, not that pattern | A decision to rewrite a kernel family as set operations; then DuckDB joins and windows over tables, which are available as typed expressions **[F: E1–E8]** |
+| Identity and meaning bytes | Python canonical encoder | DuckDB's JSON differs for floats and decimals **[F: I3–I4]** | None |
+| Regular expressions, edit distance, float sums in ranking | Python | The DuckDB functions differ silently **[F: S1–S4]** | None |
+
+The honest reading is that the design this review argues for needs little columnar machinery. It
+needs populations stored once, values carried, proofs placed, and questions asked of their owner.
+DuckDB and PyArrow become the natural carriers at the point where a kernel family is rewritten as
+set operations, which the first publication called the broader direction and which remains the
+operator's decision.
 
 ## Opportunities
 
-<a id="O01"></a>
-### O01 — Unify the Arrow schema derivations when a consumer needs it
+<a id="O11"></a>
+### O11 — Homogeneous member populations stored once and validated as sets
 
-Four mechanisms derive Arrow schemas from the model, and pydantic adapters for every kind are
-built in one walk (`semantic/boundary.py:106-276`). One derivation beside that walk would serve
-all of them. It was drafted as the keystone for everything else; with O07 to O09 narrowed it has
-no new consumer, so it should happen when one appears, not ahead of it.
+Tokens and sentences first, then HanLP units. The population is held once with no per-member
+context, validated by set rules, and named by span within block where a consumer names an item.
+The packet builder, the recompute-and-compare, the hash dictionaries, the id round trip, the
+double wire copy and the per-member rows in the support export have nothing left to do.
 
-Two facts shape any such derivation. The value codec has forms with no faithful Arrow type:
-unbounded integers, scale-free decimals of up to 16,384 digits, the optional states, bag and set
-order by tagged bytes, and `linkml:Any`. Held as extension types over text they survive in
-PyArrow but are opaque to DuckDB, which returns plain text and sorts it as text **[F: X1–X2]**.
-And ADR-0026 fixes the analytical decimal profile at precision 38, scale 12, with originals
-intact; a derived numeric column is that bounded projection, never the exact value. Optional
-fields that default to missing, distinct from null (`boundary.py:227-233`), need a presence mask.
+Withdrawn for rich graph members, and not proposed for formal and construction inventories,
+whose content-hash ids are identities.
 
-<a id="O02"></a>
-### O02 — Certify PDF records without the round trips
+*Conditions and costs.* Product identity includes the body, so every product of an affected kind
+and every downstream request key changes; data is regenerable, and the cost is regeneration and
+re-qualification. Graph inspection today shows a node per member row and would stop doing so for
+these kinds, which is a visible change to decide. The detached verifier maps members by key and
+changes with it. Why the existing projection tables found no adopter should be answered before a
+second typed-table mechanism is built.
 
-**What changes.** The producer's store stops holding native rows and part bodies. The
-`native_entry` table is a pass-through: rows are inserted as JSON and read back once, unordered
-(`pdf_certification.py:142-160, 286`). Certification iterates the IPC batches directly in two
-passes, stream descriptors first, and builds frames as it does now. The hex encoding and decoding
-of part bodies goes. The JSON read-back of the access projection
-(`pdf_payload_validation.py:354-359`) goes; the projection file is still written, as a retained
-custody artifact.
+<a id="O12"></a>
+### O12 — One reference model
 
-**What stays.** The frame build, with its nested JSON decode and per-field descriptor lookup. A
-disk sort of the derived `(family, key, frame)` set, which is all the `identity_frame` table does;
-whether SQLite keeps that job or DuckDB sorts a temporary Arrow file is a secondary choice with
-no evidence either way. Keyed access for the validators, which read fields, streams and parts by
-key from inside procedural checks (`pdf_payload_validation.py:81-89, 214-303`) and write page rows
-whose primary key is the duplicate-page refusal (`:333-346`); a dictionary index over the mapped
-batches or the existing store serves that, and DuckDB should not.
+One reference type and one resolver in Python now. Closure checked at admission for references
+within a release once a rule vocabulary exists to declare it. Adds the missing checks; removes
+per-family resolvers.
 
-**Scope.** The producer side only: `certify_native_stream`, draft publication
-(`orchestrate/pdf_streaming.py:969-972`) and recertification
-(`semantic/pdf_spool_recertification.py:123-126`), where the IPC files are present and verified.
+<a id="O13"></a>
+### O13 — Carry validated values
 
-**Fidelity conditions.** The inputs to the folds pass through normalizations that are part of
-each digest's effective definition: nulls dropped after a JSON round trip, key-presence tests
-(`pdf_records.py:904`), and companion bodies parsed to float before `Decimal`
-(`pdf_certification.py:91, 158-159`). The acceptance test is that retained certifications and a
-real recertification reproduce their recorded digests, over a corpus that includes
-exponent-spelled floats, null against absent columns, and non-ASCII keys. A miss fails loudly at
-`pdf_spool_recertification.py:136-140`. Every SQLite primary key that is today's uniqueness
-refusal becomes an explicit check.
+Decode each input once and keep it. Memoise typed wrappers so `value`, `reference` and
+`semantic_id` cost once. Memoise the derivation of token and sentence rows from an annotation.
+Make acquisition the only constructor of a source object and acquire once per process. Bracket a
+computation with one verification of loaded sources. Drop the second deep copy, the second file
+read, the self-checked receipt digests and the per-call descriptor rebuild. Local, with no
+published value changed and no native revision. Absorbs O08's decode-once.
 
-<a id="O03"></a>
-### O03 — Validate published records from typed rows
+<a id="O14"></a>
+### O14 — One stance on validity at hand-off
 
-The validation child's source is the PostgreSQL read-back and must stay so, since it validates
-what was published. The capture can still write one typed Arrow table per family, using the stage
-and companion schemas, in place of JSON strings in a two-column file, which removes one JSON
-encode and decode per frozen row. The child already holds every header, native and membership row
-in Python lists (`pdf_publication.py:287-306`), so its SQLite load is not protecting memory. The
-membership checks made during reconstruction (`pdf_records.py:724-762`) can run first as two
-window queries: ordinal equals position within `(parent, field)`, and count equals declared
-length. Reconstruction, the Docling callbacks and the canonical digest stay. Not independently
-challenged in detail.
+In process and at once: use the formal proof where it is ignored, and decide what a consumer does
+with a product whose producer has no validator and with one whose proof it does not check. With a
+native revision: give the sentence product a proof contract, which stops five consumer modules
+re-running its validator. The contract set is a closed list checked in generated programs, the
+proof matches only within a release, and PostgreSQL checks the record's correspondence, not that
+validation ran.
 
-<a id="O04"></a>
-### O04 — One node relation for the published document
+<a id="O15"></a>
+### O15 — Compute derived data once
 
-The access projection (pointer, parent, ordinal, section owner, regions) is rebuilt as a
-dictionary walk by several validators: `semantic/pdf_ocr_contracts.py:203-424`,
-`semantic/pdf_report_validation.py:52-192`, `semantic/pdf_integrated.py:104-402` and
-`ingest/pdf_selected_enrichment.py:116-166`. Building it once and passing it would remove the
-repeats. OCR page checks over the candidate batch are the densest nested loop on OCR pages and
-have direct kernel forms: uniqueness by a partitioned count, monotone word ranges by `lag` over
-list position, coverage with `pyarrow.compute.utf8_is_space`, since the DuckDB class is ASCII-only
-**[F: S1]**. The preorder walk is recursive and small; it stays a Python walk. Whether Docling
-guarantees that parent references and child lists agree decides whether section owners may be
-inherited along the traversal. Not independently challenged in detail.
+Within a process, by O13's memoisation. Across operations, where consumers need what a producer
+computed: the sentence operation's full token and sentence rows, the constructions operation's
+navigation index, the math extract's formula contexts with the stage key binding them to
+configuration. The second form changes product bodies and goes with O11.
 
-<a id="O05"></a>
-### O05 — Make the selected-record lookups cheap where they stand
+<a id="O16"></a>
+### O16 — Keep the answer the database gave, and ask it more
 
-**What changes, on the present store.** A memoizing mapping, so the contributions loop does not
-re-parse the same kind, request, episode and product rows. A key-only existence query, so
-membership tests such as those in `verify_detached_result` (`semantic/demand_results.py`, the
-endpoint-closure checks near `:1171`) do not parse a whole row including its body to answer yes or
-no. Semi-joins in place of scan-then-filter where a keyed path already exists:
-`evaluate/selected_references.py:555-631`, `evaluate/declared_operation_events.py:400-405`,
-`semantic/data_operation_source_sets.py:399-410`.
+Keep the use-to-product join the read program already returns instead of stripping it. Add
+member, kind and record-type filters and member paging to the existing program, which already has
+frontier, products and support views. Give online-only readers the answer shape they need. One
+frontier walk, one root selector and one cursor scheme replace four, four and six.
 
-**Withdrawn from the draft.** Rewriting detached-result verification as joins. One side of its
-multiset comparison is a sealed payload inside a JSON body with a per-definition role
-classification, the surrounding work is identity recomputation that stays in Python, and a join
-would change which refusal is raised first.
+The replaying family (structures, dossier, gaps, journey) keeps one implementation over the raw
+subgraph and gets no separate database answer, since one implementation over two sources is what
+makes replay meaningful. Absorbs O05 and O06.
 
-<a id="O06"></a>
-### O06 — Typed relations for selected records, after the consumer migration
+*Cost.* Each change is a revision of a pinned, generated program and repeats per-row disclosure.
+Which readers are online-only was read from call sites and not established for every evaluation
+reader.
 
-**What it offers.** One firm gain: the detached export writes Parquet from tables instead of
-converting each row to a dictionary and JSON strings (`serve/demand_export.py:369-433`); the
-export's own spool (`closure.sqlite`, `:190`) shares the index's shape and is the natural first
-place. A possible gain: scans and set comparisons for the readers that load whole relations
-anyway, such as `semantic/selected_graph.py:58-63`.
+<a id="O17"></a>
+### O17 — One derivation of the access columns, one document rebuild
 
-**Why it waits.** Domain Model Operability states that the index keeps its deduplication, bounds,
-freeze and lifetime, that its ingress is the captured byte boundary, and that replay uses captured
-contracts even when ambient declarations change. A typed table must therefore keep the exact
-payload bytes as a column and take its schema from the captured Arrow schema
-(`demand_export.py:382-384`), not from current metadata. Point lookups dominate the hub and are a
-reason not to put DuckDB under them; O05 captures most of the cost on the present store. Revisit
-after DMO-04 and DMO-05's consumer migration, with those two conditions.
+Derive the relational access columns (pointer, parent, ordinal, label, section owner, regions)
+inside PostgreSQL once at publication from the certified rows. Leave the JSON copy staged and
+reconciled: deriving it would mean a third row-to-JSON implementation and a number-spelling
+contract, and the reconciliation already achieves the end. Make the proven rebuild the one
+transforms use, which removes the second algorithm without adding a whole-document digest pass.
+Absorbs O04.
 
-**What must not change in any case.** Export page files and `closure.jsonl` are replayed by
-verification and keep today's bytes. The cut identity, the page hash in cache keys and the recheck
-stamp are computed from the JSON form.
+<a id="O18"></a>
+### O18 — One document, one decode, one hash per boundary in the PDF path
 
-<a id="O07"></a>
-### O07 — One span vocabulary, in Python
+Hold one validated document per process and validate before lowering and across the worker
+boundary; decode a page payload once per boundary; hash a file at acknowledgement and after any
+gap; supply the build identifier at load instead of storing it in every row. With O02 and O03.
 
-**What changes.** The interval indexes share one small set of queries: contains, overlaps (with
-today's zero-width rule at a shared boundary), nearest enclosing by width then ordinal, nearest
-preceding or following within a partition, merge of touching spans, ordinal within parent, and
-offset translation, all returning rows in original order. `PositionedRows`
-(`semantic/positioned_rows.py:8-44`) and the cached views of `semantic/native_source_view.py:128-229`
-already provide part of it. Extending those and retiring the private indexes gives one owner for
-span semantics. Two rescans are worth fixing as they are found: the per-piece rescan that merges
-formal pieces, which is quadratic (`semantic/formal_products.py:484-489`), and the per-sentence
-scan over a block's tokens (`semantic/sentence_products.py:235-239`).
+<a id="O19"></a>
+### O19 — Evaluation preflight reduced to what only Python can check
 
-**Withdrawn from the draft.** A DuckDB relation layer for these queries. The sentence family,
-proposed as the first, has almost no span joins: token-to-sentence membership is an index spaCy
-already supplies, and the body is a tree walk, the tokenizer, a host round trip and hashed ids. A
-batch join needs every query known in advance, and the kernels ask them one at a time.
+Keep the coordinate check and the kernels. Rely on the binding and the completion guards for the
+facts they establish.
 
-<a id="O08"></a>
-### O08 — Decode operation inputs once
+### Correspondence with the first publication
 
-**What changes.** The hydrated value keeps its decoded form, so the two later calls do not parse
-and decode again; that removes two of three decodes in a few lines. The deep copy and the
-dump-and-revalidate round trip are isolation choices worth re-examining on their own terms.
+| First publication | Now |
+|---|---|
+| O01 schema derivation when a consumer needs it | Stands |
+| O02 certify without round trips | Stands, as narrowed |
+| O03 typed validation capture | Stands |
+| O04 one node relation | Absorbed by O17 |
+| O05 cheaper lookups on the present store | Absorbed by O16 |
+| O06 typed relations for selected records | Absorbed by O16; the Parquet write stands |
+| O07 one span vocabulary in Python | Stands |
+| O08 decode once | Absorbed by O13; the Arrow worker packet stays withdrawn |
+| O09 convert logical rows by column | Stands |
+| O10 fidelity rules in the analytical owner | Stands, when a second consumer arrives |
+| The broader direction | Unchanged: a kernel family rewritten as set operations, by operator decision |
 
-**Observed defect, latent.** At `data_operation_consumers.py:244` the decoded value is passed to
-`canonical_bytes`, which accepts only JSON types and `Decimal` (`semantic/identity.py:16-19`). A
-body carrying a date, an optional state or a collection value would raise. No operation kind was
-found that carries one; whether any can was not established.
+## Defects found
 
-**Withdrawn from the draft.** Arrow IPC as the worker packet. The request digest is taken over the
-packet bytes and published in the execution receipt (`semantic/cpu_execution.py:204-224`). IPC
-bytes are not canonical, so an IPC packet either ties execution evidence to PyArrow's writer or
-needs a canonical encoding beside it, which returns the saving. The shared-memory capsule is
-allocated per release, not per call; per-call segments would need new budget and lifetime
-ownership. This should meet the bar the current plan sets for a codec change: a demonstrated
-bottleneck.
+Confirmed by reading; none executed.
 
-**Conditional.** Fetching `ops.data_binding_rows` as Arrow, and model hosts returning columns in
-place of line-delimited JSON, have value only with consumers that take columns; see the broader
-direction.
+1. **Two readers take a field the export omits** **[V]**. `semantic/selected_contribution_input.py`
+   (`actual_graph_inputs`) and `semantic/grouped_interpretation_projection.py` read
+   `request["binding"]`; the support export removes `binding` from request records in SQL, as
+   declared in `model/semantic/selected-support.yaml`. The only test reaching the code supplies
+   the field in its own fixture, and no native test was found that reaches it on real rows.
+2. **References stored in product bodies are not validated after publication**, and `roots` and
+   `environment` of the contextual meaning product were reported to have no dangling check
+   (not re-verified).
+3. **The round-trip validation uses default policy where the producer uses the captured policy**
+   **[V]** (`semantic/pdf_publication.py`, `_native_validation_child`). Equal at publication;
+   differs for a forced or later re-validation of an older publication.
+4. **Consumers of construction products check identity only** **[V]**
+   (`semantic/predicate_products.py`, `semantic/scoped_products.py`).
+5. **No production caller:** `evaluate/record_statistics.py` **[V]**;
+   `evaluate/alignment_preparation.py` and `semantic_values.py`, reachable only through
+   `semantic_alignment.py`, of which production uses one type. The per-frame identity read. Parts
+   of `semantic/record_projection.py` were reported unused and not re-verified.
+   `select_pdf_integration` has no production caller but is the independent check in the
+   streaming reconciliation tests and should stay while they rely on it.
+6. **Smaller:** the recognition replay builds its sort key and pin column from the same value;
+   `docs/pins.md` describes the duckdb hold by a module that no longer exists; the served-row
+   codec's docstring names a disk tier that does not exist.
 
-<a id="O09"></a>
-### O09 — Convert logical rows by column, with the existing encoder
+## Declined, and what stays
 
-The companion export's logical-row digest converts each cell individually
-(`semantic/capture_storage.py:56-67`). Converting whole columns and feeding the same encoder gave
-an identical digest on a mixed-type batch (observed in review, not retained), and the strict-order
-check is one comparison with the previous key.
-
-**Withdrawn from the draft.** A column-wise canonical encoder. The encoder is one call into the
-standard library's JSON writer; a second implementation would be per-row string assembly with no
-speed argument and a second owner of identity bytes, while DMO-02 is still inventorying digest
-roles.
-
-<a id="O10"></a>
-### O10 — State the fidelity rules in the analytical owner, when the next consumer arrives
-
-`cs/analytics.py` already fixes the time zone and refuses text. The differences in
-**[F: S1–S5, O2–O3, X1–X2]** are silent, and each new kernel would rediscover them. When a second
-set-shaped consumer appears, the owner should fix binary collation alongside the time zone,
-require NULL placement in sorts, require a tie-break for ASOF joins and an order for list
-aggregates, and say where a kernel author would look that regular expressions, edit distance and
-JSON text for identity are not offered. Two conditions: DuckDB's and Arrow's thread pools are
-outside the worker's thread limit and the pool inventory that receipts record
-(`semantic/cpu_execution.py:243-246`), and a long DuckDB operation is not interrupted by
-`check_active()`.
-
-## The broader direction
-
-The operator's intent is a unified basis for everything that cannot live in PostgreSQL. The code
-supports a version of it, at a cost the changes so far do not pay.
-
-**What it would be.** Record kinds have a columnar form as first-class as their pydantic form.
-Operation inputs arrive as relations of pieces, tokens, sentences and annotations. Kernels are
-written as relational steps around their procedural cores, each core taking a table and returning
-one: region and terminal tables into Lark, token columns into the spaCy matchers, expression
-tables into sympy, claim views into the rule engine. Model hosts return columns. Canonical bytes
-are produced at publication from ordered columns by the one existing encoder.
-
-**Where the relational steps were shown to work.** Against production functions on random inputs,
-with no mismatches (observed in review, not retained): the three `PositionedRows` queries,
-nearest-enclosing in math scope, sentence-region clipping, requested-region merging, table
-geometry, and running positions in contextual input. The families with the most real span and
-join work are formal evidence, scoped relations, constructions' region handling, source
-preparation, math layout and predicate clipping.
-
-**What it costs.** Every kernel family rewritten against a second representation; value forms that
-do not fit Arrow natively; execution evidence redefined; and no gain at the sizes most operations
-see unless connections and data persist across calls in a worker.
-
-**What would decide it.** One family rebuilt end to end, chosen for real span work and a clean
-procedural core. Formal evidence is the candidate: its span steps (maximal and crossing atoms,
-merging, atoms per region) are batch-shaped, and its cores (Lark, the lexical classifier) take
-and return tables. The trial answers three things that reading cannot: whether the kernel is
-simpler to state, whether published members stay byte-identical, and whether per-call overhead is
-acceptable. It is a decision for the operator, and it should follow O01 only as far as that one
-family needs.
-
-## Declined, and what stays as it is
-
-- **Byte-budget paging and offset cursors.** Widths are the encoded JSON bytes of each row and the
-  envelope varies with the cursor (`semantic/selected_pages.py:7-73`); a window would approximate
-  and then need the same exact check.
-- **The JSON documents that are contracts.** The cut header, export page and closure files, the
-  feature-fit frame compared byte for byte, MCP structured content, and the wire contract.
-- **Arrow delivery of selected reads through a second connection.** ADR-0026 accepts ADBC as a
-  read transport over an imported read-only snapshot. A selected read writes a receipt in its own
-  transaction, which an importing session does not see, and pages are small.
-- **Attaching PostgreSQL from DuckDB.** Nothing found needs it.
-- **Candidate capture, record lowering, Docling edits, reconciliation matching, recognition.**
-  Object-graph or model work, or small, with orderings that feed published identities from Python
-  insertion order (`ingest/pdf_candidates.py:191-219`, `ingest/pdf_reconciliation.py:1139, 1160`).
-- **Release archive comparison, model and source comparison, record alignment, fits, graph
-  algorithms, reciprocal-rank fusion.** Small, numeric with a pinned backend, or sensitive to
-  float summation **[F: S4]**.
-- **Change impact and identity-exclusion classification.** Expressible as full outer joins over
-  Python-computed keys, with little gain.
-- **Native source export.** A grouped form would change number spelling with no stated consumer
-  need.
+From the first publication: byte-budget paging, the JSON documents that are contracts, attaching
+PostgreSQL from DuckDB, a second connection for interactive reads, an Arrow worker packet, a
+second identity encoder. Added by this revision: a DuckDB span layer ahead of a kernel rewrite;
+DuckDB as the offline engine ahead of a rewrite of the replaying projections; deriving the JSON
+access copy in SQL; a whole-document digest check on transform input. Required as they are: the
+per-row PDF identity fold, the page payload encoding, publication of recognition observations,
+spool custody, the worker's code check, claim and support re-checks, and the evaluator
+separation.
 
 ## Rule impacts
 
-1. **ADR-0135** ([declared facts and typed database programs](../adr/0135-declared-facts-and-typed-database-programs.md))
-   requires typed expressions for DuckDB over an immutable identified snapshot and says SQLite
-   remains a typed local store. The window and span forms need no SQL text, so the expression rule
-   does not block anything recommended here.
-2. **ADR-0026** ([columnar semantic operations](../adr/0026-columnar-semantic-operations.md))
-   makes PyArrow the owner of columnar representation and DuckDB the one local relational engine,
-   with ADBC importing a read-only snapshot and a fixed analytical decimal profile. It contains no
-   rule about attaching PostgreSQL; that statement exists only as a rejected alternative in the
-   superseded Unified Domain Model plan. Nothing here conflicts with ADR-0026.
-3. **The size threshold for DuckDB** (set-shaped work over roughly ten thousand rows) is in that
-   superseded plan and in no accepted record. This review's working filter, that a step is worth
-   making columnar when its inputs and outputs are already columns, is offered as a better test
-   than size. Adopting it as a rule would be a new decision, and it is a filter, not a direction
-   of travel.
-4. **Store ownership.** [DESIGN §2](../design/DESIGN.md#section-2) records five
-   invocation-owned SQLite stores and per-invocation DuckDB spill as implemented. O02 changes what
-   one of those stores holds; replacing a store outright, or holding a DuckDB connection for a
-   worker's lifetime, changes those owner statements and chooses between real alternatives, so
-   either needs a decision record.
+1. **What a product body holds, and identities** (O11, the cross-operation part of O15). A
+   decision record and a native revision; regeneration of affected products.
+2. **Custody statements in code** (O13): that a retained port is not a durable permission, and
+   that wrappers revalidate owned bytes. The proposal keeps the ends, a single bracket and a
+   single constructor, and changes the mechanism.
+3. **The validity proof** (O14) gains a contract; its meaning is unchanged.
+4. **Read programs** (O16) change within the existing rule that reads go through
+   security-definer programs.
+5. **[ADR-0135](../adr/0135-declared-facts-and-typed-database-programs.md)** and
+   **[ADR-0026](../adr/0026-columnar-semantic-operations.md)**: nothing here conflicts with
+   either. Neither contains a rule about attaching PostgreSQL or a row threshold for DuckDB.
+6. **Store ownership.** [DESIGN §2](../design/DESIGN.md#section-2) records five invocation-owned
+   SQLite stores; O02 changes what one holds.
 
-## Order and interactions
+## Order and relation to current work
 
-1. **O08's decode-once and its latent defect, and O05.** Small, local, and independent of
-   everything else.
-2. **O02, then O03.** The largest row volume. They change no published value by intent, but they
-   touch certification, which Domain Model Operability is qualifying; schedule them after DMO-08
-   or as a deliberate part of it.
-3. **O04, O07 and O09** as the code is next worked in each area.
-4. **O06** after DMO-04 and DMO-05's consumer migration.
-5. **O01 and O10** when a consumer needs them.
-6. **The broader direction** only by operator decision, starting with the formal-evidence trial.
+1. **No native revision, no identity change:** defect 1; O13; the in-process parts of O14 and
+   O15; keeping the join in the index (the first step of O16). By the hand-off trace this removes
+   most repeated validation and rebuilding.
+2. **Program revisions without identity change:** the rest of O16; O17; O18 with O02 and O03;
+   O19; the sentence proof contract of O14.
+3. **A decision on T1 and T2** (O11, O12, the rest of O15), with its regeneration cost.
+4. **The broader direction**, only if chosen.
 
-No opportunity here is approved scope.
+**A timing choice for the operator.** Domain Model Operability ends with a whole-book run on an
+adopted final release. O11 changes identities that run would qualify. If O11 is wanted, deciding
+it before that run avoids qualifying twice; if it is uncertain, steps 1 and 2 deliver most of the
+benefit without it. Nothing here is approved scope.
 
-**What would demonstrate delivery.** For O02 and O03, retained certifications and a real
-recovery-recertification reproduce their recorded digests on the stated corpus. For O05 and O06,
-the existing reader, export and verification tests pass with expectations unchanged and export
-page and closure bytes identical. For O08, operation results and receipts are unchanged.
-
-## Observations outside the opportunities
-
-- `ingest/pdf_stream_reconciliation.py:262-263` builds both the sort key and the pin column of the
-  recognition replay from the same value.
-- `docs/pins.md` describes the duckdb hold in terms of a module and a test directory that no
-  longer exist.
-
-## Step records
-
-### Fidelity checks
-
-| Mark | Statement | Result |
-|---|---|---|
-| E1–E8 | Span join, ordinal, lag, running sum, range frame, islands, first-per-key, ASOF, bag difference as expression objects | as expected |
-| O1 | UTF-8 byte order across DuckDB, PyArrow, SQLite `BINARY`, Python | same |
-| O2 | Order of a JSON-text key against byte order of its parts | differs |
-| O3 | NULL placement against the project's `None`-first keys | differs |
-| I1–I2 | DuckDB JSON and SHA-256 against canonical bytes, strings and integers, sorted fields | same |
-| I3–I4 | Float and decimal spelling | differs |
-| S1 | Regular-expression whitespace and word classes on non-ASCII | differs; PyArrow's kernel agrees with Python |
-| S2 | Edit distance on non-ASCII | differs |
-| S3 | `bool_and` over no rows against `all([])` | differs |
-| S4 | Float sum against Python 3.14 `sum` | differs |
-| S5 | Dense Arrow union into DuckDB | refused |
-| X1–X2 | Extension type over text through DuckDB | returns text; sorts as text |
-
-### Kernel families
-
-| Family | Dominant row work | Procedural core | Disposition |
-|---|---|---|---|
-| Sentences and tokens | grouping, ordinals, hashed ids | spaCy, tree walk | stays; fix the token-list scan (O07) |
-| Canonical projection | projection, membership | none | stays; small |
-| HanLP | membership, batching | model, constituency walk | stays |
-| Formal evidence | maximal and crossing spans, merge | Lark, lexical classifier | O07 now; trial candidate |
-| Constructions | merge, overlap, nearest, grouping | Lark, spaCy matchers, evaluator | O07; broader direction |
-| Structural products | small joins, greedy selection | selection | stays |
-| Source preparation, M1, assembly | containment, running cursor, deduplication | cursor, window expansion, assembly | O07; broader direction |
-| Scoped relations | keyed and rectangle joins, grouping | Python regular expressions | O07; broader direction |
-| Table and finite interpretation | grouping, numerics | numpy solver | stays |
-| Contextual | running positions, ranking, fusion | encoder, fusion sum | stays |
-| Learned primary | batching | models | stays |
-| Math | interval sweep, nearest preceding | Lark, sympy | O07; broader direction |
-| Rich consolidation and rules | grouping, joins | rule engine, graph | stays |
-| Scientific evidence | numerics | sympy, sampling | stays |
-| Predicate evidence | overlap and merge | spaCy frames | O07 |
-
-### PDF path
-
-| Step | Where | Disposition |
-|---|---|---|
-| Spool inventory and recovery | `ingest/pdf_build_spool.py:290-322` | stays |
-| Conversion, page envelopes | `ingest/pdf.py:282-478`, `ingest/pdf_streaming.py:145-278` | stays |
-| Candidate capture | `ingest/pdf_candidates.py:97-321` | stays |
-| Record lowering | `semantic/pdf_records.py:363-617` | stays |
-| Rows into the certification store | `semantic/pdf_certification.py:142-194` | O02 |
-| Frame build, sort and folds | `:257-350` | frame build and folds stay; sort engine open |
-| Validators' keyed reads | `semantic/pdf_payload_validation.py:214-372` | keyed index; not DuckDB |
-| Access projection, page and coverage checks | `semantic/pdf_access_projection.py:11-96`, `semantic/pdf_ocr_contracts.py:77-424` | O04 |
-| Validation capture and child | `semantic/pdf_publication.py:802-917, 278-354` | O03 |
-| Enrichment geometry, replay sort | `ingest/pdf_candidate_geometry.py`, `ingest/pdf_stream_reconciliation.py:314` | already DuckDB |
-| Inline anchoring, cell classification | `ingest/pdf_enrichment.py:134-530` | stays |
-| Reconciliation matching | `ingest/pdf_reconciliation.py:699-1005` | stays |
-
-### Reads, exports and evaluation
-
-| Stage | Where | Disposition |
-|---|---|---|
-| Page arrival and cut identity | `semantic/data_operation_storage.py:98-132`, `semantic/demand_results.py` | stays JSON |
-| Query rows, cache, paging | `semantic/demand_query_projection.py`, `selected_query_cache.py`, `selected_pages.py` | stays |
-| Record index lookups | `semantic/data_operation_read_index.py` | O05 now; O06 later |
-| Contributions, evaluation readers | `semantic/selected_contribution_input.py:62-336`, `evaluate/selected_references.py` | O05 |
-| Detached verification | `semantic/demand_results.py` (`verify_detached_result`) | key-only membership (O05); otherwise stays |
-| Detached export Parquet | `serve/demand_export.py:369-433` | O06 |
-| Export page and closure files | `serve/demand_export.py` | stay |
-| Companion logical rows | `semantic/capture_storage.py:56-67` | O09 |
-| Companion inventory and comparison | `serve/companion_export.py:431-637` | already DuckDB |
+**What would demonstrate the design.** For step 1: one chain, sentences to scoped relations, run
+with results and receipts unchanged and each product validated once and each source acquired once
+per process. For O11: sentence products published as a token and a sentence population with set
+admission, their consumers reading rows and naming tokens by span, and the re-derivation code
+gone.
