@@ -82,9 +82,10 @@ class CutSelection:
 
     @cached_property
     def _record(self):
+        from .demand_wire import decode_wire_cut
         from .native_source_view import freeze_native
 
-        return freeze_native(wire_json_loads(self.content))
+        return freeze_native(decode_wire_cut(self.content))
 
     @property
     def record(self) -> dict[str, Any]:
@@ -109,10 +110,20 @@ class DemandResult:
     request: bytes = b"{}"
 
     @cached_property
-    def _record(self):
+    def _page(self):
+        from .data_operation_json import decode_retained_json_object, own_wire_json_value
+        from .demand_wire import declared_frontier, project_frontier_record
         from .native_source_view import freeze_native
 
-        return freeze_native(wire_json_loads(self.content))
+        parsed, cut_content = decode_retained_json_object(self.content, _PIN_FIELDS)
+        interpreted = (
+            project_frontier_record(parsed) if declared_frontier(parsed) else own_wire_json_value(parsed)
+        )
+        return freeze_native(interpreted), cut_content
+
+    @cached_property
+    def _record(self):
+        return self._page[0]
 
     @property
     def record(self) -> dict[str, Any]:
@@ -122,7 +133,9 @@ class DemandResult:
 
     @cached_property
     def cut(self) -> CutSelection:
-        return CutSelection.from_native(self.record)
+        # Exact retained member bytes own the cut identity, including ordinary
+        # float exponent spelling. Interpretation never rewrites this custody.
+        return CutSelection(self._page[1])
 
     @property
     def continuation(self) -> dict[str, Any] | None:

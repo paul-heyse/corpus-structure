@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from decimal import Decimal
 from typing import Any, Literal, NewType, NotRequired, Required, TypedDict, cast
 
+from corpus_structure.semantic.data_operation_json import ContextualJsonValue
 from corpus_structure.semantic.identifiers import (
     ProjectId,
     ReleaseId,
@@ -48,7 +49,7 @@ WireUseIdentity = NewType("WireUseIdentity", str)
 
 
 class WireAuthoredFactRef(TypedDict):
-    analyzed_scope: Required[WireDdoJsonValue]
+    analyzed_scope: Required[ContextualJsonValue]
     author: Required[str]
     kind: Required[Literal["authored-fact"]]
     kind_contract: Required[WireKindContract]
@@ -280,7 +281,7 @@ class WireChoice(TypedDict):
 
 
 class WireMemberContext(TypedDict):
-    analyzed_scope: Required[WireJsonValue]
+    analyzed_scope: Required[ContextualJsonValue]
     original_source: Required[WireIdentifier | None]
     subject: Required[WireIdentifier]
     subject_definition: Required[WireIdentifier]
@@ -759,7 +760,7 @@ class WireCloseDataPopulationRequest(TypedDict):
 
 
 class WirePopulationProducerContext(TypedDict):
-    analyzed_scope: Required[WireJsonValue]
+    analyzed_scope: Required[ContextualJsonValue]
     operation_id: Required[WireOperationId]
     original_source: Required[WireOriginalSourceId | None]
     subject: Required[WireSubjectId]
@@ -767,7 +768,7 @@ class WirePopulationProducerContext(TypedDict):
 
 
 class WirePopulationSelectionEvidence(TypedDict):
-    analyzed_scope: Required[WireJsonValue]
+    analyzed_scope: Required[ContextualJsonValue]
     choices: Required[WireParameterMap]
     definition: Required[WireIdentifier]
     eligibility: Required[WireIdentifier]
@@ -795,7 +796,7 @@ class WirePopulationEvidence(TypedDict):
 
 
 class WirePopulationMember(TypedDict):
-    analyzed_scope: Required[WireJsonValue]
+    analyzed_scope: Required[ContextualJsonValue]
     member_id: Required[WireMemberId]
     original_source: Required[WireOriginalSourceId | None]
     subject: Required[WireSubjectId]
@@ -856,7 +857,7 @@ class WireOriginalDocumentSelection(TypedDict):
 
 
 class WireRootSubject(TypedDict):
-    analyzed_scope: Required[WireJsonValue]
+    analyzed_scope: Required[ContextualJsonValue]
     original_source: Required[WireOriginalSourceId | None]
     subject: Required[WireSubjectId]
 
@@ -905,7 +906,7 @@ class WireSemanticSourceReference(TypedDict):
 
 
 class WireSourceSetEntry(TypedDict):
-    analyzed_scope: Required[WireJsonValue]
+    analyzed_scope: Required[ContextualJsonValue]
     member: Required[WireIdentifier | None]
     original_source: Required[WireOriginalSourceId | None]
     product: Required[WireIdentifier]
@@ -1290,7 +1291,7 @@ class WireOperationEventFrameSelectedOperationEventFrame(TypedDict):
 
 class WireOriginalSourceAdmissionResult(TypedDict):
     admission_id: Required[WireAdmissionId]
-    analyzed_scope: Required[WireJsonValue]
+    analyzed_scope: Required[ContextualJsonValue]
     evidence: Required[WireJsonValue]
     kind_contract: Required[WireKindContract]
     original_source: Required[WireOriginalSourceId | None]
@@ -1397,7 +1398,7 @@ class WireReadDemandResultRequest(TypedDict):
 
 
 class WireResultObligation(TypedDict):
-    analyzed_scope: Required[WireJsonValue]
+    analyzed_scope: Required[ContextualJsonValue]
     demand_id: Required[WireDemandId]
     fate: Required[WireVisibleFate]
     generation: Required[WireGeneration | None]
@@ -1427,7 +1428,7 @@ class WireSelectedSupportPage(TypedDict):
 
 
 class WireResultProduct(TypedDict):
-    analyzed_scope: Required[WireJsonValue]
+    analyzed_scope: Required[ContextualJsonValue]
     body: NotRequired[WireSemanticValue]
     body_state: Required[Literal["not_requested", "present"]]
     kind_contract: Required[WireKindContract]
@@ -2020,6 +2021,8 @@ class WireAttemptFence(TypedDict):
     task_id: Required[TaskId]
 
 
+type WireJsonValue = WireExactJSONValue
+
 type WireDdoJsonValue = (
     bool
     | int
@@ -2031,8 +2034,6 @@ type WireDdoJsonValue = (
     | dict[str, WireDdoJsonValue]
     | None
 )
-
-type WireJsonValue = WireExactJSONValue
 
 type WireIdentifier = str
 

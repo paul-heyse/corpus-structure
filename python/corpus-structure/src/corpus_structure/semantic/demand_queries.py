@@ -7,11 +7,12 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
+from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.demand_results import read_demand_result
 
 from .continuation_codec import decode_demand_cursor, encode_cursor
 from .demand_query_projection import prepare_demand_projection_inputs, selected_query_rows
+from .demand_wire import decode_wire_demand_request
 from .page_envelope import PageEnvelope
 from .selected_pages import byte_bounded_page
 from .serving_code import capture_page_refusal
@@ -155,7 +156,7 @@ def _serve_demand_query(connection, request, implementation):
         with SELECTED_QUERY_CACHE.loading(key) as entry:
             if entry is None:
                 whole_request = dict(
-                    wire_json_loads(page.request), view="products", read_id=native["read_id"]
+                    decode_wire_demand_request(page.request, demand_id=request.demand_id), view="products", read_id=native["read_id"]
                 )
                 whole_request.pop("recheck_bodies", None)
                 whole = read_demand_result(
@@ -206,7 +207,7 @@ def _serve_demand_query(connection, request, implementation):
     ]
     current_request = {
         key: value
-        for key, value in wire_json_loads(page.request).items()
+        for key, value in decode_wire_demand_request(page.request, demand_id=request.demand_id).items()
         if key not in {"selection", "trust_snapshot", "limit", "max_bytes", "recheck_bodies"}
     }
     current_request.update(

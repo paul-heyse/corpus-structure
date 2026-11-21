@@ -16,7 +16,7 @@ from pydantic import TypeAdapter
 
 from . import _data_operation_wire
 from ._data_operation_wire import WireDemandReadScope, WireReadDemandResultResult
-from .data_operation_json import own_json_value, wire_json_loads
+from .data_operation_json import native_json_loads, own_json_value, own_wire_json_value
 
 if TYPE_CHECKING:
     from .demand_wire_schema import CapturedWireValidator
@@ -67,6 +67,37 @@ def _same_json_material(source, result) -> bool:
     return (source is None or type(source) in {str, int, bool}) and source == result
 
 
+@lru_cache(maxsize=1)
+def _cut_validator():
+    from .data_operation_wire import prepare_wire_schema, wire_contextual_fields, wire_record_schema
+
+    return prepare_wire_schema(wire_record_schema("cut_selection"), contextual_fields=wire_contextual_fields())
+
+
+def decode_wire_cut(content: bytes) -> dict:
+    """Interpret the explicit cut fields while leaving its original identity bytes owned."""
+    return _cut_validator()(native_json_loads(content))
+
+
+def decode_wire_demand_request(content: bytes, *, demand_id: str | None = None) -> dict:
+    from .data_operation_wire import validate_native_wire
+
+    parsed = native_json_loads(content)
+    if demand_id is not None:
+        parsed = {"demand_id": demand_id, **parsed}
+    return validate_native_wire("read_demand_result", "input", parsed)
+
+
+def declared_frontier(value: object) -> bool:
+    return isinstance(value, dict) and value.get("view") == "frontier"
+
+
+def project_frontier_record(value: dict) -> dict:
+    from .data_operation_wire import validate_native_wire
+
+    return validate_native_wire("read_demand_result", "output", value)
+
+
 def decode_wire_demand_result(content: bytes) -> WireReadDemandResultResult:
     """Decode exact bytes into an owned generated record, preserving all material.
 
@@ -75,7 +106,8 @@ def decode_wire_demand_result(content: bytes) -> WireReadDemandResultResult:
     """
     if type(content) is not bytes:
         raise TypeError("native demand decoding requires exact immutable bytes")
-    source = wire_json_loads(content)
+    parsed = native_json_loads(content)
+    source = project_frontier_record(parsed) if declared_frontier(parsed) else own_wire_json_value(parsed)
     candidate = own_json_value(source)
     validator = captured_demand_wire_validator()
     result = (

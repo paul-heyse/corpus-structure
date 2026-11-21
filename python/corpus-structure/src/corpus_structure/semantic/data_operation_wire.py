@@ -601,25 +601,57 @@ def validate_wire_schema(schema: dict[str, Any] | bytes, value: Any) -> Any:
     return _validate_wire_value(_validator(encoded), value)
 
 
-def prepare_wire_schema(schema: dict[str, Any] | bytes) -> Callable[[Any], Any]:
-    """Bind checked private validator state to a generated call's module lifetime."""
+def prepare_wire_schema(
+    schema: dict[str, Any] | bytes,
+    *,
+    contextual_fields: tuple[str, ...] = (),
+    frontier_path: tuple[str, ...] | None = None,
+) -> Callable[[Any], Any]:
+    """Bind schema admission and captured field interpretation to the call's lifetime."""
     encoded = schema if isinstance(schema, bytes) else canonical_bytes(schema)
+    return _prepared_wire_schema(encoded, contextual_fields, frontier_path)
+
+
+@lru_cache(maxsize=256)
+def _prepared_wire_schema(encoded, contextual_fields, frontier_path):
     validator = _validator(encoded)
+    projector = None
+    if contextual_fields:
+        from .wire_json_policy import prepare_json_projection
+
+        declared = prepare_json_projection(json.loads(encoded), contextual_fields)
+
+        def project(value):
+            if frontier_path is not None:
+                selected = value
+                for key in frontier_path:
+                    selected = selected[key]
+                if selected.get("view", "frontier") != "frontier":
+                    return own_wire_json_value(value, preserve_integral_tokens=True)
+                if selected.get("support_page") is not None:
+                    raise ValueError("frontier JSON interpretation requires an absent support page")
+            return declared(value)
+
+        projector = project
 
     def validate(value: Any) -> Any:
-        return _validate_wire_value(validator, value)
+        return _validate_wire_value(validator, value, projector=projector)
 
     return validate
 
 
-def _validate_wire_value(validator: PreparedSchemaValidator, value: Any) -> Any:
+def _validate_wire_value(validator: PreparedSchemaValidator, value: Any, *, projector=None) -> Any:
     checked = _JSON_VALUE.validate_python(value, strict=True)
     try:
         validator.validate(checked)
     except ValidationError as exc:
         path = "/".join(str(part) for part in exc.absolute_path) or "<root>"
         raise ValueError("native wire violates schema at " + path + ": " + exc.message) from exc
-    return own_wire_json_value(checked, preserve_integral_tokens=True)
+    return (
+        own_wire_json_value(checked, preserve_integral_tokens=True)
+        if projector is None
+        else projector(checked)
+    )
 
 
 def validate_native_wire(
@@ -630,13 +662,30 @@ def validate_native_wire(
     sources: tuple[SourceArtifact, ...] | None = None,
 ) -> dict[str, Any]:
     try:
-        validate = _protocol_state(sources).validators[operation, direction]
+        state = _protocol_state(sources)
+        validate = (
+            prepare_wire_schema(
+                state.schemas[operation, direction],
+                contextual_fields=wire_contextual_fields(sources),
+                frontier_path=(),
+            )
+            if operation == "read_demand_result" and isinstance(value, dict) and value.get("view", "frontier") == "frontier"
+            else state.validators[operation, direction]
+        )
     except KeyError as exc:
         raise ValueError("unknown native wire operation/direction") from exc
     result = validate(value)
     if not isinstance(result, dict):
         raise ValueError("native wire record must be an object")
     return result
+
+
+def wire_record_schema(name: str, sources=None) -> dict[str, Any]:
+    """Return a named closed record from the same captured native schema owner."""
+    protocol = _protocol(sources)
+    if name not in protocol["definitions"]:
+        raise ValueError("unknown native wire record")
+    return schema_closure({"$ref": "#/definitions/" + name}, protocol["definitions"])
 
 
 def wire_kind_declarations(
@@ -767,8 +816,7 @@ def wire_type_name(name: str) -> str:
     return "Wire" + "".join(part[:1].upper() + part[1:] for part in name.split("_"))
 
 
-def wire_nominal_correspondence(sources=None) -> tuple[tuple[str, str], ...]:
-    """Read explicit source pointers, never infer identity from identifier/string fields."""
+def _wire_correspondence_document(sources=None):
     if sources is None:
         content = (
             Path(__file__).resolve().parents[1] / "model/semantic/data-operation-wire-types.yaml"
@@ -785,6 +833,40 @@ def wire_nominal_correspondence(sources=None) -> tuple[tuple[str, str], ...]:
         or document["version"] != "data-operation-wire-types-v1"
     ):
         raise ValueError("unsupported native wire nominal correspondence")
+    return document
+
+
+def _contextual_fields(document):
+    from .wire_json_policy import CONTEXTUAL_JSON_TYPE
+
+    return tuple(sorted(
+        pointer for pointer, nominal in document["fields"].items()
+        if nominal == CONTEXTUAL_JSON_TYPE
+    ))
+
+
+@lru_cache(maxsize=16)
+def _captured_contextual_fields(content: bytes):
+    return _contextual_fields(yaml.safe_load(content))
+
+
+def wire_contextual_fields(sources=None) -> tuple[str, ...]:
+    """Acquire D1 roles with their existing current-model or captured-source custody."""
+    if sources is None:
+        from .native_protocol_model import ambient_contextual_fields
+
+        return ambient_contextual_fields()
+    selected = [source.content for source in sources if source.name == CORRESPONDENCE_SOURCE]
+    if len(selected) != 1:
+        raise ValueError("wire JSON roles require one captured field correspondence")
+    return _captured_contextual_fields(selected[0])
+
+
+def wire_nominal_correspondence(sources=None) -> tuple[tuple[str, str], ...]:
+    """Read explicit field identities and JSON roles; never classify by field spelling."""
+    from .wire_json_policy import CONTEXTUAL_JSON_TYPE
+
+    document = _wire_correspondence_document(sources)
     protocol = _protocol(sources)
     definitions = protocol["definitions"]
     fields = document["fields"]
@@ -839,6 +921,12 @@ def wire_nominal_correspondence(sources=None) -> tuple[tuple[str, str], ...]:
                 value = value[int(part)] if isinstance(value, list) else value[part]
         except (KeyError, IndexError, ValueError, TypeError) as error:
             raise ValueError("unresolved nominal wire source " + pointer) from error
+        if nominal == CONTEXTUAL_JSON_TYPE:
+            if not isinstance(value, dict) or value.get("$ref") not in {
+                "#/definitions/json_value", "#/definitions/DdoJsonValue"
+            }:
+                raise ValueError("contextual wire role requires its explicit JSON field: " + pointer)
+            continue
         while isinstance(value, dict) and "$ref" in value:
             value = definitions[value["$ref"].removeprefix("#/definitions/")]
         alternatives = value.get("anyOf", value.get("oneOf", [value]))
@@ -874,6 +962,12 @@ def render_wire_types(definitions, nominals=()):
         if not isinstance(value, dict):
             raise ValueError("unsupported structural wire schema at " + pointer)
         if pointer in nominal:
+            from .wire_json_policy import CONTEXTUAL_JSON_TYPE
+
+            if nominal[pointer] == CONTEXTUAL_JSON_TYPE:
+                module, alias = CONTEXTUAL_JSON_TYPE.rsplit(".", 1)
+                nominal_imports[alias] = module
+                return alias
             target = value
             while "$ref" in target:
                 target = definitions[target["$ref"].removeprefix("#/definitions/")]

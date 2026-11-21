@@ -101,7 +101,7 @@ def decode_export_manifest(content: bytes) -> DemandExportManifest:
     if not isinstance(parsed, dict):
         raise ValueError("detached manifest must be a JSON object")
     if "cut" in parsed:
-        # The cut has its own contextual numeric contract. All framing fields below
-        # are validated strictly and cannot infer semantics from nested key names.
+        # v3's writer projection reproduces its canonical framing (notably float
+        # exponent spellings). CutSelection separately interprets declared roles.
         parsed["cut"] = own_wire_json_value(parsed["cut"])
     return checked_export_manifest(parsed)

@@ -1,6 +1,17 @@
 # Explicit schema source paths carry nominal identity; field spelling is never a runtime rule.
 version: data-operation-wire-types-v1
 fields:
+  # D1 contextual numbers are declared on fields; arbitrary nested keys stay ordinary JSON.
+  '#/definitions/AuthoredFactRef/properties/analyzed_scope': corpus_structure.semantic.data_operation_json.ContextualJsonValue
+  '#/definitions/member_context/properties/analyzed_scope': corpus_structure.semantic.data_operation_json.ContextualJsonValue
+  '#/definitions/original_source_admission_result/properties/analyzed_scope': corpus_structure.semantic.data_operation_json.ContextualJsonValue
+  '#/definitions/population_member/properties/analyzed_scope': corpus_structure.semantic.data_operation_json.ContextualJsonValue
+  '#/definitions/population_producer_context/properties/analyzed_scope': corpus_structure.semantic.data_operation_json.ContextualJsonValue
+  '#/definitions/population_selection_evidence/properties/analyzed_scope': corpus_structure.semantic.data_operation_json.ContextualJsonValue
+  '#/definitions/result_obligation/properties/analyzed_scope': corpus_structure.semantic.data_operation_json.ContextualJsonValue
+  '#/definitions/result_product/properties/analyzed_scope': corpus_structure.semantic.data_operation_json.ContextualJsonValue
+  '#/definitions/root_subject/properties/analyzed_scope': corpus_structure.semantic.data_operation_json.ContextualJsonValue
+  '#/definitions/source_set_entry/properties/analyzed_scope': corpus_structure.semantic.data_operation_json.ContextualJsonValue
   '#/definitions/visual_evidence_pin/properties/use_id': WireUseIdentity
   '#/definitions/visual_evidence_pin/properties/product_id': WireProductId
   '#/definitions/visual_evidence_pin/properties/derivation_id': WireDerivationId

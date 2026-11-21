@@ -17,6 +17,8 @@ import rapidjson
 type DdoJsonValue = (
     bool | int | float | Decimal | str | list[DdoJsonValue] | dict[str, DdoJsonValue] | None
 )
+# Explicit field-role alias used by the existing native wire correspondence.
+type ContextualJsonValue = DdoJsonValue
 type FiniteJsonValue = (
     bool | int | float | str | list[FiniteJsonValue] | dict[str, FiniteJsonValue] | None
 )
@@ -145,6 +147,89 @@ def native_json_loads(content: str | bytes) -> Any:
         )
     except (ValueError, RecursionError) as error:
         raise JsonBoundaryError("invalid native JSON document") from error
+
+
+def decode_retained_json_object(
+    content: bytes, fields: tuple[str, ...]
+) -> tuple[dict[str, Any], bytes]:
+    """Select an object's original member bytes without reformatting number tokens.
+
+    The stdlib decoder owns JSON token boundaries. Only framing and field selection
+    are handled here; the resulting contract's validator owns its field semantics.
+    """
+    if type(content) is not bytes:
+        raise TypeError("retained JSON selection requires immutable bytes")
+    decoder = json.JSONDecoder(
+        parse_float=Decimal, object_pairs_hook=_json_object, parse_constant=_json_constant
+    )
+    try:
+        document = content.decode("utf-8")
+
+        def skip(position):
+            while position < len(document) and document[position] in " \t\r\n":
+                position += 1
+            return position
+
+        position = skip(0)
+        if document[position:position + 1] != "{":
+            raise ValueError("retained JSON selection requires an object")
+        position += 1
+        values, selected = {}, {}
+        while True:
+            position = skip(position)
+            if document[position:position + 1] == "}":
+                position += 1
+                break
+            name, position = decoder.raw_decode(document, position)
+            if type(name) is not str or name in values:
+                raise ValueError("retained JSON selection requires unique string keys")
+            position = skip(position)
+            if document[position:position + 1] != ":":
+                raise ValueError("invalid retained JSON object member")
+            start = skip(position + 1)
+            value, position = decoder.raw_decode(document, start)
+            values[name] = value
+            if name in fields:
+                selected[name] = document[start:position].encode("utf-8")
+            position = skip(position)
+            token = document[position:position + 1]
+            if token == "}":
+                position += 1
+                break
+            if token != ",":
+                raise ValueError("invalid retained JSON object delimiter")
+            position = skip(position + 1)
+            if document[position:position + 1] == "}":
+                raise ValueError("retained JSON object has a trailing comma")
+        if skip(position) != len(document) or set(selected) != set(fields):
+            raise ValueError("retained JSON selection lacks its exact object fields")
+        retained = b"{" + b",".join(json_bytes(name) + b":" + selected[name] for name in sorted(fields)) + b"}"
+        return values, retained
+    except (ValueError, RecursionError) as error:
+        raise JsonBoundaryError("invalid retained JSON object") from error
+
+
+def own_native_json_value(value: Any, *, contextual: bool = False) -> Any:
+    """Project admitted native number tokens under one declared field meaning.
+
+    Context belongs to a schema field, never to a user object's nested key names.
+    An integer token stays an integer. Fractional/exponent tokens become ordinary
+    finite floats or retain their D1 contextual decimal value.
+    """
+    if type(value) is dict:
+        if not all(type(key) is str for key in value):
+            raise JsonBoundaryError("native JSON requires string keys")
+        return {
+            _own_finite_json(key): own_native_json_value(item, contextual=contextual)
+            for key, item in value.items()
+        }
+    if type(value) is list:
+        return [own_native_json_value(item, contextual=contextual) for item in value]
+    if type(value) is Decimal and value.is_finite():
+        return value if contextual else _json_float(str(value))
+    if contextual and type(value) is float and math.isfinite(value):
+        return Decimal(str(value))
+    return _own_finite_json(value)
 
 
 def wire_json_loads(content: str | bytes) -> Any:

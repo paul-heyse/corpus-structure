@@ -1007,6 +1007,9 @@ def native_operation_calls(
 
     schemas = wire_contracts(sources)
     nominals = wire_nominal_correspondence(sources)
+    from .wire_json_policy import CONTEXTUAL_JSON_TYPE
+
+    ordinary_nominals = tuple((pointer, role) for pointer, role in nominals if role != CONTEXTUAL_JSON_TYPE)
     resolved = OperationFieldType("json_payload", False, False)
     protocol = _protocol(sources)
     captured = {"data." + item["name"] for item in protocol}
@@ -1029,6 +1032,7 @@ def native_operation_calls(
     result = []
     for item in protocol:
         name = item["name"]
+        selected_nominals = nominals if name == "read_demand_result" else ordinary_nominals
         owner = "data." + name
         if owner not in owners:
             continue
@@ -1046,7 +1050,7 @@ def native_operation_calls(
                             native_parameter="p_payload",
                             resolved=resolved,
                             wire_schema=canonical_bytes(schemas[name]["input"]).decode(),
-                            wire_nominals=nominals,
+                            wire_nominals=selected_nominals,
                         ),
                     ),
                     result_fields=(
@@ -1057,7 +1061,7 @@ def native_operation_calls(
                             native_field="payload",
                             resolved=resolved,
                             wire_schema=canonical_bytes(schemas[name]["output"]).decode(),
-                            wire_nominals=nominals,
+                            wire_nominals=selected_nominals,
                         ),
                     ),
                     result_class="".join(word.title() for word in name.split("_")) + "Result",

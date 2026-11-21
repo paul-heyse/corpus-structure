@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, TypedDict
 
@@ -16,7 +17,7 @@ from pydantic import ConfigDict, TypeAdapter, with_config
 from sqlalchemy import Text, bindparam, cast, func, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 
-from ._data_operation_wire import DataOperationCalls
+from ._data_operation_wire import DataOperationCalls, WireReadDemandSelection
 from .data_operation_json import native_json_loads
 from .data_operation_jsonb import ContextJSONB, json_context_value
 from .identity import canonical_bytes
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
 @with_config(ConfigDict(extra="forbid"))
 class AcquiredDataReadContext(TypedDict):
     demand_id: str
-    selection: dict[str, Any]
+    selection: WireReadDemandSelection
     trust_snapshot: dict[str, int]
     read_id: str
     read_snapshot: str
@@ -40,6 +41,20 @@ class AcquiredDataReadContext(TypedDict):
 
 
 _READ_CONTEXT = TypeAdapter(AcquiredDataReadContext)
+
+
+@lru_cache(maxsize=1)
+def _read_context_validator():
+    from .data_operation_wire import prepare_wire_schema, wire_contextual_fields, wire_record_schema
+
+    captured = wire_record_schema("cut_selection")
+    root = captured["definitions"]["cut_selection"]
+    names = tuple(AcquiredDataReadContext.__annotations__)
+    return prepare_wire_schema(
+        {"type": "object", "properties": {name: root["properties"][name] for name in names},
+         "required": list(names), "additionalProperties": False, "definitions": captured["definitions"]},
+        contextual_fields=wire_contextual_fields(),
+    )
 
 
 class DataOperationStorage(DataOperationCalls):
@@ -53,7 +68,7 @@ class DataOperationStorage(DataOperationCalls):
     ) -> AcquiredDataReadContext:
         """Authenticate the exact read without constructing an output frontier."""
         acquired = self.connection.scalar(
-            select(func.ops.acquire_data_read_context(bindparam("read_context", type_=JSONB))),
+            select(cast(func.ops.acquire_data_read_context(bindparam("read_context", type_=JSONB)), Text)),
             {
                 "read_context": {
                     "demand_id": demand_id,
@@ -62,7 +77,11 @@ class DataOperationStorage(DataOperationCalls):
                 }
             },
         )
-        context = _READ_CONTEXT.validate_python(acquired, strict=True)
+        if not isinstance(acquired, str):
+            raise ValueError("native read context must retain its exact JSON text")
+        context = _READ_CONTEXT.validate_python(
+            _read_context_validator()(native_json_loads(acquired)), strict=True
+        )
         if context["read_id"] != read_id or context["demand_id"] != demand_id:
             raise ValueError("native read context differs from its exact acquisition")
         return context
