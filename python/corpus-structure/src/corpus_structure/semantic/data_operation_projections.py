@@ -1143,25 +1143,9 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
         # Retain row context exactly; transaction visibility markers are not public
         # semantic addresses and are unnecessary for detached interpretation.
         value = func.to_jsonb(relation.table_valued())
-        omitted = {"created_at", "created_xid"}
-        if relation.fullname == "ops.data_population":
-            omitted.add("context_key")
-        elif relation.fullname == "sem.data_operation_definition":
-            omitted.update(
-                {
-                    "binding_expression",
-                    "definition_identity",
-                    "eligibility_identity",
-                    "quantified",
-                    "command_class",
-                    "dependencies",
-                }
-            )
-        if relation.fullname == "ops.data_request":
-            # A later generation can replace physical placement and the active
-            # binding/release/runtime. Authentic consumed pins are immutable uses,
-            # role edges and the producing episode, never this mutable row state.
-            omitted.update({"generation", "live_task_id", "binding", "release_id", "runtime_id"})
+        from .selected_support_contract import omitted_support_fields
+
+        omitted = omitted_support_fields(relation.fullname)
         for name in sorted(omitted & set(relation.c.keys())):
             value = value.op("-")(literal(name))
         key = func.jsonb_build_array(

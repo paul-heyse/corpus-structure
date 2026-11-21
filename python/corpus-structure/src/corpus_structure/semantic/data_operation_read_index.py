@@ -9,7 +9,8 @@ from collections.abc import Mapping
 
 from sqlalchemy import Column, Index, LargeBinary, MetaData, Table, Text, func, literal, select
 
-from .data_operation_json import json_bytes, wire_json_loads
+from .data_operation_json import json_bytes, native_json_loads
+from .selected_support_contract import SelectedSupportReader
 from .sqlite_scratch import open_scratch, seal_reads
 
 _METADATA = MetaData()
@@ -75,7 +76,7 @@ class _RecordMapping(Mapping):
             raise KeyError(key)
         if len(rows) != 1:
             raise ValueError("detached records repeat a nominal identity")
-        return wire_json_loads(rows[0][0])["record"]
+        return self.index.reader.loads(rows[0][0], validate=False)["record"]
 
     def __iter__(self):
         for row in self.values():
@@ -95,7 +96,8 @@ class _RecordMapping(Mapping):
 
 
 class SelectedRecordIndex:
-    def __init__(self, path):
+    def __init__(self, path, *, reader=None):
+        self.reader = SelectedSupportReader() if reader is None else reader
         self.connection = open_scratch(path)
         self.retained_bytes = 0
         self.retained_records = 0
@@ -112,7 +114,7 @@ class SelectedRecordIndex:
         seal_reads(self.connection)
 
     def append(self, payload, *, allow_equal=False):
-        row = wire_json_loads(payload)
+        row = self.reader.loads(payload)
         previous = self.connection.execute(
             select(_RECORDS.c.payload).where(_RECORDS.c.key == row["key"])
         ).fetchone()
@@ -168,13 +170,13 @@ class SelectedRecordIndex:
             .where(_FRONTIER.c.kind == kind)
             .order_by(_FRONTIER.c.identity)
         ):
-            yield wire_json_loads(payload)
+            yield self.reader.frontier(kind, native_json_loads(payload))
 
     def records(self):
         for (payload,) in self.connection.execute(
             select(_RECORDS.c.payload).order_by(_RECORDS.c.key)
         ):
-            yield wire_json_loads(payload)
+            yield self.reader.loads(payload, validate=False)
 
     def rows(self, relation):
         for (payload,) in self.connection.execute(
@@ -182,13 +184,13 @@ class SelectedRecordIndex:
             .where(_RECORDS.c.relation == relation)
             .order_by(_RECORDS.c.key)
         ):
-            yield wire_json_loads(payload)["record"]
+            yield self.reader.loads(payload, validate=False)["record"]
 
     def rows_for(self, relation, **fields):
         for (payload,) in self.connection.execute(
             _selected(relation, tuple(fields), fields.values()).order_by(_RECORDS.c.key)
         ):
-            yield wire_json_loads(payload)["record"]
+            yield self.reader.loads(payload, validate=False)["record"]
 
     def mapping(self, relation, fields):
         return _RecordMapping(self, relation, tuple(fields))

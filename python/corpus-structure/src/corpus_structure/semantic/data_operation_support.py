@@ -187,13 +187,12 @@ ORIGINAL_SUPPORT_REFERENCE_SCHEMA = "native/data-operation-original-support-refe
 
 
 def original_support_reference_schema() -> bytes:
-    from jsonschema import Draft7Validator
+    from .data_operation_wire import DRAFT7, NativeJsonSchema
 
     schema = TypeAdapter(OriginalDocumentRef | AuthoredFactRef).json_schema(
-        ref_template="#/definitions/{model}"
+        ref_template="#/definitions/{model}",
+        schema_generator=NativeJsonSchema,
+        mode="validation",
     )
-    if "$defs" in schema:
-        schema["definitions"] = schema.pop("$defs")
-    schema["$schema"] = "http://json-schema.org/draft-07/schema#"
-    Draft7Validator.check_schema(schema)
+    schema["$schema"] = DRAFT7
     return canonical_bytes(schema)

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from ._data_operation_wire import WireCutSelection
 from .data_operation_identity import body_identity, contextual_product_identity
-from .data_operation_json import json_bytes, wire_json_loads
+from .data_operation_json import json_bytes, native_json_loads, wire_json_loads
 from .data_operation_model import SubjectContext, validate_replicate_selection
 from .data_operation_values import decode_semantic_value
 from .selected_graph_budget import SelectedGraphBudgetExceeded
@@ -108,18 +108,17 @@ class DemandResult:
 
     content: bytes
     request: bytes = b"{}"
+    reader_schema: bytes | None = None
 
     @cached_property
     def _page(self):
-        from .data_operation_json import decode_retained_json_object, own_wire_json_value
-        from .demand_wire import declared_frontier, project_frontier_record
+        from .data_operation_json import decode_retained_json_object
+        from .demand_wire import interpret_demand_record
         from .native_source_view import freeze_native
 
         parsed, cut_content = decode_retained_json_object(self.content, _PIN_FIELDS)
-        interpreted = (
-            project_frontier_record(parsed)
-            if declared_frontier(parsed)
-            else own_wire_json_value(parsed)
+        interpreted = interpret_demand_record(
+            parsed, None if self.reader_schema is None else native_json_loads(self.reader_schema)
         )
         return freeze_native(interpreted), cut_content
 
@@ -516,7 +515,9 @@ def verify_detached_result(
         if wire_schema is None
         else validate_wire_schema(wire_schema, dict(record))
     )
-    page = DemandResult(json_bytes(admitted))
+    page = DemandResult(
+        json_bytes(admitted), reader_schema=None if wire_schema is None else json_bytes(wire_schema)
+    )
     closure = {}
     if index is None:
         for row in records:
@@ -697,9 +698,7 @@ def verify_detached_result(
                 "bounded execution evidence requires captured release/runtime contracts"
             )
         if execution_evidence_schema is not None:
-            from jsonschema import Draft202012Validator
-
-            Draft202012Validator(execution_evidence_schema).validate(value)
+            prepared_schema_validator(json_bytes(execution_evidence_schema)).validate(value)
         leaf = (
             validate_execution_evidence_leaf(
                 value,

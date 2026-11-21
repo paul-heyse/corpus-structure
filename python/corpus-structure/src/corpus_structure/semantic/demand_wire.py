@@ -16,7 +16,7 @@ from pydantic import TypeAdapter
 
 from . import _data_operation_wire
 from ._data_operation_wire import WireDemandReadScope, WireReadDemandResultResult
-from .data_operation_json import native_json_loads, own_json_value, own_wire_json_value
+from .data_operation_json import native_json_loads, own_json_value
 
 if TYPE_CHECKING:
     from .demand_wire_schema import CapturedWireValidator
@@ -100,6 +100,26 @@ def project_frontier_record(value: dict) -> dict:
     return validate_native_wire("read_demand_result", "output", value)
 
 
+@lru_cache(maxsize=32)
+def _captured_demand_interpretation(content: bytes):
+    from .selected_support_contract import prepare_demand_interpretation
+
+    schema = native_json_loads(content)
+    return prepare_demand_interpretation(schema, tuple(schema["x-corpus-contextual-fields"]))
+
+
+def interpret_demand_record(value, reader_schema=None):
+    if reader_schema == {}:
+        return own_json_value(value)
+    if reader_schema is None:
+        from .native_protocol_model import ambient_demand_interpretation
+
+        return ambient_demand_interpretation()(value)
+    from .data_operation_json import json_bytes
+
+    return _captured_demand_interpretation(json_bytes(reader_schema))(value)
+
+
 def decode_wire_demand_result(content: bytes) -> WireReadDemandResultResult:
     """Decode exact bytes into an owned generated record, preserving all material.
 
@@ -109,11 +129,7 @@ def decode_wire_demand_result(content: bytes) -> WireReadDemandResultResult:
     if type(content) is not bytes:
         raise TypeError("native demand decoding requires exact immutable bytes")
     parsed = native_json_loads(content)
-    source = (
-        project_frontier_record(parsed)
-        if declared_frontier(parsed)
-        else own_wire_json_value(parsed)
-    )
+    source = interpret_demand_record(parsed)
     candidate = own_json_value(source)
     validator = captured_demand_wire_validator()
     result = (

@@ -10,9 +10,18 @@ from tempfile import TemporaryDirectory
 from sqlalchemy import Column, LargeBinary, MetaData, Table, Text, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
-from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
+from corpus_structure.semantic.data_operation_json import (
+    json_bytes,
+    native_json_loads,
+    wire_json_loads,
+)
 from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 from corpus_structure.semantic.demand_results import stream_demand_result, stream_selected_support
+from corpus_structure.semantic.selected_support_contract import (
+    SUPPORT_EXTENSION,
+    SelectedSupportReader,
+    omitted_support_fields,
+)
 from corpus_structure.semantic.sqlite_scratch import open_scratch
 
 from .demand_export_manifest import (
@@ -86,7 +95,12 @@ def _relation_schema(relation, names, cut_id):
             for name, field in NativeExecutionEvidenceLeaf.model_fields.items()
         ]
     else:
-        columns = tuple(column for column in table(relation).c if column.name in names)
+        columns = tuple(
+            column for column in table(relation).c
+            if column.name not in omitted_support_fields(relation)
+        )
+        if names != {column.name for column in columns}:
+            raise ValueError("selected export columns differ from the captured relation shape")
         fields = [
             pa.field(column.name, sql_arrow_type(column.type), nullable=column.nullable)
             for column in columns
@@ -161,7 +175,7 @@ def export_demand_result(
     Parquet conversion consumes the same-session native rows already read under
     their pins. There is no second database connection or imported snapshot.
     """
-    from corpus_structure.semantic.data_operation_wire import wire_contracts
+    from corpus_structure.semantic.data_operation_wire import wire_contextual_fields, wire_contracts
     from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
 
     if format not in {"jsonl", "parquet"}:
@@ -295,11 +309,37 @@ def export_demand_result(
                 ),
             )
             runtime_files.append(name)
+        support_reader = SelectedSupportReader()
+        selected_relations = [
+            relation for (relation,) in spool.execute(
+                select(_RECORDS.c.relation).distinct().order_by(_RECORDS.c.relation)
+            )
+        ]
+        support_contracts = support_reader.capture(selected_relations)
+        from sqlalchemy import DateTime
+        from sqlalchemy.dialects.postgresql import JSONB
+
+        for relation in selected_relations:
+            first = spool.execute(
+                select(_RECORDS.c.payload).where(_RECORDS.c.relation == relation)
+                .order_by(_RECORDS.c.key).limit(1)
+            ).scalar_one()
+            names = set(native_json_loads(first)["record"])
+            arrow, columns = _relation_schema(relation, names, cut.identity)
+            support_contracts[relation]["arrow_schema"] = arrow.serialize().to_pybytes().hex()
+            support_contracts[relation]["encodings"] = {
+                column.name: "json" if isinstance(column.type, JSONB) else
+                "timestamp" if isinstance(column.type, DateTime) else "native"
+                for column in columns
+            }
+        reader_schema = wire_contracts()["read_demand_result"]["output"]
+        reader_schema[SUPPORT_EXTENSION] = support_contracts
+        reader_schema["x-corpus-contextual-fields"] = list(wire_contextual_fields())
         # The read protocol belongs to the acquiring reader, independently of each
         # historical producer's release and exact archived body/kind contracts.
         write(
             "reader-contract.json",
-            json_bytes(wire_contracts()["read_demand_result"]["output"]),
+            json_bytes(reader_schema),
         )
         from corpus_structure.semantic.authority_leaf import NativeAuthorityLeaf
 
@@ -324,22 +364,15 @@ def export_demand_result(
 
             import pyarrow as pa
             import pyarrow.parquet as pq
-            from sqlalchemy import DateTime
-            from sqlalchemy.dialects.postgresql import JSONB
 
             for (relation,) in spool.execute(
                 select(_RECORDS.c.relation).distinct().order_by(_RECORDS.c.relation)
             ):
                 authority = relation == "ops.data_authority_leaf"
                 execution = relation == "ops.data_execution_evidence_leaf"
-                first = spool.execute(
-                    select(_RECORDS.c.payload)
-                    .where(_RECORDS.c.relation == relation)
-                    .order_by(_RECORDS.c.key)
-                    .limit(1)
-                ).scalar_one()
-                names = set(wire_json_loads(first)["record"])
-                schema, columns = _relation_schema(relation, names, cut.identity)
+                captured = support_contracts[relation]
+                schema = pa.ipc.read_schema(pa.BufferReader(bytes.fromhex(captured["arrow_schema"])))
+                encodings = captured["encodings"]
                 name = relation.replace(".", "_") + ".parquet"
                 count = 0
                 with pq.ParquetWriter(root / name, schema) as writer:
@@ -351,7 +384,7 @@ def export_demand_result(
                     for batch in batched(rows, 64, strict=False):
                         values = []
                         for (payload,) in batch:
-                            record = wire_json_loads(payload)["record"]
+                            record = support_reader.loads(payload, validate=False)["record"]
                             if authority:
                                 values.append(
                                     NativeAuthorityLeaf.model_validate(record).model_dump(
@@ -374,14 +407,12 @@ def export_demand_result(
                                 continue
                             values.append(
                                 {
-                                    column.name: json_bytes(record[column.name]).decode()
-                                    if isinstance(column.type, JSONB)
-                                    and record[column.name] is not None
-                                    else datetime.fromisoformat(record[column.name])
-                                    if isinstance(column.type, DateTime)
-                                    and record[column.name] is not None
-                                    else record[column.name]
-                                    for column in columns
+                                    name: json_bytes(record[name]).decode()
+                                    if encoding == "json" and record[name] is not None
+                                    else datetime.fromisoformat(record[name])
+                                    if encoding == "timestamp" and record[name] is not None
+                                    else record[name]
+                                    for name, encoding in encodings.items()
                                 }
                             )
                         writer.write_batch(pa.RecordBatch.from_pylist(values, schema=schema))
@@ -509,11 +540,14 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
         )
         validate_data_operation_runtime(binding, prepared[binding.release_id])
         runtime_ids.add((binding.release_id, binding.runtime_id))
-    wire_schema = wire_json_loads((root / manifest.reader_contract).read_bytes())
+    wire_schema = native_json_loads((root / manifest.reader_contract).read_bytes())
+    if SUPPORT_EXTENSION not in wire_schema:
+        raise ValueError("detached reader has no captured support interpretation; regenerate export")
+    support_reader = SelectedSupportReader(wire_schema[SUPPORT_EXTENSION], kinds=kinds, wire_schema=wire_schema)
     authority_schema = wire_json_loads((root / manifest.authority_contract).read_bytes())
     execution_schema = wire_json_loads((root / manifest.execution_evidence_contract).read_bytes())
     with TemporaryDirectory(prefix="demand-verify-") as scratch:
-        index = SelectedRecordIndex(Path(scratch) / "closure.sqlite")
+        index = SelectedRecordIndex(Path(scratch) / "closure.sqlite", reader=support_reader)
         try:
             with (root / manifest.closure).open("rb") as stream:
                 for line in stream:
@@ -534,7 +568,7 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
                 raise ValueError("detached manifest misstates its physical execution disclosure")
             for ordinal, name in enumerate(manifest.pages):
                 page = verify_detached_result(
-                    wire_json_loads((root / name).read_bytes()),
+                    native_json_loads((root / name).read_bytes()),
                     index=index,
                     wire_schema=wire_schema,
                     kinds=kinds,

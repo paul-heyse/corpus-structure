@@ -11,7 +11,10 @@ from .data_operation_json import json_bytes, own_native_json_value
 from .schema_validation import prepared_schema_validator
 
 CONTEXTUAL_JSON_TYPE = "corpus_structure.semantic.data_operation_json.ContextualJsonValue"
-_ORDINARY_JSON = {"#/definitions/json_value", "#/definitions/DdoJsonValue"}
+_ORDINARY_JSON = {
+    "#/definitions/json_value", "#/definitions/DdoJsonValue",
+    "#/$defs/DdoJsonValue", "#/$defs/JsonValue",
+}
 
 
 def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str, ...]):
@@ -29,7 +32,12 @@ def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str
 
     def resolve(node):
         while isinstance(node, dict) and "$ref" in node:
-            node = definitions[node["$ref"].removeprefix("#/definitions/")]
+            reference = node["$ref"]
+            node = (
+                schema.get("$defs", {})[reference.removeprefix("#/$defs/")]
+                if reference.startswith("#/$defs/")
+                else definitions[reference.removeprefix("#/definitions/")]
+            )
         return node
 
     def needed(node, pointer, active=frozenset()):
@@ -135,7 +143,7 @@ def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str
         elif "$ref" in node:
             reference = node["$ref"]
             target, shape = compile_node(resolve(node), reference)
-        elif "oneOf" in node or "anyOf" in node:
+        elif ("oneOf" in node or "anyOf" in node) and "properties" not in node:
             keyword = "oneOf" if "oneOf" in node else "anyOf"
             branches = tuple(
                 compile_node(branch, pointer + "/" + keyword + "/" + str(index))
@@ -159,12 +167,14 @@ def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str
                     for valid, convert in alternatives:
                         if valid(value):
                             return convert(value)
-                    raise ValueError("admitted native JSON has no applicable schema branch")
+                    raise ValueError("admitted native JSON has no applicable schema branch at " + pointer)
 
                 target, shape = alternative, ("union", shapes)
         elif node.get("type") == "integer":
 
             def integer_value(value):
+                if type(value) is Decimal and value != value.to_integral_value():
+                    raise ValueError("native integer field contains a fractional number")
                 return int(value) if type(value) is Decimal else ordinary(value)
 
             target = integer_value
@@ -180,6 +190,8 @@ def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str
             )
 
             def object_value(value):
+                if type(value) is not dict:
+                    return ordinary(value)
                 return {
                     key: properties[key][0](item) if key in properties else additional(item)
                     for key, item in value.items()
@@ -214,6 +226,8 @@ def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str
                 element, element_shape = compile_node(items, pointer + "/items")
 
                 def array_values(value):
+                    if type(value) is not list:
+                        return ordinary(value)
                     return [element(item) for item in value]
 
                 target = array_values

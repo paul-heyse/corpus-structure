@@ -605,6 +605,13 @@ def _validator(content: bytes) -> PreparedSchemaValidator:
 def validate_wire_schema(schema: dict[str, Any] | bytes, value: Any) -> Any:
     """Strict JSON-value ingress; return an owned detached snapshot, never coerce."""
     encoded = schema if isinstance(schema, bytes) else canonical_bytes(schema)
+    document = json.loads(encoded)
+    if "x-corpus-selected-support" in document:
+        return prepare_wire_schema(
+            encoded,
+            contextual_fields=tuple(document["x-corpus-contextual-fields"]),
+            frontier_path=(),
+        )(value)
     return _validate_wire_value(_validator(encoded), value)
 
 
@@ -633,10 +640,19 @@ def _prepared_wire_schema(encoded, contextual_fields, frontier_path):
                 selected = value
                 for key in frontier_path:
                     selected = selected[key]
-                if selected.get("view", "frontier") != "frontier":
-                    return own_wire_json_value(value, preserve_integral_tokens=True)
-                if selected.get("support_page") is not None:
-                    raise ValueError("frontier JSON interpretation requires an absent support page")
+                support = selected.get("support_page")
+                interpreted = declared(value)
+                if support is not None:
+                    from .selected_support_contract import SUPPORT_EXTENSION, SelectedSupportReader
+
+                    reader = SelectedSupportReader(json.loads(encoded).get(SUPPORT_EXTENSION))
+                    target = interpreted
+                    for key in frontier_path:
+                        target = target[key]
+                    target["support_page"]["records"] = [
+                        reader.record(row) for row in support["records"]
+                    ]
+                return interpreted
             return declared(value)
 
         projector = project
@@ -678,7 +694,6 @@ def validate_native_wire(
             )
             if operation == "read_demand_result"
             and isinstance(value, dict)
-            and value.get("view", "frontier") == "frontier"
             else state.validators[operation, direction]
         )
     except KeyError as exc:

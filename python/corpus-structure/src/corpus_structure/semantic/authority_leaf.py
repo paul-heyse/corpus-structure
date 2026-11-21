@@ -41,9 +41,11 @@ def validate_authority_leaf(value, *, products, kinds, definitions, runtimes, sc
     )
 
     if schema is not None:
-        from jsonschema import Draft7Validator
+        from .data_operation_json import json_bytes
+        from .data_operation_wire import DRAFT7
+        from .schema_validation import prepared_schema_validator
 
-        Draft7Validator(schema).validate(value)
+        prepared_schema_validator(json_bytes({"$schema": DRAFT7, **schema})).validate(value)
     leaf = NativeAuthorityLeaf.model_validate(value)
     if definitions is None or runtimes is None or kinds is None:
         raise ValueError("bounded authority requires its captured release/kind/runtime contracts")

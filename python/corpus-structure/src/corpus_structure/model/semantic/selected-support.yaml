@@ -1,0 +1,39 @@
+# Interpretation of the exported native relation projection. Stored row structure
+# remains owned by the physical model, and body structure by captured kind contracts.
+version: selected-support-v1
+omitted: [created_at, created_xid]
+relations:
+  ops.data_population:
+    omitted: [context_key]
+    json_contracts: {members: {record: population_member, many: true}}
+  sem.data_operation_definition:
+    omitted: [binding_expression, definition_identity, eligibility_identity, quantified, command_class, dependencies]
+  ops.data_request:
+    omitted: [generation, live_task_id, binding, release_id, runtime_id]
+    contextual: [analyzed_scope]
+  kb.data_product:
+    contextual: [analyzed_scope]
+    kind_body: canonical_body
+  kb.data_product_member:
+    contextual: [analyzed_scope]
+    kind_body: body
+  ops.original_source_admission:
+    contextual: [analyzed_scope]
+  ops.data_execution_evidence_leaf:
+    json_contracts: {selected_completion: {record: completion, many: false}}
+  ops.data_completion_intent:
+    json_contracts: {payload: {record: completion, many: false}}
+explanation_schema:
+  type: object
+  properties:
+    root_use_id: {type: string}
+    root_derivation_id: {type: string}
+    node_kind: {type: string}
+    node_id: {type: string}
+    valid: {type: boolean}
+    revocation_id: {type: [string, 'null']}
+    selector_kind: {type: [string, 'null']}
+    selector: {type: [string, 'null']}
+    support_path: {type: array, items: {type: string}}
+  required: [root_use_id, root_derivation_id, node_kind, node_id, valid, revocation_id, selector_kind, selector, support_path]
+  additionalProperties: false

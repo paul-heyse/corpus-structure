@@ -14,7 +14,7 @@ from corpus_structure.semantic.data_operation_json import (
     own_wire_json_value,
 )
 
-_Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+_Digest = Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")]
 _Count = Annotated[int, Field(ge=0)]
 
 
