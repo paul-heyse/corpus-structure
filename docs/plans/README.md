@@ -6,6 +6,7 @@ semantic pivot series was added on 2026-10-29:
 
 | Plan | Owns |
 |---|---|
+| [Set-based execution](set-based-execution_2026-11-21.md) | Proposed SBX-00–22: partition-unit storage, declared rules and content-addressed proofs, one reference model, projection-keyed request identity, owner-resolved reads, the single-derivation PDF path and a gated kernel trial. Owns the execution-outside-PostgreSQL review T1–T9, O01–O19 and its defects. Hard pivot with direct cutover; not yet authorized for execution. |
 | [Domain model operability](domain-model-operability_2026-11-20.md) | Proposed DMO-00–09. Owns selected executable acquisition, material identity and recovery, typed consumer requirements, PostgreSQL-native JSON, operator diagnostics and full qualification through the book. Supersedes the UDM series. |
 | [Unified domain model and execution](unified-domain-model-and-execution_2026-11-19.md) | Superseded. Holds historical UDM package scope, status and evidence. Domain model operability owns current integration and full qualification. |
 | [Test domain model and execution](test-domain-model-and-execution_2026-11-17.md) | Proposed TDM-00–18, re-baselined on 2026-11-18 after the ADR-0131 conversion completed: the model-binding rule for tests, preparation identity, controlled boundaries with three production seams, reuse and refusal evidence, declarations and retirement. Owns scheduled disposition of DTA-033, 034, 037–048 and review findings F06–F07, and accepted RC07–RC11. |
