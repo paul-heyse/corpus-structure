@@ -7,7 +7,6 @@ from tempfile import TemporaryDirectory
 from pydantic import BaseModel, ConfigDict
 
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.selected_structural_projection import STRUCTURAL_QUERY_ROOTS
 from corpus_structure.semantic.serving_identity import installed_read_implementation
 from corpus_structure.semantic.value_codec import decimal_digit_limit
@@ -69,7 +68,7 @@ def _replay(root, selection, native_digest):
         models,
         index,
     ):
-        cut = CutSelection.from_native(manifest.cut)
+        cut = manifest.cut_selection
         release = cut.record["release_id"]
         with installed_read_implementation(
             type(request),

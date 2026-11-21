@@ -1,6 +1,7 @@
 """Selected detached transfer controls; native acquisition is controlled here."""
 
 from hashlib import sha256
+from types import SimpleNamespace
 
 import pytest
 
@@ -55,8 +56,9 @@ def test_structural_review_preserves_exact_root_scope_and_refuses_substituted_re
     def export(connection, demand, **kwargs):
         acquired.append((demand, kwargs))
         kwargs["destination"].mkdir()
-        return dict(
-            cut_id="cut:actual", cut=dict(read_id="read:actual"), manifest_digest="native:trusted"
+        return SimpleNamespace(
+            manifest=SimpleNamespace(cut_id="cut:actual", cut=dict(read_id="read:actual")),
+            manifest_digest="native:trusted",
         )
 
     response = dict(

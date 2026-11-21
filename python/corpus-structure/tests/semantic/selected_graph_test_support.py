@@ -4,7 +4,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.selected_graph import selected_graph_snapshot, snapshot_from_index
 
 
@@ -31,9 +31,9 @@ def _selected_snapshot(reader, prepared, request):
 def _offline_snapshot(destination, projection):
     from corpus_structure.semantic.archive_reader import open_release_parts
     from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
-    from corpus_structure.semantic.demand_results import CutSelection
+    from corpus_structure.serve.demand_export_manifest import decode_export_manifest
 
-    manifest = json_loads((destination / "manifest.json").read_bytes())
+    manifest = decode_export_manifest((destination / "manifest.json").read_bytes())
 
     def unpack(row):
         return {
@@ -41,8 +41,8 @@ def _offline_snapshot(destination, projection):
             for key, value in row["values"].items()
         }
 
-    release = manifest["cut"]["release_id"]
-    captured = json_loads((destination / manifest["releases"][release]).read_bytes())
+    release = manifest.cut["release_id"]
+    captured = json_loads((destination / manifest.releases[release]).read_bytes())
     prepared = open_release_parts(
         release,
         unpack(captured["row"]),
@@ -52,12 +52,12 @@ def _offline_snapshot(destination, projection):
     scratch = TemporaryDirectory(prefix="offline-graph-")
     index = SelectedRecordIndex(Path(scratch.name) / "inspection.sqlite")
     try:
-        for row in (destination / manifest["closure"]).read_bytes().splitlines():
+        for row in (destination / manifest.closure).read_bytes().splitlines():
             index.append(row)
-        for page in manifest["pages"]:
+        for page in manifest.pages:
             index.append_page(json_loads((destination / page).read_bytes()))
         return snapshot_from_index(
-            prepared, CutSelection(json_bytes(manifest["cut"])), index, projection
+            prepared, manifest.cut_selection, index, projection
         )
     finally:
         index.close()

@@ -152,9 +152,10 @@ def test_native_requestless_population_fate_survives_tools_and_resources(declare
     from corpus_structure.semantic.demand_results import read_demand_result
 
     clone, stage = declared_serving_case, declared_serving_case.stage.agent
-    with clone.writer.begin() as connection:
+    with clone.reader.begin() as connection:
         page = read_demand_result(connection, stage.demand_id, project_id=stage.project_id)
         obligation = page.record["obligations"][0]["obligation_id"]
+    with clone.writer.begin() as connection:
         recorded = DataOperationStorage(connection).record_data_fate(
             cast(
                 WireRecordDataFateRequest,
@@ -219,7 +220,7 @@ def test_native_requestless_population_fate_survives_tools_and_resources(declare
 
 
 def test_native_graph_reader_exits_before_snapshot_and_topology(declared_serving_case, monkeypatch):
-    import sqlite3
+    from sqlalchemy.exc import ResourceClosedError
 
     from corpus_structure.semantic import graph_inspection, selected_graph
     from corpus_structure.semantic.graph_runtime import nx
@@ -278,8 +279,9 @@ def test_native_graph_reader_exits_before_snapshot_and_topology(declared_serving
     page = graph_inspection.read_graph_inspection(reader, request)
     assert page.standing == "complete" and page.items
     assert events == ["reader-entered", "reader-exited", "snapshot", "components"]
-    with pytest.raises(sqlite3.ProgrammingError, match="closed"):
-        indexes[0].connection.execute("SELECT count(*) FROM records")
+    assert indexes[0].connection.closed
+    with pytest.raises(ResourceClosedError, match="closed"):
+        indexes[0].connection.exec_driver_sql("SELECT count(*) FROM records")
 
     # A fresh budget-limited observation must commit its acquired native read
     # context, too. Reopening that exact cut in another transaction proves it.
