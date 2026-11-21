@@ -1095,3 +1095,39 @@ def test_selected_support_preserves_the_obligation_selector(monkeypatch):
     assert list(stream_selected_support(None, page)) == []
     assert seen[0]["obligation_id"] == "obligation:A"
     assert "support_scope" not in seen[0]
+
+
+def test_selected_record_index_retains_support_from_every_selected_frontier_page(monkeypatch):
+    from corpus_structure.semantic import demand_results as owner
+
+    expected_cut = CutSelection.from_native(demand_result_page())
+    records = []
+    for page_number in (1, 2):
+        record = demand_result_page()
+        record["uses"][0]["use_id"] = "use:page" + str(page_number)
+        if page_number == 1:
+            record["continuation"] = {"after": "page:1"}
+        records.append(DemandResult(json_bytes(record)))
+    pages = iter(records)
+    observed = []
+
+    def read(*args, **kwargs):
+        assert kwargs["continuation"]["obligation_id"] == "obligation:A"
+        return next(pages)
+
+    def support(connection, page, *, whole_read):
+        assert whole_read is False
+        identity = page.record["uses"][0]["use_id"]
+        observed.append(identity)
+        return iter(({"relation": "controlled", "key": identity, "record": {"id": identity}},))
+
+    monkeypatch.setattr(owner, "read_demand_result", read)
+    monkeypatch.setattr(owner, "stream_selected_support", support)
+    with owner.selected_record_index(
+        None, "demand:A", project_id="project:A", scope={},
+        read_id="read:A", expected_cut=expected_cut.identity,
+        obligation_ids=("obligation:A",),
+    ) as (cut, index):
+        assert cut.content == expected_cut.content
+        assert {row["id"] for row in index.rows("controlled")} == {"use:page1", "use:page2"}
+    assert observed == ["use:page1", "use:page2"]

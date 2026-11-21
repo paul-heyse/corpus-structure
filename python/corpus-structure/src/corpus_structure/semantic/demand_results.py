@@ -408,20 +408,25 @@ def selected_record_index(
                             "selected graph examined frontier exceeds record bound", cut=cut
                         )
                     continuation = page.continuation
+                    # A selected obligation's support belongs to its exact frontier
+                    # page. The full-cut route acquires its whole closure once.
+                    if obligation_ids is not None or continuation is None:
+                        for record in stream_selected_support(
+                            connection, page, whole_read=obligation_ids is None
+                        ):
+                            index.append(json_bytes(record), allow_equal=True)
+                            if max_total_records is not None and index.retained_records > max_total_records:
+                                raise SelectedGraphBudgetExceeded(
+                                    "selected graph examined closure exceeds record bound", cut=cut
+                                )
+                            if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
+                                raise SelectedGraphBudgetExceeded(
+                                    "selected graph examined closure exceeds byte bound", cut=cut
+                                )
                     if continuation is None:
                         break
                     if obligation_id is not None:
                         continuation = {**continuation, "obligation_id": obligation_id}
-                for record in stream_selected_support(connection, page, whole_read=obligation_ids is None):
-                    index.append(json_bytes(record), allow_equal=True)
-                    if max_total_records is not None and index.retained_records > max_total_records:
-                        raise SelectedGraphBudgetExceeded(
-                            "selected graph examined closure exceeds record bound", cut=cut
-                        )
-                    if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
-                        raise SelectedGraphBudgetExceeded(
-                            "selected graph examined closure exceeds byte bound", cut=cut
-                        )
             yield cut, index
         finally:
             index.close()
