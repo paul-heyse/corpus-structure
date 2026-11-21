@@ -1030,7 +1030,7 @@ def verify_detached_result(
                 binding["inference"],
                 subject_context=context,
                 execution_scope=(
-                    record["demand_id"]
+                    retained["demand_id"]
                     if not definition["support_contract"]["reuse_eligible"]
                     else None
                 ),
@@ -1087,14 +1087,18 @@ def verify_detached_result(
         if authority is not None:
             raise ValueError("detached public issuer discloses an unauthenticated full binding")
         retained = uses.get(use["use_id"])
-        if retained is None or any(
-            retained[key] != use[key]
-            for key in (
-                "obligation_id",
-                "request_id",
-                "derivation_id",
-                "selection",
-                "trust_snapshot",
+        if (
+            retained is None
+            or retained["demand_id"] != record["demand_id"]
+            or any(
+                retained[key] != use[key]
+                for key in (
+                    "obligation_id",
+                    "request_id",
+                    "derivation_id",
+                    "selection",
+                    "trust_snapshot",
+                )
             )
         ):
             raise ValueError("detached selected use differs from its retained episode binding")
