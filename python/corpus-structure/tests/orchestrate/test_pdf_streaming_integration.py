@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from pdf_controlled_support import ScriptedDocumentConverter, controlled_native_child
+from pdf_controlled_support import controlled_native_child, scripted_pdf_pipeline
 from semantic.current_pdf_source_support import current_pdf_process_source
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -113,7 +113,6 @@ def test_real_private_native_pipeline_retains_pages_then_adopts_after_retirement
 
 @pytest.mark.parametrize("restored", [{1, 3}, {1, 2, 3}])
 def test_resumed_pipeline_limits_page_work_and_restores_full_assembly(monkeypatch, restored):
-    from docling import document_converter
     from docling.datamodel.base_models import ConversionStatus
     from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
 
@@ -126,7 +125,6 @@ def test_resumed_pipeline_limits_page_work_and_restores_full_assembly(monkeypatc
         result.pages = [SimpleNamespace(page_no=number) for number in expected]
 
     spool = SimpleNamespace(restored_pages=restored, restore_pages=restored_pages)
-    monkeypatch.setattr(document_converter, "DocumentConverter", ScriptedDocumentConverter)
     converter = PdfConverter(
         PdfRecipe(
             "a" * 40,
@@ -137,8 +135,10 @@ def test_resumed_pipeline_limits_page_work_and_restores_full_assembly(monkeypatc
         ),
         stream_spool=spool,
     )
-    converter._prepare()
-    pipeline = next(iter(converter._converter.initialized_pipelines.values()))
+    with scripted_pdf_pipeline():
+        converter._prepare()
+    pipeline = converter._pipeline
+    assert pipeline is not None
     monkeypatch.setattr(
         StandardPdfPipeline, "_get_expected_page_nos", lambda self, result: [1, 2, 3]
     )
