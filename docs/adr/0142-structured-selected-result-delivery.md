@@ -5,7 +5,7 @@ status: accepted
 date: 2026-11-20
 supersedes: []
 superseded-by: null
-design: [D8]
+design: [§B3]
 evidence: Proposed
 revisit: A supported selected-result client needs to round-trip a domain value that the finite display model cannot represent.
 ---
