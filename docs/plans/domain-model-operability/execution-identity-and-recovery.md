@@ -118,9 +118,43 @@ derivation and receipt (`8e405fb502714890ac77f0f1feb2139f`). These results quali
 reuse for the scoped Standard profile and host.
 
 The default profile remains demand-scoped pending the [Standard cutover](#standard-default-cutover).
-The bounded recertification leaves live cross-generation publication open. The corrected parent
-still derives the original coordinates beneath the current configured root. The next installed
-journey tests uptake at the [original captured location](#retired-spool-custody).
+The bounded recertification leaves live cross-generation publication open. The parent now derives
+the original coordinates from authenticated original-runtime transport custody. A read-only N46
+stage observation on 2026-11-21 opened the original N45 archive and located the retained producer
+manifest as the write-purpose application role. The next installed journey tests publication from
+that custody across generations and roots. [Original captured location](#retired-spool-custody)
+
+**Installed staging increment · 2026-11-21.** The two Standard runtime variants admitted on
+the dedicated N46 stage (`d24a3fbcce3f428ba64095b154d05afd`, `9d8cef9cabd14c47999f97aff072b178`).
+The installed published-attachment control passed with zero new receipts and no PDF worker start
+(`772d71be2f8c45429350dd2852b41c52`). The unpublished-spool trial first refused captured parent
+bytes after formatting (`3f1fdaf33de841688a05bc589163a602`). An exact-custody retry was stopped
+during preflight (`94e1af2f8fae4e85888bbb1eff4a6156`). Two stack samples reached the full-inventory
+scan in `observed_file`. Verified custody now indexes by path and digest and retains the existing
+file-change checks. The custody and PDF selection passed 45 focused cases
+(`ac5bb04b2a2c4de7ad073c17b63bc314`).
+
+**N47 installed recovery · 2026-11-21.** The real three-page Standard worker completed its spool
+and stopped before native contribution or certification. A separate read found no publication and
+an exclusive writer lock confirmed physical retirement. The same-generation retry published once
+without a provider start on its original runtime (`dbc9609f0d024809b4225224c91e71f5`).
+In the cross-generation control, cancellation released the isolated first demand's interest
+after retirement. The second runtime on a different root acquired generation 2 and published
+once without a provider start (`08b91b26a6374f8baaa55717d905fa62`). The derivation retained the
+generation 1 producer, exact manifest and 49 contributed replays. The changed-original control
+produced a new derivation and receipt (`dbaf67a3216540a3b174f0b7ddf2c5a5`). The actual loaded
+Docling backend factory substitution refused at the same installed distribution version.
+[Recorded controls](../../design_review/evidence/2026-11-21_dmo-n47-recovery/README.md)
+
+**Standard default implementation · 2026-11-21.** Plan input acquisition now derives the selected
+producer from the admitted stream recipe and the declared Standard workflow. The former
+`standard_producer` opt-in field is removed. Enriched and Integrated declarations select their
+existing active paths. The six focused preparation cases passed. The resulting application
+preview selected the same release and runtime as the tested explicit Standard profile and
+applied zero effects (`8cd35738f4454300b944c1ab32a661c1`). Guarded admission verified on N47
+(`9036b3d77a86456fa81dbe7b245795b1`). The installed unchanged repeat retained the recovered
+derivation and produced zero receipts while the provider-start guard remained quiet
+(`4913c3d3eeff4c95940484a05adf2131`).
 
 **N44 execution checkpoint · 2026-11-21.** Resident declaration, preparation and guarded
 reacquisition now enforce one project, interpreter and worker script for a physical shared host.

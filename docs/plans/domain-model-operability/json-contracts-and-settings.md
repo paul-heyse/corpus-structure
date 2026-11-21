@@ -1,6 +1,6 @@
 # JSON contracts and settings
 
-**Status:** Partial implementation and N46 native stage installation. **Created:** 2026-11-20.
+**Status:** Partial implementation and N47 native stage verification. **Created:** 2026-11-20.
 
 This companion owns DMO-05 and DMO-06. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns package state, source dispositions, rule decisions and completion. This target is **Proposed**.
@@ -241,6 +241,23 @@ production package.
 
 ### Consumer transition and retirement
 
+**Scoped implementation · 2026-11-21.** Generated structural native calls now decode exact
+tokens and project declared contextual fields through their prepared schemas. Prepared native
+projection also uses the schema when its contextual-field population is empty. A nested
+ordinary `analyzed_scope` follows its own declared numeric role. Draft custody retains original
+request bytes, the existing acknowledged format and exact tokens until captured writer
+validation. The managed JSON, generated-wire and execution-evidence selection passed 92 cases
+(`8b321021de9c4142bf15e743c69f794e`) and the focused drafts passed 11
+(`9ba751520ce1415e8d0682ae0048d7ab`). Remaining contextual decoder and RapidJSON consumers
+still require migration or an explicit retained-format disposition.
+
+Explicit bound scope and source-set decoding now preserves the exact native numeric tokens used
+for D1. The source-set fixture checks passed six cases (`b63467ce037145d480ece20a71faa202`).
+Selected resource handles now decode through their owning request models. The targeted demand
+and captured support selection passed 43 cases (`b260e33425b546138661637c3f472008`).
+Original-source selection records now use their typed reference reader. The managed selection
+with CLI and composite delivery passed 38 cases (`b0f195d778b34cb583da4270cf4b921c`).
+
 Deliver the migration by complete consumer boundary. The execution-evidence finite codec,
 v3 detached manifest framing and native frontier/continuation are implemented foundations with
 the scoped receipts above. Preserve authentication of manifest bytes before metadata interpretation
@@ -374,6 +391,11 @@ cannot establish execution correspondence.
 
 <a id="dmo-05-settings"></a>
 ### Independently viable settings slice
+
+**Scoped implementation · 2026-11-21.** Owned standalone GLiNER, spaCy, sentence and HanLP
+hosts now receive the validated endpoint and execution policy. Borrowed hosts keep their acquired
+configuration. The focused endpoint and policy controls passed (`16b067b79904446fbadd8cb990cd0ee4`).
+Provider and shared-host qualification retain their respective boundaries.
 
 **Scoped implementation · 2026-11-20.** Private PostgreSQL workers use the actual
 `EnvSettingsSource` naming policy and `known_env_names` to clear both modeled database profiles
@@ -534,6 +556,18 @@ passing sample does not establish compatibility across an entire contract popula
 
 ### Selected producer profile structure
 
+**Scoped implementation · 2026-11-21.** The PDF staging LinkML classes now own the preparation
+and lowering profiles. Generation emits lightweight worker fields, typed parent inputs and
+profile identifiers consumed by the native certification and recovery builders. The worker stays
+on its captured stdlib types and the parent uses a discriminated adapter. The focused custody
+and PDF selection passed 45 cases (`ac5bb04b2a2c4de7ad073c17b63bc314`). Native fixtures that still
+held the earlier kernel refused setup. Rollback-only N47 authoring passed
+(`66e84f65d70f41ff8e8e73d12efdf690`). Registration retained the generated migration
+(`6554033233724ba6be01ca2f49c1f773`), and guarded deployment verified it on the dedicated stage
+(`9e0ffd5a3f2748fe8aadd835f221d9fe`). The two Standard variants and Integrated passed separate
+N47 admissions. The installed cross-generation recovery and same-version guard passed at
+their scoped target and runtime. [N47 installed evidence](../../design_review/evidence/2026-11-21_dmo-n47-recovery/README.md)
+
 Extend the PDF staging declaration that owns `PdfProducerCertificationRecord` with the closed
 profile tags and fields shared by the selected report, spool identity projection, parent decoder,
 lowering and native recovery and certification. Use LinkML Runtime 1.12.1 `SchemaView.induced_slot`
@@ -590,10 +624,11 @@ draft reopening and DMO-04's per-intent inspection, without changing their nativ
 [Family validation owner](../../../python/corpus-structure/src/corpus_structure/semantic/completion_validation_native.py#L27) ·
 [Unconditional identity checks](../../../python/corpus-structure/src/corpus_structure/semantic/data_completion_settlement_native.py#L685)
 
-Reconcile generated source and installed SQL catalogs for validation sites, explicit dialects and
-schema provenance before retiring checks. The prior raw counts of 55 calls in 42 functions versus
-108 or 506 source matches count different material and remain un-reconciled. List the actual target
-functions instead of adopting a historical count. Capture the fanout of the global wire digest to
+The N47 catalog census on 2026-11-21 matched 43 generated and installed routines with 54 direct
+`public.json_matches_schema` sites. The [named source and catalog inventory](../../design_review/evidence/2026-11-21_dmo-n47-validation-catalog/README.md)
+records the owning declarations and installed signatures. Historical source counts used different
+populations. Use this inventory with the relevant dialect, schema provenance and receipt guarantees
+before retiring checks. Capture the fanout of the global wire digest to
 all wrappers, generated call descriptors, frozen native artifacts, stored execution evidence and
 continuations. Author the needed forward revision through existing typed generation and admission,
 with preview of the actual affected bytes. Coordinate its client/consumer migration with DMO-05,

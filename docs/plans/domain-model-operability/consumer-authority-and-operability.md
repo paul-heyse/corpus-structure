@@ -59,8 +59,41 @@ with a 1,200-second watchdog. Its retained receipt is under `build/dmo01-06/even
 The successful case recorded about 686 seconds of setup and 178 seconds of call time. Both
 earlier watchdog results stay failed. Statement-level attribution and wider cases remain open.
 
+The 2026-11-21 `uv run ci test retry` of the actual bounded GLiNER M1 provider case passed
+with the retained PM2 assets (`8a9d655ce55d4b1983cf73c6abb40853`). Its first invocation was
+blocked on the asset setting. The retry verified publication and the selected candidate inspection
+with cohort custody on its private test target. The broader regional and provider cases remain
+with their respective scopes.
+
+The managed selected event fitter, issuer and shared scorer case passed on 2026-11-21
+(`80f861d2b2fb41b2ab8264559bb41942`). It retained the exact private basis and checked the public
+probability and support independently. Its 1,800-second watchdog covered the whole case. Fixture
+setup recorded 1,025 seconds and the case body recorded 206. The previous 900-second watchdog
+failure remains recorded in `0c6d5e1fb1e843389fc2ab041bc80e9a`. The managed runner now exposes
+`--test-timeout` and carries it into retries. The 32 focused CLI and lane controls passed.
+
+The fresh Integrated trial on N47 first refused a stale spaCy distribution and lock observation
+during preparation. Guarded `ci release reacquire-host` produced a new runtime on the same
+release and acquired database (`238dbb39fed746aa991c9af1cfb27c94`). The retry reached real Docling
+and Nemotron, published the integrated source and discovered two selected regions. A PostgreSQL
+activity sample during the subsequent bounded readback observed an active
+`ops.read_demand_result` backend without lock blockers.
+The controlled hold preserved a fulfilled sibling and withheld whole-view composition until
+coverage was complete. Exact resume passed with seven new receipts and 20 fulfilled obligations.
+The held task completed on attempt two with no lease. The exact repeat published zero receipts
+and an installed query continued under the same current cut.
+[N47 Integrated regional recovery](../../design_review/evidence/2026-11-21_dmo-n47-recovery/README.md#fresh-integrated-regional-recovery)
+
 <a id="dmo-03"></a>
 ## DMO-03 · Derive typed consumer requirements
+
+**Scoped evidence · 2026-11-21.** The actual N46 rich-admission journey passed fitted-policy,
+public issuer and protected result checks with independent native producer, CPU and publication
+receipt assertions (`0c6d5e1fb1e843389fc2ab041bc80e9a`, rich node). The same selection's event
+node reached demand registration after approximately 877 seconds of setup and hit the runner's
+900-second total watchdog before scoring. The shared fixture affinity and collection diagnostic
+controls passed (`6c8a5048f9bf49b6afdd582c95083fd3`). The event scorer and broader policy/event
+consumer migration retain their own acceptance.
 
 **Execution follow-up · 2026-11-21.** Binding preparation compares observed producer facts
 against the compiled consuming role. The selected native row carries the producing derivation,
@@ -150,6 +183,13 @@ owns support selection and current disclosure. Seventy-seven focused private cas
 (`0b1a5c4b83f54905bb4887738151bde9`), including native JSONL and Parquet exports.
 The later-page use on a regional population, broader migration and statement-level attribution
 retain their acceptance below.
+
+**Scoped implementation · 2026-11-21.** Use-selected reads now seed support with the already
+selected obligation on mixed frontier pages. Full selected pages retain a single support read.
+The exact cut, native support pagination and live authority checks remain at the existing reader.
+The demand, captured support and context selection passed 46 cases
+(`e3c5c9aaf5ff4377859f699e4904c2c2`). Regional later-page readback and phase attribution retain
+their acceptance.
 
 The earlier event journey published frame, fit and authorization, then exhausted the watchdog
 at scorer attachment. N44's later attempts moved that failure boundary to whole-demand delivery
@@ -296,6 +336,35 @@ repeated same-cut projection only after migrated readers preserve these checks. 
 
 <a id="dmo-07"></a>
 ## DMO-07 · Explain operator decisions through existing commands
+
+**Scoped implementation · 2026-11-21.** `ci results inspect` reports retained preparation,
+recovery and deployment observations with their standing. It can report known kernel mismatch
+as requiring successor admission, or carry a conditional exact resume when current premises
+remain to be acquired. The fresh query action verifies the recorded target before reading. The
+managed CLI and owner selection passed 37 cases (`74b614ec1d2b4a3ab607b72791a1cdc0`). A read-only
+stage inspection of the retained N45 invocation returned a successor-admission requirement on
+N46. The shared operation explanation now emits typed roles, requirements, families, effects and
+native fate with exact read pins. The compiled-kernel explanation case passed
+(`8bfb76408445439bb1f13cc12b712df0`). The three archived CLI/MCP native cases retained a kernel
+mismatch before report execution (`ce7b1c85fb2c402db08dda33d0cc5d1e`). The installed
+`ci schema explain-operation` command returned typed roles and a pinned native observation for
+the retained N46 Standard demand. The N47 stage CLI and retained FastMCP server returned
+identical roles, eligibility, effects and validity families for the same Standard demand. Each
+returned its own authenticated native read pin with matching demand, project and release.
+Captured continuation and negative cases retain their separate acceptance.
+
+**Retained and fresh reads · 2026-11-21.** `ci results inspect` now offers a target-guarded
+`ci demands read` action with the observed frontier read ID, scope and bounds. The separate fresh
+`ci query` action reacquires current authority. The unguarded status command suggestion is
+retired. Selected-page delivery projects the implementation identity to its scalar before
+CLI/MCP serialization. On the installed N47 command, replay retained the exact inspected read
+and snapshot, and the fresh action acquired a distinct read for the same demand, project and
+release. An installed one-row support page continued under the same cut, and using its cursor
+for the members projection refused. The retained genuine two-region demand also continued on
+N47 with its original release and a single acquired cut. The managed CLI, original support,
+rich and composite delivery selection passed 38 cases (`b0f195d778b34cb583da4270cf4b921c`),
+including target and project refusal controls.
+Broader changed-authority and regional interrupted-journey cases retain their acceptance.
 
 **Scoped implementation · 2026-11-20.** The executor records preparation refusals with the
 operation and available resource/digest prerequisites before provider submission or a work claim.

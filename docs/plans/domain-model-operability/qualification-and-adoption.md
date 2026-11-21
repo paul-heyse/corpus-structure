@@ -38,8 +38,8 @@ On 2026-11-21 the actual Docling provider resumed and rebuilt a three-page Stand
 source `534ec613c` (`36e22cf1e8dd4905be18a55c14d357ea`). The separate private PostgreSQL
 composite observed a real lost commit acknowledgement, spawned CPU retirement and exactly one
 publication (`1fa767691bd84bb1a193c6c64bb2eb45`). The retained receipts establish those scoped
-recovery behaviors. The first real cross-demand Standard reuse case and the final-source union
-remain open. [Execution identity and recovery](execution-identity-and-recovery.md)
+recovery behaviors. N46 and N47 later verified Standard reuse through the installed command.
+The final-source union remains open. [Execution identity and recovery](execution-identity-and-recovery.md)
 
 The private DMO-06 trial passed on 2026-11-21. It exercised a real generated tuple and native
 wrapper change, refusal of indirect source drift, interruption at the committed migration
@@ -103,9 +103,12 @@ Keep the fault in the harness and retain the fault and successor receipts. Share
 and private setup only where the premises agree. Where ordinary pytest cases share a safe
 worker-owned fixture, use the existing xdist 3.8.0 `--dist=loadgroup` affinity. Keep exclusive
 fault isolation. Preserve the N46 published attachment and changed-original observations with their
-recorded scope. Live publication through repaired retired-spool custody and the default decision
-still require applicable evidence. DMO-08 reconciles this scoped delivery with the final source
-and required union. [Retired spool controls](execution-identity-and-recovery.md#retired-spool-custody) ·
+recorded scope. On N47 the controlled installed trial also published from an unpublished,
+retired spool across generations and roots with zero provider starts. The changed original
+produced a fresh publication. The same-version loaded Docling factory substitution refused.
+DMO-08 reconciles this scoped delivery with the final source and required union.
+[N47 installed evidence](../../design_review/evidence/2026-11-21_dmo-n47-recovery/README.md) ·
+[Retired spool controls](execution-identity-and-recovery.md#retired-spool-custody) ·
 [Standard default acceptance](execution-identity-and-recovery.md#standard-default-cutover) ·
 [xdist grouping](https://github.com/pytest-dev/pytest-xdist/blob/v3.8.0/docs/distribution.rst)
 
@@ -114,6 +117,11 @@ and required union. [Retired spool controls](execution-identity-and-recovery.md#
 <a id="dmo-08"></a>
 
 ### Entry and managed selections
+
+The managed runner accepts `uv run ci test --test-timeout SECONDS` for an explicit total
+test-protocol watchdog. Keep the default for ordinary selections. The scoped event replay needs
+a budget that includes its actual fixture preparation and scoring phases. Preserve the setup
+and call observations separately when deciding where a physical correction belongs.
 
 Finish DMO-01–07, their directly affected consumer migrations and retirement before broad
 qualification. Record the source commit, accepted decisions, generated program population,

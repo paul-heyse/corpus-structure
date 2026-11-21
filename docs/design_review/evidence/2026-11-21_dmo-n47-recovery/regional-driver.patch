@@ -1,0 +1,45 @@
+--- regional-recovery.py
++++ n47-regional-recovery.py
+@@ -27,3 +27,3 @@
+-ROOT = Path(__file__).resolve().parents[4]
+-FOLDER = ROOT / "build/dmo01-02"
+-RAW = FOLDER / 'regional'
++ROOT = Path.cwd().resolve()
++FOLDER = ROOT / "build/dmo01-07"
++RAW = FOLDER / 'n47-regional-reacquired'
+@@ -32 +32 @@
+-RECORD = json.loads((FOLDER / 'n43-host-runtime-refresh.json').read_text())
++RECORD = json.loads((FOLDER / 'n47-regional-host-reacquired.json').read_text())
+@@ -34,2 +34,2 @@
+-PROJECT = 'dmo02-n43-withheld-region'
+-TARGET = 'text.compose_view/organized-captured-full-native'
++PROJECT = 'dmo04-n47-withheld-region-reacquired'
++TARGET = 'text.compose_view/integrated-captured-full-native'
+@@ -82,2 +82,2 @@
+-            assert tuple(observed) == ('corpus_structure_ddo_stage', 130661481, 'semantic_ddo_pe_n43')
+-            basis = acquire_data_execution_basis(conn, RECORD['release'], RECORD['runtime_id'], source_root=SOURCE)
++            assert tuple(observed) == ('corpus_structure_ddo_stage', 130661481, 'semantic_ddo_pe_n47')
++            basis = acquire_data_execution_basis(conn, RECORD['release'], RECORD['runtime'], source_root=SOURCE)
+@@ -91 +91 @@
+-            request = SourceRunRequest(project_id=PROJECT, release_id=RECORD['release'], runtime_id=RECORD['runtime_id'], selection={'kind': 'whole_document'}, documents=(document,), targets=(TARGET,))
++            request = SourceRunRequest(project_id=PROJECT, release_id=RECORD['release'], runtime_id=RECORD['runtime'], selection={'kind': 'whole_document'}, documents=(document,), targets=(TARGET,), pdf_mode="integrated")
+@@ -93 +93 @@
+-            native = native.model_copy(update={'selections': tuple(row.model_copy(update={'parameters': {'sections': ['1 FIRST SAMPLE', '2 SECOND SAMPLE'], 'membership': 'direct'}}) if row.operation == 'source.pdf_organized_views/discovery' else row for row in native.selections)})
++            native = native.model_copy(update={'selections': tuple(row.model_copy(update={'parameters': {'sections': ['1 FIRST SAMPLE', '2 SECOND SAMPLE'], 'membership': 'direct'}}) if row.operation == 'source.pdf_integrated_views/discovery' else row for row in native.selections)})
+@@ -95,2 +95,2 @@
+-        write('registered.json', {'demand': demand, 'document': document, 'original_sha256': sha256(content).hexdigest(), 'release': RECORD['release'], 'runtime': RECORD['runtime_id']})
+-        first = execute_data_demand(writer, demand, source_root=SOURCE, project_id=PROJECT, admission_engine=admitter, database_capacity=6, policy=POLICY, max_rounds=3)
++        write('registered.json', {'demand': demand, 'document': document, 'original_sha256': sha256(content).hexdigest(), 'release': RECORD['release'], 'runtime': RECORD['runtime']})
++        first = execute_data_demand(writer, demand, source_root=SOURCE, project_id=PROJECT, admission_engine=admitter, database_capacity=6, policy=POLICY, nemotron_endpoint='http://127.0.0.1:8035/v1', max_rounds=5)
+@@ -104 +104 @@
+-                if use['fate'] == 'fulfilled' and obligations[use['obligation_id']]['operation_id'] == 'source.pdf_organized_views/discovery':
++                if use['fate'] == 'fulfilled' and obligations[use['obligation_id']]['operation_id'] == 'source.pdf_integrated_views/discovery':
+@@ -124 +124 @@
+-            completed = execute_data_demand(writer, demand, source_root=SOURCE, project_id=PROJECT, admission_engine=admitter, database_capacity=6, policy=POLICY)
++            completed = execute_data_demand(writer, demand, source_root=SOURCE, project_id=PROJECT, admission_engine=admitter, database_capacity=6, policy=POLICY, nemotron_endpoint='http://127.0.0.1:8035/v1')
+@@ -142 +142 @@
+-        final = execute_data_demand(writer, demand, source_root=SOURCE, project_id=PROJECT, admission_engine=admitter, database_capacity=6, policy=POLICY)
++        final = execute_data_demand(writer, demand, source_root=SOURCE, project_id=PROJECT, admission_engine=admitter, database_capacity=6, policy=POLICY, nemotron_endpoint='http://127.0.0.1:8035/v1')
+@@ -145 +145 @@
+-        repeated = execute_data_demand(writer, demand, source_root=SOURCE, project_id=PROJECT, admission_engine=admitter, database_capacity=6, policy=POLICY)
++        repeated = execute_data_demand(writer, demand, source_root=SOURCE, project_id=PROJECT, admission_engine=admitter, database_capacity=6, policy=POLICY, nemotron_endpoint='http://127.0.0.1:8035/v1')

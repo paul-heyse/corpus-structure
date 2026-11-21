@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "dmo06.n47-validation-catalog",
+  "title": "Direct native JSON Schema check sites agree between source and N47 catalog",
+  "group": null,
+  "package": "DMO-06",
+  "finalized": "2026-11-21",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which current installed routines contain the direct native JSON Schema check and do generated declarations show the same sites?",
+  "answers": [
+    "DMO-06"
+  ],
+  "method": "Render the typed target routine declarations and independently read the stage pg_proc bodies. Compare routine names and literal schema-qualified calls.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-21_dmo-n47-validation-catalog/inventory.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "inventory.py",
+      "role": "Read-only generated and installed comparison",
+      "sha256": "51389e69e04d6800b92111dd339c3addba827c063426489e19521810cd48889e"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/generated-and-installed.json",
+      "role": "Actual matched population, counts and source ownership",
+      "sha256": "48289ea6955c0bb9d0f6f35f2a9634bb179b27b9e18c0398564633b09b066788"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "matched routines",
+      "value": 43,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "direct call sites",
+      "value": 54,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "All 43 qualified routines containing the selected native function agree with their generated declarations at 54 explicit call sites. The inventory supplies precise ownership for subsequent retirement decisions.",
+  "consumed_by": [
+    "DMO-06"
+  ]
+}

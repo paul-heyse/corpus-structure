@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "dmo04.n47-integrated-regional-recovery",
+  "title": "Fresh Integrated regional publication, held-claim recovery and continued reads",
+  "group": null,
+  "package": "DMO-04",
+  "finalized": "2026-11-21",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can a fresh two-region Integrated demand preserve a fulfilled sibling, recover a held claim and retain a continued read on N47?",
+  "answers": [
+    "DMO-01",
+    "DMO-02",
+    "DMO-04",
+    "DMO-05",
+    "DMO-07"
+  ],
+  "method": "Reacquire stale host transport, run the real PDF and shared-host providers, hold one declared sentence claim before submission, release it, and verify exact resume, repeat and bounded native readback separately.",
+  "commands": [
+    "uv run ci release reacquire-host --release RELEASE --runtime RUNTIME --database-oid 130661481 --target deployment --json",
+    "uv run python build/dmo01-07/n47-regional-recovery.py",
+    "uv run python docs/design_review/evidence/2026-11-21_dmo-n47-recovery/regional-readback.py",
+    "uv run ci query operations --demand DEMAND --project dmo04-n47-withheld-region-reacquired --limit 1 --max-bytes 262144 --json"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "regional-driver.patch",
+      "role": "Exact adaptation of the retained regional driver",
+      "sha256": "5e295e7c8586a5f5378cd5b739e5606483625cc0056b3dd05390fecb2aff1704"
+    },
+    {
+      "path": "regional-readback.py",
+      "role": "Independent native read and held-task check",
+      "sha256": "c0057a1e34b1a3818a5d350a82f24314475f91296171b7f670699262f911efdc"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/regional-observed.json",
+      "role": "Stage runtime, regional recovery, exact readback and continuation observations",
+      "sha256": "5e75e7d4309f71c4beeacd423ddf72bd73ca865a7cd3fbd31f0e08d309c8aed5"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "selected source regions",
+      "value": 2,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "fulfilled obligations",
+      "value": 20,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "new receipts on resume",
+      "value": 7,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "new receipts on unchanged repeat",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The reacquired runtime published both regions with the real providers. Resume preserved the fulfilled sibling, advanced the held task to attempt two and fulfilled all 20 obligations. Unchanged repeat published zero receipts and installed query continuation retained its cut.",
+  "consumed_by": [
+    "DMO-01",
+    "DMO-02",
+    "DMO-04",
+    "DMO-05",
+    "DMO-07",
+    "DMO-08"
+  ]
+}

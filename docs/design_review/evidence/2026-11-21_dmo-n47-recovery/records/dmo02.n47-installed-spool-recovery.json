@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "id": "dmo02.n47-installed-spool-recovery",
+  "title": "Installed Standard publishes the original retired spool across roots and generations",
+  "group": null,
+  "package": "DMO-02",
+  "finalized": "2026-11-21",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can a current Standard claim publish a retired complete spool held by an earlier runtime and generation without new provider work?",
+  "answers": [
+    "DMO-01",
+    "DMO-02",
+    "DMO-06"
+  ],
+  "method": "Interrupt installed execution after durable completion, verify writer retirement and missing publication, release sole demand interest, recover with an independent provider-start guard, and read back the original contributor on the new derivation.",
+  "commands": [
+    "uv run python docs/design_review/evidence/2026-11-21_dmo-n47-recovery/installed-pdf-spool-control.py interrupt demands execute DEMAND_A --source-root python/corpus-structure/src --max-rounds 1 --json",
+    "uv run ci demands read DEMAND_A --view products --json",
+    "uv run ci demands cancel DEMAND_A --reason 'Controlled DMO stage test releases the sole interest after physical spool retirement' --json",
+    "uv run python docs/design_review/evidence/2026-11-21_dmo-n47-recovery/installed-pdf-spool-control.py no-provider demands execute DEMAND_B --source-root python/corpus-structure/src --max-rounds 1 --json",
+    "uv run ci demands read DEMAND_B --view products --json",
+    "uv run python docs/design_review/evidence/2026-11-21_dmo-n47-recovery/loaded-docling-factory-control.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "installed-pdf-spool-control.py",
+      "role": "Parent-only interruption and provider-start control",
+      "sha256": "c68de7bdaceff9bab8de5d917873ea1fc40aba47fd2bbdee7ca3b11b421d2134"
+    },
+    {
+      "path": "loaded-docling-factory-control.py",
+      "role": "Same-version in-memory installed dependency control",
+      "sha256": "79eaad657db08921c07c807a3be44cc88936c10afe7a703c67a1bb4340824a0d"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/observed.json",
+      "role": "Stage, runtime, receipt and independent writer/contributor observations",
+      "sha256": "9d1c8470a6b7b2585bec7084bab8e4ea9005e98a0169e5d9db1fcc8a049c5c51"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "cross-generation publication receipts",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "cross-generation new provider starts",
+      "value": 0,
+      "of": null,
+      "unit": null,
+      "note": null
+    },
+    {
+      "name": "original contributed replays",
+      "value": 49,
+      "of": null,
+      "unit": null,
+      "note": null
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The second runtime published from the generation 1 spool under a generation 2 claim. The contributor joined the new derivation to the original producer and exact manifest. The changed-original control produced a fresh publication and an in-memory change to the installed Docling factory refused at the same distribution version.",
+  "consumed_by": [
+    "DMO-01",
+    "DMO-02",
+    "DMO-06",
+    "DMO-08"
+  ]
+}
