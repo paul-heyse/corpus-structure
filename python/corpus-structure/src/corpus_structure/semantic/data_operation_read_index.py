@@ -172,6 +172,14 @@ class SelectedRecordIndex:
         ):
             yield self.reader.frontier(kind, native_json_loads(payload))
 
+    def frontier_row(self, kind, identity):
+        payload = self.connection.scalar(
+            select(_FRONTIER.c.payload).where(
+                _FRONTIER.c.kind == kind, _FRONTIER.c.identity == identity
+            )
+        )
+        return None if payload is None else self.reader.frontier(kind, native_json_loads(payload))
+
     def records(self):
         for (payload,) in self.connection.execute(
             select(_RECORDS.c.payload).order_by(_RECORDS.c.key)

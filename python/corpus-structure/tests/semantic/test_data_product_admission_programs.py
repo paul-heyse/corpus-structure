@@ -445,9 +445,9 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
     shuffled["partitions"].reverse()
     assert realize(product_connection, context, shuffled) == key
     reordered_mapping = deepcopy(packet)
-    rows = reordered_mapping["partitions"][0]["body"][1]
-    assert isinstance(rows, list)
-    item = rows[0]
+    tagged_items = reordered_mapping["partitions"][0]["body"][1]
+    assert isinstance(tagged_items, list)
+    item = tagged_items[0]
     assert isinstance(item, list)
     fields = item[1]
     assert isinstance(fields, list)

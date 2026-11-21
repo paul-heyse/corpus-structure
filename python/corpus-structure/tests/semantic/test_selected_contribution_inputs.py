@@ -326,7 +326,7 @@ def test_acquired_support_can_be_sealed_while_retaining_exact_indexed_rows(tmp_p
         index.close()
 
 
-def test_consumed_use_selection_keeps_same_derivation_uses_separate(tmp_path):
+def test_consumed_use_selection_keeps_same_derivation_uses_separate(tmp_path, monkeypatch):
     from corpus_structure.semantic.selected_contribution_input import selected_use_selection
 
     index = SelectedRecordIndex(tmp_path / "uses.sqlite")
@@ -347,6 +347,11 @@ def test_consumed_use_selection_keeps_same_derivation_uses_separate(tmp_path):
                 ],
             }
         )
+
+        def refuse_scan(kind):
+            raise AssertionError(f"point selection scanned the {kind} frontier")
+
+        monkeypatch.setattr(index, "frontier_rows", refuse_scan)
         assert selected_use_selection(index, "root-use", "root-episode")["inputs"] == []
         assert selected_use_selection(index, "other-use", "root-episode") == {
             "inputs_watermark": "another-selected-basis"

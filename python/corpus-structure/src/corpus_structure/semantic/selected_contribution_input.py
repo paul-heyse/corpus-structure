@@ -166,12 +166,11 @@ class SelectedContributionScope:
         )
 
 
-def selected_use_selection(index, use_id: str, derivation_id: str):
+def selected_use_selection(index: SelectedRecordIndex, use_id: str, derivation_id: str):
     """Read the exact consumed use, including value-substituted support."""
-    uses = [row for row in index.frontier_rows("uses") if row["use_id"] == use_id]
-    if len(uses) != 1 or uses[0]["fate"] != "fulfilled":
+    use = index.frontier_row("uses", use_id)
+    if use is None or use["fate"] != "fulfilled":
         raise ValueError("selected input support requires an exact fulfilled use")
-    use = uses[0]
     if use["derivation_id"] != derivation_id:
         raise ValueError("selected input support use belongs to another derivation")
     return use["selection"]
