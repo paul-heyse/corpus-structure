@@ -272,6 +272,13 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
     )
     monkeypatch.setattr(calls, "register_pdf_spool_producer", lambda *a, **k: "7" * 64)
     monkeypatch.setattr(calls, "register_pdf_spool_contributor", lambda *a, **k: None)
+
+    def no_earlier_spool(connection, *, build_id, task_id, attempt, **_):
+        assert connection is engine and engine.active == 1
+        assert (build_id, task_id, attempt) == (build.build_id, build.task_id, build.attempt)
+        return ()
+
+    monkeypatch.setattr(calls, "read_pdf_spool_recovery_candidates", no_earlier_spool)
     from corpus_structure.ingest.pdf import PdfRecipe
 
     recipe = PdfRecipe(
