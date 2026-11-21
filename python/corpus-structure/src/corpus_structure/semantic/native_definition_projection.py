@@ -8,9 +8,23 @@ from __future__ import annotations
 import json
 import re
 from hashlib import sha256
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 from pydantic import ConfigDict, TypeAdapter, with_config
+
+from .data_operation_partitions import CollectionDeclaration
+
+
+@with_config(ConfigDict(extra="forbid"))
+class NativePartitionItem(TypedDict):
+    body_schema: dict[str, Any]
+    meaning_schema: dict[str, Any]
+
+
+@with_config(ConfigDict(extra="forbid"))
+class NativeCollectionProjection(TypedDict):
+    declarations: dict[str, CollectionDeclaration]
+    schemas: dict[str, NativePartitionItem]
 
 
 @with_config(ConfigDict(extra="forbid"))
@@ -21,6 +35,7 @@ class NativeKindProjection(TypedDict):
     meaning_schema: dict[str, Any]
     member_schema: dict[str, Any]
     member_contracts: list[str]
+    collections: NotRequired[NativeCollectionProjection]
     families: list[str]
     universe: Literal["ordinary", "source", "evaluator"]
 

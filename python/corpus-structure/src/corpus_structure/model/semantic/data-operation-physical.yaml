@@ -62,6 +62,7 @@ classes:
       meaning_schema: {range: json_payload, required: true}
       member_schema: {range: json_payload, required: true}
       member_contracts: {range: json_payload, required: true}
+      collections: {range: json_payload, required: true, annotations: {ph:server_default_factory: empty_object}}
       families: {range: json_payload, required: true}
       universe: {range: string, required: true}
     unique_keys:
@@ -243,6 +244,25 @@ classes:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["kind_contract"],"target":"sem.data_kind_contract.kind_contract"}]}
+  data_product_partition:
+    in_subset: [kb]
+    attributes:
+      product_id: {range: string, required: true}
+      collection: {range: string, required: true}
+      partition_key: {range: string, required: true}
+      ordinal: {range: integer, required: true}
+      partition_digest: {range: string, required: true}
+      item_count: {range: integer, required: true}
+      group_digests: {range: json_payload, required: true}
+      placement: {range: json_payload, required: true}
+      body: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [product_id, collection, partition_key]}
+    annotations:
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:indexes: {"tag":"ph:indexes","value":[["product_id","collection","ordinal"]]}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id"],"target":"kb.data_product.id"}]}
   data_product_member:
     in_subset: [kb]
     attributes:

@@ -220,7 +220,9 @@ def _kind_schema(prepared: PreparedRelease, kind) -> dict[str, Any]:
     raise ValueError(f"no native body schema for effective kind {kind.semantic_id}")
 
 
-def kind_meaning_schema(kind, kind_records, class_definitions, enum_members) -> dict[str, Any]:
+def kind_meaning_schema(
+    kind, kind_records, class_definitions, enum_members, *, partition_headers=()
+) -> dict[str, Any]:
     """Constrain the typed meaning before JSON projection can erase numeric/type tags."""
     definitions: dict[str, Any] = {}
     kinds = {item.semantic_id: item for item in kind_records}
@@ -237,6 +239,25 @@ def kind_meaning_schema(kind, kind_records, class_definitions, enum_members) -> 
 
     def tagged(tag, payload=None):
         return array({"const": tag}) if payload is None else array({"const": tag}, payload)
+
+    def mapping(pairs, required):
+        entries: dict[str, Any] = {
+            "type": "array",
+            "items": {"anyOf": pairs} if pairs else False,
+        }
+        if required:
+            entries["allOf"] = [{"contains": pair} for pair in required]
+        return tagged("mapping", entries)
+
+    header_pairs = [
+        array({"const": field}, tagged(tag, {"type": "string"}))
+        for field, tag in (
+            ("root", "string"),
+            ("placement_root", "string"),
+            ("partition_count", "integer"),
+            ("item_count", "integer"),
+        )
+    ]
 
     def primitive(name):
         if name == "json":
@@ -330,17 +351,14 @@ def kind_meaning_schema(kind, kind_records, class_definitions, enum_members) -> 
                 value = tagged("sequence", sequence)
             if prop.nullable:
                 value = {"anyOf": [tagged("null"), value]}
+            partitioned = current.semantic_id == kind.semantic_id and prop.name in partition_headers
+            if partitioned:
+                value = mapping(header_pairs, header_pairs)
             pair = array({"const": prop.name}, value)
             choices.append(pair)
-            if prop.required:
-                required.append({"contains": pair})
-        entries: dict[str, Any] = {
-            "type": "array",
-            "items": {"anyOf": choices} if choices else False,
-        }
-        if required:
-            entries["allOf"] = required
-        definitions[key] = tagged("mapping", entries)
+            if prop.required or partitioned:
+                required.append(pair)
+        definitions[key] = mapping(choices, required)
         return {"$ref": "#/definitions/" + key}
 
     body = build(kind)
@@ -351,8 +369,52 @@ def kind_meaning_schema(kind, kind_records, class_definitions, enum_members) -> 
     }
 
 
-def _meaning_schema(prepared, kind, model) -> dict[str, Any]:
-    return kind_meaning_schema(kind, model.kinds, prepared.index.definitions, prepared.enum_members)
+def _meaning_schema(prepared, kind, model, *, partition_headers=()) -> dict[str, Any]:
+    return kind_meaning_schema(
+        kind,
+        model.kinds,
+        prepared.index.definitions,
+        prepared.enum_members,
+        partition_headers=partition_headers,
+    )
+
+
+def _partition_contracts(prepared, model, kind, schema, declarations):
+    from copy import deepcopy
+
+    by_name = {candidate.name: candidate for candidate in model.kinds}
+    properties = {prop.name: prop for prop in prepared.index.definitions[kind.name].properties}
+    schemas = {}
+    body = deepcopy(schema)
+    root = body
+    if "$ref" in root:
+        for segment in root["$ref"].removeprefix("#/").split("/"):
+            root = root[segment]
+    for name, declaration in declarations.items():
+        if declaration["unit"] != "partitioned":
+            continue
+        slot = properties[name]
+        item = by_name[slot.range]
+        schemas[name] = {
+            "body_schema": _kind_schema(prepared, item),
+            "meaning_schema": _meaning_schema(prepared, item, model),
+        }
+        header_fields = {
+            "root": {"type": "string"},
+            "placement_root": {"type": "string"},
+            "partition_count": {"type": "integer", "minimum": 0},
+            "item_count": {"type": "integer", "minimum": slot.minimum_cardinality or 0},
+        }
+        if slot.maximum_cardinality is not None:
+            header_fields["item_count"]["maximum"] = slot.maximum_cardinality
+        root["properties"][name] = {
+            "type": "object",
+            "properties": header_fields,
+            "required": list(header_fields),
+            "additionalProperties": False,
+        }
+        root["required"] = sorted({*root.get("required", ()), name})
+    return body, {"declarations": declarations, "schemas": schemas}
 
 
 def _member_schema(schema: dict[str, Any]) -> dict[str, Any]:
@@ -433,6 +495,9 @@ def data_operation_definition_projection(
             raise ValueError("cannot admit an incomplete effective kind")
         facts = json.loads(kind.facts)
         schema = _kind_schema(prepared, kind)
+        collections = facts.get("collections")
+        if collections:
+            schema, collections = _partition_contracts(prepared, model, kind, schema, collections)
         member_kinds = member_contracts[kind.semantic_id]
         member_schema = _member_schema(schema) if member_kinds else {"not": {}}
         if member_kinds and member_schema == {"not": {}}:
@@ -447,11 +512,17 @@ def data_operation_definition_projection(
                 "kind_contract": contract,
                 "kind": kind.semantic_id,
                 "body_schema": schema,
-                "meaning_schema": _meaning_schema(prepared, kind, model),
+                "meaning_schema": _meaning_schema(
+                    prepared,
+                    kind,
+                    model,
+                    partition_headers=collections["schemas"] if collections else (),
+                ),
                 "member_schema": member_schema,
                 "member_contracts": [ids[member, "kind"] for member in member_kinds],
                 "families": facts.get("projection_families", []),
                 "universe": universe,
+                **({"collections": collections} if collections else {}),
             }
         )
     from .data_operation_provider_profiles import operation_profile

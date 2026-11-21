@@ -50,23 +50,40 @@ def product_connection(infrastructure_rollback):
         ):
             execute_native_sql(connection, identity.excerpt(i))
     from corpus_structure.semantic.closure_native import closure_foundation_parts
-    from corpus_structure.semantic.data_operation_value_native import data_operation_value_programs
     from corpus_structure.semantic.data_operation_read_native import read_native_programs
+    from corpus_structure.semantic.data_operation_value_native import data_operation_value_programs
     from corpus_structure.semantic.demand_authority_native import demand_authority_programs
-    from corpus_structure.semantic.support_trust_native import support_trust_native_programs
     from corpus_structure.semantic.native_objects import native_sql_script
+    from corpus_structure.semantic.support_trust_native import support_trust_native_programs
 
     helpers = (
-        *closure_foundation_parts(get_metadata()), *data_operation_value_programs(),
-        *support_trust_native_programs(get_metadata()), *read_native_programs(get_metadata()),
+        *closure_foundation_parts(get_metadata()),
+        *data_operation_value_programs(),
+        *support_trust_native_programs(get_metadata()),
+        *read_native_programs(get_metadata()),
         *demand_authority_programs(get_metadata(), subject_scopes=("project", "original-source")),
     )
     required_helpers = {
-        "require_float_lexical", "ddo_fields", "ddo_normalize", "ddo_json_meaning", "ddo_identity",
-        "ddo_digest", "ddo_authorize", "ddo_require_subject_source", "ddo_field", "ddo_json",
-        "ddo_kind_access", "ddo_body_kind_contracts", "ddo_body_access",
+        "require_float_lexical",
+        "ddo_fields",
+        "ddo_normalize",
+        "ddo_json_meaning",
+        "ddo_identity",
+        "ddo_digest",
+        "ddo_authorize",
+        "ddo_require_subject_source",
+        "ddo_field",
+        "ddo_json",
+        "ddo_kind_access",
+        "ddo_body_kind_contracts",
+        "ddo_body_access",
     }
-    parsed = prepare_sql(native_sql_script(item.render() for item in helpers if item.routine.name in required_helpers), source="product-realization-test-helpers")
+    parsed = prepare_sql(
+        native_sql_script(
+            item.render() for item in helpers if item.routine.name in required_helpers
+        ),
+        source="product-realization-test-helpers",
+    )
     for i, statement in enumerate(parsed.statements):
         node = statement.stmt
         if (
@@ -100,7 +117,13 @@ def product_connection(infrastructure_rollback):
         if (
             isinstance(node, ast.CreateFunctionStmt)
             and node.funcname
-            and node.funcname[-1].sval in {"ddo_partition_field", "ddo_install_product_partitions", "ddo_acquired_product_partition", "ddo_install_product_context"}
+            and node.funcname[-1].sval
+            in {
+                "ddo_partition_field",
+                "ddo_install_product_partitions",
+                "ddo_acquired_product_partition",
+                "ddo_install_product_context",
+            }
         ):
             execute_native_sql(connection, selected.excerpt(i))
     for name, member_schema, member_contracts in (
@@ -313,7 +336,11 @@ def test_product_programs_retain_typed_bodies_and_follow_captured_member_schema(
     captured.info["physical_sources"]["data-operation-native.yaml"] = yaml.safe_dump(
         protocol
     ).encode()
-    changed = next(p for p in product_admission_native_programs(captured) if p.name == "ddo_install_product_context").render()
+    changed = next(
+        p
+        for p in product_admission_native_programs(captured)
+        if p.name == "ddo_install_product_context"
+    ).render()
     assert (
         "ops.ddo_fields(family_value, ARRAY['original_source', 'start', 'end', 'page']" in changed
     )
@@ -326,26 +353,63 @@ def test_product_programs_retain_typed_bodies_and_follow_captured_member_schema(
 def partition_fixture(connection):
     from decimal import Decimal
 
-    from corpus_structure.semantic.data_operation_partitions import partition_header, partition_packet
+    from corpus_structure.semantic.data_operation_partitions import (
+        partition_header,
+        partition_packet,
+    )
 
     declaration = {
-        "unit": "partitioned", "partition_key": "block", "item_order": ["start", "end"],
-        "address": ["start", "end"], "field_groups": {"geometry": ["start", "end"], "labels": ["label", "optional"]},
+        "unit": "partitioned",
+        "partition_key": "block",
+        "item_order": ["start", "end"],
+        "address": ["start", "end"],
+        "field_groups": {"geometry": ["start", "end"], "labels": ["label", "optional"]},
     }
-    specification = {"declarations": {"tokens": declaration}, "schemas": {"tokens": {"body_schema": {"type": "object"}, "meaning_schema": {"type": "array"}}}}
-    connection.execute(insert(get_metadata().tables["sem.data_kind_contract"]).values(
-        kind_contract="partitioned", kind="urn:partitioned", body_schema={}, meaning_schema={},
-        member_schema={"not": {}}, member_contracts=[], families=[], universe="ordinary", collections=specification,
-    ))
-    connection.execute(insert(get_metadata().tables["sem.data_kind_release"]).values(release_id="release", kind_contract="partitioned"))
+    specification = {
+        "declarations": {"tokens": declaration},
+        "schemas": {
+            "tokens": {"body_schema": {"type": "object"}, "meaning_schema": {"type": "array"}}
+        },
+    }
+    connection.execute(
+        insert(get_metadata().tables["sem.data_kind_contract"]).values(
+            kind_contract="partitioned",
+            kind="urn:partitioned",
+            body_schema={},
+            meaning_schema={},
+            member_schema={"not": {}},
+            member_contracts=[],
+            families=[],
+            universe="ordinary",
+            collections=specification,
+        )
+    )
+    connection.execute(
+        insert(get_metadata().tables["sem.data_kind_release"]).values(
+            release_id="release", kind_contract="partitioned"
+        )
+    )
     bodies = [
         [{"start": 0, "end": 2, "label": "café", "fraction": 0.5}],
         [{"start": 0, "end": 1, "label": "東京", "fraction": Decimal("0.125"), "optional": None}],
         [{"start": 1, "end": 3, "label": "three"}],
     ]
-    packets = [partition_packet("tokens", name, n, n * 10, n * 10 + 5, body) for n, (name, body) in enumerate(zip(("b", "a", "é"), bodies, strict=True))]
+    packets = [
+        partition_packet("tokens", name, n, n * 10, n * 10 + 5, body)
+        for n, (name, body) in enumerate(zip(("b", "a", "é"), bodies, strict=True))
+    ]
     context, _ = product_packet()
-    return context, {"kind_contract": "partitioned", "body": semantic_value({"tokens": partition_header(packets)}), "members": [], "partitions": packets}, bodies, declaration
+    return (
+        context,
+        {
+            "kind_contract": "partitioned",
+            "body": semantic_value({"tokens": partition_header(packets)}),
+            "members": [],
+            "partitions": packets,
+        },
+        bodies,
+        declaration,
+    )
 
 
 def test_partition_admission_recomputes_content_groups_and_roots(product_connection):
@@ -354,7 +418,12 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
     context, packet, bodies, declaration = partition_fixture(product_connection)
     key = realize(product_connection, context, packet)
     assert realize(product_connection, context, packet) == key
-    rows = product_connection.execute(text("SELECT ordinal,partition_digest,item_count,group_digests,body FROM kb.data_product_partition WHERE product_id=:key ORDER BY ordinal"), {"key": key}).all()
+    rows = product_connection.execute(
+        text(
+            "SELECT ordinal,partition_digest,item_count,group_digests,body FROM kb.data_product_partition WHERE product_id=:key ORDER BY ordinal"
+        ),
+        {"key": key},
+    ).all()
     assert len(rows) == 3
     for n, row in enumerate(rows):
         assert row.ordinal == n and row.item_count == 1
@@ -363,8 +432,13 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
         assert row.group_digests == partition_group_digests(bodies[n], declaration["field_groups"])
 
 
-@pytest.mark.parametrize("alteration", ["digest", "duplicate", "ordinal", "root", "list", "missing", "extra", "placement"])
-def test_partition_admission_refuses_inconsistent_population_atomically(product_connection, alteration):
+@pytest.mark.parametrize(
+    "alteration",
+    ["digest", "duplicate", "ordinal", "root", "list", "missing", "extra", "placement"],
+)
+def test_partition_admission_refuses_inconsistent_population_atomically(
+    product_connection, alteration
+):
     context, packet, _, _ = partition_fixture(product_connection)
     partitions = packet["partitions"]
     if alteration == "digest":
@@ -392,7 +466,10 @@ def test_partition_admission_refuses_inconsistent_population_atomically(product_
 def test_partition_replay_refuses_missing_stored_row(product_connection):
     context, packet, _, _ = partition_fixture(product_connection)
     key = realize(product_connection, context, packet)
-    product_connection.execute(text("DELETE FROM kb.data_product_partition WHERE product_id=:key AND ordinal=0"), {"key": key})
+    product_connection.execute(
+        text("DELETE FROM kb.data_product_partition WHERE product_id=:key AND ordinal=0"),
+        {"key": key},
+    )
     with pytest.raises(DBAPIError, match="replay differs"), product_connection.begin_nested():
         realize(product_connection, context, packet)
 
@@ -407,7 +484,15 @@ def test_acquired_partition_lookup_keeps_parent_kind_and_project_authority(produ
     for replacement in ({"project": "foreign"}, {"partition": "missing"}):
         with pytest.raises(DBAPIError), product_connection.begin_nested():
             product_connection.scalar(query, parameters | replacement)
-    product_connection.execute(text("UPDATE sem.data_kind_contract SET universe='evaluator' WHERE kind_contract='partitioned'"))
+    product_connection.execute(
+        text(
+            "UPDATE sem.data_kind_contract SET universe='evaluator' WHERE kind_contract='partitioned'"
+        )
+    )
     product_connection.exec_driver_sql("GRANT USAGE ON SCHEMA data,ops,sem,kb TO corpus_sem_writer")
-    with pytest.raises(DBAPIError), product_connection.begin_nested(), native_owner(product_connection, "corpus_sem_writer"):
+    with (
+        pytest.raises(DBAPIError),
+        product_connection.begin_nested(),
+        native_owner(product_connection, "corpus_sem_writer"),
+    ):
         product_connection.scalar(query, parameters)

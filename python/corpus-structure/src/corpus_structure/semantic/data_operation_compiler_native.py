@@ -654,6 +654,8 @@ def _lowering_program(model, subject_scopes):
                         archive_kinds.c.value["facts"]["json"]["projection_families"], _json([])
                     )
                     == k["families"],
+                    func.coalesce(archive_kinds.c.value["facts"]["json"]["collections"], _json({}))
+                    == func.coalesce(k["collections"]["declarations"], _json({})),
                 )
             ),
             "kind purpose/projection policy differs from archived facts",
@@ -678,6 +680,7 @@ def _lowering_program(model, subject_scopes):
                 meaning_schema=k["meaning_schema"],
                 member_schema=k["member_schema"],
                 member_contracts=k["member_contracts"],
+                collections=func.coalesce(k["collections"], _json({})),
                 families=k["families"],
                 universe=k["universe"].astext,
             )
@@ -705,7 +708,8 @@ def _lowering_program(model, subject_scopes):
                         "member_contracts",
                         "families",
                     )
-                )
+                ),
+                old["collections"].is_distinct_from(func.coalesce(k["collections"], _json({}))),
             ),
             "kind contract changed under stable identity",
         ),

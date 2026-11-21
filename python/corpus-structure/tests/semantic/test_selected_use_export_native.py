@@ -33,15 +33,27 @@ def test_native_exported_finite_and_rich_readers_keep_exact_consumed_use(
     destination = tmp_path / "finite"
     with journey.kernel.purpose("read").begin() as connection:
         receipt = export_demand_result(
-            connection, population.demand_id, project_id=PROJECT,
-            destination=destination, format="jsonl", page_rows=1,
+            connection,
+            population.demand_id,
+            project_id=PROJECT,
+            destination=destination,
+            format="jsonl",
+            page_rows=1,
         )
     with verified_demand_export(destination, manifest_digest=receipt.manifest_digest) as (
-        manifest, prepared, models, index
+        manifest,
+        prepared,
+        models,
+        index,
     ):
         release = manifest.cut["release_id"]
         selected = SelectedContributionScope(
-            manifest.cut_selection, index, prepared[release], models[release], {}, 100000,
+            manifest.cut_selection,
+            index,
+            prepared[release],
+            models[release],
+            {},
+            100000,
             decimal_fixed_point_digits=decimal_digit_limit(),
         )
         assert all("binding" not in row for row in index.rows("ops.data_request"))
@@ -53,9 +65,14 @@ def test_native_exported_finite_and_rich_readers_keep_exact_consumed_use(
 
     graph = DomainGraph(
         (journey.kernel.prepared, journey.kernel.model, "StatisticsQualification"),
-        {"normal": "DistributionFamily", "X": "RandomVariable", **{
-            key: "FamilyParameter" for key in ("location", "scale", "mean", "standard_deviation")
-        }},
+        {
+            "normal": "DistributionFamily",
+            "X": "RandomVariable",
+            **{
+                key: "FamilyParameter"
+                for key in ("location", "scale", "mean", "standard_deviation")
+            },
+        },
         context=project_context(journey, "rich.consolidate"),
     )
     t2(graph)
@@ -63,19 +80,36 @@ def test_native_exported_finite_and_rich_readers_keep_exact_consumed_use(
     destination = tmp_path / "rich"
     with journey.kernel.purpose("read").begin() as connection:
         receipt = export_demand_result(
-            connection, publication.demand_id, project_id=PROJECT,
-            destination=destination, format="jsonl", page_rows=1,
+            connection,
+            publication.demand_id,
+            project_id=PROJECT,
+            destination=destination,
+            format="jsonl",
+            page_rows=1,
         )
     with verified_demand_export(destination, manifest_digest=receipt.manifest_digest) as (
-        manifest, prepared, models, index
+        manifest,
+        prepared,
+        models,
+        index,
     ):
         release = manifest.cut["release_id"]
         selected = SelectedContributionScope(
-            manifest.cut_selection, index, prepared[release], models[release], {}, 100000,
+            manifest.cut_selection,
+            index,
+            prepared[release],
+            models[release],
+            {},
+            100000,
             decimal_fixed_point_digits=decimal_digit_limit(),
         )
         assert all("binding" not in row for row in index.rows("ops.data_request"))
-        private = next(row for row in selected.products()
-                       if row.reference.product_id == publication.consolidation_product["id"])
+        private = next(
+            row
+            for row in selected.products()
+            if row.reference.product_id == publication.consolidation_product["id"]
+        )
         state = selected.graph(private)
-        assert state.graph.model_dump(mode="python") == publication.consolidation.model_dump(mode="python")
+        assert state.graph.model_dump(mode="python") == publication.consolidation.model_dump(
+            mode="python"
+        )

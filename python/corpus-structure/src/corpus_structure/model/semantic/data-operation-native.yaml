@@ -765,6 +765,24 @@ definitions:
     - context
     - kind_contract
     additionalProperties: false
+  product_partition_placement:
+    type: object
+    properties:
+      start: {$ref: '#/definitions/nonnegative_integer'}
+      end: {$ref: '#/definitions/nonnegative_integer'}
+    required: [start, end]
+    additionalProperties: false
+  product_partition:
+    type: object
+    properties:
+      collection: {$ref: '#/definitions/identifier'}
+      partition_key: {$ref: '#/definitions/identifier'}
+      ordinal: {$ref: '#/definitions/nonnegative_integer'}
+      placement: {$ref: '#/definitions/product_partition_placement'}
+      partition_digest: {$ref: '#/definitions/identifier'}
+      body: {$ref: '#/definitions/semantic_value'}
+    required: [collection, partition_key, ordinal, placement, partition_digest, body]
+    additionalProperties: false
   product:
     type: object
     properties:
@@ -781,6 +799,9 @@ definitions:
         anyOf:
         - $ref: '#/definitions/identifier'
         - type: 'null'
+      partitions:
+        type: array
+        items: {$ref: '#/definitions/product_partition'}
     required:
     - kind_contract
     - body

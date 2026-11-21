@@ -141,6 +141,7 @@ class RoleValue:
     content: bytes
     meaning: bytes | None = None
     members: tuple[bytes, ...] = ()
+    partitions: tuple[bytes, ...] = ()
 
     def __post_init__(self) -> None:
         if (
@@ -150,6 +151,8 @@ class RoleValue:
             or (self.meaning is not None and type(self.meaning) is not bytes)
             or type(self.members) is not tuple
             or any(type(member) is not bytes for member in self.members)
+            or type(self.partitions) is not tuple
+            or any(type(partition) is not bytes for partition in self.partitions)
         ):
             raise TypeError("role values require nominal role/kind and owned immutable bytes")
 

@@ -91,6 +91,7 @@ _SAFE_ANNOTATIONS = frozenset(
         "cs:nullable",
         "cs:data_universe",
         "cs:projection_families",
+        "cs:collection",
         "cs:definition_variant",
         "cs:openness",
     }

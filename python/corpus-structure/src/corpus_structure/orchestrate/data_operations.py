@@ -1114,7 +1114,10 @@ class NativeDemandExecutor:
                 )
             validate_output_witnesses(operation, bodies, physical.binding_rows[ready.obligation])
         output_bytes = sum(
-            len(value.content) + len(value.meaning or b"") + sum(map(len, value.members))
+            len(value.content)
+            + len(value.meaning or b"")
+            + sum(map(len, value.members))
+            + sum(map(len, value.partitions))
             for value in answer.outputs
         )
         if output_bytes > self.policy.max_reply_bytes:
@@ -1143,6 +1146,15 @@ class NativeDemandExecutor:
                             interpret_wire_record("product_member", native_json_loads(member))
                             for member in value.members
                         ],
+                        **(
+                            {
+                                "partitions": [
+                                    native_json_loads(partition) for partition in value.partitions
+                                ]
+                            }
+                            if value.partitions
+                            else {}
+                        ),
                     },
                 }
             )

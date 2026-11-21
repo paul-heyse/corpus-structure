@@ -425,7 +425,20 @@ def _install_product(model, output, families):
             .on_conflict_do_nothing()
         ),
         GetRowCount("inserted_product"),
-        If(or_(k("collections") != cast(literal("{}"), JSONB()), packet_in.has_key("partitions")), (Perform(func.ops.ddo_install_product_partitions(key, k("collections"), body, func.coalesce(packet_in["partitions"], empty), core_variable("inserted_product", BigInteger()) > 0)),)),
+        If(
+            or_(k("collections") != cast(literal("{}"), JSONB()), packet_in.has_key("partitions")),
+            (
+                Perform(
+                    func.ops.ddo_install_product_partitions(
+                        key,
+                        k("collections"),
+                        body,
+                        func.coalesce(packet_in["partitions"], empty),
+                        core_variable("inserted_product", BigInteger()) > 0,
+                    )
+                ),
+            ),
+        ),
         lookup("previous", product, product.c.id == key),
         _reject(
             or_(

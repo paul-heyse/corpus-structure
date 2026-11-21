@@ -338,6 +338,7 @@ def _kind_products(
         aliases[name] = semantic_id
     if bundle is not None:
         from .conditional_rules import CONDITIONAL_RULE_OPTIONS, compile_conditional_rules
+        from .data_operation_partitions import collection_declaration, validate_collection_paths
         from .prepare import _view, effective_class_definitions, enum_requires_vocabulary
         from .types import PreparationProfile
 
@@ -346,6 +347,7 @@ def _kind_products(
         rule_fragments = compile_conditional_rules(view)
         if definitions is None:
             definitions = effective_class_definitions(view, profile, view.all_enums())
+        definitions_by_name = {definition.name: definition for definition in definitions}
         for definition in definitions:
             aliases[definition.name] = definition.iri
         for enum_name, enum in view.all_enums().items():
@@ -393,6 +395,22 @@ def _kind_products(
                 prop_facts = asdict(prop)
                 prop_facts["range"] = aliases.get(prop.range, prop.range)
                 prop_facts["policies"] = _annotations(view.induced_slot(prop.name, definition.name))
+                if (annotation := prop_facts["policies"].pop("cs:collection", None)) is not None:
+                    try:
+                        declaration = collection_declaration(annotation)
+                        if not prop.multivalued or not prop.inlined or prop.nullable:
+                            raise ValueError(
+                                "collection requires a non-null inline multivalued slot"
+                            )
+                        if (prop.name == "members") == (declaration["unit"] == "partitioned"):
+                            raise ValueError(
+                                "the members slot belongs to identified and bound collections"
+                            )
+                        validate_collection_paths(declaration, prop.range, definitions_by_name)
+                    except ValueError as exc:
+                        _fail(property_id, str(exc))
+                    facts.setdefault("collections", {})[prop.name] = declaration
+                    prop_facts["collection"] = declaration
                 declaring_class = next(
                     (
                         name

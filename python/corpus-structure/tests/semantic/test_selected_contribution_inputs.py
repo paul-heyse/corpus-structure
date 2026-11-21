@@ -71,17 +71,37 @@ def request(index, inputs, support):
     )
 
     index.append_page(
-        {**CUT, "obligations": [], "original_source_admissions": [], "uses": [
-            dict(use_id="root-use", derivation_id="root-episode", fate="fulfilled",
-                 selection=dict(
-                     inputs=[{**row, "position": row.get("position") or 0,
-                              "multiplicity": 1, "producer_output": None,
-                              "support_derivation_ids": []} for row in inputs],
-                     support=[{**row, "position": row.get("position") or 0} for row in support],
-                     parameters=semantic_value({}), request_inputs=semantic_value({}),
-                     inference="controlled", execution_profile="controlled",
-                     populations=[], read_id="read:controlled"))
-        ]}
+        {
+            **CUT,
+            "obligations": [],
+            "original_source_admissions": [],
+            "uses": [
+                dict(
+                    use_id="root-use",
+                    derivation_id="root-episode",
+                    fate="fulfilled",
+                    selection=dict(
+                        inputs=[
+                            {
+                                **row,
+                                "position": row.get("position") or 0,
+                                "multiplicity": 1,
+                                "producer_output": None,
+                                "support_derivation_ids": [],
+                            }
+                            for row in inputs
+                        ],
+                        support=[{**row, "position": row.get("position") or 0} for row in support],
+                        parameters=semantic_value({}),
+                        request_inputs=semantic_value({}),
+                        inference="controlled",
+                        execution_profile="controlled",
+                        populations=[],
+                        read_id="read:controlled",
+                    ),
+                )
+            ],
+        }
     )
 
 
@@ -312,11 +332,21 @@ def test_consumed_use_selection_keeps_same_derivation_uses_separate(tmp_path):
     index = SelectedRecordIndex(tmp_path / "uses.sqlite")
     try:
         request(index, [], [])
-        index.append_page({
-            **CUT, "obligations": [], "original_source_admissions": [],
-            "uses": [dict(use_id="other-use", derivation_id="root-episode", fate="fulfilled",
-                          selection={"inputs_watermark": "another-selected-basis"})],
-        })
+        index.append_page(
+            {
+                **CUT,
+                "obligations": [],
+                "original_source_admissions": [],
+                "uses": [
+                    dict(
+                        use_id="other-use",
+                        derivation_id="root-episode",
+                        fate="fulfilled",
+                        selection={"inputs_watermark": "another-selected-basis"},
+                    )
+                ],
+            }
+        )
         assert selected_use_selection(index, "root-use", "root-episode")["inputs"] == []
         assert selected_use_selection(index, "other-use", "root-episode") == {
             "inputs_watermark": "another-selected-basis"

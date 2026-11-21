@@ -332,11 +332,26 @@ class WireProductMember(TypedDict):
     roles: NotRequired[list[WireRoleMember]]
 
 
+class WireProductPartitionPlacement(TypedDict):
+    end: Required[WireNonnegativeInteger]
+    start: Required[WireNonnegativeInteger]
+
+
+class WireProductPartition(TypedDict):
+    body: Required[WireSemanticValue]
+    collection: Required[WireIdentifier]
+    ordinal: Required[WireNonnegativeInteger]
+    partition_digest: Required[WireIdentifier]
+    partition_key: Required[WireIdentifier]
+    placement: Required[WireProductPartitionPlacement]
+
+
 class WireProduct(TypedDict):
     artifact_digest: NotRequired[WireIdentifier | None]
     body: Required[WireSemanticValue]
     kind_contract: Required[WireKindContract]
     members: Required[list[WireProductMember]]
+    partitions: NotRequired[list[WireProductPartition]]
 
 
 class WireOutputMember(TypedDict):
