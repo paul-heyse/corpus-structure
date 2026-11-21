@@ -274,10 +274,13 @@ class EventFramePlan:
     port: Any = None
 
     def plan(self, arguments, *, binding, check_active, execution_owner):
+        from sqlalchemy import select
+
         from corpus_structure.semantic.cpu_execution import release_capsule
         from corpus_structure.semantic.data_operation_cpu_basis import cpu_authority_value
         from corpus_structure.semantic.data_operation_prepared_call import PreparedCallResult
         from corpus_structure.semantic.demand_results import CutSelection, selected_record_index
+        from corpus_structure.semantic.metadata import table
         from corpus_structure.semantic.native_definition_projection import (
             read_native_definition_projection,
         )
@@ -335,6 +338,21 @@ class EventFramePlan:
             report_bodies = dict(
                 zip((row.product for row in reports), arguments.arguments["reports"], strict=True)
             )
+            # Resolve identity metadata only. The pinned native read below authenticates
+            # the actual selected use and its complete support before any body is consumed.
+            selected_use_ids = {row.selection.use_id for row in question.judgments}
+            uses_table = table("ops.demand_use")
+            selected_uses = dict(
+                connection.execute(
+                    select(uses_table.c.id, uses_table.c.obligation_id).where(
+                        uses_table.c.demand_id == prediction_selection.demand_id,
+                        uses_table.c.id.in_(selected_use_ids),
+                    )
+                ).tuples()
+            )
+            if selected_uses.keys() != selected_use_ids:
+                raise SemanticRefusal("event report lacks its exact selected producing use")
+            prediction_obligations = tuple(sorted(set(selected_uses.values())))
             # Identical pinned selections share one authenticated index in this transaction.
             for selection in dict.fromkeys((original_selection, prediction_selection)):
                 cut = CutSelection(selection.cut_canonical_json.encode())
@@ -346,6 +364,7 @@ class EventFramePlan:
                     read_id=selection.read_id,
                     expected_cut=selection.cut_id,
                     capture_frontier=True,
+                    obligation_ids=prediction_obligations if selection == prediction_selection else None,
                 ) as (_, index):
                     if selection == original_selection:
                         for member, body in zip(

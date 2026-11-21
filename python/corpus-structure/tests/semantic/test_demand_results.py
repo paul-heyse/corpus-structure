@@ -1041,3 +1041,57 @@ def test_detached_pending_request_does_not_require_or_invent_producing_custody(v
         verify_detached_result(
             native, records=records, wire_schema={}, validate_closure=validate_closure
         )
+
+
+def test_selected_record_index_seeds_only_explicit_obligations_under_the_same_cut(monkeypatch):
+    from corpus_structure.semantic import demand_results as owner
+
+    expected_cut = CutSelection.from_native(demand_result_page())
+    observed = []
+    support = []
+
+    def read(*args, **kwargs):
+        obligation = kwargs["continuation"]["obligation_id"]
+        observed.append(obligation)
+        record = demand_result_page()
+        record["obligations"][0]["obligation_id"] = obligation
+        record["uses"][0]["obligation_id"] = obligation
+        record["uses"][0]["use_id"] = "use:" + obligation
+        return DemandResult(json_bytes(record))
+
+    def witness(connection, page, *, whole_read):
+        support.append((page.record["obligations"][0]["obligation_id"], whole_read))
+        return iter(())
+
+    monkeypatch.setattr(owner, "read_demand_result", read)
+    monkeypatch.setattr(owner, "stream_selected_support", witness)
+    with owner.selected_record_index(
+        None, "demand:A", project_id="project:A", scope={},
+        read_id="read:A", expected_cut=expected_cut.identity,
+        obligation_ids=("obligation:A", "obligation:B", "obligation:A"),
+        capture_frontier=True,
+    ) as (cut, index):
+        assert cut.content == expected_cut.content
+        assert {row["use_id"] for row in index.frontier_rows("uses")} == {
+            "use:obligation:A", "use:obligation:B"
+        }
+    assert observed == ["obligation:A", "obligation:B"]
+    assert support == [("obligation:A", False), ("obligation:B", False)]
+
+
+def test_selected_support_preserves_the_obligation_selector(monkeypatch):
+    from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+    from corpus_structure.semantic.demand_results import stream_selected_support
+
+    seen = []
+    record = demand_result_page()
+
+    def read(self, request):
+        seen.append(request)
+        return {**record, "support_page": {"records": [], "complete": True, "after": None}}
+
+    monkeypatch.setattr(DataOperationStorage, "read_demand_result", read)
+    page = DemandResult(json_bytes(record), json_bytes({"obligation_id": "obligation:A"}))
+    assert list(stream_selected_support(None, page)) == []
+    assert seen[0]["obligation_id"] == "obligation:A"
+    assert "support_scope" not in seen[0]

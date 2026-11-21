@@ -316,7 +316,7 @@ def stream_selected_support(
         if key not in {"project_id", "release_id", "runtime_id"}
     }
     original_request = wire_json_loads(page.request)
-    for key in ("after", "limit", "max_bytes"):
+    for key in ("after", "limit", "max_bytes", "obligation_id"):
         if key in original_request:
             request[key] = original_request[key]
     request["view"] = "support"
@@ -352,6 +352,7 @@ def selected_record_index(
     max_total_bytes=None,
     max_total_records=None,
     capture_frontier=False,
+    obligation_ids=None,
 ):
     """Keep one pinned native acquisition and its complete temporary witness index."""
     from pathlib import Path
@@ -363,53 +364,64 @@ def selected_record_index(
         type(max_total_records) is not int or max_total_records < 0
     ):
         raise ValueError("selected record bound must be a nonnegative integer")
-    continuation = (
-        None
-        if read_id is None
-        else dict(demand_id=demand_id, read_id=read_id, scope=dict(scope), view="frontier")
-    )
+    selected = (None,) if obligation_ids is None else tuple(dict.fromkeys(obligation_ids))
+    if not selected or any(value is not None and (not isinstance(value, str) or not value) for value in selected):
+        raise ValueError("selected record acquisition requires nonempty obligation identities")
+    if obligation_ids is not None and (read_id is None or expected_cut is None):
+        raise ValueError("selected obligations require an authenticated pinned cut")
     cut = None
     with TemporaryDirectory(prefix="selected-read-") as scratch:
         index = SelectedRecordIndex(Path(scratch) / "support.sqlite")
         try:
-            while True:
-                page = read_demand_result(
-                    connection,
-                    demand_id,
-                    project_id=project_id,
-                    continuation=continuation,
-                    cut=cut,
-                    scope=scope,
-                    limit=page_rows,
-                    max_bytes=max_bytes,
-                    view="frontier",
+            for obligation_id in selected:
+                continuation = (
+                    None
+                    if read_id is None
+                    else dict(demand_id=demand_id, read_id=read_id, scope=dict(scope), view="frontier")
                 )
-                cut = page.cut
-                if expected_cut is not None and cut.identity != expected_cut:
-                    raise ValueError("selected resource belongs to another cut/trust assessment")
-                if capture_frontier:
-                    index.append_page(page.record)
-                if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
-                    raise SelectedGraphBudgetExceeded(
-                        "selected graph examined frontier exceeds byte bound", cut=cut
+                if obligation_id is not None:
+                    assert continuation is not None
+                    continuation["obligation_id"] = obligation_id
+                while True:
+                    page = read_demand_result(
+                        connection,
+                        demand_id,
+                        project_id=project_id,
+                        continuation=continuation,
+                        cut=cut,
+                        scope=scope,
+                        limit=page_rows,
+                        max_bytes=max_bytes,
+                        view="frontier",
                     )
-                if max_total_records is not None and index.retained_records > max_total_records:
-                    raise SelectedGraphBudgetExceeded(
-                        "selected graph examined frontier exceeds record bound", cut=cut
-                    )
-                continuation = page.continuation
-                if continuation is None:
-                    break
-            for record in stream_selected_support(connection, page, whole_read=True):
-                index.append(json_bytes(record), allow_equal=True)
-                if max_total_records is not None and index.retained_records > max_total_records:
-                    raise SelectedGraphBudgetExceeded(
-                        "selected graph examined closure exceeds record bound", cut=cut
-                    )
-                if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
-                    raise SelectedGraphBudgetExceeded(
-                        "selected graph examined closure exceeds byte bound", cut=cut
-                    )
+                    cut = page.cut
+                    if expected_cut is not None and cut.identity != expected_cut:
+                        raise ValueError("selected resource belongs to another cut/trust assessment")
+                    if capture_frontier:
+                        index.append_page(page.record)
+                    if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
+                        raise SelectedGraphBudgetExceeded(
+                            "selected graph examined frontier exceeds byte bound", cut=cut
+                        )
+                    if max_total_records is not None and index.retained_records > max_total_records:
+                        raise SelectedGraphBudgetExceeded(
+                            "selected graph examined frontier exceeds record bound", cut=cut
+                        )
+                    continuation = page.continuation
+                    if continuation is None:
+                        break
+                    if obligation_id is not None:
+                        continuation = {**continuation, "obligation_id": obligation_id}
+                for record in stream_selected_support(connection, page, whole_read=obligation_ids is None):
+                    index.append(json_bytes(record), allow_equal=True)
+                    if max_total_records is not None and index.retained_records > max_total_records:
+                        raise SelectedGraphBudgetExceeded(
+                            "selected graph examined closure exceeds record bound", cut=cut
+                        )
+                    if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
+                        raise SelectedGraphBudgetExceeded(
+                            "selected graph examined closure exceeds byte bound", cut=cut
+                        )
             yield cut, index
         finally:
             index.close()
