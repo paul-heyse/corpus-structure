@@ -24,17 +24,38 @@ from corpus_structure.semantic.file_custody import observed_file
 # Encoding, restoration, certification and conversion are one selected producer.
 # SQL publication, data-operation scheduling and Integrated producers are not members.
 STANDARD_MODULES = (
-    "__init__", "_query_custody", "core/work",
-    "semantic/file_custody", "semantic/identity", "semantic/correction_detail",
-    "semantic/value_codec", "semantic/value_codec_core",
-    "semantic/pdf_record_identity", "semantic/pdf_records", "semantic/pdf_lowering_context",
-    "semantic/pdf_certification", "semantic/pdf_companion_encoding",
-    "semantic/pdf_payload_validation", "semantic/pdf_payloads", "semantic/sqlite_scratch",
-    "ingest/pdf", "ingest/pdf_assets", "ingest/pdf_runtime", "ingest/pdf_producer_contract",
-    "ingest/pdf_worker", "ingest/pdf_stream_types", "ingest/pdf_streaming",
-    "ingest/pdf_build_spool", "ingest/pdf_health", "ingest/pdf_hierarchy",
-    "ingest/pdf_candidates", "ingest/pdf_candidate_source",
-    "ingest/pdf_assembly", "ingest/pdf_ocr", "ingest/pdf_record_product", "ingest/pdf_occurrences",
+    "__init__",
+    "_query_custody",
+    "core/work",
+    "semantic/file_custody",
+    "semantic/identity",
+    "semantic/correction_detail",
+    "semantic/value_codec",
+    "semantic/value_codec_core",
+    "semantic/pdf_record_identity",
+    "semantic/pdf_records",
+    "semantic/pdf_lowering_context",
+    "semantic/pdf_certification",
+    "semantic/pdf_companion_encoding",
+    "semantic/pdf_payload_validation",
+    "semantic/pdf_payloads",
+    "semantic/sqlite_scratch",
+    "ingest/pdf",
+    "ingest/pdf_assets",
+    "ingest/pdf_runtime",
+    "ingest/pdf_producer_contract",
+    "ingest/pdf_worker",
+    "ingest/pdf_stream_types",
+    "ingest/pdf_streaming",
+    "ingest/pdf_build_spool",
+    "ingest/pdf_health",
+    "ingest/pdf_hierarchy",
+    "ingest/pdf_candidates",
+    "ingest/pdf_candidate_source",
+    "ingest/pdf_assembly",
+    "ingest/pdf_ocr",
+    "ingest/pdf_record_product",
+    "ingest/pdf_occurrences",
 )
 PROFILE = "standard-pdf-producer-files-v1"
 
@@ -46,9 +67,12 @@ def _code_key(code):
 
 
 def _normalized(code):
-    return code.replace(co_filename="", co_consts=tuple(
-        _normalized(value) if isinstance(value, CodeType) else value for value in code.co_consts
-    ))
+    return code.replace(
+        co_filename="",
+        co_consts=tuple(
+            _normalized(value) if isinstance(value, CodeType) else value for value in code.co_consts
+        ),
+    )
 
 
 def _code_tree(code):
@@ -76,9 +100,16 @@ def _generated_dataclass_codes(module):
         params = vars(cls).get("__dataclass_params__")
         if params is None:
             continue
-        clone = make_dataclass(cls.__name__, [(item.name, item.type, item) for item in fields(cls)],
-            init=params.init, repr=params.repr, eq=params.eq, order=params.order,
-            unsafe_hash=params.unsafe_hash, frozen=params.frozen)
+        clone = make_dataclass(
+            cls.__name__,
+            [(item.name, item.type, item) for item in fields(cls)],
+            init=params.init,
+            repr=params.repr,
+            eq=params.eq,
+            order=params.order,
+            unsafe_hash=params.unsafe_hash,
+            frozen=params.frozen,
+        )
         for value in vars(clone).values():
             visit(value)
     return known
@@ -96,7 +127,9 @@ class StandardPdfContract:
 
     def custody(self):
         self.check()
-        return tuple(observed_file(Path(path)).receipt() for path, _ in (*self.first_party, *self.files))
+        return tuple(
+            observed_file(Path(path)).receipt() for path, _ in (*self.first_party, *self.files)
+        )
 
     def check(self):
         from corpus_structure._query_custody import capture_sources
@@ -125,7 +158,19 @@ def standard_pdf_contract() -> StandardPdfContract:
         (str(root / name), observed_file(root / name).digest)
         for name in ("model/semantic/pdf-payloads.yaml",)
     )
-    pending: list[tuple[str, tuple[str, ...]]] = [(name, ()) for name in (*PDF_PACKAGE_FAMILY, "pyarrow", "cloudpickle", "wcwidth", "nvidia-ml-py", "dill", "sqlalchemy", "referencing")]
+    pending: list[tuple[str, tuple[str, ...]]] = [
+        (name, ())
+        for name in (
+            *PDF_PACKAGE_FAMILY,
+            "pyarrow",
+            "cloudpickle",
+            "wcwidth",
+            "nvidia-ml-py",
+            "dill",
+            "sqlalchemy",
+            "referencing",
+        )
+    ]
     pending.append(("jsonschema", ("format",)))
     pending.append(("requests", ("use-chardet-on-py3",)))
     selected: dict[str, str] = {}
@@ -141,7 +186,9 @@ def standard_pdf_contract() -> StandardPdfContract:
         package = distribution(name)
         for requirement in package.requires or ():
             requirement = Requirement(requirement)
-            if requirement.marker is None or any(requirement.marker.evaluate({"extra": extra}) for extra in new_extras):
+            if requirement.marker is None or any(
+                requirement.marker.evaluate({"extra": extra}) for extra in new_extras
+            ):
                 pending.append((requirement.name, tuple(sorted(requirement.extras))))
         if name in selected:
             continue
@@ -155,32 +202,50 @@ def standard_pdf_contract() -> StandardPdfContract:
             if not path.is_file():
                 raise ValueError("Standard PDF dependency inventory is missing: " + str(path))
             if not path.is_relative_to(sys.prefix):
-                raise ValueError("Standard PDF dependency is outside its selected environment: " + str(path))
+                raise ValueError(
+                    "Standard PDF dependency is outside its selected environment: " + str(path)
+                )
             files[str(path)] = observed_file(path).digest
     stdlib = Path(sysconfig.get_path("stdlib")).resolve()
-    runtime = {"executable": (Path(sys.executable).resolve(), observed_file(Path(sys.executable).resolve()).digest)}
+    runtime = {
+        "executable": (
+            Path(sys.executable).resolve(),
+            observed_file(Path(sys.executable).resolve()).digest,
+        )
+    }
     for path in stdlib.rglob("*"):
-        if path.is_file() and path.suffix in {".py", ".so", ".pyd"} and "site-packages" not in path.parts:
+        if (
+            path.is_file()
+            and path.suffix in {".py", ".so", ".pyd"}
+            and "site-packages" not in path.parts
+        ):
             runtime["stdlib/" + str(path.relative_to(stdlib))] = (path, observed_file(path).digest)
     for path in Path(sys.base_prefix).joinpath("lib").glob("libpython*.so*"):
         runtime["lib/" + path.name] = (path.resolve(), observed_file(path.resolve()).digest)
     dependency_files = files.copy()
     files.update((str(path), digest) for path, digest in runtime.values())
     contract = StandardPdfContract(
-        json.dumps({
-            "profile": PROFILE,
-            "scope": "docling-standard-pdf-stream-v1",
-            "python": sys.version,
-            "first_party": [(str(Path(path).relative_to(root)), digest) for path, digest in first_party],
-            "distributions": selected,
-            "runtime": sorted((name, digest) for name, (_, digest) in runtime.items()),
-            # Paths are custody only. Distribution-relative paths survive a checkout move.
-            "dependencies": sorted(
-                (str(Path(path).relative_to(sys.prefix)), digest)
-                for path, digest in dependency_files.items()
-            ),
-        }, sort_keys=True, separators=(",", ":")).encode(),
-        tuple(sorted(files.items())), first_party,
+        json.dumps(
+            {
+                "profile": PROFILE,
+                "scope": "docling-standard-pdf-stream-v1",
+                "python": sys.version,
+                "first_party": [
+                    (str(Path(path).relative_to(root)), digest) for path, digest in first_party
+                ],
+                "distributions": selected,
+                "runtime": sorted((name, digest) for name, (_, digest) in runtime.items()),
+                # Paths are custody only. Distribution-relative paths survive a checkout move.
+                "dependencies": sorted(
+                    (str(Path(path).relative_to(sys.prefix)), digest)
+                    for path, digest in dependency_files.items()
+                ),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode(),
+        tuple(sorted(files.items())),
+        first_party,
     )
     contract.check()
     return contract
@@ -197,9 +262,13 @@ def accept_standard_pdf_custody(content: bytes, receipts) -> None:
     stdlib = Path(sysconfig.get_path("stdlib")).resolve()
     runtime = {}
     for name, digest in document.get("runtime", ()):
-        path = (Path(sys.executable).resolve() if name == "executable" else
-                stdlib / name.removeprefix("stdlib/") if name.startswith("stdlib/") else
-                Path(sys.base_prefix) / name)
+        path = (
+            Path(sys.executable).resolve()
+            if name == "executable"
+            else stdlib / name.removeprefix("stdlib/")
+            if name.startswith("stdlib/")
+            else Path(sys.base_prefix) / name
+        )
         runtime[str(path.resolve())] = digest
     expected = {
         **runtime,
@@ -234,7 +303,7 @@ def standard_pdf_execution(contract: StandardPdfContract):
     def observe(code, *_):
         filename = code.co_filename
         if filename.startswith("<frozen ") and filename.endswith(">"):
-            name = filename[len("<frozen "):-1]
+            name = filename[len("<frozen ") : -1]
             module = sys.modules.get(name)
             spec = getattr(module, "__spec__", None)
             frozen_name = getattr(spec, "name", name)
@@ -253,7 +322,11 @@ def standard_pdf_execution(contract: StandardPdfContract):
                 return sys.monitoring.DISABLE
             factory = frame.f_back
             factory_origin = factory.f_globals.get("__file__") if factory is not None else None
-            if code.co_name == "<module>" and factory_origin and str(Path(factory_origin).resolve()) in dependency_paths:
+            if (
+                code.co_name == "<module>"
+                and factory_origin
+                and str(Path(factory_origin).resolve()) in dependency_paths
+            ):
                 # Observe code creation while its authenticated factory is on stack,
                 # rather than accepting an unrooted generated function on later use.
                 generated.update(_code_tree(code))
@@ -264,11 +337,21 @@ def standard_pdf_execution(contract: StandardPdfContract):
             if isinstance(cls, type) and isinstance(names, tuple):
                 module = sys.modules.get(cls.__module__)
                 module_origin = getattr(module, "__file__", None)
-                if (module_origin and str(Path(module_origin).resolve()) in dependency_paths
+                if (
+                    module_origin
+                    and str(Path(module_origin).resolve()) in dependency_paths
                     and frame.f_globals.get("_tuple_new") is tuple.__new__
-                    and _code_key(code) == _code_key(namedtuple(cls.__name__, names).__new__.__code__)):
+                    and _code_key(code)
+                    == _code_key(namedtuple(cls.__name__, names).__new__.__code__)
+                ):
                     return sys.monitoring.DISABLE
-            if origin and (str(Path(origin).resolve()) in dependency_paths or (Path(origin).resolve().is_relative_to(stdlib) and not Path(origin).resolve().is_relative_to(purelib))):
+            if origin and (
+                str(Path(origin).resolve()) in dependency_paths
+                or (
+                    Path(origin).resolve().is_relative_to(stdlib)
+                    and not Path(origin).resolve().is_relative_to(purelib)
+                )
+            ):
                 return sys.monitoring.DISABLE
             if origin and str(Path(origin).resolve()) in first_party:
                 module_name = frame.f_globals.get("__name__")
@@ -286,7 +369,9 @@ def standard_pdf_execution(contract: StandardPdfContract):
             if key not in first_party:
                 raise ValueError("Standard PDF called an undeclared first-party helper: " + key)
             if key not in codes:
-                codes[key] = frozenset(_code_tree(compile(path.read_bytes(), key, "exec", dont_inherit=True)))
+                codes[key] = frozenset(
+                    _code_tree(compile(path.read_bytes(), key, "exec", dont_inherit=True))
+                )
             if _code_key(code) not in codes[key]:
                 raise ValueError("Standard PDF loaded code differs from captured source: " + key)
         elif path.is_relative_to(purelib):
@@ -295,9 +380,13 @@ def standard_pdf_execution(contract: StandardPdfContract):
                 raise ValueError("Standard PDF called an undeclared dependency: " + key)
             if path.suffix == ".py":
                 if key not in codes:
-                    codes[key] = frozenset(_code_tree(compile(path.read_bytes(), key, "exec", dont_inherit=True)))
+                    codes[key] = frozenset(
+                        _code_tree(compile(path.read_bytes(), key, "exec", dont_inherit=True))
+                    )
                 if _code_key(code) not in codes[key]:
-                    raise ValueError("Standard PDF dependency code differs from captured source: " + key)
+                    raise ValueError(
+                        "Standard PDF dependency code differs from captured source: " + key
+                    )
         elif str(path) not in expected:
             raise ValueError("Standard PDF called code outside its installed runtime: " + str(path))
         return sys.monitoring.DISABLE
@@ -312,7 +401,9 @@ def standard_pdf_execution(contract: StandardPdfContract):
         # query_sources handles first-party import custody. Dependency files loaded before
         # acquisition are checked by installed file population and monitored call origins.
         with query_sources(first_party, closed=True):
-            sys.monitoring.set_events(monitor, sys.monitoring.events.PY_START | sys.monitoring.events.PY_RESUME)
+            sys.monitoring.set_events(
+                monitor, sys.monitoring.events.PY_START | sys.monitoring.events.PY_RESUME
+            )
             try:
                 yield
             finally:

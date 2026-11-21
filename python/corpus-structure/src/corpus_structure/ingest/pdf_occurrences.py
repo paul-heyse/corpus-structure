@@ -103,5 +103,3 @@ def native_cell_values(node):
             chart.chart_data.table_cells if chart else (),
         )
     return "", ()
-
-

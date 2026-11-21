@@ -102,18 +102,32 @@ def _native_child(
                         # Generic v2 remains demand-scoped. Explicit v3 selection can
                         # never fall back here after a custody or admission refusal.
                         result = run_pdf_stream(
-                            request, StreamingPdfProducer(recipe, assets=assets), on_replay=acknowledged
+                            request,
+                            StreamingPdfProducer(recipe, assets=assets),
+                            on_replay=acknowledged,
                         )
                     else:
-                        if assets is None or not recipe.model_artifacts or not recipe.model_revisions:
-                            raise PdfWorkerError("selected PDF producer requires its exact offline model population")
-                        accept_standard_pdf_custody(request.producer_contract, request.producer_custody)
+                        if (
+                            assets is None
+                            or not recipe.model_artifacts
+                            or not recipe.model_revisions
+                        ):
+                            raise PdfWorkerError(
+                                "selected PDF producer requires its exact offline model population"
+                            )
+                        accept_standard_pdf_custody(
+                            request.producer_contract, request.producer_custody
+                        )
                         contract = standard_pdf_contract()
                         if request.producer_contract != contract.content:
-                            raise PdfWorkerError("PDF child selected producer differs from parent capture")
+                            raise PdfWorkerError(
+                                "PDF child selected producer differs from parent capture"
+                            )
                         with standard_pdf_execution(contract):
                             result = run_pdf_stream(
-                                request, StreamingPdfProducer(recipe, assets=assets), on_replay=acknowledged
+                                request,
+                                StreamingPdfProducer(recipe, assets=assets),
+                                on_replay=acknowledged,
                             )
                 else:
                     from .pdf_enrichment import PdfEnrichmentRequest, compute_enrichment

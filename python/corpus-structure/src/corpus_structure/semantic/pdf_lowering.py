@@ -73,7 +73,9 @@ def lowering_sources(
     "release_bytes",
     weight=lambda result: max(1, sum(len(source.content) for source in result[0])),
 )
-def _prepared_lowering_sources(boundary_sources, include_producer, native_schema, standard_producer):
+def _prepared_lowering_sources(
+    boundary_sources, include_producer, native_schema, standard_producer
+):
     sources, custody = _implementation_sources(include_producer, native_schema, standard_producer)
     for record in custody:
         record.check()
@@ -158,25 +160,37 @@ def _prepared_lowering_sources(boundary_sources, include_producer, native_schema
         "pdf-domain/" + LOWERING_CONTRACT,
         canonical_bytes(
             {
-                "profile": "pdf-record-lowering-contract-v2" if standard_producer is None else "pdf-record-lowering-contract-v3",
+                "profile": "pdf-record-lowering-contract-v2"
+                if standard_producer is None
+                else "pdf-record-lowering-contract-v3",
                 "compiler_policy": SEMANTIC_COMPILER_VERSION,
                 "code_identity": {
-                    **({
-                        "complete": code.complete,
-                        "sha256": code.digest,
-                        "unknowns": sorted({(item.module, item.reason) for item in code.unknowns}),
-                    } if code is not None else {
-                        "complete": True,
-                        "sha256": standard_producer.digest,
-                        "scope": "docling-standard-pdf-stream-v1",
-                    }),
+                    **(
+                        {
+                            "complete": code.complete,
+                            "sha256": code.digest,
+                            "unknowns": sorted(
+                                {(item.module, item.reason) for item in code.unknowns}
+                            ),
+                        }
+                        if code is not None
+                        else {
+                            "complete": True,
+                            "sha256": standard_producer.digest,
+                            "scope": "docling-standard-pdf-stream-v1",
+                        }
+                    ),
                 },
                 "inputs": [
                     {"name": source.name, "sha256": source.digest}
                     for source in (*sources, *boundary_sources)
                 ],
                 "libraries": {
-                    **({distribution: version for _, distribution, version in code.distributions} if code is not None else json.loads(standard_producer.content)["distributions"]),
+                    **(
+                        {distribution: version for _, distribution, version in code.distributions}
+                        if code is not None
+                        else json.loads(standard_producer.content)["distributions"]
+                    ),
                     "python": determinant_version("python"),
                     "unicode-identity": determinant_version("unicode-identity"),
                 },
@@ -225,9 +239,14 @@ def _implementation_sources(include_producer, native_schema: bytes, standard_pro
     if standard_producer is not None:
         standard_producer.check()
         return (
-            SourceArtifact("pdf-domain/" + LOWERING_PREFIX + "code/meaning.json", standard_producer.content),
+            SourceArtifact(
+                "pdf-domain/" + LOWERING_PREFIX + "code/meaning.json", standard_producer.content
+            ),
             schema_source,
-        ), tuple(verified_file(Path(path), digest) for path, digest in (*standard_producer.first_party, *standard_producer.files))
+        ), tuple(
+            verified_file(Path(path), digest)
+            for path, digest in (*standard_producer.first_party, *standard_producer.files)
+        )
     code = _lowering_code()
     if code.complete:
         from corpus_structure._query_custody import capture_workload_sources

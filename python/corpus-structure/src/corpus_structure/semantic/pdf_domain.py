@@ -192,7 +192,9 @@ def pdf_domain_sources(
     sources = (
         *action_sources,
         *lowering_sources(
-            action_sources, include_producer=include_producer, model_sources=model_sources,
+            action_sources,
+            include_producer=include_producer,
+            model_sources=model_sources,
             standard_producer=standard_producer,
         ),
         SourceArtifact(
@@ -258,11 +260,17 @@ def pdf_domain_sources(
 
 
 def pdf_helper_asset(*, standard_producer=None) -> SourceArtifact:
-    source = next(source for source in pdf_domain_sources(standard_producer=standard_producer) if source.name == CONTRACT)
+    source = next(
+        source
+        for source in pdf_domain_sources(standard_producer=standard_producer)
+        if source.name == CONTRACT
+    )
     return SourceArtifact(HELPER_CONTRACT, source.content)
 
 
-def pdf_domain_dependencies(dependencies: ResolvedDependencies, *, standard_producer=None) -> ResolvedDependencies:
+def pdf_domain_dependencies(
+    dependencies: ResolvedDependencies, *, standard_producer=None
+) -> ResolvedDependencies:
     if any(source.name.startswith("execution/") for source in dependencies.artifacts):
         raise ValueError("PDF domain facet cannot be attached to a legacy execution release")
     if any(source.name.startswith(PREFIX) for source in dependencies.artifacts):

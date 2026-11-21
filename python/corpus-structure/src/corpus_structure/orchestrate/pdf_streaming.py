@@ -399,7 +399,11 @@ def run_private_native_pdf_build(
             from corpus_structure.semantic.pdf_lowering import LOWERING_CONTRACT
 
             selected_lowering = json.loads(context.domain.source(LOWERING_CONTRACT).content)
-            selected_producer = standard_pdf_contract() if selected_lowering["profile"] == "pdf-record-lowering-contract-v3" else None
+            selected_producer = (
+                standard_pdf_contract()
+                if selected_lowering["profile"] == "pdf-record-lowering-contract-v3"
+                else None
+            )
             if selected_producer is not None:
                 selected_producer.check()
 
@@ -409,9 +413,13 @@ def run_private_native_pdf_build(
 
                     replay.verify()
                     preparation = json.loads(replay.path.read_bytes())["_preparation"]
-                    if (preparation.get("profile") != "pdf-prepared-native-runtime-v3"
-                        or preparation.get("selected_producer") != selected_producer.digest):
-                        raise ValueError("PDF child preparation differs from parent selected producer")
+                    if (
+                        preparation.get("profile") != "pdf-prepared-native-runtime-v3"
+                        or preparation.get("selected_producer") != selected_producer.digest
+                    ):
+                        raise ValueError(
+                            "PDF child preparation differs from parent selected producer"
+                        )
                     selected_producer.check()
                 if replay.family not in {
                     *UPLOAD_STAGE_FAMILIES,
@@ -504,8 +512,12 @@ def run_private_native_pdf_build(
                             payload_schema=payload_schema,
                             validation_contract=validation_contract,
                             lowering_identity=lowering_identity,
-                            producer_contract=selected_producer.content if selected_producer is not None else None,
-                            producer_custody=selected_producer.custody() if selected_producer is not None else (),
+                            producer_contract=selected_producer.content
+                            if selected_producer is not None
+                            else None,
+                            producer_custody=selected_producer.custody()
+                            if selected_producer is not None
+                            else (),
                             recovery_pages=tuple(
                                 sorted(recovery_pages, key=lambda page: page.page_no)
                             ),

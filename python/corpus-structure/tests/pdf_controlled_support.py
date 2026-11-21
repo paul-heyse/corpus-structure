@@ -213,7 +213,9 @@ def controlled_native_child(connection, recipe, assets, writer_lease=None):
                 if not isinstance(request, PdfStreamRequest):
                     raise TypeError("scripted peer only supports streaming requests")
                 try:
-                    result = run_pdf_stream(request, StreamingPdfProducer(recipe, assets=assets), on_replay=acknowledged)
+                    result = run_pdf_stream(
+                        request, StreamingPdfProducer(recipe, assets=assets), on_replay=acknowledged
+                    )
                     connection.send(NativeReply(value=result))
                 except Exception as error:
                     connection.send(NativeReply(error=error_summary(error)))

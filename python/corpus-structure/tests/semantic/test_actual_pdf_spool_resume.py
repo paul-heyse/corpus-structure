@@ -66,19 +66,15 @@ def _records(reply):
 
 
 def test_actual_missing_page_resume_and_same_spool_rebuild(tmp_path, request):
-    from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
     from corpus_structure.semantic.pdf_certification import prepare_pdf_producer_contract
     from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 
     recipe, assets = prepared_pdf_resume_assets()
-    selected = standard_pdf_contract()
     contract = prepare_pdf_producer_contract(trusted_pdf_context(), kind="native")
     bindings = dict(
         validation_contract=contract.validation_contract,
         lowering_identity=contract.lowering_identity,
         payload_schema=contract.payload_schema,
-        producer_contract=selected.content,
-        producer_custody=selected.custody(),
     )
     interrupted = []
 

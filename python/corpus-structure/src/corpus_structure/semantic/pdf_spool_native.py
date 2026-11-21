@@ -66,7 +66,8 @@ def spool_material_document(content: bytes) -> dict:
     document = json.loads(content)
     if (
         set(document) != {"profile", "compiler_policy", "code_identity", "inputs", "libraries"}
-        or document["profile"] not in {"pdf-record-lowering-contract-v2", "pdf-record-lowering-contract-v3"}
+        or document["profile"]
+        not in {"pdf-record-lowering-contract-v2", "pdf-record-lowering-contract-v3"}
         or not isinstance(document.get("code_identity"), dict)
         or document["code_identity"].get("complete") is not True
         or not isinstance(document["libraries"], dict)
@@ -575,7 +576,9 @@ def pdf_spool_native_programs(
                 lower.c.content_digest == digest(lower.c.content),
                 domain.c.content_digest == digest(domain.c.content),
                 domain.c.content_digest == domain_digest,
-                document["profile"].astext.in_(("pdf-record-lowering-contract-v2", "pdf-record-lowering-contract-v3")),
+                document["profile"].astext.in_(
+                    ("pdf-record-lowering-contract-v2", "pdf-record-lowering-contract-v3")
+                ),
                 document["code_identity"]["complete"] == cast(literal("true"), JSONB()),
                 or_(
                     document["profile"].astext == "pdf-record-lowering-contract-v2",

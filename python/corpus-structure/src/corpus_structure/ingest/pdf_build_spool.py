@@ -183,7 +183,10 @@ def native_preparation_identity(content: bytes) -> str:
             "PDF spool native preparation predates initialized binding custody; "
             "retain the original spool and regenerate this capture with the current producer"
         )
-    if preparation.get("profile") not in {"pdf-prepared-native-runtime-v2", "pdf-prepared-native-runtime-v3"}:
+    if preparation.get("profile") not in {
+        "pdf-prepared-native-runtime-v2",
+        "pdf-prepared-native-runtime-v3",
+    }:
         raise ValueError("PDF spool has an unsupported native preparation profile")
     determining = {
         name: preparation[name]
