@@ -211,6 +211,15 @@ def test_request_identity_keeps_selected_episode_and_excludes_acquisition_cut():
         first.identity.key
         != request(selected_entry(episode="episode:other", use="use:other")).identity.key
     )
+    selected = selected_entry()
+    precise = replace(
+        selected,
+        entry=replace(selected.entry, analyzed_scope=b'{"coordinate":0.123456789012345678901}'),
+    )
+    projected = request(precise)
+    assert projected.parameters["source_sets"]["inputs"][0]["analyzed_scope"] == {
+        "coordinate": Decimal("0.123456789012345678901")
+    }
 
 
 def test_retained_characterization_selection_requires_explicit_supported_active_subset():

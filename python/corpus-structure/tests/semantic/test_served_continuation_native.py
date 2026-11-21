@@ -1,5 +1,6 @@
 """Actual installed CLI continuation replay after fresh native authorization."""
 
+import base64
 import os
 from decimal import Decimal
 
@@ -126,9 +127,9 @@ def test_installed_cli_continuation_replays_authorized_rows_across_processes(
             assert second[field] == repeated[field]
     assert all(repeated_observations[name] > 0 for name in miss_counters)
 
-    from corpus_structure.semantic.continuation_codec import decode_cursor, encode_cursor
+    from corpus_structure.semantic.continuation_codec import encode_cursor
 
-    incompatible = decode_cursor(cursor)
+    incompatible = json_loads(base64.b64decode(cursor, altchars=b"-_", validate=True))
     incompatible["implementation"] = "0" * 64
     refused, incompatible_observations = invoke("incompatible", cursor=encode_cursor(incompatible))
     assert refused.returncode != 0

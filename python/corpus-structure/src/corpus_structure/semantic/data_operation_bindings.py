@@ -38,7 +38,7 @@ from sqlalchemy.sql.visitors import replacement_traverse
 
 from ._data_operation_fates import RecordableFate
 from .binding_primitives import BINDING_PRIMITIVE_ALIASES, BINDING_VALUE_TYPES
-from .data_operation_json import json_bytes, wire_json_loads
+from .data_operation_json import json_bytes, native_json_loads, scope_identity, wire_json_loads
 from .data_operation_jsonb import ContextJSONB, json_context_equal
 from .data_operation_kind_refinements import input_kind_contracts
 from .data_operation_model import (
@@ -694,7 +694,7 @@ def compile_binding(
                         json_context_equal(
                             alias.c.analyzed_scope,
                             literal(
-                                wire_json_loads(subject_context.analyzed_scope),
+                                scope_identity(native_json_loads(subject_context.analyzed_scope)),
                                 type_=ContextJSONB(),
                             ),
                         ),

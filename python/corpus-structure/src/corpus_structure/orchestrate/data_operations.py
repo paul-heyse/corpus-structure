@@ -60,7 +60,12 @@ from corpus_structure.semantic.data_operation_admission import (
     bound_data_operation_model,
 )
 from corpus_structure.semantic.data_operation_demands import ReadyDataRequest
-from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
+from corpus_structure.semantic.data_operation_json import (
+    json_bytes,
+    native_json_loads,
+    scope_identity,
+    wire_json_loads,
+)
 from corpus_structure.semantic.data_operation_ports import (
     HydratedRoleValue,
     PortRefusal,
@@ -1042,7 +1047,9 @@ class NativeDemandExecutor:
                         "subject": value.member.subject,
                         "subject_definition": value.member.subject_definition,
                         "original_source": value.member.original_source,
-                        "analyzed_scope": wire_json_loads(value.member.analyzed_scope),
+                        "analyzed_scope": scope_identity(
+                            native_json_loads(value.member.analyzed_scope)
+                        ),
                         "body": value.value(),
                     }
                     for value in values

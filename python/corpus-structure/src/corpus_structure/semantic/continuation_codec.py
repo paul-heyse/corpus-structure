@@ -2,7 +2,7 @@
 
 import base64
 
-from .data_operation_json import finite_json_loads, json_bytes, native_json_loads, wire_json_loads
+from .data_operation_json import finite_json_loads, json_bytes, native_json_loads
 
 
 def encode_cursor(value):
@@ -13,13 +13,6 @@ def encode_cursor(value):
     if len(encoded) > 32768:
         raise ValueError("selected cursor exceeds the supported encoded bound")
     return encoded
-
-
-def decode_cursor(value):
-    try:
-        return wire_json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
-    except (ValueError, TypeError) as error:
-        raise ValueError("invalid selected-result cursor") from error
 
 
 def decode_demand_cursor(value):

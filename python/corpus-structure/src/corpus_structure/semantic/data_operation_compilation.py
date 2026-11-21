@@ -23,7 +23,7 @@ from corpus_structure.schema.operation_declarations import (
     declarations as operation_declarations,
 )
 
-from .data_operation_json import json_loads, scope_identity, wire_json_loads
+from .data_operation_json import json_loads, native_json_loads, scope_identity, wire_json_loads
 from .data_operation_model import (
     BindingExpression,
     BindingField,
@@ -2657,7 +2657,7 @@ def project_operation_binding(
                 {**entry, "analyzed_scope": scope_identity(entry["analyzed_scope"])}
                 for entry in scope["entries"]
             ]
-            for name, scope in wire_json_loads(binding.source_sets).items()
+            for name, scope in native_json_loads(binding.source_sets).items()
         }
     reusable = all(asset.reuse_eligible for asset in operation.assets)
     if not reusable and execution_scope is None:
