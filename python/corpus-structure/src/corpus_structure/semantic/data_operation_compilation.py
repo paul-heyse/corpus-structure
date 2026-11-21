@@ -2500,6 +2500,12 @@ def project_operation_binding(
         members: list[dict[str, Any]] = []
         actual_support = []
         for member in actual.members:
+            if requirement is not None:
+                from .producer_requirements import compare_producer_requirement
+
+                comparison = compare_producer_requirement(requirement, output=member.producer_output)
+                if comparison.failed:
+                    _fail(name, "selected producer violates " + ", ".join(comparison.failed))
             for value in (member.product, member.subject):
                 _text(value, name)
             try:
