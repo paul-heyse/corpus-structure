@@ -224,13 +224,26 @@ def test_invalid_nominal_occurrence_context_standing_and_root_refuse(mutation):
 
 
 def test_group_paging_pins_cut_and_selection_and_never_splits_readings(monkeypatch):
-    from evaluate.declared_record_grading_support import cut
-
     from corpus_structure.serve import interpretations, selected_contributions
 
     prepared, model, first, *_ = universe()
     _, _, second, *_ = universe(second_source=True)
     observed = []
+
+    def selected_cut():
+        from corpus_structure.semantic.demand_results import CutSelection
+
+        from semantic.demand_result_support import demand_result_page
+
+        record = CutSelection.from_native(demand_result_page()).record
+        record.update(project_id="project:one", demand_id="demand:source", read_id="read:source",
+                      release_id=prepared.release_id, runtime_id="runtime:source")
+        record["selection"] = {
+            "version": "data-demand-public-selection-v1", "model": "a" * 64,
+            "intent_digest": "intent:source", "roots": [], "targets": ["operation:one"],
+            "root_operations": ["operation:one"], "discovery": [],
+        }
+        return CutSelection(json_bytes(record))
 
     @contextmanager
     def scope(connection, request, *, product_ids):
@@ -239,7 +252,7 @@ def test_group_paging_pins_cut_and_selection_and_never_splits_readings(monkeypat
         yield SimpleNamespace(
             prepared=prepared,
             model=model,
-            cut=cut(),
+            cut=selected_cut(),
             products=lambda: iter((first, second)),
             index=SimpleNamespace(frontier_rows=lambda name: iter(({"fate": "unknown"},))),
         )
@@ -248,7 +261,7 @@ def test_group_paging_pins_cut_and_selection_and_never_splits_readings(monkeypat
     control_frontier(
         monkeypatch,
         lambda _: (
-            cut(),
+            selected_cut(),
             {
                 "obligations": [{"fate": "unknown"}],
                 "uses": [],
@@ -286,7 +299,7 @@ def test_group_paging_pins_cut_and_selection_and_never_splits_readings(monkeypat
     assert isinstance(second_item, dict)
     assert next_page.body["page_complete"] is True
     assert first_item["identity"] != second_item["identity"]
-    assert observed[-1].read_id == "read:source" and observed[-1].expected_cut == cut().identity
+    assert observed[-1].read_id == "read:source" and observed[-1].expected_cut == selected_cut().identity
     with pytest.raises(ValueError):
         interpretations.group_selected_interpretations(
             None, request.model_copy(update={"cursor": token, "demand_id": "demand:foreign"})
@@ -311,7 +324,7 @@ def test_group_paging_pins_cut_and_selection_and_never_splits_readings(monkeypat
         interpretations.group_selected_interpretations(
             None,
             request.model_copy(
-                update={"cursor": token, "read_id": "read:foreign", "expected_cut": cut().identity}
+                update={"cursor": token, "read_id": "read:foreign", "expected_cut": selected_cut().identity}
             ),
         )
     from corpus_structure.semantic.refusal_types import ReadLimit
@@ -409,7 +422,7 @@ def test_native_acquisition_scopes_exact_roots_and_preserves_explicit_null_sourc
     from corpus_structure.serve import selected_contributions
 
     seen = []
-    index, prepared, model = object(), object(), object()
+    index, prepared, model = SimpleNamespace(freeze=lambda: None), object(), object()
 
     @contextmanager
     def acquire(connection, demand_id, **kwargs):
