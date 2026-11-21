@@ -367,6 +367,21 @@ def test_native_publication_outcome_is_read_before_a_fresh_executor_retries(
     from psycopg import OperationalError
 
     from corpus_structure.semantic.claim_lifetime import ClaimOwner, ClaimSettlementUncertain
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+
+    # Observe the real spawned provider and its OS process handles independently
+    # of the executor summary. Recovery must not submit a second calculation.
+    submissions, processes = [], []
+    submit = CPUExecutionScope._submit
+
+    def observe_submission(scope, *args, **kwargs):
+        handle = submit(scope, *args, **kwargs)
+        submissions.append(handle)
+        assert scope._pool_ownership is not None
+        processes.extend(scope._pool_ownership.processes)
+        return handle
+
+    monkeypatch.setattr(CPUExecutionScope, "_submit", observe_submission)
 
     preparation = ddo_kernel.preparation
     monkeypatch.syspath_prepend(str(preparation.directory))
@@ -411,6 +426,10 @@ def test_native_publication_outcome_is_read_before_a_fresh_executor_retries(
             execute_data_demand(
                 ddo_kernel.engine, demand, source_root=preparation.directory, database_capacity=6
             )
+    assert len(submissions) == 1
+    assert processes and all(process.pid is not None for process in processes)
+    assert all(not process.is_alive() and process.exitcode is not None for process in processes)
+    assert submissions[0].future.done()
     if committed:
         assert any(
             isinstance(error, ClaimSettlementUncertain) for error in caught.value.failures
@@ -424,6 +443,14 @@ def test_native_publication_outcome_is_read_before_a_fresh_executor_retries(
     with ddo_kernel.engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == int(committed)
+        task = connection.execute(
+            text("SELECT attempt,status,lease_until FROM ops.task WHERE id=:task"),
+            {"task": original["task_id"]},
+        ).one()
+        assert task.attempt == 1 and task.status != "running" and task.lease_until is None
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_publication_receipt")) == int(
+            committed
+        )
         producer = connection.execute(
             text("SELECT producer_task_id,producer_attempt FROM ops.data_completion_intent")
         ).one()
@@ -437,10 +464,13 @@ def test_native_publication_outcome_is_read_before_a_fresh_executor_retries(
         result = execute_data_demand(
             ddo_kernel.engine, demand, source_root=preparation.directory, database_capacity=6
         )
+    assert len(submissions) == 1, "native recovery submitted duplicate provider work"
+    assert all(not process.is_alive() for process in processes)
     assert result.receipt_count == int(not committed)
     with ddo_kernel.engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 1
+        assert connection.scalar(text("SELECT count(*) FROM ops.data_publication_receipt")) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.task WHERE status='running'")) == 0
         assert connection.scalar(text("SELECT canonical_body FROM kb.data_product")) == [
             "integer",
