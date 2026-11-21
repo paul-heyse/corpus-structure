@@ -11,6 +11,7 @@ from corpus_structure.settings import Settings, settings_report
 
 def test_environment_policy_and_file_override_share_validation(tmp_path, monkeypatch):
     monkeypatch.setenv("CORPUS_CHARACTERIZATION_EXECUTION__MAX_REGIONS", "3")
+    monkeypatch.setenv("CORPUS_NEMOTRON__ENDPOINT", "http://127.0.0.1:18035/v1")
     settings = Settings()
     assert settings.characterization_execution.max_regions == 3
     assert (
@@ -22,7 +23,7 @@ def test_environment_policy_and_file_override_share_validation(tmp_path, monkeyp
     resolved, fields = execution_methods(settings, policy)
     assert resolved.execution_policy.max_regions == 3
     assert resolved.execution_policy.workers == 1
-    assert resolved.nemotron_endpoint == settings.nemotron.endpoint
+    assert resolved.nemotron_endpoint == "http://127.0.0.1:18035/v1"
     assert resolved.nemotron_receipts == settings.nemotron.receipts
     assert fields == ("max_submissions", "workers")
 
