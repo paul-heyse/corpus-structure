@@ -7,13 +7,13 @@ from copy import copy
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
 from corpus_structure.semantic.input_values import _untrusted_value
 
-from .data_operation_identity import canonical_identity
+from .data_operation_identity import body_identity, canonical_identity, contextual_product_identity
 from .data_operation_json import json_bytes, json_loads
 from .data_operation_model import (
     EffectiveDataOperationModel,
@@ -21,6 +21,7 @@ from .data_operation_model import (
     SubjectContext,
     validate_subject_context,
 )
+from .data_operation_value_codec import decode_semantic_value
 from .data_operation_values import semantic_value
 from .data_operation_wire import validate_wire_schema
 from .rich_knowledge_contracts import (
@@ -51,6 +52,9 @@ from .rich_knowledge_contracts import (
 from .types import ClassDefinition, PreparedRelease, PropertyDefinition
 from .unicode_identity import identity_casefold
 
+if TYPE_CHECKING:
+    from .demand_results import CutSelection
+
 _NAMESPACE = "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/"
 _VALUES = (
     DdoRichScalarValue,
@@ -69,6 +73,16 @@ class RichWholeInput:
 
     reference: DdoRichSelectedMember
     value: Any
+
+
+@dataclass(frozen=True)
+class NativeRichAdmission:
+    """The exact successful native admission acquired under a current read."""
+
+    cut: CutSelection
+    reference: bytes
+    context: SubjectContext
+    body: bytes
 
 
 def _body_id(body) -> str:
@@ -277,6 +291,9 @@ class RichGraphState:
     @property
     def retained_member_ids(self) -> frozenset[str]:
         return frozenset(self._retained_provenance)
+
+    def _admitted_source_identity(self, body: DdoRichEntity) -> bool:
+        return False
 
     def member(self, identifier, classes):
         body = self.members.get(identifier)
@@ -650,10 +667,14 @@ class RichGraphState:
                             "original_source": source.original_source,
                             "analyzed_scope": json_loads(source.analyzed_scope),
                         }
-                        if self._checking_member not in self.retained_member_ids and not any(
-                            self.source_member_contexts.get(rich_reference_key(reference))
-                            == expected
-                            for reference in body.source_members
+                        if (
+                            self._checking_member not in self.retained_member_ids
+                            and not self._admitted_source_identity(body)
+                            and not any(
+                                self.source_member_contexts.get(rich_reference_key(reference))
+                                == expected
+                                for reference in body.source_members
+                            )
                         ):
                             raise ValueError(
                                 "local entity identity context differs from its actual selected source member"
@@ -852,14 +873,20 @@ class RichGraphState:
 class _RetainedRichGraph(RichGraphState):
     """Local current meaning, with only its actual root's embedded opaque provenance."""
 
-    def __init__(self, prepared, model, context, graph, selection):
+    def __init__(self, prepared, model, context, graph, selection, *, native_admission=None):
         self.selection = selection
+        self._native_admission = native_admission
         self._embedded_provenance = {rich_reference_key(ref) for ref in _references(graph)}
         super().__init__(prepared, model, context, graph, (), ())
 
     def external(self, reference):
         if rich_reference_key(reference) not in self._embedded_provenance:
             raise ValueError("reference is not embedded unchanged in the actual retained rich root")
+
+    def _admitted_source_identity(self, body: DdoRichEntity) -> bool:
+        # Native admission retained the exact member checked against its producing
+        # source at consolidation. Only this whole's owned packets can inherit it.
+        return self._native_admission is not None and self.packets[body.entity_id].body is body
 
 
 def read_retained_rich_graph(
@@ -876,6 +903,58 @@ def read_retained_rich_graph(
     Pure decoding grants no accepted standing. The native producer owner separately
     authenticates the actual admission/effect/CPU/common receipt and current seal.
     """
+    return _read_retained_rich_graph(prepared, model, context, retained, inputs, whole_inputs)
+
+
+def read_native_retained_rich_graph(
+    prepared: PreparedRelease,
+    model: EffectiveDataOperationModel,
+    admission: NativeRichAdmission,
+    *,
+    decimal_fixed_point_digits: int,
+) -> _RetainedRichGraph:
+    """Read only the native-published packets owned by this exact admission."""
+    reference = DdoRichSelectedMember.model_validate(json_loads(admission.reference))
+    cut = admission.cut.record
+    if (
+        reference.member_id is not None
+        or cut["project_id"] != admission.context.project_id
+        or cut["release_id"] != prepared.release_id
+        or cut["scope"] != {"operation_id": "rich.admit", "product_ids": [reference.product_id]}
+    ):
+        raise ValueError("rich retained authority differs from its exact native admission")
+    body = decode_semantic_value(
+        json_loads(admission.body), decimal_fixed_point_digits=decimal_fixed_point_digits
+    )
+    expected_product = contextual_product_identity(
+        kind=reference.kind_contract,
+        context=admission.context,
+        body=body_identity(body).key,
+    ).key
+    if expected_product != reference.product_id:
+        raise ValueError("rich retained authority differs from its exact published body")
+    whole = RichWholeInput(reference, body)
+    return _read_retained_rich_graph(
+        prepared,
+        model,
+        admission.context,
+        whole,
+        (reference,),
+        (whole,),
+        native_admission=admission,
+    )
+
+
+def _read_retained_rich_graph(
+    prepared: PreparedRelease,
+    model: EffectiveDataOperationModel,
+    context: SubjectContext,
+    retained: RichWholeInput,
+    inputs: tuple[DdoRichSelectedMember, ...],
+    whole_inputs: tuple[RichWholeInput, ...],
+    *,
+    native_admission: NativeRichAdmission | None = None,
+) -> _RetainedRichGraph:
     validate_subject_context(model, context)
     if (
         model.subject_definition(context.subject_definition).scope != "project"
@@ -906,7 +985,9 @@ def read_retained_rich_graph(
         json_loads(json_bytes(_untrusted_value(retained.value))),
     )
     checked = DdoRichAdmission.model_validate(_untrusted_value(retained.value))
-    state = _RetainedRichGraph(prepared, model, context, checked, retained)
+    state = _RetainedRichGraph(
+        prepared, model, context, checked, retained, native_admission=native_admission
+    )
     state.check()
     return state
 

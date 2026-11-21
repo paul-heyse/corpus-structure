@@ -5,14 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from .data_operation_json import json_loads
-from .data_operation_value_codec import decode_semantic_value
-from .rich_graph_validation import RichWholeInput, read_retained_rich_graph
-from .rich_knowledge_contracts import DdoRichSelectedMember
+from .rich_graph_validation import NativeRichAdmission, read_native_retained_rich_graph
 from .rich_queries import PreparedRichQueryIndex, query_rows
 
 if TYPE_CHECKING:
-    from .data_operation_model import EffectiveDataOperationModel, SubjectContext
+    from .data_operation_model import EffectiveDataOperationModel
     from .rich_queries import RichQuery, RichQueryIndex
     from .types import PreparedRelease
 
@@ -28,28 +25,16 @@ class RichQueryInput:
 
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
-    context: SubjectContext
-    reference: bytes
-    body: bytes
+    admission: NativeRichAdmission
     decimal_fixed_point_digits: int = field(kw_only=True)
 
 
 def prepare_rich_query(inputs: RichQueryInput, *, max_members: int) -> PreparedRichQueryIndex:
-    reference = DdoRichSelectedMember.model_validate(json_loads(inputs.reference))
-    whole = RichWholeInput(
-        reference,
-        decode_semantic_value(
-            json_loads(inputs.body),
-            decimal_fixed_point_digits=inputs.decimal_fixed_point_digits,
-        ),
-    )
-    state = read_retained_rich_graph(
+    state = read_native_retained_rich_graph(
         inputs.prepared,
         inputs.model,
-        context=inputs.context,
-        retained=whole,
-        inputs=(reference,),
-        whole_inputs=(whole,),
+        inputs.admission,
+        decimal_fixed_point_digits=inputs.decimal_fixed_point_digits,
     )
     return PreparedRichQueryIndex.build(
         state,

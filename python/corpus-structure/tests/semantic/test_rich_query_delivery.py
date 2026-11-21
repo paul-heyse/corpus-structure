@@ -2,8 +2,10 @@
 
 from base64 import urlsafe_b64encode
 from contextlib import nullcontext
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
+from functools import partial
 from types import SimpleNamespace
 
 import anyio
@@ -15,10 +17,15 @@ from typer.testing import CliRunner
 
 from corpus_structure.cli.app import build_full_app
 from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
+from corpus_structure.semantic.data_operation_identity import (
+    body_identity,
+    contextual_product_identity,
+)
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.refusal_types import InvalidContinuation, RichQueryRefused
+from corpus_structure.semantic.rich_graph_validation import NativeRichAdmission
 from corpus_structure.semantic.rich_query_projection import RichQueryInput
 from corpus_structure.semantic.value_codec import decimal_digit_limit
 from corpus_structure.serve import rich_queries as service
@@ -65,7 +72,34 @@ def request(**changes):
     )
 
 
+def controlled_rich_query_input(prepared, model, context, reference, value):
+    product_id = contextual_product_identity(
+        kind=reference.kind_contract, context=context, body=body_identity(value).key
+    ).key
+    reference = reference.model_copy(update={"product_id": product_id})
+    cut = CutSelection(
+        json_bytes(
+            dict(
+                CUT,
+                project_id=context.project_id,
+                release_id=prepared.release_id,
+                scope={"operation_id": "rich.admit", "product_ids": [product_id]},
+            )
+        )
+    )
+    admission = NativeRichAdmission(
+        cut,
+        json_bytes(reference.model_dump(mode="python")),
+        context,
+        json_bytes(semantic_value(value)),
+    )
+    return reference, RichQueryInput(
+        prepared, model, admission, decimal_fixed_point_digits=decimal_digit_limit()
+    )
+
+
 def test_rich_preparation_preserves_native_tagged_values(monkeypatch, statistics):
+    from corpus_structure.semantic import rich_graph_validation as validation
     from corpus_structure.semantic import rich_query_projection as projection
 
     graph, index = statistics
@@ -74,28 +108,27 @@ def test_rich_preparation_preserves_native_tagged_values(monkeypatch, statistics
     value = {"instant": instant, "decimal": decimal, "measurement": -0.0}
     seen = []
 
-    def prepare_graph(*args, retained, **kwargs):
+    def prepare_graph(prepared, model, context, retained, *args, **kwargs):
         seen.append(retained.value)
         return index.state
 
-    monkeypatch.setattr(projection, "read_retained_rich_graph", prepare_graph)
-    inputs = RichQueryInput(
+    monkeypatch.setattr(validation, "_read_retained_rich_graph", prepare_graph)
+    _, inputs = controlled_rich_query_input(
         index.state.prepared,
         index.state.model,
         graph.context,
-        json_bytes(graph.root_input.reference.model_dump(mode="python")),
-        json_bytes(semantic_value(value)),
-        decimal_fixed_point_digits=decimal_digit_limit(),
+        graph.root_input.reference,
+        value,
     )
 
-    decode = projection.decode_semantic_value
+    decode = validation.decode_semantic_value
     limits = []
 
     def decode_captured(value, *, decimal_fixed_point_digits):
         limits.append(decimal_fixed_point_digits)
         return decode(value, decimal_fixed_point_digits=decimal_fixed_point_digits)
 
-    monkeypatch.setattr(projection, "decode_semantic_value", decode_captured)
+    monkeypatch.setattr(validation, "decode_semantic_value", decode_captured)
     projection.prepare_rich_query(inputs, max_members=100)
 
     assert limits == [inputs.decimal_fixed_point_digits]
@@ -104,34 +137,104 @@ def test_rich_preparation_preserves_native_tagged_values(monkeypatch, statistics
     assert seen[0]["measurement"].hex() == (-0.0).hex()
 
 
+def test_native_rich_authority_preserves_only_its_exact_published_local_member(statistics):
+    from corpus_structure.semantic.data_operation_model import SubjectContext, SubjectDefinition
+    from corpus_structure.semantic.rich_graph_validation import (
+        RichWholeInput,
+        read_retained_rich_graph,
+    )
+    from corpus_structure.semantic.rich_knowledge_contracts import DdoRichEntity, rich_context_pin
+    from corpus_structure.semantic.rich_query_projection import prepare_rich_query
+
+    graph, index = statistics
+    prepared, model, context = index.state.prepared, index.state.model, graph.context
+    document_subject = SubjectDefinition("controlled-document", "string", "original-source")
+    model = replace(model, subject_definitions=(*model.subject_definitions, document_subject))
+    local_context = SubjectContext(
+        context.project_id,
+        "source-view:original",
+        "document:original",
+        b'{"view":"native"}',
+        subject_definition=document_subject.semantic_id,
+    )
+    selected = graph.root_input.value.model_dump(mode="python")
+    packet = next(row for row in selected["members"] if row["member_id"] == "X")
+    packet["body"]["identities"][0]["source_context"] = rich_context_pin(local_context).model_dump(
+        mode="python"
+    )
+    reference, acquired = controlled_rich_query_input(
+        prepared, model, context, graph.root_input.reference, selected
+    )
+    unacquired = RichWholeInput(reference, selected)
+    with pytest.raises(ValueError, match="actual selected source member"):
+        read_retained_rich_graph(
+            prepared,
+            model,
+            context=context,
+            retained=unacquired,
+            inputs=(reference,),
+            whole_inputs=(unacquired,),
+        )
+
+    authority = acquired.admission
+    state = prepare_rich_query(acquired, max_members=1000).query_index().state
+    entity = state.member("X", DdoRichEntity)
+    assert entity.identities[0].source_context == rich_context_pin(local_context)
+
+    substituted_ref = reference.model_copy(update={"product_id": "unadmitted:another-root"})
+    with pytest.raises(ValueError, match="exact native admission"):
+        prepare_rich_query(
+            replace(
+                acquired,
+                admission=replace(
+                    authority, reference=json_bytes(substituted_ref.model_dump(mode="python"))
+                ),
+            ),
+            max_members=1000,
+        )
+    packet["body"]["identities"][0]["label"] = "altered"
+    changed = json_bytes(semantic_value(selected))
+    with pytest.raises(ValueError, match="exact published body"):
+        prepare_rich_query(
+            replace(acquired, admission=replace(authority, body=changed)),
+            max_members=1000,
+        )
+    foreign = replace(context, project_id="foreign-project")
+    with pytest.raises(ValueError, match="exact native admission"):
+        prepare_rich_query(
+            replace(acquired, admission=replace(authority, context=foreign)),
+            max_members=1000,
+        )
+
+
 def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, statistics):
     graph, index = statistics
-    ref = graph.root_input.reference
-    cut = CutSelection(json_bytes(CUT))
+    ref, inputs = controlled_rich_query_input(
+        index.state.prepared,
+        index.state.model,
+        graph.context,
+        graph.root_input.reference,
+        index.state.graph.model_dump(mode="python"),
+    )
+    cut = inputs.admission.cut
+    query_request = partial(request, product_id=ref.product_id)
     read = dict(
         demand_id="query-demand",
         read_id="actual-read",
         view="products",
-        scope={"operation_id": "rich.admit", "product_ids": ["selected-knowledge"]},
+        scope={"operation_id": "rich.admit", "product_ids": [ref.product_id]},
     )
     selected = SelectedRichKnowledge(
         cut,
         json_bytes(read),
         ref,
         graph.context,
-        RichQueryInput(
-            index.state.prepared,
-            index.state.model,
-            graph.context,
-            json_bytes(graph.root_input.reference.model_dump(mode="python")),
-            json_bytes(semantic_value(index.state.graph.model_dump(mode="python"))),
-            decimal_fixed_point_digits=decimal_digit_limit(),
-        ),
+        inputs,
     )
     seen = []
 
     def load(connection, demand_id, **kwargs):
-        assert demand_id == "query-demand" and kwargs["product_id"] == "selected-knowledge"
+        assert demand_id == "query-demand" and kwargs["product_id"] == ref.product_id
         seen.append(kwargs)
         return selected
 
@@ -145,10 +248,10 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
 
     monkeypatch.setattr(service, "read_selected_rich_reference", header)
     monkeypatch.setattr(service, "read_selected_rich_knowledge", load)
-    first = service.serve_rich_query(None, request(limit=1))
+    first = service.serve_rich_query(None, query_request(limit=1))
     assert len(first["rows"]) == 1 and first["cursor"]
     assert first["scope"]["global_completeness"] == "unknown"
-    second = service.serve_rich_query(None, request(limit=1, cursor=first["cursor"]))
+    second = service.serve_rich_query(None, query_request(limit=1, cursor=first["cursor"]))
     assert second["rows"] != first["rows"]
     assert len(seen) == 1  # Cached rows avoid a second body read and graph validation.
     assert header_seen[1]["cut"] == cut
@@ -163,16 +266,17 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
     )
     assert service.serve_rich_query(None, pinned)["rows"] == first["rows"]
     empty = service.serve_rich_query(
-        None, request(query={"name": "claims", "fact_id": "unobserved-fact"})
+        None, query_request(query={"name": "claims", "fact_id": "unobserved-fact"})
     )
     assert empty["rows"] == [] and empty["cursor"] is None
     assert empty["scope"]["global_completeness"] == "unknown"
     with pytest.raises(InvalidContinuation):
         service.serve_rich_query(
-            None, request(cursor=first["cursor"], query={"name": "claims", "subject": "normal"})
+            None,
+            query_request(cursor=first["cursor"], query={"name": "claims", "subject": "normal"}),
         )
     with pytest.raises(InvalidContinuation, match="implementation"):
-        service.serve_rich_query(None, request(implementation="0" * 64))
+        service.serve_rich_query(None, query_request(implementation="0" * 64))
     monkeypatch.setattr(
         service,
         "read_selected_rich_reference",
@@ -184,7 +288,7 @@ def test_pages_require_exact_cut_root_query_and_installed_meaning(monkeypatch, s
         ),
     )
     with pytest.raises(InvalidContinuation, match="root support"):
-        service.serve_rich_query(None, request(cursor=first["cursor"]))
+        service.serve_rich_query(None, query_request(cursor=first["cursor"]))
 
 
 def test_serving_reports_detected_source_custody_drift(monkeypatch):
@@ -210,8 +314,15 @@ def test_exact_cursor_keeps_fractional_parameters_and_refuses_work_and_response_
     monkeypatch, statistics
 ):
     graph, index = statistics
-    ref = graph.root_input.reference
-    cut = CutSelection(json_bytes(CUT))
+    ref, inputs = controlled_rich_query_input(
+        index.state.prepared,
+        index.state.model,
+        graph.context,
+        graph.root_input.reference,
+        index.state.graph.model_dump(mode="python"),
+    )
+    cut = inputs.admission.cut
+    query_request = partial(request, product_id=ref.product_id)
     monkeypatch.setattr(
         service,
         "read_selected_rich_knowledge",
@@ -220,14 +331,7 @@ def test_exact_cursor_keeps_fractional_parameters_and_refuses_work_and_response_
             b"{}",
             ref,
             graph.context,
-            RichQueryInput(
-                index.state.prepared,
-                index.state.model,
-                graph.context,
-                json_bytes(graph.root_input.reference.model_dump(mode="python")),
-                json_bytes(semantic_value(index.state.graph.model_dump(mode="python"))),
-                decimal_fixed_point_digits=decimal_digit_limit(),
-            ),
+            inputs,
         ),
     )
     monkeypatch.setattr(
@@ -236,7 +340,7 @@ def test_exact_cursor_keeps_fractional_parameters_and_refuses_work_and_response_
         lambda *a, **k: SelectedRichReference(cut, b"{}", ref, graph.context),
     )
     fraction = Decimal("0.123456789123456789123456789123456789")
-    selected = request(
+    selected = query_request(
         query={"name": "families_where", "predicate": "stat:parameter_role", "value": fraction}
     )
     assert (
@@ -244,9 +348,9 @@ def test_exact_cursor_keeps_fractional_parameters_and_refuses_work_and_response_
         == fraction
     )
     with pytest.raises(RichQueryRefused, match="member capacity"):
-        service.serve_rich_query(None, request(max_graph_members=1))
+        service.serve_rich_query(None, query_request(max_graph_members=1))
     with pytest.raises(RichQueryRefused, match="max_bytes"):
-        service.serve_rich_query(None, request(max_bytes=1024))
+        service.serve_rich_query(None, query_request(max_bytes=1024))
 
 
 def test_registered_mcp_and_cli_preserve_exact_query_parameters_and_pinned_resource(

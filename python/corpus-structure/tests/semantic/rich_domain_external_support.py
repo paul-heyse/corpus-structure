@@ -74,13 +74,14 @@ def publish_external_report(journey, source, response_factory, *, inference):
     from evaluate.declared_rich_native_support import selected_entry
 
     from corpus_structure.semantic.data_operation_external import ExternalDataSession
-    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
     from corpus_structure.semantic.data_operation_service import (
         DemandDiscoverySelection,
         DemandRoot,
     )
     from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
     from corpus_structure.semantic.data_operation_values import decode_semantic_value
+    from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.semantic.observations import source_value
     from corpus_structure.semantic.original_documents import acquire_original_document_selection
     from corpus_structure.semantic.rich_knowledge_contracts import (
@@ -146,6 +147,19 @@ def publish_external_report(journey, source, response_factory, *, inference):
                 DemandDiscoverySelection(
                     producer="source.pdf_views/discovery",
                     output_role="result",
+                    target="prepare.external_extraction",
+                    population="controlled-external-source-views",
+                    target_role="source",
+                ),
+                DemandDiscoverySelection(
+                    producer="source.pdf_views/discovery",
+                    output_role="result",
+                    target="extract.rich_external",
+                    population="controlled-external-source-views",
+                ),
+                DemandDiscoverySelection(
+                    producer="source.pdf_views/discovery",
+                    output_role="result",
                     target="locate.external_extraction",
                     population="controlled-external-source-views",
                 ),
@@ -155,14 +169,25 @@ def publish_external_report(journey, source, response_factory, *, inference):
     retained = author_interpretations(
         journey.kernel.purpose("write"), journey.kernel.prepared, request=pending
     )
-    execute_captured_kernel_demand(
+    execution = execute_captured_kernel_demand(
         journey.kernel,
         retained["demand_id"],
     )
     session = ExternalDataSession(
         journey.kernel.purpose("write"), PROJECT, demand_id=retained["demand_id"]
     )
-    (header,) = session.queue()["packets"]
+    packets = session.queue()["packets"]
+    if len(packets) != 1:
+        with journey.kernel.purpose("read").begin() as connection:
+            report = read_demand_result(
+                connection, retained["demand_id"], project_id=PROJECT, view="frontier"
+            ).report()
+        raise AssertionError(
+            f"Expected one external task; queued {len(packets)}, receipts {execution.receipt_count}, "
+            f"obligations {[(row['operation_id'], row['fate']) for row in report['obligations']]}, "
+            f"failures {report['attempt_failures']}"
+        )
+    (header,) = packets
     claim = session.claim(header["packet_id"])
     assert claim["state"] == "claimed"
     packet = session.read(header["packet_id"], claim)
@@ -170,7 +195,7 @@ def publish_external_report(journey, source, response_factory, *, inference):
     (entry,) = packet["packet"]["inputs"]
     assert entry["role"] == "packet"
     source_packet = decode_semantic_value(entry["meaning"])
-    response = response_factory(journey, source_packet)
+    response = json_loads(json_bytes(response_factory(journey, source_packet)))
     assert response["unit_ref"] == source_packet["unit_ref"]
     completed = session.submit(
         header["packet_id"],
@@ -289,6 +314,7 @@ SOURCE_TEXT = {
 
 def controlled_source_response(journey, packet, *, case):
     """Author a controlled external answer over the exact returned packet, not an authored fact."""
+    from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.external_extraction import external_extraction_prompt
     from semantic.rich_domain_preservation_support import DomainGraph, t1, t2, t4
 
@@ -356,6 +382,11 @@ def controlled_source_response(journey, packet, *, case):
     else:
         {"T1": t1, "T2": t2, "T4": t4}[case](graph)
     prompt = external_extraction_prompt(packet)
+    sentences = [row for row in prompt["sentences"] if row["id"].startswith("sentence:")]
+    assert sentences, "Prepared packet must carry the selected partition's sentence rows"
+    for sentence in sentences:
+        address = json_loads(sentence["locator"].removeprefix("pdf:"))
+        assert sentence["text"] == prompt["text"][address["start"] : address["end"]]
     evidence = next(item for item in prompt["native_evidence"] if item["text"] == SOURCE_TEXT[case])
     citation = [dict(sentence=evidence["handle"], quote=SOURCE_TEXT[case], role="primary")]
     entity_rows = {
@@ -392,7 +423,7 @@ def controlled_source_response(journey, packet, *, case):
             claims.append(
                 dict(
                     **row,
-                    id=key,
+                    id=f"claim:{key}",
                     subject=fact.subject_entity,
                     object=value,
                     statement="controlled-statement",

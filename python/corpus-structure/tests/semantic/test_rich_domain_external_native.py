@@ -117,16 +117,17 @@ def test_native_controlled_external_source_retains_exact_statistics_meaning(
         )
         rows = query_publication(selected, query)["rows"]
         assert rows
-        assert all(
-            item["original"]["support_references"][0]["kind"] == "computation"
-            for row in rows
-            for item in row["occurrences"]
-        )
-        assert all(
-            item["statement"] is not None and item["evidence_count"] > 0
-            for row in rows
-            for item in row["occurrences"]
-        )
+        occurrences = [item for row in rows for item in row["occurrences"]]
+        assert occurrences
+        for item in occurrences:
+            original = item["original"]
+            assert original["support_references"][0]["kind"] == "computation"
+            assert item["evidence_count"] > 0
+            if original["member_id"].startswith("claim:"):
+                assert item["statement"]["member_id"] == "statement:controlled-statement"
+            else:
+                assert original["member_id"].startswith("entity:")
+                assert item["statement"] is None
         assert (
             external_receipt["actor_assertion"] == "controlled-domain-author"
             and external_receipt["model_assertion"] is None

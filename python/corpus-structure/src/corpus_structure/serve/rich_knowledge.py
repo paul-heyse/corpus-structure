@@ -14,6 +14,7 @@ from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
 from corpus_structure.semantic.demand_results import CutSelection, read_demand_result
 from corpus_structure.semantic.releases import open_release
+from corpus_structure.semantic.rich_graph_validation import NativeRichAdmission
 from corpus_structure.semantic.rich_knowledge_contracts import DdoRichSelectedMember
 from corpus_structure.semantic.rich_query_projection import RichQueryInput
 from corpus_structure.semantic.value_codec import decimal_digit_limit
@@ -74,7 +75,12 @@ def read_selected_rich_reference(
         if use["fate"] != "fulfilled" or use["completion_state"] != "success":
             continue
         for product in use["products"]:
-            if product["product_id"] == product_id and product["member_id"] is None:
+            if (
+                product["product_id"] == product_id
+                and product["member_id"] is None
+                and product["role"] == "admission"
+                and product["multiplicity"] == 1
+            ):
                 selected.append((use, product))
     if len(selected) != 1:
         raise ValueError("selected knowledge lacks one current whole native admission")
@@ -113,12 +119,16 @@ def read_selected_rich_reference(
         return SelectedRichReference(page.cut, request, reference, context)
     prepared = open_release(connection, native["release_id"])
     model = bound_data_operation_model(prepared)
+    authority = NativeRichAdmission(
+        cut=page.cut,
+        reference=json_bytes(reference.model_dump(mode="python")),
+        context=context,
+        body=json_bytes(product["body"]),
+    )
     inputs = RichQueryInput(
         prepared,
         model,
-        context,
-        json_bytes(reference.model_dump(mode="python")),
-        json_bytes(product["body"]),
+        authority,
         decimal_fixed_point_digits=decimal_digit_limit(),
     )
     return SelectedRichKnowledge(page.cut, request, reference, context, inputs)
