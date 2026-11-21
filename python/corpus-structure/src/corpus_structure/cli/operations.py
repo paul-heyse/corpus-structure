@@ -577,6 +577,73 @@ def release_check(
         )
 
 
+@release_app.command("reacquire-host")
+def release_reacquire_host(
+    ctx: typer.Context,
+    release: Annotated[str, typer.Option()],
+    runtime: Annotated[str, typer.Option()],
+    database_oid: Annotated[int, typer.Option(min=1)],
+    target: DeploymentProfile | None = None,
+    json: JsonOpt = False,
+) -> None:
+    """Reacquire admitted host transport under the exact release and database."""
+    from corpus_structure.cli.managed import ResultError, managed_operation
+    from corpus_structure.cli.target import select_target
+    from corpus_structure.semantic.native_host_reacquisition import reacquire_shared_host_runtime
+    from corpus_structure.semantic.releases import load_release_inputs
+    from corpus_structure.semantic.runtime import open_runtime_engine
+    from corpus_structure.semantic.runtime_binding_store import (
+        persist_runtime_binding,
+        runtime_binding_for_release,
+    )
+    from corpus_structure.semantic.storage_target import (
+        StorageTarget,
+        acquired_target,
+        verify_declared_route,
+        verify_target,
+    )
+
+    class HostReacquisition(BaseModel):
+        result_id: str
+        release: str
+        prior_runtime: str
+        runtime: str
+        target: DeploymentProfile
+        acquired: StorageTarget
+
+    with result_boundary(json):
+        store = result_store(ctx)
+        selected, settings = select_target(ctx, target, effect=True)
+    scope = dict(release=release, runtime=runtime, target=selected, database_oid=database_oid)
+    with managed_operation(
+        store, "release.reacquire-host", json=json, expected=(ValueError, KeyError), scope=scope
+    ) as result:
+        with open_runtime_engine(settings, "ci-release-reacquire-host", purpose="admit") as engine:
+            with engine.begin() as conn:
+                if selected == "deployment":
+                    verify_declared_route(conn, settings)
+                acquired = acquired_target(conn, purpose="admit")
+                if acquired.database_oid != database_oid:
+                    raise ResultError("acquired database OID differs from the approved host target")
+                _, _, _, prepared = load_release_inputs(conn, release)
+                original = runtime_binding_for_release(conn, prepared, runtime)
+            refreshed = reacquire_shared_host_runtime(prepared, original)
+            with engine.begin() as conn:
+                verify_target(conn, acquired, purpose="admit")
+                if runtime_binding_for_release(conn, prepared, runtime) != original:
+                    raise ResultError("prior release runtime changed during host reacquisition")
+                persisted = persist_runtime_binding(conn, prepared, refreshed)
+        report = HostReacquisition(
+            result_id=result.id, release=release, prior_runtime=runtime, runtime=persisted,
+            target=selected, acquired=acquired
+        )
+        artifact = result.directory / "host-reacquisition.json"
+        artifact.write_text(report.model_dump_json(), encoding="utf-8")
+        result.publish("host_reacquisition", artifact)
+        result.settle()
+        emit(report, json=json)
+
+
 class SelectionReport(BaseModel):
     project: str
     release_id: str | None

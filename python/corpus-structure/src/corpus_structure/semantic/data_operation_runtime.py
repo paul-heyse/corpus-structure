@@ -49,6 +49,13 @@ class RuntimeBinding:
                 return SourceArtifact(name, bytes.fromhex(item["content_hex"]))
         raise RuntimeBindingError("runtime source input is unavailable: " + name)
 
+    def source_inputs(self) -> tuple[SourceArtifact, ...]:
+        """Read the complete captured population in one pass."""
+        return tuple(
+            SourceArtifact(item["name"], bytes.fromhex(item["content_hex"]))
+            for item in json.loads(self.archive)["inputs"]
+        )
+
 
 def _inputs(inputs: tuple[SourceArtifact, ...]) -> tuple[SourceArtifact, ...]:
     """Validate explicit executable custody; never acquire a different installed model."""

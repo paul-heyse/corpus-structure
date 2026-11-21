@@ -501,6 +501,12 @@ are deferred under the UDM plan.
 
 > Decision: [ADR-0141](../adr/0141-serving-continuation-and-reuse.md)
 
+**Accepted target · 2026-11-20.** Selected MCP results carry structured finite JSON with the
+native cut identity and pinned replay handles. The delivery boundary checks complete SDK bytes.
+The authenticated native scope governs identity-sensitive operations. [Delivery contract](D8-agent-and-query-interfaces.md#51-generic-every-domain)
+
+> Decision: [ADR-0142](../adr/0142-structured-selected-result-delivery.md)
+
 **Implemented, 2026-10-30; full SP-09/SP-10 qualification remains separately owned.** A supervisor
 may invoke the configured model in a fresh run-bound stdio MCP session. PostgreSQL owns the
 recorded release, tasks, leases, attempts and completion; provider exit does not imply semantic
