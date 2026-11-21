@@ -10,78 +10,87 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 
-class ScriptedDocumentConverter:
-    """External Docling provider control; application preparation/hooks remain actual."""
+def _scripted_pipeline_init(pipeline, pipeline_options):
+    """External native pipeline control; application preparation remains actual."""
+    from docling.models.stages.code_formula.code_formula_vlm_model import CodeFormulaVlmModel
 
-    def __init__(self, *, allowed_formats, format_options):
-        from docling.models.stages.code_formula.code_formula_vlm_model import CodeFormulaVlmModel
+    pipeline.pipeline_options = pipeline_options
+    pipeline.heading_hierarchy_model = SimpleNamespace(
+        retain_parsed_lines=lambda page: None
+    )
+    formula = object.__new__(CodeFormulaVlmModel)
+    formula.elements_batch_size = 1
+    formula.engine = None
+    pipeline._control_native_images_scale = formula.images_scale
+    pipeline.enrichment_pipe = [formula]
+    pipeline.assemble_model = SimpleNamespace(options=None)
 
-        option = format_options[allowed_formats[0]]
-        self.pipeline = object.__new__(option.pipeline_cls)
-        self.pipeline.pipeline_options = option.pipeline_options
-        self.pipeline.heading_hierarchy_model = SimpleNamespace(
-            retain_parsed_lines=lambda page: None
+
+def _scripted_pipeline_execute(pipeline, source, *, raises_on_error, progress=None):
+    from docling.datamodel.base_models import AssembledUnit, Page
+    from docling_core.types.doc import (
+        BoundingBox,
+        DocItemLabel,
+        DoclingDocument,
+        PageItem,
+        ProvenanceItem,
+        Size,
+    )
+    from PIL import Image
+
+    # Supply the actual native formula-stage raster capability. The application
+    # captures it before release; this provider control has no rendering backend.
+    side = round(10 * pipeline._control_native_images_scale)
+    with Image.new("RGB", (side, side), (3, 5, 7)) as image:
+        page = Page(
+            page_no=1,
+            size=Size(width=10, height=10),
+            assembled=AssembledUnit(elements=[], headers=[], body=[]),
         )
-        formula = object.__new__(CodeFormulaVlmModel)
-        formula.elements_batch_size = 1
-        formula.engine = None
-        self.native_images_scale = formula.images_scale
-        self.pipeline.enrichment_pipe = [formula]
-        self.pipeline.assemble_model = SimpleNamespace(options=None)
-        self.initialized_pipelines = {"control": self.pipeline}
-
-    def initialize_pipeline(self, input_format):
-        pass
-
-    def convert(self, source, *, raises_on_error, **options):
-        from docling.datamodel.base_models import AssembledUnit, Page
-        from docling_core.types.doc import (
-            BoundingBox,
-            DocItemLabel,
-            DoclingDocument,
-            PageItem,
-            ProvenanceItem,
-            Size,
-        )
-        from PIL import Image
-
-        # Supply the actual native formula-stage raster capability. The application
-        # captures it before release; this provider control has no rendering backend.
-        side = round(10 * self.native_images_scale)
-        with Image.new("RGB", (side, side), (3, 5, 7)) as image:
-            page = Page(
+        page._image_cache = {pipeline._control_native_images_scale: image}
+        pipeline._release_page_resources(
+            SimpleNamespace(
+                payload=page,
                 page_no=1,
-                size=Size(width=10, height=10),
-                assembled=AssembledUnit(elements=[], headers=[], body=[]),
+                is_failed=False,
+                error=None,
+                conv_res=SimpleNamespace(confidence=SimpleNamespace(pages={}), errors=[]),
             )
-            page._image_cache = {self.native_images_scale: image}
-            self.pipeline._release_page_resources(
-                SimpleNamespace(
-                    payload=page,
-                    page_no=1,
-                    is_failed=False,
-                    error=None,
-                    conv_res=SimpleNamespace(confidence=SimpleNamespace(pages={}), errors=[]),
-                )
-            )
-            assert not page._image_cache and page.assembled is None
-        document = DoclingDocument(name="scripted provider control")
-        document.pages[1] = PageItem(page_no=1, size=Size(width=10, height=10))
-        document.add_text(
-            label=DocItemLabel.TEXT,
-            text="Private control Ω",
-            prov=ProvenanceItem(
-                page_no=1,
-                bbox=BoundingBox(l=1, t=1, r=9, b=3, coord_origin="TOPLEFT"),
-                charspan=(0, 17),
-            ),
         )
-        return SimpleNamespace(
-            document=document,
-            status=SimpleNamespace(value="success"),
-            errors=(),
-            input=SimpleNamespace(release=lambda: None),
-        )
+        assert not page._image_cache and page.assembled is None
+    document = DoclingDocument(name="scripted provider control")
+    document.pages[1] = PageItem(page_no=1, size=Size(width=10, height=10))
+    document.add_text(
+        label=DocItemLabel.TEXT,
+        text="Private control Ω",
+        prov=ProvenanceItem(
+            page_no=1,
+            bbox=BoundingBox(l=1, t=1, r=9, b=3, coord_origin="TOPLEFT"),
+            charspan=(0, 17),
+        ),
+    )
+    return SimpleNamespace(
+        document=document,
+        status=SimpleNamespace(value="success"),
+        errors=(),
+        input=SimpleNamespace(release=lambda: None),
+    )
+
+
+@contextmanager
+def scripted_pdf_pipeline():
+    from docling.datamodel import document
+    from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
+
+    def input_document(*args, **kwargs):
+        return SimpleNamespace(valid=True, release=lambda: None)
+
+    with (
+        patch.object(StandardPdfPipeline, "__init__", _scripted_pipeline_init),
+        patch.object(StandardPdfPipeline, "execute", _scripted_pipeline_execute),
+        patch.object(document, "InputDocument", input_document),
+    ):
+        yield
 
 
 @dataclass(frozen=True)
@@ -117,15 +126,13 @@ _preparation_reports = OrderedDict()
 
 
 def controlled_preparation_report(recipe, assets, spool):
-    from docling import document_converter
-
     from corpus_structure.ingest.pdf import PdfConverter
 
     key = (recipe.to_bytes(), assets)
     if key in _preparation_reports:
         _preparation_reports.move_to_end(key)
         return _preparation_reports[key]
-    with patch.object(document_converter, "DocumentConverter", ScriptedDocumentConverter):
+    with scripted_pdf_pipeline():
         converter = PdfConverter(recipe, assets=assets, stream_spool=spool)
         converter._prepare()
         report = converter.prepared_options_report
@@ -195,8 +202,6 @@ def controlled_pdf_converter(content):
 
 def controlled_native_child(connection, recipe, assets, writer_lease=None):
     """Scripted peer for IPC tests, deliberately outside actual producer custody."""
-    from docling import document_converter
-
     from corpus_structure.ingest.pdf_health import error_summary
     from corpus_structure.ingest.pdf_stream_types import PdfReplayReady, PdfStreamRequest
     from corpus_structure.ingest.pdf_streaming import StreamingPdfProducer, run_pdf_stream
@@ -208,7 +213,7 @@ def controlled_native_child(connection, recipe, assets, writer_lease=None):
             raise ValueError("controlled replay was not acknowledged")
 
     try:
-        with patch.object(document_converter, "DocumentConverter", ScriptedDocumentConverter):
+        with scripted_pdf_pipeline():
             while (request := connection.recv()) is not None:
                 if not isinstance(request, PdfStreamRequest):
                     raise TypeError("scripted peer only supports streaming requests")

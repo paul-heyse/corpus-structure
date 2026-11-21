@@ -725,7 +725,8 @@ class StreamingPdfProducer:
         options = {} if page_range is None else {"page_range": page_range}
         result = None
         try:
-            result = converter._converter.convert(source.path, raises_on_error=False, **options)
+            assert converter._converter is not None
+            result = converter._converter.convert(source.path, **options)
             spool.active()
             if result.status.value == "failure":
                 raise RuntimeError("streaming native conversion failed: " + str(result.errors))

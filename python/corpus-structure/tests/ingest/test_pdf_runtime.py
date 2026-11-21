@@ -1,6 +1,5 @@
 """Initialized PDF custody checks distinguish code, object and model-file changes."""
 
-from enum import StrEnum
 from hashlib import sha256
 from types import SimpleNamespace
 
@@ -21,10 +20,6 @@ class Pipeline:
     def __init__(self):
         self.assemble_model = Stage()
         self.enrichment_pipe = [Stage()]
-
-
-class Format(StrEnum):
-    PDF = "pdf"
 
 
 class Options(BaseModel):
@@ -77,13 +72,14 @@ def test_initialized_pipeline_rechecks_model_file_without_version_change(tmp_pat
 
 def test_initialized_pdf_format_refuses_backend_and_option_changes():
     option = SimpleNamespace(
+        pipeline=Pipeline(),
         backend=Stage,
         pipeline_cls=Pipeline,
         pipeline_options=Options(),
         backend_options=Options(),
     )
     owner = SimpleNamespace(
-        _converter=SimpleNamespace(format_to_options={Format.PDF: option}),
+        _converter=option,
         _pipeline=Pipeline(),
         _formula=None,
     )

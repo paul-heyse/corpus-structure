@@ -20,6 +20,11 @@ from .pdf_health import FormulaOutcome, FormulaPageLifetime, ObservedFormulaStag
 from .pdf_hierarchy import NativeSnapshot, native_nodes, snapshot
 
 if TYPE_CHECKING:
+    from docling.backend.docling_parse_backend import ThreadedDoclingParseDocumentBackend
+    from docling.datamodel.backend_options import ThreadedDoclingParseBackendOptions
+    from docling.datamodel.document import ConversionResult
+    from docling.datamodel.pipeline_options import ThreadedPdfPipelineOptions
+    from docling.pipeline.standard_pdf_pipeline import StandardPdfPipeline
     from pydantic import TypeAdapter
 
     from .pdf_candidate_source import CandidatePageSource
@@ -197,6 +202,50 @@ class PdfConversion:
     confidence: bytes = b"{}"
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedPdfPipeline:
+    """The selected native PDF pipeline and backend, without format registration.
+
+    Input validation, error classification, document processing and backend release
+    remain Docling responsibilities. Remote URLs, archives and format discovery are
+    outside the owned immutable PDF source capability.
+    """
+
+    pipeline: StandardPdfPipeline
+    pipeline_cls: type[StandardPdfPipeline]
+    pipeline_options: ThreadedPdfPipelineOptions
+    backend: type[ThreadedDoclingParseDocumentBackend]
+    backend_options: ThreadedDoclingParseBackendOptions
+
+    def convert(
+        self, source: Path | BytesIO, *, filename: str | None = None,
+        page_range: tuple[int, int] | None = None,
+    ) -> ConversionResult:
+        from docling.datamodel.base_models import ConversionStatus, InputFormat
+        from docling.datamodel.document import (
+            ConversionResult,
+            InputDocument,
+            build_invalid_input_errors,
+        )
+        from docling.datamodel.settings import DocumentLimits
+
+        limits = DocumentLimits.model_validate(
+            {} if page_range is None else {"page_range": page_range}, strict=True
+        )
+        document = InputDocument(
+            path_or_stream=source, format=InputFormat.PDF,
+            backend=self.backend, backend_options=self.backend_options,
+            filename=filename, limits=limits,
+        )
+        if not document.valid:
+            try:
+                return ConversionResult(input=document, status=ConversionStatus.FAILURE,
+                    errors=build_invalid_input_errors(document))
+            finally:
+                document.release()
+        return self.pipeline.execute(document, raises_on_error=False)
+
+
 class PdfConverter:
     """One serial worker's native converter/model lifetime; publication is a separate owner."""
 
@@ -213,7 +262,7 @@ class PdfConverter:
         self.recipe = recipe
         self.assets = assets
         self._candidate_pages: list[CandidatePage] = []
-        self._converter: Any = None
+        self._converter: PreparedPdfPipeline | None = None
         self._formula: ObservedFormulaStage | None = None
         self._pipeline: Any = None
         self._options: Any = None
@@ -224,10 +273,9 @@ class PdfConverter:
     def _prepare(self) -> None:
         if self._converter is not None:
             return
+        from docling.backend.docling_parse_backend import ThreadedDoclingParseDocumentBackend
         from docling.datamodel.backend_options import ThreadedDoclingParseBackendOptions
-        from docling.datamodel.base_models import InputFormat, ItemAndImageEnrichmentElement, Page
-        from docling.datamodel.document import ConversionResult
-        from docling.document_converter import DocumentConverter, PdfFormatOption
+        from docling.datamodel.base_models import ItemAndImageEnrichmentElement, Page
         from docling.models.base_model import GenericEnrichmentModel
         from docling.models.stages.code_formula.code_formula_vlm_model import CodeFormulaVlmModel
         from docling.models.stages.page_assemble.page_assemble_model import PageAssembleModel
@@ -376,22 +424,13 @@ class PdfConverter:
                         self._spool_expected_pages = None
 
             pipeline_type = StreamedPipeline
-        converter = DocumentConverter(
-            allowed_formats=[InputFormat.PDF],
-            format_options={
-                InputFormat.PDF: PdfFormatOption(
-                    pipeline_cls=pipeline_type,
-                    pipeline_options=self._options,
-                    backend_options=backend_options,
-                )
-            },
-        )
-        converter.initialize_pipeline(InputFormat.PDF)
+        pipeline = pipeline_type(pipeline_options=self._options)
         if self.assets is not None:
             self.assets.verify()
-        pipeline = next(iter(converter.initialized_pipelines.values()))
-        if not isinstance(pipeline, StandardPdfPipeline):
-            raise RuntimeError("PDF conversion did not initialize the admitted StandardPdfPipeline")
+        converter = PreparedPdfPipeline(
+            pipeline=pipeline, pipeline_cls=pipeline_type, pipeline_options=self._options,
+            backend=ThreadedDoclingParseDocumentBackend, backend_options=backend_options,
+        )
         for index, stage in enumerate(pipeline.enrichment_pipe):
             if isinstance(stage, CodeFormulaVlmModel):
                 self._formula = ObservedFormulaStage(stage)
@@ -605,13 +644,12 @@ class PdfConverter:
         self._formula.outcomes.clear()
         self._candidate_pages.clear()
         options = {} if page_range is None else {"page_range": page_range}
-        from docling.datamodel.base_models import DocumentStream
-
         # The same immutable bytes determine custody and native input even if the operator
         # changes the path while models initialize. Never reopen that path for conversion.
-        stream = DocumentStream(name=name, stream=BytesIO(original))
+        stream = BytesIO(original)
         try:
-            result = self._converter.convert(stream, raises_on_error=False, **options)
+            assert self._converter is not None
+            result = self._converter.convert(stream, filename=name, **options)
         except BaseException:
             self._page_lifetime.clear()
             raise

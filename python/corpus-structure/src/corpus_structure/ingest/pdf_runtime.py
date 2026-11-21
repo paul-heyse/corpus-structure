@@ -138,37 +138,25 @@ def capture_initialized_pdf_runtime(
 
     for name in ("_converter", "_pipeline", "_formula"):
         observe(name, lambda name=name: getattr(owner, name))
-    formats = getattr(owner._converter, "format_to_options", None)
-    if isinstance(formats, dict):
-        bindings.append(("converter.formats", lambda: owner._converter.format_to_options, formats))
-        for format, option in formats.items():
-            if getattr(format, "value", None) != "pdf":
-                continue
-            bindings.append(
-                ("converter.pdf_options", lambda format=format: formats[format], option)
-            )
-            for name in ("pipeline_cls", "backend"):
-                observe(
-                    "converter.pdf_" + name,
-                    lambda name=name, option=option: getattr(option, name),
-                )
-            for name in ("pipeline_options", "backend_options"):
-                configured = getattr(option, name)
-                bindings.append(
-                    (
-                        "converter.pdf_" + name,
-                        lambda name=name, option=option: getattr(option, name),
-                        configured,
-                    )
-                )
-                if configured is not None:
-
-                    def getter(configured=configured):
-                        return configured.model_dump_json(serialize_as_any=True).encode()
-
-                    options.append((getter, getter()))
+    converter = owner._converter
+    if converter is not None and hasattr(converter, "backend"):
+        for name in ("pipeline_cls", "backend"):
+            observe("converter.pdf_" + name,
+                lambda name=name: getattr(converter, name))
+        bindings.append(("converter.pipeline", lambda: converter.pipeline, converter.pipeline))
+        for name in ("pipeline_options", "backend_options"):
+            configured = getattr(converter, name)
+            bindings.append(("converter.pdf_" + name,
+                lambda name=name: getattr(converter, name), configured))
+            if configured is not None:
+                def getter(configured=configured):
+                    return configured.model_dump_json(serialize_as_any=True).encode()
+                options.append((getter, getter()))
     pipeline = owner._pipeline
     if pipeline is not None:
+        if hasattr(pipeline, "pipeline_options"):
+            bindings.append(("pipeline.pipeline_options", lambda: pipeline.pipeline_options,
+                pipeline.pipeline_options))
         for name in sorted(vars(pipeline)):
             value = vars(pipeline)[name]
             if name.endswith("_model"):
