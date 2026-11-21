@@ -49,9 +49,7 @@ def selected_producer_contract(metadata, selected):
         .where(
             grants.c.release_id == definitions.c.release_id,
             grants.c.operation_id == definitions.c.operation_id,
-            func.ops.ddo_privileged_effect_admitted(
-                func.to_jsonb(definitions.table_valued()), grants.c.effect
-            ),
+            func.ops.ddo_privileged_effect_admitted(definitions.table_valued(), grants.c.effect),
         )
         .correlate(definitions)
         .scalar_subquery()
