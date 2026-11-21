@@ -43,6 +43,8 @@ def test_canonical_recipe_vector_and_strict_nested_tuples():
         (lambda b: b.update(parser_threads="8"), "valid integer"),
         (lambda b: b.update(parser_threads=0), "positive"),
         (lambda b: b.update(layout_revision="main"), "immutable commit"),
+        (lambda b: b.update(recipe_id="docling-standard-pdf-v1"), "unadmitted PDF recipe"),
+        (lambda b: b.update(recipe_id="docling-standard-pdf-v2"), "unadmitted PDF recipe"),
         (lambda b: b.update(model_artifacts=[["x", "c" * 64], ["x", "d" * 64]]), "unique names"),
         (
             lambda b: b.update(model_revisions=[["x", "c" * 40], ["x", "d" * 40]]),

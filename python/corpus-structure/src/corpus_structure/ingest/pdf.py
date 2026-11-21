@@ -60,9 +60,7 @@ class PdfRecipe:
 
     def __post_init__(self) -> None:
         if self.recipe_id not in {
-            "docling-standard-pdf-v1",
             "docling-standard-pdf-stream-v1",
-            "docling-standard-pdf-v2",
             "docling-standard-pdf-v3",
         }:
             raise ValueError("unadmitted PDF recipe")
@@ -289,26 +287,20 @@ class PdfConverter:
             max_concurrent_results=self.recipe.parser_threads,
         )
         ocr_observations: dict[int, dict[str, Any]] = {}
-        pipeline_type = StandardPdfPipeline
-        if self.recipe.recipe_id in {
-            "docling-standard-pdf-v2",
-            "docling-standard-pdf-v3",
-            "docling-standard-pdf-stream-v1",
-        }:
-            from .pdf_ocr import observed_rapid_ocr_type
+        from .pdf_ocr import observed_rapid_ocr_type
 
-            ocr_type = observed_rapid_ocr_type(ocr_observations)
+        ocr_type = observed_rapid_ocr_type(ocr_observations)
 
-            class WordObservedPipeline(StandardPdfPipeline):
-                def _make_ocr_model(self, art_path: Any) -> Any:
-                    return ocr_type(
-                        enabled=self.pipeline_options.do_ocr,
-                        artifacts_path=art_path,
-                        options=self.pipeline_options.ocr_options,
-                        accelerator_options=self.pipeline_options.accelerator_options,
-                    )
+        class WordObservedPipeline(StandardPdfPipeline):
+            def _make_ocr_model(self, art_path: Any) -> Any:
+                return ocr_type(
+                    enabled=self.pipeline_options.do_ocr,
+                    artifacts_path=art_path,
+                    options=self.pipeline_options.ocr_options,
+                    accelerator_options=self.pipeline_options.accelerator_options,
+                )
 
-            pipeline_type = WordObservedPipeline
+        pipeline_type: type[StandardPdfPipeline] = WordObservedPipeline
         if self.stream_spool is not None:
             spool = self.stream_spool
             base_pipeline_type: Any = pipeline_type
@@ -409,10 +401,6 @@ class PdfConverter:
         native_assembler = pipeline.assemble_model
         capture = self._candidate_pages
         stream_spool = self.stream_spool
-        centroid_order = self.recipe.recipe_id in {
-            "docling-standard-pdf-v3",
-            "docling-standard-pdf-stream-v1",
-        }
 
         class CandidatePageAssembler(PageAssembleModel):
             def __init__(self) -> None:
@@ -425,7 +413,6 @@ class PdfConverter:
                     candidate = capture_candidates(
                         page,
                         ocr_observations.pop(page.page_no, None),
-                        centroid_order=centroid_order,
                     )
                     if stream_spool is None:
                         capture.append(candidate)
