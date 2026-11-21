@@ -1201,3 +1201,46 @@ def test_selected_record_index_retains_support_from_every_selected_frontier_page
         assert cut.content == expected_cut.content
         assert {row["id"] for row in index.rows("controlled")} == {"use:page1", "use:page2"}
     assert observed == ["use:page1", "use:page2"]
+
+
+@pytest.mark.parametrize("change", ["cut", "authority"])
+def test_selected_use_index_refuses_changed_cut_or_live_authority_before_support(
+    monkeypatch, change
+):
+    from corpus_structure.semantic import demand_results as owner
+
+    cut = CutSelection.from_native(demand_result_page())
+    visited = []
+
+    def read(connection, demand_id, **kwargs):
+        visited.append(kwargs["continuation"].get("after"))
+        record = demand_result_page()
+        if len(visited) == 1:
+            record["uses"][0]["use_id"] = "use:earlier"
+            record["continuation"] = {"after": "earlier"}
+        elif change == "authority":
+            raise ValueError("current native disclosure authority revoked")
+        else:
+            record["trust_snapshot"] = {"source:A": 2}
+        return DemandResult(json_bytes(record))
+
+    def forbidden_support(*args, **kwargs):
+        raise AssertionError("unselected or refused frontier page disclosed support")
+
+    monkeypatch.setattr(owner, "read_demand_result", read)
+    monkeypatch.setattr(owner, "stream_selected_support", forbidden_support)
+    expected = "another cut/trust assessment" if change == "cut" else "authority revoked"
+    with (
+        pytest.raises(ValueError, match=expected),
+        owner.selected_record_index(
+            None,
+            "demand:A",
+            project_id="project:A",
+            scope={},
+            read_id="read:A",
+            expected_cut=cut.identity,
+            use_ids={"use:chosen"},
+        ),
+    ):
+        pass
+    assert visited == [None, "earlier"]
