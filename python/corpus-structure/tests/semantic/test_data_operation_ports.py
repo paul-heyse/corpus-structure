@@ -216,6 +216,61 @@ def test_wire_defaults_extra_fields_model_construct_and_nested_ownership():
         InvalidDefault()
 
 
+def test_port_snapshot_detaches_wire_fields_without_defensive_getter_copy(monkeypatch):
+    from corpus_structure.semantic import data_operation_ports as owner
+
+    class Input(DataOperationWireValue):
+        payload: dict[str, list[int]]
+
+    original = {"items": [1, 2]}
+    value = Input(payload=original)
+    stored = object.__getattribute__(value, "payload")
+    copied_fields = []
+    deepcopy = owner.copy.deepcopy
+
+    def observe(item, *args, **kwargs):
+        if item is stored:
+            copied_fields.append(item)
+        return deepcopy(item, *args, **kwargs)
+
+    monkeypatch.setattr(owner.copy, "deepcopy", observe)
+    snapshot = owner._untrusted_value({"selected": [value]})
+    assert copied_fields == []
+    snapshot["selected"][0]["payload"]["items"].append(3)
+    original["items"].append(4)
+    assert value.payload == {"items": [1, 2]}
+    assert len(copied_fields) == 1
+    value.payload["items"].append(5)
+    assert value.payload == {"items": [1, 2]}
+    corrupt = Input.model_construct(payload={"items": [True]})
+    with pytest.raises(ValidationError):
+        owner._validated_python_input(Input, corrupt)
+
+
+@pytest.mark.parametrize("wire_family", [False, True])
+def test_port_snapshot_preserves_custom_model_field_getters(wire_family):
+    from pydantic import BaseModel
+
+    from corpus_structure.semantic.data_operation_ports import _untrusted_value
+
+    class CustomGetter:
+        def __getattribute__(self, name):
+            value = super().__getattribute__(name)
+            return [*value, 3] if name == "payload" else value
+
+    class CustomModel(CustomGetter, BaseModel):
+        payload: list[int]
+
+    class CustomWire(CustomGetter, DataOperationWireValue):
+        payload: list[int]
+
+    value = CustomWire(payload=[1, 2]) if wire_family else CustomModel(payload=[1, 2])
+    snapshot = _untrusted_value(value)
+    assert snapshot == {"payload": [1, 2, 3]}
+    snapshot["payload"].append(4)
+    assert value.payload == [1, 2, 3]
+
+
 def test_caller_forged_definition_cannot_reuse_complete_identities():
     model, sources = actual()
     operation = replace(model.operations[0], behavior="different-behavior")

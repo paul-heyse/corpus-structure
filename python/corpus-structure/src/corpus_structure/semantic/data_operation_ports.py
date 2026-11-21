@@ -35,7 +35,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
 from .data_operation_static_preparation import prepare_data_operation_model
 from .identity import canonical_bytes
-from .input_values import _untrusted_value
+from .input_values import _untrusted_value as _snapshot_value
 from .operation_value_types import decode_json_text, native_result_scope
 from .python_operation_sources import PythonSourceCollection
 from .types import SourceArtifact, SourceBundle
@@ -100,6 +100,23 @@ class DataOperationNativeRow(DataOperationWireValue):
             with native_result_scope(operation, type(self).__name__, name):
                 values[name] = decode_json_text(values[name])
         return values
+
+
+def _port_model_field(value: BaseModel, name: str) -> Any:
+    if (
+        isinstance(value, DataOperationWireValue)
+        and type(value).__getattribute__ is DataOperationWireValue.__getattribute__
+    ):
+        try:
+            return object.__getattribute__(value, name)
+        except AttributeError:
+            pass
+    return getattr(value, name)
+
+
+def _untrusted_value(value: Any) -> Any:
+    # Recursive ownership replaces the generated family's defensive getter copy.
+    return _snapshot_value(value, model_field=_port_model_field)
 
 
 @dataclass(frozen=True)
