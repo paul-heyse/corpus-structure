@@ -1,6 +1,8 @@
 """Parent ownership controls; these are not native-provider qualification."""
 
+import json
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import cast
@@ -78,19 +80,25 @@ def test_ipc_replay_uses_physical_retry_keys_and_preserves_batch_order(tmp_path)
 
 
 @pytest.mark.parametrize(
-    ("device", "ocr_device", "required", "failure"),
+    ("device", "ocr_device", "required", "failure", "preparation"),
     [
-        ("cpu", "cpu", True, None),
-        ("cuda", "cpu", False, None),
-        ("cpu", "cuda", True, None),
-        ("cuda", "cuda", True, RuntimeError),
-        ("cuda", "cuda", True, KeyboardInterrupt),
+        ("cpu", "cpu", True, None, "default"),
+        ("cuda", "cpu", False, None, "selected"),
+        ("cpu", "cuda", True, None, "selected"),
+        ("cpu", "cpu", False, None, "wrong_digest"),
+        ("cuda", "cuda", True, RuntimeError, "default"),
+        ("cuda", "cuda", True, KeyboardInterrupt, "default"),
     ],
 )
 def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
-    monkeypatch, tmp_path, device, ocr_device, required, failure
+    monkeypatch, tmp_path, device, ocr_device, required, failure, preparation
 ):
-    from corpus_structure.ingest import pdf_capacity, pdf_stream_types, pdf_worker
+    from corpus_structure.ingest import (
+        pdf_capacity,
+        pdf_producer_contract,
+        pdf_stream_types,
+        pdf_worker,
+    )
     from corpus_structure.semantic import pdf_contracts, pdf_domain
     from corpus_structure.semantic.pdf_payloads import prepare_payload_family, schema_load
 
@@ -101,6 +109,19 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
     uses_gpu = device == "cuda" or ocr_device == "cuda"
     endpoint = "http://127.0.0.1:8035/v1"
     payload_family = prepare_payload_family()
+    context = pdf_contracts.trusted_pdf_context()
+    selected_producer = None
+    if preparation != "default":
+        selected_producer = pdf_producer_contract.StandardPdfContract(
+            b'{"distributions": {}}', (), ()
+        )
+        monkeypatch.setattr(
+            pdf_producer_contract, "standard_pdf_contract", lambda: selected_producer
+        )
+        contract, *sources = pdf_domain.pdf_domain_sources(standard_producer=selected_producer)
+        context = replace(
+            context, domain=pdf_domain.PdfDomainContract(contract.content, tuple(sources))
+        )
     build = pdf_staging.PdfBuildRef(
         "b",
         pdf_staging.TaskId(1),
@@ -152,6 +173,14 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
             options = controlled_preparation_report(
                 recipe, None, PdfStreamSpool(certificate.parent / "prepared")
             )
+            if selected_producer is not None:
+                assert request.producer_contract == selected_producer.content
+                report = json.loads(options)
+                report["_preparation"]["profile"] = "pdf-prepared-native-runtime-v3"
+                report["_preparation"]["producer_contract"] = (
+                    "0" * 64 if preparation == "wrong_digest" else selected_producer.digest
+                )
+                options = json.dumps(report).encode()
             for filename, content, family in (
                 ("controlled-preparation.json", options, "native_preparation"),
                 ("controlled-completion.jsonl", b"{}\n", "native_completion"),
@@ -226,7 +255,7 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
 
         # A labelled pure ownership control borrows real captured schema shapes;
         # these test doubles never publish a passed native/provider result.
-        return pdf_contracts.trusted_pdf_context()
+        return context
 
     monkeypatch.setattr(pdf_contracts, "pdf_context_for_task", task_context)
     from corpus_structure.semantic import pdf_publication
@@ -307,7 +336,11 @@ def test_native_parent_settles_borrowers_before_claim_maintenance_ends(
                 owned_check=check_active,
             )
 
-    if failure is None:
+    if preparation == "wrong_digest":
+        with pytest.raises(ValueError, match="child preparation differs"):
+            run()
+        assert not adoptions
+    elif failure is None:
         assert run() is build
         assert adoptions == ["access", "certified"]
     else:
