@@ -9,6 +9,10 @@ and identified, how rules are declared and checked, and what a proof is. It owns
 SBX-01 to SBX-04. Source facts are **Inspected** at `7a415d18d`; design statements are
 **Proposed**. `cs/` is `python/corpus-structure/src/corpus_structure/`.
 
+The [post-SBX-01 amendment](../set-based-execution_2026-11-21.md#post-sbx-01-review-amendment)
+integrates review [I01–I04](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I01).
+The contracts below are the planned target; they do not expand SBX-01's completed native scope.
+
 ## Baseline
 
 - A product body is a tagged value stored once in `kb.data_product.canonical_body`. A field read
@@ -77,8 +81,21 @@ Absolute extent is stored as keyed placement and authenticated by the placement 
 `(collection, block_id, start, end)` with relative offsets. The address is what today's hashed
 id is computed from, left unhashed and stable for an unchanged block key. An absolute offset is
 the block start plus the relative offset. A consumer that observes order or absolute position needs
-the corresponding placement premise. Reconversion can rename positional source pointers, so
-cross-original reuse requires established block correspondence.
+the corresponding placement premise. Text content and body-relative geometry are independent of
+page placement when neither reads that placement. The same declared-premise contract governs
+reads, proof matching and computation invalidation; complete local projections can remain equal
+after the source identity or page position changes.
+
+**Occurrence and equivalence.** Acquisition and lowering in SBX-03 identify the exact current
+block occurrence; SBX-05 carries it through reference resolution. Reconversion can rename
+positional source pointers. Equal complete projections can establish computational equivalence
+without a cross-source occurrence map, but they do not identify which repeated paragraph or
+identical table cell is a particular occurrence. Locating or rebinding an occurrence after
+renumbering, splitting or merging needs its own correspondence evidence. Acquire current
+partitions afresh where correspondence is unknown; do not infer it from equal text. SBX-06
+separates reusable computation from authenticated occurrence binding, and SBX-07 uses
+source-local keys where sufficient. The shared [change scenarios](cutover-and-qualification.md#change-scenarios)
+distinguish these claims.
 
 **Normalization before rules.** The token-to-sentence link is stored one way, as the sentence's
 ordinal on the token. `token_ids`, `sentence_ref`, `head_ref` and the separate `lexemes` list are
@@ -139,9 +156,13 @@ reference. If more than about a third fail to fit after normalization, SBX-02 st
 
 ## Proofs
 
-`kb.data_validity(rule_fingerprint, premise, established_by, derivation_id)`, primary key
-`(rule_fingerprint, premise)`, written only by security-definer programs. `sem.data_rule(release_id,
-rule_id, fingerprint, …)` holds each release's current fingerprints.
+The content conclusion in `kb.data_validity` has key `(rule_fingerprint, premise)` and is
+written only by security-definer programs. `sem.data_rule(release_id, rule_id, fingerprint, …)` holds each
+release's current fingerprints. Its establishment provenance is a separate relation: one
+conclusion can have multiple establishments. SBX-02 settles whether existing derivation and
+support facts can carry them or whether a dependent establishment table is needed. A single
+`established_by` or `derivation_id` on the content-keyed row must not make its first producer
+the conclusion's permanent authority.
 
 **Premise.** Use the digest of the facts the rule observes. A rule over all relative partition
 content can use the partition digest directly. Narrower rules use the relevant group digests.
@@ -150,16 +171,49 @@ Pair and cross-product rules combine the required digests in declared order. A p
 that observes the whole header can use the body digest. A roll-up binds the corresponding
 collection premises after every partition has its proof.
 
-**No invalidation step.** A proof is an immutable fact about content. Whether it is current is a
+SBX-02 derives these facts from the actual checker boundary, with SBX-06 deriving consumer
+premises from the values supplied to kernels. Both consume the same keyed metadata projection,
+but hash only their own observed facts. The [change scenarios](cutover-and-qualification.md#change-scenarios)
+are input to these contracts before either package makes its selection executable: movement,
+reorder, membership changes, field-group edits, absent versus explicit null, rule edits and a
+first matching proof must have independently stated effects. A completeness, absence or halo
+read includes the membership facts it observes; stable existing partition digests alone cannot
+represent those reads.
+
+**Content matching.** A proof conclusion is an immutable fact about content. Whether it matches is a
 join: a release whose rule reads an unchanged closure computes the same fingerprint, and every
 existing proof still matches; a changed closure gives a new fingerprint under which no proof
 exists. Re-establishing evaluates only the missing rule and partition pairs, set-wise, with the
 same routine admission calls. Neither the release nor the product is in the key.
 
-**The point check.** "Is rule R established for partition X of product P under release L" is
-three primary-key probes: the fingerprint from `sem.data_rule`, the digest from
-`kb.data_product_partition`, the row in `kb.data_validity`. For a whole collection the root is
-read from the header.
+**Establishment and authority.** SBX-02 and SBX-04 distinguish deterministic native conclusions
+over immutable content from attested conclusions that require a currently admissible
+establishment. A matching content key does not by itself confer current authority. Binding
+checks the required establishment policy alongside current selected support, revocation and
+publication fences, outside the support-validity fixpoint, as required by
+[ADR-0146](../../adr/0146-sbx-content-validity.md). A different admissible establishment may
+sustain the same conclusion; when none exists, the rule's declared failure policy governs
+binding. Resolve this classification and its storage before SBX-06 or SBX-07 attaches reused
+work. Replay and resolvers preserve original producing inputs separately from exact current
+selection; the [reference contract](references-and-projection-keys.md#the-reference-model)
+owns that distinction. Detached reproduction establishes captured custody; a live read checks
+current authority, including between pages.
+
+**Scoped lookup.** A point check acquires the selected parent's project, kind and current-cut
+authority before obtaining its partition metadata and the required rule conclusions and
+establishments. Its work is bounded by those selected facts and required premises, rather than
+a universal number of probes. Pair and halo checks acquire their declared related partitions;
+whole-collection checks acquire the membership and roots they actually observe. Retain an
+immutable whole-group root only where an actual repeated collection consumer warrants its
+preparation, write and retention lifecycle; otherwise account for the metadata scan needed
+to derive it. An item-existence check resolves the item address inside one acquired partition
+or consumes an applicable membership proof; a partition row proves no item's existence.
+
+The same bound includes support and authority setup, not just returned bodies. Unrelated
+partitions, frontier uses and protected leaves must not widen a point lookup. Genuine replay
+still acquires its whole required closure. A cached answer reporting proof absence or
+completeness must acquire current proof-relation membership on a hit, or that read shape is
+excluded from answer reuse; current authority is checked independently on every call.
 
 **At binding.** A consumer role declares the rules it requires of an input. Binding performs the
 lookups and refuses a candidate that lacks one. Python treats a bound value as valid for those
@@ -224,6 +278,15 @@ tables; the establish routine; the attested-rule path, which re-keys what
 `ddo_require_product_validations` binds today; the binding-side lookup; refusal in place of the
 silent no-proof.
 
+**Integration and preparation.** Settle the premise and establishment contracts above with
+SBX-05/06 and the shared change scenarios before executable keys and proof selection diverge.
+Inspect the existing partition admission's plain-schema check, tagged-schema check and group
+extraction before adding evaluator walks. Share an interpreted row representation and existing
+ordered aggregate work where their guarantees agree; preserve distinct checks where plain and
+tagged schemas enforce different facts. This is operation-local reuse, not a second validation
+framework. The [early Revision A chain](cutover-and-qualification.md#early-revision-a-integration)
+tests these contracts in a real producer-to-reader route before whole-family conversion.
+
 **Failure behaviour.** A partition that violates an admission rule refuses the product, naming
 the rule, the partition key and the first violating item. An attested rule without a derivable
 determinant refuses publication. Binding names the rule and partition it found unproved.
@@ -235,6 +298,14 @@ Editing a field one rule reads changes that rule's fingerprint and leaves a rule
 read it unchanged. After such an edit the establish routine evaluates only the affected rule, and
 only on partitions without a row: the count of evaluations is asserted. A consumer role that
 requires an unestablished rule is refused at binding.
+
+The shared scenarios also cover movement and reorder without relative-content re-evaluation,
+membership edits affecting completeness/absence/halo, and first-proof establishment changing
+a previously negative read. Use two establishments for one conclusion: revocation of one does
+not silently revoke an independently admissible one, while a required attestation with no
+admissible establishment follows its failure policy. Check an existing partition missing a
+requested item and add unrelated protected leaves and uses to expose accidental wider
+acquisition. Count decoded bodies or examined rows only where that settles the intended bound.
 
 <a id="sbx-03"></a>
 ## SBX-03 — The first populations
@@ -272,6 +343,12 @@ member rows for these kinds in the support export.
 proposal); how the detached verifier treats partitions, with the
 [read companion](owner-resolved-reads.md#sbx-12).
 
+Acquisition/lowering also owns exact occurrence identification and any correspondence needed
+after conversion. Pair a moved block with a retained key and a reconversion with renumbered
+pointers; repeated-text and split/merge controls must leave ambiguous correspondence unknown.
+This does not prevent equal complete projections from sharing computation or content proofs.
+The early chain exercises current-occurrence readback before the remaining group B migration.
+
 **Evidence.** For a fixture document, the tokens, sentences and HanLP units read back through the
 row view equal the values the current code produces, compared field by field with absolute
 offsets recomputed from block starts. Inserting a paragraph before a block changes that block's
@@ -291,6 +368,9 @@ and no hand-off differs in stance.
   body-internal, source-reading, cross-product. Body-internal groups that fit a form move to
   admission; the others stay attested, each with its own fingerprint, so a consumer requires
   only the groups it relies on.
+- For each migrated rule, state whether its conclusion follows from immutable native content
+  or needs a currently admissible attested establishment. Migrate that provenance with the
+  rule; neither release independence nor a content-key match removes required authority.
 - Consumers that check identity only (predicate, scoped relations, view composition, the math
   extract) declare required rules; products with no validator (math, predicate and scoped
   reports) declare that explicitly as an empty rule set, so the absence is a model fact.

@@ -54,17 +54,36 @@ collection value would raise.
 
 ## Target
 
-**A carrier is its own proof.** A source or product carrier can be constructed only by its
-validating constructor, or by one named worker-side acceptance of bytes a parent validated and
-sealed. Holding the type is then evidence of validation within a process, and nothing needs to
-re-validate it. This is the custody end ("a hand-built wrapper is not authority") achieved by
-closing construction instead of by repeating validation.
+**A carrier retains established validation.** A source or product carrier can be constructed only
+by its validating constructor, or by one named worker-side acceptance of bytes a parent validated and
+sealed. Holding the type is then evidence of payload validation under that decoder and rule
+contract within a process. Each occurrence acquires its placement, role, support and authority
+through its own boundary. A changed validation premise belongs to that boundary's owner. Closing
+construction supplies the custody end ("a hand-built wrapper is not authority") without repeating
+unchanged payload validation.
 
 **Validated once, derived once.** A carrier holds its bytes and its decoded, frozen value. Its
-derived views (row view, indexes, inventory, identity) are computed once and held with it.
-Carriers are shared per process through a registry keyed by release and content digest, so two
-consumers of one product share one carrier. Under [partitions](populations-rules-and-proofs.md#collections-and-partitions)
-the unit held is the partition, keyed by its digest, which PostgreSQL already supplies.
+derived payload views (row view, indexes, inventory, identity) are computed once and held with it.
+Immutable payload interpretation is shared per process through a bounded registry keyed by content
+digest and decoder contract. Under [partitions](populations-rules-and-proofs.md#collections-and-partitions)
+the unit held is the partition, keyed by its digest, which PostgreSQL already supplies. Two placed
+uses can share that payload while retaining independent occurrence carriers. A placement-dependent
+view additionally binds the placement facts it consumes.
+
+**Retained state has an owner.** Use the existing process-owned bounded cache. Charge derived
+state by replacing an entry with its updated weight, retain it as a separately weighted entry, or
+scope it to the invocation or worker that needs it. Owner close releases its references to
+indexes, Arrow buffers and Docling objects. Lazy growth must have that lifetime or charge route,
+and an oversized value can remain usable without cache admission. Partition content uses this
+bounded owner without retaining an entire book's carriers.
+
+The [pinned cachetools 8.0.1](../../../python/corpus-structure/pyproject.toml#L65)
+`LRUCache(maxsize, getsizeof=...)` charges size at insertion or
+replacement. It does not observe later mutation. Preserve the existing
+`cached(..., condition=Condition(lock))` load coordination in `caches._Declared`, and account for
+derived storage explicitly. See [cachetools size accounting](../../libraries/analytical_infrastructure/cachetools.md#22-capacity-can-represent-much-more-than-entry-count)
+and the [existing owner](../../../python/corpus-structure/src/corpus_structure/caches.py#L194).
+This target integrates [I07](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I07).
 
 **One decode at ingress.** Hydration decodes a body once into the carrier that the port, the
 envelope and the kernel all use. Role values are not deep-copied; carriers are immutable.
@@ -87,8 +106,9 @@ it does not detect a file changed during the run.
 ## SBX-08 — Validated carriers
 
 **Owns.** Closing construction of the source and product carriers; the worker acceptance path;
-the per-process registry and its lifetime, which follows the existing process-owned caches; the
-single decode in `_hydrate` and `hydrate_consumer_selection`; removal of the argument deep copy
+the bounded shared payload registry, occurrence carriers and derived-state lifetime, following
+the existing process-owned caches; the single decode in `_hydrate` and
+`hydrate_consumer_selection`; removal of the argument deep copy
 and the dump-and-revalidate round trip for carriers; the change to `_validated_python_input` so a
 carrier is accepted as itself; the fix of the latent defect, by measuring the stored canonical
 bytes instead of re-encoding a decoded value.
@@ -109,7 +129,10 @@ validating constructor shows one acquisition per source per process and one vali
 product per process, against today's counts written in the test. The published results and
 receipts of a fixture run are byte-identical before and after. A body containing a date is
 hydrated without error and its measured size equals its stored size. An attempt to build a
-carrier by hand fails.
+carrier by hand fails. Two placed occurrences share one payload decode while resolving different
+absolute spans and their own authority. An occurrence-dependent view binds its context. Eviction
+or owner close releases owned derived buffers, while an active carrier remains valid for its
+declared lifetime.
 
 <a id="sbx-09"></a>
 ## SBX-09 — One verification bracket
@@ -141,7 +164,9 @@ a partition, merge of touching spans, ordinal within parent and offset translati
 families that build their own indexes today. Two rescans are replaced as they are met: the
 per-piece rescan that merges formal pieces (`formal_positioned_lexicon`) and the per-sentence
 scan over a block's tokens. The math extract publishes the formula contexts its successors
-rebuild, with the stage key binding them to configuration, and the successors read them.
+rebuild, with the stage key binding them to configuration, and the successors read them. Pure
+payload views share the content and decoder key. Absolute-span, selection-dependent and
+configuration-dependent views additionally bind those inputs and follow SBX-08's retention owner.
 
 **Depends.** SBX-08 for carriers. The row view over tokens is written once, against partitions,
 in SBX-03; this package does not build an interim one over packets.

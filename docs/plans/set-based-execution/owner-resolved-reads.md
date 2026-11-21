@@ -25,6 +25,13 @@ receipt. Any change invalidates outstanding receipts, cursors and resource handl
 the wire contract, and moves the digests of the record-grade and operation-event programs that
 embed `read_page`.
 
+**Post-SBX-01 baseline · Inspected 2026-11-21.** Exact consumed-use retrieval is keyed. The
+adjacent graph-input path still enumerates authority leaves to build a map. The private
+partition acquisition checks parent project and kind and leaves selected-parent and current-cut
+authority to its caller. These are the preparation and disclosure boundaries this work addresses.
+[Graph-input path](../../../python/corpus-structure/src/corpus_structure/semantic/selected_contribution_input.py#L169) ·
+[Private partition acquisition](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_partition_native.py#L438)
+
 **Precedent for a family of programs.** `read_selected_pdf_source`, the observation and visual
 reads, the feature-fit frame and `data_binding_rows` are already separate programs that
 authenticate a pinned cut through shared projections. `acquire_data_read_context` performs the
@@ -72,6 +79,14 @@ authorization steps and shares the scope, walk and output projections.
 Whether each program joins the receipt-checked read closure is decided per program, so that a
 change to one does not invalidate receipts used by another.
 
+**Sufficient facts per access shape.** Start from the exact use and selected parent in the
+acquired cut. Establish current visibility and purpose before acquiring the body. Keyed item
+reads add the membership check from the [reference contract](references-and-projection-keys.md#the-reference-model).
+Filtered pages acquire authority for the selected parents and support edges they traverse. A
+legitimate empty answer follows from the authorized selection and filter, with undisclosed
+partitions kept outside absence claims. Genuine export and replay still acquire the required
+transitive closure. Proof reads follow the rule's [premise and establishment contract](populations-rules-and-proofs.md#proofs).
+
 **Online readers ask; replaying readers carry.** A reader with no offline entry point asks for
 the shape it needs and decodes bodies. The structural family and export verification keep one
 implementation over the raw relations, run from PostgreSQL rows online and from the export
@@ -103,7 +118,12 @@ read: product body digests, partition digests, rule fingerprints. The key surviv
 and a revocation that did not touch what was read. Authority is never cached: each call performs
 the context-only authority check and body access for the products it returns, which replaces the
 whole-frontier recheck. An answer that depends on the validity of its support includes that in
-its per-call check.
+its per-call check. For an answer about proof absence or completeness, a cache hit must also
+establish current membership in the relevant proof and establishment relations. Bypass answer
+reuse for that shape if current membership cannot be established from scoped reads. A new
+matching proof can change that answer with the same content digest and rule fingerprint.
+[Shared change scenarios](cutover-and-qualification.md#change-scenarios) ·
+[Continuation authority](../../adr/0141-serving-continuation-and-reuse.md)
 
 **Transaction scope.** A reader acquires in a short transaction, commits the receipt and releases
 trust locks before deriving, the pattern graph inspection already uses. An online reader that
@@ -117,6 +137,15 @@ projection, which is what makes replay meaningless.
 
 <a id="sbx-11"></a>
 ## SBX-11 — The read programs
+
+**Additional scope and evidence (I04, I09).** Demonstrate a keyed read, a legitimate empty
+answer, and a filtered continuation with unrelated partitions, frontier uses and protected
+leaves present. Use independent expected rows and authority outcomes. Apply the read contract's
+missing-address outcome for a missing item inside an authorized partition and preserve
+non-disclosure for a protected parent. Reacquire authority on continuation and exercise relevant
+revocation between pages. Use a narrow decoded-body or examined-row check where it distinguishes
+bounded acquisition from a broader scan. Retain the genuine selected-use and native export
+controls under the [shared development evidence policy](cutover-and-qualification.md#cutover-policy).
 
 **Owns.** The outputs, partitions, derivation-facts and proofs programs; their disclosure checks,
 which restate body access, kind disclosure and leaf masking per row returned; their wire records;
@@ -168,6 +197,15 @@ after an unrelated revocation and after a fresh cut, and is not served after a r
 affects a product it read; in every case the per-call authority check ran, asserted by counting.
 A reader's trust locks are released before its Python derivation begins.
 
+Use authenticated artifacts for reader-only checks when their producer, wire, release and
+captured authority premises still apply. Move malformed relation, digest mutation, independent
+semantic and continued authority controls to typed replay with the retirement of SQLite and
+JSONL. Exercise two current selections sharing one derivation and a transitive input from a
+different demand. Interpret a published role-relative reference through its producing inputs.
+Check current selected support through the live read boundary and verify captured conclusions
+and establishment custody through the detached boundary. Include the protected issuer and
+first matching proof cases.
+
 <a id="sbx-13"></a>
 ## SBX-13 — Evaluation preflight
 
@@ -183,3 +221,6 @@ it does.
 **Evidence.** For each removed preflight check, a fixture that violates the fact is refused by
 the named completion guard. The coordinate check still refuses an authored coordinate whose text
 differs from the source. No evaluation plan opens a second index.
+Retain an independent coordinate expectation and a restricted-role refusal when the protected
+reference cannot be followed. Move those checks with the evaluation readers as duplicate
+preflight and the old index are retired.

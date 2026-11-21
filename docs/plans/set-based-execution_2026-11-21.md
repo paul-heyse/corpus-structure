@@ -6,10 +6,10 @@ and the single-derivation PDF path. **Created:** 2026-11-21.
 
 **Basis.** The [execution outside PostgreSQL review](../functional_reviews/columnar-execution-outside-postgresql_2026-11-21.md)
 at revision `b8109d423` (T1–T9, O01–O19, six defects). Nine investigations and one independent
-design advice read production source at `7a415d18d` on 2026-11-21; source facts below are
-**Inspected** at that commit unless a sentence says inferred. Every design statement is
-**Proposed**. Nothing was executed against PostgreSQL and no timing was taken, so no benefit is
-quantified. `cs/` means `python/corpus-structure/src/corpus_structure/`.
+design advice read production source at `7a415d18d` on 2026-11-21. The
+[post-SBX-01 amendment](#post-sbx-01-review-amendment) uses a later source and evidence baseline.
+Design changes are **Proposed** unless marked accepted. Implementation and measured results
+carry their own evidence and dates. `cs/` means `python/corpus-structure/src/corpus_structure/`.
 
 **Framing (operator, 2026-11-21).** This is a hard pivot in the design phase. The series goes
 directly to the target design and validates it once. There is no compatibility layer, no dual
@@ -25,12 +25,13 @@ After this series, what executes outside PostgreSQL rests on one modelled basis.
 - **Rules are model declarations.** Each names what it reads and its scope. PostgreSQL evaluates
   declared forms at admission, one partition at a time; rules it cannot evaluate are attested by
   their producer.
-- **A proof is a content-addressed fact** keyed on a rule fingerprint and the digest of what the
-  rule was evaluated on. There is no invalidation step: a proof stops matching only when the model
-  facts the rule reads change or the content changes. A point check is three keyed lookups.
-- **A consumer is keyed on what it reads.** Each consumer role declares its read projection; its
-  request key carries the digest of that projection, so a change to fields or blocks it does not
-  read leaves its key and its result untouched.
+- **A proof is a content-addressed fact** keyed on a rule fingerprint and the digest of its
+  evaluated premises. A matching conclusion can be reused subject to the rule's establishment
+  requirements. Point checks acquire keyed facts sufficient for the declared rule and address.
+- **A computation is keyed on what it reads.** The same model declaration determines what a
+  consumer receives and which facts affect its key. The text body and its body-relative spans can
+  stay identical when its page placement changes. Attachment and publication separately bind
+  the current occurrence, selected inputs, and authority.
 - **References have one model.** Every reference slot declares its target, bodies refer to their
   inputs by role, and one resolver serves every family.
 - **A validated value stays validated**, each relationship is resolved by its owner, and the PDF
@@ -67,6 +68,13 @@ Standing guidance (operator, 2026-11-21): custody rules, accepted rules and libr
 means. A proposal is judged by whether it still prevents the failure a rule exists to prevent,
 and DuckDB, PyArrow, PostgreSQL and plain Python are named as today's carriers of stated needs.
 
+The operator confirmed that the model must express the exact input-to-output dependencies,
+including the independence of text and body-relative spans from page placement. SBX-06 must
+route the change to the reusable request determinant through a scoped successor to
+[ADR-0100](../adr/0100-ddo-contextual-identities.md) and its design owners before changing native
+keys. The successor preserves qualified occurrence binding, project custody, and publication
+identity. This amendment records the target and schedules the decision work.
+
 ## Shared contracts
 
 Each contract has one owning document. Other documents link to it and do not restate it.
@@ -75,13 +83,13 @@ Each contract has one owning document. Other documents link to it and do not res
 |---|---|
 | Collection, partition, partition digest, root, field group, address | [Populations, rules and proofs](set-based-execution/populations-rules-and-proofs.md#collections-and-partitions) |
 | Rule declaration, form, fingerprint, attested rule | [same](set-based-execution/populations-rules-and-proofs.md#rules) |
-| Proof row, premise, establish routine, required proofs at binding | [same](set-based-execution/populations-rules-and-proofs.md#proofs) |
-| Reference carrier, declared target, role-relative reference, resolver | [References and projection keys](set-based-execution/references-and-projection-keys.md#the-reference-model) |
-| Read projection, projection digest, request identity, partition memo | [same](set-based-execution/references-and-projection-keys.md#read-projections) |
+| Proof conclusion, evaluated premise, establishment, required proofs at binding | [same](set-based-execution/populations-rules-and-proofs.md#proofs) |
+| Reference carrier, declared target, resolver, original and current bindings | [References and projection keys](set-based-execution/references-and-projection-keys.md#the-reference-model) |
+| Read projection, computation identity and occurrence binding, partition memo | [same](set-based-execution/references-and-projection-keys.md#read-projections) |
 | Validated carrier, single constructor, verification bracket | [Validated values and hand-off](set-based-execution/validated-values-and-handoff.md) |
 | Read programs, answer shapes, replay relations, cursor, cache key | [Owner-resolved reads](set-based-execution/owner-resolved-reads.md) |
 | PDF rebuild, access derivation, verified carriers, build identifier | [The PDF path](set-based-execution/pdf-path.md) |
-| Native revisions, regeneration order, assembled evidence | [Cutover and qualification](set-based-execution/cutover-and-qualification.md) |
+| Early integration, native revisions, regeneration order, shared scenarios, assembled evidence | [Cutover and qualification](set-based-execution/cutover-and-qualification.md) |
 
 ## The design in one page
 
@@ -103,8 +111,11 @@ added as a projection derived from partitions, never as the authority.
 
 **Why this meets the two tests.** Rule fingerprints are computed from the model facts a rule
 reads, through the same rooted-closure mechanism that already makes kind identity substantive.
-Proof premises are digests of exactly the content evaluated. Projection digests are roots over
-exactly the field groups and partitions a consumer reads. Each lookup is a primary-key probe.
+Proof premises and projection digests commit to the facts the rule or consumer observes.
+A point lookup uses keyed metadata, required support, and at most the addressed body when
+needed. A collection claim can require collection-level premises. The
+[shared scenarios](set-based-execution/cutover-and-qualification.md#change-scenarios) specify
+which changes affect which results.
 
 **Where it stops short.** Attested rules are keyed on the code of the rule's own function, which
 is narrower than today but is not a model fact; moving a rule into a declared form is the route
@@ -139,38 +150,41 @@ capability consumed.
 |---|---|---|---|
 | SBX-00 | Complete. Decision records, entry evidence and fixture baseline are recorded. Exact selected-use readers and detached demand ownership passed genuine finite and rich export checks. | — | [Entry and reader evidence](#sbx-00) |
 | SBX-01 | Complete for generic collection declarations, partition storage, content and placement identity, field groups and block-relative addresses. Managed rollback-only candidate passed. | SBX-00 decisions | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-01) |
-| SBX-02 | Rule declarations, forms, fingerprints, admission evaluation, proof rows, establish routine, proofs required at binding | SBX-01 partitions | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-02) |
-| SBX-03 | Sentence, canonical and HanLP products cut over; consumers read partitions; packet machinery retired | SBX-01, SBX-02, SBX-05 carrier | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-03) |
+| SBX-02 | Declared rules, admission evaluation, proof conclusions and admissible establishments at binding | SBX-01 partitions; shared premise and scenario contract | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-02) |
+| SBX-03 | Early real annotation-to-canonical slice, then sentence, canonical and HanLP adoption and packet retirement | SBX-01 partitions; runnable SBX-02 proof binding and SBX-05 resolver for the slice | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-03) |
 | SBX-04 | Existing validators as attested rules; one stance at hand-off; projection families and member-level outputs retired | SBX-02 | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-04) |
 | SBX-05 | One reference carrier with declared targets; role-relative references; one resolver; closure rules | SBX-01 addresses | [RPK](set-based-execution/references-and-projection-keys.md#sbx-05) |
-| SBX-06 | Read projections per role; projection-keyed request identity; kernels handed their projection | SBX-01 field groups, SBX-05 | [RPK](set-based-execution/references-and-projection-keys.md#sbx-06) |
-| SBX-07 | Per-partition memo for block-local kernels; decision recorded | SBX-06, SBX-03 | [RPK](set-based-execution/references-and-projection-keys.md#sbx-07) |
+| SBX-06 | Enforced projections, projection-keyed computation and exact occurrence binding | SBX-01 field groups; shared premises and SBX-05 custody; contextual-identity decision before key changes | [RPK](set-based-execution/references-and-projection-keys.md#sbx-06) |
+| SBX-07 | Per-host locality decision and partition memo where eligible | SBX-06, SBX-03 | [RPK](set-based-execution/references-and-projection-keys.md#sbx-07) |
 | SBX-08 | Validated carriers with one constructor; decode once; residue removed | — | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-08) |
 | SBX-09 | One verification bracket per computation on every route | — | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-09) |
 | SBX-10 | Derived views computed once; one span vocabulary; producer-published contexts | SBX-08; SBX-03 for token views | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-10) |
-| SBX-11 | Read programs sharing one boundary; answer shapes; filters and paging by key | SBX-01 for partition reads | [ORR](set-based-execution/owner-resolved-reads.md#sbx-11) |
-| SBX-12 | Replaying readers on typed relations from either source; export carries partitions and proofs; one cursor; substantive cache key | SBX-11 | [ORR](set-based-execution/owner-resolved-reads.md#sbx-12) |
+| SBX-11 | Read programs with scoped authority acquisition, answer shapes, filters and keyset paging | SBX-01 for partition reads; SBX-02 for proof answers | [ORR](set-based-execution/owner-resolved-reads.md#sbx-11) |
+| SBX-12 | Typed replay, partition and proof export, unified cursor and substantive cache with current authority | SBX-11; SBX-02 proof and SBX-05 reference contracts for affected relations | [ORR](set-based-execution/owner-resolved-reads.md#sbx-12) |
 | SBX-13 | Evaluation preflight reduced to what only Python can check | SBX-11 | [ORR](set-based-execution/owner-resolved-reads.md#sbx-13) |
 | SBX-14 | One document rebuild routine; round-trip validation under the captured policy | — | [PDF](set-based-execution/pdf-path.md#sbx-14) |
 | SBX-15 | Access columns derived at publication; region copy retired | SBX-14 | [PDF](set-based-execution/pdf-path.md#sbx-15) |
 | SBX-16 | One document per process; verified page and file carriers; build identifier at load | — | [PDF](set-based-execution/pdf-path.md#sbx-16) |
 | SBX-17 | Certification without round trips; typed validation capture; logical rows by column | SBX-16 | [PDF](set-based-execution/pdf-path.md#sbx-17) |
-| SBX-18 | Analytical owner states the fidelity rules; worker-lifetime connection | — | [KT](set-based-execution/kernel-trial.md#sbx-18) |
+| SBX-18 | Analytical fidelity rules, worker-lifetime connection, isolated job resources and cleanup | — | [KT](set-based-execution/kernel-trial.md#sbx-18) |
 | SBX-19 | Scoped relations rebuilt as set operations; recorded decision on other families | SBX-18, SBX-08, SBX-05 | [KT](set-based-execution/kernel-trial.md#sbx-19) |
-| SBX-20 | Native revisions A, B and C registered; regeneration in order | packages they carry | [CQ](set-based-execution/cutover-and-qualification.md#sbx-20) |
+| SBX-20 | Native revisions A, B and C registered after predecessor comparisons; regeneration in order | packages they carry | [CQ](set-based-execution/cutover-and-qualification.md#sbx-20) |
 | SBX-21 | Retirement sweep | all | [CQ](set-based-execution/cutover-and-qualification.md#sbx-21) |
-| SBX-22 | Assembled qualification, including the change scenarios | SBX-20 | [CQ](set-based-execution/cutover-and-qualification.md#sbx-22) |
+| SBX-22 | Final-source qualification, including the shared change scenarios | SBX-20, SBX-21 | [CQ](set-based-execution/cutover-and-qualification.md#sbx-22) |
 
-**One useful route.** Three strands are independent and can proceed together.
+**One useful route.** Development can overlap at the contract boundaries below.
 
-1. *Identity strand, revision A:* SBX-01, SBX-02, SBX-05, then SBX-03, SBX-04 and SBX-06. These
-   change product bodies, kinds and request identity, so they are developed against private
-   candidates and registered as one revision. SBX-05 is in this strand, not after it, because the
-   reference carrier re-keys every family and should do so once.
+1. *Identity strand, revision A:* Start from SBX-01, settle the shared premise and authority
+   contracts for SBX-02/05/06, and make the minimum SBX-02 and SBX-05 paths runnable. Use them
+   in the [early SBX-03 chain](set-based-execution/cutover-and-qualification.md#early-revision-a-integration)
+   before broad conversion. Close SBX-02 through SBX-06 against rollback candidates and register
+   one identity revision in SBX-20.
 2. *No-identity strand:* SBX-08 and SBX-09 first, since they change no published value and every
-   later package is simpler on carried values; then SBX-10. The read strand SBX-11 to SBX-13
-   follows SBX-01 and lands as revision B.
-3. *PDF strand, revision C:* SBX-14 to SBX-17, independent of the others.
+   later package is simpler on carried values; then SBX-10. Prepare SBX-11 to SBX-13 alongside
+   revision A and integrate the proof and reference readers when those contracts are runnable.
+   Register B after A.
+3. *PDF strand, revision C:* SBX-14 to SBX-17 can develop alongside the other strands. Candidate
+   comparisons account for shared installed effects, and final regeneration begins with the PDF products.
 
 SBX-07 and the kernel trial follow the identity strand. SBX-20 to SBX-22 close the series.
 
@@ -206,8 +220,9 @@ test, not a campaign.
 1,002 blocks, 25,543 tokens and 1,842 sentences. Its largest serialized block was 100,614 bytes.
 Containment held throughout this sample and the canonical and HanLP paths preserve block origin
 on inspection. Whole-block partitions are the working unit. Group projections preserve absence
-and explicit null. Reconverted positional pointers still require established block correspondence
-before cross-original reuse. SBX-05 owns citation-to-input gaps, SBX-02 checks proofs at binding
+and explicit null. Reconversion can rename positional pointers. Resolving a particular occurrence
+across conversions requires exact correspondence, while equal declared projections can establish
+computation equivalence. SBX-05 owns citation-to-input gaps, SBX-02 checks proofs at binding
 outside the validity fixpoint, and cohort and batch dependencies remain with SBX-07.
 [Entry evidence and fixture inventory](../design_review/evidence/2026-11-21_sbx-entry/README.md)
 
@@ -275,12 +290,33 @@ Added by this plan beyond the review: projection-keyed request identity and the 
 (SBX-06, SBX-07), block-relative addresses and field groups (SBX-01), and proofs keyed on rule
 fingerprint and content in place of release and product (SBX-02).
 
+<a id="post-sbx-01-review-amendment"></a>
+## Post-SBX-01 review amendment
+
+This amendment integrates the [post-SBX-01 review](../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md)
+at revision `a242675c6`, inspected against source `d36e07594` on 2026-11-21. Each row gives the
+planned disposition. Conditional choices keep the evidence and default in their owning package.
+
+| Finding | Planned disposition and owner | Acceptance or decision |
+|---|---|---|
+| [I01](../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I01) | [SBX-06](set-based-execution/references-and-projection-keys.md#sbx-06) keys computation on declared inputs. SBX-03/05 own exact correspondence where required for a specific occurrence, and SBX-07 consumes the distinction. | Equal local projections survive a move or pointer rename. Changed observed placement changes the key. Publication uses the current occurrence. Ambiguous correspondence cannot retarget it. |
+| [I02](../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I02) | SBX-02 and SBX-06 use the [shared change scenarios](set-based-execution/cutover-and-qualification.md#change-scenarios) for premise design. SBX-12 and SBX-22 consume them. | Independent checks distinguish stable keys, invalidated keys, proof availability and new attempts. Retain collection group roots only for a supported repeated access. |
+| [I03](../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I03) | [SBX-02/04](set-based-execution/populations-rules-and-proofs.md#proofs) separate conclusions and admissible establishments. SBX-05–07 and SBX-12 preserve producing inputs and current use support. | Two selections, transitive and protected support, revocation and missing-attestation cases exercise live binding and detached custody. |
+| [I04](../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I04) | SBX-02/05 and [SBX-11/12](set-based-execution/owner-resolved-reads.md#sbx-11) scope premise preparation, item membership, admission work and authority acquisition. | Point, empty and continued reads with unrelated state, a missing item inside a valid partition, and revocation across pages establish the access bounds. |
+| [I05](../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I05) | [Early Revision A integration](set-based-execution/cutover-and-qualification.md#early-revision-a-integration) uses the runnable SBX-02/03/05 slices. | A real producer chain passes rollback-only admission, proof binding, reference resolution, and selected readback with independent expectations and an unchanged repeat. |
+| [I06](../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I06) | [SBX-20](set-based-execution/cutover-and-qualification.md#sbx-20) attributes direct and shared installed effects before one registered identity cutover. | Compare read-only wire and material lowering changes against exact predecessors and resume the same target. Keep the current wire scope unless a bounded comparison justifies narrowing. |
+| [I07](../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I07) | [SBX-08/10](set-based-execution/validated-values-and-handoff.md#target) own payload and view lifetime. [SBX-14–17](set-based-execution/pdf-path.md#target) own sealing, streaming and recovery. | Decode shared payload once, resolve distinct placements, release owned views, and exercise alias mutation, captured policy, numeric fidelity and a genuinely recovered spool. |
+| [I08](../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I08) | [SBX-07](set-based-execution/references-and-projection-keys.md#sbx-07) decides memo eligibility per host. [SBX-18/19](set-based-execution/kernel-trial.md#sbx-18) own job resources and the scoped-relations trial. | Compare batch peers and orders. Exercise cleanup between jobs and on interruption. Decide the trial on fidelity, scoped work, and material simplification. |
+| [I09](../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I09) | SBX-11–13 and [SBX-20–22](set-based-execution/cutover-and-qualification.md#sbx-20) reuse authentic setup within its evidence scope and migrate the independent tests with their replacements. | Keep one genuine finite/rich export regression, typed replay and refusal controls, and final-source whole-book and real-provider evidence. |
+
 ## Completion
 
 The series is complete when revision A, B and C are registered and deployed on the stage target;
 the retained book is regenerated through the new path; SBX-22's assembled evidence is recorded,
-including the four change scenarios; superseded machinery is gone with its tests; and the owning
-design sections and decision records describe the implemented state. The kernel trial is complete
+including the [shared change scenarios](set-based-execution/cutover-and-qualification.md#change-scenarios);
+superseded machinery and its mechanism-specific tests are gone, with independent semantic
+expectations carried to the replacement; and the owning design sections and decision records
+describe the implemented state. The kernel trial is complete
 when its decision is recorded, whichever way it goes.
 
 SBX-00 records the focused Revision A target review and its disposition. Revision A registration

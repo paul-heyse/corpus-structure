@@ -77,13 +77,37 @@ connection costs about ten milliseconds to open and a reused one one to three pe
 on synthetic data and stated as such).
 
 **Conditions.** DuckDB's and Arrow's thread pools are outside the worker's thread limit and the
-pool inventory that receipts record; the owner sets them from the worker's budget. A long
-relational operation is not interrupted by the activity check; the trial's operations are short
-and the owner documents the limit.
+pool inventory that receipts record. The owner configures
+[DuckDB 2.0.0](../../../python/corpus-structure/pyproject.toml#L9) `threads`, `memory_limit`
+and `temp_directory` from the existing worker policy.
+[Arrow 26.0.0](../../../python/corpus-structure/pyproject.toml#L23) `set_cpu_count` and
+`set_io_thread_count` configure process pools once through that owner, avoiding competing settings
+per relation.
+
+**Each job owns resources.** A worker connection is shared, while each computation owns its
+temporary relations, registered inputs, readers and spill. Success, failure and stop release
+those resources before another job uses the connection. Retire the connection if cleanup cannot
+establish a usable state. The existing invocation connection's private spill-directory lifecycle
+is the starting integration, preserved for callers that still use it.
+
+DuckDB 2.0.0 `DuckDBPyRelation.to_arrow_reader` provides an Arrow `RecordBatchReader`. Compare
+batch consumption with `to_arrow_table` for the actual operator and consume incrementally where
+the consumer permits it. This does not establish bounded memory inside a join or sort. The
+binding exposes `DuckDBPyConnection.interrupt`, but its cancellation outcome and connection reuse
+must be established through the actual worker route before relying on it. Cooperative activity
+checks still surround engine work. See [result conversion](../../libraries/analytical_infrastructure/duckdb_2.md#35-materialization-result-conversion-and-streaming),
+[streaming limits](../../libraries/analytical_infrastructure/duckdb_2.md#115-python-relation-iteration-does-not-imply-bounded-memory-streaming)
+and [Arrow thread control](../../libraries/analytical_infrastructure/pyarrow.md#83-execution-parallelism-and-thread-control).
+These APIs are exposed by the pinned bindings. Their worker lifecycle behaviour remains the
+package's verification responsibility, integrating
+[I08](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I08).
 
 **Evidence.** Each helper refuses its unsafe form: a sort without NULL placement, an ASOF join
 without a tie-break, an ordered aggregate without an order, a string where an expression is
-required. A worker opens one connection across two computations.
+required. In the actual worker, two jobs share one connection while the second cannot reach the
+first job's temporary relations, registered inputs or spill. Failure and interruption checks
+establish the current result's outcome and cleanup, including whether the connection is reusable
+or must be retired.
 
 <a id="sbx-19"></a>
 ## SBX-19 — Scoped relations as set operations
@@ -103,15 +127,18 @@ repeated re-acquisition and re-validation at the kernel's entry is already gone 
 3. The relational steps are stated as a short named list that a reader can check against the
    kernel's description.
 4. Each fidelity trap is handled by the seam or reproduced and tested.
-5. With a worker-lifetime connection, a functional run on a real source view shows the kernel's
-   relational steps are not dominated by setup. This is an observation on one workload, reported
-   with its conditions, not a benchmark.
-6. An honest count: lines of join, lookup and window logic before and after, excluding carriers.
+5. A functional run on a real source view establishes worker-connection and per-job resource
+   lifetimes and scoped access. The adoption decision explains the material reduction in repeated
+   work or implementation complexity, including conversion, ordering, cleanup and the Python seam.
+6. Judge adoption qualitatively from the complete implementation and semantic evidence. Use a
+   timed comparison only when it would decide between plausible implementations. Line counts and
+   setup ratios are optional observations, with their conditions stated.
 
 **Findings that stop the trial.** Most steps remain per-item or procedural after the rewrite. A
 step needs SQL text where typed expressions are required. Ids can be reproduced only by calling
-Python per row from inside the engine. Reproducing emission order takes more code than the
-rewrite removes. Rows crossing the seam cost more than the joins save.
+Python per row from inside the engine. The complete route adds complexity or repeated work once
+emission ordering, conversion, cleanup and the Python seam are included. A material uncertainty
+between plausible routes can justify a focused comparison before the decision.
 
 **Decision.** The package ends with a recorded decision, with the criteria above as its
 evidence: continue to a second family (predicate evidence, then constructions' region handling,

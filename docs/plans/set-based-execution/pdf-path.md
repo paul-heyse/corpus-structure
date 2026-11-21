@@ -83,11 +83,14 @@ no longer staged. The region table becomes a view over the access rows.
 one in Python that validators consume before staging. Removing the second means moving
 certification after staging, which this series does not do.
 
-**One document per process.** Within a process the interface between functions is a validated
-document with its digest, not bytes. A transform hydrates once, mutates its private copy,
-exports and validates once before lowering, and hands that validated value to lowering,
-certification, the digest and the access function. Bytes and a digest cross the worker pipe and
-the validation child, where a boundary exists.
+**Acquired input, private draft and sealed result.** A transform receives an acquired source,
+hydrates once and mutates a private draft. It exports and validates once under the captured
+schema and callback policy, then seals the result before lowering, certification, digesting or
+access projection can reuse it. The sealed interface prevents a mutable alias from changing those
+inputs. Derived byte views belong to that sealed revision and follow its owner's lifetime, using
+the [carrier retention contract](validated-values-and-handoff.md#target). Bytes and a digest cross
+the worker pipe and validation child. Captured policy and independent digest checks remain at
+those boundaries and adoption retains file-custody checks.
 
 **Verified carriers.** A page payload read once yields a carrier holding the decoded batch, its
 schema digest and its verified logical digest, accepted by the status check, the draft, companion
@@ -104,6 +107,12 @@ ordinal check. The second builds each row's frame from the row and the descripto
 frames to an external sort, then folds in order. Companions and their fields are held keyed for
 the validators. Duplicate refusals that primary keys gave become explicit checks in the sort and
 the fold.
+
+The [pinned PyArrow 26.0.0](../../../python/corpus-structure/pyproject.toml#L23) route uses
+`memory_map`, `ipc.open_file` and
+`RecordBatchFileReader.get_batch` to read typed batches without first building a whole-file Python
+table. The map and batch buffers remain owned until their readers finish. The frame sort still
+needs an external-memory route. See [Arrow IPC](../../libraries/analytical_infrastructure/pyarrow.md#71-arrow-ipc-native-columnar-interchange).
 
 **Typed capture under the captured policy.** The validation capture is one typed table per
 family using the stage and companion schemas, and its contract includes the captured lowering.
@@ -148,21 +157,25 @@ index return today's values through the view.
 **Owns.** The in-process document interface across `pdf_transforms`, `pdf_methods`,
 `pdf_hierarchy`, enrichment and the publication draft; the page and file carriers and the
 signatures that accept them; replay schemas without build columns; the adopt program and scratch
-authorization; recovery without rebind.
+authorization; recovery without rebind. The document interface seals the validated result and
+owns cached byte views through lowering, certification and access projection, integrating
+[I07](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I07).
 
 **Identity.** Changing the listed lowering modules and callables changes the lowering identity,
 and retiring a module changes the standard producer contract. Both happen once, in revision C,
 with the lists updated in the same change.
 
 **Failure behaviour.** A file whose bytes changed between acknowledgement and adoption is refused
-at adoption. A document mutated after its validation and before lowering is detected by the
-digest comparison at the validation child, as now.
+at adoption. Mutation through a former draft alias cannot change the sealed lowering input. The
+validation child independently checks its digest and captured policy, as now.
 
 **Evidence.** An enrich operation on a fixture performs two Docling validations in the parent
 path and one in each child, asserted by counting, and publishes records whose logical digest
 equals today's. A page payload is decoded once per process. A recovered spool is adopted under a
 new build without any file being rewritten, and its recertification compares recorded file
-digests.
+digests. A mutation attempt through a retained draft alias leaves the sealed lowering input
+unchanged. Releasing the sealed owner releases its derived views. Parent and child use the same
+captured policy, including after recovery.
 
 <a id="sbx-17"></a>
 ## SBX-17 — Certification and validation without round trips
@@ -173,7 +186,9 @@ companion export with the existing encoder.
 
 **Open choice, settled in the package.** The engine for the external sort of frames: the
 analytical owner over a temporary Arrow file, or the existing SQLite table. Either keeps byte
-order, which the fold requires; the choice is made on which leaves less code.
+order, duplicate refusal and bounded spill, which the fold requires. Choose the simpler complete
+route, including cleanup and canonical encoding. Keep SQLite if it needs less total integration,
+and reuse the existing encoder in either route.
 
 **Fidelity conditions.** The inputs to the folds pass through normalizations that are part of
 each digest's effective definition: nulls dropped after a JSON round trip, key-presence tests,

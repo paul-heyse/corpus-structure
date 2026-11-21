@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-21. SBX-00 and SBX-01 are complete in their package scope. Exact selected-use reads passed with genuine finite and rich exports. Declared partition support passed native controls and rollback-only candidate authoring. The stage reports N47. The recorded canonical book binding is generation 5 at N29._ [SBX execution queue](docs/plans/set-based-execution_2026-11-21.md#execution-queue)
+_Updated 2026-11-21. SBX-00 and SBX-01 are complete in their package scope. The post-SBX-01 amendment defines the planned reuse and authority contracts and the early Revision A integration. The recorded stage is N47 and the canonical book binding is generation 5 at N29._ [SBX amendment](docs/plans/set-based-execution_2026-11-21.md#post-sbx-01-review-amendment)
 
 ## Current owners
 
@@ -12,6 +12,7 @@ _Updated 2026-11-21. SBX-00 and SBX-01 are complete in their package scope. Exac
 
 ## Last verified · 2026-11-21
 
+- **Passed.** `just turn-end` and `uv run ci docs check --json` checked the post-SBX-01 plan amendment (`65625fb914664901aa7323656c521ff6`). Product qualification was `not_run` for this documentation change. [Amendment dispositions](docs/plans/set-based-execution_2026-11-21.md#post-sbx-01-review-amendment)
 - **Passed.** `uv run ci test` verified actual Docling three-page spool resume and rebuild (`36e22cf1e8dd4905be18a55c14d357ea`), 80 host and execution cases (`f926f0f5e2bd483495d8b4331af7df12`) and private PostgreSQL acknowledgement loss with spawned CPU retirement and one publication (`1fa767691bd84bb1a193c6c64bb2eb45`). [Identity and recovery](docs/plans/domain-model-operability/execution-identity-and-recovery.md)
 - **Passed.** SBX entry evidence finalized (`32c6ee055c2f47a0aa46c71cd39c3c11`), scoped to one retained 66-page answer and source inspection. `uv run ci adr lint` passed for ADR-0143 through ADR-0148 (`96e37903db484c0bae63a7fed1771276`). [Entry evidence](docs/design_review/evidence/2026-11-21_sbx-entry/README.md)
 - **Passed.** `uv run ci test` passed 36 SBX compiler, generated-wire and native partition cases (`a28f4c6e5c8d44328a780193e99d20ce`). `uv run ci model change candidate` passed with rollback cleanup established (`4867ee4d101a4c9c86cd2209e2c5cb40`). [Partition acceptance](docs/plans/set-based-execution/populations-rules-and-proofs.md#sbx-01)
@@ -56,5 +57,4 @@ _Updated 2026-11-21. SBX-00 and SBX-01 are complete in their package scope. Exac
 
 ## Next execution
 
-- SBX-02 adds declared rules and proofs over partitions. SBX-05 defines reference resolution against the exact producing derivation. SBX-03 then migrates the first real producer families. [SBX queue](docs/plans/set-based-execution_2026-11-21.md#execution-queue)
-- [SBX-20 through SBX-22](docs/plans/set-based-execution/cutover-and-qualification.md) own registration, regeneration, retirement and the whole-book journey.
+- Settle shared premise and authority contracts for SBX-02/05/06, then run the early rollback-only SBX-03 chain once its proof binding and resolver are runnable. SBX-20–22 own registration, regeneration, retirement and whole-book qualification. [SBX queue](docs/plans/set-based-execution_2026-11-21.md#execution-queue) · [Early Revision A integration](docs/plans/set-based-execution/cutover-and-qualification.md#early-revision-a-integration)

@@ -8,6 +8,11 @@ reads. It owns SBX-05 to SBX-07. It consumes the collection, partition, field-gr
 contracts of [Populations, rules and proofs](populations-rules-and-proofs.md). Source facts are
 **Inspected** at `7a415d18d`; design statements are **Proposed**.
 
+The [post-SBX-01 amendment](../set-based-execution_2026-11-21.md#post-sbx-01-review-amendment)
+integrates review [I01–I04](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I01)
+and [I08's memo conditions](../../plan_improvement_reviews/set-based-execution-after-sbx01_2026-11-21.md#I08).
+These are planned changes, not additions to SBX-01's completed native scope.
+
 ## Baseline
 
 **References.**
@@ -58,11 +63,21 @@ The compiler then knows every reference, and closure rules are generated from sl
 
 **Role-relative.** A reference names an input role of the producing operation and an address
 within that input: "the token at this address in my `annotations` input". It does not embed the
-upstream product id. The derivation's recorded inputs bind the role to a product. Three
-consequences: a body is identical whenever the inputs it read are identical in the fields it
-read; every citation is a bound input by construction, so existing episode-level support covers
-revocation of a cited product with no new edge kind; and a body can be followed only together
-with its derivation's inputs, which every reader of references must be given.
+upstream product id. The derivation's recorded inputs bind the role to a product. A body can
+be identical whenever its complete declared determining inputs and policy agree, and every
+citation is a declared bound input. A role-relative body has meaning only together with its
+original derivation bindings, which every reader of references must receive.
+
+**Producing meaning and current support.** Resolver and replay interfaces take separate typed
+inputs for original derivation bindings and exact current selected support. The former
+interprets the published body's role-relative addresses; the latter determines whether a
+particular use can currently rely on equivalent selected inputs. Neither a first match across
+uses nor the union of their inputs supplies that meaning. Multiple inputs under one role need
+a declared discriminator or unique address. A current selection may substitute only under its
+declared policy and complete projection equivalence, with exact occurrence and authority
+checks retained. A transitive upstream request keeps its own demand and selected support.
+Existing support relations carry the required provenance; the proof owner distinguishes
+[content conclusions and admissible establishments](populations-rules-and-proofs.md#proofs).
 
 *Exceptions, stated.* A view that is an index of products (document composition) refers to
 products by id because that is its content. Rich selection embeds support references and stays a
@@ -70,9 +85,29 @@ variant of the carrier. Source-set proofs and pins on bound inputs keep their ex
 checks.
 
 **One resolver.** Python resolves any reference through one function over validated carriers:
-the role gives the input; an item reference gives a partition, decoded once and memoised by
-digest, then an index by the declared key. PostgreSQL resolves existence by key: a member row, or
-a partition row.
+the role gives the producing input; an item reference gives a partition, decoded once and
+memoised by digest, then an index by the declared key. PostgreSQL resolves a member by its keyed
+row; it resolves an item address inside one acquired partition or consumes an applicable
+membership proof covering that address. An existing partition without that item must fail
+resolution. Before body hydration or disclosure of existence, authorize the actual target
+parent: project, kind and exact current selected cut for a live use; captured custody for
+detached replay. An original producing binding supplies address meaning, never permission to
+fetch a revoked or hidden original parent. An admissible equivalent current selection can
+support a use under its declared substitution policy without granting access to the original;
+if resolution requires an original body that cannot be acquired, it refuses. A hidden target
+is not an absent target. Scope authority/support setup by the authorized parents and traversed
+edges; enumerating
+unrelated frontier uses or protected leaves is not a bounded point lookup. Genuine replay
+retains its complete required closure.
+
+**Occurrence identification.** SBX-03 acquisition/lowering identifies the current source-local
+occurrence; SBX-05 preserves it in binding and resolution. Equal complete text and relative
+span projections can establish computational equivalence across page movement or changed
+source identity without an occurrence map. They cannot locate a particular repeated paragraph,
+identical table cell or split/merged block. Establish correspondence only where a consumer
+needs to locate or rebind that occurrence, and acquire current partitions afresh where it
+remains unknown. The shared [change scenarios](cutover-and-qualification.md#change-scenarios)
+keep computation reuse, proof reuse and occurrence attachment distinct.
 
 **Closure.** Checked once, by whoever holds both ends. A reference within a partition, or from
 one product's partition to another's, is a `refers_to` rule with the pair of digests as premise.
@@ -92,7 +127,9 @@ kind.
 **Enforced by construction.** The envelope hands a kernel only its declared projection: the
 field groups it named, for the partitions in scope. A kernel cannot read what it is not keyed
 on. This is the soundness mechanism. Validators that today read a whole input run on the
-projection, or their rules have moved to admission.
+projection, or their rules have moved to admission. Subject, source and placement facts made
+available to the kernel are determining inputs too; unknown reads conservatively widen their
+projection rather than removing context from a key while still exposing it to computation.
 
 **Derived and checked by introspection.** The existing code-identity analysis records code
 reachability, not data access. A read-set pass is added beside it: constant-key subscripts and
@@ -107,12 +144,31 @@ declared field groups over the partitions in scope and any observed membership, 
 or source premises. Relative-content consumers can omit placement. A consumer that emits
 absolute spans or depends on adjacency includes the relevant placement or ordering facts.
 
-**Request identity.** An input contributes its projection digest in place of its product id. A
-change to a field group or partition outside the projection leaves the key unchanged; the
-existing request row is found and its derivation attached. The use records the product it
-selected; the derivation records the product it was computed from. Validity uses the use's own
-selected support, which is the existing value-substitution alternative, extended from equal
-bodies to equal projections.
+This is also the premise contract used by [rules and proofs](populations-rules-and-proofs.md#proofs).
+Both paths acquire a shared keyed metadata projection, then hash their actual reads. Existing
+partition digests alone do not capture completeness, absence, neighbourhood or proof-relation
+membership. Whole-group roots are prepared or retained only for an actual repeated collection
+consumer that warrants their lifecycle; deriving a root on demand still scans the relevant
+metadata and must be included in its access shape. Text and body-relative spans stay independent
+of page placement unless the consumer actually reads that placement. This governs reads and
+invalidation alike, rather than narrower hashing over a still-whole input.
+
+**Computation identity and binding.** Reusable computation identity includes the operation,
+declared input projection digests, parameters and relevant execution policy. A subject or
+occurrence fact enters that identity only when the result depends on it. Editing an unread
+field group, moving a block or changing source identity therefore need not change a
+relative-only computation key. A placement-reading consumer includes the changed placement.
+This replaces blanket subject-context salting of reusable computation; it does not remove
+context from current binding or publication.
+
+On a matching computation, attachment authenticates the exact current occurrence, project
+authority and selected inputs. The use records its selection; the derivation retains its
+original bindings. The declared value-substitution policy can extend from equal bodies to
+equal complete projections. Current authority, revocation, selected support, required
+admissible proof establishments and publication fences remain independent checks. A matching
+content conclusion cannot authorize reads. Live reads recheck authority, including between
+pages and for protected issuers; detached replay establishes the captured custody represented
+by its own inputs, not current live permission.
 
 **Model changes.** A role's contribution to recipe and definition fingerprints becomes the
 projection specification's identity, not the whole kind closure. Adding a property no consumer
@@ -135,7 +191,7 @@ rich, source-set and interpretation reference classes) and the generated wire ty
 producer and resolver listed under [migration scope](#migration-scope); the output-witness
 declarations that compare reference fields with bound inputs; the readers that follow references
 without a derivation (the assessment evaluator, structural serving, detached verification), which
-are handed the derivation's inputs.
+are handed both original producing bindings and exact current support in distinct typed inputs.
 
 **Removes.** The shared untyped reference classes; the per-family resolvers and dictionaries; the
 duplicated selected-body lookups; hashed local ids computed over an upstream pin; the context
@@ -148,9 +204,15 @@ slot and address, where a declared rule covers it; an attested closure refuses a
 **Evidence.** For each of the three carrier variants, a body with a dangling reference is refused
 and one with a resolving reference is admitted, the expectation written by hand. The same source
 processed through two different upstream product ids with equal read content yields byte-equal
-construction and HanLP bodies. Revoking an upstream product invalidates a citing derivation
-through its recorded inputs, for a citation that today would not be seen. Resolving one token
-reference decodes one partition: asserted by counting partition decodes.
+construction and HanLP bodies. A required cited dependency is represented in support and its
+revocation follows the declared substitution/establishment policy. An existing partition with a
+missing item refuses resolution. Resolving one token reference decodes one partition, with
+authority acquired first and unrelated partitions, uses and protected leaves excluded. Compare
+two uses of one derivation with different selections and a transitive input from another
+demand; verify historical address meaning and exact current support independently. Live page
+revocation and the protected issuer case retain refusal; detached readback retains captured
+custody. The [early Revision A chain](cutover-and-qualification.md#early-revision-a-integration)
+exercises this interface before the remaining families migrate.
 
 <a id="sbx-06"></a>
 ## SBX-06 — Projection-keyed request identity
@@ -162,12 +224,26 @@ computes the same.
 **Owns.** The projection declaration and its graph edges; the read-set analysis and its report;
 the envelope change that hands projections to kernels on all three execution routes; the request
 key formula in both languages; attachment of an existing derivation whose recorded input differs
-from the use's selection; the authority basis of authority ports, which becomes the projection;
-the fingerprint change for recipes and definitions.
+from the use's selection; the complete projection-equivalence basis used by authority ports,
+with exact current authorization independent; the fingerprint change for recipes and
+definitions. Shared metadata preparation also serves SBX-02 without forcing rules and kernels
+to hash the same observations.
+
+**Binding decision dependency.** [ADR-0100](../../adr/0100-ddo-contextual-identities.md) currently
+requires the same complete SubjectContext in canonical request and native product identity.
+Before changing request identity, SBX-06 must record a scoped successor through the ADR route
+and update the owning architectural section. It separates reusable computation identity from
+exact current occurrence binding and publication; project/original/analyzed-context custody
+remains authenticated, and any context fact determining output remains in the projection.
+This planned amendment does not itself supersede the accepted ADR or authorize implementation
+under a conflicting identity formula. Preserve ADR-0146's independent authority requirements.
 
 **Order within the package.** Declarations and enforcement first, with keys unchanged, so that a
 kernel reading outside its projection fails in tests before any reuse depends on it. Keys change
-last.
+last. Settle the shared premise and establishment contract with SBX-02/04/05 first, using the
+[change scenarios](cutover-and-qualification.md#change-scenarios). Integrate the real
+[early Revision A chain](cutover-and-qualification.md#early-revision-a-integration) before
+whole-family conversion; final Revision A cutover remains SBX-20.
 
 **Failure behaviour.** A kernel that reads a field group outside its projection fails with the
 group named, because the value is absent. A role with no declared projection defaults to whole
@@ -177,10 +253,19 @@ scope over all groups, which is today's behaviour.
 of a consumer that reads geometry unchanged, and a second demand attaches the existing
 derivation with no new attempt; changing a token span changes the key. The expectation in each
 case is stated from the declaration, not computed by the code under test. A consumer declared to
-read geometry that touches a label fails. Revoking the product a reused derivation was computed
-from, while the use's selected product stands, leaves the use valid; revoking the selected
-product invalidates it. Adding an unread property to an input kind leaves consumer recipe
-fingerprints unchanged.
+read geometry that touches a label fails. Where declared substitution permits the equivalent
+current selection and every required attestation has an admissible establishment, revoking the
+product a reused derivation was computed from leaves the use valid while its selected product
+stands; revoking the selected product invalidates it. The surviving use does not authorize a
+read of its revoked original parent. Adding an unread property to an input kind leaves
+consumer recipe fingerprints unchanged.
+
+For those substitution cases, distinguish a native content conclusion from an attestation
+requiring current admissible establishment; no valid establishment follows the rule's failure
+policy. Pair a retained-key relocation with renumbered source pointers and a repeated-text or
+split-block control. Independently state which cases establish equal computation, matching
+proofs and exact attachment. Check actual binding decisions and attempts as well as keys;
+relative-only reuse must still read back under the current occurrence and authority.
 
 <a id="sbx-07"></a>
 ## SBX-07 — Partition memo for block-local kernels
@@ -191,27 +276,39 @@ partition's inputs, looks up a retained result, and runs the kernel only for par
 one. The product-level derivation, claim and receipt are unchanged; work is proportional to what
 changed.
 
-**Conditions, checked at entry.** The kernel's output for a partition is a function of its
-projection, as the locality census found for sentence annotation, canonical projection, HanLP,
-clause classification and the learned primaries except GLiNER; batch composition does not reach
-the body; the operation's declared replicate policy is the retained single result, which makes
-"the first retained result stands" its existing meaning. Whole-source kernels (scoped relations,
-contextual retrieval, composition, rich consolidation) are out.
+**Conditions, checked at entry.** Eligibility is per actual host implementation and numerical
+and replicate policy, not inferred from a block-shaped input. Compare the same block with
+different peers and order and check bodies, observations and receipts independently. Sentence
+annotation, canonical projection, HanLP, clause classification and learned primaries are
+candidates; the entry evidence establishes input granularity, not peer independence. The
+projection must include every observed batch determinant. The declared replicate policy must
+permit retention of the selected result; "the first retained result stands" is used only where
+that is already its meaning. GLiNER carries a batch commitment and the contextual encoder
+declares cohort/order dependence. Keep their corresponding whole-collection premise, and do
+the same for any candidate whose independence remains uncertain. Whole-source scoped
+relations, composition and rich consolidation remain out.
 
 **Open design, settled in the package.** Where retained partition results live (the proposal is
 the partition table itself, addressed by a result key beside the digest); how a reused
-partition's proof rows apply (they already match by premise digest); how revocation reaches a
-reused partition (through the derivation that first produced it, which needs a support edge from
-the reusing derivation).
+partition's proof conclusions apply by matching complete premises; and how required
+establishments and support sustain a reused partition under the current use. Follow the
+SBX-02/06 distinction between immutable content and required admissible provenance. Do not
+introduce an unconditional dependency on whichever derivation first produced equal content.
+Use source-local keys where sufficient and fresh current acquisition where occurrence
+correspondence is unknown; equal complete projections do not imply occurrence correspondence.
 
-**Decision.** The package ends by recording whether per-partition reuse is adopted for these
-kernels, with the observed share of partitions reused when one block of a document changes.
+**Decision.** Record adoption per eligible host and policy after its determining scope is
+established. A focused case must demonstrate skipped unchanged work; this creates no mandatory
+provider benchmark, reuse-share target or broader measurement campaign. Uncertain candidates
+retain the whole premise and execution route.
 
-**Evidence.** Editing one block of a fixture document and re-running sentence annotation runs the
-model host for one block; the other partitions' digests are unchanged and were not recomputed,
-asserted by counting host calls. A consumer keyed on the changed block re-runs for that block
-only. Revoking the derivation that first produced a reused partition invalidates the product that
-reuses it.
+**Evidence.** For an eligible host, editing one block of a fixture re-runs that block (and any
+declared halo) while unchanged eligible partitions reuse retained results, asserted by counting
+host calls. Vary peers and order to expose a missing cohort determinant. A consumer keyed on
+the changed block re-runs only its affected scope. Revoked original support with an admissible
+equivalent current selection follows the declared substitution policy; revoked current support
+refuses. A required attestation with no admissible establishment refuses even when its content
+key matches. These cases share the SBX-02/06 authority contract and qualification scenarios.
 
 ## Migration scope
 
