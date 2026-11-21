@@ -235,38 +235,6 @@ def stream_demand_result(
             break
 
 
-def selected_obligations_for_uses(
-    connection, cut: CutSelection, use_ids: set[str]
-) -> tuple[str, ...]:
-    """Resolve selected uses through their authenticated cut's metadata pages."""
-    pins = cut.record
-    remaining = set(use_ids)
-    obligations: set[str] = set()
-    continuation: Mapping[str, Any] | None = dict(
-        demand_id=pins["demand_id"],
-        read_id=pins["read_id"],
-        scope=pins["scope"],
-        view="frontier",
-    )
-    while remaining:
-        page = read_demand_result(
-            connection,
-            pins["demand_id"],
-            project_id=pins["project_id"],
-            continuation=continuation,
-            cut=cut,
-            view="frontier",
-        )
-        for use in page.record["uses"]:
-            if use["use_id"] in remaining:
-                remaining.remove(use["use_id"])
-                obligations.add(use["obligation_id"])
-        continuation = page.continuation
-        if remaining and continuation is None:
-            raise ValueError("selected use is absent from its exact frontier cut")
-    return tuple(sorted(obligations))
-
-
 def recheck_selected_frontier(
     connection,
     demand_id,
@@ -385,6 +353,7 @@ def selected_record_index(
     max_total_records=None,
     capture_frontier=False,
     obligation_ids=None,
+    use_ids=None,
 ):
     """Keep one pinned native acquisition and its complete temporary witness index."""
     from pathlib import Path
@@ -396,13 +365,23 @@ def selected_record_index(
         type(max_total_records) is not int or max_total_records < 0
     ):
         raise ValueError("selected record bound must be a nonnegative integer")
+    if use_ids is not None and obligation_ids is not None:
+        raise ValueError("select uses or obligations, rather than both")
+    remaining_uses = None if use_ids is None else set(use_ids)
+    if remaining_uses is not None and (
+        not remaining_uses
+        or any(not isinstance(value, str) or not value for value in remaining_uses)
+    ):
+        raise ValueError("selected uses require nonempty use identities")
     selected = (None,) if obligation_ids is None else tuple(dict.fromkeys(obligation_ids))
     if not selected or any(
         value is not None and (not isinstance(value, str) or not value) for value in selected
     ):
         raise ValueError("selected record acquisition requires nonempty obligation identities")
-    if obligation_ids is not None and (read_id is None or expected_cut is None):
-        raise ValueError("selected obligations require an authenticated pinned cut")
+    if (obligation_ids is not None or use_ids is not None) and (
+        read_id is None or expected_cut is None
+    ):
+        raise ValueError("selected uses or obligations require an authenticated pinned cut")
     cut = None
     with TemporaryDirectory(prefix="selected-read-") as scratch:
         index = SelectedRecordIndex(Path(scratch) / "support.sqlite")
@@ -435,7 +414,12 @@ def selected_record_index(
                         raise ValueError(
                             "selected resource belongs to another cut/trust assessment"
                         )
-                    if capture_frontier:
+                    selected_page = True
+                    if remaining_uses is not None:
+                        present = {row["use_id"] for row in page.record["uses"]} & remaining_uses
+                        selected_page = bool(present)
+                        remaining_uses.difference_update(present)
+                    if capture_frontier and selected_page:
                         index.append_page(page.record)
                     if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
                         raise SelectedGraphBudgetExceeded(
@@ -448,9 +432,11 @@ def selected_record_index(
                     continuation = page.continuation
                     # A selected obligation's support belongs to its exact frontier
                     # page. The full-cut route acquires its whole closure once.
-                    if obligation_ids is not None or continuation is None:
+                    if selected_page and (
+                        use_ids is not None or obligation_ids is not None or continuation is None
+                    ):
                         for record in stream_selected_support(
-                            connection, page, whole_read=obligation_ids is None
+                            connection, page, whole_read=obligation_ids is None and use_ids is None
                         ):
                             index.append(json_bytes(record), allow_equal=True)
                             if (
@@ -467,7 +453,11 @@ def selected_record_index(
                                 raise SelectedGraphBudgetExceeded(
                                     "selected graph examined closure exceeds byte bound", cut=cut
                                 )
+                    if remaining_uses is not None and not remaining_uses:
+                        break
                     if continuation is None:
+                        if remaining_uses:
+                            raise ValueError("selected use is absent from its exact frontier cut")
                         break
                     if obligation_id is not None:
                         continuation = {**continuation, "obligation_id": obligation_id}

@@ -1043,39 +1043,65 @@ def test_detached_pending_request_does_not_require_or_invent_producing_custody(v
         )
 
 
-def test_selected_use_lookup_stops_at_its_authenticated_cut_metadata(monkeypatch):
-    from types import SimpleNamespace
-
+@pytest.mark.parametrize(
+    "selected_use, expected_pages", [("use:A", [None]), ("use:B", [None, "obligation:A"])]
+)
+def test_selected_use_index_reuses_acquired_metadata_and_stops_when_resolved(
+    monkeypatch, selected_use, expected_pages
+):
     from corpus_structure.semantic import demand_results as owner
 
     cut = CutSelection.from_native(demand_result_page())
-    visited = []
-    next_page = {"demand_id": "demand:A", "view": "frontier", "after": "obligation:A"}
+    visited, support_pages = [], []
 
-    def fetch(connection, demand_id, *, project_id, continuation, cut, view):
-        assert (demand_id, project_id, view) == ("demand:A", "project:A", "frontier")
-        assert cut.identity == CutSelection.from_native(demand_result_page()).identity
+    def fetch(connection, demand_id, *, project_id, continuation, **kwargs):
+        assert (demand_id, project_id, kwargs["view"]) == ("demand:A", "project:A", "frontier")
         visited.append(continuation.get("after"))
-        if len(visited) == 1:
-            return SimpleNamespace(
-                record={"uses": [{"use_id": "use:A", "obligation_id": "obligation:A"}]},
-                continuation=next_page,
-            )
-        assert len(visited) == 2
-        return SimpleNamespace(
-            record={"uses": [{"use_id": "use:B", "obligation_id": "obligation:B"}]},
-            continuation=None,
-        )
+        record = demand_result_page()
+        suffix = "A" if continuation.get("after") is None else "B"
+        record["uses"][0]["use_id"] = "use:" + suffix
+        record["obligations"][0]["obligation_id"] = "obligation:" + suffix
+        record["uses"][0]["obligation_id"] = "obligation:" + suffix
+        record["continuation"] = {"after": "obligation:A"} if suffix == "A" else None
+        return DemandResult(json_bytes(record), json_bytes(continuation))
+
+    def support(connection, page, *, whole_read):
+        assert whole_read is False
+        use = page.record["uses"][0]["use_id"]
+        support_pages.append(use)
+        return iter(({"relation": "controlled", "key": use, "record": {"id": use}},))
 
     monkeypatch.setattr(owner, "read_demand_result", fetch)
-    assert owner.selected_obligations_for_uses(None, cut, {"use:A"}) == ("obligation:A",)
-    assert visited == [None]
+    monkeypatch.setattr(owner, "stream_selected_support", support)
+    with owner.selected_record_index(
+        None,
+        "demand:A",
+        project_id="project:A",
+        scope={},
+        read_id="read:A",
+        expected_cut=cut.identity,
+        use_ids={selected_use},
+        capture_frontier=True,
+    ) as (actual, index):
+        assert actual.content == cut.content
+        assert [row["use_id"] for row in index.frontier_rows("uses")] == [selected_use]
+        assert list(index.rows("controlled")) == [{"id": selected_use}]
+    assert visited == expected_pages
+    assert support_pages == [selected_use]
     visited.clear()
-    assert owner.selected_obligations_for_uses(None, cut, {"use:B"}) == ("obligation:B",)
-    assert visited == [None, "obligation:A"]
-    visited.clear()
-    with pytest.raises(ValueError, match="absent from its exact frontier cut"):
-        owner.selected_obligations_for_uses(None, cut, {"use:unavailable"})
+    with (
+        pytest.raises(ValueError, match="absent from its exact frontier cut"),
+        owner.selected_record_index(
+            None,
+            "demand:A",
+            project_id="project:A",
+            scope={},
+            read_id="read:A",
+            expected_cut=cut.identity,
+            use_ids={"use:unavailable"},
+        ),
+    ):
+        pass
 
 
 def test_selected_record_index_seeds_only_explicit_obligations_under_the_same_cut(monkeypatch):

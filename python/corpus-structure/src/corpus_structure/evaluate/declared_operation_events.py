@@ -279,7 +279,6 @@ class EventFramePlan:
         from corpus_structure.semantic.data_operation_prepared_call import PreparedCallResult
         from corpus_structure.semantic.demand_results import (
             CutSelection,
-            selected_obligations_for_uses,
             selected_record_index,
         )
         from corpus_structure.semantic.native_definition_projection import (
@@ -339,10 +338,6 @@ class EventFramePlan:
             report_bodies = dict(
                 zip((row.product for row in reports), arguments.arguments["reports"], strict=True)
             )
-            prediction_cut = CutSelection(prediction_selection.cut_canonical_json.encode())
-            prediction_obligations = selected_obligations_for_uses(
-                connection, prediction_cut, {row.selection.use_id for row in question.judgments}
-            )
             # Identical pinned selections share one authenticated index in this transaction.
             for selection in dict.fromkeys((original_selection, prediction_selection)):
                 cut = CutSelection(selection.cut_canonical_json.encode())
@@ -354,7 +349,7 @@ class EventFramePlan:
                     read_id=selection.read_id,
                     expected_cut=selection.cut_id,
                     capture_frontier=True,
-                    obligation_ids=prediction_obligations
+                    use_ids={row.selection.use_id for row in question.judgments}
                     if selection == prediction_selection
                     else None,
                 ) as (_, index):
