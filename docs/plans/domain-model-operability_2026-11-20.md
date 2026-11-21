@@ -52,6 +52,14 @@ the generated facade bytes it had acquired. These observations motivate early ho
 real Standard cross-demand reuse case and a coherent prospective source view.
 [N43 evidence][acquisition-evidence] · [Lowering roots probe][lowering-probe]
 
+**N44 amendment · 2026-11-21.** The [N44 improvement review][n44-review] at `c73a9e958`
+refines the work after native N44 installation, separate Standard and Integrated admissions,
+and scoped M1 and event readbacks. The event replay established that a result and its support
+can share one authenticated cut. Standard capture eligibility still depends on a shared
+lowering analysis with unresolved initialization. Stage admission and standalone generation
+checks leave the interrupted generated-facade transition to be exercised. The amendments below
+bring those three integration boundaries forward. [Execution checkpoint](#completion-and-handoff)
+
 ## Shared contracts and rule decisions
 
 - The operation declaration supplies selected executable surfaces. Preparation verifies actual
@@ -91,36 +99,39 @@ here and in the companions. [Decision and review binding][binding]
 | Contract to resolve | Proposed domain or preserved basis | Owner and dependency |
 | --- | --- | --- |
 | D1 keys and analyzed-scope identity | Preserve D1 keys, original archive bytes and ADR-0100's canonical decimal scope equivalence until the proposed domain has independent Python and native vectors. If currently distinct scope keys would converge, record the consequence and require a decision on a versioned identity transition. | DMO-02 with DMO-05's domain definition. [ADR-0100](../adr/0100-ddo-contextual-identities.md) |
-| Native wire and agent-facing output | Preserve Draft 7 and request-in-SQL/result-in-client placement, including result validation for internally committing calls. Assess narrower wire versioning after the digest fanout and independent consumer rollout are known. D8 currently presents `selected-source-search-exact-json-v1` with `exact_json`, cut identity and a byte bound. Enumerate consumers and decide the versioned result shape before changing it. Preserve cut identity and bounded delivery. | DMO-05/06, then DMO-07 delivery. [ADR-0128](../adr/0128-wire-contract-boundary-validation.md) · [D8](../design/D8-agent-and-query-interfaces.md) |
+| Native wire and agent-facing output | Preserve Draft 7 and request-in-SQL/result-in-client placement, including internally committing calls. D8's selected MCP routes have moved to versioned structured delivery under ADR-0142 in the verified slice. Preserve cut identity, replay handles and the complete SDK byte bound while migrating remaining numeric and codec consumers. Investigate narrower wire versioning when the digest fanout and independent client rollout warrant it. | DMO-05/06, with DMO-07 delivery. [ADR-0128](../adr/0128-wire-contract-boundary-validation.md) · [ADR-0142](../adr/0142-structured-selected-result-delivery.md) |
 | Runtime custody, recovery and continuation | Preserve exact executable and original producer custody and keep live authority. Narrow enforced correspondence over proven selected boundaries. ADR-0141 governs continuation separately from stronger reuse and supersedes historical ADR-0137. | DMO-01/02 and DMO-04. [ADR-0139](../adr/0139-compatible-pdf-checkpoint-custody.md) · [ADR-0140](../adr/0140-durable-recovery-and-exact-stop.md) · [ADR-0141](../adr/0141-serving-continuation-and-reuse.md) |
 
-DMO-00 preserved current rules. Any identity or agent-output change remains at its dependent
-package until its exact intended consequence and evidence are available. The approved numeric
-direction applies to the transport design. There is no new ADR to publish from this baseline.
+DMO-00 preserved the entry rules. The subsequent structured delivery decision is recorded in
+ADR-0142. The approved numeric direction applies to transport. A later change to D1 equality,
+native wire authority, authorization lifetime or recovery guarantees needs its own explicit
+decision before dependent cutover.
 
 ## Execution queue
 
 | Package | Delivered change | Entry and completion boundary |
 | --- | --- | --- |
 | DMO-00 | Current baseline, scoped contracts and rule decisions | Complete. Both targets and the active book binding were observed. Binding changes remain with their dependent packages. [Evidence][entry-baseline] |
-| [DMO-01][p01] | Selected executable acquisition and early shared-host preparation | Selected PDF/M1 acquisition shares a specification. Grouped resident preparation and guarded transport reacquisition passed on the actual host. The selected workload still needs its remaining startup and refusal cases. |
-| [DMO-02][p02] | Material identity, cross-demand capture reuse and compatible recovery | Field explanations and the draft predicate are implemented. Scoped rollback and committed-write recovery passed on the native route. Standard cross-demand capture material correspondence and wider identity migration remain open. |
+| [DMO-01][p01] | Selected executable acquisition and early shared-host preparation | Selected PDF/M1 acquisition shares a specification. Grouped preparation and guarded reacquisition passed for their recorded populations. Share the grouping rule across both paths and prove the actual initialized Standard producer and startup premises. |
+| [DMO-02][p02] | Material identity, cross-demand capture reuse and compatible recovery | Field explanations and the draft predicate are implemented. Scoped rollback and committed-write recovery passed. The first real two-demand Standard reuse case, explicit ready-item recovery decision and remaining identity work stay open. |
 | [DMO-03][p03] | Typed consumer requirements and current/historical authority | The compiled consuming role owns rich producer requirements. Targeted rich controls and the event fit, issuer and scorer journey passed on N44. Remaining mixed-family and live authority cases retain their own acceptance. |
-| [DMO-04][p04] | Compact cut acquisition and scoped support | The native reader exposes compact authenticated context and hydrates exact selected pins. The N44 event and M1 readbacks passed. Regional integration, phase attribution and set-wise completion inspection remain open. |
-| [DMO-05][p05] | Numeric roles, consumer-by-consumer interchange and validated settings | Settings origins use public source composition. The MCP and selected CLI delivery slice uses the finite numeric projection. Native contextual field and remaining archive/codec consumers retain their own migration obligations. |
-| [DMO-06][p06] | Prospective generated source, equivalent schemas and validation retirement | Managed application capture, shared local schema preparation and receipt-owned constraints are implemented. N44, Standard and Integrated passed stage deployment. The generated-facade change journey and remaining native differential coverage stay open. |
-| [DMO-07][p07] | Attributed operator diagnostics | Preparation refusal now records the selected operation and available expected/actual resource facts before provider submission. Source comparison reports the first established recipe or implementation difference. Finish with actual recovery, consumer and scope facts from DMO-02–04 and the applicable typed output contract. |
+| [DMO-04][p04] | Compact cut acquisition and scoped support | The N44 event and M1 readbacks passed. Migrate affected consumers to the acquired page for result and support. Qualify later-page and distinct-cut cases and resolve regional attribution before selecting additional sharing. |
+| [DMO-05][p05] | Numeric roles, consumer-by-consumer interchange and validated settings | Settings origins and structured MCP delivery have scoped implementation. Migrate detached manifest metadata first, then one declared contextual read and continuation. Retire superseded adapters as their consumers move. |
+| [DMO-06][p06] | Generated source custody, equivalent schemas and validation retirement | Managed application capture and shared schema preparation are implemented. Prove the staged facade transition with real byte changes and interruption before the first joint native/Python migration. Retain affected-family and native differential acceptance. |
+| [DMO-07][p07] | Attributed operator diagnostics | Preparation and source comparison expose scoped reasons. Deliver each explanation with its owning facts and bind the next action to recorded effects or an explicitly fresh read. |
 | [DMO-08][p08] | Final-source stage and functional qualification | Enter after functional delivery, consumer migration and retirement. Reconcile the managed evidence union against final source and acquired context. Broad qualification is pending. |
 | [DMO-09][p09] | Guarded canonical adoption and whole-book qualification | DMO-08 on the selected final release. Verify original custody, complete the book, and independently verify interruption/reuse and zero new work on repeat. |
 
-Dependencies apply to the specific contract or consumer. Prepare the selected host with the
-needed DMO-05 settings before the first real Standard reuse case. The bounded DMO-02 case can use
-current D1 semantics while wider value policy is investigated. The DMO-06 prospective source
-route, the DMO-05 identity-independent consumers, and DMO-04 attribution can start independently.
-Integrate scoped support after the DMO-03 requirement projection can supply it and preserve the
-DMO-02 uncertain-effect guarantees. Add each DMO-07 explanation when its owning operation
-supplies the necessary facts. Every consumer migration schedules retirement of its superseded
-paths. A scoped pass establishes its tested property.
+The first real Standard two-demand reuse case has the highest product priority. Supply its
+host grouping and needed DMO-05 settings before that case. Use current D1 semantics. The
+DMO-06 staged facade trial and DMO-04 same-cut work can start independently. The staged trial
+precedes the first DMO-05 migration that moves both native and generated Python bytes.
+Identity-independent detached metadata work can proceed on its own contract. Integrate scoped
+support with DMO-03 producer requirements and use the DMO-02 recovery disposition before
+relying on set-wise completion inspection. Deliver DMO-07 views as their owners supply facts.
+Retire superseded code with each consumer migration and verify focused properties in the
+delivery that introduces them. DMO-08 assembles applicable evidence after delivery and
+retirement. DMO-09 consumes that readiness at guarded adoption.
 
 ## Review disposition and investigation
 
@@ -138,17 +149,33 @@ Original IDs retain their source meaning, with all integrated recommendations ac
 | [O08][o08] | Event support and JSON O07, parse-once and residual validation | DMO-04 sufficient cut, DMO-06 reuse of owned validation and detached checks. |
 | [O09][o09] | JSON O10, D1/D9/D10 | DMO-05 settings slice with private-cohort and provider propagation controls. |
 
-| N43 recommendation | Related findings | Scheduled disposition and closure |
+N43 rows preserve the earlier source correspondence. The N44 rows below refine their current
+sequencing and implementation choices.
+
+| N43 recommendation | Related findings | Disposition and closure |
 | --- | --- | --- |
 | [I01][i01] | O01, O09 | [DMO-01 host preparation][host], [DMO-05 settings][settings], [DMO-07 explanation][p07]. Required stale resident refuses before capture or a claim. Changed startup facts still refuse. |
 | [I02][i02] | O02, O06 | [DMO-02 Standard reuse][reuse]. Transport-only second demand adopts the original derivation. A material change recaptures. An opaque boundary is conditional on complete declared inputs, resources and custody. |
-| [I03][i03] | O07 | [DMO-06 prospective source][prospective], [DMO-07 effect guidance][p07]. Capture exact generated bytes, verify drift refusal and resume at the recorded step. Explicit post-apply capture is the route when the overlay cannot cover actual paths. |
+| [I03][i03] | O07 | [DMO-06 coordinated source][prospective], [DMO-07 effect guidance][p07]. Capture exact generated bytes, verify drift refusal and resume at the recorded step. [N44 I06][n44-i06] selects post-apply capture for the first trial and preserves the overlay question. |
 | [I04][i04] | O08 | [DMO-04 cut and support][p04]. Attribute repeated work and introduce compact context and scoped support. Verify independent read outcomes and preserve per-intent recovery standing. |
 | [I05][i05] | O03 | [DMO-03 typed requirements][p03], [DMO-04 continuation][p04], [DMO-07 explanation][p07]. Check mixed-family requirements, live epoch and revocation across continued pages. |
 | [I06][i06] | O02, O06 | [DMO-02 uncertain effects][uncertain], [DMO-08 fault evidence][p08]. Distinguish rollback, committed unacknowledged effect and unsettled owner using native and process observations. |
 | [I07][i07] | O04 | [DMO-07 command views][p07]. Verify first failed prerequisite, repeat reason and an exact scoped next action through retained and current observations. |
 | [I08][i08] | DMO-08/09 qualification and adoption | [Final evidence][p08], [pre-adoption inventory and book journey][p09]. Reconcile final-source evidence and verify authentic adoption or regeneration before the full book. |
 | [I09][i09] | O05, O06 | [DMO-05 consumer slices][p05], [DMO-02 identity][p02], [DMO-06 wire transition][p06]. Verify finite payloads and independent identity vectors, migrate public consumers and retire their superseded paths. |
+
+<a id="n44-disposition"></a>
+
+| N44 recommendation | Related findings | Owning work and closure |
+| --- | --- | --- |
+| [I01][n44-i01] · Initialized Standard producer | N43 I02, O01/O02 | [DMO-01 acquisition][p01], [DMO-02 reuse][reuse]. Independently observe original derivation, attempt and provider activity across two demands. Include restored-page assembly and a determining resource or binding change. |
+| [I02][n44-i02] · Shared host grouping | N43 I01, O01/O09 | [DMO-01 preparation][host], [DMO-05 settings][settings]. Establish supported group cardinality and verify its declaration or group refresh, wrong-target refusal and startup drift. |
+| [I03][n44-i03] · Ready-item recovery | N43 I06, O02 | [DMO-02 recovery][uncertain] supplies [DMO-04 inspection][p04] and [DMO-07 action][p07]. Verify a lost acknowledgement with producer retirement and exactly one effect, plus historical writer-contract recovery or explicit regeneration. |
+| [I04][n44-i04] · Same-cut support | N43 I04/I05, O03/O08 | [DMO-03 authority][p03] and [DMO-04 reads][p04]. Verify result and support on one authenticated page, a later-page use, distinct cuts and changed live authority. |
+| [I05][n44-i05] · Declared JSON fields and validation families | N43 I09, O05–O08 | [DMO-05 consumer transition][p05], [DMO-06 validators][p06], [DMO-02 identity][p02]. Preserve archive hashes and D1 equality in independent vectors. Reuse unaffected family confirmations while always verifying intent integrity. |
+| [I06][n44-i06] · Staged facade trial | N43 I03, O07 | [DMO-06 cutover][prospective], [DMO-08 evidence][p08]. Exercise changed generated and native bytes, tuple parity, drift refusal, interruption and both application admissions. |
+| [I07][n44-i07] · Actionable state | N43 I07, O04 | [DMO-07 diagnostics][p07]. Verify exact follow-up commands for retained effects and fresh reads with the appropriate target, authority and bounds. |
+| [I08][n44-i08] · Qualification by claim | N43 I08 | [DMO-08 final evidence][p08] and [DMO-09 guarded adoption][p09]. Preserve fixture provenance and reconcile final-source ordinary, fault and actual-provider evidence before book adoption and independent recovery and repeat observations. |
 
 The decisive open questions have bounded outcomes. DMO-01 uses selected-operation checks on each
 historical edit and leaves required correspondence conservative when unresolved. DMO-02 inventories
@@ -167,8 +194,10 @@ Native continuation and current process caches are part of product behavior. Rev
 analyzer replacement only if a required operation exposes a determining dependency the selected
 approach cannot represent. Revisit persistent caching only for a demonstrated workload where
 current native reuse and local preparation cannot supply the needed behavior, with custody,
-invalidation and lifecycle accounted for. Revisit broad wire version partitioning when a consumer
-population can actually deploy independently and reduce total migration or verification burden.
+invalidation and lifecycle accounted for. Revisit a separate migration control plane only if the
+staged route exposes an uncovered rollout or recovery need that the existing command owners cannot
+serve. Revisit broad wire version partitioning when a consumer population can actually deploy
+independently and reduce total migration or verification burden.
 
 ## Completion and handoff
 
@@ -187,9 +216,9 @@ implementation and verification. The dedicated stage installed generated N44 and
 Standard and Integrated from `0ed2825f9`. A focused managed selection passed 361 cases on
 its recorded source (`f2d7690917444606a7d3e953105e697b`). The generated-wire, host and model
 command selection passed 57 cases on `cbd1658f5` (`f400dbb6c44449c18e2123b9b3319efe`). The N44
-event scorer and M1 cases passed through their selected read paths. Standard cross-demand material
-closure, the remaining consumer and JSON transitions, and generated facade cutover evidence stay
-with the owning packages. DMO-08 owns final-source qualification before canonical adoption.
+event scorer and M1 cases passed through their selected read paths. The [N44 dispositions](#n44-disposition)
+dated 2026-11-21 schedule the next work. Native admission receipts and focused journeys retain
+their recorded scope. DMO-08 owns final-source qualification before canonical adoption.
 [Identity and recovery][p02] · [Consumer and read paths][p04] · [JSON and generated source][p06]
 
 [predecessor]: unified-domain-model-and-execution_2026-11-19.md
@@ -197,6 +226,15 @@ with the owning packages. DMO-08 owns final-source qualification before canonica
 [entry-baseline]: ../design_review/evidence/2026-11-20_dmo00-entry-baseline/README.md
 [acquisition-evidence]: ../design_review/evidence/2026-11-20_dmo01-02/README.md
 [n43-review]: ../plan_improvement_reviews/domain-model-operability_2026-11-20.md
+[n44-review]: ../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md
+[n44-i01]: ../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I01
+[n44-i02]: ../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I02
+[n44-i03]: ../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I03
+[n44-i04]: ../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I04
+[n44-i05]: ../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I05
+[n44-i06]: ../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I06
+[n44-i07]: ../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I07
+[n44-i08]: ../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I08
 [lowering-probe]: ../design_review/evidence/2026-11-20_dmo-plan-review/README.md
 [i01]: ../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I01
 [i02]: ../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I02

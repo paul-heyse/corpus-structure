@@ -56,5 +56,5 @@ _Updated 2026-11-20. DMO-01 through DMO-06 have scoped implementation. The dedic
 
 ## Next execution
 
-- The [DMO queue](docs/plans/domain-model-operability_2026-11-20.md#execution-queue) owns [Standard capture material closure](docs/plans/domain-model-operability/execution-identity-and-recovery.md#standard-cross-demand-reuse) and the remaining consumer and JSON transitions. Stage `ci model change deploy` passed for the N44 native kernel (`703ec35909e946cf94441cd844cb24f4`), Standard (`99efbb79896545149a94276e841ce20b`) and Integrated (`711ac13a919d473fabe8fa36ea3db5e6`).
+- The [amended DMO queue](docs/plans/domain-model-operability_2026-11-20.md#execution-queue) prioritizes [Standard reuse across two demands](docs/plans/domain-model-operability/execution-identity-and-recovery.md#standard-cross-demand-reuse). The staged facade trial and authenticated consumer reads can proceed independently. Stage `ci model change deploy` passed for the N44 kernel (`703ec35909e946cf94441cd844cb24f4`), Standard (`99efbb79896545149a94276e841ce20b`) and Integrated (`711ac13a919d473fabe8fa36ea3db5e6`).
 - After consumer migration and retirement, [DMO-08 and DMO-09](docs/plans/domain-model-operability/qualification-and-adoption.md) own final-source qualification, guarded adoption and the whole-book journey.

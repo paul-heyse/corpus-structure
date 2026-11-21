@@ -7,7 +7,9 @@ owns package state, source dispositions, rule decisions and completion. This tar
 The original source baseline is `d4d606247`. The N43 amendment consumes the
 [plan-improvement review](../../plan_improvement_reviews/domain-model-operability_2026-11-20.md)
 at `7c17b403a`, including its inspected source `65db7f674`. Its I01, I03 and I09 changes below
-are scheduled work. The existing package pins are Pydantic 2.14.1,
+are scheduled work. The 2026-11-21 amendment consumes the [N44 review][n44] at `c73a9e958`,
+including its inspected source `6a445d6b6`. N44 I02, I05 and I06 refine host grouping, complete
+JSON consumer migrations and the staged facade trial below. The existing package pins are Pydantic 2.14.1,
 pydantic-settings 2.16.1, jsonschema 4.26.0, Psycopg 3.3.6 and python-rapidjson 1.25.
 The retained comparison used referencing 0.37.0 and pg_jsonschema 0.3.4. Execution must compare
 those selections with the current lock and installed extension before relying on the results.
@@ -73,15 +75,16 @@ revocation, publication and detached export checks have their existing enforceme
 
 ### Entry and resulting behavior
 
-DMO-00 confirmed the PostgreSQL-native direction and preserved the existing binding contracts.
-ADR-0100 currently gives analyzed-scope numbers canonical decimal equivalence. D8 currently exposes
-`selected-source-search-exact-json-v1` with `exact_json`, the native cut identity and a byte bound.
-Use independently specified Python/native vectors to find any converging scope keys. Name the
-actual D8 consumers and the field/version change before removing that public field. Preserve the
-established rule in each case until the applicable change is decided. The settings slice and
-typed consumer inventory can proceed independently. The settled numeric domain lets DMO-02 design
-any needed identity transition while codec consumers migrate.
-[Entry contract disposition](../domain-model-operability_2026-11-20.md#dmo-00)
+DMO-00 confirmed the PostgreSQL-native direction. ADR-0100 gives analyzed-scope numbers
+canonical decimal equivalence. ADR-0142 now governs versioned structured MCP results, finite
+presentation numbers, native cut identity and complete SDK response bounds. The selected cutover
+and scoped checks are implemented. DMO-05 still owns the remaining numeric consumers, detached
+representations and integrated delivery checks. Preserve D1 scope equality while migrating field
+policies. Use independently specified Python/native vectors to identify any proposed convergence
+of scope keys and obtain the specific decision before a versioned identity transition. The settings
+slice and identity-independent consumers can proceed with the existing identity contract.
+[Entry contract disposition](../domain-model-operability_2026-11-20.md#dmo-00) ·
+[Structured delivery decision](../../adr/0142-structured-selected-result-delivery.md)
 
 Begin with an inventory of actual numeric and JSON consumers in native request/result transport,
 Psycopg adapters, `NativeRowResult`, execution-evidence leaves, scope values, kind bodies, prepared
@@ -138,35 +141,50 @@ production package.
 ### Consumer transition and retirement
 
 Deliver the migration by complete consumer boundary. The execution-evidence finite codec is an
-implemented foundation. First move remaining identity-independent payload families where one
-owned finite JSON value and prepared validator can serve the actual readers. Native request/result
-transport, workers, rows, exports and agent results each migrate with their producers and consumers.
-For scope-bearing boundaries, specify field numeric semantics and independent Python/PostgreSQL
-vectors before removing the existing interpretation. A converging identity class requires the
-DMO-02/05 decision route for ADR-0100. The bounded Standard cross-demand reuse case can retain its
-current accepted D1 meaning while these consumer migrations proceed. [N43 review I09](../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I09)
+implemented foundation. The first remaining N44 I05 slice is detached-export manifest framing and
+metadata, with its writer and reader changed together. Give that metadata an explicit structural
+contract. Authenticate the manifest bytes before interpreting its metadata, then verify the listed
+content bytes against that manifest before use. Compare actual emitted bytes and use the archive's
+versioned format when the transition changes required bytes. Keep content hashes and original
+payload custody with the archive owner. Faithfully convert
+useful retained data or regenerate incompatible derived data through the current route.
 
-Move the wire and row aliases to the declared finite domain with their consuming contracts.
-Replace `wire_json_loads`'s `analyzed_scope` key-name branch with the explicit field policy at the
-scope boundary, then remove the superseded branch and interchangeable JSON-value aliases.
-Migrate execution evidence and exports to the same typed numbers, and replace encode-to-validate paths with the appropriate
-model or adapter call. Move target fingerprints and genuine value hashes to DMO-02's identity
+Follow with one native result read and its continuation, replacing recursive key-name detection
+with the explicit field meaning of that contract. Then complete the actual consumer inventory across
+native requests/results, rows, workers, exports, prepared packs and agent delivery. The illustrative
+read is the first integrated delivery and leaves the remaining consumers visible in the inventory.
+LinkML slot declarations and the existing generated Pydantic or native wire shapes own field meaning.
+Use `SchemaView.induced_slot` or `class_induced_slots` where effective class-level declarations are
+needed. An ordinary nested user field named `analyzed_scope` receives its ordinary value meaning.
+Scope-bearing fields retain D1 equality and their independent Python/PostgreSQL vectors before
+conversion. Keep the separate finite presentation projection. Retire each superseded decoder,
+value alias and external-runtime dependency when its consumers move and retained-data disposition
+is usable. This first metadata slice can proceed independently. Complete the staged facade trial
+before a later slice changes both generated native and Python contract bytes.
+[N44 I05][n44-i05] · [N43 review I09](../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I09) ·
+[Detached export owner](../../../python/corpus-structure/src/corpus_structure/serve/demand_export.py#L435) ·
+[LinkML effective slots](../../libraries/data_model/linkml.md#5-python-runtime-and-programmatic-schema-manipulation)
+
+Migrate wire and row aliases, execution evidence and exports with their owning contracts, then
+remove the superseded branch in `wire_json_loads`. Replace encode-to-validate paths with the
+appropriate model or adapter call. Move target fingerprints and genuine value hashes to DMO-02's identity
 owner. Measure response bytes with the actual delivery serializer once. Parse each selected-source
 event once at its ingress and carry the owned result through its consumers. Consolidate SQL JSONB
 literal spelling at its existing generated-SQL owner, preserving frozen bytes or scheduling a
 forward native transition when they change.
 
-Move MCP typed structured results and their actual MCP and CLI consumers together. Keep the native
-cut identity, bounded delivered bytes and explicit partial/unknown standing in the typed result,
-then retire `exact_json` double transmission and Decimal string/tag bridges serving only transport.
-D8's current interface and ADR-0100's analyzed-scope meaning need the coordinator's explicit decision route before this changes
-their binding contracts. Typed scientific value representations or exact original-byte archives
-have their own consumers and must be assessed before removing a tag. Preserve best-effort decoding
-or migration where useful custody requires it. Regenerate incompatible derived data under the new
-basis through the adopted execution route. Authenticate old exact-byte archives under their
-recorded contract and convert useful values at that boundary or regenerate derived data.
-[D8 agent interface](../../design/D8-agent-and-query-interfaces.md)
-[Contextual identity decision](../../adr/0100-ddo-contextual-identities.md)
+Use ADR-0142's implemented structured MCP route for affected consumers and resource replay.
+FastMCP 4.1.3 `ToolResult` and MCP 2.3.0 `CallToolResult` carry one structured payload through the
+shared delivery owner. Its complete SDK serialization includes delivery metadata before checking
+the byte limit. Confirm that machine and human consumers use supplied native IDs and handles for
+identity-sensitive operations. Retire remaining Decimal string/tag bridges that serve only
+transport as their consumers migrate. Typed scientific values and archived bytes retain their
+own interpretation and conversion obligations. Preserve partial and unknown standing, bounded
+output and current live authority during the remaining delivery qualification.
+[D8 agent interface](../../design/D8-agent-and-query-interfaces.md) ·
+[Structured delivery](../../adr/0142-structured-selected-result-delivery.md) ·
+[Complete MCP response owner](../../../python/corpus-structure/src/corpus_structure/intervene/mcp_results.py) ·
+[FastMCP result reference](../../libraries/python_introspection/fastmcp.md) ·
 [DMO-02 identity and recovery](execution-identity-and-recovery.md)
 
 When the caller inventory is complete, remove unused RapidJSON adapters, dependency declarations
@@ -214,8 +232,18 @@ existing error path.
 [JSON file source](../../libraries/data_model/pydantic-settings.md#52-json-yaml-toml-and-pyprojecttoml)
 [Current settings owner](../../../python/corpus-structure/src/corpus_structure/settings.py)
 
-Use one acquired environment observation for all required residents of the selected host, with
-provider-specific model resources still checked by their owners. The existing
+Derive preparation and guarded reacquisition from the same selected-host grouping rule over
+project, interpreter and script. DMO-01 owns the supported-population check. If releases are
+intentionally single-group, enforce that invariant at declaration and both entry points.
+Otherwise observe each supported group independently and report an unsupported provider on its
+actual binding. Supply each group its validated settings and redacted origins. Observe once per
+group, with provider-specific model resources still checked by their owners. Retire the
+first-resident environment shortcut when the shared rule serves both paths. Check mixed groups
+or their explicit declaration refusal, a stale selected resident, an unavailable unselected
+resident, a wrong target OID and a resource changed after preparation.
+[N44 I02][n44-i02] · [Selected-host owner](execution-identity-and-recovery.md#selected-host-preparation)
+
+Use the existing preflight to establish environment correspondence. The existing
 `preflight_pm2_runtime` selects the project and interpreter and runs
 `uv sync --locked --check --offline`, followed by the worker's preflight. A lock check establishes
 environment correspondence under its declared options. `importlib.metadata` supplies installed
@@ -247,6 +275,17 @@ and worker readers. Independently assert integer/fraction classification before 
 duplicates, NUL/trailing data, invalid Unicode, non-finite input/output, overflow and excessive depth
 with the documented boundary error. Check that mutating the caller's original nested object leaves
 the owned snapshot stable. Retain comparison vectors for archived bytes and generated native SQL.
+
+For the first manifest slice, independently verify the original trusted manifest hash before
+metadata decoding, changed content refusal, valid old-format interpretation under its recorded
+contract, and actual new bytes when a format transition is needed. For the native read and
+continuation slice, compare neighboring contextual fractional values, large integral decimal
+tokens and ordinary nested objects containing a field named `analyzed_scope`. Assert that the
+declared scope retains D1 equality while the ordinary object follows its own field policy.
+Check the actual structured MCP result and SDK metadata against the complete response budget.
+The display projection may approximate fractions while supplied IDs and handles retain the
+authenticated native basis. These cases establish the slice and leave the remaining inventory
+as explicit DMO-05 work.
 
 Verify `CORPUS_DEPLOYMENT__URL` is absent from private-cohort child environments, every selected
 Nemotron consumer receives `CORPUS_NEMOTRON__ENDPOINT`, invalid settings yield one bounded error,
@@ -334,6 +373,17 @@ only when the replacement establishes equivalent ownership, including nested mut
 [Wire-value ownership](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_ports.py)
 [ADR-0128 placement](../../adr/0128-wire-contract-boundary-validation.md)
 
+Use the existing per-family validator identities and receipt confirmations to decide whether
+retained completion needs a family check. `ddo_require_episode_identity` still verifies original
+intent/producer correspondence and payload digest on every use. The missing-family computation
+can reuse a matching confirmation when an unrelated family changes. Check that an affected family
+is revalidated and that a forged payload refuses even when every family identity matches. Retain
+broad validation where a global premise actually changed. This also informs DMO-02's historical
+draft reopening and DMO-04's per-intent inspection, without changing their native effect fences.
+[N44 I05][n44-i05] ·
+[Family validation owner](../../../python/corpus-structure/src/corpus_structure/semantic/completion_validation_native.py#L27) ·
+[Unconditional identity checks](../../../python/corpus-structure/src/corpus_structure/semantic/data_completion_settlement_native.py#L685)
+
 Reconcile generated source and installed SQL catalogs for validation sites, explicit dialects and
 schema provenance before retiring checks. The prior raw counts of 55 calls in 42 functions versus
 108 or 506 source matches count different material and remain un-reconciled. List the actual target
@@ -358,30 +408,49 @@ removing obsolete generator and codec tests.
 
 The N43 forward revision corrected receipt tuple validation and moved the global wire digest.
 The first candidate refused after generated facade apply changed an indirectly captured dependency.
-Its retry prepared the application from the applied bytes and passed. DMO-06 must acquire a coherent
-prospective source basis before preparing the next affected application. [N43 transition evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md#native-transition) ·
+Its retry prepared the application from the applied bytes and passed. DMO-06 establishes the
+exact source basis for the next affected application through staged capture.
+[N43 transition evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md#native-transition) ·
 [N43 review I03](../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I03)
 
-Derive generated facade outputs from the approved physical and logical model together with explicit
-source migrations. Form one immutable prospective source view used for application preparation,
-runtime capture, compilation fingerprint, inspection capsule, SQL explanation and exact patch.
-The existing `native_facades()` output registry owns the generated population. The
-`acquire_data_operation_inputs(..., proposed=...)` seam can supply overlay bytes to acquisition.
-Trace derived profile constructors, direct imports and `Path.read_bytes()` consumers because their
-actual dependency capture must see the same view. The bounded investigation ends with an identified
-capture route for each affected facade and a choice between full prospective capture and the
-explicit staged route below. [Facade output registry](../../../python/corpus-structure/src/corpus_structure/schema/code_generation.py#L81) ·
+Use the explicit staged route for the first representative generated-facade trial, before the
+next consumer migration that moves both native and Python contract bytes. Derive the generated
+population through the existing `native_facades()` registry. `ci model change preview` retains
+the approved source/model basis and after-bytes. `apply` verifies and writes those bytes, and
+`ci model change capture PREVIEW_ID` authenticates the applied after-state and its relationship
+to that original preview before application/runtime acquisition. Candidate refuses a preview whose
+application capture is still deferred. The CLI carries source identities, acquired target,
+predecessor, settled effects and the next incomplete effect through interruption and same-ID
+reopen. The generated source prerequisite alone leaves native/application qualification with
+their owning stages.
+[N44 I06][n44-i06] ·
+[Facade output registry](../../../python/corpus-structure/src/corpus_structure/schema/code_generation.py#L81) ·
+[Capture command](../../../python/corpus-structure/src/corpus_structure/cli/model.py#L1897) ·
+[Deferred-capture guard](../../../python/corpus-structure/src/corpus_structure/cli/model.py#L2070)
+
+In a controlled qualification source and target, add a small optional fixed-tuple field to the
+provider receipt logical-member packet or another narrow nominal packet emitted through a native
+facade. Select the packet only after preview demonstrates changed generated Python and native
+contract bytes. Independently specify valid, wrong-position and wrong-arity values. The wire
+renderer emits `list[...]` with an element union for tuple arrays, so its annotation leaves
+positional meaning and arity to the prepared validator and native counterpart. Verify those checks
+through both owners and compare actual after-bytes independently of the emitter's reported digest.
+Interrupt after apply, reopen capture from the original preview, change an indirectly captured
+facade and require an attributed refusal, restore approved bytes, and reopen between native
+deployment and admission. Verify exact effect custody and Standard/Integrated application
+continuity. Use a forward generated revision for the trial's native change.
+[Tuple annotation renderer](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_wire.py#L959) ·
+[Draft 7 tuple lowering](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_wire.py#L456)
+
+Keep full prospective capture as a conditional alternative. Inventory affected constructors,
+direct imports and `Path.read_bytes()` consumers. The existing
+`acquire_data_operation_inputs(..., proposed=...)` seam may provide an immutable overlay only when
+all affected consumers acquire that same view for runtime, capsule, compilation fingerprint,
+inspection and patch generation. Reopen this alternative when the concrete inventory establishes
+coherent acquisition and shows an operational hurdle it removes. Record the selected normal route
+and retire its superseded capture path as consumers move. The initial trial uses staged capture.
 [Compilation inputs](../../../python/corpus-structure/src/corpus_structure/schema/model_change.py#L347) ·
 [Application input acquisition](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_preparation.py#L146)
-
-Use full prospective capture where all affected constructors can consume the view. Apply verifies
-and writes the reviewed after-bytes, and candidate acquisition verifies those bytes against its
-retained source and model basis. If a required constructor cannot consume a coherent overlay,
-make generated-source apply an explicit first effect and capture the application from those exact
-applied bytes as the second stage. The CLI retains the reviewed source identities, acquired target,
-predecessor and next action so an interrupted invocation resumes at the recorded stage. A material
-input change still produces an attributed refusal. A successful apply alone supplies the generated
-source prerequisite and leaves application/native qualification with its own stage.
 
 Registration freezes the exact generated migration. Deployment, release/runtime admission and
 project activation remain separate recorded effects with their own expected bindings. Reopen after
@@ -418,12 +487,18 @@ property being validated. Test contract mismatch and off-contract result rollbac
 native frontdoor. A schema derived from the same faulty transformation cannot supply the sole
 expected answer.
 
+Use independent retained completions to show that an unrelated validator-family change can reuse
+matching confirmations, an affected family requires its current check, and forged payload bytes
+refuse even with current confirmations. Preserve these cases when retiring aggregate-kernel
+expectations and duplicate residual validation. Revalidation retirement must identify the
+unchanged premises that supply the retained guarantee.
+
 Use a bounded call-count check or trace on affected routes to confirm one structural check at the
 actual request/result boundary and the separate detached-export check. Verify stable owned values
 under caller mutation. Reacquire the current cut, epochs and principal before new protected reads.
 Check native artifact parity and legitimate client acquisition after the coordinated transition.
 Exercise a tuple-schema change that also changes a generated facade and a derived profile that
-reads that facade indirectly. Verify the selected prospective capture or explicit staged route,
+reads that facade indirectly. Verify the selected staged route and any subsequently justified prospective route,
 interrupted apply, reopen before candidate, a real authored or generated input mutation, reopen
 between deployment and admission, and the application-only companion admission. Each input
 mutation refusal names the changed source or contract basis. Confirm facade bytes, native digest,
@@ -445,6 +520,9 @@ completion condition.
 | N43 I01 | DMO-01 owns selected-host preparation. DMO-05 supplies validated settings, origins and guarded runtime reacquisition, including retirement of evidence-only refresh routes |
 | N43 I03 | DMO-06 prospective-source investigation, generated facade capture, exact staged recovery and coordinated native/application admission |
 | N43 I09 | DMO-05 consumer-boundary JSON migration, DMO-02 scope-identity decision and DMO-06 affected schema/native transition |
+| [N44 I02][n44-i02] | DMO-01 owns shared host grouping. DMO-05 supplies group-specific validated settings, origins and same-inference transport refresh |
+| [N44 I05][n44-i05] | DMO-05 starts with detached manifest metadata, then one native read/continuation and the remaining consumer inventory. DMO-06 uses existing validator-family currency while preserving unconditional integrity |
+| [N44 I06][n44-i06] | DMO-06 runs a real staged facade/native change with independent tuple vectors, drift refusal, same-ID recovery and both application admissions before dependent migrations |
 | Earlier codec opportunities | DMO-05 measures emitted size once, parses events once and consolidates SQL literal ownership. Alternate codecs retain their source-review triggers |
 
 The retained review's unresolved non-scope float consumers and dynamically prepared Decimal fields
@@ -454,3 +532,8 @@ installed validation inventory and wire-digest fanout. RapidJSON version-vector 
 conditional on a surviving actual consumer. These investigations supply concrete branch decisions
 inside the packages.
 [JSON review open checks](../../functional_reviews/json-boundaries_2026-11-20.md#open-checks)
+
+[n44]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md
+[n44-i02]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I02
+[n44-i05]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I05
+[n44-i06]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I06

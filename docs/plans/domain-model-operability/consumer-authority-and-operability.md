@@ -3,7 +3,10 @@
 **Status:** Partial consumer authority and read integration · 2026-11-20. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns readiness and disposition. This companion realizes review [O03][o03], [O04][o04] and the
 selected-support part of [O08][o08]. The N43 amendment integrates [I04][i04], [I05][i05]
-and [I07][i07] from review revision `7c17b403a`. Its new acceptance scenarios are planned.
+and [I07][i07] from review revision `7c17b403a`. The amendment of 2026-11-21 consumes the
+[post-N44 review][n44] at `c73a9e958`, including [I04][n44-i04], [I07][n44-i07] and the
+[I03 recovery dependency][n44-i03]. Its additional consumer migrations and acceptance scenarios
+are scheduled work.
 
 **Execution checkpoint · 2026-11-20.** The admitted consuming role now carries the prepared
 producer requirement. Rich native admission uses it for output role, CPU witness, effect and
@@ -40,13 +43,15 @@ policy issuer to supply a rich producer family. The bounded N42 fixes passed the
 journey and 18 native controls. The admitted facts already distinguished issuer, historical
 receipt, release grant and current effect authority. [Rich admission evidence][cause]
 
-Declare required output role, CPU/publication witness, effect, family claim and disclosure under
-the consuming input role. Prepare one typed requirement projection from that owner and consume
-it in Python preparation, generated native enforcement and the operator explanation. Derive
-available producer facts from admitted declarations and the support relation. The current rich
-helper accepts separate family, effect, output and CPU arguments, while event scoring checks
-the exact issuer and published authority body at its own native operation. Migrate their shared
-requirements into the projection while keeping the specialized semantic checks with those owners.
+The consuming input role owns required output role, CPU/publication witness, effect and family
+claim through the implemented `ProducerRequirement` projection. Use that prepared projection in
+Python preparation, generated native enforcement and the operator explanation. Derive available
+producer facts from admitted declarations and the support relation. Compose the shared producer
+requirements with the specialized issuer, historical receipt and current disclosure checks at
+their existing owners. Event scoring checks the exact issuer and published authority body at its
+own native operation. A repeated disclosure or use policy may justify another declared relationship
+once its meaning, editing authority and consumers are identified. Retire superseded argument bundles
+as consumers move to the shared projection. [N44 requirement boundary][n44-i04]
 Preserve explicit `none`, an undetermined declaration and a known family as separate states. Compile available/required correspondence once per admitted definitions and check
 it in preparation and the real consumer. At use, verify original history using its cut and
 receipt and apply live authorization to present reads, disclosures and effects. Keep the current
@@ -83,11 +88,14 @@ in one requirement affects its dependent consumer while an independently valid s
 <a id="dmo-04"></a>
 ## DMO-04 · Acquire only the support a cut requires
 
-The bounded event journey published frame, fit and authorization, then exhausted the watchdog
-at scorer attachment. The retained cumulative phase timings do not attribute the remaining cost
-to a particular statement. Source shows full-frontier acquisition and whole-cut closure work,
-with repeated validity over shared producers across roots and pages. Two bounded fixes already
-share identical-cut indexes and avoid redundant same-release correspondence. [Event evidence][cause] ·
+The earlier event journey published frame, fit and authorization, then exhausted the watchdog
+at scorer attachment. N44's later attempts moved that failure boundary to whole-demand delivery
+and then to support acquisition for a second cut. The successful replay passed the already acquired
+score page directly into support verification within the same transaction. It establishes this
+consumer handoff and its probability and disclosure checks. Statement-level attribution, regional
+integration and broader continuation cases remain open. Repeated full-frontier acquisition and
+whole-cut closure are still the relevant sources of avoidable work for consumers undergoing
+migration. [N44 assessment][n44-i04] · [Earlier event evidence][cause] ·
 [Current index][read] · [Support closure][support]
 
 **Decision slice.** Attribute fixture setup, application preparation, support seeding, validity
@@ -108,32 +116,52 @@ fixture through all stages. [PostgreSQL wait events](https://www.postgresql.org/
 [Blocking process API](https://www.postgresql.org/docs/18/functions-info.html) ·
 [EXPLAIN options](https://www.postgresql.org/docs/18/sql-explain.html)
 
-**Realization.** Give the existing native reader a compact authenticated cut-acquisition path.
-Acquire the demand, release, read and trust context directly, then pass operation, subject, original
-source and analyzed scope into the earliest sufficient support seed. The current
-`admitted_data_read` obtains metadata through a one-row frontier request, and hydration pages can
-rebuild a materialized binding CTE in separate statements. Replace those broad metadata reads for
-migrated consumers with the compact path. Compare a narrower generated query first. If repeated
-material work persists across statements under one cut, use a transaction-local prepared relation
-whose lifetime belongs to that reader. Reuse the existing native set-wise validity program.
+**Realization.** Complete consumer migration to the implemented compact native cut-acquisition
+path. Pass the authenticated `DemandResult` and its `CutSelection` to consumers that need its
+selected values, witnesses and explanation. Acquire the demand, release, read and trust context
+once for that operation, then pass operation, subject, original source and analyzed scope into
+the earliest sufficient support seed. Start with the event scorer, M1 hydration and the settled
+regional readback. For support belonging to an acquired page, call `stream_selected_support`
+with that page in the same connection, transaction and purpose scope. Each support page must
+match the exact acquired cut. Retire the second acquisition and unscoped readback when the
+consumer takes this contract.
+
+The selected-use lookup currently pages authenticated frontier metadata and stops once all use
+IDs have been resolved. Include a real later-page selected use before treating that behavior as
+qualified across regional populations. If this scan remains consequential, compare a bounded
+native selector for the known use IDs. If repeated material work persists across statements on
+the same pins, compare a transaction-local prepared relation whose lifetime belongs to the
+reader. These investigations choose a physical correction only for the observed repeated work.
+Reuse the existing native set-wise validity program. [N44 same-cut path][n44-i04]
 
 Consume the DMO-03 requirement projection when choosing support. Include support outside the
 returned page when it determines the selected result. Share material checks only under the same
 cut and validity scope, carry root/member attribution and negative dependencies, and preserve
 stable keyset continuation and byte limits. Distinct roots can reuse computation and still have
 distinct explanations. Reacquire the current epoch, principal and purpose at live disclosure or
-effect. SQLAlchemy Core 2.1.6 `Connection` and scoped results retain the existing reader lifecycle.
+effect. PostgreSQL 18 Repeatable Read preserves a transaction's data visibility. Native current
+role, epoch and access-universe checks establish authority for a new disclosure or effect.
+Cross-transaction consumers reacquire those checks through the existing continuation boundary.
+SQLAlchemy Core 2.1.6 `Connection` and scoped results retain the existing reader lifecycle.
 Core `VALUES` supplies the bounded selected-pin population. `Connection.execution_options` with
 `yield_per` and `Result.partitions()` bound row buffering and transfer. Use the selected PostgreSQL
 plan to assess server work. Choose the physical SQL shape from the diagnostic and generate it
 through the native owner. Favor sharing within the reader lifetime, with cross-request storage
-conditional on a further demonstrated requirement. [SQLAlchemy 2.1.6 connection source](https://github.com/sqlalchemy/sqlalchemy/blob/rel_2_1_6/doc/build/core/connections.rst)
+conditional on a further demonstrated requirement. [SQLAlchemy 2.1.6 connection source](https://github.com/sqlalchemy/sqlalchemy/blob/rel_2_1_6/doc/build/core/connections.rst) ·
+[PostgreSQL 18 transaction isolation](https://www.postgresql.org/docs/18/transaction-iso.html)
 
-Consolidate completion observations only where one set-wise inspection retains each pending
-intent's standing and the inspection-before-execution fence. Initial execution-basis acquisition,
+Consume DMO-02's ready-item recovery disposition and authoritative premise before consolidating
+completion observations. One set-wise inspection must retain each pending intent's standing,
+generation, original producer and the inspection-before-execution fence. Retained answers must
+be able to settle before provider startup. Keep branch-local checks where the shared disposition
+cannot carry their evidence lifetime. Initial execution-basis acquisition,
 frontier sweeps and final readback need different subsets of current facts. Route each through its
 smallest sufficient native operation. Qualify the result with DMO-02's uncertain-effect recovery
-case before relying on reduced inspection in execution. [I04 source observations][i04] ·
+case before relying on reduced inspection in execution. Include an active producer, known rollback,
+committed acknowledgement loss with owner replacement, and a changed writer contract at reopen.
+Check native attempt, lease and publication independently and verify zero duplicate provider work.
+Retire repeated observation only after the replacement carries those outcomes.
+[N44 recovery dependency][n44-i03] · [I04 source observations][i04] ·
 [Uncertain-effect recovery](execution-identity-and-recovery.md#uncertain-effect-recovery) ·
 [Core result handling](../../libraries/postgresql/sqlalchemy.md#85-result-processing-and-streaming) ·
 [Continuation semantics](../../adr/0141-serving-continuation-and-reuse.md)
@@ -145,7 +173,11 @@ and repeated same-premise acquisition. Start target tests with operation-scoped 
 Independently check exact scorer result, valid authority leaf, substituted input, counterfeit authored
 parameters, protected frame/label refusal, changed epoch, distinct cuts, and keyset continuity.
 Compare a selected cut with a wider cut against independently expected members, reasons, order
-and output. A row or byte bound on delivery must retain the required support semantics.
+and output. Include a selected use on a later frontier page and verify early termination after
+the required uses resolve. Verify stable equality and order across pages, exact support pins and
+distinct original/prediction cuts. A row or byte bound on delivery must retain the required support
+semantics. Keep the successful real event probability, public issuer and private-label exclusion
+assertions alongside independent wrong-issuer, counterfeit-parameter and substituted-use controls.
 
 **Continuation and shared guarantees.** The immutable cut facts consumed by Python, CLI and MCP
 readers have a declared lifetime. Reacquire current authority for every continued live disclosure
@@ -178,12 +210,20 @@ readiness explicitly. Resolve configured target separately from acquired target.
 preview free of registration, work claims and provider startup. At execution, recheck the premises
 that can change. A stale host, changed recipe, uncertain commit or interrupted migration yields an
 executable next action bound to the actual target, release, demand and operation where available.
+For apply, capture, deployment and application admission, show the last known settled effect and
+the next incomplete effect. Consume DMO-02's recovery disposition and DMO-01's host-group facts
+instead of reconstructing their decisions at the presentation boundary. Deliver each view when
+its owning operation supplies reliable facts. [N44 actionable state][n44-i07]
 
 Use `ci query` for operation-scoped current native detail, with its existing demand, project,
 operation, view, row/byte bounds and continuation selectors. `ci results inspect` hands off the
 exact selectors in a typed next action after establishing their recorded target. Material comparison
 owns the determinant explanation, managed inspection owns recorded failure and recovery facts,
-and the selected query owns the bounded current read. Retire scratch extraction and duplicated
+and the selected query owns the bounded current read. A next action that reopens a recorded
+acquisition carries the existing continuation or supported read/cut identity, exact scope and
+bounds. A fresh live query is labeled current and reacquires its authority. Correspondence to the
+earlier evidence page requires its authenticated read/cut pins. Preserve this distinction through
+CLI and MCP results and replay. Retire scratch extraction and duplicated
 scope logic as these views take their consumers. [I07 route design][i07] ·
 [Selected CLI query](../../../python/corpus-structure/src/corpus_structure/cli/selected_results.py) ·
 [Result inspection model][inspect] · [Managed CLI custody](../../adr/0069-cli-operations-custody.md)
@@ -207,7 +247,13 @@ observations, bounded output, stable selection, and redaction for credentials an
 Verify retained invocation/target binding and executable next action through the managed route.
 Typer `CliRunner` checks stdout, stderr and exit standing independently, including JSON parsing of
 machine output while Rich writes human diagnostics to stderr. Check a passive conditional view,
-an observed refusal and the scoped `ci query` handoff with the same identifiers. [Typer testing](https://typer.tiangolo.com/tutorial/testing/)
+an observed refusal and the scoped `ci query` handoff with the same identifiers. Pair a recorded
+continuation with a fresh current query after its scope or authority changes. Check equal-material
+transport refresh, stale selected host, uncertain commit and interrupted apply/capture/deploy/admit
+through the installed command. Assert configured/acquired targets, last settled effect and the next
+action against independently established native or managed facts. Retire duplicate diagnostic
+lookups when these views serve their consumers. [N44 action acceptance][n44-i07] ·
+[Typer testing](https://typer.tiangolo.com/tutorial/testing/)
 
 [o03]: ../../functional_reviews/udm-operability-and-json_2026-11-20.md#O03
 [o04]: ../../functional_reviews/udm-operability-and-json_2026-11-20.md#O04
@@ -221,3 +267,7 @@ an observed refusal and the scoped `ci query` handoff with the same identifiers.
 [i04]: ../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I04
 [i05]: ../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I05
 [i07]: ../../plan_improvement_reviews/domain-model-operability_2026-11-20.md#I07
+[n44]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md
+[n44-i03]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I03
+[n44-i04]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I04
+[n44-i07]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I07
