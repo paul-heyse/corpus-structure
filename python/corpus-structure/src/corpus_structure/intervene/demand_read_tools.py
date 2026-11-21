@@ -8,7 +8,7 @@ from typing import Literal
 from fastmcp import Context
 from pydantic import BaseModel
 
-from corpus_structure.semantic.continuation_codec import decode_cursor as _decode
+from corpus_structure.semantic.continuation_codec import decode_resource_handle
 from corpus_structure.semantic.data_operation_json import FiniteJsonValue, finite_result_record
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
 from corpus_structure.serve.characterization import (
@@ -117,7 +117,7 @@ def register_demand_read_tools(
     @server.resource("corpus://selected-result/{handle}")
     def selected_result(handle: str) -> str:
         """Replay an exact pinned page; never reinterpret it using a newer release."""
-        request = DemandQueryRequest.model_validate(_decode(handle))
+        request = decode_resource_handle(handle, DemandQueryRequest)
         response = selected(request)
         # Resource delivery has one text body; validate its own actual byte bound.
         content = response.model_dump_json()
@@ -151,7 +151,7 @@ def register_demand_read_tools(
 
     @server.resource("corpus://selected-context/{handle}")
     def selected_context(handle: str) -> str:
-        request = DemandContextRequest.model_validate(_decode(handle))
+        request = decode_resource_handle(handle, DemandContextRequest)
         content = selected(
             request, inspect_demand_context, scheme="selected-context"
         ).model_dump_json()
@@ -174,7 +174,7 @@ def register_demand_read_tools(
 
     @server.resource("corpus://selected-neighborhood/{handle}")
     def selected_neighborhood(handle: str) -> str:
-        request = DemandNeighborhoodRequest.model_validate(_decode(handle))
+        request = decode_resource_handle(handle, DemandNeighborhoodRequest)
         content = selected(
             request, inspect_demand_neighborhood, scheme="selected-neighborhood"
         ).model_dump_json()

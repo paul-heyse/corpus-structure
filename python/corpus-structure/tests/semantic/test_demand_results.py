@@ -8,7 +8,10 @@ import pytest
 from fastmcp import Client
 from sqlalchemy import create_engine
 
-from corpus_structure.semantic.continuation_codec import decode_cursor as _decode
+from corpus_structure.semantic.continuation_codec import (
+    decode_demand_cursor,
+    decode_resource_handle,
+)
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.demand_queries import DemandQueryRequest, serve_demand_query
@@ -94,7 +97,7 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
     request = DemandQueryRequest(demand_id="demand:A", project_id="project:A", limit=1)
     first = serve_demand_query(None, request)
     assert [row["member_id"] for row in first["items"]] == [None]
-    assert "selection" not in _decode(first["continuation"])["request"]
+    assert "selection" not in decode_demand_cursor(first["continuation"])["request"]
     second = serve_demand_query(None, request.model_copy(update={"cursor": first["continuation"]}))
     assert [row["member_id"] for row in second["items"]] == ["first"]
     third = serve_demand_query(None, request.model_copy(update={"cursor": second["continuation"]}))
@@ -107,7 +110,7 @@ def test_current_member_cursor_preserves_whole_group_and_refuses_wrong_target(mo
                 update={"cursor": first["continuation"], "kind_contract": "foreign"}
             ),
         )
-    resource = DemandQueryRequest.model_validate(_decode(second["resource_handle"]))
+    resource = decode_resource_handle(second["resource_handle"], DemandQueryRequest)
     assert serve_demand_query(None, resource)["items"] == second["items"]
     assert reads.count(("products", False)) == 1
     assert reads.count(("frontier", True)) == 4

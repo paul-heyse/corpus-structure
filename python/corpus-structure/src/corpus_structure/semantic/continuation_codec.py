@@ -2,6 +2,8 @@
 
 import base64
 
+from pydantic import BaseModel
+
 from .data_operation_json import finite_json_loads, json_bytes, native_json_loads
 
 
@@ -13,6 +15,17 @@ def encode_cursor(value):
     if len(encoded) > 32768:
         raise ValueError("selected cursor exceeds the supported encoded bound")
     return encoded
+
+
+def decode_resource_handle[Request: BaseModel](value: str, request: type[Request]) -> Request:
+    """Decode a bounded selected resource handle through its actual request model."""
+    if len(value) > 32768:
+        raise ValueError("selected resource handle exceeds the supported encoded bound")
+    try:
+        parsed = native_json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
+    except (ValueError, TypeError) as error:
+        raise ValueError("invalid selected resource handle") from error
+    return request.model_validate(parsed)
 
 
 def decode_demand_cursor(value):

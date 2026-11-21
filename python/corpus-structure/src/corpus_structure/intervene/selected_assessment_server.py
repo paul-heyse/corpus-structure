@@ -15,7 +15,7 @@ from corpus_structure.evaluate.selected_references import (
     evaluate_selected_references,
 )
 from corpus_structure.intervene.mcp_results import bounded_structured_result
-from corpus_structure.semantic.continuation_codec import decode_cursor as _decode
+from corpus_structure.semantic.continuation_codec import decode_resource_handle
 from corpus_structure.semantic.continuation_codec import encode_cursor as _cursor
 from corpus_structure.semantic.data_operation_json import (
     FiniteJsonValue,
@@ -125,7 +125,7 @@ def build_evaluator_server(
 
     @server.resource("corpus://selected-reference-comparison/{handle}")
     def reference_comparison(handle: str) -> str:
-        request = SelectedReferenceEvaluationRequest.model_validate(_decode(handle))
+        request = decode_resource_handle(handle, SelectedReferenceEvaluationRequest)
         content = compare(request).model_dump_json()
         if len(content.encode()) > request.max_bytes:
             raise ValueError("complete selected reference comparison resource exceeds max_bytes")
