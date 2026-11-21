@@ -1,5 +1,6 @@
 """Pinned current query pages and exact transport; native acquisition is controlled here."""
 
+from base64 import urlsafe_b64encode
 from contextlib import nullcontext
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -36,7 +37,15 @@ CUT = dict(
     read_id="actual-read",
     release_id="actual-release",
     runtime_id="actual-runtime",
-    selection={"targets": ["rich.admit"]},
+    selection={
+        "version": "data-demand-public-selection-v1",
+        "model": "a" * 64,
+        "intent_digest": "intent:query",
+        "roots": [],
+        "targets": ["rich.admit"],
+        "root_operations": ["rich.admit"],
+        "discovery": [],
+    },
     trust_snapshot={},
     read_snapshot="1:2:",
     frontier_at="2026-11-15T00:00:00+00:00",
@@ -187,6 +196,14 @@ def test_serving_reports_detected_source_custody_drift(monkeypatch):
     monkeypatch.setattr(_query_custody, "_check_files", changed)
     with pytest.raises(RichQueryRefused, match="source custody"):
         service.serve_rich_query(None, request())
+
+
+def test_rich_query_cursor_rejects_repeated_coordinates():
+    from corpus_structure.semantic.continuation_codec import decode_rich_cursor
+
+    cursor = urlsafe_b64encode(b'{"ordinal":1,"ordinal":2}').decode()
+    with pytest.raises(InvalidContinuation, match="invalid rich query cursor"):
+        decode_rich_cursor(cursor)
 
 
 def test_exact_cursor_keeps_fractional_parameters_and_refuses_work_and_response_limits(

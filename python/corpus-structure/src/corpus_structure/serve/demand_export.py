@@ -11,6 +11,7 @@ from sqlalchemy import Column, LargeBinary, MetaData, Table, Text, select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from corpus_structure.semantic.data_operation_json import (
+    finite_json_loads,
     json_bytes,
     native_json_loads,
     wire_json_loads,
@@ -506,7 +507,7 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
             raise ValueError("detached file differs from its pinned manifest: " + name)
     prepared, kinds, definitions, models = {}, {}, {}, {}
     for release_id, name in manifest.releases.items():
-        captured = wire_json_loads((root / name).read_bytes())
+        captured = finite_json_loads((root / name).read_bytes())
         acquired = open_release_parts(
             release_id,
             _unpack(captured["row"]),
@@ -540,7 +541,7 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
         if _checksum(root / name) != digest:
             raise ValueError("detached original source bytes differ from their content identity")
     for name in manifest.runtimes:
-        captured = wire_json_loads((root / name).read_bytes())
+        captured = finite_json_loads((root / name).read_bytes())
         binding = RuntimeBinding(
             captured["release_id"],
             captured["runtime_id"],
@@ -557,8 +558,8 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
     support_reader = SelectedSupportReader(
         wire_schema[SUPPORT_EXTENSION], kinds=kinds, wire_schema=wire_schema
     )
-    authority_schema = wire_json_loads((root / manifest.authority_contract).read_bytes())
-    execution_schema = wire_json_loads((root / manifest.execution_evidence_contract).read_bytes())
+    authority_schema = finite_json_loads((root / manifest.authority_contract).read_bytes())
+    execution_schema = finite_json_loads((root / manifest.execution_evidence_contract).read_bytes())
     with TemporaryDirectory(prefix="demand-verify-") as scratch:
         index = SelectedRecordIndex(Path(scratch) / "closure.sqlite", reader=support_reader)
         try:

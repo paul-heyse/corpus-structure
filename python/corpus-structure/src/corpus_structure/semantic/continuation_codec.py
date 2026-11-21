@@ -2,7 +2,7 @@
 
 import base64
 
-from .data_operation_json import finite_json_loads, json_bytes, json_loads, wire_json_loads
+from .data_operation_json import finite_json_loads, json_bytes, native_json_loads, wire_json_loads
 
 
 def encode_cursor(value):
@@ -66,7 +66,7 @@ def decode_rich_cursor(value: str) -> dict:
     from .refusal_types import InvalidContinuation
 
     try:
-        parsed = json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
+        parsed = native_json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
     except (ValueError, TypeError) as error:
         raise InvalidContinuation(
             "invalid rich query cursor", reason="invalid_continuation"
