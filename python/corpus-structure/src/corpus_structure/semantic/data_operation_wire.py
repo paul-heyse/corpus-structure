@@ -26,7 +26,7 @@ from pydantic import TypeAdapter
 from pydantic.json_schema import GenerateJsonSchema, JsonSchemaMode, JsonSchemaValue
 from pydantic_core import core_schema
 
-from .data_operation_json import json_bytes, own_wire_json_value
+from .data_operation_json import json_bytes
 from .identity import canonical_bytes
 from .schema_validation import PreparedSchemaValidator, prepared_schema_validator
 from .types import SourceArtifact
@@ -532,7 +532,6 @@ class _PreparedProtocol:
     operations: tuple[bytes, ...]
     schemas: Mapping[tuple[str, str], bytes]
     role_kinds: Mapping[tuple[str, str], str]
-    validators: Mapping[tuple[str, str], Callable[[Any], Any]]
 
 
 @lru_cache(maxsize=16)
@@ -567,7 +566,6 @@ def _prepared_protocol(content: bytes) -> _PreparedProtocol:
                 for direction, side in (("input", "request"), ("output", "result"))
             }
         ),
-        MappingProxyType({key: prepare_wire_schema(schema) for key, schema in schemas.items()}),
     )
 
 
@@ -611,13 +609,11 @@ def validate_wire_schema(schema: dict[str, Any] | bytes, value: Any) -> Any:
     """Strict JSON-value ingress; return an owned detached snapshot, never coerce."""
     encoded = schema if isinstance(schema, bytes) else canonical_bytes(schema)
     document = json.loads(encoded)
-    if "x-corpus-selected-support" in document:
-        return prepare_wire_schema(
-            encoded,
-            contextual_fields=tuple(document["x-corpus-contextual-fields"]),
-            frontier_path=(),
-        )(value)
-    return _validate_wire_value(_validator(encoded), value)
+    return prepare_wire_schema(
+        encoded,
+        contextual_fields=tuple(document.get("x-corpus-contextual-fields", ())),
+        frontier_path=() if "x-corpus-selected-support" in document else None,
+    )(value)
 
 
 def prepare_wire_schema(
@@ -633,28 +629,26 @@ def prepare_wire_schema(
 
 @lru_cache(maxsize=256)
 def _prepared_wire_schema(encoded, contextual_fields, frontier_path):
+    from .wire_json_policy import prepare_json_projection
+
     validator = _validator(encoded)
-    projector = None
-    if contextual_fields:
-        from .wire_json_policy import prepare_json_projection
+    document = json.loads(encoded)
+    declared = prepare_json_projection(document, contextual_fields)
+    projector = declared
+    if frontier_path is not None:
+        from .selected_support_contract import SUPPORT_EXTENSION, SelectedSupportReader
 
-        document = json.loads(encoded)
-        declared = prepare_json_projection(document, contextual_fields)
-        projector = declared
-        if frontier_path is not None:
-            from .selected_support_contract import SUPPORT_EXTENSION, SelectedSupportReader
+        reader = SelectedSupportReader(document.get(SUPPORT_EXTENSION))
 
-            reader = SelectedSupportReader(document.get(SUPPORT_EXTENSION))
+        def project(value):
+            projected = declared(value)
+            source, target = value, projected
+            for key in frontier_path:
+                source, target = source[key], target[key]
+            reader.project_page(source, target)
+            return projected
 
-            def project(value):
-                projected = declared(value)
-                source, target = value, projected
-                for key in frontier_path:
-                    source, target = source[key], target[key]
-                reader.project_page(source, target)
-                return projected
-
-            projector = project
+        projector = project
 
     def validate(value: Any) -> Any:
         return _validate_wire_value(validator, value, projector=projector)
@@ -662,18 +656,14 @@ def _prepared_wire_schema(encoded, contextual_fields, frontier_path):
     return validate
 
 
-def _validate_wire_value(validator: PreparedSchemaValidator, value: Any, *, projector=None) -> Any:
+def _validate_wire_value(validator: PreparedSchemaValidator, value: Any, *, projector) -> Any:
     checked = _JSON_VALUE.validate_python(value, strict=True)
     try:
         validator.validate(checked)
     except ValidationError as exc:
         path = "/".join(str(part) for part in exc.absolute_path) or "<root>"
         raise ValueError("native wire violates schema at " + path + ": " + exc.message) from exc
-    return (
-        own_wire_json_value(checked, preserve_integral_tokens=True)
-        if projector is None
-        else projector(checked)
-    )
+    return projector(checked)
 
 
 def validate_native_wire(
@@ -685,14 +675,12 @@ def validate_native_wire(
 ) -> dict[str, Any]:
     try:
         state = _protocol_state(sources)
-        validate = (
-            prepare_wire_schema(
-                state.schemas[operation, direction],
-                contextual_fields=wire_contextual_fields(sources),
-                frontier_path=(),
-            )
+        validate = prepare_wire_schema(
+            state.schemas[operation, direction],
+            contextual_fields=wire_contextual_fields(sources),
+            frontier_path=()
             if operation == "read_demand_result" and isinstance(value, dict)
-            else state.validators[operation, direction]
+            else None,
         )
     except KeyError as exc:
         raise ValueError("unknown native wire operation/direction") from exc

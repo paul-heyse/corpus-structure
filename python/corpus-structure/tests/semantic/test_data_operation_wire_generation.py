@@ -20,7 +20,11 @@ from corpus_structure.semantic import _data_operation_wire
 from corpus_structure.semantic._data_operation_wire import WireClaimDataRequestsRequest
 from corpus_structure.semantic.data_operation_artifacts import compile_data_operation_artifacts
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
-from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
+from corpus_structure.semantic.data_operation_json import (
+    json_bytes,
+    native_json_loads,
+    wire_json_loads,
+)
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_wire import (
     generated_wire_source,
@@ -108,7 +112,9 @@ def test_native_client_requires_the_exact_installed_contract_before_result_use(d
         storage.claim_data_requests({"holder": "worker", "lease_seconds": 3, "items": []})
 
 
-def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monkeypatch):
+def test_captured_structural_calls_interpret_declared_roles_and_changed_protocol_fields(
+    monkeypatch,
+):
     sources = native_protocol_sources()
     protocol = next(item for item in sources if item.name == "native/data-operation-protocol.yaml")
     document = yaml.safe_load(protocol.content)
@@ -162,7 +168,7 @@ def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monk
     statement = prepare(payload=payload, projection_context=object())
     encoded = statement.compile().params["payload"]
     assert (
-        wire_json_loads(encoded)["analyzed_scope"]["coordinate"]
+        native_json_loads(encoded)["analyzed_scope"]["coordinate"]
         == payload["analyzed_scope"]["coordinate"]
     )
     assert context_checks[0][1] == "data.record_data_fate"
@@ -191,8 +197,10 @@ def test_captured_structural_calls_keep_decimal_and_changed_protocol_fields(monk
     result = module.__dict__["record_data_fate"](
         Connection(), payload=payload, projection_context=object()
     )
-    assert result["payload"]["analyzed_scope"] == payload["analyzed_scope"]
-    assert isinstance(result["payload"]["analyzed_scope"]["coordinate"], Decimal)
+    # This added field is ordinary json_value despite its name. Its field declaration owns
+    # interpretation, while the original request bytes retain their native numeric tokens.
+    assert result["payload"]["analyzed_scope"] == {"coordinate": 0.12345678901234568}
+    assert type(result["payload"]["analyzed_scope"]["coordinate"]) is float
     # Embedded captured schema is not affected by ambient checkout protocol edits.
     assert (
         json.loads(json.loads(artifact.manifest)["calls"][0][1]["parameters"][0]["wire_schema"])[

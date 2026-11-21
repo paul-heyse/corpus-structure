@@ -1,6 +1,7 @@
 """Private custody survives failure before native intent without changing producer facts."""
 
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
 from hashlib import sha256
 
 import pytest
@@ -60,6 +61,28 @@ def test_concurrent_acknowledgment_converges_on_one_exact_body(tmp_path):
         results = tuple(workers.map(lambda _: acknowledge(store), range(6)))
     assert len({draft.identity for draft in results}) == 1
     assert len(tuple(tmp_path.glob("*.body"))) == len(tuple(tmp_path.glob("*.ack"))) == 1
+
+
+def test_draft_basis_retains_numeric_tokens_without_inferring_scope_from_field_names(tmp_path):
+    from corpus_structure.semantic.data_operation_json import native_json_loads
+
+    basis = b'{"ordinary":{"coordinate":0.12345678901234567890123456789},"analyzed_scope":{"coordinate":0.23456789012345678901234567891},"execution_origin":"origin:one"}'
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    draft = store.acknowledge(
+        request(),
+        writer_schema=json_bytes(wire_contracts()["retain_data_completion_intent"]["input"]),
+        release_id="release:original",
+        operation="source.pdf/capture",
+        basis=basis,
+        check_active=lambda: None,
+    )
+    original_request = (tmp_path / (draft.identity + ".body")).read_bytes()
+    reopened = store.open(draft.identity)
+    observed = native_json_loads(reopened.basis)
+    assert observed["ordinary"]["coordinate"] == Decimal("0.12345678901234567890123456789")
+    assert observed["analyzed_scope"]["coordinate"] == Decimal("0.23456789012345678901234567891")
+    assert reopened.request == original_request
+    assert reopened.native_request() == request()
 
 
 def test_lost_claim_before_ack_keeps_body_inert(tmp_path):

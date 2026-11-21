@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import uuid4
 
-from .data_operation_json import json_bytes, native_json_loads, wire_json_loads
+from .data_operation_json import finite_json_loads, json_bytes, native_json_loads
 from .data_operation_wire import validate_wire_schema
 
 if TYPE_CHECKING:
@@ -43,7 +43,7 @@ class CompletionDraft:
 
     def native_request(self) -> WireRetainDataCompletionIntentRequest:
         """Return the exact original native intake request under its captured fence."""
-        return cast("WireRetainDataCompletionIntentRequest", wire_json_loads(self.request))
+        return cast("WireRetainDataCompletionIntentRequest", native_json_loads(self.request))
 
 
 @dataclass(frozen=True)
@@ -193,7 +193,7 @@ class CompletionDraftStore:
         if len(content) > self.max_bytes or len(basis) > self.max_bytes:
             raise ValueError("completion draft exceeds its byte bound")
         # Canonical bytes retain every supplied producing determinant without narrowing it.
-        basis = json_bytes(wire_json_loads(basis))
+        basis = json_bytes(native_json_loads(basis))
         envelope = json_bytes(
             dict(
                 format="ddo-completion-draft-v2",
@@ -201,7 +201,7 @@ class CompletionDraftStore:
                 writer_schema_sha256=sha256(writer_schema).hexdigest(),
                 release_id=release_id,
                 operation=operation,
-                basis=wire_json_loads(basis),
+                basis=native_json_loads(basis),
                 request_sha256=sha256(content).hexdigest(),
                 request_bytes=len(content),
             )
@@ -227,7 +227,7 @@ class CompletionDraftStore:
         envelope = _read(self.root / (identity + ".ack"), max_bytes=self.max_bytes)
         if sha256(envelope).hexdigest() != identity:
             raise ValueError("completion acknowledgment differs from its content identity")
-        value = wire_json_loads(envelope)
+        value = native_json_loads(envelope)
         common = {"format", "release_id", "operation", "basis", "request_sha256", "request_bytes"}
         if value.get("format") == "ddo-completion-draft-v2" and set(value) == common | {
             "writer_schema",
@@ -317,7 +317,7 @@ class CompletionDraftStore:
         marker_name = identity + ".retired"
         with self._owner():
             try:
-                marker = wire_json_loads(_read(self.root / marker_name, max_bytes=self.max_bytes))
+                marker = finite_json_loads(_read(self.root / marker_name, max_bytes=self.max_bytes))
             except FileNotFoundError:
                 try:
                     draft = self._open(identity)
@@ -329,7 +329,7 @@ class CompletionDraftStore:
                     )
                     return DraftRetirement(identity, standing, "no-complete-acknowledgment")
                 original = draft.native_request()
-                origin = wire_json_loads(draft.basis).get("execution_origin")
+                origin = native_json_loads(draft.basis).get("execution_origin")
                 if not isinstance(origin, str) or not origin:
                     return DraftRetirement(identity, "retained", "unattributed")
                 result = inspect(
