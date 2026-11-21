@@ -24,6 +24,7 @@ def _small_contract():
         "semantic/identity",
         "ingest/pdf_producer_contract",
         "ingest/pdf_stream_types",
+        "ingest/pdf",
     )
     files = tuple(
         (str(root / (name + ".py")), observed_file(root / (name + ".py")).digest) for name in names
@@ -42,6 +43,7 @@ def test_closed_population_accepts_source_and_refuses_preloaded_unselected_call(
     from corpus_structure.ingest.pdf_build_spool import canonical_native_options
 
     contract = _small_contract()
+    from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
 
     pair = importlib.import_module("importlib.metadata._collections").Pair
@@ -52,6 +54,7 @@ def test_closed_population_accepts_source_and_refuses_preloaded_unselected_call(
         SelectedControl = collections.namedtuple("SelectedControl", "value")
         assert SelectedControl(3).value == 3
         assert pair("name", "value").name == "name"
+        assert PdfRecipe("a" * 40, "b" * 40, device="cpu").device == "cpu"
     with (
         pytest.raises(ValueError, match="undeclared first-party helper"),
         producer.standard_pdf_execution(contract),

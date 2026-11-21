@@ -100,9 +100,13 @@ def _generated_dataclass_codes(module):
         params = vars(cls).get("__dataclass_params__")
         if params is None:
             continue
+        namespace = {}
+        if "__post_init__" in vars(cls):
+            namespace["__post_init__"] = vars(cls)["__post_init__"]
         clone = make_dataclass(
             cls.__name__,
             [(item.name, item.type, item) for item in fields(cls)],
+            namespace=namespace,
             init=params.init,
             repr=params.repr,
             eq=params.eq,
@@ -362,7 +366,13 @@ def standard_pdf_execution(contract: StandardPdfContract):
                         codes[key] = frozenset(_generated_dataclass_codes(module))
                     if _code_key(code) in codes[key]:
                         return sys.monitoring.DISABLE
-            raise ValueError("Standard PDF cannot admit generated code outside its dependencies")
+            factory_name = factory.f_code.co_qualname if factory is not None else None
+            raise ValueError(
+                "Standard PDF cannot admit generated code outside its dependencies: "
+                f"{code.co_qualname[:120]} in {frame.f_globals.get('__name__')!r}; "
+                f"origin={str(origin)[:200]!r}; factory={str(factory_name)[:120]!r} "
+                f"at {str(factory_origin)[:200]!r}"
+            )
         path = Path(filename).resolve()
         if path.is_relative_to(root):
             key = str(path)
