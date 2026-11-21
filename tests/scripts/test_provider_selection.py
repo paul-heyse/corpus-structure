@@ -55,6 +55,29 @@ def test_default_selection_excludes_provider_from_required_collection(tmp_path):
     assert receipt["deselected"] == ["test_case.py::test_provider"]
 
 
+def test_early_collection_refusal_preserves_original_usage_error(tmp_path):
+    process, output, _, _ = child(
+        tmp_path,
+        "def test_controlled():\n    raise AssertionError('refused selection executed')\n",
+        conftest="""import pytest
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_collection_modifyitems(config, items):
+    raise pytest.UsageError("controlled conflicting preparation affinity groups")
+    yield
+""",
+    )
+    assert process["returncode"] == 4
+    diagnostic = (output / "pytest.stderr").read_text() + (output / "pytest.stdout").read_text()
+    assert "controlled conflicting preparation affinity groups" in diagnostic
+    assert "KeyError" not in diagnostic
+    assert not any(
+        report.get("when") == "call"
+        for node in classify_receipt(output)["nodes"].values()
+        for report in node["reports"]
+    )
+
+
 def test_explicit_provider_identity_requires_provider_selection_before_setup(tmp_path):
     process, output, _, _ = child(tmp_path, SELECTION, args=("test_case.py::test_provider",))
     assert process["returncode"] == 4

@@ -52,7 +52,7 @@ from semantic.structural_production_native_support import (
 from test_preparation import preparation_fixture
 
 
-@preparation_fixture("operation-event-frame-native", scope="module")
+@preparation_fixture("operation-event-native", scope="module")
 def framed_operation_event(published_pdf_source_factory, tmp_path_factory):
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
     from corpus_structure.semantic.demand_results import read_demand_result
@@ -260,7 +260,7 @@ def framed_operation_event(published_pdf_source_factory, tmp_path_factory):
         )
 
 
-@preparation_fixture("operation-event-fit-native", scope="module")
+@preparation_fixture("operation-event-native", scope="module")
 def operation_event_journey(framed_operation_event):
     case = framed_operation_event
     kernel = case["kernel"]

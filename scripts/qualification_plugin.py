@@ -53,14 +53,18 @@ def _explicit_provider(item: pytest.Item, config: pytest.Config) -> bool:
     return False
 
 
+def pytest_itemcollected(item: pytest.Item) -> None:
+    # Capture identity before collection wrappers can reject the selection and
+    # before xdist adds scheduling suffixes.
+    item.stash[_logical_nodeid] = item.nodeid
+
+
 @pytest.hookimpl(wrapper=True, tryfirst=True)
 def pytest_collection_modifyitems(
     config: pytest.Config, items: list[pytest.Item]
 ) -> Generator[None]:
-    # Preserve identities before xdist adds group suffixes, then apply evidence selection
-    # after normal keyword and lane filters. Excluded providers are never required nodes.
-    for item in items:
-        item.stash[_logical_nodeid] = item.nodeid
+    # Apply evidence selection after normal keyword and lane filters.
+    # Excluded providers are never required nodes.
     private = os.environ.get("CORPUS_CI_NATIVE_HOST", "shared") == "private"
     explicit_incompatible = [
         item.stash[_logical_nodeid]
