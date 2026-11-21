@@ -169,7 +169,7 @@ class PdfExecutionReceipt:
 
 def _published(row: Mapping[str, Any]) -> PublishedPdfDocumentRef:
     return PublishedPdfDocumentRef(
-        **{key: row[key] for key in PublishedPdfDocumentRef.__dataclass_fields__}
+        **{field.name: row[field.name] for field in fields(PublishedPdfDocumentRef)}
     )
 
 
