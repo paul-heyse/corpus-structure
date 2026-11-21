@@ -379,8 +379,9 @@ DOM/CSS, delimiter, macro-acquisition and rendering-conversion paths as consumer
 for retained source bytes. Native input validation, page limits, invalid-input diagnostics and
 backend release keep their Docling owners. The adapter removes multi-format registration from
 the selected PDF route and preserves the record and companion interfaces. Real missing-page
-resume and same-spool reassembly passed at the recorded source. Cross-demand reuse has a
-separate acceptance boundary. [DMO execution evidence](../plans/domain-model-operability/execution-identity-and-recovery.md)
+resume and same-spool reassembly passed. The opt-in Standard profile on N46 shared one native
+publication across two runtimes and captured a new publication for a changed original.
+[DMO execution evidence](../plans/domain-model-operability/execution-identity-and-recovery.md)
 
 Formula items provide recognized LaTeX directly to native SymPy parsing. M09 retains consumed
 occurrence positions/multiplicity, M11 retains lazy contextual/scientific assessment, and M13

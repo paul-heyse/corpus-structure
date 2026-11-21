@@ -1,6 +1,6 @@
 # JSON contracts and settings
 
-**Status:** Partial implementation and N45 native stage installation. **Created:** 2026-11-20.
+**Status:** Partial implementation and N46 native stage installation. **Created:** 2026-11-20.
 
 This companion owns DMO-05 and DMO-06. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns package state, source dispositions, rule decisions and completion. This target is **Proposed**.
@@ -63,6 +63,19 @@ its installed native proof. The Standard candidate `8a5c22944abe420698cb39c69d97
 the same separate effects (`8147b825dcd8413283d1348de1467702`) and independent native proof.
 These admissions establish the exact staged releases at `2721db56f`. Later PDF and detached
 reader source changes have their own scoped checks and final-source applicability.
+
+The next native-only transition repaired Standard v3 certification after real capture. N46
+authenticates the declared v3 scope, complete producer digest and referenced inputs while
+preserving v2 certification. Its preview, rollback-only candidate, registration and committed
+stage installation passed (`581a1876d6934ec2b5af9523fe93b7b9`,
+`e42efb84d03f448387be2577fbb998d5`, `4e770d5c584144f18cccaafbaae19053`,
+`0e86f8dd1b794bf59cfa7f444667afb0`). The installed function returned the retained three-page
+certificate's exact lowering digest. Exact application admission uses the new kernel fingerprint.
+
+Serving reuse and continuation now prepare their shared query schema once per installed
+basis. Each identity retains its existing inputs and encoding. The 18-case custody and
+reader selection passed, including the single-preparation check
+(`eb05793b0b124f9e85259a70bde6c6b8`).
 
 **N44 execution checkpoint · 2026-11-21.** Detached export authenticates v3 manifest bytes before
 typing its metadata and checking content coverage. Its captured kind reader uses the native Draft 7

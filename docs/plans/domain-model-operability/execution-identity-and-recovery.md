@@ -47,10 +47,80 @@ On `377f13b81` they selected the same release, different runtimes and zero appli
 (`ce2d834e00de45b1b7a7c6be5958b736`, `d75899ae9f764fc58cbdbc8f5bb18b83`). This establishes
 the application boundary for that transport change. Publication and second-demand attachment
 have separate acceptance.
-The qualification boundary must account for runtime-generated Python, the determining native
-runtime and library resources, and correctness of restored-page assembly. Independent observation
-of the original derivation, attempt and provider activity across two actual demands and a
-determining edit remains required before enabling reuse for this profile.
+The first full-custody worker published its preparation acknowledgement and durable first page,
+then refused the unacquired access-projection helper during resumed certification
+(`604393e775b547e58e1b2fa684bbe5c0`). The selected producer now includes that pure helper
+and the pure OCR and report validators. Report certification consumes its captured policy
+directly, freeing the worker from application-model preparation. The corrected three-page
+selected fixture passed (`9f23d5ab1300437ba3c501ef9ab29920`). It authenticated the preparation,
+computed only missing pages on resume and matched exact emitted records after rebuilding
+from the same completed spool. Exact previews on `8e810ce7f` reconfirmed the destination-only
+split (`3b69662fc36a42e1945ea86d4b5457bb`, `d96dd920c01145cebd06c8af907fd564`). Both chose
+the same release and PostgreSQL stage. Each chose its own runtime and applied zero effects.
+The matching release candidates passed
+(`9d8fe22ac4954e23bf48cd204d5001fc`, `4b07582aa54546f095b48691fd957a5b`).
+Both runtimes were archived, admitted and verified on N45 stage
+(`b5bfc4e0ae564b8bb5636d138ffae6b6`, `880e9977e8c747238faaa28c7ce915e7`).
+The first `ci demands execute` run refused a preloaded Pydantic typing helper before
+inference (`fe521a4b7e8040389e082bfd3dd384bc`). Python spawn replays the installed CLI
+script in the child. The CLI now defers loading its own model setup until command dispatch,
+so the worker's custody observer can see the dependency generate the helper. The
+installed entry-point regression checks this bootstrap behavior. The correction leaves
+the admitted producer sources and runtime bindings eligible for a retry of that exact demand.
+That retry reached both real model initializations and emitted the expected v3 producer
+digest (`cbe56be8e2a74417b7013c7bae9102fa`). The parent rejected the report because it
+looked up a field spelling the child never emitted. It now checks the `producer_contract`
+field that already participates in spool preparation identity. The emitted report's
+profile and digest matched the admitted producer independently before the next retry.
+The exact-runtime guard then refused the corrected parent against its old acquired bytes
+(`abcf0bd6bae44d26806c344a2631551b`). The parent is part of execution custody. The corrected
+parent therefore needs a new captured runtime even when the selected producer and its inputs
+retain their material identity.
+Reacquiring the repaired parent selected the original material release and two new runtimes
+(`4adf565640264b1ebb942173e87553d6`, `6dc540bdb2ad4b34ade9d1b480e075ab`).
+Both repaired runtimes were archived, admitted and verified on the same N45 database
+(`bb90652555ff44cbac5a8a2bead2e318`, `667d111f7d034fdd9b502bf7f8ccb356`).
+The CLI selection passed 57 controls (`afd074ea86184e56ab83e0b64ef463f4`). The parent
+ownership selection passed nine controls, including selected preparation and a wrong digest
+(`e6fe1add820245078aa0e1b080aab538`). The live trial isolates its three- and two-page inputs
+from the retained failed producer attempts on stage.
+The three-page N45 demand converted all three pages and retained a completed, certified spool
+(`46138409696e49c5bfd7a6a75b84f86a`). PostgreSQL refused publication because the installed
+certification function recognized only the v2 lowering contract. The generated native function
+now authenticates the complete v3 Standard scope against its archived code and input digests.
+Private native controls preserved v2 certification, accepted v3 and rejected wrong scope,
+incomplete v3 and substituted code (`6fd9e149b7a64156bb0f7b71b534f196`).
+All ten certification controls passed after N46 registration
+(`cf84245d9e7e489a8d5c1c6a2081becd`). N46 application previews acquired a new kernel and
+release with the same PDF recipe, executable slice and eligibility
+(`98e0e2e91ac44e748206b9bd9ef9459e`, `e4615397e09042acafe442d9d868c2fe`).
+The two successor applications passed guarded admission on N46
+(`4c02d2afba1847689a65688b7915b3ae`, `a8042572f93c484c93be0dea68eca26a`). The first demand
+published the three-page PDF after conversion (`ffa83718e5274b2fbc08c580b5266782`). The retired
+N45 origin and the N46 origin had equal native recovery keys, request material and lowering
+material. Recovery searched the N46 generation directory, where the authorized N45 build did
+not exist. The N45 directory authenticated all 49 entries and its complete reply under the
+native owner. The recovery path now locates each selected producer using its original request
+and generation inside the configured storage root. On `02e90543f`, the 17 focused parent,
+publication and recertification controls passed (`695fcdca70bb4f72af3fe089790e4a9c`).
+Against the retained stage files, the corrected lookup authenticated all 49 entries and
+rebound and recertified the three-page N45 output for N46. Its original logical output and
+stream inventory digests matched across 37 file projections. This check exercised the retained
+files and current captured contract before native publication. The path change affects captured
+parent custody.
+
+The second demand selected the other runtime and attached the first publication
+(`12624de3ff7345a9ba7239c434996cb7`). It used the same request, derivation, publication receipt
+and producer task 173, attempt 1. Native request generations and producer origins were identical
+before and after attachment, and the second invocation returned zero new receipts.
+The two-page control changed the original PDF and allocated task 174, attempt 1, with a new
+derivation and receipt (`8e405fb502714890ac77f0f1feb2139f`). These results qualify published
+reuse for the scoped Standard profile and host.
+
+The default profile remains demand-scoped until the applicable production acceptance closes.
+A fresh live cross-generation journey must verify publication from a retired spool using the
+corrected parent. Wider eligibility must account for the determining native libraries,
+drivers and runtime settings in each supported execution environment.
 
 **N44 execution checkpoint · 2026-11-21.** Resident declaration, preparation and guarded
 reacquisition now enforce one project, interpreter and worker script for a physical shared host.
