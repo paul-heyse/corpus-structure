@@ -3,7 +3,7 @@
 from .authored_interpretations import JUDGMENT_KINDS, attach_authored_judgment
 from .data_operation_json import json_bytes
 from .grouped_record_interpretations import attach_finite_interpretations, grouped_candidate_product
-from .selected_contribution_input import actual_graph_inputs
+from .selected_contribution_input import actual_graph_inputs, selected_use_selection
 
 
 def grouped_interpretation_rows(selected, request, authored_judgments):
@@ -56,9 +56,7 @@ def grouped_interpretation_rows(selected, request, authored_judgments):
     for product in finite:
         # Input role membership is authenticated native binding, not matching IDs
         # found by recursively searching the result payload.
-        episodes = selected.index.mapping("ops.data_derivation", ("id",))
-        requests = selected.index.mapping("ops.data_request", ("id",))
-        binding = requests[episodes[product.derivation_id]["request_id"]]["binding"]
+        binding = selected_use_selection(selected.index, product.use_id, product.derivation_id)
         inputs = [value for value in binding["inputs"] if value["role"] == "candidates"]
         if (
             len(inputs) != 1
@@ -70,6 +68,7 @@ def grouped_interpretation_rows(selected, request, authored_judgments):
         references, _ = actual_graph_inputs(
             selected.index,
             product.derivation_id,
+            use_id=product.use_id,
             cut=selected.cut,
             max_support_edges=request.max_support_edges,
             decimal_fixed_point_digits=selected.decimal_fixed_point_digits,

@@ -67,7 +67,21 @@ def request(index, inputs, support):
         index,
         "ops.data_request",
         "root-request",
-        dict(id="root-request", binding=dict(inputs=inputs, support=support)),
+        dict(id="root-request"),
+    )
+
+    index.append_page(
+        {**CUT, "obligations": [], "original_source_admissions": [], "uses": [
+            dict(use_id="root-use", derivation_id="root-episode", fate="fulfilled",
+                 selection=dict(
+                     inputs=[{**row, "position": row.get("position") or 0,
+                              "multiplicity": 1, "producer_output": None,
+                              "support_derivation_ids": []} for row in inputs],
+                     support=[{**row, "position": row.get("position") or 0} for row in support],
+                     parameters=semantic_value({}), request_inputs=semantic_value({}),
+                     inference="controlled", execution_profile="controlled",
+                     populations=[], read_id="read:controlled"))
+        ]}
     )
 
 
@@ -120,6 +134,7 @@ def test_unpositioned_support_population_resolves_only_actual_product_member_edg
         refs, wholes = actual_graph_inputs(
             index,
             "root-episode",
+            use_id="root-use",
             cut=CutSelection(json_bytes(CUT)),
             max_support_edges=100,
             decimal_fixed_point_digits=decimal_digit_limit(),
@@ -136,6 +151,7 @@ def test_unpositioned_support_population_resolves_only_actual_product_member_edg
             actual_graph_inputs(
                 index,
                 "root-episode",
+                use_id="root-use",
                 cut=CutSelection(json_bytes(CUT)),
                 max_support_edges=1,
                 decimal_fixed_point_digits=decimal_digit_limit(),
@@ -174,6 +190,7 @@ def test_authored_policy_keeps_distinct_original_admission_support(tmp_path):
         refs, _ = actual_graph_inputs(
             index,
             "root-episode",
+            use_id="root-use",
             cut=CutSelection(json_bytes(CUT)),
             max_support_edges=100,
             decimal_fixed_point_digits=decimal_digit_limit(),
@@ -241,6 +258,7 @@ def test_actual_bounded_authority_leaf_is_not_reconstructed_as_hidden_edges(tmp_
                 actual_graph_inputs(
                     index,
                     "root-episode",
+                    use_id="root-use",
                     cut=CutSelection(json_bytes(CUT)),
                     max_support_edges=100,
                     decimal_fixed_point_digits=decimal_digit_limit(),
@@ -249,6 +267,7 @@ def test_actual_bounded_authority_leaf_is_not_reconstructed_as_hidden_edges(tmp_
             refs, wholes = actual_graph_inputs(
                 index,
                 "root-episode",
+                use_id="root-use",
                 cut=CutSelection(json_bytes(CUT)),
                 max_support_edges=100,
                 decimal_fixed_point_digits=decimal_digit_limit(),
@@ -283,5 +302,29 @@ def test_acquired_support_can_be_sealed_while_retaining_exact_indexed_rows(tmp_p
         assert index.mapping("ops.data_derivation", ("id",))["first"] == {"id": "first"}
         with pytest.raises(OperationalError, match="readonly"):
             index.append(json_bytes({**first, "key": "episode:second", "record": {"id": "second"}}))
+    finally:
+        index.close()
+
+
+def test_consumed_use_selection_keeps_same_derivation_uses_separate(tmp_path):
+    from corpus_structure.semantic.selected_contribution_input import selected_use_selection
+
+    index = SelectedRecordIndex(tmp_path / "uses.sqlite")
+    try:
+        request(index, [], [])
+        index.append_page({
+            **CUT, "obligations": [], "original_source_admissions": [],
+            "uses": [dict(use_id="other-use", derivation_id="root-episode", fate="fulfilled",
+                          selection={"inputs_watermark": "another-selected-basis"})],
+        })
+        assert selected_use_selection(index, "root-use", "root-episode")["inputs"] == []
+        assert selected_use_selection(index, "other-use", "root-episode") == {
+            "inputs_watermark": "another-selected-basis"
+        }
+        with pytest.raises(ValueError, match="exact fulfilled use"):
+            selected_use_selection(index, "absent", "root-episode")
+        with pytest.raises(ValueError, match="another derivation"):
+            selected_use_selection(index, "root-use", "another-episode")
+        assert "binding" not in index.mapping("ops.data_request", ("id",))["root-request"]
     finally:
         index.close()

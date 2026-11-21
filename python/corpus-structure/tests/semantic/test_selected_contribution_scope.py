@@ -32,7 +32,5 @@ def test_member_selection_does_not_expand_to_incoming_or_outgoing_endpoints(monk
     assert relation["items"][0]["derivation_id"] == "episode:original"
     assert relation["cut_id"] == occurrence["cut_id"]
     assert relation["uses"] == occurrence["uses"]
-    assert [entry[2]["scope"] for entry in selected] == [
-        {"product_ids": ["product:A"]},
-        {"product_ids": ["product:A"]},
-    ]
+    assert len(selected) == 4
+    assert all(entry[2]["scope"] == {"product_ids": ["product:A"]} for entry in selected)

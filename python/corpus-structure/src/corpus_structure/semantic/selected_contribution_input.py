@@ -144,6 +144,7 @@ class SelectedContributionScope:
         references, wholes = actual_graph_inputs(
             self.index,
             selected.derivation_id,
+            use_id=selected.use_id,
             cut=self.cut,
             max_support_edges=self.max_support_edges,
             decimal_fixed_point_digits=self.decimal_fixed_point_digits,
@@ -165,10 +166,22 @@ class SelectedContributionScope:
         )
 
 
+def selected_use_selection(index, use_id: str, derivation_id: str):
+    """Read the exact consumed use, including value-substituted support."""
+    uses = [row for row in index.frontier_rows("uses") if row["use_id"] == use_id]
+    if len(uses) != 1 or uses[0]["fate"] != "fulfilled":
+        raise ValueError("selected input support requires an exact fulfilled use")
+    use = uses[0]
+    if use["derivation_id"] != derivation_id:
+        raise ValueError("selected input support use belongs to another derivation")
+    return use["selection"]
+
+
 def actual_graph_inputs(
     index: SelectedRecordIndex,
     derivation_id: str,
     *,
+    use_id: str,
     cut: CutSelection,
     max_support_edges: int,
     decimal_fixed_point_digits: int,
@@ -180,12 +193,9 @@ def actual_graph_inputs(
     """
     products = index.mapping("kb.data_product", ("id",))
     members = index.mapping("kb.data_product_member", ("product_id", "member_id"))
-    episodes = index.mapping("ops.data_derivation", ("id",))
-    requests = index.mapping("ops.data_request", ("id",))
     originals = index.mapping("ops.original_source_admission", ("id",))
     kinds = index.mapping("sem.data_kind_contract", ("kind_contract",))
-    request = requests[episodes[derivation_id]["request_id"]]
-    binding = request["binding"]
+    binding = selected_use_selection(index, use_id, derivation_id)
     selected_groups = defaultdict(dict)
     for selected in binding["inputs"]:
         group = (selected["role"], selected.get("position"))

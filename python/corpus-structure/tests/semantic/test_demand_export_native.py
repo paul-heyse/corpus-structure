@@ -263,3 +263,32 @@ def test_whole_read_support_is_distinct_and_covers_later_frontier_pages(declared
     assert len(keys) == len(set(keys))
     products = {row["record"]["id"] for row in support if row["relation"] == "kb.data_product"}
     assert expected <= products
+
+
+def test_exported_selected_inputs_use_consumed_selection_without_request_binding(
+    declared_serving_case, tmp_path
+):
+    from corpus_structure.semantic.selected_contribution_input import actual_graph_inputs
+    from corpus_structure.semantic.value_codec import decimal_digit_limit
+    from corpus_structure.serve.demand_export import verified_demand_export
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    destination = tmp_path / "selected-inputs"
+    with clone.reader.begin() as connection:
+        receipt = export_demand_result(
+            connection, stage.demand_id, project_id=stage.project_id,
+            destination=destination, format="jsonl", page_rows=1,
+        )
+    with verified_demand_export(destination, manifest_digest=receipt.manifest_digest) as (
+        manifest, _, _, index
+    ):
+        assert all("binding" not in row for row in index.rows("ops.data_request"))
+        use = next(row for row in index.frontier_rows("uses")
+                   if row["fate"] == "fulfilled" and row["selection"].get("inputs"))
+        references, _ = actual_graph_inputs(
+            index, use["derivation_id"], use_id=use["use_id"], cut=manifest.cut_selection,
+            max_support_edges=100, decimal_fixed_point_digits=decimal_digit_limit(),
+        )
+        assert {(row.product_id, row.member_id) for row in references} == {
+            (row["product_id"], row.get("member_id")) for row in use["selection"]["inputs"]
+        }
