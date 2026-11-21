@@ -53,8 +53,13 @@ def pdf_capture_inputs(bundle):
 
 def pdf_capture_assets(recipe):
     from corpus_structure.ingest.pdf import pdf_package_versions
+    from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
 
     from .pdf_lowering import lowering_code_complete
+
+    standard = standard_pdf_contract() if recipe.recipe_id == "docling-standard-pdf-stream-v1" else None
+    if standard is not None:
+        standard.check()
 
     return SourceArtifact(
         "pdf-capture/profile-assets",
@@ -64,10 +69,31 @@ def pdf_capture_assets(recipe):
                 "recipe": recipe.to_bytes().hex(),
                 "libraries": pdf_package_versions(),
                 "model": _MODEL.read_bytes().hex(),
+                "standard_producer": json.loads(standard.content) if standard is not None else None,
             }
         ),
-        reuse_eligible=lowering_code_complete(),
+        reuse_eligible=standard is not None or lowering_code_complete(),
     )
+
+
+
+def standard_producer_from_sources(capture_sources):
+    """Recover only the selected Standard declaration retained by the capture owner.
+
+    Generic PDF schema callers do not acquire the installed recognition population.
+    A changed declaration or mutable file custody cannot silently select a new producer.
+    """
+    from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
+
+    candidates = [item for item in capture_sources.boundary_contracts if item.name == "pdf-capture/profile-assets"]
+    if len(candidates) != 1:
+        raise ValueError("Standard capture has no unique selected producer declaration")
+    declared = json.loads(candidates[0].content).get("standard_producer")
+    producer = standard_pdf_contract()
+    producer.check()
+    if declared != json.loads(producer.content):
+        raise ValueError("Standard capture producer differs from its acquired sources")
+    return producer
 
 
 def pdf_capture_custody(
@@ -122,6 +148,8 @@ def pdf_capture_custody(
 def pdf_capture_operation_sources(
     recipe, assets, *, directory, nemotron_endpoint=None, require_nemotron_handoff=False
 ):
+    from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
+
     from .pdf_domain import pdf_helper_asset
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
@@ -155,7 +183,7 @@ def pdf_capture_operation_sources(
             ),
         ),
         boundary_contracts=(
-            pdf_helper_asset(),
+            pdf_helper_asset(standard_producer=standard_pdf_contract()),
             pdf_capture_assets(recipe),
             pdf_capture_custody(
                 recipe,

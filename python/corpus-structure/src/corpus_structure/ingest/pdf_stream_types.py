@@ -140,6 +140,8 @@ class PdfStreamRequest:
     payload_schema: bytes
     page_range: tuple[int, int] | None = None
     recovery_pages: tuple[PdfPageRecovery, ...] = ()
+    producer_contract: bytes | None = None
+    producer_custody: tuple = ()
 
 
 @dataclass(frozen=True, slots=True)

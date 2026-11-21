@@ -66,13 +66,17 @@ def spool_material_document(content: bytes) -> dict:
     document = json.loads(content)
     if (
         set(document) != {"profile", "compiler_policy", "code_identity", "inputs", "libraries"}
-        or document["profile"] != "pdf-record-lowering-contract-v2"
+        or document["profile"] not in {"pdf-record-lowering-contract-v2", "pdf-record-lowering-contract-v3"}
         or not isinstance(document.get("code_identity"), dict)
         or document["code_identity"].get("complete") is not True
         or not isinstance(document["libraries"], dict)
         or not document["libraries"]
     ):
         raise ValueError("PDF spool has no supported original lowering snapshot")
+    if document["profile"] == "pdf-record-lowering-contract-v3" and (
+        document["code_identity"].get("scope") != "docling-standard-pdf-stream-v1"
+    ):
+        raise ValueError("PDF spool lowering snapshot does not admit this producer scope")
     inputs = document["inputs"]
     if (
         not isinstance(inputs, list)
@@ -571,8 +575,12 @@ def pdf_spool_native_programs(
                 lower.c.content_digest == digest(lower.c.content),
                 domain.c.content_digest == digest(domain.c.content),
                 domain.c.content_digest == domain_digest,
-                document["profile"].astext == "pdf-record-lowering-contract-v2",
+                document["profile"].astext.in_(("pdf-record-lowering-contract-v2", "pdf-record-lowering-contract-v3")),
                 document["code_identity"]["complete"] == cast(literal("true"), JSONB()),
+                or_(
+                    document["profile"].astext == "pdf-record-lowering-contract-v2",
+                    document["code_identity"]["scope"].astext == "docling-standard-pdf-stream-v1",
+                ),
                 document["code_identity"]["sha256"].astext.bool_op("~")("^[0-9a-f]{64}$"),
                 func.jsonb_typeof(document["libraries"]) == "object",
                 document["libraries"] != cast(literal("{}"), JSONB()),

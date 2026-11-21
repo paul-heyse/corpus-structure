@@ -194,9 +194,28 @@ def controlled_pdf_converter(content):
 
 
 def controlled_native_child(connection, recipe, assets, writer_lease=None):
+    """Scripted peer for IPC tests, deliberately outside actual producer custody."""
     from docling import document_converter
 
-    from corpus_structure.ingest import pdf_worker
+    from corpus_structure.ingest.pdf_health import error_summary
+    from corpus_structure.ingest.pdf_stream_types import PdfReplayReady, PdfStreamRequest
+    from corpus_structure.ingest.pdf_streaming import StreamingPdfProducer, run_pdf_stream
+    from corpus_structure.ingest.pdf_worker import NativeReply
 
-    with patch.object(document_converter, "DocumentConverter", ScriptedDocumentConverter):
-        pdf_worker._native_child(connection, recipe, assets, writer_lease)
+    def acknowledged(replay):
+        connection.send(PdfReplayReady(replay))
+        if connection.recv() is not True:
+            raise ValueError("controlled replay was not acknowledged")
+
+    try:
+        with patch.object(document_converter, "DocumentConverter", ScriptedDocumentConverter):
+            while (request := connection.recv()) is not None:
+                if not isinstance(request, PdfStreamRequest):
+                    raise TypeError("scripted peer only supports streaming requests")
+                try:
+                    result = run_pdf_stream(request, StreamingPdfProducer(recipe, assets=assets), on_replay=acknowledged)
+                    connection.send(NativeReply(value=result))
+                except Exception as error:
+                    connection.send(NativeReply(error=error_summary(error)))
+    finally:
+        connection.close()

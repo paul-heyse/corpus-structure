@@ -84,9 +84,23 @@ def _native_child(
                         if connection.recv() is not True:
                             raise PdfWorkerError("PDF replay custody was not acknowledged")
 
-                    result = run_pdf_stream(
-                        request, StreamingPdfProducer(recipe, assets=assets), on_replay=acknowledged
+                    from .pdf_producer_contract import (
+                        accept_standard_pdf_custody,
+                        standard_pdf_contract,
+                        standard_pdf_execution,
                     )
+
+                    if request.producer_contract is None:
+                        raise PdfWorkerError("PDF streaming requires captured producer custody")
+                    accept_standard_pdf_custody(request.producer_contract, request.producer_custody)
+
+                    contract = standard_pdf_contract()
+                    if request.producer_contract != contract.content:
+                        raise PdfWorkerError("PDF child selected producer differs from parent capture")
+                    with standard_pdf_execution(contract):
+                        result = run_pdf_stream(
+                            request, StreamingPdfProducer(recipe, assets=assets), on_replay=acknowledged
+                        )
                 elif isinstance(request, PdfEnrichmentRequest):
                     result = compute_enrichment(request, converter)
                 else:

@@ -49,7 +49,7 @@ def _current_boundary():
 
 
 def lowering_sources(
-    boundary_sources=None, *, include_producer=True, model_sources=None
+    boundary_sources=None, *, include_producer=True, model_sources=None, standard_producer=None
 ) -> tuple[SourceArtifact, ...]:
     """Prepare once for exact captured inputs; mutable file premises still recheck."""
     if boundary_sources is None:
@@ -61,7 +61,7 @@ def lowering_sources(
     else:
         native_schema = model_sources["docling-validation.schema.json"]
     sources, records = _prepared_lowering_sources(
-        tuple(boundary_sources), include_producer, native_schema
+        tuple(boundary_sources), include_producer, native_schema, standard_producer
     )
     for record in records:
         record.check()
@@ -73,8 +73,8 @@ def lowering_sources(
     "release_bytes",
     weight=lambda result: max(1, sum(len(source.content) for source in result[0])),
 )
-def _prepared_lowering_sources(boundary_sources, include_producer, native_schema):
-    sources, custody = _implementation_sources(include_producer, native_schema)
+def _prepared_lowering_sources(boundary_sources, include_producer, native_schema, standard_producer):
+    sources, custody = _implementation_sources(include_producer, native_schema, standard_producer)
     for record in custody:
         record.check()
     import yaml
@@ -151,24 +151,32 @@ def _prepared_lowering_sources(boundary_sources, include_producer, native_schema
     )
     if not include_producer:
         return sources, custody
-    code = _lowering_code()
+    code = _lowering_code() if standard_producer is None else None
+    if standard_producer is not None:
+        standard_producer.check()
     contract = SourceArtifact(
         "pdf-domain/" + LOWERING_CONTRACT,
         canonical_bytes(
             {
-                "profile": "pdf-record-lowering-contract-v2",
+                "profile": "pdf-record-lowering-contract-v2" if standard_producer is None else "pdf-record-lowering-contract-v3",
                 "compiler_policy": SEMANTIC_COMPILER_VERSION,
                 "code_identity": {
-                    "complete": code.complete,
-                    "sha256": code.digest,
-                    "unknowns": sorted({(item.module, item.reason) for item in code.unknowns}),
+                    **({
+                        "complete": code.complete,
+                        "sha256": code.digest,
+                        "unknowns": sorted({(item.module, item.reason) for item in code.unknowns}),
+                    } if code is not None else {
+                        "complete": True,
+                        "sha256": standard_producer.digest,
+                        "scope": "docling-standard-pdf-stream-v1",
+                    }),
                 },
                 "inputs": [
                     {"name": source.name, "sha256": source.digest}
                     for source in (*sources, *boundary_sources)
                 ],
                 "libraries": {
-                    **{distribution: version for _, distribution, version in code.distributions},
+                    **({distribution: version for _, distribution, version in code.distributions} if code is not None else json.loads(standard_producer.content)["distributions"]),
                     "python": determinant_version("python"),
                     "unicode-identity": determinant_version("unicode-identity"),
                 },
@@ -204,7 +212,7 @@ def lowering_code_complete() -> bool:
 
 
 @lru_cache(maxsize=2)
-def _implementation_sources(include_producer, native_schema: bytes):
+def _implementation_sources(include_producer, native_schema: bytes, standard_producer=None):
     """Capture normalized code meaning while retaining exact loaded-file custody."""
     from .file_custody import verified_file
 
@@ -214,6 +222,12 @@ def _implementation_sources(include_producer, native_schema: bytes):
     )
     if not include_producer:
         return (schema_source,), ()
+    if standard_producer is not None:
+        standard_producer.check()
+        return (
+            SourceArtifact("pdf-domain/" + LOWERING_PREFIX + "code/meaning.json", standard_producer.content),
+            schema_source,
+        ), tuple(verified_file(Path(path), digest) for path, digest in (*standard_producer.first_party, *standard_producer.files))
     code = _lowering_code()
     if code.complete:
         from corpus_structure._query_custody import capture_workload_sources
@@ -263,7 +277,12 @@ def require_lowering_identity(context) -> str:
         or get_metadata().info["physical_linkml_types"] != actual_types
     ):
         raise ValueError("PDF runtime metadata differs from the lowering basis; restart required")
-    current = lowering_sources()
+    standard_producer = None
+    if json.loads(retained.content)["profile"] == "pdf-record-lowering-contract-v3":
+        from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
+
+        standard_producer = standard_pdf_contract()
+    current = lowering_sources(standard_producer=standard_producer)
     if retained.content != current[0].content:
         raise ValueError("PDF lowering contract differs from the captured execution basis")
     declared = json.loads(retained.content)

@@ -674,6 +674,16 @@ def run_pdf_stream(
     )
     spool.active()
     report = producer.prepare(request.source, spool)
+    if request.producer_contract is not None:
+        from .pdf_producer_contract import standard_pdf_contract
+
+        contract = standard_pdf_contract()
+        if request.producer_contract != contract.content:
+            raise ValueError("PDF prepared producer differs from selected acquisition")
+        document = json.loads(report)
+        document["_preparation"]["producer_contract"] = contract.digest
+        document["_preparation"]["profile"] = "pdf-prepared-native-runtime-v3"
+        report = json.dumps(document, sort_keys=True, separators=(",", ":")).encode()
     identity = native_preparation_identity(report)
     prepared = _atomic_bytes(spool.root / "native-preparation.json", report, "native_preparation")
     if spool.preparation_identities and spool.preparation_identities != {identity}:

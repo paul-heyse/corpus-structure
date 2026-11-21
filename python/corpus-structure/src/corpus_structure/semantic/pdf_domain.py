@@ -172,6 +172,7 @@ def pdf_domain_sources(
     include_producer=True,
     model_sources=None,
     analysis_versions=None,
+    standard_producer=None,
 ) -> tuple[SourceArtifact, ...]:
     """Acquire current PDF helper assets without an execution catalog/compiler."""
     actions, action_sources, diagnostics = _action_sources(
@@ -191,7 +192,8 @@ def pdf_domain_sources(
     sources = (
         *action_sources,
         *lowering_sources(
-            action_sources, include_producer=include_producer, model_sources=model_sources
+            action_sources, include_producer=include_producer, model_sources=model_sources,
+            standard_producer=standard_producer,
         ),
         SourceArtifact(
             ANALYSIS_RUNTIME,
@@ -255,18 +257,18 @@ def pdf_domain_sources(
     return (contract, *sources)
 
 
-def pdf_helper_asset() -> SourceArtifact:
-    source = next(source for source in pdf_domain_sources() if source.name == CONTRACT)
+def pdf_helper_asset(*, standard_producer=None) -> SourceArtifact:
+    source = next(source for source in pdf_domain_sources(standard_producer=standard_producer) if source.name == CONTRACT)
     return SourceArtifact(HELPER_CONTRACT, source.content)
 
 
-def pdf_domain_dependencies(dependencies: ResolvedDependencies) -> ResolvedDependencies:
+def pdf_domain_dependencies(dependencies: ResolvedDependencies, *, standard_producer=None) -> ResolvedDependencies:
     if any(source.name.startswith("execution/") for source in dependencies.artifacts):
         raise ValueError("PDF domain facet cannot be attached to a legacy execution release")
     if any(source.name.startswith(PREFIX) for source in dependencies.artifacts):
         raise ValueError("PDF domain inputs use an already supplied reserved namespace")
     return ResolvedDependencies(
-        (*dependencies.artifacts, *pdf_domain_sources()),
+        (*dependencies.artifacts, *pdf_domain_sources(standard_producer=standard_producer)),
         dependencies.vocabularies,
         dependencies.ontology_sources,
     )

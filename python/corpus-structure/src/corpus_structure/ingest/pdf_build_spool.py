@@ -183,7 +183,7 @@ def native_preparation_identity(content: bytes) -> str:
             "PDF spool native preparation predates initialized binding custody; "
             "retain the original spool and regenerate this capture with the current producer"
         )
-    if preparation.get("profile") != "pdf-prepared-native-runtime-v2":
+    if preparation.get("profile") not in {"pdf-prepared-native-runtime-v2", "pdf-prepared-native-runtime-v3"}:
         raise ValueError("PDF spool has an unsupported native preparation profile")
     determining = {
         name: preparation[name]
@@ -199,6 +199,8 @@ def native_preparation_identity(content: bytes) -> str:
             "image_ownership",
         )
     }
+    if preparation["profile"] == "pdf-prepared-native-runtime-v3":
+        determining["producer_contract"] = preparation["producer_contract"]
     for name in ("requested_options", "effective_options"):
         determining[name] = canonical_native_options(
             {key: value for key, value in determining[name].items() if key != "artifacts_path"}

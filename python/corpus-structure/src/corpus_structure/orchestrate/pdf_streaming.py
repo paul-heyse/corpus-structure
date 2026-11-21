@@ -395,7 +395,21 @@ def run_private_native_pdf_build(
             if reply is None:
                 worker = PdfWorker(recipe, assets=assets, writer_lease=spool.writer_lease)
 
+            from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
+
+            producer_contract = standard_pdf_contract()
+            producer_contract.check()
+
             def retain_replay(replay: PdfReplayRef) -> None:
+                if replay.family == "native_preparation":
+                    import json
+
+                    replay.verify()
+                    preparation = json.loads(replay.path.read_bytes())["_preparation"]
+                    if (preparation.get("profile") != "pdf-prepared-native-runtime-v3"
+                        or preparation.get("producer_contract") != producer_contract.digest):
+                        raise ValueError("PDF child preparation differs from parent selected producer")
+                    producer_contract.check()
                 if replay.family not in {
                     *UPLOAD_STAGE_FAMILIES,
                     "page",
@@ -487,6 +501,8 @@ def run_private_native_pdf_build(
                             payload_schema=payload_schema,
                             validation_contract=validation_contract,
                             lowering_identity=lowering_identity,
+                            producer_contract=producer_contract.content,
+                            producer_custody=producer_contract.custody(),
                             recovery_pages=tuple(
                                 sorted(recovery_pages, key=lambda page: page.page_no)
                             ),
