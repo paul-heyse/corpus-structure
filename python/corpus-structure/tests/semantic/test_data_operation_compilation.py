@@ -1863,6 +1863,7 @@ def test_consuming_role_retains_explicit_producer_requirement_in_captured_contra
     from corpus_structure.semantic.data_operation_model import (
         ProducerRequirement,
         operation_role_record,
+        read_effective_data_operations,
     )
 
     declaration = contract()
@@ -1870,6 +1871,7 @@ def test_consuming_role_retains_explicit_producer_requirement_in_captured_contra
         output_role="result", requires_cpu=True, required_effect=None, required_family=family
     )
     model = compile_data_operations(declarations=declarations(declaration))
+    assert read_effective_data_operations(model.content) == model
     role = model.operations[0].roles[0]
     assert role.producer_requirement == ProducerRequirement("result", True, None, family)
     assert operation_role_record(role)["producer_requirement"] == dict(

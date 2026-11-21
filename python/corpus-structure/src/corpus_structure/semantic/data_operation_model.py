@@ -1328,7 +1328,7 @@ def _effective_model_structure():
                     **value,
                 }
             if cls is OperationRole and isinstance(value, dict):
-                value = {"subject_field": None, "subject_target": "subject", **value}
+                value = {"subject_field": None, "subject_target": "subject", "producer_requirement": None, **value}
             if cls is EffectiveOperation and isinstance(value, dict):
                 value = {"external": None, "result_fields": [], "output_witnesses": [], **value}
             if not isinstance(value, dict) or set(value) != archived_fields:
