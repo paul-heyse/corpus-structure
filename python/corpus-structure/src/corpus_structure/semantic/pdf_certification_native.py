@@ -120,6 +120,10 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
         value("contract_", JSONB()),
         value("item_", JSONB()),
     )
+    profile = contract["profile"].astext
+    selected_standard = profile == "pdf-record-lowering-contract-v3"
+    code = contract["code_identity"]
+    complete = cast(literal("true"), JSONB())
     inputs = func.jsonb_array_elements(contract["inputs"]).table_valued(column("value", JSONB()))
     out.append(
         routine(
@@ -136,28 +140,33 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
                 Assign("contract_", cast(func.convert_from(content, "UTF8"), JSONB())),
                 If(
                     or_(
-                        contract["profile"].astext.is_distinct_from(
-                            "pdf-record-lowering-contract-v2"
-                        ),
-                        func.jsonb_typeof(contract["code_identity"]["complete"]).is_distinct_from(
-                            "boolean"
+                        and_(
+                            profile.is_distinct_from("pdf-record-lowering-contract-v2"),
+                            profile.is_distinct_from("pdf-record-lowering-contract-v3"),
                         ),
                         and_(
-                            contract["code_identity"]["complete"] == cast(literal("true"), JSONB()),
-                            func.coalesce(contract["code_identity"]["sha256"].astext, "").bool_op(
-                                "!~"
-                            )("^[0-9a-f]{64}$"),
+                            selected_standard,
+                            or_(
+                                code["scope"].astext.is_distinct_from(
+                                    "docling-standard-pdf-stream-v1"
+                                ),
+                                code["complete"].is_distinct_from(complete),
+                            ),
+                        ),
+                        func.jsonb_typeof(code["complete"]).is_distinct_from("boolean"),
+                        and_(
+                            code["complete"] == complete,
+                            func.coalesce(code["sha256"].astext, "").bool_op("!~")(
+                                "^[0-9a-f]{64}$"
+                            ),
                         ),
                         and_(
-                            contract["code_identity"]["complete"]
-                            == cast(literal("false"), JSONB()),
+                            code["complete"] == cast(literal("false"), JSONB()),
                             # The code owner emits no reusable meaning digest
                             # for incomplete capture. The full retained contract
                             # and each captured input still authenticate this
                             # producer's exact attribution below.
-                            contract["code_identity"]["sha256"].is_distinct_from(
-                                cast(literal("null"), JSONB())
-                            ),
+                            code["sha256"].is_distinct_from(cast(literal("null"), JSONB())),
                         ),
                         func.jsonb_typeof(contract["inputs"]).is_distinct_from("array"),
                         func.jsonb_typeof(contract["libraries"]).is_distinct_from("object"),
@@ -168,6 +177,24 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
                 If(
                     func.jsonb_array_length(contract["inputs"]) == 0,
                     (Raise("released PDF lowering has no captured inputs", "23514"),),
+                ),
+                If(
+                    and_(
+                        selected_standard,
+                        ~select(1)
+                        .select_from(inputs)
+                        .where(
+                            inputs.c.value["name"].astext
+                            == "pdf-domain/implementation/pdf/lowering/code/meaning.json",
+                            inputs.c.value["sha256"].astext == code["sha256"].astext,
+                        )
+                        .exists(),
+                    ),
+                    (
+                        Raise(
+                            "selected PDF producer identity differs from its captured code", "23514"
+                        ),
+                    ),
                 ),
                 ForQuery(
                     ("item_",),
