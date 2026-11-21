@@ -28,7 +28,7 @@ independent_integrated = integrated_examples.independent_integrated
     ],
 )
 def test_recognition_coverage_preserves_exact_residual_body_scope(pointer, membership, accepted):
-    from corpus_structure.semantic.pdf_contracts import validate_pdf_report_metadata
+    from corpus_structure.semantic.pdf_report_validation import validate_pdf_report_metadata
 
     value = {
         "document": {

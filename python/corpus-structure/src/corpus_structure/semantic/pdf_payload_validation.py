@@ -308,9 +308,9 @@ class FrozenPayloadStore:
             yield self._value(row, prepared)
 
     def validate(self, document: Mapping[str, Any], projection: Path) -> None:
-        from .pdf_contracts import validate_pdf_report_metadata
         from .pdf_ocr_contracts import validate_pdf_page_payloads
         from .pdf_payloads import FAMILY
+        from .pdf_report_validation import validate_pdf_report_metadata
 
         # Preparation and decoded reuse belong only to this exact frozen invocation.
         # Page payloads are never accumulated: their locators index immutable bytes.

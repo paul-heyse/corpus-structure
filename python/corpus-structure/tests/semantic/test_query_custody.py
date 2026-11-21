@@ -52,9 +52,12 @@ def test_closed_workload_refuses_an_unadmitted_lazy_source(promised, monkeypatch
     monkeypatch.setattr(custody, "_BASE", path.parent)
     with (
         custody.query_sources({}, closed=True),
-        pytest.raises(custody.SourceCustodyError, match="outside the authenticated workload"),
+        pytest.raises(
+            custody.SourceCustodyError, match="outside the authenticated workload"
+        ) as refused,
     ):
         importlib.import_module(name)
+    assert str(refused.value).endswith(": " + path.name)
 
 
 def test_unchanged_imported_source_uses_metadata_without_reading(promised, monkeypatch):

@@ -20,9 +20,9 @@ from .pdf_contracts import (
     PreparedPdfContext,
     pdf_context_for_task,
     prepare_pdf_product,
-    resolve_native_pointer,
     trusted_pdf_context,
 )
+from .pdf_report_validation import resolve_native_pointer
 
 
 @dataclass(frozen=True, slots=True)

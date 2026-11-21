@@ -10,8 +10,8 @@ import yaml
 from corpus_structure.semantic.pdf_contracts import (
     integrated_metadata_policy,
     trusted_pdf_context,
-    validate_pdf_report_metadata,
 )
+from corpus_structure.semantic.pdf_report_validation import validate_pdf_report_metadata
 from corpus_structure.semantic.types import SourceArtifact
 
 
@@ -32,7 +32,7 @@ def integrated() -> dict[str, Any]:
 
 
 def test_current_unknown_inventory_is_accepted_without_transferring_input_assessments():
-    validate_pdf_report_metadata(integrated())
+    validate_pdf_report_metadata(integrated(), integrated_policy=integrated_metadata_policy())
 
 
 @pytest.mark.parametrize("defect", ["success", "nonformula", "missing", "coverage", "runtime"])
@@ -49,7 +49,7 @@ def test_stale_assessment_refuses_even_when_pointer_or_section_spelling_survives
     else:
         value["metadata_kinds"] = ["runtime_report"]
     with pytest.raises(ValueError, match=r"integration|formula recognition"):
-        validate_pdf_report_metadata(value)
+        validate_pdf_report_metadata(value, integrated_policy=integrated_metadata_policy())
 
 
 def test_policy_is_loaded_from_exact_context_schema_instead_of_installed_yaml():
@@ -65,3 +65,8 @@ def test_policy_is_loaded_from_exact_context_schema_instead_of_installed_yaml():
     )
     assert integrated_metadata_policy(archived)["formula_outcome"] == "not_requested"
     assert integrated_metadata_policy(context)["formula_outcome"] == "unknown"
+
+
+def test_integrated_report_requires_explicit_captured_policy():
+    with pytest.raises(ValueError, match="requires its captured metadata policy"):
+        validate_pdf_report_metadata(integrated())

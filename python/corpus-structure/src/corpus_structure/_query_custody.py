@@ -39,7 +39,10 @@ class _CapturedLoader(SourceFileLoader):
         expected = _EXPECTED.get()
         required = expected.get(path) if expected is not None else None
         if required is None and _CLOSED.get() and Path(path).is_relative_to(_BASE):
-            raise SourceCustodyError("query helper is outside the authenticated workload")
+            raise SourceCustodyError(
+                "query helper is outside the authenticated workload: "
+                + Path(path).relative_to(_BASE).as_posix()
+            )
         if required is not None and required != digest:
             raise SourceCustodyError(
                 "query-helper bytes changed before import; restart the process"
