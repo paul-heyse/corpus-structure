@@ -638,6 +638,7 @@ def data_operation_definition_projection(
             "native_digest": native_digest,
             "kinds": kinds,
             "operations": operations,
+            **({"rules": [rule.record for rule in model.rules]} if model.rules else {}),
         }
     )
 

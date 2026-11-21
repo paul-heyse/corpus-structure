@@ -650,6 +650,11 @@ def _publish_derivation(model: MetaData) -> NativeRoutine:
                     ),
                 ),
             ),
+            *(
+                (Perform(func.ops.ddo_settle_rule_attestations(composite, content, episode)),)
+                if "sem.data_rule" in model.tables
+                else ()
+            ),
             Assign("key", _identifier("receipt:", intent("id"), episode)),
             Sql(
                 insert(receipts).values(

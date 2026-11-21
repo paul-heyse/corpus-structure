@@ -28,6 +28,21 @@ classes:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["release_id"],"target":"sem.release.release_id"}]}
+  data_rule:
+    in_subset: [sem]
+    attributes:
+      release_id: {range: string, required: true}
+      rule_id: {range: string, required: true}
+      kind_contract: {range: string, required: true}
+      fingerprint: {range: string, required: true}
+      specification: {range: json_payload, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [release_id, rule_id]}
+    annotations:
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:indexes: {"tag":"ph:indexes","value":[["release_id","kind_contract"]]}
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["release_id"],"target":"sem.data_operation_release.release_id"},{"columns":["kind_contract"],"target":"sem.data_kind_contract.kind_contract"}]}
   data_subject_scope:
     in_subset: [sem]
     attributes:
@@ -263,6 +278,32 @@ classes:
       ph:indexes: {"tag":"ph:indexes","value":[["product_id","collection","ordinal"]]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id"],"target":"kb.data_product.id"}]}
+  data_validity:
+    in_subset: [kb]
+    attributes:
+      rule_fingerprint: {range: string, required: true}
+      premise: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [rule_fingerprint, premise]}
+    annotations:
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+  data_validity_establishment:
+    in_subset: [kb]
+    attributes:
+      rule_fingerprint: {range: string, required: true}
+      premise: {range: string, required: true}
+      derivation_id: {range: string, required: true}
+      role: {range: string, required: true}
+      position: {range: integer, required: true}
+      created_at: {range: timestamp, required: true}
+      created_xid: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [rule_fingerprint, premise, derivation_id, role, position]}
+    annotations:
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["rule_fingerprint","premise"],"target":"kb.data_validity.rule_fingerprint,premise"},{"columns":["derivation_id","role","position"],"target":"ops.data_derivation_output.derivation_id,role,position"}]}
   data_product_member:
     in_subset: [kb]
     attributes:

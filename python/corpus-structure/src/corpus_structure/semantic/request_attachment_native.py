@@ -1711,6 +1711,22 @@ def _attachment_program(model, protocol: bytes):
                 ),
             ),
         ),
+        *(
+            (
+                Perform(
+                    func.ops.ddo_require_bound_rules(
+                        _value("r"),
+                        d("release_id"),
+                        _value("boundary"),
+                        j["snapshot"],
+                        defn("input_roles"),
+                        binding["inputs"],
+                    )
+                ),
+            )
+            if "sem.data_rule" in model.tables
+            else ()
+        ),
         SelectInto(
             select(episodes.c.id)
             .where(

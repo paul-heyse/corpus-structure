@@ -678,6 +678,9 @@ def _install_product(model, output, families):
             literal("member projection identity collision at ordinal ") + cast(ordinal, Text()),
             "23514",
         ),
+        Perform(
+            func.ops.ddo_apply_product_rules(context["release_id"].astext, key, k("kind_contract"))
+        ),
         Return(key),
     ]
     _routine(

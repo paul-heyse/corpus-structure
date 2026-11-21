@@ -91,6 +91,29 @@ def _exists(relation, *conditions):
     return select(1).select_from(relation).where(*conditions).exists()
 
 
+def _rule_catalog_differs(rules, release, declared):
+    records = func.coalesce(declared, _json([]))
+    rows = _rows(records, "declared_rule")
+    record = rows.c.value
+    count = select(func.count()).select_from(rules).where(rules.c.release_id == release)
+    return or_(
+        count.scalar_subquery() != func.jsonb_array_length(records),
+        select(1)
+        .select_from(rows)
+        .where(
+            ~_exists(
+                rules,
+                rules.c.release_id == release,
+                rules.c.rule_id == record["id"].astext,
+                rules.c.kind_contract == record["kind_contract"].astext,
+                rules.c.fingerprint == record["fingerprint"].astext,
+                rules.c.specification == record,
+            )
+        )
+        .exists(),
+    )
+
+
 def _refuse(condition, message, state="P0001"):
     return If(condition, (Raise(message, state),))
 
@@ -563,6 +586,8 @@ def _lowering_program(model, subject_scopes):
         _rows(p["kinds"], "kind_rows"),
         _rows(p["operations"], "operation_rows"),
     )
+    rules = model.tables.get("sem.data_rule")
+    rule_rows = _rows(func.coalesce(p["rules"], _json([])), "rule_rows")
     archive_kinds, archive_identities, archive_operations, archive_bindings = (
         _rows(archived[name], "archive_" + name)
         for name in ("kinds", "identities", "operations", "bindings")
@@ -995,8 +1020,41 @@ def _lowering_program(model, subject_scopes):
         artifacts.c.release_id == p["release_id"].astext,
         artifacts.c.artifact_name == "data_operation_native_definitions.json",
     )
+    rule_columns = {
+        "release_id": p["release_id"].astext,
+        "rule_id": rule_rows.c.value["id"].astext,
+        "kind_contract": rule_rows.c.value["kind_contract"].astext,
+        "fingerprint": rule_rows.c.value["fingerprint"].astext,
+        "specification": rule_rows.c.value,
+    }
+    rule_steps = (
+        ()
+        if rules is None
+        else (
+            _refuse(
+                func.coalesce(p["rules"], _json([])).is_distinct_from(
+                    func.coalesce(archived["rules"], _json([]))
+                ),
+                "rule declarations differ from the archived effective model",
+                "23514",
+            ),
+            Sql(
+                insert(rules)
+                .from_select(
+                    tuple(rule_columns), select(*rule_columns.values()).select_from(rule_rows)
+                )
+                .on_conflict_do_nothing()
+            ),
+            _refuse(
+                _rule_catalog_differs(rules, p["release_id"].astext, p["rules"]),
+                "rule catalog changed under admitted release",
+                "23514",
+            ),
+        )
+    )
+    release_fields = ("release_id", "model_digest", "native_digest", "kinds", "operations")
     statements = (
-        _fields(p, ("release_id", "model_digest", "native_digest", "kinds", "operations")),
+        _fields(p.op("-")(literal("rules")) if rules is not None else p, release_fields),
         _refuse(
             and_(
                 new_release,
@@ -1105,6 +1163,7 @@ def _lowering_program(model, subject_scopes):
             ),
             "release facts changed under admitted release",
         ),
+        *rule_steps,
         Perform(func.sem.admit_pdf_operation_contracts(p["release_id"].astext, new_release)),
         Return(
             _object("release_id", p["release_id"].astext, "model_digest", p["model_digest"].astext)
@@ -1241,6 +1300,7 @@ def _binding_facts_proof(model):
     artifacts = model.tables["sem.artifact"]
     headers = model.tables["sem.data_operation_release"]
     definitions = model.tables["sem.data_operation_definition"]
+    rules = model.tables.get("sem.data_rule")
     operations = _rows(archived["operations"], "authored_operation")
     projected = _rows(projection["operations"], "projected_operation")
     bindings = _rows(archived["bindings"], "authored_binding")
@@ -1399,6 +1459,22 @@ def _binding_facts_proof(model):
                 ),
                 "admitted operation binding facts differ from authenticated archive",
                 "23514",
+            ),
+            *(
+                (
+                    _refuse(
+                        or_(
+                            func.coalesce(projection["rules"], _json([])).is_distinct_from(
+                                func.coalesce(archived["rules"], _json([]))
+                            ),
+                            _rule_catalog_differs(rules, release, archived["rules"]),
+                        ),
+                        "admitted rule catalog differs from authenticated archive",
+                        "23514",
+                    ),
+                )
+                if rules is not None
+                else ()
             ),
         ),
         (Local("archived", pg_type("jsonb")), Local("projection", pg_type("jsonb"))),

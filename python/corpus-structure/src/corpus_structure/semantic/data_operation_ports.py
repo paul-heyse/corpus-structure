@@ -34,6 +34,7 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
 from .data_operation_static_preparation import prepare_data_operation_model
+from .established_validity import RuleAttestation
 from .identity import canonical_bytes
 from .input_values import _untrusted_value as _snapshot_value
 from .operation_value_types import decode_json_text, native_result_scope
@@ -267,10 +268,15 @@ class PortCompletion:
     cpu_execution_reply: bytes | None = None
     pdf_observation_evidence: bytes | None = None
     product_validation_evidence: bytes | None = None
+    rule_attestations: tuple[RuleAttestation, ...] = ()
 
     def __post_init__(self) -> None:
         if type(self.outcome) is not str or not self.outcome:
             raise TypeError("completion requires an explicit semantic outcome")
+        if type(self.rule_attestations) is not tuple or any(
+            type(assertion) is not RuleAttestation for assertion in self.rule_attestations
+        ):
+            raise TypeError("rule attestations require an immutable tuple of assertions")
         if (
             self.product_validation_evidence is not None
             and type(self.product_validation_evidence) is not bytes

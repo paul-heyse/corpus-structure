@@ -110,6 +110,7 @@ def _native_protocol_sources(
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_read_native import read_native_sql
     from .data_operation_renewal import renewal_native_sql
+    from .data_operation_rule_native import rule_native_programs
     from .data_operation_source_native import source_native_sources
     from .data_operation_subjects import subject_scope_values
     from .data_operation_support import (
@@ -147,6 +148,7 @@ def _native_protocol_sources(
     )
     from .request_attachment_native import request_attachment_native_sql
     from .rich_admission_native import rich_admission_native_sql
+    from .rule_establishment_native import rule_establishment_native_programs
     from .source_value_native import source_value_native_sources
     from .structural_admission_native import structural_admission_native_sql
     from .support_trust_native import support_scope_sql, support_trust_native_sql
@@ -248,6 +250,27 @@ def _native_protocol_sources(
         SourceArtifact(
             "native/data-operation-product-validation.py",
             _captured_module(captured_module_sources, "established_validity.py"),
+        ),
+        SourceArtifact(
+            "native/data-operation-rules.sql",
+            native_sql_script(
+                routine.render() for routine in rule_native_programs(target_metadata)
+            ).encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-rule-establishment.sql",
+            native_sql_script(
+                program.routine.render()
+                for program in rule_establishment_native_programs(target_metadata)
+            ).encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-rule-native.py",
+            _captured_module(captured_module_sources, "data_operation_rule_native.py"),
+        ),
+        SourceArtifact(
+            "native/data-operation-rule-establishment.py",
+            _captured_module(captured_module_sources, "rule_establishment_native.py"),
         ),
         SourceArtifact(
             "native/pdf-observations.py",
@@ -1142,6 +1165,7 @@ def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_do
     from .data_operation_execution_evidence import SOURCE
     from .data_operation_read_native import read_native_programs
     from .data_operation_renewal import renewal_native_programs
+    from .data_operation_rule_native import rule_native_programs
     from .data_operation_source_native import source_native_programs
     from .data_operation_subjects import subject_scope_values
     from .data_operation_value_native import data_operation_value_programs
@@ -1163,6 +1187,7 @@ def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_do
     from .population_acquisition_native import population_acquisition_native_programs
     from .record_policy_native import record_policy_native_programs
     from .request_attachment_native import request_attachment_native_programs
+    from .rule_establishment_native import rule_establishment_native_programs
     from .source_value_native import source_value_native_programs
     from .structural_admission_native import structural_admission_native_programs
     from .support_trust_native import support_scope_programs
@@ -1281,6 +1306,7 @@ def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_do
                     renewal_native_programs(target_metadata, protocol),
                 ),
                 ("native/data-read-boundary.sql", read_boundary_native_programs(target_metadata)),
+                ("native/data-operation-rules.sql", rule_native_programs(target_metadata)),
             )
         },
         "native/data-operation-execution-evidence-leaf.sql": execution_evidence_leaf_native_programs(
@@ -1298,6 +1324,9 @@ def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_do
         "native/data-operation-support-scopes.sql": support_scope_programs(target_metadata),
         "native/data-operation-product-validation.sql": product_validation_native_programs(
             target_metadata=target_metadata
+        ),
+        "native/data-operation-rule-establishment.sql": rule_establishment_native_programs(
+            target_metadata
         ),
         "native/data-operation-structural-admission.sql": structural_admission_native_programs(
             target_metadata

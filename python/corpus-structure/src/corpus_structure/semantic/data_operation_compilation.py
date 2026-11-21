@@ -33,6 +33,7 @@ from .data_operation_model import (
     CoverageResultOwner,
     EffectContract,
     EffectiveDataOperationModel,
+    EffectiveDataRule,
     EffectiveIdentity,
     EffectiveKind,
     EffectiveOperation,
@@ -860,6 +861,7 @@ def compile_data_operations(
     slices = []
     seen_sources: set[str] = set()
     kind_documents: list[tuple[dict[str, Any], tuple, tuple[FactOrigin, ...], None]] = []
+    rule_documents = []
     for source in declarations:
         if source.name in seen_sources:
             _fail(source.name, "duplicate operation declaration input")
@@ -872,6 +874,7 @@ def compile_data_operations(
         declaration_grammar.validate(raw, source.name, "DataOperationDocument")
         if raw.get("version") != MODEL_VERSION:
             _fail(source.name, "unsupported operation declaration version")
+        rule_documents.extend(raw.get("rules", []))
         if raw.get("kinds") and not raw.get("operations"):
             kind_documents.append(
                 (raw, (), (FactOrigin("kind", "authored", source.name, source.name),), None)
@@ -1121,6 +1124,25 @@ def compile_data_operations(
             kinds[kind_id] = replace(
                 kind, facts=canonical_bytes({**json.loads(kind.facts), **policy})
             )
+    from .data_operation_rules import (
+        bind_data_rule_identities,
+        compile_data_rule,
+        data_rule_semantic_node,
+    )
+
+    rules: dict[str, EffectiveDataRule] = {}
+    for record in rule_documents:
+        identifier = record["id"]
+        if identifier in rules or identifier in nodes or identifier in kinds:
+            _fail(identifier, "duplicate semantic rule identity")
+        try:
+            rule, rule_edges = compile_data_rule(record, kinds, aliases, frontend)
+        except (TypeError, ValueError) as exc:
+            _fail(identifier, str(exc))
+        rules[identifier] = rule
+        nodes[identifier] = data_rule_semantic_node(rule)
+        edges.extend(rule_edges)
+
     operations = []
     subject_definitions = {}
     bindings = []
@@ -1290,6 +1312,16 @@ def compile_data_operations(
                     else _text(requirement["required_effect"], semantic_id),
                     family,
                 )
+            required_rules = tuple(sorted(_strings(record.get("required_rules", []), semantic_id)))
+            for required_rule in required_rules:
+                rule = rules.get(required_rule)
+                if direction != "input" or rule is None or rule.kind != kind:
+                    _fail(
+                        semantic_id + "/" + name,
+                        "required rule must name a declared rule for the input kind: "
+                        + required_rule,
+                    )
+                edges.append(SemanticEdge(semantic_id, required_rule, "require-rule", name))
             roles.append(
                 OperationRole(
                     name,
@@ -1306,6 +1338,7 @@ def compile_data_operations(
                     subject_field,
                     cast(Any, subject_target),
                     producer_requirement,
+                    required_rules,
                 )
             )
         if semantic_id in kinds or semantic_id in nodes:
@@ -1887,6 +1920,44 @@ def compile_data_operations(
             edges.append(SemanticEdge(semantic_id, dependency, "operation_dependency"))
         for dependency in operation.potential_dependencies:
             edges.append(SemanticEdge(semantic_id, dependency, "potential_operation_dependency"))
+    operations_by_id = {operation.semantic_id: operation for operation in operations}
+    slices_by_id = {implementation.root: implementation for implementation in slices}
+    for rule in rules.values():
+        if rule.checker == "producer":
+            producer = operations_by_id.get(rule.checker_operation or "")
+            if producer is None or not any(
+                role.direction == "output" and role.kind == rule.kind for role in producer.roles
+            ):
+                _fail(rule.id, "attested rule requires a declared producer of the owning kind")
+            if producer.implementation_root is not None:
+                assert frontend is not None and rule.checker_callable is not None
+                implementation = slices_by_id.get(producer.implementation_root)
+                checker = "python:" + frontend.resolve(rule.checker_callable).path
+                if (
+                    implementation is None
+                    or not implementation.complete
+                    or not any(node.id == checker for node in implementation.nodes)
+                ):
+                    _fail(rule.id, "attested checker must occur in the admitted producer slice")
+        parameters = json.loads(rule.parameters)
+        if target_role := parameters.get("target_role"):
+            for operation in operations:
+                if any(
+                    (role.direction == "output" and role.kind == rule.kind)
+                    or rule.id in role.required_rules
+                    for role in operation.roles
+                ) and not any(
+                    role.name == target_role
+                    and role.direction == "input"
+                    and role.kind == parameters["target_kind"]
+                    and role.minimum == role.maximum == 1
+                    for role in operation.roles
+                ):
+                    _fail(
+                        rule.id,
+                        "partition-pair rule target must name one bound input of the operation: "
+                        + operation.semantic_id,
+                    )
     for semantic_id, kind in kinds.items():
         nodes[semantic_id] = SemanticNode(semantic_id, "kind:" + kind.category, kind.facts)
     for edge in edges:
@@ -1902,6 +1973,7 @@ def compile_data_operations(
         tuple(slices),
         graph_projections=compiled_graph_projections(tuple(nodes.values()), edges, slices),
         subject_definitions=tuple(subject_definitions[key] for key in sorted(subject_definitions)),
+        rules=tuple(rules[key] for key in sorted(rules)),
     )
 
     from .source_interfaces import export_source_interfaces
@@ -1909,7 +1981,20 @@ def compile_data_operations(
     model = _resolve_enforcement_claims(
         model, {name: artifact.digest for name, artifact in supplied_contracts.items()}
     )
-    model = replace(model, identities=_compile_identities(model))
+    identities = _compile_identities(model)
+    kind_identities = {value.owner: value.key for value in identities if value.domain == "kind"}
+    if model.rules:
+        graph = model.projection_graph("semantic-reference")
+        if any(rule.kind not in kind_identities for rule in model.rules):
+            _fail("rules", "rules cannot be issued against incomplete kind contracts")
+        model = replace(
+            model,
+            rules=tuple(
+                bind_data_rule_identities(rule, graph, kind_identities[rule.kind])
+                for rule in model.rules
+            ),
+        )
+    model = replace(model, identities=identities)
     return replace(
         model,
         source_interfaces=export_source_interfaces(frontend, python_facts, model).content
@@ -2209,6 +2294,12 @@ def native_kind_dependencies(
         if role.direction == "input"
     }
     used = {role.kind for operation in model.operations for role in operation.roles}
+    used.update(rule.kind for rule in model.rules)
+    used.update(
+        target
+        for rule in model.rules
+        if (target := json.loads(rule.parameters).get("target_kind")) is not None
+    )
     used.update(
         model.subject_definition(operation.subject).identifier_kind
         for operation in model.operations

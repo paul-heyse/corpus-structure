@@ -138,6 +138,7 @@ class OperationRole:
     subject_field: str | None = None
     subject_target: Literal["subject", "original-source", "source-set"] = "subject"
     producer_requirement: ProducerRequirement | None = None
+    required_rules: tuple[str, ...] = ()
 
 
 def operation_role_record(role: OperationRole, *, result_only: bool = False) -> dict:
@@ -145,6 +146,8 @@ def operation_role_record(role: OperationRole, *, result_only: bool = False) -> 
     record = asdict(role)
     if role.producer_requirement is None:
         record.pop("producer_requirement")
+    if result_only or not role.required_rules:
+        record.pop("required_rules")
     if role.subject_target == "subject":
         record.pop("subject_target")
     if role.subject_field is None:
@@ -897,6 +900,34 @@ def compiled_snapshot_projections(
 
 
 @dataclass(frozen=True)
+class DataRuleRead:
+    side: Literal["source", "target"]
+    path: str
+    groups: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EffectiveDataRule:
+    id: str
+    kind: str
+    kind_contract: str
+    collection: str | None
+    scope: Literal["partition", "partition-pair", "product"]
+    form: str
+    parameters: bytes
+    reads: tuple[DataRuleRead, ...]
+    checker: Literal["admission", "producer"]
+    checker_operation: str | None
+    checker_callable: str | None
+    checker_determinant: str
+    fingerprint: str
+
+    @property
+    def record(self) -> dict:
+        return {**asdict(self), "parameters": json.loads(self.parameters)}
+
+
+@dataclass(frozen=True)
 class EffectiveDataOperationModel:
     version: str
     kinds: tuple[EffectiveKind, ...]
@@ -908,6 +939,7 @@ class EffectiveDataOperationModel:
     identities: tuple[EffectiveIdentity, ...] = ()
     graph_projections: tuple[GraphProjectionDefinition, ...] = ()
     subject_definitions: tuple[SubjectDefinition, ...] = ()
+    rules: tuple[EffectiveDataRule, ...] = ()
 
     source_interfaces: bytes | None = field(default=None, repr=False, compare=False)
     diagnostics: tuple[Diagnostic, ...] = field(default=(), repr=False, compare=False)
@@ -1038,6 +1070,10 @@ class EffectiveDataOperationModel:
         record = asdict(self)
         record.pop("source_interfaces")
         record.pop("diagnostics")
+        if self.rules:
+            record["rules"] = [rule.record for rule in self.rules]
+        else:
+            record.pop("rules")
         if self.version != MODEL_VERSION:
             raise ValueError(
                 "unsupported data-operation model version; regenerate target-native data"
@@ -1057,6 +1093,8 @@ class EffectiveDataOperationModel:
             if operation["external"] is None:
                 operation.pop("external")
             for role in operation["roles"]:
+                if not role["required_rules"]:
+                    role.pop("required_rules")
                 if role["producer_requirement"] is None:
                     role.pop("producer_requirement")
                 if role["subject_target"] == "subject":
@@ -1332,8 +1370,13 @@ def _effective_model_structure():
                     "subject_field": None,
                     "subject_target": "subject",
                     "producer_requirement": None,
+                    "required_rules": [],
                     **value,
                 }
+            if cls is EffectiveDataOperationModel and isinstance(value, dict):
+                value = {"rules": [], **value}
+            if cls is EffectiveDataRule and isinstance(value, dict) and "parameters" in value:
+                value = {**value, "parameters": {"json": value["parameters"]}}
             if cls is EffectiveOperation and isinstance(value, dict):
                 value = {"external": None, "result_fields": [], "output_witnesses": [], **value}
             if not isinstance(value, dict) or set(value) != archived_fields:

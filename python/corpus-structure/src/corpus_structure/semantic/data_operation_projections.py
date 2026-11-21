@@ -1520,7 +1520,7 @@ def cut_selection_projection():
     return select(_obj(**_cut_fields()))
 
 
-def _scoped_read_obligations(metadata):
+def _scoped_read_obligations(metadata, *, exact_obligation=None):
     """The exact declared read scope, independent of page size and continuation."""
     obligations = metadata.tables["ops.data_obligation"]
     uses = metadata.tables["ops.demand_use"]
@@ -1589,6 +1589,7 @@ def _scoped_read_obligations(metadata):
     )
     return select(obligations).where(
         obligations.c.demand_id == _var("d.id", Text),
+        *([obligations.c.id == exact_obligation] if exact_obligation is not None else []),
         *scope_predicates,
         _visible(obligations),
     )
@@ -1606,9 +1607,13 @@ def _latest_read_use(metadata, obligations):
     )
 
 
-def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, member_aware=False):
+def _selected_support_output_rows(
+    metadata, *, purpose="read", one_use=True, member_aware=False, exact_obligation=None
+):
     """Whole outputs reached by exact scoped selected current support."""
-    obligations = _scoped_read_obligations(metadata).cte("scoped_obligations")
+    obligations = _scoped_read_obligations(metadata, exact_obligation=exact_obligation).cte(
+        "scoped_obligations"
+    )
     latest = _latest_read_use(metadata, obligations)
     selected = (
         select(latest).select_from(obligations.join(latest, literal(True))).cte("selected_uses")
@@ -1703,9 +1708,11 @@ def _selected_support_output_rows(metadata, *, purpose="read", one_use=True, mem
     )
 
 
-def selected_support_output(metadata, *, purpose="read"):
+def selected_support_output(metadata, *, purpose="read", exact_obligation=None):
     """Prove exact output membership; internal custody returns no body or caller capability."""
-    rows = _selected_support_output_rows(metadata, purpose=purpose).cte("selected_whole_outputs")
+    rows = _selected_support_output_rows(
+        metadata, purpose=purpose, exact_obligation=exact_obligation
+    ).cte("selected_whole_outputs")
     return select(
         exists(
             select(1)

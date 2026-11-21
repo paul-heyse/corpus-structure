@@ -228,6 +228,15 @@ class WireProviderExecutionReceipt(TypedDict):
     work_members: Required[list[list[str | int]]]
 
 
+class WireRuleAttestation(TypedDict):
+    output_position: Required[int]
+    output_role: Required[str]
+    partition_key: Required[str | None]
+    premise: Required[str]
+    rule_fingerprint: Required[str]
+    rule_id: Required[str]
+
+
 class WireAuthoredFactSelector(TypedDict):
     scope: Required[Literal["authored-fact"]]
 
@@ -252,6 +261,7 @@ class WireNativeExecutionEvidence(TypedDict):
     product_validations: NotRequired[list[WireProductValidation]]
     provider_receipts: NotRequired[list[WireProviderExecutionReceipt]]
     request_id: Required[WireRequestId]
+    rule_attestations: NotRequired[list[WireRuleAttestation]]
     runtime_id: Required[RuntimeId]
     task_id: Required[TaskId]
     version: Required[Literal["native-execution-evidence-v1"]]
@@ -1068,6 +1078,23 @@ class WireEnsurePdfSearchProjectionResult(TypedDict):
     row_count: Required[WireNonnegativeInteger]
     set_digest: Required[str | None]
     state: Required[Literal["missing", "ready"]]
+
+
+class WireEstablishDataRuleProofRequest(TypedDict):
+    demand_id: Required[WireIdentifier]
+    derivation_id: Required[WireIdentifier]
+    partition_key: NotRequired[WireIdentifier]
+    product_id: Required[WireIdentifier]
+    read_id: Required[WireReadId]
+    rule_id: Required[WireIdentifier]
+    target_partition_key: NotRequired[WireIdentifier]
+    target_product_id: NotRequired[WireIdentifier]
+    use_id: Required[WireIdentifier]
+
+
+class WireEstablishDataRuleProofResult(TypedDict):
+    established: Required[int]
+    matched: Required[int]
 
 
 class WireExternalPacketHead(TypedDict):
@@ -2108,6 +2135,8 @@ type WireDataTaskState = Literal["pending", "running", "done", "empty", "failed"
 
 type WirePdfSearchDigest = str
 
+type WireReadId = WireReadIdentity
+
 type WireFate = Literal[
     "known-absent",
     "unknown",
@@ -2148,8 +2177,6 @@ type WireInspectDataCompletionResult = (
 )
 
 type WireOriginalSupportReference = WireOriginalDocumentRef | WireAuthoredFactRef
-
-type WireReadId = WireReadIdentity
 
 type WireVisibleFate = Literal[
     "known-absent",
@@ -2260,6 +2287,13 @@ class DataOperationCalls:
         self, payload: WireAttachDataRequestsRequest
     ) -> WireAttachDataRequestsResult:
         return cast(WireAttachDataRequestsResult, self._invoke("attach_data_requests", payload))
+
+    def establish_data_rule_proof(
+        self, payload: WireEstablishDataRuleProofRequest
+    ) -> WireEstablishDataRuleProofResult:
+        return cast(
+            WireEstablishDataRuleProofResult, self._invoke("establish_data_rule_proof", payload)
+        )
 
     def claim_data_requests(
         self, payload: WireClaimDataRequestsRequest

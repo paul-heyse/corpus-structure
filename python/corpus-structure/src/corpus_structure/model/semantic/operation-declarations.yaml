@@ -10,6 +10,25 @@ types:
   SemanticText:
     typeof: string
     pattern: '\S'
+enums:
+  DataRuleScope:
+    permissible_values:
+      partition:
+      partition-pair:
+      product:
+  DataRuleForm:
+    permissible_values:
+      unique:
+      dense_ordinal:
+      ordered_by:
+      span_within:
+      refers_to:
+      predicate:
+      attested:
+  DataRuleChecker:
+    permissible_values:
+      admission:
+      producer:
 classes:
   OperationAny:
     class_uri: linkml:Any
@@ -19,6 +38,18 @@ classes:
       version: {range: SemanticText, required: true}
       operations: {range: OperationAny, multivalued: true}
       kinds: {range: OperationAny, multivalued: true}
+      rules: {range: OperationRuleDeclaration, multivalued: true, inlined_as_list: true}
+  OperationRuleDeclaration:
+    attributes:
+      id: {range: SemanticText, required: true}
+      kind: {range: SemanticText, required: true}
+      collection: {range: SemanticText}
+      scope: {range: DataRuleScope, required: true}
+      form: {range: DataRuleForm, required: true}
+      parameters: {range: OperationAny, required: true}
+      checker: {range: DataRuleChecker, required: true}
+      checker_operation: {range: SemanticText}
+      checker_callable: {range: SemanticText}
   DataOperationDeclaration:
     attributes:
       id: {range: SemanticText, required: true}
@@ -88,6 +119,7 @@ classes:
       presence: {range: SemanticText, required: true}
       support: {range: OperationInputSupport, inlined: true}
       producer_requirement: {range: OperationProducerRequirement, inlined: true}
+      required_rules: {range: SemanticText, multivalued: true}
       parameter: {range: SemanticText}
       alternatives: {range: SemanticText, multivalued: true}
       selected: {range: SemanticText}

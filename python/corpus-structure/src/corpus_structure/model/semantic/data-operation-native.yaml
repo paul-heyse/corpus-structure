@@ -2163,6 +2163,27 @@ definitions:
       - intent_retained
       - reason
       additionalProperties: false
+  establish_data_rule_proof_request:
+    type: object
+    properties:
+      demand_id: {$ref: '#/definitions/identifier'}
+      read_id: {$ref: '#/definitions/read_id'}
+      use_id: {$ref: '#/definitions/identifier'}
+      derivation_id: {$ref: '#/definitions/identifier'}
+      product_id: {$ref: '#/definitions/identifier'}
+      rule_id: {$ref: '#/definitions/identifier'}
+      partition_key: {$ref: '#/definitions/identifier'}
+      target_product_id: {$ref: '#/definitions/identifier'}
+      target_partition_key: {$ref: '#/definitions/identifier'}
+    required: [demand_id, read_id, use_id, derivation_id, product_id, rule_id]
+    additionalProperties: false
+  establish_data_rule_proof_result:
+    type: object
+    properties:
+      established: {type: integer, minimum: 0}
+      matched: {type: integer, minimum: 0}
+    required: [established, matched]
+    additionalProperties: false
   revoke_data_support_request:
     type: object
     properties:
@@ -2963,6 +2984,11 @@ operations:
   shared:
     read_id: {$ref: '#/definitions/read_id'}
   outcome_field: fate
+  purposes: [write, evaluate]
+- name: establish_data_rule_proof
+  profile: command
+  request: establish_data_rule_proof_request
+  result: establish_data_rule_proof_result
   purposes: [write, evaluate]
 - name: claim_data_requests
   profile: command

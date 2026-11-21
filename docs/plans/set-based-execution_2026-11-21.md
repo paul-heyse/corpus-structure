@@ -1,6 +1,6 @@
 # Set-based execution
 
-**Status:** In implementation. SBX-00 and SBX-01 are authorized. This series owns the pivot to
+**Status:** In implementation. SBX-00 through SBX-02 have package evidence. This series owns the pivot to
 partition-unit storage, declared rules and proofs, projection-keyed reuse, owner-resolved reads
 and the single-derivation PDF path. **Created:** 2026-11-21.
 
@@ -150,7 +150,7 @@ capability consumed.
 |---|---|---|---|
 | SBX-00 | Complete. Decision records, entry evidence and fixture baseline are recorded. Exact selected-use readers and detached demand ownership passed genuine finite and rich export checks. | — | [Entry and reader evidence](#sbx-00) |
 | SBX-01 | Complete for generic collection declarations, partition storage, content and placement identity, field groups and block-relative addresses. Managed rollback-only candidate passed. | SBX-00 decisions | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-01) |
-| SBX-02 | Declared rules, admission evaluation, proof conclusions and admissible establishments at binding | SBX-01 partitions; shared premise and scenario contract | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-02) |
+| SBX-02 | Implemented and tested for the native forms, retained establishment, product and partition attestations, and binding. Rollback-only candidate passed. | SBX-01 partitions; shared premise and scenario contract | [PRP and remaining adoption conditions](set-based-execution/populations-rules-and-proofs.md#sbx-02) |
 | SBX-03 | Early real annotation-to-canonical slice, then sentence, canonical and HanLP adoption and packet retirement | SBX-01 partitions; runnable SBX-02 proof binding and SBX-05 resolver for the slice | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-03) |
 | SBX-04 | Existing validators as attested rules; one stance at hand-off; projection families and member-level outputs retired | SBX-02 | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-04) |
 | SBX-05 | One reference carrier with declared targets; role-relative references; one resolver; closure rules | SBX-01 addresses | [RPK](set-based-execution/references-and-projection-keys.md#sbx-05) |

@@ -13,7 +13,7 @@ from corpus_structure.methods.native_host import NativeExecutionReceipt
 
 from .cpu_receipts import CPUExecutionReceipt
 from .data_operation_json import finite_json_bytes, finite_json_loads
-from .established_validity import ProductValidation
+from .established_validity import ProductValidation, RuleAttestation
 from .external_receipts import ExternalExecutionReceipt
 from .identity import canonical_bytes
 from .pdf_observations import PdfObservationExecutionReceipt
@@ -39,6 +39,7 @@ class NativeExecutionEvidence(BaseModel):
     cpu_receipts: tuple[CPUExecutionReceipt, ...]
     cpu_replies: tuple[str, ...] = ()
     product_validations: tuple[ProductValidation, ...] = ()
+    rule_attestations: tuple[RuleAttestation, ...] = ()
     pdf_receipts: tuple[PdfExecutionReceipt, ...] = ()
     pdf_observation_receipts: tuple[PdfObservationExecutionReceipt, ...] = ()
     provider_receipts: tuple[ProviderExecutionReceipt, ...] = ()
@@ -67,6 +68,7 @@ def bind_execution_evidence(
     cpu_content: bytes | None = None,
     cpu_reply_content: bytes | None = None,
     product_validation_content: bytes | None = None,
+    rule_attestations: tuple[RuleAttestation, ...] = (),
     pdf_content: bytes | None = None,
     pdf_observation_content: bytes | None = None,
     provider_content: bytes | None = None,
@@ -83,6 +85,15 @@ def bind_execution_evidence(
         "product_validations": [finite_json_loads(product_validation_content)]
         if product_validation_content is not None
         else [],
+        **(
+            {
+                "rule_attestations": [
+                    attestation.model_dump(mode="json") for attestation in rule_attestations
+                ]
+            }
+            if rule_attestations
+            else {}
+        ),
         "pdf_receipts": [finite_json_loads(pdf_content)] if pdf_content is not None else [],
         "pdf_observation_receipts": [finite_json_loads(pdf_observation_content)]
         if pdf_observation_content is not None
@@ -135,4 +146,6 @@ def bind_execution_evidence(
             receipt.runtime_id,
         ) != (*claim, fence["holder"], runtime_id):
             raise ValueError("external receipt differs from native attempt/runtime")
-    return checked.model_dump(mode="json")
+    return checked.model_dump(
+        mode="json", exclude=None if checked.rule_attestations else {"rule_attestations"}
+    )

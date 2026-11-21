@@ -176,9 +176,12 @@ def test_program_guard_binds_actual_validator_body_and_premises(profile, cpu_bas
                 ]
             },
             binding_expression={},
+            parameter_definitions={},
             definition_identity="definition:controlled-validity",
             eligibility_identity="eligibility:controlled-validity",
             quantified=False,
+            validity_families=list(operation.validity.families),
+            validity_conservative=operation.validity.conservative,
             dependencies=[],
         )
     )

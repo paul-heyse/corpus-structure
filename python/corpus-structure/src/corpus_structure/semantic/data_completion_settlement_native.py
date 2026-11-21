@@ -573,6 +573,8 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
             else getattr(func.ops, name)(r, completion)
         )
         checks.append(invocation)
+    if "sem.data_rule" in model.tables:
+        checks.append(Perform(func.ops.ddo_require_rule_assertion_shape(completion)))
     completion_parameters = (
         ("r", "ops.data_request"),
         ("completion", "jsonb"),

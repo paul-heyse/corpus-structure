@@ -24,6 +24,8 @@ def product_connection(infrastructure_rollback):
     for name in (
         "sem.data_kind_contract",
         "sem.data_kind_release",
+        "sem.data_rule",
+        "kb.data_validity",
         "kb.data_product",
         "kb.data_product_member",
         "kb.data_product_partition",
@@ -109,8 +111,24 @@ def product_connection(infrastructure_rollback):
             execute_native_sql(connection, parsed.excerpt(i))
     # This isolated database intentionally omits request/source tables. The
     # directly tested product program uses real codecs, policy and schemas.
+    from corpus_structure.semantic.data_operation_rule_native import rule_native_programs
+
+    generated_rules = native_sql_script(
+        program.render()
+        for program in rule_native_programs(get_metadata())
+        if program.name
+        in {
+            "ddo_rule_premise",
+            "ddo_rule_violation",
+            "ddo_establish_rule",
+            "ddo_rule_expression",
+            "ddo_rule_target_partition",
+            "ddo_apply_product_rules",
+        }
+    )
     selected = prepare_sql(
-        product_admission_native_sql(get_metadata()), source="product-realization"
+        generated_rules + "\n" + product_admission_native_sql(get_metadata()),
+        source="product-realization",
     )
     for i, statement in enumerate(selected.statements):
         node = statement.stmt
@@ -122,6 +140,12 @@ def product_connection(infrastructure_rollback):
                 "ddo_partition_field",
                 "ddo_install_product_partitions",
                 "ddo_acquired_product_partition",
+                "ddo_rule_premise",
+                "ddo_rule_expression",
+                "ddo_rule_target_partition",
+                "ddo_rule_violation",
+                "ddo_establish_rule",
+                "ddo_apply_product_rules",
                 "ddo_install_product_context",
             }
         ):
@@ -276,7 +300,9 @@ def test_product_members_require_the_same_finite_ordered_packet(product_connecti
 
 def test_generated_product_admission_binds_in_actual_native_model(native_rollback):
     connection = native_rollback.connection
+    from corpus_structure.semantic.data_operation_rule_native import rule_native_programs
     from corpus_structure.semantic.native_authoring import physical_row_type_context
+    from corpus_structure.semantic.native_objects import native_sql_script
 
     with physical_row_type_context(connection, get_metadata()):
         execute_native_sql(
@@ -284,7 +310,19 @@ def test_generated_product_admission_binds_in_actual_native_model(native_rollbac
         )
         with native_owner(connection, "corpus_sem_publisher"):
             execute_native_sql(connection, product_admission_native_sql(get_metadata()))
+            execute_native_sql(
+                connection,
+                native_sql_script(
+                    routine.render() for routine in rule_native_programs(get_metadata())
+                ),
+            )
             for signature in (
+                "ops.ddo_rule_premise(jsonb,text,text,text,text)",
+                "ops.ddo_rule_violation(jsonb,text,text,text,text)",
+                "ops.ddo_rule_target_partition(jsonb,text,text)",
+                "ops.ddo_apply_product_rules(text,text,text)",
+                "ops.ddo_apply_bound_product_rules(text,text,text,text)",
+                "ops.establish_data_rule_proof(jsonb)",
                 "ops.ddo_install_product_context(jsonb,jsonb,jsonb)",
                 "ops.ddo_admit_original_source(jsonb)",
                 "ops.admit_authored_data(jsonb)",
@@ -559,3 +597,495 @@ def test_acquired_partition_lookup_keeps_parent_kind_and_project_authority(produ
         native_owner(product_connection, "corpus_sem_writer"),
     ):
         product_connection.scalar(query, parameters)
+
+
+@pytest.mark.parametrize(
+    ("form", "parameters", "paths", "violates"),
+    [
+        ("unique", {"paths": ["start"]}, ("start",), False),
+        ("unique", {"paths": ["start"]}, ("start",), True),
+        ("dense_ordinal", {"path": "start", "start": 0}, ("start",), False),
+        ("dense_ordinal", {"path": "start", "start": 2}, ("start",), True),
+        ("ordered_by", {"paths": ["start"]}, ("start",), False),
+        ("ordered_by", {"paths": ["end"]}, ("end",), True),
+        (
+            "span_within",
+            {"start": "start", "end": "end", "limit": "limit", "coordinates": "relative"},
+            ("start", "end", "limit"),
+            False,
+        ),
+        (
+            "span_within",
+            {"start": "start", "end": "end", "limit": "wrong_limit", "coordinates": "relative"},
+            ("start", "end", "wrong_limit"),
+            True,
+        ),
+        (
+            "refers_to",
+            {"paths": ["link"], "target_paths": ["start"], "target_collection": "tokens"},
+            ("link", "start"),
+            False,
+        ),
+        (
+            "refers_to",
+            {"paths": ["dangling"], "target_paths": ["start"], "target_collection": "tokens"},
+            ("dangling", "start"),
+            True,
+        ),
+        (
+            "predicate",
+            {"expression": {"op": "ge", "args": [{"field": "limit"}, {"field": "end"}]}},
+            ("limit", "end"),
+            False,
+        ),
+        (
+            "predicate",
+            {"expression": {"op": "ge", "args": [{"field": "wrong_limit"}, {"field": "end"}]}},
+            ("wrong_limit", "end"),
+            True,
+        ),
+    ],
+)
+def test_declared_rules_establish_or_reject_admission_atomically(
+    product_connection, form, parameters, paths, violates
+):
+    from corpus_structure.semantic.data_operation_partitions import (
+        partition_header,
+        partition_packet,
+    )
+
+    connection = product_connection
+    context, product, *_ = partition_fixture(connection)
+    scope = "partition"
+    body = [
+        {"start": 0, "end": 3, "limit": 4, "wrong_limit": 0, "link": 1, "dangling": 5},
+        {"start": 1, "end": 2, "limit": 4, "wrong_limit": 0, "link": 0, "dangling": 5},
+    ]
+    if form == "unique" and violates:
+        body[1]["start"] = 0
+    packets = [partition_packet("tokens", "only", 0, 0, 5, body)]
+    product["body"] = semantic_value({"tokens": partition_header(packets)})
+    product["partitions"] = packets
+    specification = {
+        "id": form,
+        "scope": scope,
+        "collection": "tokens",
+        "checker": "admission",
+        "fingerprint": "rule:" + form,
+        "form": form,
+        "parameters": parameters,
+        "reads": [{"side": "source", "path": path, "groups": []} for path in paths],
+    }
+    connection.execute(
+        insert(get_metadata().tables["sem.data_rule"]).values(
+            release_id="release",
+            rule_id=form,
+            kind_contract="partitioned",
+            fingerprint=specification["fingerprint"],
+            specification=specification,
+        )
+    )
+    count = text("SELECT count(*) FROM kb.data_validity")
+    if violates:
+        with (
+            pytest.raises(DBAPIError, match=f"collection rule {form} violated"),
+            connection.begin_nested(),
+        ):
+            realize(connection, context, product)
+        assert connection.scalar(count) == 0
+        assert connection.scalar(text("SELECT count(*) FROM kb.data_product")) == 0
+        assert connection.scalar(text("SELECT count(*) FROM kb.data_product_partition")) == 0
+        return
+    key = realize(connection, context, product)
+    assert connection.scalar(count) == 1
+    assert realize(connection, context, product) == key
+    assert connection.scalar(count) == 1
+    assert (
+        connection.scalar(
+            text(
+                "SELECT ops.ddo_establish_rule(CAST(:spec AS jsonb), :product, 'only', NULL, NULL)"
+            ),
+            {"spec": json.dumps(specification), "product": key},
+        )
+        == 0
+    )
+
+
+def test_rule_premise_tracks_only_declared_paths_and_placement(product_connection):
+    from corpus_structure.semantic.data_operation_partitions import (
+        partition_header,
+        partition_packet,
+    )
+
+    connection = product_connection
+    context, packet, *_ = partition_fixture(connection)
+    key = realize(connection, context, packet)
+    changed = [
+        partition_packet(
+            "tokens", "moved", 0, 100, 105, [{"start": 0, "end": 4, "label": "elsewhere"}]
+        ),
+    ]
+    packet["body"] = semantic_value({"tokens": partition_header(changed)})
+    packet["partitions"] = changed
+    moved = realize(connection, context, packet)
+
+    spec = {
+        "id": "observe",
+        "scope": "partition",
+        "collection": "tokens",
+        "checker": "admission",
+        "fingerprint": "rule:observe",
+        "form": "unique",
+        "parameters": {"paths": ["start"]},
+        "reads": [{"side": "source", "path": "start", "groups": []}],
+    }
+    query = text("SELECT ops.ddo_rule_premise(CAST(:spec AS jsonb), :key, :part, NULL, NULL)")
+
+    def premise(key, name):
+        return connection.scalar(query, {"spec": json.dumps(spec), "key": key, "part": name})
+
+    assert premise(key, "b") == premise(moved, "moved")
+    spec["reads"].append({"side": "source", "path": "$placement.start", "groups": []})
+    assert premise(key, "b") != premise(moved, "moved")
+    spec["reads"] = [
+        {"side": "source", "path": path, "groups": ["geometry"]} for path in ("start", "end")
+    ]
+    assert premise(key, "b") != premise(moved, "moved")
+
+
+@pytest.mark.parametrize("dangling", [False, True])
+def test_local_partition_pair_follows_the_declared_address(product_connection, dangling):
+    from corpus_structure.semantic.data_operation_partitions import (
+        partition_header,
+        partition_packet,
+    )
+
+    connection = product_connection
+    context, packet, *_ = partition_fixture(connection)
+    bodies = (
+        [{"start": 4, "target": "b", "link": 9 if dangling else 1}],
+        [{"start": 1, "target": "a", "link": 4}],
+    )
+    packets = [
+        partition_packet("tokens", name, ordinal, 0, 10, body)
+        for ordinal, (name, body) in enumerate(zip(("a", "b"), bodies, strict=True))
+    ]
+    packet["body"] = semantic_value({"tokens": partition_header(packets)})
+    packet["partitions"] = packets
+    spec = {
+        "id": "link",
+        "scope": "partition-pair",
+        "collection": "tokens",
+        "checker": "admission",
+        "fingerprint": "rule:link",
+        "form": "refers_to",
+        "parameters": {
+            "paths": ["link"],
+            "target_paths": ["start"],
+            "target_collection": "tokens",
+            "target_key": "target",
+        },
+        "reads": [{"side": "source", "path": path, "groups": []} for path in ("link", "target")]
+        + [{"side": "target", "path": "start", "groups": []}],
+    }
+    connection.execute(
+        insert(get_metadata().tables["sem.data_rule"]).values(
+            release_id="release",
+            rule_id="link",
+            kind_contract="partitioned",
+            fingerprint=spec["fingerprint"],
+            specification=spec,
+        )
+    )
+    if dangling:
+        with (
+            pytest.raises(DBAPIError, match="collection rule link violated"),
+            connection.begin_nested(),
+        ):
+            realize(connection, context, packet)
+        assert connection.scalar(text("SELECT count(*) FROM kb.data_validity")) == 0
+        return
+    key = realize(connection, context, packet)
+    assert connection.scalar(text("SELECT count(*) FROM kb.data_validity")) == 2
+    assert (
+        connection.scalar(
+            text("SELECT ops.ddo_rule_target_partition(CAST(:spec AS jsonb), :key, 'a')"),
+            {"spec": json.dumps(spec), "key": key},
+        )
+        == "b"
+    )
+
+
+def test_retained_selected_use_establishes_only_its_current_rule_premise(product_connection):
+    """Execute the real selected-product, read-currency and rule program on a finite fixture."""
+    from datetime import timedelta
+
+    from corpus_structure.semantic.data_operation_rule_native import rule_native_programs
+    from corpus_structure.semantic.data_read_boundary_native import read_boundary_native_programs
+
+    connection = product_connection
+    model = get_metadata()
+    for name in (
+        "ops.data_demand",
+        "ops.data_obligation",
+        "ops.data_demand_read",
+        "ops.data_demand_read_scope",
+        "ops.data_trust_scope",
+        "ops.original_source_admission",
+        "ops.demand_use",
+        "ops.data_derivation",
+        "ops.data_derivation_input",
+        "ops.data_derivation_output",
+        "ops.data_derivation_support",
+        "ops.data_derivation_original_support",
+        "ops.data_population",
+        "sem.data_operation_definition",
+    ):
+        connection.execute(CreateTable(model.tables[name], include_foreign_key_constraints=[]))
+    # No issuer, transitive support, population or selected-use substitutions
+    # exist in this fixture. Supply the support owner decision for the two
+    # retained episodes. The actual cut, use, reachability, disclosure and
+    # proof checks execute below. Revocation exercises real retained epochs.
+    for statement in (
+        "CREATE FUNCTION sem.data_operation_native_descriptor() RETURNS jsonb LANGUAGE sql "
+        "AS $$SELECT jsonb_build_object('read_closure','test-kernel')$$",
+        "CREATE FUNCTION ops.ddo_policy_authority_leaf(text) RETURNS boolean LANGUAGE sql AS 'SELECT false'",
+        "CREATE FUNCTION ops.ddo_structural_report_support(text,ops.data_demand_read,jsonb) "
+        "RETURNS jsonb LANGUAGE sql AS 'SELECT NULL::jsonb'",
+        "CREATE FUNCTION ops.ddo_support_reference_node(jsonb) "
+        "RETURNS jsonb LANGUAGE sql AS 'SELECT NULL::jsonb'",
+        "CREATE FUNCTION ops.ddo_valid_closure(text[],text[],ops.data_demand_read,text[]) "
+        "RETURNS TABLE(kind text,id text,valid boolean) LANGUAGE plpgsql AS $$ BEGIN "
+        "IF 'unrelated-use'=ANY($1) THEN RAISE EXCEPTION 'unrelated support reached'; END IF; "
+        "RETURN QUERY SELECT 'use'::text,u,true FROM unnest($1) u UNION ALL "
+        "SELECT 'episode'::text,derivation_id,true FROM ops.demand_use WHERE ops.demand_use.id=ANY($1); "
+        "END $$",
+    ):
+        execute_native_sql(connection, statement)
+    for program in read_boundary_native_programs(model):
+        if program.name in {
+            "ddo_read_acquisition_present",
+            "ddo_require_read_epochs",
+            "ddo_require_read_current",
+            "ddo_read_visible",
+        }:
+            execute_native_sql(connection, program.render())
+    endpoint = next(
+        program
+        for program in rule_native_programs(model)
+        if program.name == "establish_data_rule_proof"
+    )
+    execute_native_sql(connection, endpoint.render())
+
+    def add(relation, **values):
+        connection.execute(insert(model.tables[relation]).values(**values))
+
+    context, packet, *_ = partition_fixture(connection)
+    current_product = realize(connection, context, packet)
+    foreign_product = realize(connection, {**context, "project_id": "other"}, packet)
+    now, snapshot, xid = connection.execute(
+        text("SELECT clock_timestamp(),pg_current_snapshot()::text,pg_current_xact_id()::text")
+    ).one()
+    before = now - timedelta(seconds=1)
+    project = context["project_id"]
+    add(
+        "ops.data_demand",
+        id="retained-demand",
+        project_id=project,
+        release_id="release",
+        runtime_id="runtime",
+        root={},
+        selection={},
+        strength="value",
+        created_at=before,
+    )
+    add(
+        "ops.data_obligation",
+        id="retained-obligation",
+        demand_id="retained-demand",
+        operation_id="operation",
+        subject=context["subject"],
+        analyzed_scope={},
+        parameters={},
+        created_at=before,
+        created_xid=xid,
+    )
+    add(
+        "ops.data_derivation",
+        id="retained-episode",
+        request_id="retained-request",
+        generation=1,
+        intent_id="intent",
+        release_id="release",
+        recipe="recipe",
+        runtime_id="runtime",
+        producer_task_id=1,
+        producer_attempt=1,
+        outcome="success",
+        completed_at=before,
+    )
+    add(
+        "ops.demand_use",
+        id="retained-use",
+        demand_id="retained-demand",
+        obligation_id="retained-obligation",
+        request_id="retained-request",
+        generation=1,
+        fate="fulfilled",
+        derivation_id="retained-episode",
+        selection={},
+        trust_snapshot={},
+        created_at=before,
+        created_xid=xid,
+    )
+    add(
+        "ops.data_obligation",
+        id="unrelated-obligation",
+        demand_id="retained-demand",
+        operation_id="operation",
+        subject=context["subject"],
+        analyzed_scope={},
+        parameters={},
+        created_at=before,
+        created_xid=xid,
+    )
+    add(
+        "ops.demand_use",
+        id="unrelated-use",
+        demand_id="retained-demand",
+        obligation_id="unrelated-obligation",
+        request_id="retained-request",
+        generation=1,
+        fate="fulfilled",
+        derivation_id="retained-episode",
+        selection={},
+        trust_snapshot={},
+        created_at=before,
+        created_xid=xid,
+    )
+    for position, product_id in enumerate((current_product, foreign_product)):
+        add(
+            "ops.data_derivation_output",
+            derivation_id="retained-episode",
+            role="output",
+            position=position,
+            multiplicity=1,
+            product_id=product_id,
+        )
+    add("ops.data_trust_scope", scope="retained-scope", project_id=project, epoch=0)
+    add(
+        "ops.data_demand_read_scope",
+        read_id="retained-read",
+        scope="retained-scope",
+        epoch=0,
+        ordinary=True,
+        domain=False,
+    )
+    add(
+        "ops.data_demand_read",
+        id="retained-read",
+        demand_id="retained-demand",
+        read_snapshot=snapshot,
+        frontier_at=now,
+        owner_xid=xid,
+        kernel_digest="test-kernel",
+        scope={"product_ids": [current_product, foreign_product]},
+        trust_snapshot={},
+        access_universes=["ordinary"],
+        public_disclosure=False,
+        grade_census_eligible=False,
+        fit_census_eligible=False,
+    )
+    rules = (
+        ("order", "fingerprint:order", "ordered_by", {"paths": ["start"]}),
+        ("dense", "fingerprint:dense", "dense_ordinal", {"path": "start", "start": 0}),
+    )
+
+    def rule_record(rule_id, fingerprint, form, parameters):
+        return {
+            "id": rule_id,
+            "scope": "partition",
+            "collection": "tokens",
+            "checker": "admission",
+            "fingerprint": fingerprint,
+            "form": form,
+            "parameters": parameters,
+            "reads": [
+                {"side": "source", "path": path, "groups": []}
+                for path in (parameters["paths"] if form == "ordered_by" else [parameters["path"]])
+            ],
+        }
+
+    for rule_id, fingerprint, form, parameters in rules:
+        add(
+            "sem.data_rule",
+            rule_id=rule_id,
+            release_id="release",
+            kind_contract="partitioned",
+            fingerprint=fingerprint,
+            specification=rule_record(rule_id, fingerprint, form, parameters),
+        )
+    connection.exec_driver_sql("GRANT USAGE ON SCHEMA ops TO corpus_sem_writer")
+    connection.exec_driver_sql(
+        "REVOKE EXECUTE ON FUNCTION ops.establish_data_rule_proof(jsonb) FROM PUBLIC"
+    )
+    connection.exec_driver_sql(
+        "GRANT EXECUTE ON FUNCTION ops.establish_data_rule_proof(jsonb) TO corpus_sem_writer"
+    )
+
+    def establish(**changes):
+        payload = {
+            "demand_id": "retained-demand",
+            "read_id": "retained-read",
+            "use_id": "retained-use",
+            "derivation_id": "retained-episode",
+            "product_id": current_product,
+            "partition_key": "b",
+            "rule_id": "order",
+            **changes,
+        }
+        with native_owner(connection, "corpus_sem_writer"):
+            return connection.scalar(
+                text("SELECT ops.establish_data_rule_proof(CAST(:payload AS jsonb))"),
+                {"payload": json.dumps(payload)},
+            )
+
+    assert establish() == {"established": 1, "matched": 0}
+    assert establish() == {"established": 0, "matched": 1}
+    assert establish(rule_id="dense") == {"established": 1, "matched": 0}
+    with pytest.raises(DBAPIError, match="requires exact selected use"), connection.begin_nested():
+        establish(use_id="missing-use")
+    with (
+        pytest.raises(DBAPIError, match="requires disclosed selected product"),
+        connection.begin_nested(),
+    ):
+        establish(product_id=foreign_product)
+    with (
+        pytest.raises(DBAPIError, match="does not identify admitted partition"),
+        connection.begin_nested(),
+    ):
+        establish(partition_key="missing-partition")
+
+    # Isolate the retained proof protocol by controlling the new prepared rule metadata.
+    # Release compiler tests separately establish how a parameter edit changes the key.
+    replacement = rule_record(
+        "order", "fingerprint:order-edited", "ordered_by", {"paths": ["start", "end"]}
+    )
+    rule_table = model.tables["sem.data_rule"]
+    connection.execute(
+        rule_table.update()
+        .where(rule_table.c.rule_id == "order")
+        .values(
+            fingerprint=replacement["fingerprint"],
+            specification=replacement,
+        )
+    )
+    assert establish() == {"established": 1, "matched": 0}
+    assert establish(rule_id="dense") == {"established": 0, "matched": 1}
+    proof = model.tables["kb.data_validity"]
+    assert len(connection.execute(proof.select()).all()) == 3
+
+    trust = model.tables["ops.data_trust_scope"]
+    connection.execute(trust.update().values(epoch=1))
+    with pytest.raises(DBAPIError, match="read trust changed"), connection.begin_nested():
+        establish()

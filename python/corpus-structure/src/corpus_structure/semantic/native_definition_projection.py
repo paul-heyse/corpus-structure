@@ -13,6 +13,7 @@ from typing import Any, Literal, NotRequired, TypedDict
 from pydantic import ConfigDict, TypeAdapter, with_config
 
 from .data_operation_partitions import CollectionDeclaration
+from .identity import canonical_bytes
 
 
 @with_config(ConfigDict(extra="forbid"))
@@ -58,11 +59,38 @@ class NativeOperationProjection(TypedDict):
 
 
 @with_config(ConfigDict(extra="forbid"))
+class NativeRuleRead(TypedDict):
+    side: Literal["source", "target"]
+    path: str
+    groups: list[str]
+
+
+@with_config(ConfigDict(extra="forbid"))
+class NativeRuleProjection(TypedDict):
+    id: str
+    kind: str
+    kind_contract: str
+    collection: str | None
+    scope: Literal["partition", "partition-pair", "product"]
+    form: Literal[
+        "unique", "dense_ordinal", "ordered_by", "span_within", "refers_to", "predicate", "attested"
+    ]
+    parameters: dict[str, Any]
+    reads: list[NativeRuleRead]
+    checker: Literal["admission", "producer"]
+    checker_operation: str | None
+    checker_callable: str | None
+    checker_determinant: str
+    fingerprint: str
+
+
+@with_config(ConfigDict(extra="forbid"))
 class NativeDefinitionProjection(TypedDict):
     model_digest: str
     native_digest: str
     kinds: list[NativeKindProjection]
     operations: list[NativeOperationProjection]
+    rules: NotRequired[list[NativeRuleProjection]]
 
 
 _ADAPTER = TypeAdapter(NativeDefinitionProjection)
@@ -96,6 +124,24 @@ def read_native_definition_projection(prepared, *, model=None) -> NativeDefiniti
     projection = _ADAPTER.validate_json(_projection_content(prepared), strict=True)
     if projection["model_digest"] != sha256(model.content).hexdigest():
         raise ValueError("native definition projection belongs to another effective model")
+    if canonical_bytes(projection.get("rules", [])) != canonical_bytes(
+        [rule.record for rule in model.rules]
+    ):
+        raise ValueError("native rule catalog differs from the checked effective model")
+    expected_rules = {
+        (operation.semantic_id, role.name): list(role.required_rules)
+        for operation in model.operations
+        for role in operation.roles
+        if role.direction == "input" and role.required_rules
+    }
+    actual_rules = {
+        (operation["operation_id"], role["name"]): role["required_rules"]
+        for operation in projection["operations"]
+        for role in operation["input_roles"]
+        if role.get("required_rules")
+    }
+    if actual_rules != expected_rules:
+        raise ValueError("native rule requirements differ from the checked effective model")
     kinds = [row["kind_contract"] for row in projection["kinds"]]
     operations = [row["operation_id"] for row in projection["operations"]]
     if len(set(kinds)) != len(kinds) or len(set(operations)) != len(operations):

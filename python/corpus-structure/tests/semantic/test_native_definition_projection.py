@@ -72,6 +72,7 @@ def _captured(**changes):
             }
         ),
         operations=(),
+        rules=(),
         identities=(SimpleNamespace(owner="primitive:string", domain="kind", key="kind:string"),),
         subject_definition=lambda _: SimpleNamespace(identifier_kind="primitive:string"),
     )
@@ -131,6 +132,35 @@ def test_unknown_projection_fields_are_not_silently_discarded():
         read_native_definition_projection(prepared, model=model)
 
 
+def test_native_rule_catalog_cannot_rebind_a_checked_rule():
+    rule = {
+        "id": "bounded-span",
+        "kind": "SpanCollection",
+        "kind_contract": "kind:span-collection",
+        "collection": "blocks",
+        "fingerprint": "rule:expected",
+        "scope": "partition",
+        "form": "span_within",
+        "checker": "admission",
+        "checker_operation": None,
+        "checker_callable": None,
+        "checker_determinant": "native-data-rule-v1:span_within",
+        "parameters": {
+            "start": "start",
+            "end": "end",
+            "limit": "extent",
+            "coordinates": "relative",
+        },
+        "reads": [{"side": "source", "path": "start", "groups": []}],
+    }
+    model, prepared = _captured(rules=[rule])
+    model.rules = (SimpleNamespace(record=rule),)
+    assert read_native_definition_projection(prepared, model=model)["rules"] == [rule]
+    model.rules = (SimpleNamespace(record={**rule, "fingerprint": "rule:other"}),)
+    with pytest.raises(ValueError, match="rule catalog differs"):
+        read_native_definition_projection(prepared, model=model)
+
+
 def test_variant_is_explicit_kind_metadata_not_an_iri_convention():
     from corpus_structure.semantic.native_definition_projection import definition_variant_contract
 
@@ -178,6 +208,8 @@ def test_native_operation_requires_its_exact_checked_subject():
         "subject_definition": "selected-source",
         "recipe": "recipe",
         "profile": "derivation",
+        "validity_families": [],
+        "validity_conservative": False,
         "binding": {},
         "definition": "definition",
         "eligibility": "eligibility",
@@ -192,6 +224,8 @@ def test_native_operation_requires_its_exact_checked_subject():
             semantic_id="inspect",
             subject="selected-source",
             replicate_policy="deterministic-single-result",
+            roles=(),
+            validity=SimpleNamespace(families=(), conservative=False),
         ),
     )
     assert (
@@ -202,7 +236,11 @@ def test_native_operation_requires_its_exact_checked_subject():
     )
     model.operations = (
         SimpleNamespace(
-            semantic_id="inspect", subject="project", replicate_policy="deterministic-single-result"
+            semantic_id="inspect",
+            subject="project",
+            replicate_policy="deterministic-single-result",
+            roles=(),
+            validity=SimpleNamespace(families=(), conservative=False),
         ),
     )
     with pytest.raises(ValueError, match="checked effective model"):
@@ -279,6 +317,8 @@ def test_native_operation_policy_must_be_closed_and_match_checked_model():
         "subject_definition": "selected-source",
         "recipe": "recipe",
         "profile": "derivation",
+        "validity_families": [],
+        "validity_conservative": False,
         "binding": {},
         "definition": "definition",
         "eligibility": "eligibility",
@@ -293,6 +333,8 @@ def test_native_operation_policy_must_be_closed_and_match_checked_model():
             semantic_id="inspect",
             subject="selected-source",
             replicate_policy="retained-observation-single-result",
+            roles=(),
+            validity=SimpleNamespace(families=(), conservative=False),
         ),
     )
     assert (
@@ -308,6 +350,8 @@ def test_native_operation_policy_must_be_closed_and_match_checked_model():
             semantic_id="inspect",
             subject="selected-source",
             replicate_policy="retained-observation-single-result",
+            roles=(),
+            validity=SimpleNamespace(families=(), conservative=False),
         ),
     )
     with pytest.raises(ValueError, match="unsupported native operation replicate policy"):

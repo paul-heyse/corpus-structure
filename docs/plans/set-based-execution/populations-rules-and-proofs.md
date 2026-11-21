@@ -307,6 +307,53 @@ admissible establishment follows its failure policy. Check an existing partition
 requested item and add unrelated protected leaves and uses to expose accidental wider
 acquisition. Count decoded bodies or examined rows only where that settles the intended bound.
 
+**Implementation · 2026-11-21.** The captured release lowers rule records into `sem.data_rule`
+and carries required rule IDs on native input roles. Native publication and retained
+establishment share the evaluator. The retained command binds a particular read, fulfilled use,
+derivation, product and rule before acquiring its premise. The conclusion and attested
+establishment have separate tables. The latter records an exact derivation output and its
+visibility stamp. Publication validates typed attestations against the admitted output and
+current release, and binding checks admissible witnesses within the locked support scope.
+
+The compiler covers native paired references and producer attestations over a whole product or
+partition. The producer attestation builder derives the same premise from a fresh output
+packet. It supports observed fields and explicit source/context pins. Attested checks that
+observe a separate selected input, including producer-attested partition pairs, still need that
+input represented explicitly before adoption in SBX-04. Existing validator families retain their
+receipt path until SBX-04 migrates them. SBX-03 exercises the first real converted producer chain.
+
+**First-population fit · Inspected 2026-11-21.** Unique addresses, dense ordinals, ordering,
+local spans, and exact item membership fit the declared forms. A required nonempty span can
+also use a row predicate. Comparing actual source slices and native pieces, checking a token
+against its referenced sentence's extent, and judging family coverage need explicit premises
+from the converted shapes. SBX-03 checks those cases against the normalized declarations before
+retiring the existing validators. [Sentence validator](../../../python/corpus-structure/src/corpus_structure/semantic/sentence_products.py#L311) ·
+[Canonical membership](../../../python/corpus-structure/src/corpus_structure/semantic/canonical_sentences.py#L150) ·
+[HanLP source inputs](../../../python/corpus-structure/src/corpus_structure/semantic/hanlp_products.py#L55)
+
+**Targeted tests · 2026-11-21.** `uv run ci test` passed all 235 selected compiler, captured
+projection, partition admission, required-rule binding, producer-attestation and legacy validity
+cases (`778e77ca9bc749a8be49bb9beed946c5`). The native controls exercise exact item membership,
+selective re-establishment, cut and role refusal, alternate witnesses, and Python/PostgreSQL
+premise parity. A reused request must satisfy the current demand release's rule fingerprint.
+The earlier selection exposed a stale legacy test setup missing required definition columns
+(`773d810b42b2435680a1bd8dc5238ecb`). The passing selection verifies the repaired fixture.
+`uv run ci check --only types`, `uv run ci check --only lint`, and `just model check` passed
+(`c9fd6b5637584348a534823960106c3e`, `839160d519ad4b50b40eb0630a317a86`, and the generated-model
+check respectively). The selected native fixtures exercise generated PostgreSQL logic with
+controlled support-owner decisions. Whole-book and provider acceptance belong to SBX-22.
+`uv run ci schema check --json` prepared the statistics pack. Its projection analysis reports
+`unassessed` (`projection_analysis_unavailable`).
+
+**Rollback candidate · 2026-11-21.** `uv run ci model change preview` verified the N47
+predecessor (`b2f0548a7904464fb7222091d780ab6c`). `uv run ci model change candidate` passed
+rollback-only authoring (`d1f4a4a8e60e478ea31e4c59b29829c9`) from the development N29 base.
+The comparison accounts for the SBX-01 partition relation and the SBX-02 rule, conclusion and
+establishment relations, native routines and privileges, and effects of the shared wire and
+descriptor changes. `uv run ci model change inspect-candidate` confirmed the N47 predecessor
+and candidate identity. Maintenance readback verified development N29 and stage N47 after
+authoring. SBX-20 owns registration of the integrated Revision A, including subsequent changes.
+
 <a id="sbx-03"></a>
 ## SBX-03 — The first populations
 
