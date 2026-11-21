@@ -1,0 +1,47 @@
+duckdb 2.0.0 pyarrow 26.0.0
+SAME  E1 containment join + ordinal within parent
+SAME  E2 previous-end gap (lag)
+SAME  E3 running sum, rows frame
+SAME  E4 integer range frame
+SAME  E5 gaps-and-islands in two stages
+SAME  E6 first-per-key by filter on a window column
+SAME  E7 nearest preceding (ASOF join)
+SAME  E8 relation except_ keeps multiplicity (bag)
+SAME  O1 UTF-8 byte order: DuckDB default / pyarrow / SQLite BINARY / Python str
+DIFF  O2 order of json.dumps([family, id]) text vs byte order of id  | JSON-text keys escape non-ASCII, so order differs
+DIFF  O3 NULL placement vs Python (x is not None, x)  | DuckDB default gives [0, 1, None]; needs NULLS FIRST
+SAME  I1 to_json == canonical bytes for str/int with fields in sorted order
+SAME  I2 sha256 of that text
+DIFF  I3 float spelling  | DuckDB ['1e-7', '10000000000000000.0', '0.000025'] vs Python ['1e-07', '1e+16', '2.5e-05']
+DIFF  I4 decimal text keeps declared scale  | DuckDB prints 1.500
+DIFF  S1 RE2 \s and \w are ASCII-only  | DuckDB (False, False); pyarrow utf8_is_space=True
+DIFF  S2 levenshtein counts characters  | DuckDB 2 (bytes)
+DIFF  S3 bool_and over empty group == all([])  | DuckDB None
+DIFF  S4 float sum == Python sum  | DuckDB 0.0 vs Python 1.0
+DIFF  S5 dense union imports into DuckDB  | use sparse union or struct+discriminator
+DIFF  X1 extension type survives a DuckDB round trip  | returns string
+DIFF  X2 exact integers held as text sort numerically  | sorted as ['10', '2', '99999999999999999999999']
+nanobind: leaked 61 instances!
+nanobind: leaked 3 keep_alive records!
+nanobind: leaked 7 types!
+ - leaked type "_duckdb._sqltypes.DuckDBPyType"
+ - leaked type "_duckdb.SourceHandle"
+ - leaked type "_duckdb.DuckDBPyConnection"
+ - leaked type "FunctionNullHandling"
+ - leaked type "PythonUDFType"
+ - leaked type "ExplainType"
+ - leaked type "PythonExceptionHandling"
+nanobind: leaked 86 functions!
+ - leaked function "df"
+ - leaked function "type"
+ - leaked function "fetchmany"
+ - leaked function "decimal_type"
+ - leaked function "__repr__"
+ - leaked function "_check_text"
+ - leaked function "_submit"
+ - leaked function "cursor"
+ - leaked function "commit"
+ - leaked function "_name_scope"
+ - ... skipped remainder
+nanobind: this is likely caused by a reference counting issue in the binding code.
+See https://nanobind.readthedocs.io/en/latest/refleaks.html
