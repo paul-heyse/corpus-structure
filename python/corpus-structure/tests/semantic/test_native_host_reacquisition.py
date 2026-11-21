@@ -10,14 +10,17 @@ import pytest
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
 from corpus_structure.semantic import native_host_reacquisition
-from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
+from corpus_structure.semantic.data_operation_runtime import RuntimeBinding, RuntimeBindingError
 from corpus_structure.semantic.file_custody import FileCustodyError
 from corpus_structure.semantic.hanlp_products import hanlp_execution_custody
 from corpus_structure.semantic.sentence_products import sentence_execution_custody
 from corpus_structure.semantic.types import PreparedRelease, SourceArtifact
 
 
-def test_reacquires_both_admitted_profiles_with_one_installation_observation(monkeypatch, tmp_path):
+@pytest.mark.parametrize("mixed_environment", [False, True])
+def test_reacquires_both_admitted_profiles_with_one_installation_observation(
+    monkeypatch, tmp_path, mixed_environment
+):
     config = SentenceConfig()
     original = {"lock_sha256": "before"}
     tokenizer = tmp_path / "tokenizer"
@@ -92,6 +95,16 @@ def test_reacquires_both_admitted_profiles_with_one_installation_observation(mon
 
     monkeypatch.setattr(native_host_reacquisition, "preflight_pm2_residents", preflight)
     monkeypatch.setattr(native_host_reacquisition, "prepare_data_operation_runtime", prepare)
+    if mixed_environment:
+        monkeypatch.setattr(
+            NativeSelection, "project", property(lambda selection: tmp_path / selection.provider)
+        )
+        with pytest.raises(RuntimeBindingError, match="require one project"):
+            native_host_reacquisition.reacquire_shared_host_runtime(
+                cast(PreparedRelease, object()), prior
+            )
+        assert observed == []
+        return
     assert (
         native_host_reacquisition.reacquire_shared_host_runtime(
             cast(PreparedRelease, object()), prior

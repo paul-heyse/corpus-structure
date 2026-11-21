@@ -24,7 +24,7 @@ from corpus_structure.core.process_lifetime import _live_group, physical_retirem
 from corpus_structure.core.work import PhysicalRetirementUncertain
 from corpus_structure.ingest.pdf_capacity import suspend_resident_nemotron
 
-from .native_profiles import NativeSelection, startup_profile_mismatches
+from .native_profiles import NativeSelection, shared_host_environment, startup_profile_mismatches
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused, _finite_float, _json_object
 
 
@@ -531,6 +531,11 @@ class NativeHostGroup:
                         "native frozen profile differs from shared host thread policy"
                     )
                 proposed[key] = selection
+            if proposed:
+                try:
+                    shared_host_environment(proposed.values())
+                except ValueError as error:
+                    raise Pm2WorkerRefused(str(error)) from error
             caches = {}
             for selection in proposed.values():
                 if selection.provider in {"d1", "hanlp", "maverick", "dipo"}:

@@ -29,7 +29,7 @@ from corpus_structure.semantic.data_operation_prepared_products import PreparedP
 from corpus_structure.semantic.identity import canonical_bytes
 
 
-@pytest.mark.parametrize("stale", [None, "spacy", "hanlp"])
+@pytest.mark.parametrize("stale", [None, "spacy", "hanlp", "different-host"])
 def test_selected_host_population_is_prepared_before_declaration(monkeypatch, tmp_path, stale):
     def resident(provider, artifacts, backend):
         return NativeSelection(
@@ -55,6 +55,10 @@ def test_selected_host_population_is_prepared_before_declaration(monkeypatch, tm
         return {"distributions_sha256": "current"}
 
     monkeypatch.setattr(f"{preflight_pm2_residents.__module__}.preflight_pm2_residents", preflight)
+    if stale == "different-host":
+        monkeypatch.setattr(
+            NativeSelection, "project", property(lambda selection: tmp_path / selection.provider)
+        )
     policy = SimpleNamespace(provider_threads=4, provider_interop_threads=1)
     native_hosts = NativeHostGroup(policy)
     context = SimpleNamespace(model=SimpleNamespace(operation=lambda operation: None))
@@ -74,6 +78,13 @@ def test_selected_host_population_is_prepared_before_declaration(monkeypatch, tm
         running.prepare_target_hosts(("sentence",))
         running.prepare_target_hosts(("parse",))
         assert set(native_hosts.declared_selections) == set(selections.values())
+    elif stale == "different-host":
+        with pytest.raises(PreparedProductRefusal, match="require one project") as refusal:
+            running.prepare_target_hosts(("sentence",))
+        assert refusal.value.diagnostic.prerequisite == "shared-host-environment"
+        assert not native_hosts.declared_selections
+        assert preflight_calls == []
+        return
     else:
         with pytest.raises(PreparedProductRefusal) as refusal:
             running.prepare_target_hosts(("sentence",))

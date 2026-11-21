@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, fields
 from hashlib import sha256
 from pathlib import Path
@@ -453,6 +453,22 @@ class NativeSelection:
                 for path, digest in native_asset_files(self.native.wire, assets)
             ),
         )
+
+
+def shared_host_environment(selections: Iterable[NativeSelection]) -> tuple[Path, Path, Path]:
+    """Return the single environment that can serve an admitted resident population."""
+    groups: dict[tuple[Path, Path, Path], list[str]] = {}
+    for selection in selections:
+        group = (selection.project, selection.python, selection.script)
+        groups.setdefault(group, []).append(selection.provider)
+    if len(groups) != 1:
+        bindings = " | ".join(
+            f"{', '.join(sorted(providers))}: {python} ({project}, {script})"
+            for (project, python, script), providers in groups.items()
+        )
+        diagnostic = "shared host residents require one project, interpreter and worker script"
+        raise ValueError(f"{diagnostic}: {bindings}" if bindings else diagnostic)
+    return next(iter(groups))
 
 
 def native_asset_files(profile, root):

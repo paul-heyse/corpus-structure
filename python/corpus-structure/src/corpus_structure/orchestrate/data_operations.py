@@ -465,14 +465,15 @@ class _RunExecution:
 
     def declare_operations(self, operations, context):
         """Declare frozen native profiles before the shared host starts serving."""
-        from corpus_structure.methods.pm2_worker import Pm2WorkerRefused, preflight_pm2_residents
+        from corpus_structure.methods.native_profiles import shared_host_environment
+        from corpus_structure.methods.pm2_worker import preflight_pm2_residents
         from corpus_structure.semantic.data_operation_prepared_products import (
             PreparedProductDiagnostic,
             PreparedProductRefusal,
         )
 
         ports = []
-        residents = {}
+        residents = []
         for operation in operations:
             selected = context.model.operation(operation)
             if (
@@ -481,59 +482,61 @@ class _RunExecution:
             ):
                 port = self.executor._port(operation, context)
                 ports.append(port)
-                for selection in port.native_selections:
-                    residents.setdefault(
-                        (selection.project, selection.python, selection.script), {}
-                    ).setdefault(selection.identity, (operation, selection))
-        for (project, python, script), population in residents.items():
-            pending = [
-                (operation, selection)
-                for key, (operation, selection) in population.items()
-                if key not in self._prepared_residents
-            ]
-            if not pending:
-                continue
-            providers = tuple(dict.fromkeys(selection.provider for _, selection in pending))
-            try:
-                observation = preflight_pm2_residents(
+                residents.extend((operation, selection) for selection in port.native_selections)
+        if not residents:
+            return tuple(ports)
+        population = {}
+        for operation, selection in residents:
+            population.setdefault(selection.identity, (operation, selection))
+        pending = [
+            (operation, selection)
+            for key, (operation, selection) in population.items()
+            if key not in self._prepared_residents
+        ]
+        providers = tuple(dict.fromkeys(selection.provider for _, selection in pending))
+        try:
+            project, python, script = shared_host_environment(
+                selection for _, selection in residents
+            )
+            observation = (
+                preflight_pm2_residents(
                     python=python, script=script, project=project, providers=providers
                 )
-            except Pm2WorkerRefused as error:
+                if pending
+                else {}
+            )
+        except ValueError as error:
+            raise PreparedProductRefusal(
+                str(error),
+                PreparedProductDiagnostic(
+                    ", ".join(dict.fromkeys(selection.provider for _, selection in residents)),
+                    None,
+                    None,
+                    "shared-host-environment",
+                ),
+            ) from error
+        for operation, selection in pending:
+            expected = selection.native.runtime_identity
+            if observation != expected:
+                changed = tuple(
+                    key
+                    for key in sorted(expected.keys() | observation.keys())
+                    if expected.get(key) != observation.get(key)
+                )
+                field = changed[0]
                 raise PreparedProductRefusal(
-                    str(error),
+                    f"{operation}: {selection.provider} shared host runtime changed in "
+                    f"{', '.join(changed)}; reacquire the selected release runtime",
                     PreparedProductDiagnostic(
-                        ", ".join(providers), None, None, "shared-host-environment"
+                        f"{selection.provider}.{field}",
+                        str(expected.get(field)),
+                        str(observation.get(field)),
+                        "shared-host-runtime",
                     ),
-                ) from error
-            for operation, selection in pending:
-                expected = selection.native.runtime_identity
-                if observation != expected:
-                    changed = tuple(
-                        key
-                        for key in sorted(expected.keys() | observation.keys())
-                        if expected.get(key) != observation.get(key)
-                    )
-                    field = changed[0]
-                    raise PreparedProductRefusal(
-                        f"{operation}: {selection.provider} shared host runtime changed in "
-                        f"{', '.join(changed)}; reacquire the selected release runtime",
-                        PreparedProductDiagnostic(
-                            f"{selection.provider}.{field}",
-                            str(expected.get(field)),
-                            str(observation.get(field)),
-                            "shared-host-runtime",
-                        ),
-                    )
-                selection.declaration()
-        if residents:
-            self.native_hosts.declare(
-                selection
-                for population in residents.values()
-                for _, selection in population.values()
-            )
-            self._prepared_residents.update(
-                key for population in residents.values() for key in population
-            )
+                )
+            selection.declaration()
+        self.native_hosts.declare(selection for _, selection in population.values())
+        self._prepared_residents.update(population)
         return tuple(ports)
 
     def prepare_target_hosts(self, operations):

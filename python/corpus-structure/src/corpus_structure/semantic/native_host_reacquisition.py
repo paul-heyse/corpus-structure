@@ -6,7 +6,11 @@ import json
 from dataclasses import replace
 from pathlib import Path
 
-from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+from corpus_structure.methods.native_profiles import (
+    NativeProfile,
+    NativeSelection,
+    shared_host_environment,
+)
 from corpus_structure.methods.pm2_worker import preflight_pm2_residents
 
 from .data_operation_runtime import (
@@ -47,12 +51,16 @@ def reacquire_shared_host_runtime(
         residents[name] = (NativeSelection(native, Path(selected["assets"])), contract)
     if not residents:
         raise RuntimeBindingError("the release runtime has no admitted shared-host profiles")
-    first = next(iter(residents.values()))[0]
-    providers = tuple(sorted({selection.provider for selection, _ in residents.values()}))
+    selections = tuple(selection for selection, _ in residents.values())
+    try:
+        project, python, script = shared_host_environment(selections)
+    except ValueError as error:
+        raise RuntimeBindingError(str(error)) from error
+    providers = tuple(sorted({selection.provider for selection in selections}))
     if set(providers) - {"spacy", "hanlp"}:
         raise RuntimeBindingError("an admitted shared-host profile has no reacquisition owner")
     actual = preflight_pm2_residents(
-        python=first.python, script=first.script, project=first.project, providers=providers
+        python=python, script=script, project=project, providers=providers
     )
     changed = []
     for name, (selected, contract) in residents.items():
