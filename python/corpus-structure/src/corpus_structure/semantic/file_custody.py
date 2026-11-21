@@ -77,18 +77,19 @@ class FileCustody:
         return record
 
 
-_records: dict[tuple[Path, str], FileCustody] = {}
+_records: dict[Path, dict[str, FileCustody]] = {}
 _lock = RLock()
 
 
 def verified_file(path: Path, expected: str) -> FileCustody:
     """Authenticate once per process/path/digest and check its mutable premises."""
-    key = Path(path), expected
+    path = Path(path)
     with _lock:
-        record = _records.get(key)
+        records = _records.get(path)
+        record = records.get(expected) if records is not None else None
         if record is None:
-            record = FileCustody.acquire(*key)
-            _records[key] = record
+            record = FileCustody.acquire(path, expected)
+            _records.setdefault(path, {})[expected] = record
         else:
             record.check()
         return record
@@ -117,7 +118,7 @@ def verify_file_derivation(
 
 def custody_counts() -> tuple[int, int]:
     with _lock:
-        return len(_records), len(_verified_derivations)
+        return sum(map(len, _records.values())), len(_verified_derivations)
 
 
 def observed_file(path: Path) -> FileCustody:
@@ -126,9 +127,8 @@ def observed_file(path: Path) -> FileCustody:
     with _lock:
         record = _observed.get(path)
         if record is None:
-            known = next(
-                (record for (known_path, _), record in _records.items() if known_path == path), None
-            )
+            records = _records.get(path)
+            known = next(iter(records.values()), None) if records is not None else None
             if known is not None:
                 known.check()
                 _observed[path] = known
@@ -141,7 +141,7 @@ def observed_file(path: Path) -> FileCustody:
                 raise FileCustodyError(f"file changed during runtime acquisition: {path}")
             record = FileCustody(path, digest, after, time_ns() - max(after[3:]) <= _RACY_WINDOW_NS)
             _observed[path] = record
-            _records[path, record.digest] = record
+            _records.setdefault(path, {})[record.digest] = record
         else:
             record.check()
         return record
@@ -156,10 +156,11 @@ def accept_file_receipt(receipt, *, path: Path, expected: str) -> FileCustody:
         prior = _observed.get(path)
         if prior is not None and prior.digest != expected:
             raise FileCustodyError("file already has another runtime observation; restart required")
-        record = _records.get((path, expected))
+        records = _records.get(path)
+        record = records.get(expected) if records is not None else None
         if record is None:
             record = FileCustody.accept(receipt)
-            _records[path, expected] = record
+            _records.setdefault(path, {})[expected] = record
         else:
             record.check()
         if prior is not None:

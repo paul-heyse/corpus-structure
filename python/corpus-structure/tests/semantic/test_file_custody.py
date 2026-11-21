@@ -194,7 +194,7 @@ def test_pdf_model_handoff_reuses_parent_and_checks_after_load(acquired, monkeyp
 
     path, record = acquired
     prepared = PreparedPdfAssets(path.parent, b"manifest", ((path.name, record.digest),))
-    monkeypatch.setattr(file_custody, "_records", {(path, record.digest): record})
+    monkeypatch.setattr(file_custody, "_records", {path: {record.digest: record}})
     child = prepared.with_custody()
     monkeypatch.setattr(file_custody, "_records", {})
     original = type(path).open
@@ -236,6 +236,19 @@ def test_parent_receipt_primes_observation_without_scanning_all_digests(acquired
     replacement.replace(path)
     with pytest.raises(FileCustodyError, match="restart"):
         file_custody.observed_file(path)
+
+
+def test_verified_population_reuses_custody_per_path_without_scanning(acquired, monkeypatch):
+    path, record = acquired
+
+    class NoScan(dict):
+        def items(self):
+            pytest.fail("observing one path scanned the entire acquired inventory")
+
+    monkeypatch.setattr(file_custody, "_records", NoScan({path: {record.digest: record}}))
+    monkeypatch.setattr(file_custody, "_observed", {})
+    assert file_custody.observed_file(path) is record
+    assert file_custody.verified_file(path, record.digest) is record
 
 
 def test_parent_receipt_does_not_replace_an_earlier_runtime_observation(acquired, monkeypatch):
