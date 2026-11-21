@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Domain Model Operability after N46](domain-model-operability-after-n46_2026-11-21.md).
+  Recommends original spool location recovery, model-owned producer profiles, coordinated
+  admission, early installed-path verification and a bounded Standard cutover.
+
 - [Domain Model Operability after the N44 execution slices](domain-model-operability-execution-followup_2026-11-21.md).
   Proposes parent-side Standard reuse, captured support interpretation, contract-specific rollout,
   owner-supplied recovery actions, and qualification by claim.
