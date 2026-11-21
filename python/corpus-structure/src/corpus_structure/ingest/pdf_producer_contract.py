@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import _imp
 import json
-import marshal
 import sys
 import sysconfig
+from collections import namedtuple
 from contextlib import contextmanager
 from dataclasses import dataclass, fields, is_dataclass, make_dataclass
 from functools import lru_cache
@@ -38,12 +38,10 @@ STANDARD_MODULES = (
 PROFILE = "standard-pdf-producer-files-v1"
 
 
-def _code_digest(code):
-    return sha256(marshal.dumps(code.replace(
-        co_filename="", co_consts=tuple(
-            _normalized(value) if isinstance(value, CodeType) else value for value in code.co_consts
-        )
-    ))).hexdigest()
+def _code_key(code):
+    # CodeType equality compares constants structurally. marshal byte layout can
+    # differ for equal code loaded from pyc versus freshly compiled source.
+    return _normalized(code)
 
 
 def _normalized(code):
@@ -53,7 +51,7 @@ def _normalized(code):
 
 
 def _code_tree(code):
-    yield _code_digest(code)
+    yield _code_key(code)
     for value in code.co_consts:
         if isinstance(value, CodeType):
             yield from _code_tree(value)
@@ -74,7 +72,9 @@ def _generated_dataclass_codes(module):
     for cls in tuple(vars(module).values()):
         if not isinstance(cls, type) or cls.__module__ != module.__name__ or not is_dataclass(cls):
             continue
-        params = getattr(cls, "__dataclass_params__")
+        params = vars(cls).get("__dataclass_params__")
+        if params is None:
+            continue
         clone = make_dataclass(cls.__name__, [(item.name, item.type, item) for item in fields(cls)],
             init=params.init, repr=params.repr, eq=params.eq, order=params.order,
             unsafe_hash=params.unsafe_hash, frozen=params.frozen)
@@ -121,7 +121,7 @@ def standard_pdf_contract() -> StandardPdfContract:
         (str(root / (name + ".py")), observed_file(root / (name + ".py")).digest)
         for name in STANDARD_MODULES
     )
-    pending = list((*PDF_PACKAGE_FAMILY, "pyarrow", "sqlalchemy", "jsonschema", "referencing"))
+    pending = list((*PDF_PACKAGE_FAMILY, "pyarrow", "cloudpickle", "wcwidth", "nvidia-ml-py", "sqlalchemy", "jsonschema", "referencing"))
     selected = {}
     files = {}
     while pending:
@@ -215,21 +215,47 @@ def standard_pdf_execution(contract: StandardPdfContract):
     root = Path(__file__).resolve().parents[1]
     stdlib = Path(sysconfig.get_path("stdlib")).resolve()
     purelib = Path(sysconfig.get_path("purelib")).resolve()
-    codes: dict[str | tuple[str, str], frozenset[str]] = {}
+    codes: dict[str | tuple[str, str], frozenset[CodeType]] = {}
     dependency_paths = set(expected) - set(first_party)
+    generated: set[CodeType] = set()
 
     def observe(code, *_):
         filename = code.co_filename
         if filename.startswith("<frozen ") and filename.endswith(">"):
             name = filename[len("<frozen "):-1]
-            if _imp.is_frozen(name) and _code_digest(code) in frozenset(_code_tree(_imp.get_frozen_object(name))):
-                return sys.monitoring.DISABLE
+            module = sys.modules.get(name)
+            spec = getattr(module, "__spec__", None)
+            frozen_name = getattr(spec, "name", name)
+            key = ("frozen", frozen_name)
+            if _imp.is_frozen(frozen_name):
+                if key not in codes:
+                    codes[key] = frozenset(_code_tree(_imp.get_frozen_object(frozen_name)))
+                if _code_key(code) in codes[key]:
+                    return sys.monitoring.DISABLE
             raise ValueError("Standard PDF loaded code differs from its frozen runtime")
         if filename.startswith("<"):
             # External libraries have deterministic generated validators/serializers.
             # Their factory population remains admitted installed dependency code.
             frame = sys._getframe(1)
+            if _code_key(code) in generated:
+                return sys.monitoring.DISABLE
+            factory = frame.f_back
+            factory_origin = factory.f_globals.get("__file__") if factory is not None else None
+            if code.co_name == "<module>" and factory_origin and str(Path(factory_origin).resolve()) in dependency_paths:
+                # Observe code creation while its authenticated factory is on stack,
+                # rather than accepting an unrooted generated function on later use.
+                generated.update(_code_tree(code))
+                return sys.monitoring.DISABLE
             origin = frame.f_globals.get("__file__")
+            cls = frame.f_locals.get("_cls")
+            names = getattr(cls, "_fields", None)
+            if isinstance(cls, type) and isinstance(names, tuple):
+                module = sys.modules.get(cls.__module__)
+                module_origin = getattr(module, "__file__", None)
+                if (module_origin and str(Path(module_origin).resolve()) in dependency_paths
+                    and frame.f_globals.get("_tuple_new") is tuple.__new__
+                    and _code_key(code) == _code_key(namedtuple(cls.__name__, names).__new__.__code__)):
+                    return sys.monitoring.DISABLE
             if origin and (str(Path(origin).resolve()) in dependency_paths or (Path(origin).resolve().is_relative_to(stdlib) and not Path(origin).resolve().is_relative_to(purelib))):
                 return sys.monitoring.DISABLE
             if origin and str(Path(origin).resolve()) in first_party:
@@ -239,7 +265,7 @@ def standard_pdf_execution(contract: StandardPdfContract):
                 if module is not None:
                     if key not in codes:
                         codes[key] = frozenset(_generated_dataclass_codes(module))
-                    if _code_digest(code) in codes[key]:
+                    if _code_key(code) in codes[key]:
                         return sys.monitoring.DISABLE
             raise ValueError("Standard PDF cannot admit generated code outside its dependencies")
         path = Path(filename).resolve()
@@ -249,7 +275,7 @@ def standard_pdf_execution(contract: StandardPdfContract):
                 raise ValueError("Standard PDF called an undeclared first-party helper: " + key)
             if key not in codes:
                 codes[key] = frozenset(_code_tree(compile(path.read_bytes(), key, "exec", dont_inherit=True)))
-            if _code_digest(code) not in codes[key]:
+            if _code_key(code) not in codes[key]:
                 raise ValueError("Standard PDF loaded code differs from captured source: " + key)
         elif path.is_relative_to(purelib):
             key = str(path)
@@ -258,7 +284,7 @@ def standard_pdf_execution(contract: StandardPdfContract):
             if path.suffix == ".py":
                 if key not in codes:
                     codes[key] = frozenset(_code_tree(compile(path.read_bytes(), key, "exec", dont_inherit=True)))
-                if _code_digest(code) not in codes[key]:
+                if _code_key(code) not in codes[key]:
                     raise ValueError("Standard PDF dependency code differs from captured source: " + key)
         elif str(path) not in expected:
             raise ValueError("Standard PDF called code outside its installed runtime: " + str(path))

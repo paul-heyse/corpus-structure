@@ -1,8 +1,11 @@
 """Selected producer custody, including preloaded calls and parent handoff."""
 
+import collections
+import importlib
 import json
 import sys
 import sysconfig
+from importlib.metadata._collections import Pair
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -38,6 +41,10 @@ def test_closed_population_accepts_source_and_refuses_preloaded_unselected_call(
     with producer.standard_pdf_execution(contract):
         assert canonical_bytes({"selected": True}) == b'{"selected":true}'
         assert PdfReplayRef(Path("unopened"), "a" * 64, 0, "test").family == "test"
+        assert importlib.import_module("json") is json
+        generated = collections.namedtuple("SelectedControl", "value")
+        assert generated(3).value == 3
+        assert Pair("name", "value").name == "name"
     with pytest.raises(ValueError, match="undeclared first-party helper"), producer.standard_pdf_execution(contract):
         canonical_native_options({})
 
@@ -94,3 +101,16 @@ def test_handoff_rejects_invented_or_missing_file_population():
     changed[0] = (changed[0][0], "0" * 64, *changed[0][2:])
     with pytest.raises(ValueError, match="admitted manifest"):
         producer.accept_standard_pdf_custody(content, tuple(changed))
+
+
+def test_generic_sources_do_not_acquire_selected_recognition_population(monkeypatch):
+    from corpus_structure.semantic.pdf_capture import standard_producer_from_sources
+
+    def forbidden():
+        pytest.fail("generic PDF sources acquired the selected recognition population")
+
+    monkeypatch.setattr(producer, "standard_pdf_contract", forbidden)
+    assert standard_producer_from_sources(SimpleNamespace(boundary_contracts=())) is None
+    assert standard_producer_from_sources(SimpleNamespace(boundary_contracts=(SimpleNamespace(
+        name="pdf-capture/profile-assets", content=b'{"version":"native-pdf-capture-v1"}'
+    ),))) is None

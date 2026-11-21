@@ -51,13 +51,12 @@ def pdf_capture_inputs(bundle):
     )
 
 
-def pdf_capture_assets(recipe):
+def pdf_capture_assets(recipe, *, standard_producer=None):
     from corpus_structure.ingest.pdf import pdf_package_versions
-    from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
 
     from .pdf_lowering import lowering_code_complete
 
-    standard = standard_pdf_contract() if recipe.recipe_id == "docling-standard-pdf-stream-v1" else None
+    standard = standard_producer
     if standard is not None:
         standard.check()
 
@@ -72,7 +71,7 @@ def pdf_capture_assets(recipe):
                 "standard_producer": json.loads(standard.content) if standard is not None else None,
             }
         ),
-        reuse_eligible=standard is not None or lowering_code_complete(),
+        reuse_eligible=(bool(recipe.model_artifacts) and bool(recipe.model_revisions)) if standard is not None else lowering_code_complete(),
     )
 
 
@@ -86,9 +85,13 @@ def standard_producer_from_sources(capture_sources):
     from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
 
     candidates = [item for item in capture_sources.boundary_contracts if item.name == "pdf-capture/profile-assets"]
+    if not candidates:
+        return None
     if len(candidates) != 1:
         raise ValueError("Standard capture has no unique selected producer declaration")
     declared = json.loads(candidates[0].content).get("standard_producer")
+    if declared is None:
+        return None
     producer = standard_pdf_contract()
     producer.check()
     if declared != json.loads(producer.content):
@@ -146,15 +149,15 @@ def pdf_capture_custody(
 
 
 def pdf_capture_operation_sources(
-    recipe, assets, *, directory, nemotron_endpoint=None, require_nemotron_handoff=False
+    recipe, assets, *, directory, nemotron_endpoint=None, require_nemotron_handoff=False,
+    standard_producer=None,
 ):
-    from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
-
     from .pdf_domain import pdf_helper_asset
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     if recipe.recipe_id != "docling-standard-pdf-stream-v1":
         raise ValueError("declared PDF capture requires the admitted owned stream recipe")
+    assets.verify()
     path = Path(__file__).parents[1] / "ingest/pdf_capture.py"
     effect = Path(__file__).with_name("data_operation_pdf_effect.py")
     contract = Path(__file__).with_name("data_operation_effects.py")
@@ -183,8 +186,8 @@ def pdf_capture_operation_sources(
             ),
         ),
         boundary_contracts=(
-            pdf_helper_asset(standard_producer=standard_pdf_contract()),
-            pdf_capture_assets(recipe),
+            pdf_helper_asset(standard_producer=standard_producer),
+            pdf_capture_assets(recipe, standard_producer=standard_producer),
             pdf_capture_custody(
                 recipe,
                 assets,
@@ -386,7 +389,7 @@ class PreparedPdfCapturePort:
             self.operation,
             self.sources,
             self.custody,
-            assets=(pdf_capture_assets(self.profile.recipe), acquired),
+            assets=(pdf_capture_assets(self.profile.recipe, standard_producer=standard_producer_from_sources(self.sources)), acquired),
             functions=(
                 (self.operation.callable_surfaces[0].declaration, PdfCaptureOperation.run),
                 ("corpus_structure.semantic.pdf_capture.execute_pdf_capture", execute_pdf_capture),

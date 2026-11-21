@@ -61,6 +61,11 @@ def _native_child(
     # structured output. Redirect the descriptor so prebound logging handlers and
     # native FD writes retain their diagnostics on stderr as well.
     os.dup2(2, 1)
+    # The selected producer has no ambient Pydantic plugin capability. The
+    # library checks this setting before either discovery or cached plugin use.
+    os.environ["PYDANTIC_DISABLE_PLUGINS"] = "__all__"
+    os.environ["HF_HUB_OFFLINE"] = "1"
+    os.environ["TRANSFORMERS_OFFLINE"] = "1"
     if writer_lease is not None:
         # Do not close this raw descriptor in request/finally cleanup. Docling
         # may have abandoned a model thread; only OS death ends its writer lease.
@@ -91,16 +96,22 @@ def _native_child(
                     )
 
                     if request.producer_contract is None:
-                        raise PdfWorkerError("PDF streaming requires captured producer custody")
-                    accept_standard_pdf_custody(request.producer_contract, request.producer_custody)
-
-                    contract = standard_pdf_contract()
-                    if request.producer_contract != contract.content:
-                        raise PdfWorkerError("PDF child selected producer differs from parent capture")
-                    with standard_pdf_execution(contract):
+                        # Generic v2 remains demand-scoped. Explicit v3 selection can
+                        # never fall back here after a custody or admission refusal.
                         result = run_pdf_stream(
                             request, StreamingPdfProducer(recipe, assets=assets), on_replay=acknowledged
                         )
+                    else:
+                        if assets is None or not recipe.model_artifacts or not recipe.model_revisions:
+                            raise PdfWorkerError("selected PDF producer requires its exact offline model population")
+                        accept_standard_pdf_custody(request.producer_contract, request.producer_custody)
+                        contract = standard_pdf_contract()
+                        if request.producer_contract != contract.content:
+                            raise PdfWorkerError("PDF child selected producer differs from parent capture")
+                        with standard_pdf_execution(contract):
+                            result = run_pdf_stream(
+                                request, StreamingPdfProducer(recipe, assets=assets), on_replay=acknowledged
+                            )
                 elif isinstance(request, PdfEnrichmentRequest):
                     result = compute_enrichment(request, converter)
                 else:
