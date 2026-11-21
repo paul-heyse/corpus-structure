@@ -73,7 +73,10 @@ def test_integer_wire_boundary_rejects_fraction_before_approximate_projection():
     )
     with pytest.raises(ValueError, match="schema"):
         validate(native_json_loads('{"count":1.00000000000000000000001}'))
-    assert validate(native_json_loads('{"count":1.0}')) == {"count": 1}
+    whole = validate(native_json_loads('{"count":1.0}'))["count"]
+    assert type(whole) is int and whole == 1
+    large = validate(native_json_loads('{"count":9007199254740993.0}'))["count"]
+    assert type(large) is int and large == 9007199254740993
 
 
 @pytest.mark.parametrize(

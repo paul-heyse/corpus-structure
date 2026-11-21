@@ -619,7 +619,7 @@ def _validate_wire_value(validator: PreparedSchemaValidator, value: Any) -> Any:
     except ValidationError as exc:
         path = "/".join(str(part) for part in exc.absolute_path) or "<root>"
         raise ValueError("native wire violates schema at " + path + ": " + exc.message) from exc
-    return own_wire_json_value(checked)
+    return own_wire_json_value(checked, preserve_integral_tokens=True)
 
 
 def validate_native_wire(

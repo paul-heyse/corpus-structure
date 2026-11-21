@@ -2,12 +2,16 @@
 
 import json
 from dataclasses import replace
+from hashlib import sha256
 from typing import cast
+
+import pytest
 
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
 from corpus_structure.semantic import native_host_reacquisition
 from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
+from corpus_structure.semantic.file_custody import FileCustodyError
 from corpus_structure.semantic.hanlp_products import hanlp_execution_custody
 from corpus_structure.semantic.sentence_products import sentence_execution_custody
 from corpus_structure.semantic.types import PreparedRelease, SourceArtifact
@@ -16,6 +20,8 @@ from corpus_structure.semantic.types import PreparedRelease, SourceArtifact
 def test_reacquires_both_admitted_profiles_with_one_installation_observation(monkeypatch, tmp_path):
     config = SentenceConfig()
     original = {"lock_sha256": "before"}
+    tokenizer = tmp_path / "tokenizer"
+    tokenizer.write_bytes(b"verified tokenizer")
 
     def selected(provider, artifacts, parameters, backend):
         return NativeSelection(
@@ -26,7 +32,12 @@ def test_reacquires_both_admitted_profiles_with_one_installation_observation(mon
     artifacts = (
         sentence_execution_custody(
             config,
-            selection=selected("spacy", {"files": {}}, config.model_dump(mode="json"), "cupy"),
+            selection=selected(
+                "spacy",
+                {"files": {"tokenizer": sha256(tokenizer.read_bytes()).hexdigest()}},
+                config.model_dump(mode="json"),
+                "cupy",
+            ),
         ),
         hanlp_execution_custody(selected("hanlp", {}, {}, "sdpa")),
     )
@@ -88,3 +99,10 @@ def test_reacquires_both_admitted_profiles_with_one_installation_observation(mon
         == refreshed
     )
     assert observed == [("hanlp", "spacy")]
+
+    current = original
+    tokenizer.write_bytes(b"changed tokenizer")
+    with pytest.raises(FileCustodyError, match="tokenizer"):
+        native_host_reacquisition.reacquire_shared_host_runtime(
+            cast(PreparedRelease, object()), prior
+        )

@@ -57,6 +57,7 @@ def reacquire_shared_host_runtime(
     changed = []
     for name, (selected, contract) in residents.items():
         if selected.native.runtime_identity == actual:
+            selected.declaration()
             continue
         native = NativeProfile.from_content(
             canonical_bytes({**selected.native.wire, "runtime_identity": actual})

@@ -1985,9 +1985,8 @@ class NativeDemandExecutor:
                         recovery = reconcile or self._has_draft_path(ready)
                         claimed = isinstance(first, _ClaimedReady)
                         item_limit = self.policy.max_claims if batch else 1
-                        if not claimed and operation is not None:
-                            self._physical.prepare_target_hosts((ready.operation,))
                         if not recovery and not claimed and operation is not None:
+                            self._physical.prepare_target_hosts((ready.operation,))
                             if operation.external is None:
                                 self._physical.select_operations((ready.operation,), context)
                             if batch:

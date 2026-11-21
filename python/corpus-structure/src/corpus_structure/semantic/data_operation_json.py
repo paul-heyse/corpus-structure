@@ -152,7 +152,7 @@ def wire_json_loads(content: str | bytes) -> Any:
     return own_wire_json_value(native_json_loads(content))
 
 
-def own_wire_json_value(value: Any) -> Any:
+def own_wire_json_value(value: Any, *, preserve_integral_tokens: bool = False) -> Any:
     """Detach strict JSON values and keep existing native contextual number meaning."""
 
     def project(value, *, scope=False):
@@ -166,7 +166,11 @@ def own_wire_json_value(value: Any) -> Any:
         if type(value) is list:
             return [project(item, scope=scope) for item in value]
         if type(value) is Decimal and value.is_finite():
-            return value if scope else _json_float(str(value))
+            if scope:
+                return value
+            if preserve_integral_tokens:
+                return _own_finite_json(value, project_numbers=True)
+            return _json_float(str(value))
         if type(value) is float and math.isfinite(value):
             return Decimal(str(value)) if scope else value
         return _own_finite_json(value)
