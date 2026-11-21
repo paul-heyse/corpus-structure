@@ -172,13 +172,13 @@ def test_consuming_family_is_checked_under_current_request(infrastructure_rollba
         "CREATE TABLE ops.data_request(id text,release_id text,operation_id text,project_id text,recipe text,request_key text,binding jsonb)",
         "CREATE TABLE ops.data_derivation(id text,intent_id text)",
         "CREATE TABLE ops.data_completion_intent(id text,payload jsonb)",
-        "INSERT INTO ops.data_request VALUES('original','old','operation','project','same-recipe','same-key','{}'),('consumer','new','operation','project','same-recipe','same-key','{}')",
+        "INSERT INTO ops.data_request VALUES('original','old','operation','project','same-recipe','same-key','{}'),('consumer','new','operation','project','same-recipe','same-key','{}'),('unchanged','same','operation','project','same-recipe','same-key','{}')",
         "INSERT INTO ops.data_derivation VALUES('episode','intent')",
         "INSERT INTO ops.data_completion_intent VALUES('intent','{\"outputs\":[\"retained\"]}')",
         "CREATE FUNCTION ops.ddo_require_episode_correspondence(ops.data_derivation,ops.data_completion_intent) RETURNS ops.data_request LANGUAGE sql AS $$ SELECT r FROM ops.data_request r WHERE id='original' $$",
-        "CREATE FUNCTION ops.ddo_current_validation_identities(text,text) RETURNS jsonb LANGUAGE sql AS $$ SELECT CASE WHEN $1='new' THEN '{\"artifact\":\"a\"}'::jsonb ELSE '{}'::jsonb END $$",
+        "CREATE FUNCTION ops.ddo_current_validation_identities(text,text) RETURNS jsonb LANGUAGE sql AS $$ SELECT CASE WHEN $1='new' THEN '{\"artifact\":\"a\",\"rich\":\"changed\"}'::jsonb ELSE '{\"artifact\":\"a\",\"rich\":\"r\"}'::jsonb END $$",
         """CREATE FUNCTION ops.ddo_require_completion_families(r ops.data_request,payload jsonb,families jsonb) RETURNS void LANGUAGE plpgsql AS $$BEGIN
-        IF r.release_id<>'new' OR families<>'{"artifact":"a"}'::jsonb OR payload<>'{"outputs":["retained"]}'::jsonb THEN RAISE EXCEPTION 'wrong consuming basis' USING ERRCODE='23514'; END IF;
+        IF r.release_id<>'new' OR families<>'{"rich":"changed"}'::jsonb OR payload<>'{"outputs":["retained"]}'::jsonb THEN RAISE EXCEPTION 'wrong consuming basis' USING ERRCODE='23514'; END IF;
         IF current_setting('udm.allow_consumer',true) IS DISTINCT FROM 'yes' THEN RAISE EXCEPTION 'current family refused' USING ERRCODE='23514'; END IF; END$$""",
         "CREATE FUNCTION ops.ddo_conservative_dependencies_valid(text) RETURNS boolean LANGUAGE sql AS $$ SELECT true $$",
     ):
@@ -187,6 +187,9 @@ def test_consuming_family_is_checked_under_current_request(infrastructure_rollba
     execute_native_sql(connection, bridge.render())
     query = "SELECT ops.ddo_require_consuming_episode('episode', r) FROM ops.data_request r WHERE id='consumer'"
     connection.exec_driver_sql(query.replace("id='consumer'", "id='original'"))
+    # A consuming release with identical family identities does not recheck either
+    # artifact or rich validation. The current-family stub still refuses calls.
+    connection.exec_driver_sql(query.replace("id='consumer'", "id='unchanged'"))
     with pytest.raises(IntegrityError, match="current family refused"), connection.begin_nested():
         connection.exec_driver_sql(query)
     connection.exec_driver_sql("SET LOCAL udm.allow_consumer='yes'")
