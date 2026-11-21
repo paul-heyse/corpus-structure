@@ -7,6 +7,37 @@ records the exercised cases and remaining boundaries.
 The N43 amendment integrates [I01][i01], [I02][i02] and [I06][i06] from review revision
 `7c17b403a`. Their additions below are planned work.
 
+**Execution checkpoint · 2026-11-20.** Selected executable preparation now checks a shared
+installation once for its required resident population, validates model files, and exposes
+expected and observed inventory differences through typed refusals. The installed
+`ci release reacquire-host` route binds an explicit release, prior runtime and database OID.
+Its current attested transport owners are spaCy and HanLP. It preserves admitted inference
+meaning and keeps activation separate. Worker startup still checks acquired premises.
+Real installation preflight passed with all six selected resident bindings. The live Standard
+stage refresh (`cbdad21e1d1145f39dbdbe7b1d11ebd1`) advanced only runtime custody for the admitted
+release and preserved inference identity. A different database OID refused
+(`a90d772df0794786b609aa40ee30d779`).
+
+The Standard producer and certifier now consume the acquired lowering context, including native
+schema, Arrow record schemas, callback policy, record header and batch limits. The original
+versions 1 and 2 of the PDF recipe and their obsolete execution branches retired. The selected
+recipe, assembly and streaming checks passed 37 cases
+(`ac3abfc4e5e14eaaa0f7090ce2fa95cf`). The acquired lowering slice passed 36
+(`13d1a7c8e633433ab88b0bfb8e36bce0`). Access projection now has a shared database-free owner.
+The record mapper resolves default metadata only for callers that lack a captured header.
+Record, certification and inventory checks passed 122 cases (`f3219ac77666457ea4a757e45593c5b5`).
+Cross-demand capture still gets its eligibility from the combined lowering workload. On `0082d0e03`,
+the lowering provenance reported 167 unresolved import initialization contracts and 161 unresolved
+initializer effects. The selected stream and the remaining companion-publication dependency need
+an acquired executable boundary before the eligibility rule can change.
+
+Native managed selection `3807264712ca47bd81940b51bd6775cb` passed known rollback and loss of
+acknowledgement after an actual commit. Independent native readback found one original intent and
+derivation, no running task and zero work on unchanged repeat. A separate real PDF cancellation
+case passed during native copy (`2ee4b0fbf99946e79439797988ad4062`). The combined provider
+retirement and uncertain-acknowledgement case, the selected Standard capture material contract
+and real cross-demand reuse retain their own acceptance obligations.
+
 ## Baseline and boundaries
 
 N42 reproduced 624 installed objects and admitted the releases, then the cold Integrated
@@ -171,6 +202,16 @@ the actual producer's determining behavior before reuse becomes eligible. Keep b
 dependencies and unresolved determining facts attributed at the code-analysis owner.
 [ty capabilities and limits](../../libraries/python_introspection/ty.md) ·
 [NetworkX projections](../../libraries/scientific_compute/networkx.md)
+
+The active Standard worker enters `StreamingPdfProducer.prepare` and `convert`, which lead to
+`PdfConverter._prepare` and its selected Docling pipeline, stage and model initialization. The
+current external-runtime acquisition profiles authenticate codecs. Extend the existing acquisition
+owner to cover the selected installed producer, dynamic factory bindings and resources used at
+initialization. The worker still reaches the database publication module through companion
+encoding. Give that preparation a database-free owner and pass its acquired output contracts.
+[Streaming producer](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_streaming.py#L696) ·
+[Selected Docling initialization](../../../python/corpus-structure/src/corpus_structure/ingest/pdf.py#L223) ·
+[Runtime acquisition profiles](../../../python/corpus-structure/src/corpus_structure/semantic/external_runtime.py#L52)
 
 If the selected slice cannot close a real black-box producer, assess a versioned opaque boundary
 only when its acquired interface and complete declared input, resource, code and output/lowering

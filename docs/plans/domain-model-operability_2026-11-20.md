@@ -103,12 +103,12 @@ direction applies to the transport design. There is no new ADR to publish from t
 | Package | Delivered change | Entry and completion boundary |
 | --- | --- | --- |
 | DMO-00 | Current baseline, scoped contracts and rule decisions | Complete. Both targets and the active book binding were observed. Binding changes remain with their dependent packages. [Evidence][entry-baseline] |
-| [DMO-01][p01] | Selected executable acquisition and early shared-host preparation | Selected PDF/M1 capture and verification share a specification. Acquire all required residents before upstream work and verify changed premises at startup. [Evidence][acquisition-evidence] |
-| [DMO-02][p02] | Material identity, cross-demand capture reuse and compatible recovery | Field explanations and the draft predicate are implemented. Deliver the real Standard cross-demand case first. Keep exact recovery, uncertain effects and wider named identity profiles as explicit obligations. [Evidence][acquisition-evidence] |
-| [DMO-03][p03] | Typed consumer requirements and current/historical authority | Existing admitted role, support and effect owners. Integrate with DMO-01 preparation and confirm the real mixed-family path and refusals. |
-| [DMO-04][p04] | Compact cut acquisition and scoped support | Attribute event scorer, M1 hydration and regional readback using retained cases first. Working integration consumes DMO-03 requirements and the DMO-06 owned snapshot where relevant. Verify scoring, paging, recovery fences and authority. |
-| [DMO-05][p05] | Numeric roles, consumer-by-consumer interchange and validated settings | Finite execution receipts and private cohort scrubbing are implemented. Supply validated settings to early host preparation. Migrate identity-independent consumers first and stage scope and D8 decisions with their consumers. |
-| [DMO-06][p06] | Prospective generated source, equivalent schemas and validation retirement | Shared validator and corrected Draft 7 receipt tuple implemented. Four private native provider-fence cases passed on N43. Establish the prospective source route before the next affected wire cutover. |
+| [DMO-01][p01] | Selected executable acquisition and early shared-host preparation | Selected PDF/M1 acquisition shares a specification. Grouped resident preparation and guarded transport reacquisition passed on the actual host. The selected workload still needs its remaining startup and refusal cases. |
+| [DMO-02][p02] | Material identity, cross-demand capture reuse and compatible recovery | Field explanations and the draft predicate are implemented. Scoped rollback and committed-write recovery passed on the native route. Standard cross-demand capture material correspondence and wider identity migration remain open. |
+| [DMO-03][p03] | Typed consumer requirements and current/historical authority | The compiled consuming role owns rich producer requirements. Targeted rich controls and the event fit, issuer and scorer journey passed on N44. Remaining mixed-family and live authority cases retain their own acceptance. |
+| [DMO-04][p04] | Compact cut acquisition and scoped support | The native reader exposes compact authenticated context and hydrates exact selected pins. The N44 event and M1 readbacks passed. Regional integration, phase attribution and set-wise completion inspection remain open. |
+| [DMO-05][p05] | Numeric roles, consumer-by-consumer interchange and validated settings | Settings origins use public source composition. The MCP and selected CLI delivery slice uses the finite numeric projection. Native contextual field and remaining archive/codec consumers retain their own migration obligations. |
+| [DMO-06][p06] | Prospective generated source, equivalent schemas and validation retirement | Managed application capture, shared local schema preparation and receipt-owned constraints are implemented. N44, Standard and Integrated passed stage deployment. The generated-facade change journey and remaining native differential coverage stay open. |
 | [DMO-07][p07] | Attributed operator diagnostics | Preparation refusal now records the selected operation and available expected/actual resource facts before provider submission. Source comparison reports the first established recipe or implementation difference. Finish with actual recovery, consumer and scope facts from DMO-02–04 and the applicable typed output contract. |
 | [DMO-08][p08] | Final-source stage and functional qualification | Enter after functional delivery, consumer migration and retirement. Reconcile the managed evidence union against final source and acquired context. Broad qualification is pending. |
 | [DMO-09][p09] | Guarded canonical adoption and whole-book qualification | DMO-08 on the selected final release. Verify original custody, complete the book, and independently verify interruption/reuse and zero new work on repeat. |
@@ -182,11 +182,15 @@ package statuses, resource limits and proof questions are historical. Report out
 actual scope, retain failed receipts, and leave unavailable required cases open with the missing
 prerequisite. [Qualification and adoption][p08]
 
-**Current state · 2026-11-20 UTC.** DMO-00 entry is complete. DMO-01 and DMO-02 have scoped
-implementation and focused verification. Stage N43 carries the generated wire and physical
-changes and admits both Standard and Integrated applications. DMO-05, DMO-06 and DMO-07 have
-prerequisite slices. Broader readiness and final qualification remain with their owning packages.
-[Implementation evidence][acquisition-evidence]
+**Current state · 2026-11-20.** DMO-00 entry is complete. DMO-01 through DMO-06 have scoped
+implementation and verification. The dedicated stage installed generated N44 and admitted
+Standard and Integrated from `0ed2825f9`. A focused managed selection passed 361 cases on
+its recorded source (`f2d7690917444606a7d3e953105e697b`). The generated-wire, host and model
+command selection passed 57 cases on `cbd1658f5` (`f400dbb6c44449c18e2123b9b3319efe`). The N44
+event scorer and M1 cases passed through their selected read paths. Standard cross-demand material
+closure, the remaining consumer and JSON transitions, and generated facade cutover evidence stay
+with the owning packages. DMO-08 owns final-source qualification before canonical adoption.
+[Identity and recovery][p02] · [Consumer and read paths][p04] · [JSON and generated source][p06]
 
 [predecessor]: unified-domain-model-and-execution_2026-11-19.md
 [old-qualification]: unified-domain-model-and-execution/qualification.md#retained-fit-custody-and-rich-producer-authority

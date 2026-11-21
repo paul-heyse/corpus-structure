@@ -1,6 +1,6 @@
 # JSON contracts and settings
 
-**Status:** Prerequisite slices implemented. **Created:** 2026-11-20.
+**Status:** Partial implementation and N44 stage admission. **Created:** 2026-11-20.
 
 This companion owns DMO-05 and DMO-06. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns package state, source dispositions, rule decisions and completion. This target is **Proposed**.
@@ -13,6 +13,34 @@ The retained comparison used referencing 0.37.0 and pg_jsonschema 0.3.4. Executi
 those selections with the current lock and installed extension before relying on the results.
 [Integrated review O05–O09](../../functional_reviews/udm-operability-and-json_2026-11-20.md#O05)
 [Retained library contracts](../../design_review/evidence/2026-11-20_json-boundary-contracts/README.md)
+
+**Execution checkpoint · 2026-11-20.** Settings source reporting uses the public native source
+composition and carries redacted leaf origins. The flat execution-policy override files use a
+shared strict reader that preserves explicit override precedence and refuses missing or malformed
+files. [ADR-0142](../../adr/0142-structured-selected-result-delivery.md) governs the structured
+MCP delivery cutover. Selected CLI and MCP results use finite presentation numbers. Native scope
+and original-byte custody keep their existing semantics. The remaining contextual transport
+classification and RapidJSON consumers stay open in DMO-05.
+Typed wire ingress now validates numerical constraints before projecting fractions to binary
+floats. The prepared schema evaluator uses a temporary exact arithmetic view through stock
+jsonschema, while PostgreSQL and the delivered values retain their declared numeric roles.
+The managed selection passed 90 checks, including 11 independent PostgreSQL integer vectors
+(`3bb6c2dd6e334439b15863bc1df4fd0c`).
+
+The managed `ci model change capture PREVIEW_ID` route consumes an exact applied preview and
+retains its connection to the original source preview. Candidate authoring consumes its captured
+result. Local resource-aware schema preparation, one Pydantic-native lowering and receipt-owned
+constraints are implemented. Routing controls `6d5b730421a0484cb03a5cfacc905200` and the
+selected-source regression `4bc6857498514f19acfbdb7a21015486` passed. The native-only N44
+preview and apply passed, and rollback-only candidate `783c6d12155742c88314cbd2a20cb5f1` froze
+the successor. Registration `41191f5e359f4dfe8f82850ab53298be` and guarded deployment
+`703ec35909e946cf94441cd844cb24f4` passed on the dedicated stage, with N43 as predecessor.
+The change retires the superseded binding-row signature and two rich helper signatures.
+The generated-only migration had no Python facade effects. The routing and drift controls
+exercised staged application capture separately. Standard (`99efbb79896545149a94276e841ce20b`)
+and Integrated (`711ac13a919d473fabe8fa36ea3db5e6`) passed guarded stage admission on source
+`0ed2825f9`. A real change that generates a Python facade and the remaining native differential
+controls retain their own acceptance obligations.
 
 ## Responsibilities and contracts
 
@@ -234,12 +262,12 @@ route. Verify redaction and constructor/environment precedence through the exist
 <a id="dmo-06"></a>
 ## DMO-06 — One schema per authority and deliberate validation placement
 
-**Scoped implementation · 2026-11-20.** Wire and execution evidence use the shared prepared
+**N43 groundwork · 2026-11-20.** Wire and execution evidence use the shared prepared
 validator. Draft 7 lowering now validates the provider receipt member tuple. The global wire
 digest changed. The four cases that refused on N42 passed on matching N43 in a private
 PostgreSQL cohort. N43 was deployed and the Standard archive verified on stage. DMO-05's strict
-finite codec is used for execution-evidence receipts. Current scope normalization and the public
-D8 field retain their established semantics. [Selected evidence and wire digest](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
+finite codec is used for execution-evidence receipts. Scope normalization retains D1 meaning.
+The D8 delivery change followed this groundwork under ADR-0142. [Selected evidence and wire digest](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
 
 ### Entry and schema realization
 

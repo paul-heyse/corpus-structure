@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-20 UTC. DMO-01 and DMO-02 have scoped implementation and verification. N43, Standard and Integrated verified on the dedicated stage. The canonical book remains on N29 at generation 5._
+_Updated 2026-11-20. DMO-01 through DMO-06 have scoped implementation. The dedicated stage installed N44 and admitted Standard and Integrated. The canonical book remains on the recorded N29 generation 5 binding._
 
 ## Current owners
 
@@ -10,9 +10,9 @@ _Updated 2026-11-20 UTC. DMO-01 and DMO-02 have scoped implementation and verifi
 - The [test-domain coordinator](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence) owns test-fixture custody and TDM-18. The [test audit refresh](docs/design_review/test-audit/README.md#tdm-refresh-2026-11-18) holds the inspected baseline.
 - [Library-discovery tooling](tooling/docs/plans/library-discovery-tooling_2026-11-17.md#current-state) is implemented for LDT-00–08. Its 302 selected tests and repository checks passed on 2026-11-17 (`8cd3bc5aa2b24d5a9e5d8d4c4a69270b`, `34811b452107403d90e5035f8a2e0550`). LDT-C1–C3 retain their conditional triggers.
 
-## Last verified · 2026-11-20 UTC
+## Last verified · 2026-11-20
 
-- **Passed.** Focused `uv run ci test` selections proved selected PDF/M1 preparation, material comparison, native draft recovery, Docling spool recovery and actual GLiNER M1 readback. Stage N43 `uv run ci ingest` published five receipts with actual Nemotron (`516b9dc7c3034c6e8dd066dcf8478c39`). [Scoped evidence](docs/design_review/evidence/2026-11-20_dmo01-02/README.md#scoped-verification)
+- **Passed.** `uv run ci test` verified the N44 M1 empty inspection and unchanged repeat (`185731a36c2242618f7b1ed3cb974377`) and 122 PDF record and certification controls (`f3219ac77666457ea4a757e45593c5b5`). `uv run ci check --only types` and `uv run ci check --only lint` passed (`ce98af545b674f258bb79d496174b862`, `98340a505309441cb01fba54e04c7f72`). [Identity and recovery](docs/plans/domain-model-operability/execution-identity-and-recovery.md)
 - **Passed.** The bounded N43 regional driver restored composition after releasing a held region. Independent native readback found all 18 obligations fulfilled. The exact resume published seven receipts and the unchanged repeat published zero. Runtime-only changes between distinct demands still rebuilt capture. [Regional evidence](docs/design_review/evidence/2026-11-20_dmo01-02/README.md#bounded-regional-stage-recovery)
 - **Passed.** DMO-00 and DMO-01/02 evidence finalization and index refresh passed. `uv run ci evidence check` from DMO-00 reported five older DDO errors (`d6f5f26150c24b268fd46ad1c2ac4f82`).
 - **Passed.** The N36 live withheld region produced only `binding-covers` in 2.51 seconds while its sibling published. Releasing the claim and resuming the exact demand fulfilled all 18 obligations. [Live result and PE-S33 successor](docs/design_review/evidence/2026-11-20_udm20-live-withheld/README.md)
@@ -24,7 +24,7 @@ _Updated 2026-11-20 UTC. DMO-01 and DMO-02 have scoped implementation and verifi
 - **Passed.** The repaired managed CUDA stop cleared the worker, GPU allocation and lease before retry. The exact resume published three receipts and unchanged repeat published zero. [Repaired stop](docs/design_review/evidence/2026-11-20_udm27-managed-stop/README.md)
 - **Passed.** Guarded N42 Standard deployment and the Integrated application admission passed (`5cb34f8319ca4c71aaa504eccda86df1`, `aa866a00932f49129fb709da4ce09ad1`). Main reproduced all 624 frozen objects after the M1 source repair. All 18 rich native controls and the actual rich-admission journey passed (`f1e49e25216340e0a46fb638f9ecc9fb`, `a145dbfebc9f4fc991ef7c511bb1cba2`). [N42 evidence](docs/plans/unified-domain-model-and-execution/qualification.md#retained-fit-custody-and-rich-producer-authority)
 - **Failed.** The N42 cold Integrated demand reached a transform custody mismatch before inference (`cfbf7d53d411497b85442167f7d2b70e`). The transform fingerprint matched its authoring checkout and differed on main. [Application custody](docs/plans/unified-domain-model-and-execution/qualification.md#retained-fit-custody-and-rich-producer-authority)
-- **Failed.** The bounded event retry published the frame, fit and authorization. The watchdog expired during scorer attachment, leaving two authority cases unrun (`4fad3ac113214a0e87d4d94cd679da1e`). [Event evidence](docs/plans/unified-domain-model-and-execution/qualification.md#retained-fit-custody-and-rich-producer-authority)
+- **Passed.** The scoped N44 event journey verified the fitted probability, issuer authority and protected support through the same authenticated cut. The retained `scripts/test_receipts.py run` replay used a 1,200-second watchdog for this selection. [Event read scope and earlier failures](docs/plans/domain-model-operability/consumer-authority-and-operability.md#dmo-04)
 
 ## Earlier verified evidence
 
@@ -56,5 +56,5 @@ _Updated 2026-11-20 UTC. DMO-01 and DMO-02 have scoped implementation and verifi
 
 ## Next execution
 
-- The [revised DMO queue](docs/plans/domain-model-operability_2026-11-20.md#execution-queue) schedules [selected-host preparation](docs/plans/domain-model-operability/execution-identity-and-recovery.md#selected-host-preparation) with [validated settings](docs/plans/domain-model-operability/json-contracts-and-settings.md#dmo-05-settings) before the [Standard cross-demand reuse case](docs/plans/domain-model-operability/execution-identity-and-recovery.md#standard-cross-demand-reuse). The revised plan passed `uv run ci docs check` (`637c9c4fe0074cd69ef01899f0daa6c3`).
+- The [DMO queue](docs/plans/domain-model-operability_2026-11-20.md#execution-queue) owns [Standard capture material closure](docs/plans/domain-model-operability/execution-identity-and-recovery.md#standard-cross-demand-reuse) and the remaining consumer and JSON transitions. Stage `ci model change deploy` passed for the N44 native kernel (`703ec35909e946cf94441cd844cb24f4`), Standard (`99efbb79896545149a94276e841ce20b`) and Integrated (`711ac13a919d473fabe8fa36ea3db5e6`).
 - After consumer migration and retirement, [DMO-08 and DMO-09](docs/plans/domain-model-operability/qualification-and-adoption.md) own final-source qualification, guarded adoption and the whole-book journey.

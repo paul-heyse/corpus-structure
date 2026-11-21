@@ -1,9 +1,36 @@
 # Consumer authority, support acquisition and operational inspection
 
-**Status:** Partial diagnostics implementation · 2026-11-20. The [coordinator](../domain-model-operability_2026-11-20.md)
+**Status:** Partial consumer authority and read integration · 2026-11-20. The [coordinator](../domain-model-operability_2026-11-20.md)
 owns readiness and disposition. This companion realizes review [O03][o03], [O04][o04] and the
 selected-support part of [O08][o08]. The N43 amendment integrates [I04][i04], [I05][i05]
 and [I07][i07] from review revision `7c17b403a`. Its new acceptance scenarios are planned.
+
+**Execution checkpoint · 2026-11-20.** The admitted consuming role now carries the prepared
+producer requirement. Rich native admission uses it for output role, CPU witness, effect and
+family. The event issuer and authored parameter checks retain their specialized authority.
+The native read boundary supplies compact authenticated context and scopes binding hydration by
+selected pins. The managed rich and declaration selection passed ten checks
+(`9913357bf1124f2ab67763515767b0aa`). The forward N44 kernel is installed on stage.
+Event prediction indexing starts from the selected use metadata and authenticates the selected
+obligations and each support page through the native cut. Identical original and prediction cuts
+share the scoped index. Distinct original cuts still use the original-source proof path.
+The demand-results selection passed 32 checks, including the selected multi-page case
+(`419e19cdd1694b0abb45e3f86fa7ace3`). The real event journey (`5a36466717604bd1af1a6a79893c7dc1`)
+exposed the execution role's inability to read the use table. The repaired lookup uses the
+authenticated native frontier and stops when it has the selected obligations.
+The actual N44 M1 empty-section case passed on `0082d0e03` in managed selection
+`185731a36c2242618f7b1ed3cb974377`. It published an empty inspection with the original source pin
+and its native CPU receipt. The unchanged repeat produced zero new receipts.
+The same selection passed 62 checks. Its event journey published the frame, fit, issuer and both
+scoring receipts before the 900-second watchdog expired during whole-demand result delivery.
+The test rerun selected the scoring operation and reached the independent probability assertion.
+Its watchdog expired at support acquisition for a second cut (`73ee3d6403a24f5fb685c75db868c34f`).
+On `1171491d3`, the test passed using the authenticated scoring page for support in the same
+transaction. It verified one numerical probability, the actual public issuer and exclusion of
+the private frame and labels. The single-case replay used `uv run python scripts/test_receipts.py run`
+with a 1,200-second watchdog. Its retained receipt is under `build/dmo01-06/event-selected-boundary`.
+The successful case recorded about 686 seconds of setup and 178 seconds of call time. Both
+earlier watchdog results stay failed. Statement-level attribution and wider cases remain open.
 
 <a id="dmo-03"></a>
 ## DMO-03 · Derive typed consumer requirements
