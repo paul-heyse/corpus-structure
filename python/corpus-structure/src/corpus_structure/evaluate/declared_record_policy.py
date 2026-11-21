@@ -1933,6 +1933,9 @@ class RecordPolicyGradePlan:
                 read_id=cut.record["read_id"],
                 expected_cut=cut.identity,
                 capture_frontier=True,
+                obligation_ids=tuple(
+                    selection.obligation_id for selection in specification.prediction_selections
+                ),
             ) as (_, index):
                 uses = {row["use_id"]: row for row in index.frontier_rows("uses")}
                 obligations = {
@@ -2147,6 +2150,7 @@ def reacquire_selected_record_grade(
         scope=cut.record["scope"],
         read_id=selection.read_id,
         expected_cut=cut.identity,
+        use_ids=(selection.use_id,),
     ) as (_, index):
         row, body = _selected_body(index, selection.product_id)
         episode = index.mapping("ops.data_derivation", ("id",)).get(selection.derivation_id)
