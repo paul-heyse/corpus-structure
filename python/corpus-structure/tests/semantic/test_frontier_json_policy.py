@@ -330,7 +330,9 @@ def test_manifest_ordinary_named_scope_keeps_original_exponent_bytes(number):
     source["cut_id"] = cut.identity
     encoded = json_bytes(source)
     decoded = decode_export_manifest(encoded)
-    actual = decoded.cut["selection"]["operations"][0]["parameters"]["ordinary"]["analyzed_scope"]["fraction"]
+    actual = decoded.cut["selection"]["operations"][0]["parameters"]["ordinary"]["analyzed_scope"][
+        "fraction"
+    ]
     assert type(actual) is float and actual.hex() == number.hex()
     assert decoded.to_bytes() == encoded
     assert decoded.cut_selection.content == cut.content

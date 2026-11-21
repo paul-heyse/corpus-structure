@@ -38,7 +38,9 @@ def test_native_pdf_input_preserves_hash_page_selection_and_explicit_release():
         return ConversionResult(input=document, status=ConversionStatus.SUCCESS)
 
     original = landmark_pdf()
-    result = prepared(execute).convert(BytesIO(original), filename="landmarks.pdf", page_range=(2, 3))
+    result = prepared(execute).convert(
+        BytesIO(original), filename="landmarks.pdf", page_range=(2, 3)
+    )
     assert seen == [result.input]
     assert result.input.document_hash == sha256(original).hexdigest()
     assert result.input.file.name == "landmarks.pdf"
@@ -69,4 +71,6 @@ def test_native_limits_refuse_invalid_page_selection(page_range):
         pytest.fail("invalid PDF limits reached pipeline execution")
 
     with pytest.raises(ValidationError):
-        prepared(forbidden).convert(BytesIO(landmark_pdf()), filename="limits.pdf", page_range=page_range)
+        prepared(forbidden).convert(
+            BytesIO(landmark_pdf()), filename="limits.pdf", page_range=page_range
+        )

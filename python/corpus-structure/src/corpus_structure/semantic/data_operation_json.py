@@ -155,9 +155,7 @@ def decode_retained_json_object(
     """Select original members into the existing sorted object framing."""
     values, selected = decode_retained_json_members(content, fields)
     retained = (
-        b"{"
-        + b",".join(json_bytes(name) + b":" + selected[name] for name in sorted(fields))
-        + b"}"
+        b"{" + b",".join(json_bytes(name) + b":" + selected[name] for name in sorted(fields)) + b"}"
     )
     return values, retained
 

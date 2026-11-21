@@ -111,7 +111,10 @@ def test_actual_selected_missing_page_resume_and_same_spool_rebuild(tmp_path, re
         first = _recoveries(interrupted)
         assert len(first) == 1
         preparation = next(item for item in interrupted if item.family == "native_preparation")
-        assert json.loads(preparation.path.read_bytes())["_preparation"]["producer_contract"] == selected.digest
+        assert (
+            json.loads(preparation.path.read_bytes())["_preparation"]["producer_contract"]
+            == selected.digest
+        )
         resumed_replays = []
         with closing(PdfWorker(recipe, assets=assets)) as worker:
             resumed = worker.stream(

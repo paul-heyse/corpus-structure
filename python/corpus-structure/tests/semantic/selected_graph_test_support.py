@@ -56,9 +56,7 @@ def _offline_snapshot(destination, projection):
             index.append(row)
         for page in manifest.pages:
             index.append_page(json_loads((destination / page).read_bytes()))
-        return snapshot_from_index(
-            prepared, manifest.cut_selection, index, projection
-        )
+        return snapshot_from_index(prepared, manifest.cut_selection, index, projection)
     finally:
         index.close()
         scratch.cleanup()

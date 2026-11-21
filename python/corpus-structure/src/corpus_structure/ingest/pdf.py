@@ -218,7 +218,10 @@ class PreparedPdfPipeline:
     backend_options: ThreadedDoclingParseBackendOptions
 
     def convert(
-        self, source: Path | BytesIO, *, filename: str | None = None,
+        self,
+        source: Path | BytesIO,
+        *,
+        filename: str | None = None,
         page_range: tuple[int, int] | None = None,
     ) -> ConversionResult:
         from docling.datamodel.base_models import ConversionStatus, InputFormat
@@ -233,14 +236,20 @@ class PreparedPdfPipeline:
             {} if page_range is None else {"page_range": page_range}, strict=True
         )
         document = InputDocument(
-            path_or_stream=source, format=InputFormat.PDF,
-            backend=self.backend, backend_options=self.backend_options,
-            filename=filename, limits=limits,
+            path_or_stream=source,
+            format=InputFormat.PDF,
+            backend=self.backend,
+            backend_options=self.backend_options,
+            filename=filename,
+            limits=limits,
         )
         if not document.valid:
             try:
-                return ConversionResult(input=document, status=ConversionStatus.FAILURE,
-                    errors=build_invalid_input_errors(document))
+                return ConversionResult(
+                    input=document,
+                    status=ConversionStatus.FAILURE,
+                    errors=build_invalid_input_errors(document),
+                )
             finally:
                 document.release()
         return self.pipeline.execute(document, raises_on_error=False)
@@ -428,8 +437,11 @@ class PdfConverter:
         if self.assets is not None:
             self.assets.verify()
         converter = PreparedPdfPipeline(
-            pipeline=pipeline, pipeline_cls=pipeline_type, pipeline_options=self._options,
-            backend=ThreadedDoclingParseDocumentBackend, backend_options=backend_options,
+            pipeline=pipeline,
+            pipeline_cls=pipeline_type,
+            pipeline_options=self._options,
+            backend=ThreadedDoclingParseDocumentBackend,
+            backend_options=backend_options,
         )
         for index, stage in enumerate(pipeline.enrichment_pipe):
             if isinstance(stage, CodeFormulaVlmModel):

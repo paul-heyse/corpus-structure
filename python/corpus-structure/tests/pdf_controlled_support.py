@@ -15,9 +15,7 @@ def _scripted_pipeline_init(pipeline, pipeline_options):
     from docling.models.stages.code_formula.code_formula_vlm_model import CodeFormulaVlmModel
 
     pipeline.pipeline_options = pipeline_options
-    pipeline.heading_hierarchy_model = SimpleNamespace(
-        retain_parsed_lines=lambda page: None
-    )
+    pipeline.heading_hierarchy_model = SimpleNamespace(retain_parsed_lines=lambda page: None)
     formula = object.__new__(CodeFormulaVlmModel)
     formula.elements_batch_size = 1
     formula.engine = None

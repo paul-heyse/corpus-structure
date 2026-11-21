@@ -90,16 +90,6 @@ def decode_wire_demand_request(content: bytes, *, demand_id: str | None = None) 
     return validate_native_wire("read_demand_result", "input", parsed)
 
 
-def declared_frontier(value: object) -> bool:
-    return isinstance(value, dict) and value.get("view") == "frontier"
-
-
-def project_frontier_record(value: dict) -> dict:
-    from .data_operation_wire import validate_native_wire
-
-    return validate_native_wire("read_demand_result", "output", value)
-
-
 @lru_cache(maxsize=32)
 def _captured_demand_interpretation(content: bytes):
     from .selected_support_contract import prepare_demand_interpretation
