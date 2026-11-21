@@ -75,24 +75,58 @@ def ipc_replay_batches(
                 )
 
 
-def _original_pdf_spool_root(
-    current_root: Path, current: PdfSpoolProducerBasis, original: PdfSpoolProducerBasis
-) -> Path:
-    """Locate the selected producer within the configured capture storage root."""
-    if (current.request_id, current.generation) == (original.request_id, original.generation):
-        return current_root
-
-    current_path = Path(sha256(current.request_id.encode()).hexdigest()) / str(current.generation)
-    if current_root.parts[-3:] != (current_path / "producer").parts:
-        raise ValueError("current PDF spool location differs from its native producer basis")
-    storage_root = current_root.parents[2]
-    previous_path = Path(sha256(original.request_id.encode()).hexdigest()) / str(
-        original.generation
+def _original_pdf_spool_root(storage: Path, original: PdfSpoolProducerBasis) -> Path:
+    """Derive the producer directory within the original runtime's captured storage."""
+    original_root = (
+        storage
+        / sha256(original.request_id.encode()).hexdigest()
+        / str(original.generation)
+        / "producer"
     )
-    original_root = storage_root / previous_path / "producer"
-    if not original_root.resolve().is_relative_to(storage_root.resolve()):
+    if original_root.resolve() != original_root:
         raise ValueError("original PDF spool location escapes its configured storage root")
+    if not original_root.is_dir():
+        raise FileNotFoundError(f"original PDF spool storage is unavailable: {original_root}")
     return original_root
+
+
+def _original_pdf_capture_storage(connection: Connection, original: PdfSpoolProducerBasis) -> Path:
+    """Read archived transport custody without acquiring the historical executable."""
+    import json
+
+    from sqlalchemy.exc import NoResultFound
+
+    from corpus_structure.semantic.composed import runtime_transport_inputs
+    from corpus_structure.semantic.releases import load_release
+    from corpus_structure.semantic.runtime_binding_store import runtime_binding_for_release
+
+    try:
+        release = load_release(connection, original.release_id)
+        runtime = runtime_binding_for_release(connection, release, original.runtime_id)
+    except (KeyError, NoResultFound) as error:
+        raise FileNotFoundError("original PDF release or runtime custody is unavailable") from error
+    if sha256(runtime.manifest).hexdigest() != original.runtime_manifest_digest:
+        raise ValueError("original PDF runtime manifest differs from the selected producer basis")
+    matches = [
+        item
+        for item in runtime_transport_inputs(runtime)
+        if item.name == "pdf-capture/execution-custody"
+    ]
+    if not matches:
+        raise FileNotFoundError("original PDF runtime has no captured spool storage")
+    if len(matches) != 1:
+        raise ValueError("original PDF runtime has ambiguous spool storage")
+    custody = json.loads(matches[0].content)
+    if (
+        not isinstance(custody, dict)
+        or custody.get("version") != "native-pdf-capture-custody-v1"
+        or not isinstance(custody.get("directory"), str)
+    ):
+        raise ValueError("original PDF runtime has invalid spool storage custody")
+    storage = Path(custody["directory"])
+    if not storage.is_absolute():
+        raise ValueError("original PDF runtime spool storage must be absolute")
+    return storage
 
 
 def run_private_native_pdf_build(
@@ -237,21 +271,29 @@ def run_private_native_pdf_build(
                 ): row.premises_bytes
                 for row in candidate_rows
             }
-            selected_builds = sorted(
-                {
-                    (
-                        owner.build_id,
-                        owner.task_id,
-                        _original_pdf_spool_root(
-                            directory,
-                            basis,
-                            PdfSpoolProducerBasis(**json.loads(premises)["producer"]),
-                        ),
-                    )
-                    for owner, premises in candidates.items()
-                }
-            )
-            for source_build_id, source_task_id, source_root in selected_builds:
+            selected_builds: set[tuple[str, int, Path]] = set()
+            if candidates:
+                locations: dict[tuple[str, str, str], Path] = {}
+                with _pdf_transaction(engine, cancellation) as connection:
+                    for candidate_owner, candidate in candidates.items():
+                        check_active()
+                        original_basis = PdfSpoolProducerBasis(**json.loads(candidate)["producer"])
+                        runtime_key = (
+                            original_basis.release_id,
+                            original_basis.runtime_id,
+                            original_basis.runtime_manifest_digest,
+                        )
+                        if runtime_key not in locations:
+                            locations[runtime_key] = _original_pdf_capture_storage(
+                                connection, original_basis
+                            )
+                        source_root = _original_pdf_spool_root(
+                            locations[runtime_key], original_basis
+                        )
+                        selected_builds.add(
+                            (candidate_owner.build_id, candidate_owner.task_id, source_root)
+                        )
+            for source_build_id, source_task_id, source_root in sorted(selected_builds):
                 recovered.extend(
                     verify_spool_recovery(
                         source_root,

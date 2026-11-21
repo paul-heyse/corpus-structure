@@ -78,29 +78,61 @@ def test_ipc_replay_uses_physical_retry_keys_and_preserves_batch_order(tmp_path)
         next(execution.ipc_replay_batches([replay], lambda: None))
 
 
-def test_compatible_spool_lookup_uses_the_original_native_request_and_generation(tmp_path):
+def test_compatible_spool_lookup_uses_captured_original_runtime(tmp_path, monkeypatch):
     from corpus_structure.ingest.pdf_build_spool import PdfSpoolProducerBasis
+    from corpus_structure.semantic import composed, releases, runtime_binding_store
+    from corpus_structure.semantic.types import SourceArtifact
 
-    current = PdfSpoolProducerBasis(
-        request_id="semantic-request:current",
-        generation=2,
-        release_id="release:current",
+    manifest = b"original runtime manifest"
+    prior = PdfSpoolProducerBasis(
+        request_id="semantic-request:prior",
+        generation=1,
+        release_id="release:prior",
         operation="source.pdf/capture",
         definition="definition",
         recipe="recipe",
         implementation="implementation",
         execution_profile="source-native",
-        runtime_id="runtime:current",
-        runtime_manifest_digest="a" * 64,
+        runtime_id="runtime:prior",
+        runtime_manifest_digest=sha256(manifest).hexdigest(),
         pdf_domain_digest="b" * 64,
     )
-    prior = replace(current, request_id="semantic-request:prior", generation=1)
-    directory = tmp_path / sha256(current.request_id.encode()).hexdigest() / "2" / "producer"
-    expected = tmp_path / sha256(prior.request_id.encode()).hexdigest() / "1" / "producer"
-    assert execution._original_pdf_spool_root(directory, current, prior) == expected
-    assert execution._original_pdf_spool_root(directory, current, current) == directory
-    with pytest.raises(ValueError, match="current PDF spool location"):
-        execution._original_pdf_spool_root(tmp_path / "unrelated", current, prior)
+    connection = MagicMock()
+    release = object()
+    runtime = SimpleNamespace(manifest=manifest)
+    open_release = MagicMock(return_value=release)
+    open_runtime = MagicMock(return_value=runtime)
+    monkeypatch.setattr(releases, "load_release", open_release)
+    monkeypatch.setattr(runtime_binding_store, "runtime_binding_for_release", open_runtime)
+    original = tmp_path / "original"
+    monkeypatch.setattr(
+        composed,
+        "runtime_transport_inputs",
+        lambda _: (
+            SourceArtifact(
+                "pdf-capture/execution-custody",
+                json.dumps(
+                    {"version": "native-pdf-capture-custody-v1", "directory": str(original)}
+                ).encode(),
+            ),
+        ),
+    )
+    storage = execution._original_pdf_capture_storage(connection, prior)
+    open_release.assert_called_once_with(connection, prior.release_id)
+    open_runtime.assert_called_once_with(connection, release, prior.runtime_id)
+    expected = original / sha256(prior.request_id.encode()).hexdigest() / "1" / "producer"
+    with pytest.raises(FileNotFoundError, match="spool storage is unavailable"):
+        execution._original_pdf_spool_root(storage, prior)
+    expected.mkdir(parents=True)
+    assert execution._original_pdf_spool_root(storage, prior) == expected
+    expected.rmdir()
+    expected.symlink_to(tmp_path, target_is_directory=True)
+    with pytest.raises(ValueError, match="escapes its configured storage root"):
+        execution._original_pdf_spool_root(storage, prior)
+    with pytest.raises(ValueError, match="manifest differs"):
+        execution._original_pdf_capture_storage(
+            connection, replace(prior, runtime_manifest_digest="a" * 64)
+        )
 
 
 @pytest.mark.parametrize(
