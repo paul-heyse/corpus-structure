@@ -219,7 +219,8 @@ def explain_operation(
                     collection=role.collection,
                     presence=role.presence,
                     families=kinds[role.kind]["families"],
-                    producer_requirement=None if role.producer_requirement is None
+                    producer_requirement=None
+                    if role.producer_requirement is None
                     else asdict(role.producer_requirement),
                 )
                 for role in found.roles
@@ -227,16 +228,28 @@ def explain_operation(
             effects=[asdict(effect) for effect in found.effects],
             validity_families=native["validity_families"],
             validity_conservative=native["validity_conservative"],
-            native_observation=None if selected is None else dict(
-                **{key: selected["cut"][key] for key in (
-                    "demand_id", "project_id", "release_id", "runtime_id", "read_id"
-                )},
+            native_observation=None
+            if selected is None
+            else dict(
+                **{
+                    key: selected["cut"][key]
+                    for key in ("demand_id", "project_id", "release_id", "runtime_id", "read_id")
+                },
                 uses=[
-                    {key: use[key] for key in (
-                        "use_id", "obligation_id", "fate", "historical_fate",
-                        "request_id", "generation", "derivation_id"
-                    )}
-                    for item in selected["items"] for use in item["uses"]
+                    {
+                        key: use[key]
+                        for key in (
+                            "use_id",
+                            "obligation_id",
+                            "fate",
+                            "historical_fate",
+                            "request_id",
+                            "generation",
+                            "derivation_id",
+                        )
+                    }
+                    for item in selected["items"]
+                    for use in item["uses"]
                 ],
                 complete=selected["page_complete"],
             ),

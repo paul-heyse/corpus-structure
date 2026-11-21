@@ -293,7 +293,13 @@ def test_report_schema_is_the_real_model_bound_public_shape():
     properties = schema["properties"]
     assert isinstance(properties, dict)
     assert "binding_json" in properties
-    assert {"roles", "effects", "validity_families", "validity_conservative", "native_observation"} <= set(properties)
+    assert {
+        "roles",
+        "effects",
+        "validity_families",
+        "validity_conservative",
+        "native_observation",
+    } <= set(properties)
     version = properties["report_version"]
     assert isinstance(version, dict)
     assert type(version["minimum"]) is type(version["maximum"]) is int

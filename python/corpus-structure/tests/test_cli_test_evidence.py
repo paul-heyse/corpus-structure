@@ -185,7 +185,9 @@ def test_cli_workers_reach_owned_recipe_and_scope(
     nodes = [f"tests/test_sample.py::test_{index}" for index in range(selection_count)]
     original_id = None
     if retry:
-        with store.operation("test", scope={"lane": "ordinary", "test_timeout": 1200.0}) as original:
+        with store.operation(
+            "test", scope={"lane": "ordinary", "test_timeout": 1200.0}
+        ) as original:
             directory = original.directory / "ordinary"
             _receipt(directory, nodes, fail=True)
             original.publish("ordinary", directory)

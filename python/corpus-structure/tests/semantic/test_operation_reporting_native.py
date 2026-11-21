@@ -102,8 +102,14 @@ def test_actual_cli_and_mcp_reports_share_current_archived_declaration_and_front
                 )
                 result = answer.structured_content
                 assert result is not None
-                assert {k: v for k, v in result.items() if k not in {"observation_json", "native_observation"}} == {
-                    k: v for k, v in observation.items() if k not in {"observation_json", "native_observation"}
+                assert {
+                    k: v
+                    for k, v in result.items()
+                    if k not in {"observation_json", "native_observation"}
+                } == {
+                    k: v
+                    for k, v in observation.items()
+                    if k not in {"observation_json", "native_observation"}
                 }
                 selected = json.loads(result["observation_json"])
                 assert selected["items"] == frontier["items"]
