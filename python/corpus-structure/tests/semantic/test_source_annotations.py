@@ -8,7 +8,7 @@ import spacy
 
 from corpus_structure.ingest import annotations
 from corpus_structure.semantic.canonical_sentences import (
-    canonical_packet_values,
+    canonical_partition_values,
     canonical_projection_spec,
 )
 from corpus_structure.semantic.data_operation_model import BoundRoleMember
@@ -111,19 +111,38 @@ def test_canonical_projection_uses_annotations_without_native_label_determinants
     projection = canonical_projection_spec(
         model, prepared.index.definitions["DdoCanonicalSentences"].iri
     )
-    canonical = canonical_packet_values(value, projection)
+    from corpus_structure.semantic.data_product_reference import read_semantic_reference
+    from corpus_structure.semantic.sentence_partitions import (
+        blocks_from_packets,
+        partition_source_annotations,
+    )
+
+    header, packets = partition_source_annotations(value)
+    canonical = canonical_partition_values({"header": header, "partitions": packets}, projection)
     changed = copy.deepcopy(value)
     changed["blocks"][0]["annotation"]["tokens"][0]["lemma"] = "another-native-label"
-    assert canonical_packet_values(changed, projection) == canonical
-    assert len(canonical["members"]) == 6
-    sentence = next(
-        packet["body"]
-        for packet in canonical["members"]
-        if packet["body"]["record_type"] == "sentence"
+    relabeled, labeled_packets = partition_source_annotations(changed)
+    assert (
+        canonical_partition_values({"header": relabeled, "partitions": labeled_packets}, projection)
+        == canonical
     )
-    assert sentence["start"] == 0 and sentence["end"] == 14
-    assert len(sentence["token_ids"]) == 4
-    prepared.validate_json("DdoCanonicalSentences", canonical_bytes(canonical))
+    (block,) = blocks_from_packets(canonical["partitions"])
+    assert [
+        (row["record_type"], row["ordinal"], row["start"], row["end"]) for row in block.rows
+    ] == [
+        ("sentence", 0, 0, 14),
+        ("token", 0, 0, 1),
+        ("token", 1, 2, 7),
+        ("token", 2, 8, 13),
+        ("token", 3, 13, 14),
+    ]
+    assert all(
+        read_semantic_reference(row["annotation"]).item_key == (row["record_type"], row["ordinal"])
+        for row in block.rows
+    )
+    assert [member["body"]["record_type"] for member in canonical["header"]["members"]] == [
+        "manifest"
+    ]
 
 
 def test_empty_annotation_producer_emits_closed_manifest_without_invoking_provider(
@@ -148,7 +167,8 @@ def test_empty_annotation_producer_emits_closed_manifest_without_invoking_provid
     profile = prepare_sentence_profile(prepared, model, configuration, selection=selection)
     product = profile.run(source)
     value = json.loads(product.content)
-    assert value["blocks"] == [] and product.execution_receipts == ()
+    assert value["block_layouts"] == [] and product.execution_receipts == ()
+    assert value["rows"]["item_count"] == 0 and product.partitions == ()
     assert value["outcome"] == "complete" and len(value["members"]) == 1
     assert all(row["outcome"] == "empty" for row in value["coverage"])
 
@@ -199,12 +219,22 @@ def test_current_native_columns_restore_whole_doc_without_pipeline_and_preserve_
     acquired, detached, monkeypatch
 ):
     from corpus_structure.ingest.annotation_views import annotation_view
+    from corpus_structure.semantic.data_operation_partitions import partition_header
+    from corpus_structure.semantic.sentence_partitions import partition_source_annotations
     from corpus_structure.semantic.sentence_products import retained_source_annotation_products
 
     prepared, model, configuration, _selection = acquired
     source, value = detached
+    header, packets = partition_source_annotations(value)
+    assert [member["body"]["record_type"] for member in header["members"]] == ["manifest"]
+    header["rows"] = partition_header(packets)
     native = validate_source_annotations(
-        prepared, model, value, source, configuration=configuration
+        prepared,
+        model,
+        header,
+        source,
+        configuration=configuration,
+        partitions=tuple(canonical_bytes(packet) for packet in packets),
     )
     monkeypatch.setattr(
         annotations, "pipeline", lambda *_: pytest.fail("retained replay invoked native model")

@@ -5,6 +5,8 @@ import json
 import pytest
 
 from corpus_structure.ingest.annotations import annotate
+from corpus_structure.semantic.data_product_reference import read_semantic_reference
+from corpus_structure.semantic.sentence_partitions import blocks_from_packets
 from methods.native_evidence_support import native_source as native_source
 from methods.native_evidence_support import retained_hanlp
 from methods.navigation_fixture import source_primary_products
@@ -48,8 +50,9 @@ def test_complete_native_constituents_raw_srl_and_conflicting_heads_survive_curr
 ):
     native, preparation = hanlp_reply(native_source)
     product, canonical = retained_hanlp(native_source, native, preparation)
-    body = product.value.model_dump(mode="json", exclude_unset=True)
-    units = [packet["body"] for packet in body["members"]]
+    body = json.loads(product.content)
+    (hanlp_block,) = blocks_from_packets(tuple(json.loads(packet) for packet in product.partitions))
+    units = hanlp_block.rows
     constituents = [row for row in units if row["record_type"] == "constituent"]
     assert {row["label"] for row in constituents} == {"TOP", "FRAG", "WHADVP", "NN"}
     assert len(constituents) == len(native_source.words) + 3
@@ -70,29 +73,36 @@ def test_complete_native_constituents_raw_srl_and_conflicting_heads_survive_curr
     source_columns = json.loads(source_native.content)["blocks"][0]["annotation"]["tokens"]
     assert source_columns[0]["head"] == 0
     assert source_columns[-1]["head"] == 0
+    (block,) = blocks_from_packets(tuple(json.loads(packet) for packet in canonical.partitions))
     canonical_tokens = {
-        packet["member_id"]: packet["body"]
-        for packet in json.loads(canonical.content)["members"]
-        if packet["body"]["record_type"] == "token"
+        (row["record_type"], row["ordinal"]): row
+        for row in block.rows
+        if row["record_type"] == "token"
     }
     text = native_source.primary.frame.text
-    assert [
-        [
-            text[
-                canonical_tokens[ref["member_id"]]["start"] : canonical_tokens[ref["member_id"]][
-                    "end"
-                ]
-            ]
-            for ref in role["tokens"]
-        ]
-        for role in group["roles"]
-    ] == [["X"], ["é"], ["X"], ["x+y"]]
-    assert all(
-        ref["product_id"] == canonical.reference.product_id
-        for role in group["roles"]
-        for ref in role["tokens"]
-    )
-    assert body["canonical"] == canonical.reference.values()
+
+    def resolved_token(value):
+        ref = read_semantic_reference(value)
+        assert (ref.variant, ref.role, ref.collection, ref.partition_key) == (
+            "partition-item",
+            "canonical",
+            "rows",
+            block.key,
+        )
+        assert ref.item_key is not None
+        record_type, ordinal = ref.item_key
+        assert isinstance(record_type, str)
+        row = canonical_tokens[record_type, ordinal]
+        return text[block.start + row["start"] : block.start + row["end"]]
+
+    assert [[resolved_token(ref) for ref in role["tokens"]] for role in group["roles"]] == [
+        ["X"],
+        ["é"],
+        ["X"],
+        ["x+y"],
+    ]
+    header_reference = read_semantic_reference(body["canonical_input"])
+    assert (header_reference.variant, header_reference.role) == ("product", "canonical")
     assert all(row["outcome"] == "complete" for row in body["coverage"])
     assert sum(len(row["children"]) for row in constituents) == len(tokens) * 2 + 2
 
@@ -101,9 +111,8 @@ def test_missing_predicate_keeps_native_roles_and_marks_only_srl_partial(native_
     native, preparation = hanlp_reply(native_source, missing_predicate=True)
     product, _ = retained_hanlp(native_source, native, preparation)
     body = json.loads(product.content)
-    (group,) = [
-        packet["body"] for packet in body["members"] if packet["body"]["record_type"] == "srl_group"
-    ]
+    (block,) = blocks_from_packets(tuple(json.loads(packet) for packet in product.partitions))
+    (group,) = [row for row in block.rows if row["record_type"] == "srl_group"]
     assert len(group["roles"]) == 3
     coverage = {row["family"]: row["outcome"] for row in body["coverage"]}
     assert coverage["hanlp.srl"] == "partial"

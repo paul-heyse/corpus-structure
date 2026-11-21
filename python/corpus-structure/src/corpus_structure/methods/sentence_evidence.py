@@ -8,6 +8,12 @@ from corpus_structure.semantic.sentence_products import SourceAnnotations, execu
 from corpus_structure.semantic.source_products import FrozenNativeSource
 
 
+def verify_annotation_source(annotation_source, annotation_selectors, source, selectors):
+    """Check the annotation's declared source coordinate and examined selectors."""
+    if annotation_source != source or annotation_selectors != selectors:
+        raise ValueError("source annotations differ from exact original source/scope")
+
+
 class SentenceEvidenceOperation:
     __data_operation__: ClassVar[dict] = {
         "validity_family": ["none"],
@@ -23,6 +29,35 @@ class SentenceEvidenceOperation:
         "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
+        "rules": [
+            {
+                "id": "segment.sentences/native-row-span",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
+                "collection": "rows",
+                "scope": "partition",
+                "form": "span_within",
+                "checker": "admission",
+                "parameters": {
+                    "start": "start",
+                    "end": "end",
+                    "limit": "extent",
+                    "coordinates": "relative",
+                },
+            },
+            {
+                "id": "segment.sentences/exact-source-scope",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "segment.sentences/source-native",
+                "checker_callable": "corpus_structure.methods.sentence_evidence.verify_annotation_source",
+                "parameters": {
+                    "paths": ["source", "selectors"],
+                    "input_reads": {"source": ["source", "selectors"]},
+                },
+            },
+        ],
         "roles": [
             {
                 "name": "source",

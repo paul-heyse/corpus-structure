@@ -839,7 +839,7 @@ def populate_navigation_products(
                 "navigation native input differs from its original source and analyzed scope"
             )
         product = DataProductReference(native.semantic_id)
-        for token in source_annotation_member_values(body):
+        for token in source_annotation_member_values(native):
             if token["record_type"] == "token":
                 tokens.setdefault((token["block_id"], token["ordinal"]), []).append(
                     member_reference(product, token["local_id"]).values()

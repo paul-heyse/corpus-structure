@@ -177,3 +177,27 @@ def partition_header(packets: Iterable[WireProductPartition]):
         "partition_count": len(ordered),
         "item_count": item_count,
     }
+
+
+@dataclass(frozen=True)
+class PartitionedInput:
+    """Detached admitted header and partition packets, without read authority."""
+
+    header: bytes
+    packets: tuple[bytes, ...]
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.header) is not bytes
+            or type(self.packets) is not tuple
+            or any(type(packet) is not bytes for packet in self.packets)
+        ):
+            raise TypeError("partitioned input requires owned immutable header and packet bytes")
+
+    def value(self) -> dict:
+        from .data_operation_json import json_loads
+
+        return {
+            "header": json_loads(self.header),
+            "partitions": [json_loads(packet) for packet in self.packets],
+        }

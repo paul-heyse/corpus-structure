@@ -13,24 +13,23 @@ from corpus_structure.ingest.annotations import AnnotationInput, AnnotationProfi
 from corpus_structure.ingest.sentences import Block
 from corpus_structure.semantic.canonical_sentences import (
     CanonicalProduct,
-    canonical_packet_values,
+    canonical_partition_values,
     canonical_projection_spec,
 )
-from corpus_structure.semantic.characterization_manifests import append_manifest, manifest_contract
+from corpus_structure.semantic.characterization_manifests import manifest_contract
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.construction_products import construction_product_inputs
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.formal_products import formal_operation_sources
 from corpus_structure.semantic.hanlp_products import (
-    HanlpProduct,
     canonical_hanlp_rows,
     detach_hanlp_sentence,
     hanlp_product_inputs,
+    partition_hanlp_product,
 )
-from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.learned_primary import learned_primary_inputs
 from corpus_structure.semantic.prepare import prepare_release
-from corpus_structure.semantic.source_products import source_subject
+from corpus_structure.semantic.sentence_partitions import partition_source_annotations
 from corpus_structure.semantic.types import (
     PreparationProfile,
     ResolvedDependencies,
@@ -102,58 +101,36 @@ def canonical_product(case):
     kind = prepared.index.definitions["DdoCanonicalSentences"].iri
     native = case.primary.native
     assert native is not None
-    value = canonical_packet_values(
-        json.loads(native.content), canonical_projection_spec(model, kind)
+    if native.partitions is None:
+        header, packets = partition_source_annotations(json.loads(native.content))
+    else:
+        header, packets = (
+            json.loads(native.content),
+            [json.loads(piece) for piece in native.partitions],
+        )
+    value = canonical_partition_values(
+        {"header": header, "partitions": packets}, canonical_projection_spec(model, kind)
     )
-    result = CanonicalProduct(canonical_bytes(value), prepared, model, kind, case.primary.context)
-    _ = result.value
-    return result
+    return CanonicalProduct.from_projection(
+        value, prepared, model, kind, subject_context=case.primary.context
+    )
 
 
 def retained_hanlp(case, heads, preparation):
-    """Use the actual detacher and validate its current nominal inventory."""
+    """Run the Native HanLP result detacher against controlled head values."""
     prepared, model = profiles()
     canonical = canonical_product(case)
-    (sentence_tokens,) = canonical_hanlp_rows(case.primary.source, canonical)
-    sentence, tokens = sentence_tokens
+    rows = canonical_hanlp_rows(case.primary.source, canonical)
+    ((sentence, tokens),) = rows
     units, alignment, coverage = detach_hanlp_sentence(
         sentence, tokens, canonical, heads, preparation, "unadmitted:literal-token-vocabulary"
     )
-    selected = case.primary.source.value
-    context = dict(
-        subject=source_subject(selected["source"]),
-        subject_definition="original-source-view",
-        original_source=selected["source"]["document"],
-        analyzed_scope=dict(source=selected["source"], selectors=selected["selectors"]),
+    product = partition_hanlp_product(
+        case.primary.source,
+        rows,
+        units,
+        (alignment,),
+        coverage,
+        kind_contract=manifest_contract(prepared, model, "DdoHanlpManifest"),
     )
-    nominal = {
-        "token": "DdoHanlpToken",
-        "constituent": "DdoHanlpConstituent",
-        "srl_group": "DdoHanlpSrlGroup",
-    }
-    identities = {(item.owner, item.domain): item.key for item in model.identities}
-    value = dict(
-        source=selected["source"],
-        selectors=selected["selectors"],
-        canonical=canonical.reference.values(),
-        outcome="complete"
-        if all(row["outcome"] in {"complete", "empty"} for row in coverage)
-        else "partial",
-        coverage=coverage,
-        alignments=[alignment],
-        members=[
-            dict(
-                member_id=row["local_id"],
-                context=context,
-                body=row,
-                kind_contract=identities[
-                    prepared.index.definitions[nominal[row["record_type"]]].iri, "kind"
-                ],
-            )
-            for row in units
-        ],
-    )
-    value = append_manifest(value, manifest_contract(prepared, model, "DdoHanlpManifest"))
-    product = HanlpProduct(canonical_bytes(value), prepared, model)
-    _ = product.value
     return product, canonical

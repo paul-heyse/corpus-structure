@@ -7,7 +7,8 @@ current support authority. Readers still acquire current support and caller righ
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -61,6 +62,14 @@ def _observed_field(value, path: str):
     return semantic_value(value)
 
 
+@dataclass(frozen=True)
+class RuleObservedInput:
+    """An actual acquired role value, in the order seen by the checker."""
+
+    value: object
+    multiplicity: int = 1
+
+
 def successful_rule_attestation(
     rule: EffectiveDataRule,
     kind: EffectiveKind,
@@ -69,6 +78,7 @@ def successful_rule_attestation(
     context: SubjectContext,
     *,
     partition: WireProductPartition | None = None,
+    selected_inputs: Mapping[str, Sequence[RuleObservedInput]] | None = None,
 ) -> RuleAttestation:
     """Project the output or exact partition the declared checker just validated."""
     if (
@@ -136,6 +146,32 @@ def successful_rule_attestation(
     premise = canonical_identity(
         "rule-premise", scope_identity([rule.scope, facts, None, pins])
     ).key
+    input_reads = json_loads(rule.parameters).get("input_reads", {})
+    supplied = selected_inputs or {}
+    if supplied.keys() != input_reads.keys():
+        raise ValueError("attestation requires every declared observed input role")
+    if input_reads:
+        observed_inputs = [
+            [
+                name,
+                [
+                    [
+                        row.multiplicity,
+                        [
+                            body_identity(row.value).key
+                            if path == "$all"
+                            else _observed_field(row.value, path)
+                            for path in paths
+                        ],
+                    ]
+                    for row in supplied[name]
+                ],
+            ]
+            for name, paths in sorted(input_reads.items())
+        ]
+        premise = canonical_identity(
+            "rule-observed-premise", scope_identity([premise, observed_inputs])
+        ).key
     return RuleAttestation(
         rule_id=rule.id,
         rule_fingerprint=rule.fingerprint,

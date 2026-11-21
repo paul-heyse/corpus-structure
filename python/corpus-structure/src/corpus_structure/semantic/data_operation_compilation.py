@@ -278,34 +278,20 @@ def _expression(value: Any, operation: str, roles: set[str]) -> BindingExpressio
     )
 
 
-def _kind_policies(
-    universe: Any, families: Any, owner: str, grammar: OperationDeclarations
-) -> dict[str, Any]:
-    """Normalize explicit kind-owned access/projection capabilities once."""
+def _kind_policies(universe: Any, owner: str, grammar: OperationDeclarations) -> dict[str, Any]:
+    """Normalize each kind's declared access universe."""
     if (
         not isinstance(universe, str)
         or universe not in grammar.vocabularies["KindUniverse"].members
     ):
         _fail(owner, "kind universe must be ordinary, source or evaluator")
-    if not isinstance(families, (list, tuple)) or any(
-        not isinstance(family, str)
-        or family not in grammar.vocabularies["ProjectionFamily"].members
-        for family in families
-    ):
-        _fail(owner, "projection_families must be an array of supported projection family names")
-    if len(set(families)) != len(families):
-        _fail(owner, "projection_families must not contain duplicates")
-    return {"universe": universe, "projection_families": sorted(families)}
+    return {"universe": universe}
 
 
 def _annotation_kind_policies(
     annotations: dict[str, str], owner: str, grammar: OperationDeclarations
 ) -> dict[str, Any]:
-    try:
-        families = json.loads(annotations.get("cs:projection_families", "[]"))
-    except (ValueError, TypeError) as exc:
-        _fail(owner, "cs:projection_families must be a JSON array string: " + str(exc))
-    return _kind_policies(annotations.get("cs:data_universe", "ordinary"), families, owner, grammar)
+    return _kind_policies(annotations.get("cs:data_universe", "ordinary"), owner, grammar)
 
 
 def _kind_products(
@@ -332,7 +318,7 @@ def _kind_products(
                 name,
                 "primitive",
                 canonical_bytes(
-                    {"primitive": name, **_kind_policies("ordinary", [], semantic_id, grammar)}
+                    {"primitive": name, **_kind_policies("ordinary", semantic_id, grammar)}
                 ),
             )
         )
@@ -384,9 +370,7 @@ def _kind_products(
             facts["case_policy"] = annotations.get("cs:case", "preserve")
             facts.update(_annotation_kind_policies(annotations, definition.iri, grammar))
             facts["policies"] = {
-                key: value
-                for key, value in annotations.items()
-                if key not in {"cs:data_universe", "cs:projection_families"}
+                key: value for key, value in annotations.items() if key != "cs:data_universe"
             }
             if definition.name in rule_fragments:
                 facts["conditional_rules"] = rule_fragments[definition.name]
@@ -948,6 +932,10 @@ def compile_data_operations(
     # Validate shape once before any semantic pass consumes nested records.
     for raw, _, _, _ in authored:
         diagnostics.extend(declaration_grammar.validate(raw, str(raw.get("id", "operation"))))
+        for rule in raw.get("rules", ()):
+            if rule.get("checker") == "producer" and rule.get("checker_operation") != raw.get("id"):
+                _fail(str(raw.get("id")), "inline attestation must name its owning producer")
+            rule_documents.append(rule)
     # Register all semantic kind owners before resolving any operation/role references.
     namespace_owners = {}
     for raw, _, origins, _ in (*authored, *kind_documents):
@@ -988,7 +976,6 @@ def compile_data_operations(
                 **record,
                 **_kind_policies(
                     record.get("universe", "ordinary"),
-                    record.get("projection_families", []),
                     semantic_id,
                     declaration_grammar,
                 ),
@@ -1117,7 +1104,6 @@ def compile_data_operations(
             owner_facts = json.loads(owner.facts)
             policy = _kind_policies(
                 owner_facts.get("universe", "ordinary"),
-                owner_facts.get("projection_families", []),
                 owner.semantic_id,
                 declaration_grammar,
             )
@@ -1128,6 +1114,7 @@ def compile_data_operations(
         bind_data_rule_identities,
         compile_data_rule,
         data_rule_semantic_node,
+        observed_body_path,
     )
 
     rules: dict[str, EffectiveDataRule] = {}
@@ -1139,10 +1126,18 @@ def compile_data_operations(
             rule, rule_edges = compile_data_rule(record, kinds, aliases, frontend)
         except (TypeError, ValueError) as exc:
             _fail(identifier, str(exc))
-        rules[identifier] = rule
-        nodes[identifier] = data_rule_semantic_node(rule)
-        edges.extend(rule_edges)
+        else:
+            rules[identifier] = rule
+            nodes[identifier] = data_rule_semantic_node(rule)
+            edges.extend(rule_edges)
 
+    from .data_operation_output_witnesses import (
+        compile_output_witnesses,
+        compile_reference_targets,
+        reference_output_paths,
+    )
+
+    reference_paths = reference_output_paths(kinds)
     operations = []
     subject_definitions = {}
     bindings = []
@@ -1355,11 +1350,12 @@ def compile_data_operations(
             if len(set(result_fields.values())) != len(result_fields):
                 _fail(semantic_id, "result fields must identify distinct returned fields")
 
-        from .data_operation_output_witnesses import compile_output_witnesses
-
         try:
             output_witnesses = compile_output_witnesses(
                 raw.get("output_witnesses", []), roles, kinds, aliases
+            )
+            reference_targets = compile_reference_targets(
+                raw.get("reference_targets", []), roles, kinds, reference_paths
             )
         except ValueError as error:
             _fail(semantic_id, str(error))
@@ -1863,6 +1859,7 @@ def compile_data_operations(
             discovery_relation=discovery_relation,
             numerical_policy=numerical_policy,
             validity=_validity_claim(raw, declaration_grammar, semantic_id, diagnostics),
+            reference_targets=reference_targets,
         )
         operations.append(operation)
         if raw.get("validity_family") == ["none"]:
@@ -1923,12 +1920,35 @@ def compile_data_operations(
     operations_by_id = {operation.semantic_id: operation for operation in operations}
     slices_by_id = {implementation.root: implementation for implementation in slices}
     for rule in rules.values():
+        parameters = json.loads(rule.parameters)
         if rule.checker == "producer":
             producer = operations_by_id.get(rule.checker_operation or "")
             if producer is None or not any(
                 role.direction == "output" and role.kind == rule.kind for role in producer.roles
             ):
                 _fail(rule.id, "attested rule requires a declared producer of the owning kind")
+            assert producer is not None
+            producer_inputs = {
+                role.name: role.kind for role in producer.roles if role.direction == "input"
+            }
+            for role_name, paths in parameters.get("input_reads", {}).items():
+                if role_name not in producer_inputs:
+                    _fail(
+                        rule.id,
+                        "attestation observes an undeclared producer input role: " + role_name,
+                    )
+                role_observations = set()
+                for path in paths:
+                    try:
+                        observed = observed_body_path(kinds, producer_inputs[role_name], path)
+                    except ValueError as error:
+                        _fail(rule.id, str(error))
+                    else:
+                        role_observations.update(observed)
+                edges.extend(
+                    SemanticEdge(rule.id, node, "rule-read", role_name)
+                    for node in sorted(role_observations)
+                )
             if producer.implementation_root is not None:
                 assert frontend is not None and rule.checker_callable is not None
                 implementation = slices_by_id.get(producer.implementation_root)
@@ -1939,7 +1959,6 @@ def compile_data_operations(
                     or not any(node.id == checker for node in implementation.nodes)
                 ):
                     _fail(rule.id, "attested checker must occur in the admitted producer slice")
-        parameters = json.loads(rule.parameters)
         if target_role := parameters.get("target_role"):
             for operation in operations:
                 if any(

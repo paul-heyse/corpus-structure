@@ -4,6 +4,7 @@ import json
 from dataclasses import asdict
 from hashlib import sha256
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -13,6 +14,7 @@ from corpus_structure.semantic.data_operation_compilation import compile_data_op
 from corpus_structure.semantic.hanlp_products import (
     PreparedHanlpProfile,
     admitted_hanlp_rows,
+    canonical_hanlp_rows,
     detach_hanlp_sentence,
     hanlp_admission_batches,
     hanlp_operation_sources,
@@ -94,88 +96,63 @@ def inputs(profile, *, text="The mean is 2.", words=None, pieces=None, items=Non
             selectors=selectors,
         ),
     )
-    context = dict(
-        subject=source_subject(coordinate),
-        subject_definition="original-source-view",
-        original_source=coordinate["document"],
-        analyzed_scope=dict(source=coordinate, selectors=selectors),
-    )
-    ids = {(item.owner, item.domain): item.key for item in profile.model.identities}
-
-    def packet(name, body):
-        return dict(
-            member_id=body["local_id"],
-            kind_contract=ids[profile.prepared.index.definitions[name].iri, "kind"],
-            context=context,
-            body=body,
-        )
-
-    token_ids = [f"{index + 1:064x}" for index in range(len(words))]
-    sentence = dict(
-        record_type="sentence",
-        local_id="f" * 64,
-        block_id="block:one",
-        ordinal=0,
-        start=0,
-        end=len(text),
-        token_ids=token_ids,
-    )
-    tokens = [
-        dict(
-            record_type="token",
-            local_id=identifier,
-            block_id="block:one",
-            ordinal=index,
-            start=start,
-            end=end,
-            space=index < 3,
-            role="prose",
-            piece_indices=[0],
-            sentence_ref=sentence["local_id"],
-        )
-        for index, (identifier, (_, start, end)) in enumerate(zip(token_ids, words, strict=True))
-    ]
-    value = dict(
-        source=coordinate,
-        selectors=selectors,
-        outcome="complete",
-        block_coverage=[
-            dict(
-                block_id="block:one",
-                native_pointer="#/texts/0",
-                start=0,
-                end=len(text),
-                outcome="complete",
-            )
-        ],
-        coverage=[],
-        members=[
-            *(packet("DdoCanonicalToken", token) for token in tokens),
-            packet("DdoCanonicalSentence", sentence),
-        ],
-    )
     from corpus_structure.semantic.characterization_manifests import (
         append_manifest,
         manifest_contract,
     )
+    from corpus_structure.semantic.data_product_reference import SemanticReference
+    from corpus_structure.semantic.sentence_partitions import SentenceBlock
 
+    key = "#/texts/0"
+    extent = len(text)
+    rows: list[dict[str, Any]] = [
+        dict(
+            record_type="sentence",
+            ordinal=0,
+            start=0,
+            end=extent,
+            extent=extent,
+            annotation=SemanticReference.item("inventory", "rows", key, ("sentence", 0)).values(),
+        )
+    ]
+    for index, (_, start, end) in enumerate(words):
+        rows.append(
+            dict(
+                record_type="token",
+                ordinal=index,
+                start=start,
+                end=end,
+                extent=extent,
+                sentence=0,
+                space=index < 3,
+                role="prose",
+                piece_indices=[0],
+                annotation=SemanticReference.item(
+                    "inventory", "rows", key, ("token", index)
+                ).values(),
+            )
+        )
     value = append_manifest(
-        value, manifest_contract(profile.prepared, profile.model, "DdoCanonicalManifest")
+        dict(
+            source=coordinate,
+            selectors=selectors,
+            outcome="complete",
+            block_coverage=[
+                dict(block_id=key, native_pointer=key, start=0, end=extent, outcome="complete")
+            ],
+            coverage=[],
+        ),
+        manifest_contract(profile.prepared, profile.model, "DdoCanonicalManifest"),
     )
-    canonical = CanonicalProduct(
-        canonical_bytes(value),
+    canonical = CanonicalProduct.from_projection(
+        {"header": value, "partitions": [SentenceBlock(key, 0, 0, extent, tuple(rows)).packet()]},
         profile.prepared,
         profile.model,
         profile.prepared.index.definitions["DdoCanonicalSentences"].iri,
-        _publication_context(source),
+        subject_context=_publication_context(source),
     )
-    _ = canonical.value
-    return (
-        source,
-        canonical,
-        sentence,
-        list(zip(token_ids, [word for word, _, _ in words], strict=True)),
-    )
+    ((sentence, tokens),) = canonical_hanlp_rows(source, canonical)
+    return source, canonical, sentence, tokens
 
 
 def test_detached_head_failures_preserve_valid_siblings_and_native_tree_groups(profile):
@@ -329,8 +306,13 @@ def test_current_hanlp_preserves_borrowed_host_cancellation_and_provider_failure
 def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profile):
     source, canonical, _, _ = inputs(profile)
     from corpus_structure.semantic.data_operation_admission import PreparedCapabilityIdentity
+    from corpus_structure.semantic.data_operation_partitions import PartitionedInput
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+    from corpus_structure.semantic.data_product_reference import SemanticReference
+    from corpus_structure.semantic.sentence_partitions import blocks_from_packets
 
+    header = json.loads(canonical.content)
+    partitioned = PartitionedInput(canonical.content, canonical.partitions)
     sources = hanlp_operation_sources(profile.selection)
     operation = profile.model.operation("text.hanlp_native/source-native")
     assert operation.implementation_root is not None
@@ -378,7 +360,8 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
         PythonRoleValue(
             role.name,
             ids[role.kind, "kind"],
-            source.value if role.name == "source" else canonical,
+            source.value if role.name == "source" else header,
+            partitioned=partitioned if role.name == "canonical" else None,
         )
         for role in operation.roles
         if role.direction == "input"
@@ -386,7 +369,7 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
     completion = port.invoke_python(values)
     value = json.loads(completion.outputs[0].content)
     assert value["outcome"] == "complete"
-    assert value["canonical"] == canonical.reference.values()
+    assert value["canonical_input"] == SemanticReference.whole("canonical").values()
     assert {row["family"] for row in value["coverage"]} == {
         "hanlp.tokens",
         "hanlp.lemma",
@@ -395,19 +378,21 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
         "hanlp.constituency",
         "hanlp.srl",
     }
-    assert value["alignments"][0]["prepared_words"] == [" The", " mean", " is", " 2", "."]
-    assert value["alignments"][0]["token_id_standing"] == "authenticated-vocabulary"
-    tokens = [
-        packet["body"] for packet in value["members"] if packet["body"]["record_type"] == "token"
-    ]
+    (block,) = blocks_from_packets(
+        tuple(json.loads(packet) for packet in completion.outputs[0].partitions)
+    )
+    (alignment,) = (row for row in block.rows if row["record_type"] == "alignment")
+    assert alignment["prepared_words"] == [" The", " mean", " is", " 2", "."]
+    assert alignment["token_id_standing"] == "authenticated-vocabulary"
+    tokens = [row for row in block.rows if row["record_type"] == "token"]
     assert len(tokens) == 5 and all(
         "lemma" in token and "pos" in token and "dependency_head" in token for token in tokens
     )
     assert sum(token["dependency_head"] == 0 for token in tokens) == 1
     assert all(
-        packet["body"]["sentence"]["product_id"] == canonical.reference.product_id
-        for packet in value["members"]
-        if packet["body"]["record_type"] != "manifest"
+        row["sentence"]
+        == SemanticReference.item("canonical", "rows", "#/texts/0", ("sentence", 0)).values()
+        for row in block.rows
     )
     assert completion.execution_evidence
     assert all(
@@ -440,7 +425,6 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
 
 def _publication_context(source):
     from corpus_structure.semantic.data_operation_model import SubjectContext
-    from corpus_structure.semantic.source_products import source_subject
 
     value = source.value
     return SubjectContext(
@@ -505,9 +489,7 @@ def test_raw_srl_preserves_unicode_whitespace_roles_and_honest_predicate_standin
     assert [
         (row["native_text"], row["label"], row["start"], row["end"]) for row in group["roles"]
     ] == roles
-    assert [row["tokens"][0]["member_id"] for row in group["roles"][:3]] == [
-        tokens[i][0] for i in (0, 1, 3)
-    ]
+    assert [row["tokens"][0] for row in group["roles"][:3]] == [tokens[i][0] for i in (0, 1, 3)]
     native_tokens = [row for row in units if row["record_type"] == "token"]
     assert native_tokens[1]["lemma"] == " X" and native_tokens[-1]["dependency_head"] == 0
     constituents = [row for row in units if row["record_type"] == "constituent"]

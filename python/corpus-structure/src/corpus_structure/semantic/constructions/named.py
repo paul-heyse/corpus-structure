@@ -31,8 +31,6 @@ def populate_named_products(
     admitted=lambda a, b: True,
 ):
     """Interpret actual detached native blocks, with governed product/member addresses."""
-    import json
-
     from corpus_structure.semantic.data_product_reference import (
         DataProductReference,
         member_reference,
@@ -42,7 +40,6 @@ def populate_named_products(
         source_annotation_member_values,
     )
 
-    value = json.loads(native.content)
     products = (
         retained_source_annotation_products(source, native)
         if annotation_products is None
@@ -51,7 +48,7 @@ def populate_named_products(
     pin = DataProductReference(native.semantic_id)
     tokens = {
         (row["block_id"], row["ordinal"]): row
-        for row in source_annotation_member_values(value)
+        for row in source_annotation_member_values(native)
         if row["record_type"] == "token"
     }
 

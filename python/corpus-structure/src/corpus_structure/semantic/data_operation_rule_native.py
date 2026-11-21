@@ -84,6 +84,22 @@ def _collection_scope(table, product_id, collection, partition_key):
     )
 
 
+def _inline_rule_items(product, product_id, collection, name):
+    tagged = func.ops.ddo_partition_field(product.c.canonical_body, collection, type_=JSONB())
+    items = _rows(tagged[1], name).lateral()
+    return (
+        select(
+            items.c.value.label("body"),
+            items.c.ordinality.label("item"),
+            literal(0).label("part_order"),
+            cast(null(), Text()).label("key"),
+            cast(null(), JSONB()).label("placement"),
+        )
+        .select_from(product.join(items, true()))
+        .where(product.c.id == product_id)
+    )
+
+
 def _premise(model, output):
     product = model.tables["kb.data_product"]
     partitions = model.tables["kb.data_product_partition"]
@@ -213,6 +229,24 @@ def _premise(model, output):
         .where(product.c.id == product_id)
         .scalar_subquery()
     )
+    inline_items = _inline_rule_items(
+        product, product_id, spec["collection"].astext, "inline_rule_premise_items"
+    ).subquery()
+    inline_path_value = func.ops.ddo_partition_field(inline_items.c.body, path, type_=JSONB())
+    item_facts = (
+        select(func.jsonb_object_agg(path, inline_path_value))
+        .select_from(reads)
+        .where(side == "source")
+        .correlate(inline_items)
+        .scalar_subquery()
+    )
+    inline_observations = select(item_facts.label("observed")).select_from(inline_items).subquery()
+    observed = inline_observations.c.observed
+    inline_facts = (
+        select(func.coalesce(func.jsonb_agg(aggregate_order_by(observed, observed)), _empty()))
+        .select_from(inline_observations)
+        .scalar_subquery()
+    )
 
     def pins(name):
         return (
@@ -237,7 +271,14 @@ def _premise(model, output):
     )
     datum = func.jsonb_build_array(
         scope,
-        case((spec["collection"].astext.is_(None), product_facts), else_=source_facts),
+        case(
+            (spec["collection"].astext.is_(None), product_facts),
+            (
+                spec["parameters"]["inline_collection"] == cast(literal("true"), JSONB()),
+                inline_facts,
+            ),
+            else_=source_facts,
+        ),
         case((scope == "partition-pair", target_facts)),
         case((spec["checker"].astext == "producer", pinned_source)),
     )
@@ -399,6 +440,7 @@ def _predicate(output):
 
 def _evaluator(model, output):
     partitions = model.tables["kb.data_product_partition"]
+    products = model.tables["kb.data_product"]
     spec, product_id, partition_key, target_id, target_key = _variables()
     params = spec["parameters"]
     label = spec["form"].astext
@@ -416,10 +458,18 @@ def _evaluator(model, output):
             )
             .select_from(table.join(elements, true()))
             .where(_collection_scope(table, pid, collection, key))
-            .cte(name)
         )
 
-    rows = items(product_id, spec["collection"].astext, partition_key, "source_rule_items")
+    inline = (params["inline_collection"] == cast(literal("true"), JSONB())).is_(True)
+    collection = spec["collection"].astext
+    rows = (
+        items(product_id, collection, partition_key, "source_rule_items")
+        .where(~inline)
+        .union_all(
+            _inline_rule_items(products, product_id, collection, "inline_rule_items").where(inline)
+        )
+        .cte("source_rule_items")
+    )
     paths = _rows(params["paths"], "rule_paths")
     target_paths = _rows(params["target_paths"], "rule_target_paths")
 
@@ -512,7 +562,7 @@ def _evaluator(model, output):
         params["target_collection"].astext,
         func.coalesce(target_key, partition_key),
         "target_rule_items",
-    )
+    ).cte("target_rule_items")
     target_value = tuple_key(members, target_paths)
     unique_targets = (
         select(target_value.label("address"))

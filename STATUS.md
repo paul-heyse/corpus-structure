@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-21. SBX-00 through SBX-02 have package evidence. Declared rules and required-proof binding passed targeted tests and rollback authoring. Stage remains N47 and the canonical book binding is generation 5 at N29._ [SBX-02](docs/plans/set-based-execution/populations-rules-and-proofs.md#sbx-02)
+_Updated 2026-11-21. SBX-00 through SBX-02 have package evidence. The early SBX-03 chain passed on an owned PostgreSQL target. SBX-03 through SBX-05 remain open for consumer and reference migration, residual validators, and legacy retirement._ [SBX queue](docs/plans/set-based-execution_2026-11-21.md#execution-queue)
 
 ## Current owners
 
@@ -12,6 +12,7 @@ _Updated 2026-11-21. SBX-00 through SBX-02 have package evidence. Declared rules
 
 ## Last verified · 2026-11-21
 
+- **Passed.** `uv run ci test --providers-only` verified the real annotation-to-canonical chain, selected partition readback, and an unchanged repeat with zero new receipts (`e31433142bf1414ead8712101131dccd`). Scoped `uv run ci test` passed 47 producer and interpretation cases (`902a1c284eac4c68822d1ed1652042af`). Rollback-only `uv run ci model change candidate` passed against N47 (`c9a513040006422ebcb309693bc15ce5`). Maintenance readback found development N29 and stage N47. [SBX-03 and SBX-04](docs/plans/set-based-execution/populations-rules-and-proofs.md#sbx-03)
 - **Passed.** `uv run ci test` passed 235 SBX-02, partition and legacy validity cases (`778e77ca9bc749a8be49bb9beed946c5`). `uv run ci model change candidate` passed rollback-only authoring against N47 (`d1f4a4a8e60e478ea31e4c59b29829c9`). Pyrefly, Ruff and the generated-model check passed. [Package evidence](docs/plans/set-based-execution/populations-rules-and-proofs.md#sbx-02)
 - **Passed.** `uv run ci test` verified actual Docling three-page spool resume and rebuild (`36e22cf1e8dd4905be18a55c14d357ea`), 80 host and execution cases (`f926f0f5e2bd483495d8b4331af7df12`) and private PostgreSQL acknowledgement loss with spawned CPU retirement and one publication (`1fa767691bd84bb1a193c6c64bb2eb45`). [Identity and recovery](docs/plans/domain-model-operability/execution-identity-and-recovery.md)
 - **Passed.** SBX entry evidence finalized (`32c6ee055c2f47a0aa46c71cd39c3c11`), scoped to one retained 66-page answer and source inspection. `uv run ci adr lint` passed for ADR-0143 through ADR-0148 (`96e37903db484c0bae63a7fed1771276`). [Entry evidence](docs/design_review/evidence/2026-11-21_sbx-entry/README.md)
@@ -41,7 +42,6 @@ _Updated 2026-11-21. SBX-00 through SBX-02 have package evidence. Declared rules
 - **Passed.** The 88 native binding, deadline and claim controls passed (`d661ac29d9b049288ca16ced6f671936`). The private two-region `ci test retry` accepted only `binding-covers` for the pending families (`93ea314121b5436c8820d0856460020f`). [Regional owner](docs/plans/unified-domain-model-and-execution/qualification.md#retained-book-diagnosis)
 - **Passed.** The 28-page Standard `ci run` control retained 676 sentences and 8,918 tokens (`4933fc555e14453394770dbdbccf4007`). [Regional evidence](docs/design_review/evidence/2026-11-19_udm20-regional-confirmation/README.md)
 - **Passed, 2026-11-20 UTC.** Fresh N36 `ci run` fulfilled all five obligations for the original 66-page region (`f00e167923f74c0d837b60f6bd1cc6e0`). The prior N35 demand was cancelled and its unpublished draft remains retained. [Regional evidence](docs/plans/unified-domain-model-and-execution/qualification.md#retained-book-diagnosis)
-- **Passed.** Private `uv run ci test` verified changed-publisher installation, catalog and TEMP policy (`b15ece5221ec4868ab3f771d729f10be`). The [closure evidence](docs/design_review/evidence/2026-11-19_udm-audit-closure/README.md) records recovery ordering, managed analytics settings and the real GPU PDF resume test.
 - **Passed.** `uv run ci test` selected 66 preview, generated SQL explanation and deployment-key controls (`86e7a22f1c3e435b9d85da4cc74e05b5`). It verified a decimal bound edit in emitted SQL. The 43 detached witness and execution-evidence checks passed (`521420f70fd8424898fc14e55c705eb7`).
 - **Passed.** `ci model change deploy` installed N35 on the bounded stage (`ad1b8e4f1085448b97d6fddcabcb594e`). `ci db check` and `ci release check --native-proof` passed. Generation 32 retained 16 requests, 14 intents, 14 episodes and 143 PDF batch receipts. All 14 episodes have zero exact recipes under the new release.
 - **Passed.** `uv run ci test` selected 209 model, archive, CLI, runtime, PDF and serving checks on final source (`be2952456037438093905160b12094d6`). It included native change-impact pagination and private scientific policy admission. Broader provider and book qualification belong to UDM-22 and UDM-23.
@@ -57,4 +57,4 @@ _Updated 2026-11-21. SBX-00 through SBX-02 have package evidence. Declared rules
 
 ## Next execution
 
-- Use SBX-02's runnable proof binding with the minimum SBX-05 resolver in the early rollback-only SBX-03 chain. SBX-04 retains validator migration and any needed attested selected-input premises. SBX-20–22 own registration, regeneration, retirement and whole-book qualification. [SBX queue](docs/plans/set-based-execution_2026-11-21.md#execution-queue) · [Early Revision A integration](docs/plans/set-based-execution/cutover-and-qualification.md#early-revision-a-integration)
+- Complete the population consumer migration, split the residual validators and retire their old receipts, and convert the remaining reference families. SBX-20–22 own registration, regeneration, retirement and whole-book qualification. [SBX queue](docs/plans/set-based-execution_2026-11-21.md#execution-queue) · [Early Revision A integration](docs/plans/set-based-execution/cutover-and-qualification.md#early-revision-a-integration)

@@ -309,6 +309,7 @@ def _detached_closure(
             "ops.demand_use",
             dict(
                 id="use:A",
+                demand_id=native["demand_id"],
                 obligation_id="obligation:A",
                 request_id="request:A",
                 derivation_id="episode:A",
@@ -554,6 +555,56 @@ def test_detached_container_requires_members_even_when_selected_as_whole_product
             records=[row for row in records if row["relation"] != "kb.data_product_member"],
             wire_schema={},
         )
+
+
+def test_detached_partition_requires_declared_content_and_placement():
+    from copy import deepcopy
+
+    from corpus_structure.semantic.data_operation_partitions import (
+        partition_group_digests,
+        partition_header,
+        partition_packet,
+    )
+    from corpus_structure.semantic.demand_results import verify_detached_result
+
+    groups = {"text": ["text"]}
+    items = [{"ordinal": 0, "text": "First."}]
+    packet = partition_packet("rows", "block:1", 0, 7, 13, items)
+    native, records = _detached_closure(body={"rows": partition_header((packet,))})
+    parent = next(row["record"] for row in records if row["relation"] == "kb.data_product")
+    kind = next(row["record"] for row in records if row["relation"] == "sem.data_kind_contract")
+    kind["collections"] = {
+        "declarations": {"rows": {"unit": "partitioned", "field_groups": groups}},
+        "schemas": {
+            "rows": {
+                "meaning_schema": {"type": "array"},
+                "body_schema": {"type": "object", "required": ["ordinal", "text"]},
+            }
+        },
+    }
+    records.append(
+        {
+            "key": "partition:1",
+            "relation": "kb.data_product_partition",
+            "record": {
+                **packet,
+                "product_id": parent["id"],
+                "item_count": 1,
+                "group_digests": partition_group_digests(items, groups),
+            },
+        }
+    )
+    verify_detached_result(native, records=records, wire_schema={})
+    with pytest.raises(ValueError, match="parent header"):
+        verify_detached_result(native, records=records[:-1], wire_schema={})
+    moved = deepcopy(records)
+    moved[-1]["record"]["placement"]["start"] = 8
+    with pytest.raises(ValueError, match="parent header"):
+        verify_detached_result(native, records=moved, wire_schema={})
+    altered = deepcopy(records)
+    altered[-1]["record"]["group_digests"]["text"] = "partition-group:wrong"
+    with pytest.raises(ValueError, match="content identity"):
+        verify_detached_result(native, records=altered, wire_schema={})
 
 
 def test_detached_product_requires_its_artifact_even_without_document_admission():

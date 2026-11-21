@@ -24,10 +24,24 @@ class CanonicalSentenceProjection:
         "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope"],
         "entrypoints": ["run"],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/annotation",
+                "input_role": "inventory",
+                "variant": "partition-item",
+                "collection": "rows",
+                "output_collection": "rows",
+            }
+        ],
         "roles": [
             {
                 "name": "inventory",
                 "parameter": "inventory",
+                "required_rules": [
+                    "segment.sentences/native-row-span",
+                    "segment.sentences/exact-source-scope",
+                ],
                 "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
                 "direction": "input",
                 "minimum": 1,
@@ -72,7 +86,7 @@ class CanonicalSentenceProjection:
             "cancellation": "call-boundary",
             "ownership": "immutable-input-value",
         },
-        "behavior": "canonical sentence and tokenization members from the acquired output model",
+        "behavior": "canonical sentence and token rows from selected annotation partitions",
         "parameters": {},
         "binding": {"operator": "scan", "roles": ["inventory"]},
         "opaque": [

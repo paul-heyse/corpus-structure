@@ -675,10 +675,6 @@ def _lowering_program(model, subject_scopes):
                         archive_kinds.c.value["facts"]["json"]["universe"].astext, "ordinary"
                     )
                     == k["universe"].astext,
-                    func.coalesce(
-                        archive_kinds.c.value["facts"]["json"]["projection_families"], _json([])
-                    )
-                    == k["families"],
                     func.coalesce(archive_kinds.c.value["facts"]["json"]["collections"], _json({}))
                     == func.coalesce(k["collections"]["declarations"], _json({})),
                 )
@@ -706,7 +702,6 @@ def _lowering_program(model, subject_scopes):
                 member_schema=k["member_schema"],
                 member_contracts=k["member_contracts"],
                 collections=func.coalesce(k["collections"], _json({})),
-                families=k["families"],
                 universe=k["universe"].astext,
             )
             .on_conflict_do_nothing()
@@ -731,7 +726,6 @@ def _lowering_program(model, subject_scopes):
                         "meaning_schema",
                         "member_schema",
                         "member_contracts",
-                        "families",
                     )
                 ),
                 old["collections"].is_distinct_from(func.coalesce(k["collections"], _json({}))),
@@ -843,6 +837,17 @@ def _lowering_program(model, subject_scopes):
                     "expected_support",
                     expected_support.concat(
                         _object("output_witnesses", operation["output_witnesses"])
+                    ),
+                ),
+            ),
+        ),
+        If(
+            func.coalesce(operation["reference_targets"], _json([])) != _json([]),
+            (
+                Assign(
+                    "expected_support",
+                    expected_support.concat(
+                        _object("reference_targets", operation["reference_targets"])
                     ),
                 ),
             ),

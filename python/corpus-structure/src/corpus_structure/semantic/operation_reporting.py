@@ -218,7 +218,6 @@ def explain_operation(
                     maximum=role.maximum,
                     collection=role.collection,
                     presence=role.presence,
-                    families=kinds[role.kind]["families"],
                     producer_requirement=None
                     if role.producer_requirement is None
                     else asdict(role.producer_requirement),

@@ -109,6 +109,7 @@ def _native_protocol_sources(
     from .data_operation_cpu_basis import cpu_input_basis_native_sql
     from .data_operation_execution_evidence import SOURCE, execution_evidence_schema
     from .data_operation_read_native import read_native_sql
+    from .data_operation_reference_native import reference_native_programs
     from .data_operation_renewal import renewal_native_sql
     from .data_operation_rule_native import rule_native_programs
     from .data_operation_source_native import source_native_sources
@@ -267,6 +268,16 @@ def _native_protocol_sources(
         SourceArtifact(
             "native/data-operation-rule-native.py",
             _captured_module(captured_module_sources, "data_operation_rule_native.py"),
+        ),
+        SourceArtifact(
+            "native/data-operation-reference-closure.sql",
+            native_sql_script(
+                routine.render() for routine in reference_native_programs(target_metadata)
+            ).encode(),
+        ),
+        SourceArtifact(
+            "native/data-operation-reference-native.py",
+            _captured_module(captured_module_sources, "data_operation_reference_native.py"),
         ),
         SourceArtifact(
             "native/data-operation-rule-establishment.py",
@@ -1164,6 +1175,7 @@ def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_do
     from .data_operation_cpu_basis import cpu_input_basis_native_programs
     from .data_operation_execution_evidence import SOURCE
     from .data_operation_read_native import read_native_programs
+    from .data_operation_reference_native import reference_native_programs
     from .data_operation_renewal import renewal_native_programs
     from .data_operation_rule_native import rule_native_programs
     from .data_operation_source_native import source_native_programs
@@ -1307,6 +1319,10 @@ def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_do
                 ),
                 ("native/data-read-boundary.sql", read_boundary_native_programs(target_metadata)),
                 ("native/data-operation-rules.sql", rule_native_programs(target_metadata)),
+                (
+                    "native/data-operation-reference-closure.sql",
+                    reference_native_programs(target_metadata),
+                ),
             )
         },
         "native/data-operation-execution-evidence-leaf.sql": execution_evidence_leaf_native_programs(

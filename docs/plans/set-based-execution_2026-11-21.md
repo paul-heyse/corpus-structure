@@ -1,6 +1,7 @@
 # Set-based execution
 
-**Status:** In implementation. SBX-00 through SBX-02 have package evidence. This series owns the pivot to
+**Status:** In implementation. SBX-00 through SBX-02 have package evidence. SBX-03 through SBX-05
+have partial implementation and scoped verification. This series owns the pivot to
 partition-unit storage, declared rules and proofs, projection-keyed reuse, owner-resolved reads
 and the single-derivation PDF path. **Created:** 2026-11-21.
 
@@ -151,9 +152,9 @@ capability consumed.
 | SBX-00 | Complete. Decision records, entry evidence and fixture baseline are recorded. Exact selected-use readers and detached demand ownership passed genuine finite and rich export checks. | — | [Entry and reader evidence](#sbx-00) |
 | SBX-01 | Complete for generic collection declarations, partition storage, content and placement identity, field groups and block-relative addresses. Managed rollback-only candidate passed. | SBX-00 decisions | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-01) |
 | SBX-02 | Implemented and tested for the native forms, retained establishment, product and partition attestations, and binding. Rollback-only candidate passed. | SBX-01 partitions; shared premise and scenario contract | [PRP and remaining adoption conditions](set-based-execution/populations-rules-and-proofs.md#sbx-02) |
-| SBX-03 | Early real annotation-to-canonical slice, then sentence, canonical and HanLP adoption and packet retirement | SBX-01 partitions; runnable SBX-02 proof binding and SBX-05 resolver for the slice | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-03) |
-| SBX-04 | Existing validators as attested rules; one stance at hand-off; projection families and member-level outputs retired | SBX-02 | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-04) |
-| SBX-05 | One reference carrier with declared targets; role-relative references; one resolver; closure rules | SBX-01 addresses | [RPK](set-based-execution/references-and-projection-keys.md#sbx-05) |
+| SBX-03 | In progress. The real annotation-to-canonical chain and HanLP partition output passed. Canonical and HanLP packet producers are retired. Remaining population consumers, annotation packet retirement and occurrence correspondence are open. | SBX-01 partitions; runnable SBX-02 proof binding and SBX-05 resolver for the slice | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-03) |
+| SBX-04 | In progress. Selected-input attestations and initial formal rules passed scoped checks. The target model removes five unused projection tables. Remaining validators, consumers, and receipt retirement are open. | SBX-02 | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-04) |
+| SBX-05 | In progress. The shared carrier, declared targets and keyed closure are in the tree. Broad producer, live reader and legacy native reference migration are open. | SBX-01 addresses | [RPK](set-based-execution/references-and-projection-keys.md#sbx-05) |
 | SBX-06 | Enforced projections, projection-keyed computation and exact occurrence binding | SBX-01 field groups; shared premises and SBX-05 custody; contextual-identity decision before key changes | [RPK](set-based-execution/references-and-projection-keys.md#sbx-06) |
 | SBX-07 | Per-host locality decision and partition memo where eligible | SBX-06, SBX-03 | [RPK](set-based-execution/references-and-projection-keys.md#sbx-07) |
 | SBX-08 | Validated carriers with one constructor; decode once; residue removed | — | [VVH](set-based-execution/validated-values-and-handoff.md#sbx-08) |

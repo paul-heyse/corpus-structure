@@ -139,7 +139,6 @@ def _archive(connection, *, binding=None, mutation=None, provider=None):
                 meaning_schema={"type": "array"},
                 member_schema={"not": {}},
                 member_contracts=[],
-                families=[],
                 universe="ordinary",
             )
         ],

@@ -1,7 +1,7 @@
 # Populations, rules and proofs
 
-**Status:** SBX-01 implemented and tested in rollback-only native scope. SBX-02 through SBX-04
-retain their planned acceptance. Companion of [Set-based execution](../set-based-execution_2026-11-21.md),
+**Status:** SBX-01 and SBX-02 have scoped native evidence. SBX-03 and SBX-04 are in progress.
+Companion of [Set-based execution](../set-based-execution_2026-11-21.md),
 which owns package state, decisions and the disposition table. **Created:** 2026-11-21.
 
 This companion owns the central contracts of the series: how a homogeneous population is stored
@@ -357,6 +357,36 @@ authoring. SBX-20 owns registration of the integrated Revision A, including subs
 <a id="sbx-03"></a>
 ## SBX-03 — The first populations
 
+**Implementation checkpoint · 2026-11-21.** Source annotations publish one block-local rows
+partition and a compact manifest for composition. Canonical projection consumes the authenticated
+partition envelope, preserves block-local offsets, and emits role-relative references to the
+annotation rows. HanLP emits token, constituent, semantic-role and alignment rows with canonical
+sentence and token references. PostgreSQL restricts partition hydration to admitted whole-product
+inputs and enforces packet capacity. Selected support export carries partition rows under the
+parent body disclosure check, and detached verification checks partition content, field groups,
+placement and parent commitments. Graph inspection displays one node per partition with its
+metadata.
+
+`uv run ci test` passed 232 compilation, detached, hydration, product admission, reference and rule
+cases (`85e9b6137e904489b262743b66ceb23c`). The 12-case source and partition selection
+(`2cefd312d45b4d16822bb520034c9f77`) passed, including the independently expected moved-block
+coordinates and unchanged partition digest. All 20 HanLP checks passed, including CUDA inference
+and typed partition output (`18ead9268aae45fcab445899402e7089`). Twelve scoped M1 checks passed
+(`d7e24115befc4cc59b74be87d72828ce`).
+After placing partition rows and the shared carrier in the private product model, all 47
+source, canonical, HanLP and independent interpretation checks passed
+(`902a1c284eac4c68822d1ed1652042af`).
+The [early real chain](cutover-and-qualification.md#early-revision-a-integration) owns integration
+acceptance.
+
+Construction row readers and some prepared/generic consumers use the new annotation envelope.
+M1 reads the annotation partitions and requires the row-span and exact-source-scope rules.
+Construction outputs, clauses, declarations, external extraction, definitions, and assessment
+still have consumers of synthetic annotation member identities or flattened payloads. Move those
+reads to the typed row view and declare their producing input references before removing the
+recovery and validation paths for the old shapes. Preserve required source, manifest and
+population behavior. Repeated-text and split/merge correspondence controls remain open.
+
 **Vision.** Sentence annotation, canonical projection and HanLP publish partitions. Their
 consumers read partitions through one row view and name tokens and sentences by address.
 
@@ -405,6 +435,24 @@ A constructions result on the fixture equals today's after mapping token ids to 
 
 <a id="sbx-04"></a>
 ## SBX-04 — One stance on validity
+
+**Implementation checkpoint · 2026-11-21.** Producer attestations can name selected input role
+paths. Native settlement reconstructs those paths from the producing bindings, preserving their
+order and multiplicity, and binding checks an applicable establishment at the acquired read.
+Canonical projection requires annotation row spans and the exact source/scope attestation.
+Formal coverage-family uniqueness and ordered lexicon bounds have named intrinsic rules.
+`uv run ci test` passed 42 rule and admission cases (`d1cf0aec9979403e92838a7364d43b2f`).
+Formal production also attests literal source geometry and exact packed choice members. The 39-case
+formal and native rule selection checks both retained rule claims (`49d22639b4eb4ea7ad5cd3812e7aaeae`).
+
+Removed the coordinate, role, endpoint, coverage and choice side tables from the target compiler
+and generated wire. The generated successor passed rollback-only candidate authoring against N47
+(`c9a513040006422ebcb309693bc15ce5`). Native binding uses derivation output position and
+multiplicity. Native product admission still checks exact nominal member rows. The rest of the
+formal inventory, selector, page and scope checks, the construction and contextual validator splits,
+required consumer declarations, and `ProductValidation` receipt retirement remain open. Resolve
+member-level output retirement against the actual output declarations and native consumers before
+deleting that path.
 
 **Vision.** Every existing semantic validator becomes one or more rules. Consumers accept proofs
 and no hand-off differs in stance.

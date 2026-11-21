@@ -87,7 +87,6 @@ def feature_body_control(infrastructure_rollback):
                 meaning_schema={},
                 member_schema={},
                 member_contracts=[],
-                families=[],
                 universe=universe,
             )
             for contract, kind, universe in (

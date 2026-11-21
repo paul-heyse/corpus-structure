@@ -37,7 +37,6 @@ class NativeKindProjection(TypedDict):
     member_schema: dict[str, Any]
     member_contracts: list[str]
     collections: NotRequired[NativeCollectionProjection]
-    families: list[str]
     universe: Literal["ordinary", "source", "evaluator"]
 
 

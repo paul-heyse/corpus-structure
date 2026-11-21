@@ -252,18 +252,17 @@ def _proposal_source(prepared, model, source, annotations, pin):
     from .declared_proposal_frames import DeclaredProposalSource
     from .declared_record_sources import DeclaredNativeFrameSource
     from .proposals import ProposalSentence, native_address
-    from .sentence_products import source_annotation_member_values, validate_source_annotations
+    from .sentence_products import source_annotation_blocks, validate_source_annotations
     from .source_products import FrozenNativeSource
 
     native = FrozenNativeSource.acquire(prepared, source)
     base = DeclaredNativeFrameSource(native.content.decode(), canonical_bytes(pin).decode())
     checked = validate_source_annotations(prepared, model, annotations, native)
-    retained = wire_json_loads(checked.content)
-    if any(block["annotation"]["source"] != pin for block in retained["blocks"]):
+    if any(block["annotation"]["source"] != pin for block in source_annotation_blocks(checked)):
         raise ValueError(
             "retained sentences differ from the actual selected native source/member context"
         )
-    rows = source_annotation_member_values(retained)
+    rows = checked.inventory("sentence")
     sentences = [
         ProposalSentence(
             row["local_id"],
@@ -272,7 +271,6 @@ def _proposal_source(prepared, model, source, annotations, pin):
             row["end"],
         )
         for row in rows
-        if row["record_type"] == "sentence"
     ]
     sentences.extend(
         ProposalSentence(
@@ -341,7 +339,8 @@ def prepare_external_packet(prepared, model, values, source_pins, *, check_activ
         available[key] = (value, pin)
     annotation_index = {}
     for annotation in values["context_annotations"]:
-        key = canonical_bytes([annotation["source"], annotation["selectors"]])
+        header = annotation.get("header", annotation)
+        key = canonical_bytes([header["source"], header["selectors"]])
         if key in annotation_index:
             raise ValueError("context annotation coordinate is ambiguous")
         annotation_index[key] = annotation

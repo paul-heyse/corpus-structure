@@ -250,6 +250,22 @@ def snapshot_from_index(prepared, cut, index, projection):
                 "member",
                 witness={"member_id": row["member_id"]},
             )
+        for row in index.rows("kb.data_product_partition"):
+            fact = {key: value for key, value in row.items() if key != "body"}
+            partition = node(
+                "kb.data_product_partition",
+                [row["product_id"], row["collection"], row["partition_key"]],
+                "partition",
+                fact,
+            )
+            edge(
+                required("kb.data_product", row["product_id"], "partition product"),
+                partition,
+                "output",
+                row["collection"],
+                position=row["ordinal"],
+                witness={"partition_key": row["partition_key"]},
+            )
         for leaf in authorities:
             edge(
                 identity("ops.data_authority_leaf", [leaf.derivation_id, leaf.use_id]),

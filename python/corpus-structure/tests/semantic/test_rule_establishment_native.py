@@ -19,9 +19,12 @@ from corpus_structure.semantic.data_operation_model import (
     SubjectContext,
 )
 from corpus_structure.semantic.data_operation_partitions import partition_header, partition_packet
-from corpus_structure.semantic.data_operation_values import semantic_value
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_read_boundary_native import read_boundary_native_programs
-from corpus_structure.semantic.established_validity import successful_rule_attestation
+from corpus_structure.semantic.established_validity import (
+    RuleObservedInput,
+    successful_rule_attestation,
+)
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.rule_establishment_native import rule_establishment_native_programs
@@ -32,6 +35,76 @@ from semantic.test_data_product_admission_programs import (
 )
 
 
+def test_inline_rule_projections_reuse_only_their_observed_row_facts(
+    product_connection,  # noqa: F811
+):
+    context, packet, _, _ = partition_fixture(product_connection)
+    body = decode_semantic_value(packet["body"])
+    rules = (
+        (
+            "unique-coverage",
+            "unique",
+            "coverage",
+            {"paths": ["family"]},
+            ("family",),
+        ),
+        (
+            "ordered-region",
+            "predicate",
+            "lexicon",
+            {"expression": {"op": "le", "args": [{"field": "start"}, {"field": "end"}]}},
+            ("start", "end"),
+        ),
+    )
+    table = get_metadata().tables["sem.data_rule"]
+    for rule_id, form, collection, parameters, paths in rules:
+        spec = {
+            "id": rule_id,
+            "scope": "product",
+            "collection": collection,
+            "checker": "admission",
+            "fingerprint": rule_id,
+            "form": form,
+            "parameters": {**parameters, "inline_collection": True},
+            "reads": [{"side": "source", "path": path, "groups": []} for path in paths],
+        }
+        product_connection.execute(
+            insert(table).values(
+                release_id="release",
+                rule_id=rule_id,
+                kind_contract="partitioned",
+                fingerprint=rule_id,
+                specification=spec,
+            )
+        )
+    coverage = [{"family": "math", "outcome": "complete"}, {"family": "chem", "outcome": "empty"}]
+    lexicon = [{"start": 2, "end": 5}]
+
+    def publish(coverage, lexicon):
+        return realize(
+            product_connection,
+            context,
+            {**packet, "body": semantic_value({**body, "coverage": coverage, "lexicon": lexicon})},
+        )
+
+    original = publish(coverage, lexicon)
+    counts = text("SELECT count(*) FROM kb.data_validity")
+    assert product_connection.scalar(counts) == 2
+    edited = publish([coverage[1], {**coverage[0], "outcome": "partial"}], lexicon)
+    assert original != edited
+    assert product_connection.scalar(counts) == 2
+    with (
+        pytest.raises(DBAPIError, match="unique-coverage violated"),
+        product_connection.begin_nested(),
+    ):
+        publish([coverage[0], coverage[0]], lexicon)
+    with (
+        pytest.raises(DBAPIError, match="ordered-region violated"),
+        product_connection.begin_nested(),
+    ):
+        publish(coverage, [{"start": 5, "end": 2}])
+
+
 def test_producer_attestations_require_exact_target_and_live_establishment(
     product_connection,  # noqa: F811
 ):
@@ -40,6 +113,7 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
     for name in (
         "ops.data_request",
         "ops.data_derivation_output",
+        "ops.data_derivation_input",
         "ops.data_demand_read",
         "kb.data_validity_establishment",
     ):
@@ -255,6 +329,56 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
 
     run_bind()
     run_bind(required="body")
+    source_rule = replace(
+        body_rule,
+        id="source-dependent",
+        fingerprint="source-dependent-fingerprint",
+        parameters=b'{"input_reads":{"source":["tokens"]}}',
+    )
+    conn.execute(
+        insert(model.tables["sem.data_rule"]).values(
+            release_id="source-release",
+            rule_id=source_rule.id,
+            kind_contract=source_rule.kind_contract,
+            fingerprint=source_rule.fingerprint,
+            specification=source_rule.record,
+        )
+    )
+    conn.execute(
+        insert(model.tables["ops.data_derivation_input"]).values(
+            derivation_id="second",
+            role="source",
+            position=0,
+            multiplicity=1,
+            product_id=product,
+        )
+    )
+
+    def source_claim(value):
+        return successful_rule_attestation(
+            source_rule,
+            kind,
+            "actual-producer",
+            result,
+            subject,
+            selected_inputs={"source": (RuleObservedInput(value),)},
+        ).model_dump(mode="json")
+
+    source_request = {**producer, "release_id": "source-release"}
+    with pytest.raises(DBAPIError, match="rule"), conn.begin_nested():
+        run_bind(required="source-dependent", release="source-release")
+    with pytest.raises(DBAPIError, match="missing or conflicting"), conn.begin_nested():
+        run_settle([source_claim({"tokens": []})], "second", source_request)
+    actual_source = decode_semantic_value(result["product"]["body"])
+    declared_claim = source_claim(actual_source)
+    assert source_claim({**actual_source, "unobserved": "different"}) == declared_claim
+    run_settle([declared_claim], "second", source_request)
+    observed_at = conn.execute(text("SELECT clock_timestamp()")).scalar_one()
+    run_bind(
+        required="source-dependent",
+        release="source-release",
+        acquired={**boundary, "frontier_at": observed_at.isoformat()},
+    )
     next_rule = replace(rule, fingerprint="revised-fingerprint")
     conn.execute(
         insert(model.tables["sem.data_rule"]).values(

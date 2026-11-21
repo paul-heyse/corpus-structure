@@ -284,12 +284,9 @@ def _working_document(text, start, end, rows, vocab):
 
 def retained_native_vocab(source, native):
     """Seed source lexemes from retained primary values before enabling pattern getters."""
-    import json
-
     from spacy.lang.en import English
     from spacy.vocab import Vocab
 
-    body = json.loads(native.content)
     text = source.value["text"]
     vocab: Any = Vocab(
         lex_attr_getters={},
@@ -306,7 +303,7 @@ def retained_native_vocab(source, native):
     )
     from ..sentence_products import source_annotation_member_values
 
-    for token in source_annotation_member_values(body):
+    for token in source_annotation_member_values(native):
         if token["record_type"] != "token":
             continue
         spelling = text[token["start"] : token["end"]]
@@ -323,17 +320,14 @@ def retained_native_vocab(source, native):
 
 def retained_native_documents(source, native, vocab):
     """Materialize actual retained token columns; no tokenization or NLP call."""
-    import json
-
-    body = json.loads(native.content)
     text = source.value["text"]
     groups = {}
-    from ..sentence_products import source_annotation_member_values
+    from ..sentence_products import source_annotation_blocks, source_annotation_member_values
 
-    for token in source_annotation_member_values(body):
+    for token in source_annotation_member_values(native):
         if token["record_type"] == "token":
             groups.setdefault(token["block_id"], []).append(token)
-    for item in body["blocks"]:
+    for item in source_annotation_blocks(native):
         annotation = item["annotation"]
         block = dict(
             block_id=annotation["block_id"],

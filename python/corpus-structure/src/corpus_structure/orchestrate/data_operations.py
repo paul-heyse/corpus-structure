@@ -1087,8 +1087,20 @@ class NativeDemandExecutor:
                     )
                 value = decoded[0]
             else:
-                value = decoded
-            values.append(HydratedRoleValue(role, identities[roles[role].kind, "kind"], value))
+                value = tuple(
+                    member.partitioned.value() if member.partitioned is not None else item
+                    for member, item in zip(members, decoded, strict=True)
+                )
+            values.append(
+                HydratedRoleValue(
+                    role,
+                    identities[roles[role].kind, "kind"],
+                    value,
+                    partitioned=members[0].partitioned
+                    if roles[role].collection == "scalar"
+                    else None,
+                )
+            )
         return tuple(values)
 
     def _retain_answer(self, ready, claim, answer, port, owner, *, physical=None):

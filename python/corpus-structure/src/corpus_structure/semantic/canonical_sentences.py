@@ -1,14 +1,14 @@
-"""Acquired cheap canonical members projected from one retained spaCy inventory."""
+"""Project canonical sentence and token rows from the selected spaCy partitions."""
 
 from __future__ import annotations
 
 import inspect
 import json
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from .characterization_manifests import analytical_packets, append_manifest
+from .characterization_manifests import append_manifest
 from .data_operation_model import SubjectContext
 from .data_operation_outcomes import successful_return_outcome
 from .identity import canonical_bytes
@@ -27,6 +27,7 @@ class CanonicalProduct:
     model: EffectiveDataOperationModel
     kind: str
     subject_context: SubjectContext | None = None
+    partitions: tuple[bytes, ...] = field(kw_only=True)
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -35,21 +36,28 @@ class CanonicalProduct:
             )
         return self.subject_context
 
-    @property
-    def value(self):
-        name = next(
-            definition.name
-            for definition in self.prepared.definitions
-            if definition.iri == self.kind
+    @classmethod
+    def from_projection(cls, value, prepared, model, kind, *, subject_context=None):
+        from .data_operation_partitions import partition_header
+        from .sentence_partitions import COLLECTION
+
+        packets = value["partitions"]
+        body = dict(value["header"]) | {COLLECTION: partition_header(packets)}
+        return cls(
+            canonical_bytes(body),
+            prepared,
+            model,
+            kind,
+            subject_context,
+            partitions=tuple(canonical_bytes(packet) for packet in packets),
         )
-        return self.prepared.validate_json(name, self.content)
 
     @property
     def reference(self):
         from .data_operation_identity import body_identity, contextual_product_identity
         from .data_product_reference import DataProductReference
 
-        value = self.value.model_dump(mode="python", exclude_unset=True)
+        value = json.loads(self.content)
         kind = next(
             item.key
             for item in self.model.identities
@@ -70,70 +78,52 @@ def canonical_projection_spec(model, container_kind):
 
     kinds = {kind.semantic_id: kind for kind in model.kinds}
     ids = {(item.owner, item.domain): item.key for item in model.identities}
-    records = {}
-    manifest = None
-    for owner in derive_member_kinds(model, container_kind):
-        properties = [
-            json.loads(kinds[edge.target].facts)
-            for edge in model.edges
-            if edge.source == owner and edge.relation == "property"
-        ]
-        tags = [
-            prop["equals_string"]
-            for prop in properties
-            if prop["name"] == "record_type" and prop.get("equals_string")
-        ]
-        if tags == ["manifest"]:
-            if manifest is not None:
-                raise ValueError("canonical product repeats a declared manifest type")
-            manifest = ids[owner, "kind"]
-            continue
-        if len(tags) != 1 or tags[0] in records:
-            raise ValueError("canonical members need distinct actual nominal record discriminators")
-        records[tags[0]] = dict(
-            kind_contract=ids[owner, "kind"], fields=sorted(prop["name"] for prop in properties)
-        )
-    if set(records) != {"token", "sentence"}:
-        raise ValueError("canonical model must declare exactly sentence and token units")
-    if manifest is None:
-        raise ValueError("canonical product lacks its declared compact manifest")
-    return dict(records=records, families=list(SPACY_FAMILIES[:2]), manifest_contract=manifest)
+    (owner,) = derive_member_kinds(model, container_kind)
+    discriminator = kinds[owner + "/property/record_type"]
+    if json.loads(discriminator.facts)["equals_string"] != "manifest":
+        raise ValueError("canonical body must bind exactly its declared compact manifest")
+    return dict(families=list(SPACY_FAMILIES[:2]), manifest_contract=ids[owner, "kind"])
 
 
-def canonical_packet_values(inventory: dict, projection: dict) -> dict:
-    """One flat typed projection, preserving actual original IDs/context and packet order."""
-    from .sentence_products import source_annotation_member_values
-    from .source_products import source_subject
+def canonical_partition_values(inventory: dict, projection: dict) -> dict:
+    from .data_product_reference import SemanticReference
+    from .sentence_partitions import COLLECTION, SentenceBlock, blocks_from_packets
 
-    context = dict(
-        subject=source_subject(inventory["source"]),
-        subject_definition="original-source-view",
-        original_source=inventory["source"]["document"],
-        analyzed_scope=dict(source=inventory["source"], selectors=inventory["selectors"]),
-    )
-    packets = [
-        {
-            "member_id": body["local_id"],
-            "kind_contract": projection["records"][body["record_type"]]["kind_contract"],
-            "context": context,
-            "body": {
-                field: body[field]
-                for field in projection["records"][body["record_type"]]["fields"]
-                if field in body
-            },
-        }
-        for body in source_annotation_member_values(inventory)
-    ]
-    coverage = [row for row in inventory["coverage"] if row["family"] in projection["families"]]
-    value = {
-        **{key: inventory[key] for key in ("source", "selectors", "block_coverage")},
+    header = inventory["header"]
+    coverage = [row for row in header["coverage"] if row["family"] in projection["families"]]
+    body = {
+        **{key: header[key] for key in ("source", "selectors", "block_coverage")},
+        "coverage": coverage,
         "outcome": "complete"
         if all(row["outcome"] in {"complete", "empty"} for row in coverage)
         else "partial",
-        "coverage": coverage,
-        "members": packets,
     }
-    return append_manifest(value, projection["manifest_contract"])
+    fields = {
+        "record_type",
+        "ordinal",
+        "start",
+        "end",
+        "extent",
+        "sentence",
+        "space",
+        "role",
+        "piece_indices",
+    }
+    packets = []
+    for block in blocks_from_packets(inventory["partitions"]):
+        rows = tuple(
+            {key: value for key, value in row.items() if key in fields}
+            | {
+                "annotation": SemanticReference.item(
+                    "inventory", COLLECTION, block.key, (row["record_type"], row["ordinal"])
+                ).values()
+            }
+            for row in block.rows
+        )
+        packets.append(
+            SentenceBlock(block.key, block.ordinal, block.start, block.end, rows).packet()
+        )
+    return {"header": append_manifest(body, projection["manifest_contract"]), "partitions": packets}
 
 
 @dataclass(frozen=True)
@@ -142,43 +132,13 @@ class PreparedCanonicalProfile:
     model: EffectiveDataOperationModel
     operation: EffectiveOperation
     projection: bytes
-    input_name: str
-    output_name: str
+    output_kind: str
 
-    def validate_input(self, value):
-        return self.prepared.validate_json(self.input_name, canonical_bytes(value)).model_dump(
-            mode="json", exclude_unset=True
-        )
+    def output(self, value):
+        return CanonicalProduct.from_projection(value, self.prepared, self.model, self.output_kind)
 
-    def validate_output(self, value, *, subject_context=None):
-        result = self.prepared.validate_json(self.output_name, canonical_bytes(value))
-        value = result.model_dump(mode="json", exclude_unset=True)
-        rows = analytical_packets(value, json.loads(self.projection)["manifest_contract"])
-        by_id = {row["member_id"]: row["body"] for row in rows}
-        if len(by_id) != len(rows):
-            raise ValueError("canonical projection repeats a member")
-        for body in by_id.values():
-            if body["record_type"] == "sentence" and any(
-                token not in by_id
-                or by_id[token]["record_type"] != "token"
-                or by_id[token].get("sentence_ref") != body["local_id"]
-                for token in body["token_ids"]
-            ):
-                raise ValueError("canonical sentence has no exact retained token membership")
-        return CanonicalProduct(
-            canonical_bytes(result.model_dump(mode="json", exclude_unset=True)),
-            self.prepared,
-            self.model,
-            next(role.kind for role in self.operation.roles if role.direction == "output"),
-            subject_context,
-        )
-
-    def project(self, inventory, *, subject_context=None):
-        actual = self.validate_input(inventory)
-        return self.validate_output(
-            canonical_packet_values(actual, json.loads(self.projection)),
-            subject_context=subject_context,
-        )
+    def project(self, inventory):
+        return self.output(canonical_partition_values(inventory, json.loads(self.projection)))
 
 
 def execute_canonical_projection(receiver, inventory):
@@ -203,6 +163,7 @@ def canonical_execution_custody():
         Path(__file__),
         root / "characterization_manifests.py",
         root / "sentence_products.py",
+        root / "sentence_partitions.py",
         root / "source_products.py",
         root / "data_operation_prepared_products.py",
         root / "data_operation_ports.py",
@@ -239,6 +200,11 @@ def canonical_sentence_operation_sources(*, sentence_configuration=None, include
             PythonSource(
                 "corpus_structure.methods.canonical_sentences", path.read_bytes(), str(path)
             ),
+            PythonSource(
+                "corpus_structure.semantic.sentence_partitions",
+                Path(__file__).with_name("sentence_partitions.py").read_bytes(),
+                str(Path(__file__).with_name("sentence_partitions.py")),
+            ),
         ),
         boundary_contracts=(canonical_profile_assets(), canonical_execution_custody()),
     )
@@ -269,7 +235,6 @@ class PreparedCanonicalPort:
     def _verify(self):
         from corpus_structure.methods.canonical_sentences import CanonicalSentenceProjection
 
-        from .data_operation_ports import project_product_members
         from .data_operation_prepared_products import verify_prepared_product
 
         verify_prepared_product(
@@ -286,8 +251,8 @@ class PreparedCanonicalPort:
                     execute_canonical_projection,
                 ),
                 (
-                    "corpus_structure.semantic.canonical_sentences.canonical_packet_values",
-                    canonical_packet_values,
+                    "corpus_structure.semantic.canonical_sentences.canonical_partition_values",
+                    canonical_partition_values,
                 ),
                 (
                     "corpus_structure.semantic.canonical_sentences.canonical_projection_spec",
@@ -297,18 +262,12 @@ class PreparedCanonicalPort:
                     "corpus_structure.semantic.canonical_sentences.PreparedCanonicalProfile.project",
                     PreparedCanonicalProfile.project,
                 ),
-                (
-                    "corpus_structure.semantic.data_operation_ports.project_product_members",
-                    project_product_members,
-                ),
             ),
             authorize=self.authorize,
             required_sources=canonical_sentence_operation_sources(include_dependencies=False),
         )
 
     def _input(self, values, binding):
-        from corpus_structure.semantic.input_values import _untrusted_value
-
         from .data_operation_ports import PortRefusal, PythonRoleValue
         from .data_operation_values import decode_semantic_value
         from .source_products import source_subject
@@ -324,28 +283,27 @@ class PreparedCanonicalPort:
             or not isinstance(values[0], PythonRoleValue)
             or values[0].role != inputs[0].name
             or values[0].kind_contract != kind
+            or values[0].partitioned is None
         ):
             raise PortRefusal("canonical projection requires its actual nominal inventory role")
-        value = self.profile.validate_input(_untrusted_value(values[0].value))
+        inventory = values[0].partitioned.value()
         if binding is not None and (
             not binding.sufficient
             or binding.operation != self.operation.semantic_id
             or binding.definition != self.identity.definition
             or binding.eligibility != self.identity.eligibility
-            or binding.subject != source_subject(value["source"])
+            or binding.subject != source_subject(inventory["header"]["source"])
             or decode_semantic_value(json.loads(binding.parameters)) != {}
         ):
             raise PortRefusal("canonical inventory differs from frozen selected binding")
-        return value
+        return inventory
 
     def _complete(self, value, binding=None):
         if binding is not None:
             value = replace(value, subject_context=binding.subject_context)
-        from .data_operation_ports import PortCompletion, RoleValue, project_product_members
-        from .data_operation_values import semantic_value
+        from .data_operation_ports import PortCompletion
+        from .sentence_partitions import partitioned_role
 
-        model_value = value.value
-        typed = model_value.model_dump(mode="python", exclude_unset=True)
         output = next(role for role in self.operation.roles if role.direction == "output")
         kind = next(
             item.key
@@ -355,12 +313,11 @@ class PreparedCanonicalPort:
         return PortCompletion(
             self.operation.semantic_id,
             (
-                RoleValue(
+                partitioned_role(
                     output.name,
                     kind,
-                    value.content,
-                    canonical_bytes(semantic_value(typed)),
-                    project_product_members(self.profile.model, output.kind, typed),
+                    json.loads(value.content),
+                    tuple(json.loads(packet) for packet in value.partitions),
                 ),
             ),
             outcome=successful_return_outcome(self.operation),
@@ -381,12 +338,12 @@ class PreparedCanonicalPort:
 
         self._verify()
         inventory = self._input(values, binding)
-        signature = inspect.signature(canonical_packet_values)
+        signature = inspect.signature(canonical_partition_values)
         bound = signature.bind(inventory=inventory, projection=json.loads(self.profile.projection))
         path = Path(__file__).resolve()
         descriptor = PythonCPUDescriptor(
             (("corpus_structure.semantic.canonical_sentences", str(path), path.read_bytes()),),
-            "corpus_structure.semantic.canonical_sentences.canonical_packet_values",
+            "corpus_structure.semantic.canonical_sentences.canonical_partition_values",
             (),
             verification="prepared-kernel",
         )
@@ -398,7 +355,7 @@ class PreparedCanonicalPort:
             execution_owner=execution_owner,
             check_active=check_active,
         )
-        result = self.profile.validate_output(json.loads(reply.content))
+        result = self.profile.output(json.loads(reply.content))
         return replace(
             self._complete(result, binding),
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
@@ -422,14 +379,12 @@ def resolve_canonical_sentence_port(
         raise PortRefusal(
             "canonical projection requires its declared prepared scalar product profile"
         )
-    by_iri = {definition.iri: definition.name for definition in prepared.definitions}
     profile = PreparedCanonicalProfile(
         prepared,
         model,
         selected,
         canonical_bytes(canonical_projection_spec(model, outputs[0].kind)),
-        by_iri[inputs[0].kind],
-        by_iri[outputs[0].kind],
+        outputs[0].kind,
     )
     port = PreparedCanonicalPort(
         identity, profile, authorize, custody, sources or canonical_sentence_operation_sources()

@@ -159,7 +159,6 @@ def test_compiled_collection_admits_header_and_checks_native_item_schema(product
             meaning_schema=meaning,
             member_schema={"not": {}},
             member_contracts=[],
-            families=[],
             universe="ordinary",
             collections=specification,
         )

@@ -1,4 +1,4 @@
-"""Generated nominal packets and leaf projections retain custody and exact replay."""
+"""Generated nominal product admission retains custody and exact replay."""
 
 import json
 
@@ -29,10 +29,6 @@ def product_connection(infrastructure_rollback):
         "kb.data_product",
         "kb.data_product_member",
         "kb.data_product_partition",
-        *(
-            "kb.data_member_" + name
-            for name in ("coordinate", "role", "endpoint", "coverage", "choice")
-        ),
     ):
         connection.execute(
             CreateTable(get_metadata().tables[name], include_foreign_key_constraints=[])
@@ -162,7 +158,6 @@ def product_connection(infrastructure_rollback):
                 meaning_schema={},
                 member_schema=member_schema,
                 member_contracts=member_contracts,
-                families=["coordinate", "role", "endpoint", "coverage", "choice"],
                 universe="ordinary",
             )
         )
@@ -186,20 +181,11 @@ def product_packet(member_ids=("one",)):
     member_context = {
         key: value for key, value in context.items() if key not in {"project_id", "release_id"}
     }
-    # Declared physical leaves are BIGINT. Values above int4's maximum must not
-    # acquire a separate, narrower SQL cast boundary.
-    fields = {
-        "coordinates": [{"original_source": "source", "start": 2**33, "end": 2**33 + 1, "page": 1}],
-        "roles": [{"role": "item", "position": 2**33, "multiplicity": 1}],
-        "endpoints": [{"scope": "local", "role": "self", "member_id": "one"}],
-        "coverage": [{"scope": "whole", "start": 2**33, "end": 2**33 + 1, "complete": True}],
-        "choices": [{"choice_group": "group", "alternative": "a", "selected": True}],
-    }
+    fields = {"label": "retained member", "value": 2**33}
     member = {
         "kind_contract": "leaf",
         "context": member_context,
         "body": fields,
-        **fields,
     }
     canonical_packet = {key: member[key] for key in ("kind_contract", "context", "body")}
     return context, {
@@ -222,44 +208,22 @@ def realize(connection, context, packet):
     )
 
 
-def test_product_member_families_are_exact_idempotent_and_use_declared_leaf_types(
-    product_connection,
-):
+def test_product_members_are_exact_and_idempotent(product_connection):
     context, packet = product_packet()
     first = realize(product_connection, context, packet)
     assert realize(product_connection, context, packet) == first
-    for name in (
-        "data_product",
-        "data_product_member",
-        *(
-            "data_member_" + name
-            for name in ("coordinate", "role", "endpoint", "coverage", "choice")
-        ),
-    ):
-        assert product_connection.scalar(text("SELECT count(*) FROM kb." + name)) == 1
-    assert product_connection.scalar(text("SELECT start FROM kb.data_member_coordinate")) == 2**33
-    assert product_connection.execute(
-        text("SELECT endpoint_product,endpoint_member FROM kb.data_member_endpoint")
-    ).one() == (first, "one")
-    product_connection.execute(text("UPDATE kb.data_member_role SET position=3"))
+    assert product_connection.scalar(text("SELECT count(*) FROM kb.data_product")) == 1
+    assert product_connection.scalar(text("SELECT count(*) FROM kb.data_product_member")) == 1
+    product_connection.execute(text("UPDATE kb.data_product_member SET body='[]'::jsonb"))
     with (
-        pytest.raises(DBAPIError, match="identity collision at ordinal") as refusal,
+        pytest.raises(DBAPIError, match="member rows differ") as refusal,
         product_connection.begin_nested(),
     ):
         realize(product_connection, context, packet)
     assert getattr(refusal.value.orig, "sqlstate", None) == "23514"
 
 
-def test_product_member_projection_refuses_changes_and_evaluator_role_crossing(product_connection):
-    context, packet = product_packet()
-    packet["members"][0]["coordinates"] = []
-    with (
-        pytest.raises(DBAPIError, match="projection differs") as refusal,
-        product_connection.begin_nested(),
-    ):
-        realize(product_connection, context, packet)
-    assert getattr(refusal.value.orig, "sqlstate", None) == "P0001"
-    assert product_connection.scalar(text("SELECT count(*) FROM kb.data_product")) == 0
+def test_product_member_refuses_evaluator_role_crossing(product_connection):
     product_connection.execute(
         text("UPDATE sem.data_kind_contract SET universe='evaluator' WHERE kind_contract='leaf'")
     )
@@ -351,11 +315,7 @@ def test_generated_product_admission_binds_in_actual_native_model(native_rollbac
                 assert getattr(refusal.value.orig, "sqlstate", None) == "P0001"
 
 
-def test_product_programs_retain_typed_bodies_and_follow_captured_member_schema():
-    from copy import copy
-
-    import yaml
-
+def test_product_programs_have_typed_inputs():
     from corpus_structure.semantic.data_product_admission_native import (
         product_admission_native_programs,
     )
@@ -371,26 +331,6 @@ def test_product_programs_retain_typed_bodies_and_follow_captured_member_schema(
         ("admit_authored_data", ("jsonb",)),
         ("admit_original_document_asset", ("jsonb",)),
     ]
-    captured = copy(model)
-    captured.info = dict(model.info)
-    captured.info["physical_sources"] = dict(model.info["physical_sources"])
-    protocol = yaml.safe_load(captured.info["physical_sources"]["data-operation-native.yaml"])
-    protocol["definitions"]["coordinate"]["required"].append("page")
-    captured.info["physical_sources"]["data-operation-native.yaml"] = yaml.safe_dump(
-        protocol
-    ).encode()
-    changed = next(
-        p
-        for p in product_admission_native_programs(captured)
-        if p.name == "ddo_install_product_context"
-    ).render()
-    assert (
-        "ops.ddo_fields(family_value, ARRAY['original_source', 'start', 'end', 'page']" in changed
-    )
-    assert (
-        "ops.ddo_fields(family_value, ARRAY['original_source', 'start', 'end'], ARRAY['page'])"
-        in next(p for p in programs if p.name == "ddo_install_product_context").render()
-    )
 
 
 def partition_fixture(connection):
@@ -422,7 +362,6 @@ def partition_fixture(connection):
             meaning_schema={},
             member_schema={"not": {}},
             member_contracts=[],
-            families=[],
             universe="ordinary",
             collections=specification,
         )
@@ -453,6 +392,72 @@ def partition_fixture(connection):
         bodies,
         declaration,
     )
+
+
+def test_binding_partition_read_is_limited_to_admitted_whole_products(product_connection):
+    from sqlalchemy import bindparam
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from corpus_structure.semantic.data_operation_read_native import read_native_programs
+
+    conn = product_connection
+    context, product, _, _ = partition_fixture(conn)
+    admitted = realize(conn, context, product)
+    conn.exec_driver_sql(
+        """CREATE FUNCTION ops.ddo_binding_rows(
+          text, text, jsonb, text, text, jsonb, jsonb, bool, jsonb
+        ) RETURNS TABLE(product text, member text) LANGUAGE sql AS $$
+          SELECT pin->>'product_id', pin->>'member_id' FROM jsonb_array_elements($9) AS pin
+          WHERE $1 = 'demand' AND $2 = 'operation' AND $4 = 'read' AND pin->>'product_id' = $5
+        $$"""
+    )
+    program = next(
+        item.routine
+        for item in read_native_programs(get_metadata())
+        if item.routine.name == "data_binding_partitions"
+    )
+    execute_native_sql(conn, program.render())
+    query = text(
+        "SELECT product_id, packet FROM ops.data_binding_partitions("
+        "'demand','operation','{}'::jsonb,:read,:admitted,NULL,NULL,:pins,:capacity,"
+        ":collection,:partition)"
+    ).bindparams(bindparam("pins", type_=JSONB()))
+
+    def read(*, capacity=65536, pin_member=None, read_id="read", collection=None, partition=None):
+        return conn.execute(
+            query,
+            dict(
+                admitted=admitted,
+                read=read_id,
+                capacity=capacity,
+                collection=collection,
+                partition=partition,
+                pins=[
+                    *(
+                        []
+                        if collection is not None
+                        else [
+                            {"product_id": "unselected", "member_id": None},
+                        ]
+                    ),
+                    {"product_id": admitted, "member_id": pin_member},
+                ],
+            ),
+        ).all()
+
+    returned = read()
+    assert {row.product_id for row in returned} == {admitted}
+    assert (
+        sorted((row.packet for row in returned), key=lambda row: row["ordinal"])
+        == product["partitions"]
+    )
+    assert read(pin_member="manifest") == read(read_id="other") == []
+    assert read(capacity=1) == [(None, None)]
+    assert read(collection="tokens", partition="b") == [(admitted, product["partitions"][0])]
+    assert read(collection="tokens", partition="unknown") == []
+    assert read(collection="tokens", partition="b", read_id="other") == []
+    with pytest.raises(DBAPIError, match="complete collection address"), conn.begin_nested():
+        read(collection="tokens")
 
 
 def test_partition_admission_recomputes_content_groups_and_roots(product_connection):

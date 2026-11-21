@@ -645,14 +645,27 @@ class PreparedCharacterizationPort(ABC):
         if self.family == "construction":
             from .sentence_products import validate_source_annotations
 
+            selected = next(value for value in values if value.role == "sentences")
+            partitions = (
+                selected.partitioned.packets
+                if selected.partitioned is not None
+                else getattr(selected.value, "partitions", None)
+            )
+            supplied = roles["sentences"]
+            annotation_body = (
+                json.loads(supplied.content)
+                if isinstance(supplied, SourceAnnotations)
+                else supplied
+                if partitions is not None
+                else _body(self.prepared, "DdoSourceAnnotations", supplied)
+            )
             native = validate_source_annotations(
                 self.prepared,
                 self.model,
-                _body(self.prepared, "DdoSourceAnnotations", roles["sentences"]),
+                annotation_body,
                 source,
-                subject_context=roles["sentences"].subject_context
-                if isinstance(roles["sentences"], SourceAnnotations)
-                else None,
+                subject_context=getattr(supplied, "subject_context", None),
+                partitions=partitions,
             )
             native = self._selected_product(native, binding, "sentences", 0)
             return _ConstructionInputs(source, formal, native)
@@ -796,7 +809,9 @@ class PreparedCharacterizationPort(ABC):
                 options=self.construction_options(),
                 contracts=interpreted_member_contracts(self.prepared, self.model),
                 assets=_semantic_assets(self.family).digest,
-                native=CharacterizationSnapshot(inputs.native.semantic_id, inputs.native.content),
+                native=CharacterizationSnapshot(
+                    inputs.native.semantic_id, inputs.native.content, inputs.native.partitions
+                ),
                 check_active=check_active,
             )
         elif isinstance(inputs, _ContextualInputs):

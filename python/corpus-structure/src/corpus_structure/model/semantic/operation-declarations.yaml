@@ -52,6 +52,7 @@ classes:
       checker_callable: {range: SemanticText}
   DataOperationDeclaration:
     attributes:
+      rules: {range: OperationRuleDeclaration, inlined: true, inlined_as_list: true, multivalued: true}
       id: {range: SemanticText, required: true}
       profile: {range: Profile, required: true}
       subject: {range: SemanticText, required: true}
@@ -86,6 +87,7 @@ classes:
       result_fields: {range: OperationAny}
       consumer_selection: {range: SemanticText}
       output_witnesses: {range: OperationOutputWitness, multivalued: true, inlined_as_list: true}
+      reference_targets: {range: OperationReferenceTarget, multivalued: true, inlined_as_list: true}
       external: {range: OperationExternal, inlined: true}
       validity_family: {range: ValidityFamily, multivalued: true, recommended: true}
       acquired_by: {range: SemanticText}
@@ -102,7 +104,6 @@ classes:
       json_schema: {range: OperationAny}
       nominal_namespace: {range: SemanticText}
       universe: {range: KindUniverse}
-      projection_families: {range: ProjectionFamily, multivalued: true}
   OperationSubject:
     attributes:
       id: {range: SemanticText, required: true}
@@ -232,6 +233,15 @@ classes:
       asset: {range: SemanticText, required: true}
       pointer: {range: SemanticText, required: true}
       kind: {range: SemanticText, required: true}
+  OperationReferenceTarget:
+    attributes:
+      output_role: {range: SemanticText, required: true}
+      path: {range: string, required: true}
+      input_role: {range: SemanticText, required: true}
+      variant: {range: SemanticText, required: true}
+      collection: {range: SemanticText}
+      output_collection: {range: SemanticText}
+      occurrence_field: {range: SemanticText}
   OperationOutputWitness:
     attributes:
       output_role: {range: SemanticText, required: true}

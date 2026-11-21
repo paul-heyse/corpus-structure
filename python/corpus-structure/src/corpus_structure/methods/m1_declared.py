@@ -47,6 +47,10 @@ class M1SourceCandidatesOperation:
             {
                 "name": "annotations",
                 "parameter": "annotations",
+                "required_rules": [
+                    "segment.sentences/native-row-span",
+                    "segment.sentences/exact-source-scope",
+                ],
                 "kind": "https://corpus-structure.dev/semantic/data-operation-sentences/DdoSourceAnnotations",
                 "direction": "input",
                 "minimum": 1,

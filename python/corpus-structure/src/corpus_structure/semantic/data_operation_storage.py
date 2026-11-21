@@ -520,7 +520,6 @@ def data_operation_definition_projection(
                 ),
                 "member_schema": member_schema,
                 "member_contracts": [ids[member, "kind"] for member in member_kinds],
-                "families": facts.get("projection_families", []),
                 "universe": universe,
                 **({"collections": collections} if collections else {}),
             }
@@ -612,6 +611,15 @@ def data_operation_definition_projection(
                             ]
                         }
                         if operation.output_witnesses
+                        else {}
+                    ),
+                    **(
+                        {
+                            "reference_targets": [
+                                asdict(target) for target in operation.reference_targets
+                            ]
+                        }
+                        if operation.reference_targets
                         else {}
                     ),
                     "policy": operation.support_policy,
@@ -707,6 +715,7 @@ class AdmittedDataRead:
     relation: FromClause
     accepted_kind_contracts: Mapping[str, tuple[str, ...]]
     admission_evidence: bytes
+    binding_arguments: tuple[Any, ...] = ()
 
 
 def admitted_data_read(
@@ -749,7 +758,7 @@ def admitted_data_read(
     from .data_operation_projections import binding_columns
 
     columns = binding_columns(decoder=True)
-    relation = func.ops.data_binding_rows(
+    arguments = (
         demand_id,
         operation_id,
         bindparam("data_binding_trust", trust_snapshot, type_=JSONB),
@@ -758,7 +767,8 @@ def admitted_data_read(
         _binding_context_parameter(original_source, name="data_binding_source"),
         _binding_context_parameter(analyzed_scope, name="data_binding_scope"),
         bindparam("data_binding_selected", selected_pins, type_=JSONB(none_as_null=True)),
-    ).table_valued(*columns)
+    )
+    relation = func.ops.data_binding_rows(*arguments).table_valued(*columns)
     # The admitted TVF authenticates this statement once. Role aliases and
     # constraint checks share its rows without sharing authority across reads.
     relation = (
@@ -780,6 +790,7 @@ def admitted_data_read(
                 "frontier_at": acquired["frontier_at"],
             }
         ),
+        arguments,
     )
 
 

@@ -13,144 +13,7 @@ classes:
         multivalued: true
         required: true
         minimum_cardinality: 1
-  DdoHanlpAlignment:
-    is_a: SourceRecordProduct
-    attributes:
-      sentence:
-        range: DdoSemanticMemberReference
-        inlined: true
-        required: true
-      prepared_words:
-        multivalued: true
-        required: true
-        minimum_cardinality: 1
-      word_subwords:
-        range: DdoHanlpSubwords
-        inlined: true
-        multivalued: true
-        required: true
-        minimum_cardinality: 1
-      token_id_standing:
-        required: true
-        pattern: '^(authenticated-vocabulary|execution-only-no-authenticated-vocabulary-namespace)$(?![\s\S])'
-      vocabulary_namespace: {}
-      input_ids:
-        range: integer
-        multivalued: true
-        minimum_cardinality: 1
-  DdoHanlpUnit:
-    is_a: SourceRecordProduct
-    abstract: true
-    attributes:
-      record_type:
-        required: true
-  DdoHanlpToken:
-    is_a: DdoHanlpSentenceUnit
-    annotations:
-      cs:data_universe: source
-    attributes:
-      record_type:
-        required: true
-        equals_string: token
-      token:
-        range: DdoSemanticMemberReference
-        inlined: true
-        required: true
-      ordinal:
-        range: integer
-        required: true
-        minimum_value: 0
-      lemma: {}
-      pos: {}
-      dependency_head:
-        range: integer
-        minimum_value: 0
-      dependency_label: {}
-  DdoHanlpConstituent:
-    is_a: DdoHanlpSentenceUnit
-    annotations:
-      cs:data_universe: source
-    attributes:
-      record_type:
-        required: true
-        equals_string: constituent
-      path:
-        range: integer
-        multivalued: true
-        value_presence: PRESENT
-        minimum_cardinality: 0
-      label:
-        required: true
-      start:
-        range: integer
-        required: true
-        minimum_value: 0
-      end:
-        range: integer
-        required: true
-        minimum_value: 1
-      children:
-        range: DdoHanlpChild
-        inlined: true
-        multivalued: true
-        value_presence: PRESENT
-        minimum_cardinality: 0
-      tokens:
-        range: DdoSemanticMemberReference
-        inlined: true
-        multivalued: true
-        required: true
-        minimum_cardinality: 1
-  DdoHanlpChild:
-    is_a: SourceRecordProduct
-    attributes:
-      kind:
-        required: true
-        pattern: '^(token|constituent)$(?![\s\S])'
-      constituent: {}
-      token:
-        range: DdoSemanticMemberReference
-        inlined: true
-  DdoHanlpSrlRole:
-    is_a: SourceRecordProduct
-    attributes:
-      native_text:
-        value_presence: PRESENT
-      label:
-        required: true
-      start:
-        range: integer
-        required: true
-        minimum_value: 0
-      end:
-        range: integer
-        required: true
-        minimum_value: 1
-      tokens:
-        range: DdoSemanticMemberReference
-        inlined: true
-        multivalued: true
-        required: true
-        minimum_cardinality: 1
-  DdoHanlpSrlGroup:
-    is_a: DdoHanlpSentenceUnit
-    annotations:
-      cs:data_universe: source
-    attributes:
-      record_type:
-        required: true
-        equals_string: srl_group
-      ordinal:
-        range: integer
-        required: true
-        minimum_value: 0
-      roles:
-        range: DdoHanlpSrlRole
-        inlined: true
-        multivalued: true
-        value_presence: PRESENT
-        minimum_cardinality: 0
-  DdoHanlpPacket:
+  DdoHanlpManifestPacket:
     is_a: SourceRecordProduct
     attributes:
       member_id:
@@ -162,7 +25,7 @@ classes:
         inlined: true
         required: true
       body:
-        range: DdoHanlpUnit
+        range: DdoHanlpManifest
         inlined: true
         required: true
   DdoHanlpInventory:
@@ -170,36 +33,61 @@ classes:
     annotations:
       cs:data_universe: source
     attributes:
-      canonical:
-        range: DdoSemanticProductReference
+      canonical_input: {range: DdoSemanticReference, inlined: true, required: true}
+      rows:
+        range: DdoHanlpPartitionRow
         inlined: true
-        required: true
+        multivalued: true
+        annotations:
+          'cs:collection': '{"unit":"partitioned","partition_key":"block_id","item_order":["sentence_ordinal","record_type","ordinal"],"address":["sentence_ordinal","record_type","ordinal"],"field_groups":{"addresses":["sentence_ordinal","record_type","ordinal","sentence","token","tokens"],"annotations":["lemma","pos","dependency_head","dependency_label","path","label","start","end","children","roles","prepared_words","word_subwords","token_id_standing","vocabulary_namespace","input_ids"]}}'
       outcome:
         required: true
         pattern: '^(complete|partial)$(?![\s\S])'
-      alignments:
-        range: DdoHanlpAlignment
-        inlined: true
-        multivalued: true
-        value_presence: PRESENT
-        minimum_cardinality: 0
       members:
-        range: DdoHanlpPacket
+        range: DdoHanlpManifestPacket
         inlined: true
         multivalued: true
         value_presence: PRESENT
         minimum_cardinality: 0
-  DdoHanlpSentenceUnit:
-    is_a: DdoHanlpUnit
-    abstract: true
+  DdoHanlpPartitionRow:
+    is_a: SourceRecordProduct
     attributes:
-      local_id:
-        required: true
-      sentence:
-        range: DdoSemanticMemberReference
-        inlined: true
-        required: true
+      record_type: {required: true, pattern: '^(token|constituent|srl_group|alignment)$(?![\s\S])'}
+      sentence_ordinal: {range: integer, required: true, minimum_value: 0}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      sentence: {range: DdoSemanticReference, required: true, inlined: true}
+      token: {range: DdoSemanticReference, inlined: true}
+      tokens: {range: DdoSemanticReference, inlined: true, multivalued: true}
+      lemma: {}
+      pos: {}
+      dependency_head: {range: integer}
+      dependency_label: {}
+      path: {range: integer, multivalued: true}
+      label: {}
+      start: {range: integer}
+      end: {range: integer}
+      children: {range: DdoHanlpPartitionChild, inlined: true, multivalued: true}
+      roles: {range: DdoHanlpPartitionSrlRole, inlined: true, multivalued: true}
+      prepared_words: {multivalued: true}
+      word_subwords: {range: DdoHanlpSubwords, inlined: true, multivalued: true}
+      token_id_standing: {}
+      vocabulary_namespace: {}
+      input_ids: {range: integer, multivalued: true}
+  DdoHanlpPartitionChild:
+    is_a: SourceRecordProduct
+    attributes:
+      kind: {required: true}
+      constituent_path: {range: integer, multivalued: true}
+      token: {range: DdoSemanticReference, inlined: true}
+  DdoHanlpPartitionSrlRole:
+    is_a: SourceRecordProduct
+    attributes:
+      native_text: {}
+      label: {required: true}
+      start: {range: integer, required: true}
+      end: {range: integer, required: true}
+      tokens: {range: DdoSemanticReference, inlined: true, multivalued: true, required: true}
   DdoHanlpManifest:
-    is_a: DdoHanlpUnit
+    is_a: SourceRecordProduct
     mixins:
     - DdoCharacterizedProduct

@@ -104,14 +104,10 @@ fields:
   '#/definitions/computational_support_member/properties/derivation_id': WireDerivationId
   '#/definitions/continuation/properties/demand_id': WireDemandId
   '#/definitions/continuation/properties/read_id': WireReadIdentity
-  '#/definitions/coordinate/properties/original_source': WireOriginalSourceId
   '#/definitions/data_attempt_lost_result/properties/attempt': corpus_structure.semantic.identifiers.TaskAttempt
   '#/definitions/data_attempt_lost_result/properties/generation': WireGeneration
   '#/definitions/data_attempt_lost_result/properties/request_id': WireRequestId
   '#/definitions/data_attempt_lost_result/properties/task_id': corpus_structure.semantic.identifiers.TaskId
-  '#/definitions/endpoint/oneOf/0/properties/member_id': WireMemberId
-  '#/definitions/endpoint/oneOf/1/properties/member_id': WireMemberId
-  '#/definitions/endpoint/oneOf/1/properties/product_id': WireProductId
   '#/definitions/external_packet_head/properties/generation': WireGeneration
   '#/definitions/external_packet_head/properties/operation_id': WireOperationId
   '#/definitions/external_packet_head/properties/packet_id': WireExternalPacketId

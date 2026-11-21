@@ -141,57 +141,78 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         part.strip() + "." for part in text.split(".") if part.strip()
     ]
     assert product.value.outcome == "complete"
-    from corpus_structure.semantic.canonical_sentences import (
-        canonical_packet_values,
-        canonical_projection_spec,
+    import re
+
+    from corpus_structure.semantic.data_operation_partitions import (
+        PartitionedInput,
+        partition_header,
     )
-
-    complete = json.loads(product.content)
-    canonical_kind = profile.prepared.index.definitions["DdoCanonicalSentences"].iri
-    projection = canonical_projection_spec(profile.model, canonical_kind)
-    canonical = canonical_packet_values(complete, projection)
-    relabeled = json.loads(product.content)
-    for block in relabeled["blocks"]:
-        for token in block["annotation"]["tokens"]:
-            token["lemma"] = "another-native-label"
-    assert canonical_packet_values(relabeled, projection) == canonical
-    assert canonical_bytes(relabeled) != product.content
-    profile.prepared.validate_json("DdoCanonicalSentences", canonical_bytes(canonical))
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+    from corpus_structure.semantic.data_product_reference import read_semantic_reference
+    from corpus_structure.semantic.sentence_partitions import SentenceBlock, blocks_from_packets
 
+    assert product.partitions is not None
+    complete = PartitionedInput(product.content, product.partitions)
     port = canonical_port(profile)
     input_kind = next(
         item.key
         for item in port.profile.model.identities
         if item.owner == port.operation.roles[0].kind and item.domain == "kind"
     )
-    completion = port.invoke_python((PythonRoleValue("inventory", input_kind, complete),))
-    assert len(completion.outputs[0].members) == len(canonical["members"])
-    native_contracts = {packet["kind_contract"] for packet in complete["members"]}
-    assert all(
-        json.loads(member)["kind_contract"] not in native_contracts
-        for member in completion.outputs[0].members
+
+    def project(inventory):
+        return port.invoke_python(
+            (
+                PythonRoleValue(
+                    "inventory", input_kind, json.loads(inventory.header), partitioned=inventory
+                ),
+            )
+        ).outputs[0]
+
+    published = project(complete)
+    (member,) = json.loads(published.content)["members"]
+    manifest = member["body"]
+    assert manifest["record_type"] == "manifest"
+    assert {row["family"] for row in manifest["coverage"]} == {"spacy.tokens", "spacy.sentences"}
+    native_blocks = blocks_from_packets(tuple(json.loads(packet) for packet in complete.packets))
+    canonical_blocks = blocks_from_packets(
+        tuple(json.loads(packet) for packet in published.partitions)
     )
+    expected_tokens = [(match.start(), match.end()) for match in re.finditer(r"\w+|[^\w\s]", text)]
+    actual_tokens = []
+    for block in canonical_blocks:
+        for row in block.rows:
+            ref = read_semantic_reference(row["annotation"])
+            assert (ref.role, ref.collection, ref.partition_key, ref.item_key) == (
+                "inventory",
+                "rows",
+                block.key,
+                (row["record_type"], row["ordinal"]),
+            )
+            assert "lower" not in row and "is_alpha" not in row
+            if row["record_type"] == "token":
+                actual_tokens.append((block.start + row["start"], block.start + row["end"]))
+    assert actual_tokens == expected_tokens
+    relabeled = tuple(
+        SentenceBlock(
+            block.key,
+            block.ordinal,
+            block.start,
+            block.end,
+            tuple(
+                dict(row, lemma="another-native-label") if row["record_type"] == "token" else row
+                for row in block.rows
+            ),
+        ).packet()
+        for block in native_blocks
+    )
+    relabeled_header = dict(json.loads(product.content), rows=partition_header(relabeled))
+    relabeled_input = PartitionedInput(
+        canonical_bytes(relabeled_header), tuple(canonical_bytes(packet) for packet in relabeled)
+    )
+    assert relabeled_input.packets != product.partitions
+    assert project(relabeled_input) == published
     original_tokens = product.inventory("token")
-    native_tokens = [
-        packet["body"]
-        for packet in complete["members"]
-        if packet["body"]["record_type"] == "native_token"
-    ]
-    assert [row["local_id"] for row in native_tokens] == [
-        row["local_id"] for row in original_tokens
-    ]
-    assert [
-        tuple(row[key] for key in ("block_id", "ordinal", "start", "end")) for row in native_tokens
-    ] == [
-        tuple(row[key] for key in ("block_id", "ordinal", "start", "end"))
-        for row in original_tokens
-    ]
-    assert all("lemma" not in row and "dependency" not in row for row in native_tokens)
-    changed = json.loads(product.content)
-    changed["members"][0]["body"]["start"] += 1
-    with pytest.raises(ValueError, match="actual retained native population"):
-        validate_source_annotations(profile.prepared, profile.model, changed, source)
 
     assert all(
         {
@@ -217,10 +238,6 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         token["is_alpha"] == text[token["start"] : token["end"]].isalpha()
         for token in original_tokens
     )
-    assert all(
-        "lower" not in packet["body"] and "is_alpha" not in packet["body"]
-        for packet in canonical["members"]
-    )
     assert all(token.get("head_ref") for token in original_tokens if token["dependency"])
     assert any(token["lemma"] for token in original_tokens)
     assert all(
@@ -230,7 +247,7 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
             if column["attribute"] == "DEP"
         )
         == "complete"
-        for row in json.loads(product.content)["blocks"]
+        for row in json.loads(product.content)["block_layouts"]
     )
     assert all(
         set(packet) == {"member_id", "kind_contract", "context", "body"}
@@ -264,9 +281,11 @@ def test_actual_cuda_spacy_preserves_original_sentence_token_inventory(
         assert all(text[token["start"] : token["end"]] for token in tokens)
         assert all(token["piece_indices"] == [0] for token in tokens)
     changed = json.loads(product.content)
-    changed["blocks"][0]["annotation"]["tokens"][0]["start"] = -1
-    with pytest.raises(ValueError):
-        validate_source_annotations(profile.prepared, profile.model, changed, source)
+    changed["rows"]["root"] = "foreign-commitment"
+    with pytest.raises(ValueError, match="selected collection commitment"):
+        validate_source_annotations(
+            profile.prepared, profile.model, changed, source, partitions=product.partitions
+        )
 
 
 def test_original_declared_sentence_capability_is_captured(profile):
@@ -347,7 +366,8 @@ def test_admitted_prepared_sentence_port_emits_typed_empty_inventory_and_refuses
     assert completion.execution_evidence is not None
     assert json.loads(completion.execution_evidence) == []
     assert len(json.loads(completion.outputs[0].content)["members"]) == 1
-    assert json.loads(completion.outputs[0].content)["blocks"] == []
+    assert json.loads(completion.outputs[0].content)["rows"]["partition_count"] == 0
+    assert completion.outputs[0].partitions == ()
     with pytest.raises(PortRefusal, match="nominal"):
         port.invoke_python((PythonRoleValue("source", "another-kind", source),))
     monkeypatch.setattr(SentenceEvidenceOperation, "run", lambda *_: None)
@@ -437,20 +457,23 @@ def canonical_port(profile, extra_sources=()):
 
 
 def test_declared_canonical_projection_has_actual_independent_member_contracts(profile):
+    from corpus_structure.semantic.data_operation_partitions import PartitionedInput
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
 
     port = canonical_port(profile)
-    inventory = json.loads(
-        profile.run(
-            selected(profile, ""), subject_context=publication_context(selected(profile, ""))
-        ).content
-    )
+    source = selected(profile, "")
+    product = profile.run(source, subject_context=publication_context(source))
+    assert product.partitions is not None
+    envelope = PartitionedInput(product.content, product.partitions)
+    inventory = json.loads(product.content)
     kind = next(
         item.key
         for item in port.profile.model.identities
         if item.owner == port.operation.roles[0].kind and item.domain == "kind"
     )
-    result = port.invoke_python((PythonRoleValue("inventory", kind, inventory),))
+    result = port.invoke_python(
+        (PythonRoleValue("inventory", kind, inventory, partitioned=envelope),)
+    )
     value = json.loads(result.outputs[0].content)
     (manifest,) = value["members"]
     assert manifest["body"]["record_type"] == "manifest"
@@ -465,7 +488,7 @@ def test_declared_canonical_projection_has_actual_independent_member_contracts(p
     }
     assert len(result.outputs[0].members) == 1
     assert {row["family"] for row in value["coverage"]} == {"spacy.tokens", "spacy.sentences"}
-    profile.prepared.validate_json("DdoCanonicalSentences", result.outputs[0].content)
+    assert value["rows"]["item_count"] == 0 and result.outputs[0].partitions == ()
 
 
 def test_prepared_sentence_plan_uses_invocation_work_and_host_owner(profile):
@@ -587,14 +610,15 @@ def test_canonical_prepared_kernel_runs_in_actual_shared_cpu_scope(profile):
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.core.work import drive_prepared_work
     from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+    from corpus_structure.semantic.data_operation_partitions import PartitionedInput
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
 
     port = canonical_port(profile)
-    inventory = json.loads(
-        profile.run(
-            selected(profile, ""), subject_context=publication_context(selected(profile, ""))
-        ).content
-    )
+    source = selected(profile, "")
+    product = profile.run(source, subject_context=publication_context(source))
+    assert product.partitions is not None
+    envelope = PartitionedInput(product.content, product.partitions)
+    inventory = json.loads(product.content)
     kind = next(
         item.key
         for item in port.profile.model.identities
@@ -608,7 +632,7 @@ def test_canonical_prepared_kernel_runs_in_actual_shared_cpu_scope(profile):
     try:
         result = drive_prepared_work(
             port.plan_python(
-                (PythonRoleValue("inventory", kind, inventory),),
+                (PythonRoleValue("inventory", kind, inventory, partitioned=envelope),),
                 execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
             ),
             lambda: None,
@@ -637,6 +661,7 @@ def test_prepared_canonical_full_source_digest_accepts_authenticated_required_su
         "corpus_structure.methods.sentence_evidence",
         "corpus_structure.semantic.input_values",
         "corpus_structure.semantic.canonical_sentences",
+        "corpus_structure.semantic.sentence_partitions",
         "corpus_structure.semantic.data_operation_ports",
         "corpus_structure.methods.canonical_sentences",
         "extra_original",

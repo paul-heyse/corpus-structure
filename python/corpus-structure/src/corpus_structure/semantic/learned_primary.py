@@ -1096,7 +1096,7 @@ def maverick_input(source, annotations, frame, block, mapping):
 
     if annotations is None:
         raise ValueError("Maverick requires its actual shared source annotation product")
-    rows = source_annotation_rows(json.loads(annotations.content))
+    rows = source_annotation_rows(annotations)
     if any(row["source"]["content"] != frame.pin.content for row in rows):
         raise ValueError("Maverick annotations name a different selected source carrier")
     readings = SourceAnnotationReadings(annotations, source)
@@ -1233,24 +1233,23 @@ class PreparedLearnedPrimaryPort:
             definition = next(
                 kind.name for kind in self.profile.model.kinds if kind.semantic_id == role.kind
             )
+            if role.name == "annotations" and value.partitioned is not None:
+                inputs[role.name] = _untrusted_value(value.value)
+                continue
             body = self.profile.prepared.validate_json(
                 definition, canonical_bytes(_untrusted_value(value.value))
             ).model_dump(mode="python", exclude_unset=True)
             inputs[role.name] = body
         source = FrozenNativeSource.acquire(self.profile.prepared, inputs.pop("source"))
         if "annotations" in inputs:
-            selected = next(
-                member
-                for role in binding.roles
-                if role.role == "annotations"
-                for member in role.members
-            )
+            partitioned = role_values["annotations"].partitioned
             annotations = validate_source_annotations(
                 self.profile.prepared,
                 self.profile.model,
                 inputs["annotations"],
                 source,
                 subject_context=binding.subject_context,
+                partitions=partitioned.packets if partitioned is not None else None,
             )
             inputs["annotations"] = annotations
         for name in ("formal", "constructions", "contextual"):

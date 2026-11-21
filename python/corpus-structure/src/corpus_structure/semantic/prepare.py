@@ -90,7 +90,6 @@ _SAFE_ANNOTATIONS = frozenset(
         "cs:reference_role",
         "cs:nullable",
         "cs:data_universe",
-        "cs:projection_families",
         "cs:collection",
         "cs:definition_variant",
         "cs:openness",
@@ -243,7 +242,6 @@ def _inspect(value: Any, location: str, profile: PreparationProfile | None = Non
                         "cs:case",
                         "cs:extract",
                         "cs:data_universe",
-                        "cs:projection_families",
                         "cs:definition_variant",
                     }:
                         _fail(
@@ -260,8 +258,7 @@ def _inspect(value: Any, location: str, profile: PreparationProfile | None = Non
                             "unsupported",
                         )
                     if (
-                        annotation
-                        in {"cs:data_universe", "cs:projection_families", "cs:definition_variant"}
+                        annotation in {"cs:data_universe", "cs:definition_variant"}
                         and parent != "classes"
                     ):
                         _fail(

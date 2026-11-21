@@ -36,9 +36,6 @@ enums:
       range: {}
       membership: {}
       covers: {}
-  ProjectionFamily:
-    annotations: {cs:openness: closed}
-    permissible_values: {coordinate: {}, role: {}, endpoint: {}, coverage: {}, choice: {}}
   RoleDirection:
     annotations: {cs:openness: closed}
     permissible_values: {input: {}, output: {}}

@@ -1051,31 +1051,20 @@ def test_authored_kind_native_policies_are_explicit_canonical_and_fingerprinted(
     value = contract()
     value["roles"][0]["kind"] = "urn:protected"
     ordinary = {"id": "urn:protected", "primitive": "integer"}
-    protected = {
-        **ordinary,
-        "universe": "evaluator",
-        "projection_families": ["coverage", "coordinate"],
-    }
+    protected = {**ordinary, "universe": "evaluator"}
     default_model = compile_data_operations(declarations=declarations(value, kinds=[ordinary]))
     model = compile_data_operations(declarations=declarations(value, kinds=[protected]))
-    permuted = compile_data_operations(
-        declarations=declarations(
-            value, kinds=[{**protected, "projection_families": ["coordinate", "coverage"]}]
-        )
-    )
     facts = json.loads(
         next(kind.facts for kind in model.kinds if kind.semantic_id == "urn:protected")
     )
     assert facts["universe"] == "evaluator"
-    assert facts["projection_families"] == ["coordinate", "coverage"]
     defaults = json.loads(
         next(kind.facts for kind in default_model.kinds if kind.semantic_id == "urn:protected")
     )
-    assert defaults["universe"] == "ordinary" and defaults["projection_families"] == []
+    assert defaults["universe"] == "ordinary"
     assert identity(model, "urn:protected", "kind") != identity(
         default_model, "urn:protected", "kind"
     )
-    assert identity(model, "urn:protected", "kind") == identity(permuted, "urn:protected", "kind")
 
 
 @pytest.mark.parametrize(
@@ -1084,15 +1073,10 @@ def test_authored_kind_native_policies_are_explicit_canonical_and_fingerprinted(
         {"universe": "public"},
         {"universe": None},
         {"universe": ["ordinary"]},
-        {"projection_families": "coverage"},
-        {"projection_families": None},
-        {"projection_families": ["unknown"]},
-        {"projection_families": ["coverage", "coverage"]},
-        {"projection_families": [False]},
     ],
 )
 def test_authored_kind_native_policy_unknown_or_ambiguous_variants_refuse(policy):
-    with pytest.raises(PreparationError, match=r"universe|projection_families"):
+    with pytest.raises(PreparationError, match="universe"):
         compile_data_operations(
             declarations=declarations(
                 contract(), kinds=[{"id": "urn:protected", "primitive": "integer", **policy}]
@@ -1100,13 +1084,10 @@ def test_authored_kind_native_policy_unknown_or_ambiguous_variants_refuse(policy
         )
 
 
-def annotated_policy_schema(universe="source", families='["coverage", "coordinate"]'):
+def annotated_policy_schema(universe="source"):
     bundle = schema_bundle()
     source = bundle.sources[0]
-    annotations = (
-        f"    annotations:\n      cs:data_universe: '{universe}'\n"
-        f"      cs:projection_families: '{families}'\n"
-    )
+    annotations = f"    annotations:\n      cs:data_universe: '{universe}'\n"
     return replace(
         bundle,
         sources=(
@@ -1120,33 +1101,18 @@ def annotated_policy_schema(universe="source", families='["coverage", "coordinat
 
 def test_linkml_kind_native_policies_survive_safe_annotation_and_reach_property_facts():
     model = compile_data_operations(annotated_policy_schema())
-    permuted = compile_data_operations(
-        annotated_policy_schema(families='[ "coordinate", "coverage" ]')
-    )
     ordinary = compile_data_operations(schema_bundle())
     for owner in ("urn:test:Base", "urn:test:Base/property/value"):
         facts = json.loads(next(kind.facts for kind in model.kinds if kind.semantic_id == owner))
         assert facts["universe"] == "source"
-        assert facts["projection_families"] == ["coordinate", "coverage"]
         assert identity(model, owner, "kind") != identity(ordinary, owner, "kind")
-        assert identity(model, owner, "kind") == identity(permuted, owner, "kind")
     changed = compile_data_operations(annotated_policy_schema(universe="evaluator"))
     assert identity(changed, "urn:test:Base", "kind") != identity(model, "urn:test:Base", "kind")
 
 
-@pytest.mark.parametrize(
-    "universe,families",
-    [
-        ("public", "[]"),
-        ("ordinary", "not-json"),
-        ("source", '"coverage"'),
-        ("evaluator", '["coordinate","coordinate"]'),
-        ("ordinary", '["not-a-family"]'),
-    ],
-)
-def test_linkml_kind_native_policy_invalid_values_refuse(universe, families):
-    with pytest.raises(PreparationError, match=r"universe|projection_families"):
-        compile_data_operations(annotated_policy_schema(universe, families))
+def test_linkml_kind_native_policy_invalid_value_refuses():
+    with pytest.raises(PreparationError, match="universe"):
+        compile_data_operations(annotated_policy_schema("public"))
 
 
 def test_native_policy_annotations_do_not_silently_apply_to_properties():
@@ -1166,7 +1132,6 @@ def test_json_schema_property_projection_inherits_its_explicit_kind_policy():
     kind = {
         "id": "urn:projected",
         "universe": "source",
-        "projection_families": ["endpoint", "role"],
         "json_schema": {
             "type": "object",
             "properties": {"value": {"type": "integer"}},
@@ -1180,7 +1145,7 @@ def test_json_schema_property_projection_inherits_its_explicit_kind_policy():
             item.facts for item in model.kinds if item.semantic_id == "urn:projected/property/value"
         )
     )
-    assert prop["universe"] == "source" and prop["projection_families"] == ["endpoint", "role"]
+    assert prop["universe"] == "source"
 
 
 def test_subject_association_is_owned_typed_semantic_role_meaning():

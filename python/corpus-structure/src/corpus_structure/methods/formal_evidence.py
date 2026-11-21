@@ -17,6 +17,51 @@ class FormalEvidenceOperation:
     __data_operation__: ClassVar[dict] = {
         "validity_family": ["none"],
         "id": "text.formal_evidence/source-native",
+        "rules": [
+            {
+                "id": "text.formal_evidence/unique-coverage-family",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "collection": "coverage",
+                "scope": "product",
+                "form": "unique",
+                "checker": "admission",
+                "parameters": {"paths": ["family"]},
+            },
+            {
+                "id": "text.formal_evidence/ordered-lexicon-region-bounds",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "collection": "lexicon",
+                "scope": "product",
+                "form": "predicate",
+                "checker": "admission",
+                "parameters": {
+                    "expression": {"op": "le", "args": [{"field": "start"}, {"field": "end"}]}
+                },
+            },
+            {
+                "id": "text.formal_evidence/literal-source-geometry",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.formal_evidence/source-native",
+                "checker_callable": "corpus_structure.semantic.formal_products.verify_formal_literal_geometry",
+                "parameters": {
+                    "paths": ["members", "lexicon"],
+                    "input_reads": {"source": ["pieces", "text"]},
+                },
+            },
+            {
+                "id": "text.formal_evidence/packed-choice-members",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.formal_evidence/source-native",
+                "checker_callable": "corpus_structure.semantic.formal_products.verify_formal_packed_members",
+                "parameters": {"paths": ["members"]},
+            },
+        ],
         "profile": "derivation",
         "subject": "original-source-view",
         "subject_definition": {

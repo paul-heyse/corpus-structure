@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any
 
 from .canonical_sentences import CanonicalProduct
-from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
+from .characterization_manifests import append_manifest, manifest_contract
 from .data_operation_outcomes import successful_return_outcome
-from .data_product_reference import DataProductMemberReference, reference_inputs
+from .data_product_reference import reference_inputs
 from .identity import canonical_bytes
 from .source_products import FrozenNativeSource, source_subject
 from .types import SourceArtifact, SourceBundle
@@ -53,49 +53,72 @@ def hanlp_product_inputs(bundle):
 
 
 def canonical_hanlp_rows(source, canonical):
-    """Use explicit sentence/token membership and original offsets, never tokenize."""
-    selected, value = source.value, canonical.value.model_dump(mode="json", exclude_unset=True)
-    if any(value[key] != selected[key] for key in ("source", "selectors")):
+    """Acquire closed block-local membership and recover original pretokenized words."""
+    from .data_operation_partitions import partition_header
+    from .data_product_reference import SemanticReference
+    from .sentence_partitions import COLLECTION, blocks_from_packets
+
+    selected, header = source.value, json.loads(canonical.content)
+    if any(header[key] != selected[key] for key in ("source", "selectors")):
         raise ValueError("HanLP canonical source/selector scope differs from original source")
-    rows = analytical_packets(
-        value, manifest_contract(canonical.prepared, canonical.model, "DdoCanonicalManifest")
-    )
-    members = {row["member_id"]: row["body"] for row in rows}
-    if len(rows) != len(members) or any(
-        row["member_id"] != row["body"]["local_id"] for row in rows
-    ):
-        raise ValueError("HanLP canonical member addresses are not unique exact local IDs")
+    packets = tuple(json.loads(packet) for packet in canonical.partitions)
+    if partition_header(packets) != header[COLLECTION]:
+        raise ValueError("HanLP canonical rows differ from their selected collection commitment")
     result = []
-    used = set()
-    for packet in rows:
-        sentence = packet["body"]
-        if sentence["record_type"] != "sentence":
-            continue
-        tokens = []
-        for identifier in sentence["token_ids"]:
-            token = members.get(identifier)
+    for block in blocks_from_packets(packets):
+        if not 0 <= block.start <= block.end <= len(selected["text"]):
+            raise ValueError("HanLP canonical block exceeds its selected original source")
+        addresses = set()
+        tokens = {}
+        sentences = {}
+        for item in block.rows:
+            address = item["record_type"], item["ordinal"]
             if (
-                token is None
-                or token["record_type"] != "token"
-                or token.get("sentence_ref") != sentence["local_id"]
-                or identifier in used
+                address in addresses
+                or not 0 <= item["start"] < item["end"] <= block.end - block.start
             ):
-                raise ValueError(
-                    "HanLP requires closed distinct canonical sentence/token membership"
+                raise ValueError("HanLP canonical address or span is invalid")
+            addresses.add(address)
+            if item["record_type"] == "sentence":
+                sentences[item["ordinal"]] = item
+            elif (owner := item.get("sentence")) is not None:
+                tokens.setdefault(owner, []).append(item)
+        if tokens.keys() - sentences.keys():
+            raise ValueError("HanLP requires exact local canonical sentence membership")
+        for ordinal, sentence in sentences.items():
+            start, end = block.start + sentence["start"], block.start + sentence["end"]
+            words = []
+            for token in tokens.get(ordinal, ()):
+                lo, hi = block.start + token["start"], block.start + token["end"]
+                if not start <= lo < hi <= end:
+                    raise ValueError("HanLP token bounds exceed the canonical sentence")
+                if (word := selected["text"][lo:hi]).strip():
+                    words.append(
+                        (
+                            SemanticReference.item(
+                                "canonical", COLLECTION, block.key, ("token", token["ordinal"])
+                            ).values(),
+                            word,
+                        )
+                    )
+            if words:
+                result.append(
+                    (
+                        dict(
+                            sentence,
+                            start=start,
+                            end=end,
+                            block_id=block.key,
+                            placement=(block.start, block.end),
+                            block_order=block.ordinal,
+                            reference=SemanticReference.item(
+                                "canonical", COLLECTION, block.key, ("sentence", ordinal)
+                            ).values(),
+                        ),
+                        words,
+                    )
                 )
-            if not sentence["start"] <= token["start"] < token["end"] <= sentence["end"]:
-                raise ValueError("HanLP token bounds exceed the retained canonical sentence")
-            used.add(identifier)
-            word = selected["text"][token["start"] : token["end"]]
-            if word.strip():
-                tokens.append((identifier, word))
-        if tokens:
-            result.append((sentence, tokens))
     return result
-
-
-def _local(sentence, kind, address):
-    return sha256(canonical_bytes(dict(sentence=sentence, kind=kind, address=address))).hexdigest()
 
 
 def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocabulary=None):
@@ -107,14 +130,13 @@ def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocab
         _dependency_graph,
     )
 
-    sentence_ref = DataProductMemberReference(canonical.reference, sentence["local_id"]).values()
+    sentence_ref = sentence["reference"]
+    references = [reference for reference, _ in tokens]
     selector = dict(
-        projection=canonical.value.source.projection, start=sentence["start"], end=sentence["end"]
+        projection=json.loads(canonical.content)["source"]["projection"],
+        start=sentence["start"],
+        end=sentence["end"],
     )
-    references = [
-        DataProductMemberReference(canonical.reference, identifier).values()
-        for identifier, _ in tokens
-    ]
     words = [word for _, word in tokens]
     prepared_words, spans = preparation["prepared_words"], preparation["word_subwords"]
     if (
@@ -144,7 +166,6 @@ def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocab
     units: list[dict[str, Any]] = [
         dict(
             record_type="token",
-            local_id=_local(sentence_ref, "token", index),
             sentence=sentence_ref,
             token=ref,
             ordinal=index,
@@ -199,11 +220,9 @@ def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocab
             label, children = node
             start = position
             child_refs = [visit(child, [*path, index]) for index, child in enumerate(children)]
-            identifier = _local(sentence_ref, "constituent", path)
             units.append(
                 dict(
                     record_type="constituent",
-                    local_id=identifier,
                     sentence=sentence_ref,
                     path=path,
                     label=label,
@@ -213,7 +232,7 @@ def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocab
                     tokens=references[start:position],
                 )
             )
-            return dict(kind="constituent", constituent=identifier)
+            return dict(kind="constituent", constituent_path=path)
 
         visit(tree, [])
         standing("constituency", "complete")
@@ -243,7 +262,6 @@ def detach_hanlp_sentence(sentence, tokens, canonical, heads, preparation, vocab
             detached.append(
                 dict(
                     record_type="srl_group",
-                    local_id=_local(sentence_ref, "srl_group", ordinal),
                     sentence=sentence_ref,
                     ordinal=ordinal,
                     roles=roles,
@@ -340,18 +358,8 @@ def hanlp_sentence_batches(ready, startup):
 @dataclass(frozen=True)
 class HanlpProduct:
     content: bytes
-    prepared: Any
-    model: Any
+    partitions: tuple[bytes, ...]
     execution_receipts: tuple[bytes, ...] = ()
-
-    @property
-    def value(self):
-        checked = self.prepared.validate_json("DdoHanlpInventory", self.content)
-        analytical_packets(
-            checked.model_dump(mode="json", exclude_unset=True),
-            manifest_contract(self.prepared, self.model, "DdoHanlpManifest"),
-        )
-        return checked
 
 
 @dataclass(frozen=True)
@@ -367,13 +375,9 @@ class PreparedHanlpProfile:
         from corpus_structure.settings import Settings
 
         rows = canonical_hanlp_rows(source, canonical)
-        units, alignments, coverage, receipts = [], [], [], []
-        context = dict(
-            subject=source_subject(source.value["source"]),
-            subject_definition="original-source-view",
-            original_source=source.value["source"]["document"],
-            analyzed_scope=dict(source=source.value["source"], selectors=source.value["selectors"]),
-        )
+        units: list[dict[str, Any]] = []
+        alignments: list[dict[str, Any]] = []
+        coverage, receipts = [], []
         if rows:
             if host is None:
                 settings = Settings()
@@ -447,7 +451,7 @@ class PreparedHanlpProfile:
                         units.extend(detached)
                         alignments.append(alignment)
                         coverage.extend(standing)
-        for block in canonical.value.model_dump(mode="json", exclude_unset=True)["block_coverage"]:
+        for block in json.loads(canonical.content)["block_coverage"]:
             if block["outcome"] in {"complete", "empty"}:
                 continue
             selector = dict(
@@ -481,40 +485,83 @@ class PreparedHanlpProfile:
                 )
                 for family in HANLP_FAMILIES
             ]
-        nominal = {
-            "token": "DdoHanlpToken",
-            "constituent": "DdoHanlpConstituent",
-            "srl_group": "DdoHanlpSrlGroup",
-        }
-        ids = {(item.owner, item.domain): item.key for item in self.model.identities}
-        packets = [
-            dict(
-                member_id=unit["local_id"],
-                kind_contract=ids[
-                    self.prepared.index.definitions[nominal[unit["record_type"]]].iri, "kind"
-                ],
-                context=context,
-                body=unit,
-            )
-            for unit in units
-        ]
-        value = dict(
+        return partition_hanlp_product(
+            source,
+            rows,
+            units,
+            alignments,
+            coverage,
+            kind_contract=manifest_contract(self.prepared, self.model, "DdoHanlpManifest"),
+            receipts=tuple(receipts),
+        )
+
+
+def partition_hanlp_product(
+    source, rows, units, alignments, coverage, *, kind_contract, receipts=()
+):
+    """Publish one flat population of the native heads under its canonical block placements."""
+    from .data_operation_partitions import partition_header
+    from .data_product_reference import SemanticReference, read_semantic_reference
+    from .sentence_partitions import COLLECTION, SentenceBlock
+
+    placements = {
+        sentence["block_id"]: (sentence["block_order"], sentence["placement"])
+        for sentence, _ in rows
+    }
+    grouped = {}
+    counters = {}
+    partition_rows = [
+        *units,
+        *({**alignment, "record_type": "alignment"} for alignment in alignments),
+    ]
+    for unit in partition_rows:
+        reference = read_semantic_reference(unit["sentence"])
+        key = reference.item_key
+        if (
+            reference.partition_key is None
+            or key is None
+            or len(key) != 2
+            or key[0] != "sentence"
+            or type(key[1]) is not int
+        ):
+            raise ValueError("HanLP output lost its canonical sentence address")
+        block_key, sentence_ordinal = reference.partition_key, key[1]
+        counter_key = block_key, sentence_ordinal, unit["record_type"]
+        ordinal = counters.get(counter_key, 0)
+        counters[counter_key] = ordinal + 1
+        grouped.setdefault(block_key, []).append(
+            dict(unit, ordinal=ordinal, sentence_ordinal=sentence_ordinal)
+        )
+    packets = []
+    for index, key in enumerate(sorted(grouped, key=lambda key: placements[key][0])):
+        start, end = placements[key][1]
+        rows = sorted(
+            grouped[key],
+            key=lambda item: (
+                item["sentence_ordinal"],
+                item["record_type"],
+                item["ordinal"],
+            ),
+        )
+        packets.append(SentenceBlock(key, index, start, end, tuple(rows)).packet())
+    header = append_manifest(
+        dict(
             source=source.value["source"],
             selectors=source.value["selectors"],
-            canonical=canonical.reference.values(),
+            canonical_input=SemanticReference.whole("canonical").values(),
             outcome="complete"
             if all(row["outcome"] in {"complete", "empty"} for row in coverage)
             else "partial",
             coverage=coverage,
-            alignments=alignments,
-            members=packets,
-        )
-        value = append_manifest(
-            value, manifest_contract(self.prepared, self.model, "DdoHanlpManifest")
-        )
-        product = HanlpProduct(canonical_bytes(value), self.prepared, self.model, tuple(receipts))
-        _ = product.value
-        return product
+        ),
+        kind_contract,
+    )
+    header[COLLECTION] = partition_header(packets)
+    return HanlpProduct(
+        canonical_bytes(header),
+        tuple(canonical_bytes(packet) for packet in packets),
+        receipts,
+    )
 
 
 def hanlp_vocabulary_namespace(selection):
@@ -552,7 +599,7 @@ def hanlp_profile_assets(selection):
     names = {
         "canonical_hanlp_rows",
         "hanlp_admission_batches",
-        "_local",
+        "partition_hanlp_product",
         "detach_hanlp_sentence",
         "PreparedHanlpProfile",
         "hanlp_vocabulary_namespace",
@@ -613,6 +660,7 @@ def hanlp_execution_custody(selection=None):
         Path(__file__),
         root / "data_operation_prepared_products.py",
         root / "data_operation_ports.py",
+        root / "sentence_partitions.py",
         root.parent / "methods/native_profiles.py",
         root.parent / "methods/native_host.py",
         root.parent / "core/process_lifetime.py",
@@ -736,6 +784,10 @@ class PreparedHanlpPort:
                     canonical_hanlp_rows,
                 ),
                 (
+                    "corpus_structure.semantic.hanlp_products.partition_hanlp_product",
+                    partition_hanlp_product,
+                ),
+                (
                     "corpus_structure.semantic.hanlp_products.admitted_hanlp_rows",
                     admitted_hanlp_rows,
                 ),
@@ -780,13 +832,11 @@ class PreparedHanlpPort:
         source = FrozenNativeSource.acquire(
             self.profile.prepared, _untrusted_value(selected["source"].value)
         )
-        supplied = selected["canonical"].value
-        content = (
-            supplied.content
-            if isinstance(supplied, CanonicalProduct)
-            else canonical_bytes(_untrusted_value(supplied))
-        )
-        context = supplied.subject_context if isinstance(supplied, CanonicalProduct) else None
+        supplied = selected["canonical"]
+        if supplied.partitioned is None:
+            raise PortRefusal("HanLP requires selected canonical partitions")
+        content, packets = supplied.partitioned.header, supplied.partitioned.packets
+        context = None
         member = None
         if binding is not None:
             from .data_operation_model import SubjectContext
@@ -810,10 +860,10 @@ class PreparedHanlpPort:
             self.profile.model,
             self.profile.prepared.index.definitions["DdoCanonicalSentences"].iri,
             context,
+            partitions=packets,
         )
         if member is not None and canonical.reference.product_id != member.product:
             raise PortRefusal("HanLP canonical body differs from selected native product")
-        canonical_hanlp_rows(source, canonical)
         if binding is not None and (
             not binding.sufficient
             or binding.operation != self.operation.semantic_id
@@ -826,8 +876,8 @@ class PreparedHanlpPort:
         return source, canonical
 
     def _complete(self, product):
-        from .data_operation_ports import PortCompletion, RoleValue, project_product_members
-        from .data_operation_values import semantic_value
+        from .data_operation_ports import PortCompletion
+        from .sentence_partitions import partitioned_role
 
         output = next(role for role in self.operation.roles if role.direction == "output")
         kind = next(
@@ -835,16 +885,14 @@ class PreparedHanlpPort:
             for item in self.profile.model.identities
             if item.owner == output.kind and item.domain == "kind"
         )
-        typed = product.value.model_dump(mode="python", exclude_unset=True)
         return PortCompletion(
             self.operation.semantic_id,
             (
-                RoleValue(
+                partitioned_role(
                     output.name,
                     kind,
-                    product.content,
-                    canonical_bytes(semantic_value(typed)),
-                    project_product_members(self.profile.model, output.kind, typed),
+                    json.loads(product.content),
+                    tuple(json.loads(packet) for packet in product.partitions),
                 ),
             ),
             execution_evidence=canonical_bytes(

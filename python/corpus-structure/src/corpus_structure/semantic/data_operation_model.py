@@ -515,6 +515,18 @@ class ValidityClaim:
 
 
 @dataclass(frozen=True)
+class OutputReferenceTarget:
+    output_role: str
+    path: str
+    input_role: str
+    input_kind: str
+    variant: Literal["product", "member", "partition-item"]
+    collection: str | None = None
+    output_collection: str | None = None
+    occurrence_field: str | None = None
+
+
+@dataclass(frozen=True)
 class EffectiveOperation:
     semantic_id: str
     profile: Literal["derivation", "discovery", "selection", "command", "read"]
@@ -548,6 +560,7 @@ class EffectiveOperation:
     discovery_relation: Literal["role-associated", "subject-population"] = field(kw_only=True)
     numerical_policy: NumericalPolicyReference | None = field(default=None, kw_only=True)
     validity: ValidityClaim = field(default_factory=ValidityClaim, kw_only=True)
+    reference_targets: tuple[OutputReferenceTarget, ...] = field(default=(), kw_only=True)
 
     @property
     def recipe(self) -> bytes:
@@ -585,6 +598,11 @@ class EffectiveOperation:
                 **(
                     {"output_witnesses": [asdict(group) for group in self.output_witnesses]}
                     if self.output_witnesses
+                    else {}
+                ),
+                **(
+                    {"reference_targets": [asdict(target) for target in self.reference_targets]}
+                    if self.reference_targets
                     else {}
                 ),
             }
@@ -1107,6 +1125,8 @@ class EffectiveDataOperationModel:
                             role["support"].pop(name)
             if not operation["output_witnesses"]:
                 operation.pop("output_witnesses")
+            if not operation["reference_targets"]:
+                operation.pop("reference_targets")
             if not operation["result_fields"]:
                 operation.pop("result_fields")
         if any(type(identity) is not EffectiveIdentity for identity in self.identities):
@@ -1378,7 +1398,13 @@ def _effective_model_structure():
             if cls is EffectiveDataRule and isinstance(value, dict) and "parameters" in value:
                 value = {**value, "parameters": {"json": value["parameters"]}}
             if cls is EffectiveOperation and isinstance(value, dict):
-                value = {"external": None, "result_fields": [], "output_witnesses": [], **value}
+                value = {
+                    "external": None,
+                    "result_fields": [],
+                    "output_witnesses": [],
+                    "reference_targets": [],
+                    **value,
+                }
             if not isinstance(value, dict) or set(value) != archived_fields:
                 raise ValueError("incomplete archived " + cls.__name__ + " record")
             return build({**value, **omitted}, cls)

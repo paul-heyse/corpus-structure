@@ -123,7 +123,7 @@ def populate_math_scope_products(
     blocks, fields = [], []
     if native is not None:
         pin = DataProductReference(native.semantic_id)
-        rows = source_annotation_member_values(json.loads(native.content))
+        rows = source_annotation_member_values(native)
         tokens = {
             (row["block_id"], row["ordinal"]): row for row in rows if row["record_type"] == "token"
         }

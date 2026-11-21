@@ -102,7 +102,6 @@ def test_native_reader_requires_exact_checked_current_coverage_export():
                 "meaning_schema": {"type": "string"},
                 "member_schema": {"not": {}},
                 "member_contracts": [],
-                "families": [],
                 "universe": "ordinary",
             }
         ],

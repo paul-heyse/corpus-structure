@@ -1,13 +1,10 @@
 """Captured product/member realization and exact original-source admission."""
 
-from dataclasses import dataclass
-
 from sqlalchemy import (
     BigInteger,
     Boolean,
     MetaData,
     Text,
-    and_,
     case,
     cast,
     column,
@@ -15,12 +12,9 @@ from sqlalchemy import (
     literal,
     or_,
     select,
-    true,
     tuple_,
-    union_all,
 )
 from sqlalchemy.dialects.postgresql import JSON, JSONB, array, insert
-from sqlalchemy.sql.elements import ColumnElement
 
 from .native_objects import native_sql_script
 from .native_program import (
@@ -37,85 +31,10 @@ from .native_program import (
     Return,
     SelectInto,
     Sql,
-    Statement,
     core_relation_row,
     core_variable,
     pg_type,
 )
-
-
-@dataclass(frozen=True)
-class _Family:
-    name: str
-    attribute: str
-    fields: tuple[tuple[str, str], ...]
-    required: tuple[str, ...]
-    optional: tuple[str, ...] = ()
-    variants: tuple[tuple[str, tuple[tuple[str, ...], tuple[str, ...]]], ...] = ()
-
-
-def _member_families(model):
-    import yaml
-
-    protocol = yaml.safe_load(model.info["physical_sources"]["data-operation-native.yaml"])
-    schemas = protocol["definitions"]
-    projections = (
-        (
-            "coordinate",
-            "coordinates",
-            ((name, name) for name in ("original_source", "start", "end", "page")),
-        ),
-        ("role", "roles", ((name, name) for name in ("role", "position", "multiplicity"))),
-        (
-            "endpoint",
-            "endpoints",
-            (
-                ("role", "role"),
-                ("endpoint_product", "product_id"),
-                ("endpoint_member", "member_id"),
-            ),
-        ),
-        ("coverage", "coverage", ((name, name) for name in ("scope", "start", "end", "complete"))),
-        (
-            "choice",
-            "choices",
-            ((name, name) for name in ("choice_group", "alternative", "selected")),
-        ),
-    )
-    members = schemas["product_member"]["properties"]
-    families = []
-    for name, attribute, fields in projections:
-        reference = members[attribute]["items"]["$ref"]
-        if not reference.startswith("#/definitions/"):
-            raise ValueError("member family requires a captured local protocol definition")
-        schema = schemas[reference.removeprefix("#/definitions/")]
-        fields = tuple(fields)
-        if name == "endpoint":
-            required, optional = (), ()
-            variants = {}
-            for branch in schema["oneOf"]:
-                scope = branch["properties"]["scope"]["const"]
-                order = ("scope", *(logical for _, logical in fields))
-                variants[scope] = (
-                    tuple(field for field in order if field in branch["required"]),
-                    tuple(
-                        field for field in branch["properties"] if field not in branch["required"]
-                    ),
-                )
-            if set(variants) != {"local", "external"}:
-                raise ValueError(
-                    "endpoint projection requires its local and external scope contracts"
-                )
-        else:
-            required = tuple(schema["required"])
-            optional = tuple(field for field in schema["properties"] if field not in required)
-            variants = {}
-            if {logical for _, logical in fields} != schema["properties"].keys():
-                raise ValueError("member family fields differ from physical projection: " + name)
-        families.append(
-            _Family(name, attribute, fields, required, optional, tuple(variants.items()))
-        )
-    return tuple(families)
 
 
 def _items(value, name, *, ordered=False):
@@ -167,9 +86,8 @@ def product_admission_native_programs(model: MetaData) -> tuple[NativeRoutine, .
     from .data_operation_partition_native import partition_admission_programs
 
     partition_admission_programs(model, output, _routine)
-    families = _member_families(model)
-    _install_product(model, output, families)
-    _original_admission(model, output, families)
+    _install_product(model, output)
+    _original_admission(model, output)
     return tuple(output)
 
 
@@ -187,7 +105,7 @@ def _routine(output, name, params, statements, locals_=(), *, returns="jsonb"):
     )
 
 
-def _install_product(model, output, families):
+def _install_product(model, output):
     kind, releases, product, members = (
         model.tables[name]
         for name in (
@@ -201,23 +119,19 @@ def _install_product(model, output, families):
         core_variable(name, JSONB()) for name in ("context", "o", "subject_scopes")
     )
     key, digest = core_variable("key", Text()), core_variable("bd", Text())
-    body, m, raw, family_value, packet, member_context, canonical_members, member_body = (
+    body, m, raw, packet, member_context, canonical_members, member_body = (
         core_variable(name, JSONB())
         for name in (
             "b",
             "m",
             "raw",
-            "family_value",
             "packet",
             "member_context",
             "canonical_members",
             "member_body",
         )
     )
-    ordinal, inserted = (
-        core_variable("n", BigInteger()),
-        core_variable("inserted_product", BigInteger()),
-    )
+    inserted = core_variable("inserted_product", BigInteger())
     empty = cast(literal("[]"), JSONB())
 
     def k(field):
@@ -250,23 +164,6 @@ def _install_product(model, output, families):
         )
         .exists()
     )
-    family_checks = or_(
-        *(
-            or_(
-                and_(
-                    mk("families").bool_op("?")(family.name),
-                    func.coalesce(raw[family.attribute], empty).is_distinct_from(
-                        func.coalesce(m[family.attribute], empty)
-                    ),
-                ),
-                and_(
-                    ~mk("families").bool_op("?")(family.name),
-                    func.coalesce(m[family.attribute], empty) != empty,
-                ),
-            )
-            for family in families
-        )
-    )
     context_fields = ("subject", "subject_definition", "original_source", "analyzed_scope")
     product_context = _object(
         project_id=context["project_id"].astext,
@@ -290,7 +187,6 @@ def _install_product(model, output, families):
         _fields(
             m,
             ("member_id", "kind_contract", "context", "body"),
-            tuple(f.attribute for f in families),
         ),
         _fields(m["context"], context_fields),
         Assign("member_context", m["context"]),
@@ -341,7 +237,6 @@ def _install_product(model, output, families):
             ),
             "invalid member contract",
         ),
-        _reject(family_checks, "member projection differs from semantic body"),
     )
     statements = [
         _fields(context, ("project_id", "release_id", *context_fields)),
@@ -491,191 +386,42 @@ def _install_product(model, output, families):
             .on_conflict_do_nothing()
         ),
     ]
-    family_steps: list[Statement] = [
-        lookup("member_kind", kind, kind.c.kind_contract == m["kind_contract"].astext)
-    ]
-    for family in families:
-        values = _items(func.coalesce(m[family.attribute], empty), "family_entry", ordered=True)
-        if family.name == "endpoint":
-            endpoint_shapes = dict(family.variants)
-            validation = (
-                If(
-                    family_value["scope"].astext == "local",
-                    (_fields(family_value, *endpoint_shapes["local"]),),
-                    (
-                        If(
-                            family_value["scope"].astext == "external",
-                            (_fields(family_value, *endpoint_shapes["external"]),),
-                            (Raise("endpoint requires explicit local/external scope", "P0001"),),
-                        ),
-                    ),
-                ),
-                _reject(
-                    or_(
-                        ~mk("families").bool_op("?")("endpoint"),
-                        ~select(1)
-                        .select_from(product)
-                        .where(
-                            product.c.id
-                            == case(
-                                (family_value["scope"].astext == "local", key),
-                                else_=family_value["product_id"].astext,
-                            ),
-                            product.c.project_id == context["project_id"].astext,
-                            product.c.original_source.is_not_distinct_from(
-                                context["original_source"].astext
-                            ),
-                        )
-                        .exists(),
-                    ),
-                    "endpoint custody/family mismatch",
-                ),
-            )
-        else:
-            condition = ~mk("families").bool_op("?")(family.name)
-            if family.name == "coordinate":
-                condition = or_(
-                    context["original_source"].astext.is_(None),
-                    family_value["original_source"].astext.is_distinct_from(
-                        context["original_source"].astext
-                    ),
-                    condition,
-                )
-            validation = (
-                _fields(family_value, family.required, family.optional),
-                _reject(
-                    condition,
-                    "coordinate source/family mismatch"
-                    if family.name == "coordinate"
-                    else "undeclared " + family.name + " family",
-                ),
-            )
-        family_steps.append(
-            ForQuery(
-                ("family_value", "n"), select(values.c.value, values.c.ordinality - 1), validation
-            )
-        )
-    statements.append(ForQuery(("m",), select(member_rows.c.value), tuple(family_steps)))
     packets = select(member_rows.c.value.label("member")).cte("member_packets")
-    expected_queries = [
+    expected = select(
+        packets.c.member["member_id"].astext.label("member_id"),
+        func.jsonb_build_array(
+            packets.c.member["kind_contract"].astext,
+            *(
+                packets.c.member["context"][field]
+                if field == "analyzed_scope"
+                else packets.c.member["context"][field].astext
+                for field in context_fields
+            ),
+            func.data.ddo_normalize(packets.c.member["body"]),
+        ).label("value"),
+    ).cte("expected_members")
+    actual = (
         select(
-            literal("member").label("family"),
-            packets.c.member["member_id"].astext.label("member_id"),
-            literal(-1, BigInteger()).label("ordinal"),
-            func.jsonb_build_array(
-                packets.c.member["kind_contract"].astext,
-                *(
-                    packets.c.member["context"][field]
-                    if field == "analyzed_scope"
-                    else packets.c.member["context"][field].astext
-                    for field in context_fields
-                ),
-                func.data.ddo_normalize(packets.c.member["body"]),
-            ).label("value"),
-        )
-    ]
-    actual_queries = [
-        select(
-            literal("member").label("family"),
             members.c.member_id,
-            literal(-1, BigInteger()).label("ordinal"),
             func.jsonb_build_array(
                 members.c.kind_contract,
                 *(members.c[field] for field in context_fields),
                 members.c.body,
             ).label("value"),
-        ).where(members.c.product_id == key)
-    ]
-
-    def projected_values(family, relation, value):
-        result: list[ColumnElement] = []
-        for physical_field, logical_field in family.fields:
-            if family.name == "endpoint" and physical_field == "endpoint_product":
-                result.append(
-                    case((value["scope"].astext == "local", key), else_=value["product_id"].astext)
-                )
-            else:
-                result.append(cast(value[logical_field].astext, relation.c[physical_field].type))
-        return result
-
-    for family in families:
-        relation = model.tables["kb.data_member_" + family.name]
-        family_rows = _items(
-            func.coalesce(member_rows.c.value[family.attribute], empty), "item", ordered=True
-        ).lateral()
-        projection = projected_values(family, relation, family_rows.c.value)
-        statements.append(
-            Sql(
-                insert(relation)
-                .from_select(
-                    (
-                        "product_id",
-                        "member_id",
-                        "ordinal",
-                        *(physical for physical, _ in family.fields),
-                    ),
-                    select(
-                        key,
-                        member_rows.c.value["member_id"].astext,
-                        family_rows.c.ordinality - 1,
-                        *projection,
-                    )
-                    .select_from(member_rows.join(family_rows, true()))
-                    .where(inserted == 1)
-                    .order_by(member_rows.c.value["member_id"].astext, family_rows.c.ordinality),
-                )
-                .on_conflict_do_nothing()
-            )
         )
-        expected_rows = _items(
-            func.coalesce(packets.c.member[family.attribute], empty), "expected_item", ordered=True
-        ).lateral()
-        expected_queries.append(
-            select(
-                literal(family.name),
-                packets.c.member["member_id"].astext,
-                expected_rows.c.ordinality - 1,
-                func.jsonb_build_array(*projected_values(family, relation, expected_rows.c.value)),
-            ).select_from(packets.join(expected_rows, true()))
-        )
-        actual_queries.append(
-            select(
-                literal(family.name),
-                relation.c.member_id,
-                relation.c.ordinal,
-                func.jsonb_build_array(*(relation.c[field] for field, _ in family.fields)),
-            ).where(relation.c.product_id == key)
-        )
-    expected, actual = (
-        union_all(*expected_queries).cte("expected"),
-        union_all(*actual_queries).cte("actual"),
+        .where(members.c.product_id == key)
+        .cte("actual_members")
     )
     mismatch = (
-        select(func.coalesce(expected.c.ordinal, actual.c.ordinal))
-        .select_from(
-            expected.join(
-                actual,
-                and_(
-                    expected.c.family == actual.c.family,
-                    expected.c.member_id == actual.c.member_id,
-                    expected.c.ordinal == actual.c.ordinal,
-                ),
-                full=True,
-            )
-        )
+        select(1)
+        .select_from(expected.join(actual, expected.c.member_id == actual.c.member_id, full=True))
         .where(expected.c.value.is_distinct_from(actual.c.value))
-        .order_by(
-            func.coalesce(expected.c.member_id, actual.c.member_id),
-            func.coalesce(expected.c.ordinal, actual.c.ordinal),
-            func.coalesce(expected.c.family, actual.c.family),
-        )
-        .limit(1)
+        .exists()
     )
     statements += [
-        SelectInto(mismatch, ("n",)),
         _reject(
-            core_variable("found", Boolean()),
-            literal("member projection identity collision at ordinal ") + cast(ordinal, Text()),
+            mismatch,
+            "canonical member rows differ from retained product",
             "23514",
         ),
         Perform(
@@ -695,8 +441,6 @@ def _install_product(model, output, families):
             Local("bd", pg_type("text")),
             Local("m", pg_type("jsonb")),
             Local("raw", pg_type("jsonb")),
-            Local("family_value", pg_type("jsonb")),
-            Local("n", pg_type("bigint")),
             Local("previous", product),
             Local("packet", pg_type("jsonb")),
             Local("member_context", pg_type("jsonb")),
@@ -709,7 +453,7 @@ def _install_product(model, output, families):
     )
 
 
-def _original_admission(model, output, families):
+def _original_admission(model, output):
     demands, kinds, releases, admissions = (
         model.tables[name]
         for name in (
@@ -728,7 +472,7 @@ def _original_admission(model, output, families):
         for name in ("kind", "product", "identity", "key", "kind_name", "kind_universe")
     )
     rooted = core_variable("rooted", Boolean())
-    empty, empty_object = cast(literal("[]"), JSONB()), cast(literal("{}"), JSONB())
+    empty = cast(literal("[]"), JSONB())
     reference = p["reference"]
 
     def demand(field):
@@ -773,32 +517,12 @@ def _original_admission(model, output, families):
         ),
         "packet",
     )
-    field_names = (
-        func.unnest(array([family.attribute for family in families]))
-        .table_valued(column("field", Text()))
-        .render_derived(name="family_field")
-    )
-    body = _field(packets.c.value, "body")
-    field_projection = (
-        select(
-            func.coalesce(
-                func.jsonb_object_agg(
-                    field_names.c.field, _json(_field(body, field_names.c.field))
-                ),
-                empty_object,
-            )
-        )
-        .select_from(field_names)
-        .where(_field(body, field_names.c.field).is_not(None))
-        .correlate(packets)
-        .scalar_subquery()
-    )
     member_value = _object(
         member_id=_json(_field(packets.c.value, "member_id")),
         kind_contract=_json(_field(packets.c.value, "kind_contract")),
         context=_json(_field(packets.c.value, "context")),
-        body=body,
-    ).op("||")(field_projection)
+        body=_field(packets.c.value, "body"),
+    )
     member_projection = (
         select(func.coalesce(func.jsonb_agg(member_value), empty))
         .select_from(packets)

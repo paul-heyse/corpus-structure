@@ -533,7 +533,6 @@ def test_formal_nominal_packet_kinds_compile_to_native_publication_contract(prof
             if member == profile.prepared.index.definitions["DdoFormalManifest"].iri
             else "source"
         )
-        assert body["families"] == []
 
 
 def test_prepared_formal_reused_port_runs_independent_requests_in_owned_child_main_threads(profile):
@@ -902,9 +901,13 @@ def test_prepared_family_completion_preserves_declared_success_outcome(profile):
         outcomes=("produced", "failed"),
         transitions=(StateTransition("completion", "pending", "success", "produced"),),
     )
-    completion = replace(original, operation=declared)._completion(product)
+    completion = replace(original, operation=declared)._completion(product, source)
     assert completion.outcome == "produced"
     assert completion.outputs[0].content == product.content
+    assert {attestation.rule_id for attestation in completion.rule_attestations} == {
+        "text.formal_evidence/literal-source-geometry",
+        "text.formal_evidence/packed-choice-members",
+    }
 
 
 def test_declared_formal_adapter_retains_inline_symbol_addresses_without_task_aliases(profile):

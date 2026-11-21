@@ -62,7 +62,6 @@ classes:
       maximum: {range: UrInteger}
       collection: {range: UrString, required: true}
       presence: {range: UrString, required: true}
-      families: {range: UrString, multivalued: true}
       producer_requirement: {range: OperationProducerRequirement, inlined: true}
   OperationEffectExplanation:
     attributes:

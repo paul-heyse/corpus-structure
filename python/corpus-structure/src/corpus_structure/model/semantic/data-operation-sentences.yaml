@@ -48,77 +48,7 @@ classes:
         range: DdoSentenceScope
         inlined: true
         required: true
-  DdoCanonicalUnit:
-    is_a: SourceRecordProduct
-    abstract: true
-    attributes:
-      record_type:
-        required: true
-  DdoCanonicalToken:
-    annotations:
-      cs:data_universe: source
-    is_a: DdoCanonicalUnit
-    attributes:
-      record_type:
-        equals_string: token
-        required: true
-      local_id:
-        required: true
-      block_id:
-        required: true
-      ordinal:
-        range: integer
-        required: true
-        minimum_value: 0
-      start:
-        range: integer
-        required: true
-        minimum_value: 0
-      end:
-        range: integer
-        required: true
-        minimum_value: 1
-      space:
-        range: boolean
-        required: true
-      role:
-        required: true
-        pattern: '^(prose|math|reference)$(?![\s\S])'
-      sentence_ref: {}
-      piece_indices:
-        range: integer
-        multivalued: true
-        required: true
-        minimum_cardinality: 1
-  DdoCanonicalSentence:
-    annotations:
-      cs:data_universe: source
-    is_a: DdoCanonicalUnit
-    attributes:
-      record_type:
-        equals_string: sentence
-        required: true
-      local_id:
-        required: true
-      block_id:
-        required: true
-      ordinal:
-        range: integer
-        required: true
-        minimum_value: 0
-      start:
-        range: integer
-        required: true
-        minimum_value: 0
-      end:
-        range: integer
-        required: true
-        minimum_value: 1
-      token_ids:
-        multivalued: true
-        required: true
-        minimum_cardinality: 1
-  DdoCanonicalPacket:
+  DdoCanonicalManifestPacket:
     is_a: SourceRecordProduct
     attributes:
       member_id:
@@ -130,9 +60,41 @@ classes:
         inlined: true
         required: true
       body:
-        range: DdoCanonicalUnit
+        range: DdoCanonicalManifest
         inlined: true
         required: true
+  DdoSentencePartitionRow:
+    is_a: SourceRecordProduct
+    attributes:
+      record_type: {required: true, pattern: '^(token|sentence)$(?![\s\S])'}
+      ordinal: {range: integer, required: true, minimum_value: 0}
+      start: {range: integer, required: true, minimum_value: 0}
+      end: {range: integer, required: true, minimum_value: 1}
+      extent: {range: integer, required: true, minimum_value: 1}
+      sentence: {range: integer, minimum_value: 0}
+      space: {range: boolean}
+      role: {}
+      piece_indices: {range: integer, multivalued: true}
+  DdoCanonicalPartitionRow:
+    is_a: DdoSentencePartitionRow
+    attributes:
+      annotation: {range: DdoSemanticReference, required: true, inlined: true}
+  DdoAnnotationPartitionRow:
+    is_a: DdoSentencePartitionRow
+    attributes:
+      lemma: {}
+      pos: {}
+      tag: {}
+      dependency: {}
+      morphology: {multivalued: true}
+      head: {range: integer, minimum_value: 0}
+      lower: {}
+      is_alpha: {range: boolean}
+      is_space: {range: boolean}
+      is_punct: {range: boolean}
+      is_quote: {range: boolean}
+      like_num: {range: boolean}
+      sent_start: {range: boolean}
   DdoCanonicalSentences:
     annotations:
       cs:data_universe: source
@@ -164,8 +126,14 @@ classes:
         multivalued: true
         value_presence: PRESENT
         minimum_cardinality: 0
+      rows:
+        range: DdoCanonicalPartitionRow
+        inlined: true
+        multivalued: true
+        annotations:
+          'cs:collection': '{"unit":"partitioned","partition_key":"block_id","item_order":["record_type","ordinal"],"address":["record_type","ordinal"],"field_groups":{"geometry":["record_type","ordinal","start","end","extent","sentence","space","role","piece_indices"],"references":["annotation"]}}'
       members:
-        range: DdoCanonicalPacket
+        range: DdoCanonicalManifestPacket
         inlined: true
         multivalued: true
         value_presence: PRESENT
@@ -294,7 +262,7 @@ classes:
         required: true
       sent_start:
         range: boolean
-  DdoAnnotationProduct:
+  DdoAnnotationBlockLayout:
     is_a: SourceRecordProduct
     attributes:
       source:
@@ -370,6 +338,9 @@ classes:
         multivalued: true
         minimum_cardinality: 0
         value_presence: PRESENT
+  DdoAnnotationProduct:
+    is_a: DdoAnnotationBlockLayout
+    attributes:
       tokens:
         range: DdoAnnotationToken
         inlined: true
@@ -395,6 +366,17 @@ classes:
         multivalued: true
         minimum_cardinality: 0
         value_presence: PRESENT
+      piece_offset:
+        range: integer
+        required: true
+        minimum_value: 0
+  DdoSourceAnnotationPlacement:
+    is_a: SourceRecordProduct
+    attributes:
+      annotation:
+        range: DdoAnnotationBlockLayout
+        required: true
+        inlined: true
       piece_offset:
         range: integer
         required: true
@@ -520,7 +502,17 @@ classes:
         inlined: true
         multivalued: true
         minimum_cardinality: 0
-        value_presence: PRESENT
+      block_layouts:
+        range: DdoSourceAnnotationPlacement
+        inlined: true
+        multivalued: true
+        minimum_cardinality: 0
+      rows:
+        range: DdoAnnotationPartitionRow
+        inlined: true
+        multivalued: true
+        annotations:
+          'cs:collection': '{"unit":"partitioned","partition_key":"block_id","item_order":["record_type","ordinal"],"address":["record_type","ordinal"],"field_groups":{"geometry":["record_type","ordinal","start","end","extent","sentence","space","role","piece_indices"],"lexical":["lemma","pos","tag","dependency","morphology","head","lower","is_alpha","is_space","is_punct","is_quote","like_num","sent_start"]}}'
       members:
         range: DdoSourceAnnotationPacket
         inlined: true
@@ -551,6 +543,6 @@ classes:
         required: true
         minimum_value: 1
   DdoCanonicalManifest:
-    is_a: DdoCanonicalUnit
+    is_a: SourceRecordProduct
     mixins:
     - DdoCharacterizedProduct

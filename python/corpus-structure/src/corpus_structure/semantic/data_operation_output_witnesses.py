@@ -7,6 +7,7 @@ member's fields, and the native writer consumes these same compiler records.
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from collections.abc import Mapping
 
 from .data_operation_json import json_bytes, json_loads
@@ -29,6 +30,9 @@ _HEADERS = {
     "original_source",
     "analyzed_scope",
 }
+_REFERENCE_KIND = (
+    "https://corpus-structure.dev/semantic/data-operation-references/DdoSemanticReference"
+)
 
 
 def _record_kind(kinds, owner, pointer):
@@ -51,6 +55,153 @@ def _record_kind(kinds, owner, pointer):
             index += 1
         owner = target.semantic_id
     return owner
+
+
+def reference_output_paths(kinds):
+    """Find inline paths to the shared carrier, including partition-rooted fields."""
+    properties = defaultdict(list)
+    parents = defaultdict(set)
+    for kind in kinds.values():
+        if kind.category != "property":
+            continue
+        facts = json.loads(kind.facts)
+        if not facts.get("inlined") or (child := facts.get("range")) not in kinds:
+            continue
+        owner = kind.semantic_id.rsplit("/property/", 1)[0]
+        properties[owner].append((facts["name"], child, facts.get("multivalued", False)))
+        parents[child].add(owner)
+
+    owners = {_REFERENCE_KIND}
+    pending = [_REFERENCE_KIND]
+    while pending:
+        next_owners = parents[pending.pop()] - owners
+        owners.update(next_owners)
+        pending.extend(next_owners)
+
+    def paths(owner, ancestors=()):
+        if owner == _REFERENCE_KIND:
+            yield ""
+            return
+        if owner in ancestors:
+            raise ValueError("reference paths require a finite inline output shape")
+        for name, child, many in properties[owner]:
+            if child in owners:
+                prefix = "/" + name.replace("~", "~0").replace("/", "~1") + ("/*" if many else "")
+                yield from (prefix + path for path in paths(child, (*ancestors, owner)))
+
+    def needed(kind_id):
+        if kind_id not in owners:
+            return ()
+        collections = json.loads(kinds[kind_id].facts).get("collections", {})
+        partition_paths = {
+            "/" + name + "/*": name
+            for name, declaration in collections.items()
+            if declaration["unit"] == "partitioned"
+        }
+        result = []
+        for path in paths(kind_id):
+            root = "/".join(path.split("/", 3)[:3])
+            if root in partition_paths:
+                result.append((partition_paths[root], path.removeprefix(root)))
+            else:
+                result.append((None, path))
+        return tuple(result)
+
+    return needed
+
+
+def compile_reference_targets(raw, roles, kinds, output_paths):
+    """Bind each declared reference path to one typed producing input role."""
+    from .data_operation_model import OutputReferenceTarget
+
+    if not isinstance(raw, list):
+        raise ValueError("reference targets require an array")
+    role_map = {role.name: role for role in roles}
+    required = {"output_role", "path", "input_role", "variant"}
+    additional = {"collection", "output_collection", "occurrence_field"}
+    targets = []
+    seen = set()
+
+    def collections(role):
+        return json.loads(kinds[role.kind].facts).get("collections", {})
+
+    for target in raw:
+        if not isinstance(target, dict) or not required <= set(target) <= required | additional:
+            raise ValueError("reference target requires declared input, output, path and variant")
+        output = role_map.get(target["output_role"])
+        source = role_map.get(target["input_role"])
+        if (
+            output is None
+            or output.direction != "output"
+            or source is None
+            or source.direction != "input"
+        ):
+            raise ValueError("reference target requires actual producing input and output roles")
+        variant = target["variant"]
+        collection = target.get("collection")
+        output_collection = target.get("output_collection")
+        occurrence_field = target.get("occurrence_field")
+        if variant not in {"product", "member", "partition-item"} or (
+            (variant == "partition-item") != (collection is not None)
+        ):
+            raise ValueError("invalid declared reference target variant")
+        if (
+            collection is not None
+            and collections(source).get(collection, {}).get("unit") != "partitioned"
+        ):
+            raise ValueError("item reference must target a declared partition collection")
+        owner = output.kind
+        if output_collection is not None:
+            if collections(output).get(output_collection, {}).get("unit") != "partitioned":
+                raise ValueError("reference output collection must be partitioned")
+            slot = kinds[owner + "/property/" + output_collection]
+            owner = json.loads(slot.facts)["range"]
+        if _record_kind(kinds, owner, target["path"]) != _REFERENCE_KIND:
+            raise ValueError("reference path must identify the shared semantic reference class")
+        if occurrence_field is None:
+            if source.maximum != 1:
+                raise ValueError(
+                    "multivalued reference target role requires a stable occurrence field"
+                )
+        else:
+            occurrence_path = subject_field_path(occurrence_field)
+            container = occurrence_field.rsplit("/", 1)[0]
+            owner_id = _record_kind(kinds, source.kind, container)
+            slot = kinds.get(owner_id + "/property/" + occurrence_path[-1])
+            facts = json.loads(slot.facts) if slot else {}
+            if (
+                facts.get("range") != "primitive:string"
+                or facts.get("multivalued")
+                or not facts.get("required")
+                or facts.get("nullable")
+            ):
+                raise ValueError(
+                    "reference occurrence must be a required string field of the input"
+                )
+        identity = (output.name, output_collection, target["path"])
+        if identity in seen:
+            raise ValueError("reference path has multiple target declarations")
+        seen.add(identity)
+        targets.append(
+            OutputReferenceTarget(
+                output.name,
+                target["path"],
+                source.name,
+                source.kind,
+                variant,
+                collection,
+                output_collection,
+                occurrence_field,
+            )
+        )
+    for output in roles:
+        if output.direction == "output":
+            for collection, path in output_paths(output.kind):
+                if (output.name, collection, path) not in seen:
+                    raise ValueError(
+                        f"undeclared reference target in output {output.name} at {collection or 'body'}{path}"
+                    )
+    return tuple(targets)
 
 
 def compile_output_witnesses(raw, roles, kinds, aliases):

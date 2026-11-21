@@ -108,6 +108,25 @@ def _scalar_field(kinds, owner, path: tuple[str, ...], *, required: bool):
     raise ValueError("rule path is empty")
 
 
+def observed_body_path(kinds, owner: str, path: str) -> tuple[str, ...]:
+    """Resolve an exact owned field, allowing collections as terminal observations."""
+    if path == "$all":
+        return (owner,)
+    observed = []
+    parts = _field_parts(path)
+    for position, part in enumerate(parts):
+        identity = owner + "/property/" + part
+        prop = kinds.get(identity)
+        if prop is None:
+            raise ValueError("attestation path must name an owned property: " + path)
+        info = json.loads(prop.facts)
+        observed.append(identity)
+        owner = info["range"]
+        if position + 1 < len(parts) and (info.get("multivalued") or not info.get("inlined")):
+            raise ValueError("attestation paths traverse only scalar inline records: " + path)
+    return (*observed, owner)
+
+
 def _callable_determinant(frontend, name: str) -> str:
     if frontend is None:
         raise ValueError("attested rule needs captured Python sources")
@@ -170,12 +189,35 @@ def compile_data_rule(raw, kinds, aliases, frontend):
     checker = raw["checker"]
     form = raw["form"]
     scope = cast(_RuleScope, raw["scope"])
+    inline_collection = False
     if collection is None:
         if scope != "product" or checker != "producer" or kind not in kinds:
             raise ValueError("rule collection is required outside product-scope attestations")
         source, source_layout = kind, {"field_groups": {}}
     else:
-        source, source_layout = _collection(kinds, kind, collection)
+        kind_facts = json.loads(kinds[kind].facts) if kind in kinds else {}
+        if collection in kind_facts.get("collections", {}):
+            source, source_layout = _collection(kinds, kind, collection)
+        else:
+            prop = kinds.get(kind + "/property/" + collection)
+            collection_facts = json.loads(prop.facts) if prop else {}
+            source = collection_facts.get("range")
+            if (
+                scope != "product"
+                or checker != "admission"
+                or form not in {"unique", "predicate"}
+                or not collection_facts.get("multivalued")
+                or not collection_facts.get("inlined")
+                or not isinstance(source, str)
+                or source not in kinds
+                or kinds[source].category != "class"
+            ):
+                raise ValueError(
+                    "rule collection must name a declared partition population or inline row collection"
+                )
+            inline_collection = True
+            observed.add(prop.semantic_id)
+            source_layout = {"field_groups": {}}
     layouts = {"source": source_layout, "target": source_layout}
     parameters = raw["parameters"]
     if not isinstance(parameters, dict):
@@ -204,6 +246,11 @@ def compile_data_rule(raw, kinds, aliases, frontend):
             return value, "context"
         parts = _field_parts(value)
         scalar = ".".join(parts)
+        if checker == "producer" and collection is None:
+            traversed = observed_body_path(kinds, item_kind, scalar)
+            observed.update(traversed)
+            reads[side, scalar] = DataRuleRead(side, scalar, ())
+            return scalar, traversed[-1]
         traversed, target = _scalar_field(kinds, item_kind, parts, required=required)
         if integral:
             facts = json.loads(target.facts)
@@ -222,6 +269,7 @@ def compile_data_rule(raw, kinds, aliases, frontend):
             raise ValueError("rule paths must be distinct")
         return bound
 
+    normalized: dict[str, object]
     if checker == "producer":
         if form != "attested" or not role or not callable_:
             raise ValueError(
@@ -229,7 +277,7 @@ def compile_data_rule(raw, kinds, aliases, frontend):
             )
         if scope == "partition-pair":
             raise ValueError("attested rules require a partition or product checker scope")
-        fields(set(), optional={"paths"})
+        fields(set(), optional={"paths", "input_reads"})
         if "paths" in parameters:
             values = paths(parameters["paths"], required=False, placement=True)
             normalized = {"paths": [name for name, _ in values]}
@@ -238,6 +286,24 @@ def compile_data_rule(raw, kinds, aliases, frontend):
             reads["source", "$all"] = DataRuleRead("source", "$all", ())
             observed.add(kind)
             normalized = {}
+        if "input_reads" in parameters:
+            raw_inputs = parameters["input_reads"]
+            if not isinstance(raw_inputs, dict) or not raw_inputs:
+                raise ValueError("attestation input observations require named roles")
+            input_reads = {}
+            for name, role_paths in raw_inputs.items():
+                if not isinstance(name, str) or not name or not isinstance(role_paths, list):
+                    raise ValueError("attestation input observations require role/path lists")
+                if not role_paths or not all(isinstance(value, str) for value in role_paths):
+                    raise ValueError("attestation input observations require nonempty path lists")
+                names = [
+                    value if value == "$all" else ".".join(_field_parts(value))
+                    for value in role_paths
+                ]
+                if len(set(names)) != len(names) or ("$all" in names and len(names) > 1):
+                    raise ValueError("attestation input observations overlap")
+                input_reads[name] = sorted(names)
+            normalized["input_reads"] = input_reads
         determinant = _callable_determinant(frontend, callable_)
     else:
         if role is not None or callable_ is not None or form == "attested":
@@ -345,6 +411,8 @@ def compile_data_rule(raw, kinds, aliases, frontend):
                     raise ValueError("row predicate field must be Boolean")
         else:
             raise ValueError("unknown data rule form " + form)
+    if inline_collection:
+        normalized["inline_collection"] = True
     ordered_reads = []
     for side, field in sorted(reads):
         groups = tuple(
@@ -383,7 +451,9 @@ def bind_data_rule_identities(
     rule: EffectiveDataRule, graph: SemanticGraph, kind_contract: str
 ) -> EffectiveDataRule:
     record = graph.rooted_record(rule.id)
-    if not any(read.path == "$all" for read in rule.reads):
+    if not any(read.path == "$all" for read in rule.reads) and not any(
+        "$all" in paths for paths in json.loads(rule.parameters).get("input_reads", {}).values()
+    ):
         # A traversed nominal field must not pull unrelated sibling fields into
         # a rule fingerprint merely because its property has a class range.
         observed = {rule.id}

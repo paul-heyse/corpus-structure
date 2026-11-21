@@ -2,10 +2,133 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
+from typing import Literal
 
 from .identity import canonical_bytes
+
+ReferenceVariant = Literal["product", "member", "partition-item"]
+ReferenceKey = tuple[str | int, ...]
+
+
+def _identifier(value: object) -> bool:
+    return type(value) is str and bool(value)
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticReference:
+    """A body reference addressed in its producing derivation's input roles."""
+
+    variant: ReferenceVariant
+    role: str
+    occurrence: str | None = None
+    member_id: str | None = None
+    collection: str | None = None
+    partition_key: str | None = None
+    item_key: ReferenceKey | None = None
+
+    def __post_init__(self):
+        if not _identifier(self.role) or (
+            self.occurrence is not None and not _identifier(self.occurrence)
+        ):
+            raise ValueError("reference requires an exact role and optional occurrence key")
+        partition_fields = (self.collection, self.partition_key, self.item_key)
+        if self.variant == "product":
+            valid = self.member_id is None and all(field is None for field in partition_fields)
+        elif self.variant == "member":
+            valid = _identifier(self.member_id) and all(field is None for field in partition_fields)
+        elif self.variant == "partition-item":
+            valid = (
+                self.member_id is None
+                and _identifier(self.collection)
+                and _identifier(self.partition_key)
+                and isinstance(self.item_key, tuple)
+                and bool(self.item_key)
+                and all(type(value) is int or _identifier(value) for value in self.item_key)
+            )
+        else:
+            valid = False
+        if not valid:
+            raise ValueError("reference fields must match their declared variant")
+
+    @classmethod
+    def whole(cls, role: str, *, occurrence: str | None = None):
+        return cls("product", role, occurrence)
+
+    @classmethod
+    def member(cls, role: str, member_id: str, *, occurrence: str | None = None):
+        return cls("member", role, occurrence, member_id=member_id)
+
+    @classmethod
+    def item(
+        cls,
+        role: str,
+        collection: str,
+        partition_key: str,
+        item_key: ReferenceKey,
+        *,
+        occurrence: str | None = None,
+    ):
+        return cls(
+            "partition-item",
+            role,
+            occurrence,
+            collection=collection,
+            partition_key=partition_key,
+            item_key=item_key,
+        )
+
+    def values(self) -> dict[str, object]:
+        value: dict[str, object] = {"variant": self.variant, "role": self.role}
+        if self.occurrence is not None:
+            value["occurrence"] = self.occurrence
+        if self.variant == "member":
+            value["member_id"] = self.member_id
+        elif self.item_key is not None:
+            value.update(
+                collection=self.collection,
+                partition_key=self.partition_key,
+                item_key=[
+                    {"kind": "text", "text": part}
+                    if isinstance(part, str)
+                    else {"kind": "integer", "integer": part}
+                    for part in self.item_key
+                ],
+            )
+        return value
+
+
+def read_semantic_reference(value) -> SemanticReference:
+    if not isinstance(value, Mapping):
+        raise ValueError("reference must be a mapping")
+    fields = {field: item for field, item in value.items() if field != "item_key"}
+    if "item_key" in value:
+        if not isinstance(value["item_key"], list):
+            raise ValueError("reference item key must be an ordered list")
+        fields["item_key"] = tuple(_read_reference_key_part(part) for part in value["item_key"])
+    try:
+        reference = SemanticReference(**fields)
+    except TypeError as error:
+        raise ValueError("reference has undeclared or missing fields") from error
+    if reference.values() != value:
+        raise ValueError("reference must use the exact variant fields")
+    return reference
+
+
+def _read_reference_key_part(part: object) -> str | int:
+    if isinstance(part, Mapping):
+        kind = part.get("kind")
+        if kind == "text" and set(part) == {"kind", "text"}:
+            text = part["text"]
+            if type(text) is str and text:
+                return text
+        elif kind == "integer" and set(part) == {"kind", "integer"}:
+            number = part["integer"]
+            if type(number) is int:
+                return number
+    raise ValueError("reference key part requires one exact text or integer value")
 
 
 def reference_inputs(bundle):

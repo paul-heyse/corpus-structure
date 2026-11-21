@@ -79,7 +79,6 @@ def _binding_validation_program(model):
         products,
         members,
         kinds,
-        coverage,
         episodes,
         requests,
         outputs,
@@ -93,7 +92,6 @@ def _binding_validation_program(model):
             "kb.data_product",
             "kb.data_product_member",
             "sem.data_kind_contract",
-            "kb.data_member_coverage",
             "ops.data_derivation",
             "ops.data_request",
             "ops.data_derivation_output",
@@ -548,27 +546,9 @@ def _binding_validation_program(model):
             "semantic request member differs from native product/member",
             "23514",
         ),
-        SelectInto(
-            select(
-                func.coalesce(
-                    func.jsonb_agg(
-                        aggregate_order_by(
-                            func.to_jsonb(coverage.table_valued())
-                            .op("-")("product_id")
-                            .op("-")("member_id"),
-                            coverage.c.ordinal,
-                        )
-                    ),
-                    _json("[]"),
-                )
-            ).where(
-                coverage.c.product_id == x("id"), coverage.c.member_id == item["member_id"].astext
-            ),
-            ("expected",),
-        ),
         _check(
-            mv["coverage"].is_distinct_from(expected),
-            "semantic input coverage differs from native projection",
+            mv["coverage"].is_distinct_from(_json("[]")),
+            "semantic input cannot carry projected member coverage",
             "23514",
         ),
         If(

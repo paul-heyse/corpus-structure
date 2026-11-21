@@ -20,7 +20,6 @@ from corpus_structure.methods.m1_source import (
     plan_candidates,
 )
 
-from .data_operation_json import json_bytes
 from .data_operation_model import (
     BoundRoleMember,
     EffectiveDataOperationModel,
@@ -75,6 +74,8 @@ def m1_profile_assets(configuration, record_schemas):
         "semantic/record_interpretation.py",
         "semantic/m1_products.py",
         "semantic/declared_candidate_products.py",
+        "semantic/sentence_products.py",
+        "semantic/sentence_partitions.py",
     )
     return SourceArtifact(
         "m1/profile-assets",
@@ -208,7 +209,7 @@ class PreparedM1Inputs:
     ) -> Generator[M1GlinerRequest, M1GlinerReply, M1CandidateProduct]:
         from corpus_structure.methods.source_preparation import prepare_source
 
-        from .sentence_products import source_annotation_rows
+        from .sentence_products import SourceAnnotations, source_annotation_rows
 
         frame = DeclaredNativeFrameSource.acquire(
             self.prepared, primary, self.primary_member, project=self.project
@@ -218,9 +219,13 @@ class PreparedM1Inputs:
         )
         if frame.pin not in {source.pin for source in population.sources}:
             raise ValueError("primary source is outside its declared complete context population")
-        checked = self.prepared.validate_json(
-            "DdoSourceAnnotations", json_bytes(annotations)
-        ).model_dump(mode="json", exclude_unset=True)
+        checked = annotations["header"]
+        inventory = SourceAnnotations(
+            canonical_bytes(checked),
+            self.prepared,
+            self.model,
+            partitions=tuple(canonical_bytes(packet) for packet in annotations["partitions"]),
+        )
         if checked["source"] != primary["source"] or checked["selectors"] != primary["selectors"]:
             raise ValueError("M1 annotations belong to another exact source/scope")
         from corpus_structure.ingest.sentences import SentenceConfig
@@ -231,7 +236,7 @@ class PreparedM1Inputs:
             self.configuration.sentences, execution_profile=checked["execution_profile"]
         )
         products = restore_annotations(
-            source_annotation_rows(checked), source=frame, profile=profile
+            source_annotation_rows(inventory), source=frame, profile=profile
         )
         from corpus_structure.methods.predicate_frames import prepare_predicate_readings
 

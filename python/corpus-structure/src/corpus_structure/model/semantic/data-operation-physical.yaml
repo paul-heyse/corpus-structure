@@ -78,7 +78,6 @@ classes:
       member_schema: {range: json_payload, required: true}
       member_contracts: {range: json_payload, required: true}
       collections: {range: json_payload, required: true, annotations: {ph:server_default_factory: empty_object}}
-      families: {range: json_payload, required: true}
       universe: {range: string, required: true}
     unique_keys:
       primary_key: {unique_key_slots: [kind_contract]}
@@ -322,88 +321,6 @@ classes:
       ph:indexes: {"tag":"ph:indexes","value":[["product_id","subject","kind_contract"]]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id"],"target":"kb.data_product.id"},{"columns":["kind_contract"],"target":"sem.data_kind_contract.kind_contract"}]}
-  data_member_coordinate:
-    in_subset: [kb]
-    attributes:
-      product_id: {range: string, required: true}
-      member_id: {range: string, required: true}
-      ordinal: {range: integer, required: true}
-      original_source: {range: string, required: true}
-      start: {range: integer, required: true}
-      end: {range: integer, required: true}
-      page: {range: integer, required: false}
-    unique_keys:
-      primary_key: {unique_key_slots: [product_id, member_id, ordinal]}
-    annotations:
-      ph:read_roles: {"tag":"ph:read_roles","value":[]}
-      ph:immutability: intrinsic
-      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id","member_id"],"target":"kb.data_product_member.product_id,member_id"}]}
-      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_data_member_coordinate_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}},{"name":"ck_data_member_coordinate_physical_729b80c0bc","predicate":{"op":"ge","args":[{"field":"end"},{"field":"start"}]}},{"name":"ck_data_member_coordinate_physical_e27c55b78e","predicate":{"op":"ge","args":[{"field":"start"},{"value":0}]}}]}
-  data_member_role:
-    in_subset: [kb]
-    attributes:
-      product_id: {range: string, required: true}
-      member_id: {range: string, required: true}
-      ordinal: {range: integer, required: true}
-      role: {range: string, required: true}
-      position: {range: integer, required: true}
-      multiplicity: {range: integer, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [product_id, member_id, ordinal]}
-    annotations:
-      ph:read_roles: {"tag":"ph:read_roles","value":[]}
-      ph:immutability: intrinsic
-      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id","member_id"],"target":"kb.data_product_member.product_id,member_id"}]}
-      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_data_member_role_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}},{"name":"ck_data_member_role_physical_9039b28f88","predicate":{"op":"ge","args":[{"field":"position"},{"value":0}]}},{"name":"ck_data_member_role_physical_4c504f7e44","predicate":{"op":"gt","args":[{"field":"multiplicity"},{"value":0}]}}]}
-  data_member_endpoint:
-    in_subset: [kb]
-    attributes:
-      product_id: {range: string, required: true}
-      member_id: {range: string, required: true}
-      ordinal: {range: integer, required: true}
-      role: {range: string, required: true}
-      endpoint_product: {range: string, required: true}
-      endpoint_member: {range: string, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [product_id, member_id, ordinal]}
-    annotations:
-      ph:read_roles: {"tag":"ph:read_roles","value":[]}
-      ph:immutability: intrinsic
-      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id","member_id"],"target":"kb.data_product_member.product_id,member_id"},{"columns":["endpoint_product","endpoint_member"],"target":"kb.data_product_member.product_id,member_id"}]}
-      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_data_member_endpoint_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}}]}
-  data_member_coverage:
-    in_subset: [kb]
-    attributes:
-      product_id: {range: string, required: true}
-      member_id: {range: string, required: true}
-      ordinal: {range: integer, required: true}
-      scope: {range: string, required: true}
-      start: {range: integer, required: true}
-      end: {range: integer, required: true}
-      complete: {range: boolean, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [product_id, member_id, ordinal]}
-    annotations:
-      ph:read_roles: {"tag":"ph:read_roles","value":[]}
-      ph:immutability: intrinsic
-      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id","member_id"],"target":"kb.data_product_member.product_id,member_id"}]}
-      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_data_member_coverage_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}},{"name":"ck_data_member_coverage_physical_729b80c0bc","predicate":{"op":"ge","args":[{"field":"end"},{"field":"start"}]}},{"name":"ck_data_member_coverage_physical_e27c55b78e","predicate":{"op":"ge","args":[{"field":"start"},{"value":0}]}}]}
-  data_member_choice:
-    in_subset: [kb]
-    attributes:
-      product_id: {range: string, required: true}
-      member_id: {range: string, required: true}
-      ordinal: {range: integer, required: true}
-      choice_group: {range: string, required: true}
-      alternative: {range: string, required: true}
-      selected: {range: boolean, required: true}
-    unique_keys:
-      primary_key: {unique_key_slots: [product_id, member_id, ordinal]}
-    annotations:
-      ph:read_roles: {"tag":"ph:read_roles","value":[]}
-      ph:immutability: intrinsic
-      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["product_id","member_id"],"target":"kb.data_product_member.product_id,member_id"}]}
-      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_data_member_choice_physical_ee668cd4ef","predicate":{"op":"ge","args":[{"field":"ordinal"},{"value":0}]}}]}
   data_execution_origin:
     in_subset: [ops]
     attributes:

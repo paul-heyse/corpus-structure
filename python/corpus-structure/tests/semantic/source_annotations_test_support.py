@@ -36,7 +36,7 @@ def acquired(tmp_path_factory):
         NativeProfile(
             "spacy",
             {"controlled": "runtime"},
-            {},
+            {"files": {}},
             configuration.model_dump(mode="json"),
             "float32",
             "cupy",

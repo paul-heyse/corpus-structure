@@ -1,7 +1,7 @@
 """Bind rule conclusions to settled producer attestations and exact live inputs."""
 
-from sqlalchemy import Text, and_, case, cast, column, func, null, or_, select, true
-from sqlalchemy.dialects.postgresql import JSONB, array, insert
+from sqlalchemy import Text, and_, case, cast, column, func, literal, null, or_, select, true
+from sqlalchemy.dialects.postgresql import JSONB, aggregate_order_by, array, insert
 from sqlalchemy.types import NullType
 
 from corpus_structure.schema.integrity import role_name
@@ -64,6 +64,94 @@ def _rule_premise(rule, product_id, partition, target_product=None, target_parti
         target_product,
         target_partition,
         type_=Text(),
+    )
+
+
+def _input_reads(specification):
+    return func.coalesce(specification["parameters"]["input_reads"], _json("{}"), type_=JSONB())
+
+
+def _with_input_reads(model, base, reads, episode):
+    """Reproduce the observed role premises from exact native producing input occurrences."""
+    inputs = model.tables["ops.data_derivation_input"].alias("observed_inputs")
+    parent = model.tables["kb.data_product"].alias("observed_product")
+    member = model.tables["kb.data_product_member"].alias("observed_member")
+    roles = (
+        func.jsonb_each(reads)
+        .table_valued(column("key", Text()), column("value", JSONB()))
+        .render_derived(name="observed_roles")
+    )
+    fields = (
+        func.jsonb_array_elements_text(roles.c.value)
+        .table_valued(column("value", Text()), with_ordinality="ordinality")
+        .render_derived(name="observed_paths")
+    )
+    body = case((inputs.c.member_id.is_(None), parent.c.canonical_body), else_=member.c.body)
+    digest = case(
+        (inputs.c.member_id.is_(None), parent.c.body_digest),
+        else_=func.data.ddo_identity("body", member.c.body, type_=Text()),
+    )
+    observed_fields = (
+        select(
+            func.jsonb_agg(
+                aggregate_order_by(
+                    case(
+                        (fields.c.value == "$all", func.to_jsonb(digest, type_=JSONB())),
+                        else_=func.ops.ddo_partition_field(body, fields.c.value, type_=JSONB()),
+                    ),
+                    fields.c.ordinality,
+                )
+            )
+        )
+        .select_from(fields)
+        .correlate(roles, inputs, parent, member)
+        .scalar_subquery()
+    )
+    observed_role = (
+        select(
+            func.coalesce(
+                func.jsonb_agg(
+                    aggregate_order_by(
+                        func.jsonb_build_array(inputs.c.multiplicity, observed_fields),
+                        inputs.c.position,
+                    )
+                ),
+                _json("[]"),
+            )
+        )
+        .select_from(
+            inputs.join(parent, parent.c.id == inputs.c.product_id).outerjoin(
+                member,
+                and_(
+                    member.c.product_id == inputs.c.product_id,
+                    member.c.member_id == inputs.c.member_id,
+                ),
+            )
+        )
+        .where(inputs.c.derivation_id == episode, inputs.c.role == roles.c.key)
+        .correlate_except(inputs, parent, member)
+        .scalar_subquery()
+    )
+    role_values = (
+        select(
+            func.jsonb_agg(
+                aggregate_order_by(
+                    func.jsonb_build_array(roles.c.key, observed_role),
+                    func.convert_to(roles.c.key, literal("UTF8")),
+                )
+            )
+        )
+        .select_from(roles)
+        .correlate_except(roles)
+        .scalar_subquery()
+    )
+    return case(
+        (reads == _json("{}"), base),
+        else_=func.data.ddo_identity(
+            "rule-observed-premise",
+            func.data.ddo_json_meaning(func.jsonb_build_array(base, role_values)),
+            type_=Text(),
+        ),
     )
 
 
@@ -140,7 +228,12 @@ def _settle_attestations(model):
         select(
             rules.c.rule_id,
             rules.c.fingerprint.label("rule_fingerprint"),
-            _rule_premise(rules, product.c.id, partition).label("premise"),
+            _with_input_reads(
+                model,
+                _rule_premise(rules, product.c.id, partition),
+                _input_reads(rules.c.specification),
+                episode,
+            ).label("premise"),
             outputs.c.role,
             outputs.c.position,
             partition.c.partition_key,
@@ -362,6 +455,7 @@ def _bound_rules(model):
             partition.c.partition_key,
             rule.c.fingerprint,
             spec["checker"].astext.label("checker"),
+            _input_reads(spec).label("input_reads"),
             product.c.id.label("product_id"),
             case(
                 (
@@ -426,6 +520,12 @@ def _bound_rules(model):
         select(1)
         .select_from(
             establishment.join(
+                conclusion,
+                and_(
+                    conclusion.c.rule_fingerprint == establishment.c.rule_fingerprint,
+                    conclusion.c.premise == establishment.c.premise,
+                ),
+            ).join(
                 outputs,
                 and_(
                     establishment.c.derivation_id == outputs.c.derivation_id,
@@ -436,7 +536,10 @@ def _bound_rules(model):
         )
         .where(
             establishment.c.rule_fingerprint == selected.c.fingerprint,
-            establishment.c.premise == selected.c.premise,
+            establishment.c.premise
+            == _with_input_reads(
+                model, selected.c.premise, selected.c.input_reads, establishment.c.derivation_id
+            ),
             outputs.c.product_id == selected.c.product_id,
             outputs.c.member_id.is_(None),
             func.ops.ddo_read_visible(
@@ -459,7 +562,7 @@ def _bound_rules(model):
         .select_from(selected)
         .where(
             or_(
-                ~content_matches,
+                and_(selected.c.checker == "admission", ~content_matches),
                 and_(selected.c.checker == "producer", ~attestation_matches),
             )
         )

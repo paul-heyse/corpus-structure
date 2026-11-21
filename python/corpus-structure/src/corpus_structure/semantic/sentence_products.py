@@ -17,7 +17,7 @@ from functools import cached_property
 from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 import yaml
 from pydantic import BaseModel
@@ -50,7 +50,9 @@ _MODEL = Path(__file__).resolve().parents[1] / "model/semantic/data-operation-se
 def sentence_product_inputs(
     bundle: SourceBundle, *, profile: PreparationProfile | None = None
 ) -> SourceBundle:
-    bundle = source_product_inputs(bundle, profile=profile)
+    from .data_product_reference import reference_inputs
+
+    bundle = reference_inputs(source_product_inputs(bundle, profile=profile))
     names = {source.name for source in bundle.sources}
     if names & {"data_operation_sentences", "data_operation_sentences_root"}:
         raise ValueError("sentence profile uses reserved source schema names")
@@ -89,6 +91,7 @@ class SourceAnnotations:
     model: EffectiveDataOperationModel
     execution_receipts: tuple[bytes, ...] = ()
     subject_context: SubjectContext | None = None
+    partitions: tuple[bytes, ...] | None = None
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -107,7 +110,11 @@ class SourceAnnotations:
             if identity.owner == self.prepared.index.definitions["DdoSourceAnnotations"].iri
             and identity.domain == "kind"
         )
-        value = self.value.model_dump(mode="python", exclude_unset=True)
+        value = (
+            json.loads(self.content)
+            if self.partitions is not None
+            else self.value.model_dump(mode="python", exclude_unset=True)
+        )
         return contextual_product_identity(
             kind=kind,
             context=self._publication_context(),
@@ -120,22 +127,108 @@ class SourceAnnotations:
 
     @property
     def value(self) -> BaseModel:
-        return self.prepared.validate_json("DdoSourceAnnotations", self.content)
+        content = self.content
+        if self.partitions is not None:
+            body = json.loads(content)
+            body.pop("rows")
+            content = canonical_bytes(body)
+        return self.prepared.validate_json("DdoSourceAnnotations", content)
 
     def inventory(self, kind: str) -> tuple[dict[str, Any], ...]:
         if kind not in {"sentence", "token"}:
             raise ValueError("unknown native sentence inventory kind")
         return tuple(
-            row
-            for row in source_annotation_member_values(json.loads(self.content))
-            if row["record_type"] == kind
+            row for row in source_annotation_member_values(self) if row["record_type"] == kind
         )
 
 
-def source_annotation_rows(value):
+_TOKEN_FIELDS = frozenset(
+    (
+        "start",
+        "end",
+        "space",
+        "role",
+        "lemma",
+        "pos",
+        "tag",
+        "dependency",
+        "morphology",
+        "head",
+        "sentence",
+        "piece_indices",
+    )
+)
+
+
+class AnnotationView(Protocol):
+    @property
+    def content(self) -> bytes: ...
+
+    @property
+    def partitions(self) -> tuple[bytes, ...] | None: ...
+
+
+def source_annotation_blocks(
+    value: Mapping[str, Any] | AnnotationView, partitions: tuple[bytes, ...] | None = None
+) -> tuple[dict[str, Any], ...]:
+    """Recover working block coordinates and columns from authenticated rows and layout."""
+    from .data_operation_partitions import partition_header
+    from .sentence_partitions import COLLECTION, blocks_from_packets
+
+    if isinstance(value, Mapping):
+        body = value
+    else:
+        partitions = value.partitions
+        body = json.loads(value.content)
+    if partitions is None:
+        return tuple(body["blocks"])
+    packets = tuple(json.loads(packet) for packet in partitions)
+    if partition_header(packets) != body[COLLECTION]:
+        raise ValueError("annotation rows differ from their selected collection commitment")
+    rows = blocks_from_packets(packets)
+    result = []
+    for layout, block in zip(body["block_layouts"], rows, strict=True):
+        annotation = layout["annotation"]
+        if (annotation["block_id"], annotation["block_start"], annotation["block_end"]) != (
+            block.key,
+            block.start,
+            block.end,
+        ):
+            raise ValueError("annotation layout differs from its selected row partition")
+        tokens, sentences, lexemes = [], [], []
+        for row in block.rows:
+            position = dict(start=block.start + row["start"], end=block.start + row["end"])
+            if row["record_type"] == "sentence":
+                if row["ordinal"] != len(sentences):
+                    raise ValueError("annotation sentence ordinals must be contiguous")
+                sentences.append(position)
+            elif row["record_type"] == "token":
+                if row["ordinal"] != len(tokens):
+                    raise ValueError("annotation token ordinals must be contiguous")
+                tokens.append({key: row[key] for key in _TOKEN_FIELDS if key in row} | position)
+                lexemes.append(
+                    {
+                        key: item
+                        for key, item in row.items()
+                        if key not in _TOKEN_FIELDS | {"record_type", "ordinal", "extent"}
+                    }
+                )
+            else:
+                raise ValueError("unknown annotation record type")
+        result.append(
+            dict(
+                annotation=dict(annotation, tokens=tokens, sentences=sentences),
+                piece_offset=layout["piece_offset"],
+                lexemes=lexemes,
+            )
+        )
+    return tuple(result)
+
+
+def source_annotation_rows(value: Mapping[str, Any] | AnnotationView) -> tuple[dict[str, Any], ...]:
     """Restore the existing AnnotationProduct wire shape from its typed nominal projection."""
     rows = []
-    for block in value["blocks"]:
+    for block in source_annotation_blocks(value):
         annotation = block["annotation"]
         rows.append(
             {
@@ -164,7 +257,7 @@ def retained_source_annotation_products(source, native):
     selected = source.value
     if value["source"] != selected["source"] or value["selectors"] != selected["selectors"]:
         raise ValueError("retained annotations differ from their exact original source/scope")
-    rows = source_annotation_rows(value)
+    rows = source_annotation_rows(native)
     if not rows:
         return ()
     frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
@@ -179,10 +272,15 @@ def retained_source_annotation_products(source, native):
     )
 
 
-def source_annotation_member_values(value: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
+def source_annotation_member_values(
+    value: Mapping[str, Any] | AnnotationView,
+) -> tuple[dict[str, Any], ...]:
     """Read original units from detached annotations; no second stored token inventory."""
     result = []
-    for block in value["blocks"]:
+    blocks = source_annotation_blocks(value)
+    if not isinstance(value, Mapping):
+        value = json.loads(value.content)
+    for block in blocks:
         annotation, lexemes = block["annotation"], block["lexemes"]
         sentences = annotation["sentences"]
         sentence_ids = [
@@ -309,15 +407,32 @@ def annotation_manifest(value, *, kind_contract):
 
 
 def validate_source_annotations(
-    prepared, model, value, source, *, receipts=(), subject_context=None, configuration=None
+    prepared,
+    model,
+    value,
+    source,
+    *,
+    receipts=(),
+    subject_context=None,
+    configuration=None,
+    partitions=None,
 ):
     from corpus_structure.ingest.annotations import AnnotationProfile, restore_annotations
 
     from .declared_record_sources import DeclaredNativeFrameSource
 
-    checked = prepared.validate_json("DdoSourceAnnotations", canonical_bytes(value)).model_dump(
+    raw = dict(value)
+    if set(raw) == {"header", "partitions"}:
+        if partitions is not None:
+            raise ValueError("explicit annotation partitions repeat the selected envelope")
+        partitions = tuple(canonical_bytes(packet) for packet in raw["partitions"])
+        raw = raw["header"]
+    commitment = raw.pop("rows") if partitions is not None else None
+    checked = prepared.validate_json("DdoSourceAnnotations", canonical_bytes(raw)).model_dump(
         mode="json", exclude_unset=True
     )
+    if commitment is not None:
+        checked["rows"] = commitment
     selected = source.value
     frozen_configuration = SentenceConfig.model_validate(checked["configuration"])
     if configuration is not None and configuration != frozen_configuration:
@@ -325,7 +440,10 @@ def validate_source_annotations(
     configuration = frozen_configuration
     if checked["source"] != selected["source"] or checked["selectors"] != selected["selectors"]:
         raise ValueError("source annotations differ from exact original source/scope")
-    rows = source_annotation_rows(checked)
+    result = SourceAnnotations(
+        canonical_bytes(checked), prepared, model, receipts, subject_context, partitions
+    )
+    rows = source_annotation_rows(result)
     if rows:
         if configuration is None:
             raise ValueError("annotation validation requires its captured model configuration")
@@ -338,7 +456,7 @@ def validate_source_annotations(
             ),
             require_complete=False,
         )
-        for product, block in zip(products, checked["blocks"], strict=True):
+        for product, block in zip(products, source_annotation_blocks(result), strict=True):
             if len(product.tokens) != len(block["lexemes"]):
                 raise ValueError("native lexical columns differ from their actual token population")
             expected = [
@@ -390,9 +508,20 @@ def validate_source_annotations(
         else "partial"
     ):
         raise ValueError("native product outcome differs from actual family coverage")
-    if checked["members"] != source_annotation_packets(prepared, model, checked):
+    if partitions is not None:
+        from .characterization_manifests import manifest_contract
+
+        expected_members = [
+            annotation_manifest(
+                checked,
+                kind_contract=manifest_contract(prepared, model, "DdoSourceAnnotationManifest"),
+            )
+        ]
+    else:
+        expected_members = source_annotation_packets(prepared, model, checked)
+    if checked["members"] != expected_members:
         raise ValueError("annotation members differ from their actual retained native population")
-    return SourceAnnotations(canonical_bytes(checked), prepared, model, receipts, subject_context)
+    return result
 
 
 @dataclass(frozen=True)
@@ -778,16 +907,30 @@ class PreparedSentenceProfile:
             if all(row["outcome"] in {"complete", "empty"} for row in value["coverage"])
             else "partial"
         )
-        value["members"] = source_annotation_packets(self.prepared, self.model, value)
+        from .characterization_manifests import manifest_contract
+        from .data_operation_partitions import partition_header
+        from .sentence_partitions import partition_source_annotations
+
+        value["members"] = [
+            annotation_manifest(
+                value,
+                kind_contract=manifest_contract(
+                    self.prepared, self.model, "DdoSourceAnnotationManifest"
+                ),
+            )
+        ]
+        header, packets = partition_source_annotations(value)
+        header["rows"] = partition_header(packets)
         check_active()
         return validate_source_annotations(
             self.prepared,
             self.model,
-            value,
+            header,
             source,
             receipts=tuple(receipts),
             configuration=self.configuration,
             subject_context=subject_context,
+            partitions=tuple(canonical_bytes(packet) for packet in packets),
         )
 
 
@@ -851,6 +994,7 @@ def sentence_execution_custody(
     root = Path(__file__).parent
     paths = (
         Path(__file__),
+        root / "sentence_partitions.py",
         root.parent / "methods/native_profiles.py",
         root.parent / "ingest/hosted_spacy.py",
     )
@@ -924,6 +1068,11 @@ def sentence_operation_sources(configuration: SentenceConfig | None = None, *, s
             PythonSource(
                 "corpus_structure.methods.sentence_evidence", path.read_bytes(), str(path)
             ),
+            PythonSource(
+                "corpus_structure.semantic.sentence_partitions",
+                Path(__file__).with_name("sentence_partitions.py").read_bytes(),
+                str(Path(__file__).with_name("sentence_partitions.py")),
+            ),
         ),
         boundary_contracts=(
             sentence_provider_asset(selection),
@@ -959,6 +1108,7 @@ class SourceAnnotationReadings:
             json.loads(self.product.content),
             self.source,
             configuration=self.product.configuration,
+            partitions=self.product.partitions,
         )
         sentences = self.product.inventory("sentence")
         object.__setattr__(self, "_sentences", tuple(canonical_bytes(row) for row in sentences))
@@ -1001,6 +1151,8 @@ class SourceAnnotationReadings:
         return self.tokens(sentence)
 
     def annotation_availability(self):
+        body = json.loads(self.product.content)
+        layouts = body["block_layouts"] if self.product.partitions is not None else body["blocks"]
         return tuple(
             dict(
                 block_id=row["block_id"],
@@ -1008,7 +1160,7 @@ class SourceAnnotationReadings:
                 end=row["block_end"],
                 attributes={item["attribute"]: item["status"] for item in row["availability"]},
             )
-            for row in source_annotation_rows(json.loads(self.product.content))
+            for row in (layout["annotation"] for layout in layouts)
         )
 
 
@@ -1228,44 +1380,73 @@ class PreparedSentencePort:
         )
         return DeclaredSourcePin(canonical_bytes(address.pin()).decode())
 
-    def _completion(self, product, binding=None):
+    def _completion(self, product, source, binding=None):
         if binding is not None:
             product = replace(product, subject_context=binding.subject_context)
-        from .data_operation_ports import PortCompletion, RoleValue
-        from .data_operation_values import semantic_value
+        from ._data_operation_wire import WireKindContract, WireOutputMember
+        from .data_operation_ports import PortCompletion, PortRefusal
+        from .established_validity import RuleObservedInput, successful_rule_attestation
+        from .sentence_partitions import partitioned_role
 
         # Product meaning uses the exact typed record's fields; display JSON and native
         # member packets are deliberate projections of that same validated product.
-        model_value = product.value.model_dump(mode="python", exclude_unset=True)
-        packets = json.loads(product.content)["members"]
-        native_members = tuple(
-            canonical_bytes(
-                {
-                    "member_id": packet["member_id"],
-                    "kind_contract": packet["kind_contract"],
-                    "context": packet["context"],
-                    "body": semantic_value(packet["body"]),
-                }
-            )
-            for packet in packets
-        )
+        if product.partitions is None:
+            raise PortRefusal("annotation completion requires its partitioned population")
+        model_value = json.loads(product.content)
+        partitions = tuple(json.loads(packet) for packet in product.partitions)
         output = next(role for role in self.operation.roles if role.direction == "output")
         contracts = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
+        result = partitioned_role(
+            output.name, contracts[output.kind, "kind"], model_value, partitions
+        )
+        attestations = ()
+        if binding is not None and binding.subject_context is not None:
+            from corpus_structure.methods.sentence_evidence import verify_annotation_source
+
+            selected = source.value
+            verify_annotation_source(
+                model_value["source"],
+                model_value["selectors"],
+                selected["source"],
+                selected["selectors"],
+            )
+            rule = next(
+                rule
+                for rule in self.profile.model.rules
+                if rule.id == "segment.sentences/exact-source-scope"
+            )
+            kind = next(
+                kind for kind in self.profile.model.kinds if kind.semantic_id == output.kind
+            )
+            assert result.meaning is not None
+            packet: WireOutputMember = {
+                "role": result.role,
+                "position": 0,
+                "multiplicity": 1,
+                "product": {
+                    "kind_contract": WireKindContract(result.kind_contract),
+                    "body": json.loads(result.meaning),
+                    "members": [json.loads(member) for member in result.members],
+                },
+            }
+            attestations = (
+                successful_rule_attestation(
+                    rule,
+                    kind,
+                    self.operation.semantic_id,
+                    packet,
+                    binding.subject_context,
+                    selected_inputs={"source": (RuleObservedInput(selected),)},
+                ),
+            )
         return PortCompletion(
             self.operation.semantic_id,
-            (
-                RoleValue(
-                    output.name,
-                    contracts[output.kind, "kind"],
-                    product.content,
-                    canonical_bytes(semantic_value(model_value)),
-                    native_members,
-                ),
-            ),
+            (result,),
             execution_evidence=canonical_bytes(
                 [json.loads(receipt) for receipt in product.execution_receipts]
             ),
             outcome=successful_return_outcome(self.operation),
+            rule_attestations=attestations,
         )
 
     @property
@@ -1289,7 +1470,7 @@ class PreparedSentencePort:
                 self.profile, check_active, execution_owner.native_hosts, source_pin=source_pin
             ).run(source)
             self._verify()
-            return self._completion(product, binding)
+            return self._completion(product, source, binding)
 
         (completion,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
         check_active()
@@ -1311,7 +1492,7 @@ class PreparedSentencePort:
             self.profile, check_active, self.host, source_pin=self._source_pin(source, binding)
         ).run(source)
         self._verify()
-        return self._completion(product, binding)
+        return self._completion(product, source, binding)
 
 
 def resolve_sentence_port(

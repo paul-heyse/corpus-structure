@@ -576,7 +576,6 @@ def binding_branches(metadata):
     outputs = metadata.tables["ops.data_derivation_output"].alias("outp")
     products = metadata.tables["kb.data_product"].alias("x")
     members = metadata.tables["kb.data_product_member"].alias("m")
-    member_roles = metadata.tables["kb.data_member_role"].alias("member_role")
     later = metadata.tables["ops.demand_use"].alias("later")
     selected_operations = _items(selection["operations"], "selected_operation")
     exact_pin = exists(
@@ -792,23 +791,8 @@ def binding_branches(metadata):
         select(
             *admitted.c,
             *projected.c,
-            cast(
-                func.coalesce(member_roles.c.position, admitted.c.output_position), BigInteger
-            ).label("occurrence_position"),
-            cast(
-                func.coalesce(member_roles.c.multiplicity, admitted.c.output_multiplicity),
-                BigInteger,
-            ).label("occurrence_multiplicity"),
         )
-        .select_from(
-            admitted.join(projected, literal(True)).outerjoin(
-                member_roles,
-                and_(
-                    member_roles.c.product_id == admitted.c.product_id,
-                    member_roles.c.member_id == projected.c.member_id,
-                ),
-            )
-        )
+        .select_from(admitted.join(projected, literal(True)))
         .where(admitted_role, selected_key(admitted.c.product_id, projected.c.member_id))
         .cte("candidates")
         .prefix_with("MATERIALIZED")
@@ -820,22 +804,6 @@ def binding_branches(metadata):
             )
         ).scalar_subquery(),
         name="candidate_validity",
-    )
-    coverage = metadata.tables["kb.data_member_coverage"].alias("coverage_row")
-    coverage_query = (
-        select(
-            _aggregate(
-                func.to_jsonb(coverage.table_valued())
-                .op("-")(literal("product_id"))
-                .op("-")(literal("member_id")),
-                coverage.c.ordinal,
-            )
-        )
-        .where(
-            coverage.c.product_id == candidates.c.product_id,
-            coverage.c.member_id == candidates.c.member_id,
-        )
-        .scalar_subquery()
     )
     from .producer_correspondence_native import selected_producer_contract
 
@@ -873,7 +841,7 @@ def binding_branches(metadata):
         candidates.c.projected_subject_definition,
         candidates.c.projected_source,
         candidates.c.projected_scope,
-        coverage_query,
+        _json([]),
         func.jsonb_build_array(candidates.c.episode_id),
         func.jsonb_build_array(
             _obj(
@@ -883,8 +851,8 @@ def binding_branches(metadata):
             )
         ),
         evidence,
-        candidates.c.occurrence_position,
-        candidates.c.occurrence_multiplicity,
+        cast(candidates.c.output_position, BigInteger),
+        cast(candidates.c.output_multiplicity, BigInteger),
         candidates.c.member_id,
         func.ops.ddo_episode_provider_identity(candidates.c.episode_id),
         candidates.c.producer_operation,
@@ -1234,6 +1202,19 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             definitions.c.operation_id,
         ),
     )
+    if (partitions := metadata.tables.get("kb.data_product_partition")) is not None:
+        visible_partition_parent = exists(
+            select(1)
+            .select_from(products.join(product_ids, product_ids.c.product_id == products.c.id))
+            .where(
+                products.c.id == partitions.c.product_id,
+                _disclosed_kind_access(metadata, products.c.kind_contract),
+                func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
+            )
+        )
+        fields["partitions"] = records(
+            partitions, visible_partition_parent, *partitions.primary_key.columns
+        )
     # This is an explicit bounded provenance form, not a second storage table.
     # In particular no issuer use/binding, request, intent, protected input, other
     # output or transitive protected support is exported as a normal episode.
@@ -1416,13 +1397,6 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             )
         fields[name.removeprefix("data_derivation_")] = records(
             relation, visible_edge, *relation.primary_key.columns
-        )
-    for name in ("coordinate", "role", "endpoint", "coverage", "choice"):
-        relation = metadata.tables["kb.data_member_" + name]
-        fields[name] = records(
-            relation,
-            relation.c.product_id.in_(select(product_ids.c.product_id)),
-            *relation.primary_key.columns,
         )
     from .support_edges import support_explanation_rows
 

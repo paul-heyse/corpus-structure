@@ -71,7 +71,6 @@ def _body_fixture(connection):
                 meaning_schema={"type": "array"},
                 member_schema={} if nominal else {"not": {}},
                 member_contracts=contracts,
-                families=[],
                 universe=universe,
             )
         )

@@ -14,10 +14,11 @@ from functools import cached_property
 from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from ._data_operation_wire import WireCutSelection
+from ._data_operation_wire import WireCutSelection, WireProductPartition
 from .data_operation_identity import body_identity, contextual_product_identity
 from .data_operation_json import json_bytes, native_json_loads, wire_json_loads
 from .data_operation_model import SubjectContext, validate_replicate_selection
+from .data_operation_partitions import partition_group_digests, partition_header, partition_packet
 from .data_operation_values import decode_semantic_value
 from .selected_graph_budget import SelectedGraphBudgetExceeded
 
@@ -589,6 +590,8 @@ def verify_detached_result(
 
     products = row_map("kb.data_product", "id")
     members = row_map("kb.data_product_member", "product_id", "member_id")
+    partition_relation = "kb.data_product_partition"
+    seen_partition_count = 0
     for product in products.values() if validate_closure else ():
         kind = actual_kinds[product["kind_contract"]]
         decoded = decode_semantic_value(product["canonical_body"])
@@ -606,6 +609,48 @@ def verify_detached_result(
                     )
         captured_kind_validator(kind["meaning_schema"]).validate(product["canonical_body"])
         captured_kind_validator(kind["body_schema"]).validate(decoded)
+        collections = kind.get("collections", {})
+        declarations = {
+            name: declaration
+            for name, declaration in collections.get("declarations", {}).items()
+            if declaration["unit"] == "partitioned"
+        }
+        partition_packets: dict[str, list[WireProductPartition]] = {
+            name: [] for name in declarations
+        }
+        for partition in rows_for(partition_relation, product_id=product["id"]):
+            name = partition["collection"]
+            if name not in declarations:
+                raise ValueError("detached partition has no declared parent collection")
+            seen_partition_count += 1
+            items = decode_semantic_value(partition["body"])
+            if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+                raise ValueError("detached partition requires an item sequence")
+            schemas = collections["schemas"][name]
+            item_meaning = captured_kind_validator(schemas["meaning_schema"])
+            item_body = captured_kind_validator(schemas["body_schema"])
+            for tagged, item in zip(partition["body"][1], items, strict=True):
+                item_meaning.validate(tagged)
+                item_body.validate(item)
+            packet = partition_packet(
+                name,
+                partition["partition_key"],
+                partition["ordinal"],
+                partition["placement"]["start"],
+                partition["placement"]["end"],
+                items,
+            )
+            if (
+                packet["partition_digest"] != partition["partition_digest"]
+                or partition["item_count"] != len(items)
+                or partition["group_digests"]
+                != partition_group_digests(items, declarations[name]["field_groups"])
+            ):
+                raise ValueError("detached partition differs from its content identity")
+            partition_packets[name].append(packet)
+        for name, packets in partition_packets.items():
+            if partition_header(packets) != decoded.get(name):
+                raise ValueError("detached partition collection differs from its parent header")
         body = body_identity(decoded).key
         context = SubjectContext(
             product["project_id"],
@@ -623,6 +668,10 @@ def verify_detached_result(
             != product["id"]
         ):
             raise ValueError("detached product differs from its semantic identity")
+    if validate_closure and seen_partition_count != len(
+        row_map(partition_relation, "product_id", "collection", "partition_key")
+    ):
+        raise ValueError("detached partition has no disclosed parent or repeats an identity")
     for member in members.values() if validate_closure else ():
         product = products[member["product_id"]]
         checked_context(
@@ -933,6 +982,18 @@ def verify_detached_result(
             }
             if actual_outputs != expected_outputs:
                 raise ValueError("detached output inventory differs from the sealed completion")
+            targets = definition["support_contract"].get("reference_targets")
+            if targets:
+                from .detached_reference_resolution import require_detached_output_references
+
+                require_detached_output_references(
+                    row_map=row_map,
+                    rows_for=rows_for,
+                    derivation_id=episode["id"],
+                    project_id=request["project_id"],
+                    targets=targets,
+                    outputs=payload["outputs"],
+                )
             for occurrence, reference in enumerate(payload["support"]):
                 support_reference(reference)
                 original = reference["kind"] in {"original-source", "authored"}

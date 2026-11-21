@@ -1,6 +1,7 @@
 # References and projection keys
 
-**Status:** Proposed. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
+**Status:** SBX-05 in progress. SBX-06 and SBX-07 proposed.
+Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns how one product refers to another and how a consumer is keyed on what it
@@ -181,6 +182,26 @@ made batch-independent.
 
 <a id="sbx-05"></a>
 ## SBX-05 — One reference model
+
+**Implementation checkpoint · 2026-11-21.** Operations declare the output slot, producing
+input role, target variant, and collection when applicable. Compilation checks the nominal
+reference paths in output bodies and partition items. Native settlement verifies whole-product,
+member and partition-item references against the actual producing input set. The shared resolver
+and detached adapter distinguish producing derivation bindings from read authority. The keyed
+live adapter checks the acquired read before opening a partition. Targeted native reference and
+partition cases passed (`36c68b2601894c31953c38f6270fa916`).
+
+The carrier serializes each partition-key component as a nominal text or integer record. Python
+exposes a tuple of the scalar values, and native closure compares those values in order.
+Whole-product and member references omit the key. The prepared display and tagged schemas
+reject fractional and boolean integer parts.
+
+The assessment, characterization, structural reports, contribution/facet and rich families
+still require production migration. Several legacy member references name nested graph nodes.
+Give those nodes an actual declared addressed collection or a true admitted member before
+converting references. Migrate affected serving and evaluation readers to supply the original
+bindings and exact current support. Remove the old model types, native reference paths, and
+producer checks after their consumers move.
 
 **Vision.** Every reference in the model declares its target; bodies refer by role; one carrier
 and one resolver serve all families; closure is a declared rule or an attested one.

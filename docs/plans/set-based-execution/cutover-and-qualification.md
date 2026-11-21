@@ -1,6 +1,7 @@
 # Cutover and qualification
 
-**Status:** Proposed. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
+**Status:** Early Revision A producer chain passed in a private target. Cutover and final qualification proposed.
+Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns how the series lands: the native revisions, regeneration, retirement and the
@@ -43,10 +44,24 @@ disclosure boundary. Later family conversions consume the same contracts.
 Compare annotation meaning with an independent expected result. Exercise missing required proof
 and dangling-address refusals, then an unchanged repeat. Record which request attachment, proof
 and computation reuse behavior the repeat establishes. Retain the exact prepared contracts and
-managed result for applicable later reader checks. The existing rollback candidate
+managed result for applicable later reader checks. The initial rollback candidate
 `4867ee4d101a4c9c86cd2209e2c5cb40` and 36-case result
-`a28f4c6e5c8d44328a780193e99d20ce` establish authoring and synthetic partition behavior only.
-This real-chain acceptance remains work for the target contracts.
+`a28f4c6e5c8d44328a780193e99d20ce` covered authoring and synthetic partition behavior.
+
+**Implementation checkpoint · 2026-11-21.** The generated N47 successor passed rollback-only
+authoring (`c9a513040006422ebcb309693bc15ce5`). The owned source-to-canonical journey installed
+the target schema and exercised initial source execution. Target release admission then refused a
+shape constraint on an unowned graph class (`8772530274a94525bf9211e712cc4393`). Sentence
+partition rows and their carrier now belong to private record products, so their constraints are
+enforced by product and partition admission. `uv run ci test --providers-only` then passed the
+real CUDA spaCy-to-canonical demand on the owned PostgreSQL target
+(`e31433142bf1414ead8712101131dccd`). The proof-requiring canonical role consumed the admitted
+annotation partitions. The test read both outputs through selected support disclosure and checked
+the literal sentences, projected token offsets, and the role-relative addresses. An unchanged
+repeat of the same demand produced zero new receipts. Focused native controls separately refuse a
+missing or forged required proof and a dangling partition item
+(`85e9b6137e904489b262743b66ceb23c`). Cross-selection reuse and complete family migration
+remain separate obligations.
 
 Run this focused integration before spreading its assumptions through whole producer and consumer
 families. It closes the early shared-boundary uncertainty. SBX-20 still owns the single registered

@@ -1044,8 +1044,21 @@ class ClosedPythonSources:
             }
             if not set(bound_inputs) <= supplied_parameters:
                 _fail(exposed, "bound input declarations must name actual callable parameters")
+            # A prepared port may establish a rule after its opaque provider returns.
+            # Its inline declaration captures that exact checker alongside invocation
+            # code without exposing the checker as a second invocation signature.
+            checker_surfaces = []
+            for rule in metadata.get("rules", ()):
+                if isinstance(rule, dict) and rule.get("checker") == "producer":
+                    checker = rule.get("checker_callable")
+                    if not isinstance(checker, str):
+                        _fail(exposed, "attested rule requires a captured checker callable")
+                    callable_ = self.resolve(checker)
+                    if not isinstance(callable_, griffe.Function):
+                        _fail(exposed, "attested rule checker must name a captured Python function")
+                    checker_surfaces.append(self._surface(checker, callable_))
             implementation = self.implementation_slice(
-                exposed, tuple(surfaces), boundaries, bound_inputs
+                exposed, (*surfaces, *checker_surfaces), boundaries, bound_inputs
             )
             role_parameters = {
                 role.get("parameter")

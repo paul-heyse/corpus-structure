@@ -237,6 +237,7 @@ class CharacterizationSnapshot:
 
     product_id: str
     content: bytes
+    partitions: tuple[bytes, ...] | None = None
 
     @property
     def semantic_id(self):
@@ -361,17 +362,18 @@ def construction_product_values(
                 if max(region["start"], a) < min(region["end"], b)
             )
     if native is not None:
-        native_body = json.loads(native.content)
         from .sentence_products import source_annotation_member_values
 
         boundaries = [
             row
-            for row in source_annotation_member_values(native_body)
+            for row in source_annotation_member_values(native)
             if row["record_type"] == "sentence"
         ]
         regions = _clip_sentence_regions(regions, boundaries)
         sentence_coverage = [
-            row for row in native_body["coverage"] if row["family"] == "spacy.sentences"
+            row
+            for row in json.loads(native.content)["coverage"]
+            if row["family"] == "spacy.sentences"
         ]
         if not sentence_coverage or any(
             row["outcome"] not in {"complete", "empty"}

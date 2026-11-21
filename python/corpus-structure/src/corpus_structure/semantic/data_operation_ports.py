@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 from pydantic import BaseModel, ConfigDict, TypeAdapter, model_validator
 
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
+from .data_operation_partitions import PartitionedInput
 from .data_operation_static_preparation import prepare_data_operation_model
 from .established_validity import RuleAttestation
 from .identity import canonical_bytes
@@ -168,6 +169,7 @@ class PythonRoleValue:
     role: str
     kind_contract: str
     value: Any
+    partitioned: PartitionedInput | None = field(default=None, kw_only=True)
 
 
 @dataclass(frozen=True)
@@ -789,11 +791,23 @@ class ResolvedPythonPort:
             annotation = _input_annotation(parameter)
             if name in supplied:
                 value = supplied[name]
+                typed_dict_fields = (
+                    annotation.__annotations__ if typing.is_typeddict(annotation) else None
+                )
                 if route == "json":
                     assert isinstance(value, RoleValue)
                     adapter = self.adapters.get(annotation)
+                    content = value.content
+                    if value.partitions:
+                        content = canonical_bytes(
+                            PartitionedInput(content, value.partitions).value()
+                        )
+                    if typed_dict_fields is not None:
+                        raw = json.loads(content)
+                        if not isinstance(raw, dict) or set(raw) - set(typed_dict_fields):
+                            raise PortRefusal("TypedDict ingress contains undeclared fields")
                     if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
-                        raw = value.value()
+                        raw = json.loads(content)
                         fields = {
                             field.name for field in dataclasses.fields(annotation) if field.init
                         }
@@ -801,17 +815,22 @@ class ResolvedPythonPort:
                             raise PortRefusal("dataclass JSON ingress contains undeclared fields")
                         checked = _validated_python_input(
                             annotation,
-                            adapter.validate_json(value.content, strict=True),
+                            adapter.validate_json(content, strict=True),
                             adapters=self.adapters,
                         )
                     else:
-                        checked = adapter.validate_json(value.content, strict=True)
+                        checked = adapter.validate_json(content, strict=True)
                 else:
                     assert isinstance(value, PythonRoleValue)
+                    raw = value.value if value.partitioned is None else value.partitioned.value()
+                    if typed_dict_fields is not None and (
+                        not isinstance(raw, dict) or set(raw) - set(typed_dict_fields)
+                    ):
+                        raise PortRefusal("TypedDict ingress contains undeclared fields")
                     if isinstance(value, HydratedRoleValue) and role.collection != "scalar":
                         checked = _validated_hydrated_collection(
                             annotation,
-                            value.value,
+                            raw,
                             self._hydrated_containers[name],
                             collection=role.collection,
                             role=name,
@@ -823,22 +842,16 @@ class ResolvedPythonPort:
                         and issubclass(annotation, BaseModel)
                     ):
                         checked = _validated_hydrated_model_input(
-                            annotation, value.value, adapters=self.adapters
+                            annotation, raw, adapters=self.adapters
                         )
                     else:
-                        checked = _validated_python_input(
-                            annotation, value.value, adapters=self.adapters
-                        )
+                        checked = _validated_python_input(annotation, raw, adapters=self.adapters)
             elif parameter.default is not inspect.Parameter.empty:
                 checked = self.adapters.get(annotation).validate_python(
                     _untrusted_value(parameter.default), strict=True
                 )
             else:
                 raise PortRefusal("missing callable input role: " + name)
-            if typing.is_typeddict(annotation):
-                raw = value.value() if route == "json" else value.value
-                if not isinstance(raw, dict) or set(raw) - set(annotation.__annotations__):
-                    raise PortRefusal("TypedDict ingress contains undeclared fields")
             if role.collection != "scalar":
                 length = len(checked)
                 if length < role.minimum or (role.maximum is not None and length > role.maximum):

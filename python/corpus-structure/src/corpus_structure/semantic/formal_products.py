@@ -192,6 +192,69 @@ class FormalEvidenceProduct:
         return {**result, "roles": [], "coverage": body["coverage"]}
 
 
+def verify_formal_literal_geometry(text, pieces, members, lexicon):
+    """Check literal observations and native-piece containment against selected source."""
+    for packet in members:
+        body = packet["body"]
+        if body["record_type"] != "occurrence":
+            continue
+        for extent in body["extents"]:
+            if "start" not in extent:
+                continue
+            if "end" not in extent:
+                raise ValueError("formal occurrence differs from original literal slice")
+            start, end = extent["start"], extent["end"]
+            if (
+                not 0 <= start < end <= len(text)
+                or "text" not in extent
+                or extent["text"] != text[start:end]
+            ):
+                raise ValueError("formal occurrence differs from original literal slice")
+            # The authenticated source pieces partition the text in position
+            # order. Locate the one piece whose exclusive end contains this span.
+            lower, upper = 0, len(pieces)
+            while lower < upper:
+                item = (lower + upper) // 2
+                if pieces[item]["end"] < end:
+                    lower = item + 1
+                else:
+                    upper = item
+            if lower == len(pieces):
+                raise ValueError("formal occurrence escapes its original native piece")
+            piece = pieces[lower]
+            if (
+                piece["start"] > start
+                or piece["kind"] != "native_text"
+                or piece["item_ref"] != extent["native_pointer"]
+            ):
+                raise ValueError("formal occurrence escapes its original native piece")
+    for region in lexicon:
+        for terminal in region["terminals"]:
+            if terminal["text"] != text[terminal["start"] : terminal["end"]]:
+                raise ValueError(
+                    "primary lexical observation differs from its original unprotected slice"
+                )
+
+
+def verify_formal_packed_members(packets):
+    """Check that each projected packed alternative is exactly its group member."""
+    expected = {
+        member["local_id"]: {"record_type": "choice_member", "group_id": body["local_id"], **member}
+        for packet in packets
+        if (body := packet["body"])["record_type"] == "choice"
+        for member in body["members"]
+    }
+    actual = {
+        packet["member_id"]: packet["body"]
+        for packet in packets
+        if packet["body"]["record_type"] == "choice_member"
+    }
+    if actual != expected:
+        raise ValueError(
+            "formal alternative member projection differs from its owning packed group"
+        )
+
+
 def validate_formal_product(
     prepared: PreparedRelease,
     value: Mapping[str, Any],
@@ -231,20 +294,10 @@ def validate_formal_product(
         seen.add(packet["member_id"])
         if packet["body"]["record_type"] != "choice_member":
             data[by_kind[packet["body"]["record_type"]]].append(packet["body"])
-    expected_alternatives = {
-        member["local_id"]: dict(record_type="choice_member", group_id=group["local_id"], **member)
-        for group in data["choices"]
-        for member in group["members"]
-    }
-    actual_alternatives = {
-        packet["member_id"]: packet["body"]
-        for packet in packets
-        if packet["body"]["record_type"] == "choice_member"
-    }
-    if actual_alternatives != expected_alternatives:
-        raise ValueError(
-            "formal alternative member projection differs from its owning packed group"
-        )
+    verify_formal_packed_members(packets)
+    verify_formal_literal_geometry(
+        selected["text"], selected["pieces"], packets, checked["lexicon"]
+    )
     indexes = {name: {row["local_id"]: row for row in rows} for name, rows in data.items()}
     all_nodes = {key: row for index in indexes.values() for key, row in index.items()}
     choices = {}
@@ -272,18 +325,10 @@ def validate_formal_product(
                 raise ValueError("formal occurrence has another original page")
             if extent["projection"] != checked["source"]["projection"]:
                 raise ValueError("formal occurrence has another original projection")
-            if "start" in extent:
-                a, b = extent["start"], extent.get("end", -1)
-                if (
-                    not 0 <= a < b <= len(selected["text"])
-                    or extent.get("text") != selected["text"][a:b]
-                ):
-                    raise ValueError("formal occurrence differs from original literal slice")
-                if source.view.containing_piece(pointer, a, b) is None:
-                    raise ValueError("formal occurrence escapes its original native piece")
-
-                if not source_extent_selected(selected, extent, selector_index=selector_index):
-                    raise ValueError("formal occurrence escapes the selected examined scope")
+            if "start" in extent and not source_extent_selected(
+                selected, extent, selector_index=selector_index
+            ):
+                raise ValueError("formal occurrence escapes the selected examined scope")
     if any(
         not any(region["selector"] == selector for region in checked["lexicon"])
         for selector in selected["selectors"]
@@ -308,13 +353,9 @@ def validate_formal_product(
             ) != (atom["start"], atom["end"]):
                 raise ValueError("primary lexical protection changes its retained occurrence")
         for row in region["terminals"]:
-            if (
-                not region["start"] <= row["start"] < row["end"] <= region["end"]
-                or row["text"] != selected["text"][row["start"] : row["end"]]
-                or any(
-                    atom["start"] < row["end"] and row["start"] < atom["end"]
-                    for atom in region["atoms"]
-                )
+            if not region["start"] <= row["start"] < row["end"] <= region["end"] or any(
+                atom["start"] < row["end"] and row["start"] < atom["end"]
+                for atom in region["atoms"]
             ):
                 raise ValueError(
                     "primary lexical observation differs from its original unprotected slice"
@@ -796,30 +837,74 @@ class PreparedFormalEvidencePort:
             raise PortRefusal("formal input differs from the frozen source binding")
         return source
 
-    def _completion(self, product, binding=None):
+    def _completion(self, product, source, binding=None):
         if binding is not None:
             product = replace(product, subject_context=binding.subject_context)
+        from ._data_operation_wire import WireKindContract, WireOutputMember
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
         from .data_operation_values import semantic_value
-        from .established_validity import bind_product_validation
+        from .established_validity import (
+            RuleObservedInput,
+            bind_product_validation,
+            successful_rule_attestation,
+        )
 
         proof = bind_product_validation(product, product.subject_context)
         model_value = product.value.model_dump(mode="python", exclude_unset=True)
         output = next(role for role in self.operation.roles if role.direction == "output")
         contracts = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
+        kind_contract = contracts[output.kind, "kind"]
+        meaning = semantic_value(model_value)
+        members = project_product_members(self.profile.model, output.kind, model_value)
+        attestations = ()
+        if product.subject_context is not None:
+            kind = next(
+                item for item in self.profile.model.kinds if item.semantic_id == output.kind
+            )
+            packet: WireOutputMember = {
+                "role": output.name,
+                "position": 0,
+                "multiplicity": 1,
+                "product": {
+                    "kind_contract": WireKindContract(kind_contract),
+                    "body": meaning,
+                    "members": [json.loads(member) for member in members],
+                },
+            }
+            # Both the direct producer and CPU result hydration ran the named
+            # split validators against this exact output and selected source.
+            observed = {
+                "text.formal_evidence/literal-source-geometry": {
+                    "source": (RuleObservedInput(source.value),)
+                },
+                "text.formal_evidence/packed-choice-members": None,
+            }
+            attestations = tuple(
+                successful_rule_attestation(
+                    rule,
+                    kind,
+                    self.operation.semantic_id,
+                    packet,
+                    product.subject_context,
+                    selected_inputs=observed[rule.id],
+                )
+                for rule in self.profile.model.rules
+                if rule.id in observed
+            )
         return PortCompletion(
             self.operation.semantic_id,
             (
                 RoleValue(
                     output.name,
-                    contracts[output.kind, "kind"],
+                    kind_contract,
                     product.content,
-                    canonical_bytes(semantic_value(model_value)),
-                    project_product_members(self.profile.model, output.kind, model_value),
+                    canonical_bytes(meaning),
+                    members,
                 ),
             ),
             outcome=successful_return_outcome(self.operation),
             product_validation_evidence=None if proof is None else proof.model_dump_json().encode(),
+            rule_attestations=attestations,
         )
 
     def invoke_python(
@@ -840,7 +925,7 @@ class PreparedFormalEvidencePort:
             source
         )
         self._verify()
-        return self._completion(product, binding)
+        return self._completion(product, source, binding)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         """Yield admitted source-native CPU work under the invocation's one pool/credit."""
@@ -886,7 +971,7 @@ class PreparedFormalEvidencePort:
         )
         self._verify()
         return replace(
-            self._completion(product, binding),
+            self._completion(product, source, binding),
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
         )
 

@@ -284,12 +284,6 @@ class WireInputMember(TypedDict):
     support_derivation_ids: Required[list[WireIdentifier]]
 
 
-class WireChoice(TypedDict):
-    alternative: Required[WireIdentifier]
-    choice_group: Required[WireIdentifier]
-    selected: Required[bool]
-
-
 class WireMemberContext(TypedDict):
     analyzed_scope: Required[ContextualJsonValue]
     original_source: Required[WireIdentifier | None]
@@ -297,49 +291,11 @@ class WireMemberContext(TypedDict):
     subject_definition: Required[WireIdentifier]
 
 
-class WireCoordinate(TypedDict):
-    end: Required[WireNonnegativeInteger]
-    original_source: Required[WireOriginalSourceId]
-    page: NotRequired[WireNonnegativeInteger | None]
-    start: Required[WireNonnegativeInteger]
-
-
-class WireCoverage(TypedDict):
-    complete: Required[bool]
-    end: Required[WireNonnegativeInteger]
-    scope: Required[WireIdentifier]
-    start: Required[WireNonnegativeInteger]
-
-
-class WireEndpointVariant1(TypedDict):
-    member_id: Required[WireMemberId]
-    role: Required[WireIdentifier]
-    scope: Required[Literal["local"]]
-
-
-class WireEndpointVariant2(TypedDict):
-    member_id: Required[WireMemberId]
-    product_id: Required[WireProductId]
-    role: Required[WireIdentifier]
-    scope: Required[Literal["external"]]
-
-
-class WireRoleMember(TypedDict):
-    multiplicity: Required[WirePositiveInteger]
-    position: Required[WireNonnegativeInteger]
-    role: Required[WireIdentifier]
-
-
 class WireProductMember(TypedDict):
     body: Required[WireSemanticValue]
-    choices: NotRequired[list[WireChoice]]
     context: Required[WireMemberContext]
-    coordinates: NotRequired[list[WireCoordinate]]
-    coverage: NotRequired[list[WireCoverage]]
-    endpoints: NotRequired[list[WireEndpoint]]
     kind_contract: Required[WireKindContract]
     member_id: Required[WireMemberId]
-    roles: NotRequired[list[WireRoleMember]]
 
 
 class WireProductPartitionPlacement(TypedDict):
@@ -2095,8 +2051,6 @@ type WireSemanticValue = (
     | list[Literal["sequence", "ordered-bag", "bag", "set"] | list[WireSemanticValue]]
     | WireTaggedMapping
 )
-
-type WireEndpoint = WireEndpointVariant1 | WireEndpointVariant2
 
 type WireSupportMember = (
     WireComputationalSupportMember | WireOriginalSourceSupportMember | WireAuthoredFactSupportMember

@@ -87,7 +87,6 @@ def _captured(**changes):
                 "meaning_schema": {"type": "string"},
                 "member_schema": {"not": {}},
                 "member_contracts": [],
-                "families": [],
                 "universe": "ordinary",
             }
         ]

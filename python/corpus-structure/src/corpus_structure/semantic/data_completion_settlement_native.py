@@ -573,6 +573,19 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
             else getattr(func.ops, name)(r, completion)
         )
         checks.append(invocation)
+    checks.append(
+        If(
+            select(1)
+            .select_from(definition)
+            .where(
+                definition.c.release_id == rf("release_id"),
+                definition.c.operation_id == rf("operation_id"),
+                definition.c.support_contract.has_key("reference_targets"),
+            )
+            .exists(),
+            (Perform(func.ops.ddo_assert_output_references(r, completion)),),
+        )
+    )
     if "sem.data_rule" in model.tables:
         checks.append(Perform(func.ops.ddo_require_rule_assertion_shape(completion)))
     completion_parameters = (

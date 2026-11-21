@@ -32,6 +32,7 @@ _INDEXED = (
     ("id",),
     ("kind_contract",),
     ("product_id", "member_id"),
+    ("product_id", "collection", "partition_key"),
     ("derivation_id", "role", "position"),
     ("derivation_id", "occurrence"),
 )

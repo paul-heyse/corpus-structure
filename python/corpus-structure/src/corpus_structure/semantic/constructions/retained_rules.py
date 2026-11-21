@@ -1957,8 +1957,6 @@ def populate_source_reading_products(
     admitted=lambda a, b: True,
 ):
     """Run finite primary source rules over genuine native units, retaining semantic addresses."""
-    import json
-
     from corpus_structure.semantic.data_product_reference import (
         DataProductReference,
         member_reference,
@@ -1994,7 +1992,7 @@ def populate_source_reading_products(
     pin = DataProductReference(native.semantic_id)
     tokens = {
         (row["block_id"], row["ordinal"]): row
-        for row in source_annotation_member_values(json.loads(native.content))
+        for row in source_annotation_member_values(native)
         if row["record_type"] == "token"
     }
     references = {

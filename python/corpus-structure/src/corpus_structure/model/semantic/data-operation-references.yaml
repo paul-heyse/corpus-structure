@@ -4,7 +4,43 @@ prefixes:
   dsr: https://corpus-structure.dev/semantic/data-operation-references/
 default_prefix: dsr
 default_range: string
+enums:
+  DdoSemanticReferenceVariant:
+    permissible_values:
+      product:
+      member:
+      partition-item:
 classes:
+  DdoSemanticReferenceKeyPart:
+    is_a: SourceRecordProduct
+    abstract: true
+    description: One ordered component of an addressed collection's declared key.
+    attributes:
+      kind: {required: true}
+  DdoSemanticReferenceTextKeyPart:
+    is_a: DdoSemanticReferenceKeyPart
+    attributes:
+      kind: {equals_string: text}
+      text: {required: true}
+  DdoSemanticReferenceIntegerKeyPart:
+    is_a: DdoSemanticReferenceKeyPart
+    attributes:
+      kind: {equals_string: integer}
+      integer: {range: integer, required: true}
+  DdoSemanticReference:
+    is_a: SourceRecordProduct
+    description: Role-relative product, member or partition item address in the producing derivation's inputs.
+    attributes:
+      variant: {range: DdoSemanticReferenceVariant, required: true}
+      role: {required: true}
+      occurrence: {}
+      member_id: {}
+      collection: {}
+      partition_key: {}
+      item_key:
+        range: DdoSemanticReferenceKeyPart
+        inlined: true
+        multivalued: true
   DdoSemanticProductReference:
     is_a: SourceRecordProduct
     description: Governed semantic product address, independent of physical task and receipt custody.

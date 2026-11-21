@@ -3,6 +3,7 @@
 from typing import Literal
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     Text,
@@ -12,6 +13,7 @@ from sqlalchemy import (
     func,
     literal,
     not_,
+    null,
     or_,
     select,
     true,
@@ -716,21 +718,25 @@ def _binding_programs(model):
         volatility="volatile",
         table_columns=columns,
     )
-    rows = (
-        func.ops.ddo_binding_rows(
-            p_demand,
-            p_operation,
-            trust,
-            p_read,
-            p_subject,
-            source,
-            scope,
-            True,
-            core_variable("p_selected", JSONB()),
+
+    def selected_rows(*, decode):
+        return (
+            func.ops.ddo_binding_rows(
+                p_demand,
+                p_operation,
+                trust,
+                p_read,
+                p_subject,
+                source,
+                scope,
+                decode,
+                core_variable("p_selected", JSONB()),
+            )
+            .table_valued(*binding_columns())
+            .alias("binding_rows")
         )
-        .table_valued(*binding_columns())
-        .alias("binding_rows")
-    )
+
+    rows = selected_rows(decode=True)
     public = _program(
         "data_binding_rows",
         (*parameters, Parameter("p_selected", pg_type("jsonb"), pg_literal(None))),
@@ -738,7 +744,141 @@ def _binding_programs(model):
         returns=set_record,
         table_columns=columns,
     )
-    return internal, public
+    if "kb.data_product_partition" not in model.tables:
+        return internal, public
+
+    # Use the same authenticated binding projection, with the complete selected
+    # pin set supplied explicitly, before touching any partition payload.
+    selected = core_variable("p_selected", JSONB())
+    bound = core_variable("p_max_bytes", BigInteger())
+    collection_key = core_variable("p_collection", Text())
+    partition_key = core_variable("p_partition_key", Text())
+    rows = selected_rows(decode=False)
+    parents = (
+        select(rows.c.product)
+        .where(rows.c.member.is_(None))
+        .distinct()
+        .cte("selected_partition_parents")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    partition = model.tables["kb.data_product_partition"]
+    packet = _object(
+        "collection",
+        partition.c.collection,
+        "partition_key",
+        partition.c.partition_key,
+        "ordinal",
+        partition.c.ordinal,
+        "partition_digest",
+        partition.c.partition_digest,
+        "placement",
+        partition.c.placement,
+        "body",
+        partition.c.body,
+    )
+    selected_packets = (
+        select(
+            partition.c.product_id,
+            partition.c.collection,
+            partition.c.ordinal,
+            packet.label("packet"),
+        )
+        .select_from(parents.join(partition, partition.c.product_id == parents.c.product))
+        .where(
+            or_(
+                collection_key.is_(None),
+                and_(
+                    partition.c.collection == collection_key,
+                    partition.c.partition_key == partition_key,
+                ),
+            )
+        )
+        .cte("selected_partition_packets")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    total_bytes = select(
+        func.coalesce(func.sum(func.octet_length(cast(selected_packets.c.packet, Text()))), 0)
+    ).scalar_subquery()
+    # Return the size refusal as a single row so the same authorized selection
+    # controls both sizing and acquisition in one statement.
+    admitted_packets = (
+        select(selected_packets.c.product_id, selected_packets.c.packet)
+        .where(total_bytes <= bound)
+        .order_by(
+            selected_packets.c.product_id, selected_packets.c.collection, selected_packets.c.ordinal
+        )
+        .subquery("admitted_partition_packets")
+    )
+    packets = select(admitted_packets.c.product_id, admitted_packets.c.packet).union_all(
+        select(cast(null(), Text()), cast(null(), JSONB())).where(total_bytes > bound)
+    )
+    partition_read = _program(
+        "data_binding_partitions",
+        (
+            *parameters,
+            Parameter("p_selected", pg_type("jsonb"), pg_literal(None)),
+            Parameter("p_max_bytes", pg_type("bigint"), pg_literal(0)),
+            Parameter("p_collection", pg_type("text"), pg_literal(None)),
+            Parameter("p_partition_key", pg_type("text"), pg_literal(None)),
+        ),
+        (
+            _refuse(
+                or_(
+                    func.jsonb_typeof(selected).is_distinct_from("array"),
+                    func.jsonb_array_length(selected) == 0,
+                    bound.is_(None),
+                    bound <= 0,
+                ),
+                "partition hydration requires exact pins and positive capacity",
+                "23514",
+            ),
+            _refuse(
+                or_(
+                    collection_key.is_(None).is_distinct_from(partition_key.is_(None)),
+                    collection_key == "",
+                    partition_key == "",
+                    and_(collection_key.is_not(None), func.jsonb_array_length(selected) != 1),
+                ),
+                "partition lookup requires one exact pin and a complete collection address",
+                "23514",
+            ),
+            ReturnQuery(packets),
+        ),
+        returns=set_record,
+        table_columns=(("product_id", pg_type("text")), ("packet", pg_type("jsonb"))),
+    )
+    member_key = core_variable("p_member", Text())
+    members = model.tables["kb.data_product_member"]
+    member_row = (
+        select(members.c.body)
+        .select_from(parents.join(members, members.c.product_id == parents.c.product))
+        .where(
+            members.c.member_id == member_key,
+            func.ops.ddo_body_access(members.c.kind_contract, members.c.body),
+        )
+    )
+    reference_member = _program(
+        "data_binding_reference_member",
+        (
+            *parameters,
+            Parameter("p_selected", pg_type("jsonb"), pg_literal(None)),
+            Parameter("p_member", pg_type("text"), pg_literal(None)),
+        ),
+        (
+            _refuse(
+                or_(
+                    func.jsonb_typeof(selected).is_distinct_from("array"),
+                    func.jsonb_array_length(selected) != 1,
+                    member_key.is_(None),
+                    member_key == "",
+                ),
+                "reference member lookup requires one exact parent and member address",
+                "23514",
+            ),
+            Return(member_row.scalar_subquery()),
+        ),
+    )
+    return internal, public, partition_read, reference_member
 
 
 def read_native_programs(model):
@@ -754,7 +894,8 @@ def read_native_programs(model):
             source="data-operations:forward",
             owner=role_name("publisher"),
             access=NativeProgramAccess(purposes=("read", "write", "evaluate"))
-            if routine.name == "data_binding_rows"
+            if routine.name
+            in {"data_binding_rows", "data_binding_partitions", "data_binding_reference_member"}
             else INTERNAL_PROGRAM,
         )
         for routine in (

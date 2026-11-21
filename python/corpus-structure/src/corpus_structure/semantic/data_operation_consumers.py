@@ -8,12 +8,13 @@ It grants no native publication, hydration or effect permission.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 from typing import Any
 
 from .data_operation_bindings import BindingResult
 from .data_operation_model import BoundRoleMember, ResolvedRoleBinding
+from .data_operation_partitions import PartitionedInput
 from .data_operation_version import MODEL_VERSION
 from .python_module_projection import admitted_operation_module_digest
 
@@ -61,6 +62,7 @@ class SelectedConsumerValue:
     member: BoundRoleMember
     content: bytes
     meaning: bytes | None = None
+    partitioned: PartitionedInput | None = None
 
     def value(self):
         import json
@@ -250,6 +252,7 @@ def hydrate_consumer_selection(
                 )
         if found != members.keys():
             raise ValueError("retained consumer member no longer has one admitted body")
+    hydrated, used = _hydrate_partitions(connection, model, read, hydrated, used, max_bytes)
     return HydratedConsumerSelection(
         selection,
         tuple(
@@ -265,6 +268,87 @@ def hydrate_consumer_selection(
         ),
         measured_bytes=used,
     )
+
+
+def _hydrate_partitions(connection, model, read, hydrated, used, max_bytes):
+    from sqlalchemy import Text, column, func, select
+    from sqlalchemy.dialects.postgresql import JSONB
+
+    from .data_operation_json import json_loads
+    from .data_operation_partitions import partition_header
+    from .identity import canonical_bytes
+
+    selected_contracts = {
+        value.member.kind_contract for value in hydrated.values() if value.member.member is None
+    }
+    if not selected_contracts:
+        return hydrated, used
+    contracts = {
+        identity.key: identity.owner
+        for identity in model.identities
+        if identity.domain == "kind" and identity.key in selected_contracts
+    }
+    if not contracts:
+        return hydrated, used
+    selected_kinds = set(contracts.values())
+    collections = {
+        kind.semantic_id: tuple(
+            name
+            for name, spec in json_loads(kind.facts).get("collections", {}).items()
+            if spec["unit"] == "partitioned"
+        )
+        for kind in model.kinds
+        if kind.semantic_id in selected_kinds and kind.category == "class"
+    }
+    selected = {
+        key: names
+        for key, value in hydrated.items()
+        if value.member.member is None
+        and (names := collections.get(contracts.get(value.member.kind_contract, "")))
+    }
+    if not selected:
+        return hydrated, used
+
+    products = {hydrated[key].member.product for key in selected}
+    packets: dict[str, dict[str, list]] = {product: {} for product in products}
+    rows = func.ops.data_binding_partitions(
+        *read.binding_arguments, max(1, max_bytes - used)
+    ).table_valued(column("product_id", Text()), column("packet", JSONB()))
+    with connection.execute(select(*rows.c).execution_options(yield_per=1)) as returned:
+        for row in returned:
+            if row.product_id is None and row.packet is None:
+                raise ValueError("complete consumer inputs exceed owned packet capacity")
+            if row.product_id not in packets:
+                raise ValueError("partition hydration returned an unselected product")
+            packets[row.product_id].setdefault(row.packet["collection"], []).append(row.packet)
+
+    detached = {}
+    for key, names in selected.items():
+        value = hydrated[key]
+        product = value.member.product
+        if product not in detached:
+            grouped = packets[product]
+            header = value.value()
+            if grouped.keys() - set(names) or any(
+                partition_header(grouped.get(name, ())) != header.get(name) for name in names
+            ):
+                raise ValueError("partition hydration differs from the admitted collection header")
+            detached[product] = PartitionedInput(
+                value.content,
+                tuple(
+                    canonical_bytes(packet)
+                    for name in sorted(names)
+                    for packet in sorted(
+                        grouped.get(name, ()), key=lambda packet: packet["ordinal"]
+                    )
+                ),
+            )
+        partitioned = detached[product]
+        used += sum(map(len, partitioned.packets)) * value.member.multiplicity
+        if used > max_bytes:
+            raise ValueError("complete consumer inputs exceed owned packet capacity")
+        hydrated[key] = replace(value, partitioned=partitioned)
+    return hydrated, used
 
 
 @dataclass(frozen=True)
