@@ -302,7 +302,11 @@ Build the explicit PyArrow 26.0.0 `Schema` for the existing `ParquetWriter` from
 projection, including column types, nullability and correspondence. An unrecognized column gets
 an explicit shape mismatch. Historical replay consumes its captured relation and kind
 contracts even when ambient declarations change. Current disclosure authority remains separately
-checked at the live read boundary.
+checked at the live read boundary. Verify Arrow field and schema metadata where required by the
+captured physical contract, through the existing schema, batch and IPC paths as well as Parquet
+delivery. Carry new producer facts through this prepared interpretation only when a selected
+consuming role needs them. [N46 I06](../../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I06) ·
+[PyArrow representations](../../libraries/analytical_infrastructure/pyarrow.md)
 [PostgreSQL 18 JSON representation](https://www.postgresql.org/docs/18/datatype-json.html) ·
 [Arrow export owner](../../../python/corpus-structure/src/corpus_structure/serve/demand_export.py#L345) ·
 [DMO-03/04 support and authority](consumer-authority-and-operability.md#dmo-04)
@@ -526,6 +530,39 @@ adapter policy. Select either alternative only on the identified contract need a
 version. Keep its decision and dependent changes in this package. An empty schema search or a
 passing sample does not establish compatibility across an entire contract population.
 
+<a id="producer-profile-structure"></a>
+
+### Selected producer profile structure
+
+Extend the PDF staging declaration that owns `PdfProducerCertificationRecord` with the closed
+profile tags and fields shared by the selected report, spool identity projection, parent decoder,
+lowering and native recovery and certification. Use LinkML Runtime 1.12.1 `SchemaView.induced_slot`
+and the existing generation route to emit lightweight worker fields or types, typed parent views
+and native structural predicates. Capture those views with the application. Keep the worker's
+spawned environment lightweight and retain its own file and initialized-model observations. The
+correspondence validators still own digest checks, and native publication still owns authority.
+[PDF staging declaration](../../../python/corpus-structure/src/corpus_structure/model/semantic/pdf-staging.yaml) ·
+[LinkML effective slots](../../libraries/data_model/linkml.md#5-python-runtime-and-programmatic-schema-manipulation)
+
+Where a parent ingress model owns decoding, Pydantic 2.14.1 `Field(discriminator=...)` and literal
+tags select the branch. Use `TypeAdapter.json_schema(mode=...)` for the appropriate validation or
+serialization view. Native-facing schemas retain portable Draft 7 and their captured
+`referencing.Registry` resources. Keep one structural declaration so an emitted field or new
+profile reaches every live consumer in the same change. Move those consumers and retire duplicate
+profile and field dispatch, retaining captured interpretation for historical certificates with a
+current consumer. DMO-05 dispositions for other retained v2 artifacts follow the
+[Standard cutover](execution-identity-and-recovery.md#standard-default-cutover) and apply by artifact.
+[N46 I02](../../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I02) ·
+[Pydantic discriminators](https://github.com/pydantic/pydantic/blob/v2.14.1/docs/concepts/unions.md) ·
+[Pydantic schema modes](https://github.com/pydantic/pydantic/blob/v2.14.1/docs/concepts/json_schema.md) ·
+[Captured schema resources](../../libraries/data_model/jsonschema.md#42-registry-composition-and-lifecycle)
+
+Verify report field correspondence through the existing candidate path. Independently construct
+wrong-field, missing or wrong digest, incomplete v3, wrong scope and substituted captured-code
+fixtures. Keep a legitimate v2 case where it still applies. Use the
+[installed Standard journey](qualification-and-adoption.md#early-installed-standard) for actual
+worker output, current native certification and publication.
+
 ### Validation, generation and cutover
 
 The current native storage frontdoor already encodes requests, lets SQL validate before effects,
@@ -684,15 +721,43 @@ paths as their actual consumers adopt the single source basis. Both Standard and
 have legitimate acquisition under the applicable native revision. [Model deployment owner](../../../python/corpus-structure/src/corpus_structure/schema/model_deployment.py) ·
 [DMO-08 qualification](qualification-and-adoption.md#dmo-08)
 
+For changes to native contracts, use `ChangeEffects`, `ContractRollout` and the existing
+model-change controller to carry one reviewed after-state through the acquired target and each
+affected application's capture and renewed admission. Reuse the retained inspection capsule
+where authenticated prerequisites agree. Keep exact kernel admission. Reconcile native migration,
+archive and each application admission separately on the same candidate, observing activation as
+its own effect. A committed migration with admission pending resumes at the owning step after
+checking exact generator, catalog, target and privilege premises. DMO-07 consumes their standing
+for both the old invocation and any eligible successor.
+[N46 I03](../../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I03) ·
+[Retained inspection capsule](../../../python/corpus-structure/src/corpus_structure/semantic/inspection_capsule.py#L83)
+
 Alembic 1.20.1 `Config.attributes` passes the owning SQLAlchemy connection into the migration
 environment. `MigrationContext.configure(connection)` and `Operations` execute the prepared
 operations through that connection. Retain repository predecessor, target and effect custody around
-those calls. pglast 8.7 `parse_sql` and `Visitor` attribute generated syntax and statement kinds.
+those calls. `MigrationContext.get_current_heads()` observes revision standing. Use installed
+routine and grant observations for native standing, and Psycopg transaction state with durable
+catalog or receipt observations to distinguish rollback, committed effects and unresolved
+acknowledgement. pglast 8.7 `parse_sql` and `Visitor` attribute generated syntax and statement kinds.
 Native catalog and admission readback establish installation. Pydantic `GenerateJsonSchema` mode,
 explicit dialect selection and captured `referencing.Registry` resources supply the schema inputs
 already described above. [Alembic connection sharing](https://alembic.sqlalchemy.org/en/latest/cookbook.html#sharing-a-connection-across-one-or-more-programmatic-migration-commands) ·
 [Alembic programmatic control](../../libraries/postgresql/alembic.md#8-programmatic-control-migration-state-inspection-and-validation) ·
+[Psycopg transaction behavior](../../libraries/postgresql/psycopg.md) ·
 [pglast reference](../../libraries/postgresql/pglast.md)
+
+**Conditional admission scope.** DMO-06 investigates a narrower guard only after an unrelated
+native change demonstrably causes material interruption or recapture. Use the existing
+`ProgramClosures` owner to assess transitive callees, physical relations and triggers, wire,
+roles and grants, and acquired target prerequisites. SQLAlchemy's authored expressions and
+routine declarations and pglast syntax can help attribute dependencies. PostgreSQL 18 catalog
+dependencies corroborate the evidence and omit body-only references in string-bodied routines.
+Compare an unrelated validator change, a changed indirect callee, matching heads with different
+grants or TEMP policy, and an opaque or unobserved dependency. Preserve the whole-kernel guard
+where coverage is insufficient, and route a supported narrower contract through the existing
+rule decision before dependent work. [Registered closures](../../../python/corpus-structure/src/corpus_structure/semantic/native_program_registry.py#L288) ·
+[SQLAlchemy](../../libraries/postgresql/sqlalchemy.md) ·
+[PostgreSQL 18 dependency tracking](https://www.postgresql.org/docs/18/ddl-depend.html)
 
 The global wire contract remains the selected boundary for this work. Investigate narrower versioning
 only if the consumer census identifies independently deployable contracts and a lower total

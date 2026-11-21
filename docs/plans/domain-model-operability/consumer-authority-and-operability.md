@@ -110,7 +110,12 @@ questions. Apply each at its existing owner. An unknown relation or kind yields 
 semantic interpretation while its authenticated bytes remain retained. Historical interpretation
 comes from captured contracts. Present disclosure still checks live authority. Include a request
 with a contextual `analyzed_scope` alongside a product whose ordinary body contains a field of
-that name, and verify their different declared meanings. [Follow-up I02][followup-i02]
+that name, and verify their different declared meanings. Extend `SelectedSupportReader` with
+selected producer facts only where a compiled consuming role requires them. Carry its captured
+relation, kind and schema through later pages and detached delivery. Exercise revoked support on
+a later page, detached replay after an ambient declaration change, and Arrow shape and applicable
+metadata through the [captured interpretation owner](json-contracts-and-settings.md#captured-support-interpretation).
+[Follow-up I02][followup-i02] · [N46 I06](../../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I06)
 
 **Library realization.** Preserve the current LinkML and linkml-runtime 1.12.1 declaration route.
 Use schema classes, slots and enums at the existing owner for structural facts. Where a requirement
@@ -250,7 +255,10 @@ lease and receipt establish settlement facts. The process owner establishes reti
 Draft custody establishes compatible retained material or a regeneration reason. A set-wise
 read preserves these distinctions for every pending item. The real lost-acknowledgement
 composite establishes its recorded one-publication outcome. Wider recovery and operator-action
-cases still require their own observations. [Follow-up I04][followup-i04]
+cases still require their own observations. Carry the [retired spool custody](execution-identity-and-recovery.md#retired-spool-custody)
+outcome only for the selected intent. Distinguish unavailable original storage from differing
+material, failed file or retirement checks and revoked support. Use the recovery owner's
+observation scope for the read, index and managed view. [Follow-up I04][followup-i04]
 
 Parse a selected-source event once within its owned input/read lifetime. Reuse immutable validated
 values established at ingress after [DMO-06](json-contracts-and-settings.md#dmo-06) when this
@@ -354,6 +362,16 @@ alone cannot establish which recovery branch will be possible. Keep absent or ex
 explicit and preserve the continuation's exact cut and bounds. Retire diagnostic reconstruction
 when the managed view consumes these owning facts. [Follow-up I04][followup-i04]
 
+For exact same-demand resume, the recorded release/runtime remains the executable binding.
+Show its current admission standing in `NextAction` when acquired. If it cannot resume against
+the current kernel, surface successor admission as its own requirement with the appropriate
+owned action. When current standing is unavailable, show the conditional action and missing
+observation in JSON and Rich. Previously acknowledged work remains visible. Current claim and
+support authority, physical file acquisition and material comparison determine whether it can be
+used. Inspection adds no claims, provider starts or admissions. `ci query` and MCP consume the
+same scoped authority and recovery facts where applicable, and redundant classifiers retire
+with their consumers. [N46 I03](../../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I03)
+
 **Library realization.** Typer 0.28.0 `Typer` sub-apps and `Context` use the existing command and
 resolved profile state. Keep typed `Argument`/`Option` scope and result selectors at the commands.
 Rich 15.0.0 `Console`, `Group` and `Table` render bounded human reports and route diagnostics to
@@ -391,7 +409,9 @@ captured edit, an equal-head target privilege mismatch, migration committed with
 pending and the second application on the same native revision. For recovery, check known
 rollback, a surviving worker, committed acknowledgement loss after retirement, a missing
 historical writer, target mismatch and changed live authority. Assert the exact next action
-against independently established facts. Use Typer's installed runner stdout/stderr streams
+against independently established facts. Include old exact-resume standing under an incompatible
+kernel, pending successor admission after migration, and unavailable current standing. Use
+Typer's installed runner stdout/stderr streams
 to check human and JSON views, and exercise the managed route for operator-behavior claims.
 Integrate these views as their owners become available during the representative regional
 acquisition, publication, continued-read and interrupted-recovery journey. Retire duplicate

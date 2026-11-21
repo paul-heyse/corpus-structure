@@ -117,10 +117,10 @@ The two-page control changed the original PDF and allocated task 174, attempt 1,
 derivation and receipt (`8e405fb502714890ac77f0f1feb2139f`). These results qualify published
 reuse for the scoped Standard profile and host.
 
-The default profile remains demand-scoped until the applicable production acceptance closes.
-A fresh live cross-generation journey must verify publication from a retired spool using the
-corrected parent. Wider eligibility must account for the determining native libraries,
-drivers and runtime settings in each supported execution environment.
+The default profile remains demand-scoped pending the [Standard cutover](#standard-default-cutover).
+The bounded recertification leaves live cross-generation publication open. The corrected parent
+still derives the original coordinates beneath the current configured root. The next installed
+journey tests uptake at the [original captured location](#retired-spool-custody).
 
 **N44 execution checkpoint · 2026-11-21.** Resident declaration, preparation and guarded
 reacquisition now enforce one project, interpreter and worker script for a physical shared host.
@@ -241,6 +241,12 @@ verification inventories, the all-mode seed for a proven single-mode acquisition
 path that treats archive logical names as physical filenames. Check remaining callers before
 retiring the common fallback. The comparator and the diagnostic use the same acquired facts, so
 an operator can take the identified corrective action before a provider submission or work claim.
+
+Use the [generated producer profile](json-contracts-and-settings.md#producer-profile-structure)
+for the selected worker report and the parent's typed comparison. Capture its generated views
+with the application. Keep the installed console script safe to re-enter under Python 3.14 spawn.
+The worker loads its lightweight captured contract and observes initialization in the worker
+process. Exercise that entry through the [early installed journey](qualification-and-adoption.md#early-installed-standard).
 
 **Acceptance.** Prepare both PDF modes and M1 from the admitted source. Exercise a relocation,
 each historical edit independently, a genuine transform dependency change, a rebound callable,
@@ -415,7 +421,9 @@ The worker sets Hugging Face offline mode before model startup and verifies the 
 prepared revision-specific snapshots. The Transformers reference covers processor artifacts and
 optional tokenizer backends. It describes 5.22.2. The selected 5.22.1 dependency closure uses
 the installed package's `sentencepiece` extra, as observed through the pinned Docling processor
-load and package metadata. Retain the actual processor configuration alongside the model weights.
+load and package metadata. That extra also declares protobuf. Capture the processor and tokenizer
+configuration and consumed resources alongside the weights. Distribution metadata describes the
+packaging prerequisites. The selected capture observes the assets actually used.
 PyTorch 2.15.0 context decorators can change display names on their generated code. The source
 comparison checks wrapper code and closure layout. Worker startup independently observes the
 prepared stage bindings.
@@ -423,6 +431,7 @@ PyTorch's precision and determinism contracts make device, selected kernel and r
 relevant when broadening reuse to a different execution environment.
 [Prepared PDF assets](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_assets.py) ·
 [Transformers offline artifacts](../../libraries/parsing/transformers.md#123-reproducible-and-offline-execution) ·
+[Transformers 5.22.1 packaging](https://github.com/huggingface/transformers/blob/v5.22.1/setup.py) ·
 [PyTorch determinism](../../libraries/parsing/torch.md#113-determinism-and-numerical-precision)
 
 Cachetools 8.0.1 `LRUCache` may bound reusable process-local prepared observations keyed by
@@ -450,8 +459,9 @@ publication authority still refuse. Retire the shared all-mode eligibility deter
 where the selected contract takes its consumers. Retain the broad graph for attributed discovery.
 
 **Closure.** Make this the first DMO-02 product delivery under the current D1 scope contract.
-Complete one actual Standard path while the typed support read/index/export work proceeds in
-parallel. DMO-06 supplies any generated transition the chosen material contract actually changes,
+Run the [small installed Standard journey](qualification-and-adoption.md#early-installed-standard)
+alongside the locator and generated profile changes. The support read/index/export work can proceed
+in parallel. DMO-06 supplies any generated transition the chosen material contract actually changes,
 and DMO-07 adds action views as the owning facts become available. Carry these scoped results
 into DMO-08, then DMO-09's canonical and whole-book qualification after consumer retirement.
 Independently observe the original derivation, original attempt and zero provider starts in the
@@ -460,6 +470,48 @@ the distribution version and recipe text to challenge the acquired producer cont
 Compare restored acknowledged pages with clean
 conversion under the same material basis using independently expected output meaning. DMO-07
 consumes the resulting material, transport-only or unresolved comparison.
+
+<a id="retired-spool-custody"></a>
+
+**Retired spool custody.** For each native-selected candidate, open the retained release/runtime
+archive under its recorded pins through `runtime_binding_for_release` and the acquired runtime
+transport input reader. Resolve the original directory from `pdf-capture/execution-custody`, then
+derive and verify the original request, generation and build coordinates. Share the authenticated
+archive read among candidates for the same runtime. Treat storage location as transport and check
+current executable admission, claim and contributor authority separately. Verify physical writer
+retirement, root confinement, inode, manifest and file digests before uptake. Preserve the actual
+original contributor and output meaning through current certification and publication.
+[N46 I01](../../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I01) ·
+[Runtime binding owner](../../../python/corpus-structure/src/corpus_structure/semantic/runtime_binding_store.py#L46) ·
+[Spool custody](../../adr/0139-compatible-pdf-checkpoint-custody.md)
+
+Distinguish an unavailable archive or directory, a material mismatch, an active or replaced
+writer, corrupt custody and revoked support in the owning recovery disposition. DMO-04 and DMO-07
+consume those facts for the selected cut and invocation. Configured policy and acquired authority
+govern fresh work after recovery is unavailable. Exercise a successor generation configured with
+a different root, with the retired complete spool still available at its original location. Read
+back contributor, current publication and zero new provider starts independently. Retain same-root
+coverage and challenge inaccessible storage, path escape, active writer, replaced inode, altered
+files and revoked support. A deployment that guarantees one fixed root can use that simpler storage
+arrangement. DMO-02 investigates an owned storage reference or relocation only when a real retention
+or relocation requirement exceeds what the captured directory can supply. Establish the retention
+and authority semantics before scheduling such a change.
+
+<a id="standard-default-cutover"></a>
+
+**Standard default cutover.** Require authentic startup, cross-generation uptake and current
+publication on the supported Standard host and operation. Add the same-version resource or
+loaded-factory challenge above to the changed-original case. Establish determining device,
+precision, backend and native library settings with the captured initialization and resources.
+Record supported eligibility and expose unresolved determinants explicitly at acquisition.
+Extend the accepted host scope when an actual deployment needs it and those premises are verified.
+Move ordinary Standard inventory, configuration, installed entry points and qualification consumers
+to the selected profile, then remove their displaced branches in the same delivery. Integrated and
+enriched callers retain their applicable active profiles and their own acceptance. DMO-05/06
+inventory remaining v2 consumers and choose captured interpretation, conversion or regeneration
+per retained artifact with a current consumer. DMO-08 qualifies the resulting release before DMO-09
+adopts it. [N46 I05](../../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I05) ·
+[PyTorch 2.15 reproducibility](https://docs.pytorch.org/docs/2.15/notes/randomness.html)
 
 Keep original-byte custody, named semantic material profiles and runtime inventory explicit.
 The first capture case uses ADR-0100's current scope meaning. DMO-05's later finite-number and

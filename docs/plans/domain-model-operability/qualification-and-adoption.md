@@ -78,6 +78,37 @@ Reassess each receipt against the final system and required selection. Acceptanc
 representative independent semantic expectations and separate evidence for each recovery or reuse
 claim. Quantitative performance claims require measured evidence. [Bounded implementation evidence](../../design_review/evidence/2026-11-20_dmo01-02/README.md)
 
+<a id="early-installed-standard"></a>
+
+### Early installed Standard journey
+
+Run a small retained PDF through the installed `ci demands execute` entry point on a private
+target with an admitted Standard v3 runtime. Start alongside DMO-01/02's generated report and
+retired spool changes. Reach Python 3.14 spawn, real worker initialization and report, parent
+verification, current PostgreSQL certification and scoped publication readback. Retain the direct
+worker recovery probe and controlled native refusals for their existing claims. The installed
+journey adds evidence for console-script re-entry and the boundaries it crosses.
+[N46 I04](../../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I04) ·
+[Python 3.14 spawn](https://docs.python.org/3.14/library/multiprocessing.html#the-spawn-and-forkserver-start-methods)
+
+Observe these claims independently through the existing managed execution and result owners.
+
+| Case | Required observation |
+| --- | --- |
+| Published attachment | The second demand shares the first derivation, attempt and publication. Independent provider and native observations show zero new provider starts and zero new publication receipts. |
+| Completed-unpublished recovery | The harness interrupts after fsynced `spool.complete` and before native staging or certification. Establish no previous publication and physical worker retirement. The successor acquires the authentic complete spool from the original runtime directory across generation and root, keeps the contributor and output meaning, publishes under current authority and starts zero new providers. |
+| Material edit | A changed original produces a new attempt and publication. For default eligibility also change an actual determining resource or loaded factory while keeping its version and recipe text. |
+
+Keep the fault in the harness and retain the fault and successor receipts. Share captured inputs
+and private setup only where the premises agree. Where ordinary pytest cases share a safe
+worker-owned fixture, use the existing xdist 3.8.0 `--dist=loadgroup` affinity. Keep exclusive
+fault isolation. Preserve the N46 published attachment and changed-original observations with their
+recorded scope. Live publication through repaired retired-spool custody and the default decision
+still require applicable evidence. DMO-08 reconciles this scoped delivery with the final source
+and required union. [Retired spool controls](execution-identity-and-recovery.md#retired-spool-custody) ·
+[Standard default acceptance](execution-identity-and-recovery.md#standard-default-cutover) ·
+[xdist grouping](https://github.com/pytest-dev/pytest-xdist/blob/v3.8.0/docs/distribution.rst)
+
 ## DMO-08 · Qualify the assembled system on final source
 
 <a id="dmo-08"></a>
@@ -198,6 +229,15 @@ authorization leaf and both authority-negative cases. A substituted use and coun
 parameters refuse. Protected frame and label bodies remain unavailable to an ordinary reader.
 Earlier publication in an interrupted test supplies no completion credit for these assertions.
 
+Preserve the sampled M1 captured kernel-executor journey's distinct GLiNER and CPU receipts,
+source pins and scoped readback when their premises still apply. Add a small installed-path
+observation when the accepted M1 host binding or bootstrap route changes. Apply the same rule
+to Integrated's explicit admission and keep its real provider assertions. Reuse preparation
+when a specific repeated consumer shares the acquired inputs. Event, regional and book cases
+retain their required functionality and evidence owners.
+[N46 I06](../../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I06) ·
+[M1 actual journey](../../../python/corpus-structure/tests/orchestrate/test_m1_declared_native.py#L192)
+
 Use DMO-04's bounded event diagnosis before selecting a physical correction if that question
 remains open. Observe preparation, support acquisition, publication and scorer attachment, sample
 waits and blockers, then inspect the remaining slow phase. The final qualification run exercises
@@ -225,6 +265,11 @@ resolution. DMO-09 consumes this account and rechecks target-specific facts duri
 <a id="dmo-09"></a>
 
 ### Observe and adopt the actual state
+
+Verify the selected release carries the [qualified Standard default](execution-identity-and-recovery.md#standard-default-cutover)
+and migrated Standard callers. Check applicable Integrated and enriched profile admission and the
+disposition of retained artifacts with current consumers. Adopt canonical only after DMO-08
+accepts the resulting release. [N46 I05](../../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I05)
 
 After DMO-08, census canonical development and the book through the current maintenance and
 application routes. Record the native head, configured and acquired database identity, project

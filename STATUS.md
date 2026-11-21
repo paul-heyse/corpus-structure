@@ -1,6 +1,6 @@
 # Status
 
-_Updated 2026-11-21. DMO-01 through DMO-06 have scoped implementation. N46 stage verified Standard v3 publication reuse across two runtimes and fresh publication after the original changed. Canonical development reports N29 and the recorded book binding is generation 5._
+_Updated 2026-11-21. DMO-01 through DMO-06 have scoped implementation. N46 stage verified Standard v3 publication reuse across two runtimes and fresh publication after the original changed. Canonical development reports N29 and the recorded book binding is generation 5._ The N46 plan amendment passed `uv run ci docs check` (`1e93f2ff5704428496c515cb5488aac9`). Product qualification was `not_run` for this documentation update.
 
 ## Current owners
 
@@ -56,5 +56,5 @@ _Updated 2026-11-21. DMO-01 through DMO-06 have scoped implementation. N46 stage
 
 ## Next execution
 
-- The [DMO queue](docs/plans/domain-model-operability_2026-11-20.md#execution-queue) owns live cross-generation recovery with the corrected parent. The [follow-up dispositions](docs/plans/domain-model-operability_2026-11-20.md#execution-followup-disposition) own remaining authority, regional read, codec and validation retirement.
+- Start the [installed Standard journey](docs/plans/domain-model-operability/qualification-and-adoption.md#early-installed-standard) with captured spool custody and generated profiles. Live cross-generation and cross-root publication and Standard default qualification remain open. The [DMO queue](docs/plans/domain-model-operability_2026-11-20.md#execution-queue) and [N46 dispositions](docs/plans/domain-model-operability_2026-11-20.md#n46-disposition) own sequencing and acceptance.
 - After consumer migration and retirement, [DMO-08 and DMO-09](docs/plans/domain-model-operability/qualification-and-adoption.md) own final-source qualification, guarded adoption and the whole-book journey.

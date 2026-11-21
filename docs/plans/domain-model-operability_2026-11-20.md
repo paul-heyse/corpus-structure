@@ -63,10 +63,19 @@ trial exercised that transition through both application admissions. [Execution 
 **Execution follow-up amendment · 2026-11-21.** This series incorporates the
 [execution follow-up review][followup] at `101d67a53`, grounded in production source
 `e14ca6f3d` and the scoped N44 receipts. The initialized Docling spool and native CPU recovery
-results apply to their recorded boundaries. The first Standard attachment across demands and
-the captured support path remain open. The amendment uses the existing acquisition,
+results apply to their recorded boundaries. At that checkpoint, Standard attachment across demands
+and the captured support path were still open. The amendment uses the existing acquisition,
 reuse, cut, deployment and managed-result owners. It preserves the current D1, Draft 7,
 live-authority and durable-recovery decisions. [Follow-up disposition](#execution-followup-disposition)
+
+**N46 amendment · 2026-11-21.** This series incorporates the [N46 review][n46] at `b3d0d5dee`,
+grounded in `c671c2fbf` and the recovery repair at `02e90543f`. The dedicated stage verified
+published attachment and fresh publication after an original changed. The corrected locator
+authenticated and recertified the same-root retained spool in bounded checks. Live publication
+through the repaired cross-generation route, cross-root uptake and Standard default eligibility
+remain open. The amendments connect captured storage custody, generated profile structure and
+the existing rollout controller under the current recovery and native-admission decisions.
+[N46 disposition](#n46-disposition)
 
 ## Shared contracts and rule decisions
 
@@ -134,10 +143,13 @@ decision before dependent cutover.
 | [DMO-08][p08] | Final-source stage and functional qualification | Enter after functional delivery, consumer migration and retirement. Reconcile the managed evidence union against final source and acquired context. Broad qualification is pending. |
 | [DMO-09][p09] | Guarded canonical adoption and whole-book qualification | DMO-08 on the selected final release. Verify original custody, complete the book, and independently verify interruption/reuse and zero new work on repeat. |
 
-1. Complete live [Standard cross-generation recovery][reuse] using the corrected parent. The
-   two-demand publication and changed-original controls passed. Preserve their native lineage
-   when qualifying default eligibility and completing selected [host][host] and [settings][settings]
-   adoption.
+1. Start the [small installed Standard journey][installed-standard] alongside
+   [retired spool custody][retired-custody] and [generated producer profiles][producer-profiles].
+   Verify completed-unpublished recovery through current native publication and preserve the
+   recorded lineage of the published attachment and changed-original cases. Use
+   [coordinated rollout][rollout] and its operator actions whenever native work changes an
+   application's admission premises. Complete the [Standard default cutover][standard-default]
+   after its scoped acceptance, including affected [host][host] and [settings][settings] consumers.
 2. Complete the remaining [request/product support path][support-contract] qualification and
    consumer migration. The selected page, index, detached JSONL and Parquet path passed on
    bounded private fixtures. Tie broader support to the DMO-03 requirements and use the
@@ -204,6 +216,17 @@ sequencing and implementation choices.
 | [I04][followup-i04] · Scoped recovery action | N44 I03/I07 | [DMO-02][uncertain] supplies the disposition. [DMO-04][p04] preserves per-intent standing and [DMO-07][p07] verifies actions against independent effect, draft and process observations. |
 | [I05][followup-i05] · Faithful fixtures and evidence | N44 I08 | [DMO-08][p08] qualifies each claim with applicable clean setup and scoped evidence. [DMO-09][p09] verifies canonical adoption, completion, independent recovery and unchanged repeat. |
 | [I06][followup-i06] · Complete paths and retirement | N44 I01/I04–I08 | The [queue](#execution-queue) sequences the two deliveries, regional integration and qualification. Owners absorb recurring evidence-only steps where they have a real consumer and remove superseded runtime paths. |
+
+<a id="n46-disposition"></a>
+
+| N46 recommendation | Owning work and closure | Conditional investigation |
+| --- | --- | --- |
+| [I01][n46-i01] · Original storage custody | [DMO-02][retired-custody] locates the original producer's spool and proves live uptake under current authority with zero new provider starts. [DMO-04/07][p07] report scoped acquisition and recovery reasons. | DMO-02 considers a storage reference or relocation only for a demonstrated retention or relocation obligation the captured directory cannot meet. |
+| [I02][n46-i02] · Structural profile authority | [DMO-01][p01] and [DMO-05/06][producer-profiles] generate worker, parent and native structure from the PDF declaration, verify independent correspondence controls and retire duplicate dispatch. | Use the captured format where retained certificates still have a consumer. |
+| [I03][n46-i03] · Native transition and application admission | [DMO-06][rollout] carries one reviewed after-state through current native and application boundaries. [DMO-07][p07] verifies resume standing, successor admission and missing observations. | DMO-06 considers narrower admission only after a demonstrated unrelated interruption or recapture and a complete dependency and authority census. |
+| [I04][n46-i04] · Early installed Standard journey | [DMO-01/02 and DMO-08][installed-standard] observe real installed startup, published attachment, completed-unpublished uptake and fresh work independently. Final-source applicability remains with DMO-08. | Use xdist affinity where the owner needs it for shared preparation. |
+| [I05][n46-i05] · Standard default and retirement | [DMO-01/02][standard-default] own eligibility and consumer cutover. DMO-05/06 account for active v2 and retained bytes. [DMO-08/09][p08] own final qualification and canonical adoption. | Broaden supported host scope when a real deployment needs it and its determinants are established. |
+| [I06][n46-i06] · Adjacent consumers | [DMO-03/04][p04], [DMO-05][support-contract] and [DMO-07][p07] deliver captured interpretation, independent live authority and typed actions. [DMO-08][p08] keeps actual provider and readback claims scoped. | Add an installed M1 or Integrated observation when that host's bootstrap or binding route changes. |
 
 The decisive open questions have bounded outcomes. DMO-01 uses selected-operation checks on each
 historical edit and leaves required correspondence conservative when unresolved. DMO-02 inventories
@@ -280,6 +303,17 @@ canonical adoption.
 [followup-i04]: ../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I04
 [followup-i05]: ../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I05
 [followup-i06]: ../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I06
+[n46]: ../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md
+[n46-i01]: ../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I01
+[n46-i02]: ../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I02
+[n46-i03]: ../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I03
+[n46-i04]: ../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I04
+[n46-i05]: ../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I05
+[n46-i06]: ../plan_improvement_reviews/domain-model-operability-after-n46_2026-11-21.md#I06
+[retired-custody]: domain-model-operability/execution-identity-and-recovery.md#retired-spool-custody
+[producer-profiles]: domain-model-operability/json-contracts-and-settings.md#producer-profile-structure
+[installed-standard]: domain-model-operability/qualification-and-adoption.md#early-installed-standard
+[standard-default]: domain-model-operability/execution-identity-and-recovery.md#standard-default-cutover
 [support-contract]: domain-model-operability/json-contracts-and-settings.md#captured-support-interpretation
 [rollout]: domain-model-operability/json-contracts-and-settings.md#contract-specific-rollout
 [lowering-probe]: ../design_review/evidence/2026-11-20_dmo-plan-review/README.md
