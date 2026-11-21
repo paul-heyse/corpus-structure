@@ -41,6 +41,11 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Domain Model Operability after N44](domain-model-operability-after-n44_2026-11-20.md).
+  Reassesses Standard producer custody, shared host acquisition, recovery selection, authenticated
+  reads, JSON migration, generated-facade cutover, diagnostics and qualification using N44 evidence.
+  Recommendations are proposals for the DMO plan.
+
 - [Domain Model Operability after N43](domain-model-operability_2026-11-20.md).
   Reviews selected host readiness, cross-demand capture reuse, prospective generated source,
   cut-scoped support and authority, recovery, operator diagnostics, qualification and JSON
