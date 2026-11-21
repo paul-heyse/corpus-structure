@@ -405,6 +405,7 @@ class StreamingPdfResult:
         release_id: str,
         source_digest: str,
         write_scalar: Any,
+        lowering: CapturedPdfLowering | None = None,
     ) -> Iterator[Any]:
         from corpus_structure.semantic.pdf_records import iter_native_records
 
@@ -418,6 +419,8 @@ class StreamingPdfResult:
                 (source_digest + "\0" + address + "\0" + kind).encode()
             ).hexdigest(),
             write_scalar=write_scalar,
+            mapping=lowering.native_mapping if lowering is not None else None,
+            record_header=lowering.record_header if lowering is not None else None,
         )
 
     def write_record_batches(
@@ -581,6 +584,7 @@ class StreamingPdfResult:
             release_id=release_id,
             source_digest=source_digest,
             write_scalar=scalar,
+            lowering=lowering,
         ):
             append("header" if row.kind == "document" else row.kind, dict(row.values))
         for family in list(pending):

@@ -369,7 +369,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
         from .pdf_records import validate_native_callbacks
 
         actual = json.loads(json.dumps(_json_view(document), allow_nan=False, ensure_ascii=False))
-        validate_native_callbacks(actual)
+        validate_native_callbacks(actual, contract=self.lowering.callback_policy())
         write_pdf_access_projection(actual, projection)
         self.validate(actual, projection)
         digest = self.logical_digest(

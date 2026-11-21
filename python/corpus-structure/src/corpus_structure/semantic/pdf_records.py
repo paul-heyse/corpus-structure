@@ -211,6 +211,13 @@ def prepare_native_schema_mapping(
         raise NativeMappingError(
             changed, "unsupported native schema change; update native lowering"
         )
+    return _prepared_native_schema_mapping(retained)
+
+
+@lru_cache(maxsize=8)
+def _prepared_native_schema_mapping(retained: bytes) -> NativeSchemaMapping:
+    """Realize schema bytes whose lowering compatibility was checked at acquisition."""
+    schema = json.loads(retained)
     cls = validator_for(schema)
     cls.check_schema(schema)
     resource = Resource.from_contents(schema, default_specification=DRAFT202012)
@@ -354,6 +361,7 @@ def iter_native_records(
     record_id_for: Callable[[str, str], str],
     write_scalar: ScalarWriter,
     mapping: NativeSchemaMapping | None = None,
+    record_header: tuple[str, str] | None = None,
     native_type: str = "DoclingDocument",
     native_address: str = "#",
     detail: bool = False,
@@ -369,6 +377,9 @@ def iter_native_records(
     from .correction_detail import InputPath, child_path
 
     mapping = prepare_native_schema_mapping() if mapping is None else mapping
+    contract_version, mapping_profile = (
+        (CONTRACT_VERSION, MAPPING_PROFILE) if record_header is None else record_header
+    )
     if native_type == "DoclingDocument":
         root_schema = mapping.schema
         mapping.validate(document, detail=detail, max_errors=max_errors)
@@ -589,8 +600,8 @@ def iter_native_records(
                 **common,
                 "release_id": release_id,
                 "source_digest": source_digest,
-                "mapping_profile": MAPPING_PROFILE,
-                "contract_version": CONTRACT_VERSION,
+                "mapping_profile": mapping_profile,
+                "contract_version": contract_version,
                 "native_schema_digest": mapping.digest,
                 "root_id": root,
             },
@@ -754,7 +765,9 @@ def reconstruct_native_document(
     return result
 
 
-def validate_native_callbacks(document: Mapping[str, Any]) -> DoclingDocument:
+def validate_native_callbacks(
+    document: Mapping[str, Any], *, contract: Mapping[str, Any] | None = None
+) -> DoclingDocument:
     """Bounded native validation: reject upstream normalization before identity.
 
     Finite JSON values are checked before native model construction. All pinned Docling
@@ -767,7 +780,8 @@ def validate_native_callbacks(document: Mapping[str, Any]) -> DoclingDocument:
 
     from docling_core.types.doc import DoclingDocument
 
-    required_version = native_validation_contract()["docling_core_version"]
+    contract = native_validation_contract() if contract is None else contract
+    required_version = contract["docling_core_version"]
     if version("docling-core") != required_version:
         raise ValueError(f"native callbacks require exactly docling-core {required_version}")
     _finite_json(document, "#")

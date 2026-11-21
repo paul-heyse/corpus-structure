@@ -355,3 +355,58 @@ def test_stream_requires_captured_lowering_before_provider_preparation(tmp_path)
                 on_replay=forbidden,
             )
     assert not (tmp_path / "pages").exists()
+
+
+def test_native_mapping_and_callback_policy_use_the_acquired_context(tmp_path, monkeypatch):
+    from dataclasses import replace
+
+    import pyarrow as pa
+
+    from corpus_structure.semantic import pdf_records
+    from corpus_structure.semantic.pdf_lowering_context import capture_pdf_lowering
+
+    context = trusted_pdf_context()
+    lowering = capture_pdf_lowering(context)
+    payloads, document, basis = prepared(tmp_path)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("native production must consume its acquired mapping and policy")
+
+    monkeypatch.setattr(pdf_records, "prepare_native_schema_mapping", forbidden)
+    monkeypatch.setattr(pdf_records, "native_validation_contract", forbidden)
+    monkeypatch.setattr(pdf_records, "native_schema_bytes", forbidden)
+    monkeypatch.setattr(pdf_records, "CONTRACT_VERSION", "wrong ambient contract")
+    monkeypatch.setattr(pdf_records, "MAPPING_PROFILE", "wrong ambient mapping")
+    streamed = StreamingPdfResult(
+        document,
+        PdfStreamSpool(tmp_path / "explicit-pages", payload_family=prepare_payload_family(context)),
+        "success",
+        (),
+        b"recipe",
+        (),
+    )
+    replays = streamed.write_record_batches(
+        tmp_path / "explicit-records",
+        build_id="build",
+        release_id="release",
+        source_digest="a" * 64,
+        lowering=lowering,
+    )
+    headers = []
+    for replay in replays:
+        if replay.family == "header":
+            with pa.memory_map(str(replay.path), "r") as source:
+                headers.extend(pa.ipc.open_file(source).read_all().to_pylist())
+    assert len(headers) == 1
+    assert headers[0]["contract_version"] == "pdf-native-records-v1"
+    assert headers[0]["mapping_profile"] == "pdf-native-records-v1"
+    try:
+        certificate = payloads.certify(document, tmp_path / "explicit-access.jsonl", **basis)
+        assert certificate.source_digest == "a" * 64
+        policy = lowering.callback_policy()
+        policy["docling_core_version"] = "unavailable-profile"
+        payloads.lowering = replace(lowering, native_policy=json.dumps(policy).encode())
+        with pytest.raises(ValueError, match="native callbacks require exactly docling-core unavailable-profile"):
+            payloads.certify(document, tmp_path / "wrong-policy.jsonl", **basis)
+    finally:
+        payloads.close()
