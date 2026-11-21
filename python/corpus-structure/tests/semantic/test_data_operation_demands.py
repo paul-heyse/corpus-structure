@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from datetime import date
 from decimal import Decimal
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
@@ -255,7 +255,7 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
         "historical_fate": "attached",
         "inputs_watermark": "watermark:one",
     }
-    snapshot = {
+    snapshot: dict[str, Any] = {
         "demand_id": "demand:one",
         "project_id": "project:one",
         "release_id": "release:one",

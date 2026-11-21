@@ -592,15 +592,16 @@ class DemandPlanner:
         inspections: dict[str, WireInspectDataCompletionResult] = {}
         inspected = set()
         for obligation in snapshot["obligations"]:
+            intent_id = obligation.get("intent_id")
             binding = (
-                obligation.get("intent_id"),
+                intent_id,
                 demand,
                 obligation.get("request_id"),
                 obligation.get("generation"),
             )
-            if binding[0] is not None and binding not in inspected:
+            if intent_id is not None and binding not in inspected:
                 inspected.add(binding)
-                inspections[obligation["intent_id"]] = self.storage.inspect_data_completion(
+                inspections[intent_id] = self.storage.inspect_data_completion(
                     cast(
                         WireInspectDataCompletionRequest,
                         {
