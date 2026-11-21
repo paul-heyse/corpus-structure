@@ -11,11 +11,11 @@ classes:
     description: Rendered PNG bytes and exact original, publisher, native-region and renderer determinants. The declared derivation retains its authentic producing episode.
     attributes:
       document: {required: true}
-      source_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
-      logical_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      source_digest: {required: true, pattern: '^[0-9a-f]{64}$(?![\s\S])'}
+      logical_digest: {required: true, pattern: '^[0-9a-f]{64}$(?![\s\S])'}
       pointer: {required: true}
       region_index: {range: integer, required: true, minimum_value: 0}
       scale: {required: true}
       encoding: {required: true, equals_string: png}
-      content_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
-      content_hex: {required: true, pattern: '^(?:[0-9a-f]{2})+$'}
+      content_digest: {required: true, pattern: '^[0-9a-f]{64}$(?![\s\S])'}
+      content_hex: {required: true, pattern: '^(?:[0-9a-f]{2})+$(?![\s\S])'}

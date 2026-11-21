@@ -27,7 +27,7 @@ from .rich_decisions import (
 )
 
 Nonempty = Annotated[str, Field(min_length=1)]
-Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+Digest = Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")]
 
 
 class RichRecord(BaseModel):

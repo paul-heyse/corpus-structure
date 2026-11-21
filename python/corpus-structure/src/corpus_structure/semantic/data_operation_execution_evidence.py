@@ -94,7 +94,8 @@ def bind_execution_evidence(
         if external_content is not None
         else [],
     }
-    prepared_schema_validator(execution_evidence_schema()).validate(value)
+    # The owning model enforces this ingress. Its generated schema is prepared
+    # separately for native and detached consumers at their own boundaries.
     checked = NativeExecutionEvidence.model_validate_json(finite_json_bytes(value))
     if checked.cpu_replies and (
         len(checked.cpu_replies) != len(checked.cpu_receipts)

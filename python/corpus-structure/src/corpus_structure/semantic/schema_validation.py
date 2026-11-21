@@ -7,15 +7,15 @@ from fractions import Fraction
 from functools import lru_cache
 from typing import Any
 
-from jsonschema import Draft7Validator, Draft202012Validator
 from jsonschema.protocols import Validator
+from jsonschema.validators import validator_for
 from referencing import Registry, Resource
 
 from .data_operation_json import JsonBoundaryError, native_json_loads
 
 _DIALECTS = {
-    "http://json-schema.org/draft-07/schema#": Draft7Validator,
-    "https://json-schema.org/draft/2020-12/schema": Draft202012Validator,
+    "http://json-schema.org/draft-07/schema#",
+    "https://json-schema.org/draft/2020-12/schema",
 }
 
 
@@ -70,7 +70,7 @@ def prepared_schema_validator(
     schema = _schema_numbers(native_json_loads(content))
     if not isinstance(schema, dict) or schema.get("$schema") not in _DIALECTS:
         raise ValueError("JSON Schema requires an explicit supported dialect")
-    validator = _DIALECTS[schema["$schema"]]
+    validator = validator_for(schema)
     validator.check_schema(schema)
     captured = {}
     for uri, resource_content in resources:
@@ -79,7 +79,7 @@ def prepared_schema_validator(
         value = _schema_numbers(native_json_loads(resource_content))
         if not isinstance(value, dict) or value.get("$schema") not in _DIALECTS:
             raise ValueError("captured JSON Schema requires an explicit supported dialect")
-        _DIALECTS[value["$schema"]].check_schema(value)
+        validator_for(value).check_schema(value)
         captured[uri] = Resource.from_contents(value)
     return PreparedSchemaValidator(
         validator(schema, registry=Registry().with_resources(captured.items()))

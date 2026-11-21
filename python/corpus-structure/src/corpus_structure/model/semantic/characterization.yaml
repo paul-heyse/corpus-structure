@@ -11,7 +11,7 @@ classes:
     attributes:
       projection: &id001
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       native_pointer: {}
       page:
         range: integer
@@ -89,7 +89,7 @@ classes:
       native_label: {}
       status:
         required: true
-        pattern: ^(native_evidence|interpreted|unknown|private_proposal)$
+        pattern: '^(native_evidence|interpreted|unknown|private_proposal)$(?![\s\S])'
       premises:
         range: string
         multivalued: true
@@ -107,7 +107,7 @@ classes:
         multivalued: true
       family:
         required: true
-        pattern: ^\S+$
+        pattern: '^\S+$(?![\s\S])'
   CharacterizationMembership:
     is_a: SourceRecordProduct
     attributes:
@@ -139,7 +139,7 @@ classes:
         range: boolean
       family:
         required: true
-        pattern: ^\S+$
+        pattern: '^\S+$(?![\s\S])'
       external_premises:
         range: DdoSemanticMemberReference
         inlined: true
@@ -149,32 +149,32 @@ classes:
     attributes:
       construction:
         range: string
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       binding:
         range: string
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       production:
         range: string
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       support_codec:
         range: string
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       production_name:
         range: string
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       support_roles:
         range: string
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       required_external_choices:
         range: DdoSemanticMemberReference
         inlined: true
         multivalued: true
       kind:
         required: true
-        pattern: ^(native_prediction|released_construction|contextual_proposal)$
+        pattern: '^(native_prediction|released_construction|contextual_proposal)$(?![\s\S])'
       status:
         required: true
-        pattern: ^(recorded|witnessed|private_proposal)$
+        pattern: '^(recorded|witnessed|private_proposal)$(?![\s\S])'
       rule_id: {}
       premises:
         range: string
@@ -249,17 +249,17 @@ classes:
         multivalued: true
       family:
         required: true
-        pattern: ^\S+$
+        pattern: '^\S+$(?![\s\S])'
   CharacterizationTermEdge:
     is_a: SourceRecordProduct
     attributes:
       role: *id001
       target:
         range: string
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       choice_group:
         range: string
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       structural:
         required: true
         range: boolean
@@ -276,12 +276,12 @@ classes:
       local_id: *id001
       kind:
         required: true
-        pattern: ^(predicate|participant|operator|binder|attribution|clause_relation|unknown)$
+        pattern: '^(predicate|participant|operator|binder|attribution|clause_relation|unknown)$(?![\s\S])'
       vocabulary: *id001
       value: *id001
       status:
         required: true
-        pattern: ^(interpreted|unknown|implicit|private_proposal)$
+        pattern: '^(interpreted|unknown|implicit|private_proposal)$(?![\s\S])'
       occurrences:
         range: string
         multivalued: true
@@ -304,7 +304,7 @@ classes:
         multivalued: true
       family:
         required: true
-        pattern: ^\S+$
+        pattern: '^\S+$(?![\s\S])'
       external_premises:
         range: DdoSemanticMemberReference
         inlined: true
@@ -338,7 +338,7 @@ classes:
       local_id: *id001
       compatibility:
         required: true
-        pattern: ^(exclusive|compatible|unknown)$
+        pattern: '^(exclusive|compatible|unknown)$(?![\s\S])'
       members:
         range: CharacterizationChoiceMember
         inlined: true
@@ -347,7 +347,7 @@ classes:
         minimum_cardinality: 1
       family:
         required: true
-        pattern: ^\S+$
+        pattern: '^\S+$(?![\s\S])'
   CharacterizationFamilyCoverage:
     is_a: SourceRecordProduct
     attributes:
@@ -367,10 +367,10 @@ classes:
         multivalued: true
       availability:
         required: true
-        pattern: ^(available|unknown|unsupported|unavailable)$
+        pattern: '^(available|unknown|unsupported|unavailable)$(?![\s\S])'
       outcome:
         required: true
-        pattern: ^(complete|empty|partial|failed|unknown|unsupported)$
+        pattern: '^(complete|empty|partial|failed|unknown|unsupported)$(?![\s\S])'
       reason: {}
       profile: *id001
   CharacterizationNativeToken:
@@ -400,7 +400,7 @@ classes:
       source_role:
         range: string
         required: true
-        pattern: ^(prose|math|reference)$
+        pattern: '^(prose|math|reference)$(?![\s\S])'
       lemma:
         range: string
       pos:
@@ -453,7 +453,7 @@ classes:
       relation:
         range: string
         required: true
-        pattern: ^(exact|contained_in_atom|normalized|synthetic)$
+        pattern: '^(exact|contained_in_atom|normalized|synthetic)$(?![\s\S])'
       source_occurrences:
         range: string
         multivalued: true
@@ -466,12 +466,12 @@ classes:
       kind:
         range: string
         required: true
-        pattern: ^(decimal|comparator|identifier|date|unit|interval|threshold)$
+        pattern: '^(decimal|comparator|identifier|date|unit|interval|threshold)$(?![\s\S])'
       value:
         range: string
       comparator:
         range: string
-        pattern: ^(>|>=|<|<=|=)$
+        pattern: '^(>|>=|<|<=|=)$(?![\s\S])'
       quantity:
         range: string
       lower:
@@ -487,7 +487,7 @@ classes:
       domain_status:
         range: string
         required: true
-        pattern: ^(not_requested|valid|invalid|unresolved)$
+        pattern: '^(not_requested|valid|invalid|unresolved)$(?![\s\S])'
       reason:
         range: string
   CharacterizationFormalInput:
@@ -495,17 +495,17 @@ classes:
     attributes:
       normalization_recipe:
         range: string
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       symbol_outcome:
         range: string
-        pattern: ^(complete|partial|failed|not_requested)$
+        pattern: '^(complete|partial|failed|not_requested)$(?![\s\S])'
       parent_occurrence:
         range: string
         required: true
       representation:
         range: string
         required: true
-        pattern: ^(source_text|recognized_latex|normalized_latex)$
+        pattern: '^(source_text|recognized_latex|normalized_latex)$(?![\s\S])'
       text:
         range: string
         required: true
@@ -523,11 +523,11 @@ classes:
       syntax_outcome:
         range: string
         required: true
-        pattern: ^(complete|partial|ambiguous|failed)$
+        pattern: '^(complete|partial|ambiguous|failed)$(?![\s\S])'
       interpretation_outcome:
         range: string
         required: true
-        pattern: ^(not_requested|resolved|unresolved|invalid|failed)$
+        pattern: '^(not_requested|resolved|unresolved|invalid|failed)$(?![\s\S])'
       diagnostic:
         range: CharacterizationFormalDiagnostic
         inlined: true
@@ -540,14 +540,14 @@ classes:
     attributes:
       symbol_parent:
         range: string
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       input_id:
         range: string
         required: true
       node_kind:
         range: string
         required: true
-        pattern: ^(token|rule)$
+        pattern: '^(token|rule)$(?![\s\S])'
       rule:
         range: string
         required: true
@@ -600,7 +600,7 @@ classes:
       coordinate_unit:
         range: string
         required: true
-        pattern: ^(inclusive_canonical_token|inclusive_subtoken)$
+        pattern: '^(inclusive_canonical_token|inclusive_subtoken)$(?![\s\S])'
       first:
         range: integer
         required: true
@@ -621,7 +621,7 @@ classes:
       mapping_status:
         range: string
         required: true
-        pattern: ^(mapped|unmapped)$
+        pattern: '^(mapped|unmapped)$(?![\s\S])'
       reason:
         range: string
       native_run:
@@ -636,7 +636,7 @@ classes:
       mode:
         range: string
         required: true
-        pattern: ^(learned|layout_forced|supplied|predicted)$
+        pattern: '^(learned|layout_forced|supplied|predicted)$(?![\s\S])'
       index:
         range: integer
         required: true
@@ -676,7 +676,7 @@ classes:
       disposition:
         range: string
         required: true
-        pattern: ^(retained|merged)$
+        pattern: '^(retained|merged)$(?![\s\S])'
   CharacterizationNativeRst:
     is_a: SourceRecordProduct
     attributes:
@@ -699,7 +699,7 @@ classes:
       nuclearity:
         range: string
         required: true
-        pattern: ^(NN|NS|SN)$
+        pattern: '^(NN|NS|SN)$(?![\s\S])'
   CharacterizationContextGap:
     is_a: SourceRecordProduct
     attributes:
@@ -751,28 +751,28 @@ classes:
       declaration_digest:
         range: string
         required: true
-        pattern: ^[0-9a-f]{64}$
+        pattern: '^[0-9a-f]{64}$(?![\s\S])'
       stage:
         range: string
         required: true
       answer_kind:
         range: string
         required: true
-        pattern: ^(text|number|date|choice|noul|gliner_span|gliner_classification)$
+        pattern: '^(text|number|date|choice|noul|gliner_span|gliner_classification)$(?![\s\S])'
       state:
         range: string
         required: true
       request_digest:
         range: string
         required: true
-        pattern: ^[0-9a-f]{64}$
+        pattern: '^[0-9a-f]{64}$(?![\s\S])'
       native_answer:
         range: SourceValue
         inlined: true
         required: true
       candidate_list_digest:
         range: string
-        pattern: ^[0-9a-f]{64}$
+        pattern: '^[0-9a-f]{64}$(?![\s\S])'
       source_field:
         range: string
       observed_keys:
@@ -808,7 +808,7 @@ classes:
         range: boolean
       antecedent_status:
         range: string
-        pattern: ^(resolved|unresolved|unavailable|not_applicable)$
+        pattern: '^(resolved|unresolved|unavailable|not_applicable)$(?![\s\S])'
       antecedent_members:
         range: DdoSemanticMemberReference
         inlined: true
@@ -855,7 +855,7 @@ classes:
       dependency_digest:
         range: string
         required: true
-        pattern: ^[0-9a-f]{64}$
+        pattern: '^[0-9a-f]{64}$(?![\s\S])'
       native_container:
         range: DdoSemanticMemberReference
         required: true
@@ -887,27 +887,27 @@ classes:
   CharacterizationNavigationRole:
     is_a: SourceRecordProduct
     attributes:
-      role: {range: string, required: true, pattern: '^.+$'}
+      role: {range: string, required: true, pattern: '^.+$(?![\s\S])'}
       occurrences: {range: string, required: true, multivalued: true, minimum_cardinality: 1}
   CharacterizationNavigationToken:
     is_a: SourceRecordProduct
     attributes:
-      name: {range: string, required: true, pattern: '^.+$'}
+      name: {range: string, required: true, pattern: '^.+$(?![\s\S])'}
       index: {range: integer, required: true, minimum_value: 0}
       native_node: {range: DdoSemanticMemberReference, required: true, inlined: true}
   CharacterizationNavigationLabel:
     is_a: SourceRecordProduct
     attributes:
-      kind: {range: string, required: true, pattern: '^(numbering_namespace|revision)$'}
-      value: {range: string, required: true, pattern: '^.+$'}
+      kind: {range: string, required: true, pattern: '^(numbering_namespace|revision)$(?![\s\S])'}
+      value: {range: string, required: true, pattern: '^.+$(?![\s\S])'}
       occurrences: {range: string, required: true, multivalued: true, minimum_cardinality: 1}
   CharacterizationNavigation:
     is_a: SourceRecordProduct
     attributes:
       codec: {equals_string: source-navigation-v1, required: true}
-      kind: {range: string, required: true, pattern: '^(named_link|named_availability|lexical_named_link|symbol_declaration|declaration_template|declaration_cue|recap|artifact_mention|artifact_reference|artifact_explicit_reference|artifact_relation|artifact_work|section_heading|note_scope|table_schematic|table_role|table_geometry)$'}
-      pointer: {range: string, required: true, pattern: '^.+$'}
-      status: {range: string, required: true, pattern: '^(complete|partial|unavailable)$'}
+      kind: {range: string, required: true, pattern: '^(named_link|named_availability|lexical_named_link|symbol_declaration|declaration_template|declaration_cue|recap|artifact_mention|artifact_reference|artifact_explicit_reference|artifact_relation|artifact_work|section_heading|note_scope|table_schematic|table_role|table_geometry)$(?![\s\S])'}
+      pointer: {range: string, required: true, pattern: '^.+$(?![\s\S])'}
+      status: {range: string, required: true, pattern: '^(complete|partial|unavailable)$(?![\s\S])'}
       roles: {range: CharacterizationNavigationRole, inlined: true, multivalued: true}
       native_tokens: {range: CharacterizationNavigationToken, inlined: true, multivalued: true}
       rule: {range: string}
@@ -920,17 +920,17 @@ classes:
       designator: {range: string}
       artifact_kind: {range: string}
       source_labels: {range: CharacterizationNavigationLabel, inlined: true, multivalued: true}
-      alias_state: {range: string, pattern: '^(observed|known_empty|unknown)$'}
+      alias_state: {range: string, pattern: '^(observed|known_empty|unknown)$(?![\s\S])'}
       numbering_namespace: {range: string}
       work: {range: string}
       revision: {range: string}
       cell_index: {range: integer, minimum_value: 0}
-      axis: {range: string, pattern: '^(all|row|column|band)$'}
+      axis: {range: string, pattern: '^(all|row|column|band)$(?![\s\S])'}
       label: {range: string}
-      measure_role: {range: string, pattern: '^(row_sum|column_sum|sample_count|observed_count|value_role|unit)$'}
-      geometry_role: {range: string, pattern: '^(frequency|relative_frequency|row_key)$'}
-      introducer: {range: string, pattern: '^(let|where|suppose|define)$'}
-      definition_subject_kind: {range: string, pattern: '^(term|identifier)$'}
+      measure_role: {range: string, pattern: '^(row_sum|column_sum|sample_count|observed_count|value_role|unit)$(?![\s\S])'}
+      geometry_role: {range: string, pattern: '^(frequency|relative_frequency|row_key)$(?![\s\S])'}
+      introducer: {range: string, pattern: '^(let|where|suppose|define)$(?![\s\S])'}
+      definition_subject_kind: {range: string, pattern: '^(term|identifier)$(?![\s\S])'}
 
 imports:
 - observations

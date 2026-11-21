@@ -40,7 +40,7 @@ class DdoRichScientificRepresentative(RichDecisionRecord):
 
 
 class DdoRichEligibility(RichDecisionRecord):
-    eligibility_policy_digest: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    eligibility_policy_digest: Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")]
     selected_fact_ids: tuple[Nonempty, ...]
     selected_occurrence_ids: tuple[Nonempty, ...]
     scientific_representatives: tuple[DdoRichScientificRepresentative, ...]

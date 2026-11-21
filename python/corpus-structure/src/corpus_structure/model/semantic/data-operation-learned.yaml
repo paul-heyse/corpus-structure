@@ -18,7 +18,7 @@ classes:
         required: true
       profile_digest:
         required: true
-        pattern: ^[0-9a-f]{64}$
+        pattern: '^[0-9a-f]{64}$(?![\s\S])'
       source_pin:
         range: RecordSourcePin
         inlined: true
@@ -34,7 +34,7 @@ classes:
         minimum_cardinality: 0
       outcome:
         required: true
-        pattern: ^(complete|partial)$
+        pattern: '^(complete|partial)$(?![\s\S])'
       dependencies:
         range: DdoSemanticProductReference
         inlined_as_list: true

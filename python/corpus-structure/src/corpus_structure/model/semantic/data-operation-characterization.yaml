@@ -14,10 +14,10 @@ classes:
     attributes:
       projection:
         required: true
-        pattern: ^[0-9a-f]{64}$
+        pattern: '^[0-9a-f]{64}$(?![\s\S])'
       native_pointer:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       page:
         range: integer
         minimum_value: 1
@@ -36,7 +36,7 @@ classes:
     attributes:
       local_id:
         required: true
-        pattern: ^[0-9a-f]{64}$
+        pattern: '^[0-9a-f]{64}$(?![\s\S])'
       extents:
         range: DdoFormalExtent
         inlined: true
@@ -66,10 +66,10 @@ classes:
         required: true
       availability:
         required: true
-        pattern: ^(available|unknown|unsupported|unavailable)$
+        pattern: '^(available|unknown|unsupported|unavailable)$(?![\s\S])'
       outcome:
         required: true
-        pattern: ^(complete|empty|partial|failed|unknown|unsupported)$
+        pattern: '^(complete|empty|partial|failed|unknown|unsupported)$(?![\s\S])'
       reason: {}
   DdoFormalScope:
     is_a: SourceRecordProduct
@@ -89,10 +89,10 @@ classes:
       subject_definition: {required: true}
       subject:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       original_source:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       analyzed_scope:
         range: DdoFormalScope
         inlined: true
@@ -102,10 +102,10 @@ classes:
     attributes:
       member_id:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       kind_contract:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       context:
         range: DdoFormalMemberContext
         inlined: true
@@ -119,7 +119,7 @@ classes:
     attributes:
       terminal:
         required: true
-        pattern: ^(WORD|COPULA|NEG|MODAL|QUANT|IF|THEN|REL|CONJ|PREP|REPORT|QUOTE|QUESTION|PUNCT|COMMA|AUX|FUNCTION|WS)$
+        pattern: '^(WORD|COPULA|NEG|MODAL|QUANT|IF|THEN|REL|CONJ|PREP|REPORT|QUOTE|QUESTION|PUNCT|COMMA|AUX|FUNCTION|WS)$(?![\s\S])'
       start:
         range: integer
         required: true
@@ -160,7 +160,7 @@ classes:
         minimum_value: 0
       availability:
         required: true
-        pattern: ^(available|unsupported)$
+        pattern: '^(available|unsupported)$(?![\s\S])'
       reason: {}
       atoms:
         range: DdoFormalProtectedSpan
@@ -189,7 +189,7 @@ classes:
         minimum_cardinality: 1
       outcome:
         required: true
-        pattern: ^(complete|partial|failed)$
+        pattern: '^(complete|partial|failed)$(?![\s\S])'
       coverage:
         range: DdoFormalCoverage
         inlined: true
@@ -224,7 +224,7 @@ classes:
         equals_string: native_evidence
       vocabulary:
         required: true
-        pattern: ^(formal-source-fields-1|formal-syntax-v1|math-source-symbol-1)$
+        pattern: '^(formal-source-fields-1|formal-syntax-v1|math-source-symbol-1)$(?![\s\S])'
       record_type:
         required: true
         equals_string: annotation
@@ -351,7 +351,7 @@ classes:
         pattern: ^formal\.
       status:
         required: true
-        pattern: ^(interpreted|unknown|implicit)$
+        pattern: '^(interpreted|unknown|implicit)$(?![\s\S])'
       record_type:
         required: true
         equals_string: term
@@ -417,7 +417,7 @@ classes:
         equals_string: choice_member
       group_id:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
     slot_usage:
       external_premises:
         minimum_cardinality: 0
@@ -433,7 +433,7 @@ classes:
     attributes:
       local_id:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
   DdoFormalManifest:
     is_a: DdoFormalMember
     mixins:

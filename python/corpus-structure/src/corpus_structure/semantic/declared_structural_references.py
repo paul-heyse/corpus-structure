@@ -11,7 +11,7 @@ from .identity import canonical_bytes
 from .structural_base import StructuralValue
 
 Nonempty = Annotated[str, Field(min_length=1)]
-Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+Digest = Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")]
 
 
 class DeclaredStructuralSource(StructuralValue):
@@ -95,7 +95,7 @@ class DeclaredProductRef(StructuralValue):
 
 
 class DeclaredContributionRef(DeclaredProductRef):
-    contribution_id: Annotated[str, Field(pattern=r"^source-contribution:[0-9a-f]{64}$")]
+    contribution_id: Annotated[str, Field(min_length=84, max_length=84, pattern=r"^source-contribution:[0-9a-f]{64}$")]
 
 
 class DeclaredStructuralRef(DeclaredProductRef):

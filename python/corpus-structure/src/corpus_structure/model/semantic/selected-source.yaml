@@ -9,8 +9,8 @@ types:
   SourceString: {base: str, uri: 'xsd:string'}
   SourceInteger: {base: int, uri: 'xsd:integer'}
   SourceBoolean: {base: bool, uri: 'xsd:boolean'}
-  SourceDigest: {base: str, uri: 'xsd:string', pattern: '^[0-9a-f]{64}$'}
-  SourcePointer: {base: str, uri: 'xsd:string', pattern: '^#(/[^/]+)+$'}
+  SourceDigest: {base: str, uri: 'xsd:string', pattern: '^[0-9a-f]{64}$(?![\s\S])'}
+  SourcePointer: {base: str, uri: 'xsd:string', pattern: '^#(/[^/]+)+$(?![\s\S])'}
 enums:
   SourceFormat: {permissible_values: {selected-source-v2: {}}}
   SourceMembership: {permissible_values: {descendants: {}}}
@@ -50,7 +50,7 @@ classes:
   SelectedSourceRecordDescriptor:
     attributes:
       pointer: {range: SourcePointer, required: true}
-      record_id: {required: true, pattern: '^.+$'}
+      record_id: {required: true, pattern: '^.+$(?![\s\S])'}
       ordinal: {range: SourceInteger, required: true, minimum_value: 0}
       parent_pointer: {range: SourcePointer, required: false}
       section_pointer: {range: SourcePointer, required: false}
@@ -58,8 +58,8 @@ classes:
       role: {range: SourceRecordRole, required: true}
   SelectedSourceCompanionDescriptor:
     attributes:
-      family: {required: true, pattern: '^(occurrence|relation|endpoint|input|coverage|mapping_report|health|native_metadata)$'}
-      local_id: {required: true, pattern: '^.+$'}
+      family: {required: true, pattern: '^(occurrence|relation|endpoint|input|coverage|mapping_report|health|native_metadata)$(?![\s\S])'}
+      local_id: {required: true, pattern: '^.+$(?![\s\S])'}
       ordinal: {range: SourceInteger, required: true, minimum_value: 0}
   SelectedSourcePayloadEnd:
     attributes:

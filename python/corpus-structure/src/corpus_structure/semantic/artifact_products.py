@@ -61,7 +61,7 @@ class ArtifactSourceSelection(BaseModel):
 class ArtifactNominationSelection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     report_reference: str = Field(min_length=1)
-    contribution_id: str = Field(pattern=r"^source-contribution:[0-9a-f]{64}$")
+    contribution_id: str = Field(min_length=84, max_length=84, pattern=r"^source-contribution:[0-9a-f]{64}$")
 
 
 def artifact_inputs(bundle):

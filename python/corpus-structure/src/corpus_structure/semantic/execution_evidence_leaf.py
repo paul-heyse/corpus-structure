@@ -30,7 +30,7 @@ class NativeExecutionEvidenceLeaf(BaseModel):
     recipe: str = Field(min_length=1)
     producer: WireAttemptFence
     intent_id: str = Field(min_length=1)
-    intent_payload_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    intent_payload_digest: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
     selected_completion: WireCompletion
     publication_receipt_id: str = Field(min_length=1)
     product_id: str = Field(min_length=1)
@@ -38,13 +38,13 @@ class NativeExecutionEvidenceLeaf(BaseModel):
     output_role: str = Field(min_length=1)
     output_position: int = Field(ge=0)
     cpu_receipt: CPUExecutionReceipt
-    whole_reply_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    whole_reply_digest: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
     member: str = Field(min_length=1)
     member_ordinal: int = Field(ge=0)
     cohort_size: int = Field(ge=1)
-    cohort_membership_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
-    input_basis_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
-    member_output_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cohort_membership_digest: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+    input_basis_digest: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+    member_output_digest: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
     physical_cohort: Literal["undisclosed"]
     verification: Literal["native-checked-member-projection"]
 

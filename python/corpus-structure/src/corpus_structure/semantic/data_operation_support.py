@@ -22,7 +22,7 @@ class OriginalDocumentRef(BaseModel):
     kind: Literal["original-document"]
     project_id: Nonempty
     document_key: Nonempty
-    content_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    content_hash: Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")]
     mime: Nonempty
 
 

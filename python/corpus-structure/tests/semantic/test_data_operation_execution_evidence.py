@@ -7,7 +7,8 @@ from typing import Any
 from typing import cast as typing_cast
 
 import pytest
-from jsonschema import Draft7Validator, ValidationError
+from jsonschema import Draft7Validator
+from pydantic import ValidationError
 
 from corpus_structure.methods.native_host import NativeExecutionReceipt
 from corpus_structure.semantic._data_operation_wire import (
@@ -105,7 +106,13 @@ def test_provider_scatter_receipt_preserves_real_cohort_and_exact_logical_fence(
     assert value["provider_receipts"][0]["physical"][0]["request_id"] == "host-request"
 
 
-def test_actual_transport_fields_are_bound_to_exact_native_attempt():
+def test_actual_transport_fields_are_bound_to_exact_native_attempt(monkeypatch):
+    from corpus_structure.semantic import data_operation_execution_evidence as evidence
+
+    def duplicate_schema_validation(*args, **kwargs):
+        raise AssertionError("model-owned ingress must not repeat its generated schema validation")
+
+    monkeypatch.setattr(evidence, "prepared_schema_validator", duplicate_schema_validation)
     fence = dict(request_id="native-request", generation=2, task_id=3, attempt=4, holder="owner")
     value = bind_execution_evidence(
         canonical_bytes([asdict(receipt())]), fence=fence, runtime_id="native-runtime"
@@ -129,7 +136,7 @@ def test_original_host_receipt_schema_remains_closed(mutation):
         record["host_generation"] = 7
     else:
         record["runtime"] = ""
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as failure:
         bind_execution_evidence(
             canonical_bytes([record]),
             fence=dict(
@@ -141,6 +148,7 @@ def test_original_host_receipt_schema_remains_closed(mutation):
             ),
             runtime_id="runtime",
         )
+    assert failure.value.errors()[0]["loc"][:2] == ("host_receipts", 0)
 
 
 def test_captured_companion_schema_is_required_and_owns_wire_interpretation():

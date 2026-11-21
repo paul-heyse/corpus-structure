@@ -9,9 +9,9 @@ classes:
     is_a: SourceRecordProduct
     description: Governed semantic product address, independent of physical task and receipt custody.
     attributes:
-      product_id: {required: true, pattern: '^.+$'}
+      product_id: {required: true, pattern: '^.+$(?![\s\S])'}
   DdoSemanticMemberReference:
     is_a: DdoSemanticProductReference
     description: Exact member address qualified by its authentic governing product.
     attributes:
-      member_id: {required: true, pattern: '^.+$'}
+      member_id: {required: true, pattern: '^.+$(?![\s\S])'}

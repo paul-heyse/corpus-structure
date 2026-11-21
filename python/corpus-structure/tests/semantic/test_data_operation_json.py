@@ -222,3 +222,68 @@ def test_native_jsonb_preserves_fraction_and_context_key_meaning(native_rollback
         "project", "subject", "original", json_bytes(result), subject_definition="document"
     )
     assert semantic_value(context.identity_record)[1][0] == ["analyzed_scope", expected]
+
+
+@pytest.mark.parametrize(
+    'kind,value,expected',
+    [
+        ('digest', 'a' * 64, True),
+        ('digest', 'a' * 64 + '\n', False),
+        ('digest', 'a' * 63, False),
+        ('integer', ['integer', '-12'], True),
+        ('integer', ['integer', '-12\n'], False),
+        ('decimal', ['decimal', '1.25e-3'], True),
+        ('decimal', ['decimal', '1.25e-3\n'], False),
+    ],
+)
+def test_declared_portable_patterns_match_native_at_true_input_end(native_rollback, kind, value, expected):
+    import json
+
+    import yaml
+    from jsonschema import ValidationError
+    from sqlalchemy import JSON, func
+
+    from corpus_structure.model.compiled import model_source
+    from corpus_structure.semantic.data_operation_wire import DRAFT7, schema_closure
+    from corpus_structure.semantic.schema_validation import prepared_schema_validator
+
+    definitions = yaml.safe_load(model_source('data-operation-native.yaml'))['definitions']
+    name = 'pdf_search_digest' if kind == 'digest' else 'semantic_value'
+    schema = {'$schema': DRAFT7, **schema_closure({'$ref': '#/definitions/' + name}, definitions)}
+    encoded = json.dumps(schema).encode()
+    validator = prepared_schema_validator(encoded)
+    if expected:
+        validator.validate(value)
+    else:
+        with pytest.raises(ValidationError):
+            validator.validate(value)
+    native = native_rollback.connection.scalar(
+        select(func.public.json_matches_schema(cast(bindparam('schema'), JSON), cast(bindparam('value'), JSON))),
+        {'schema': encoded.decode(), 'value': json.dumps(value)},
+    )
+    assert native is expected
+
+
+def test_linkml_digest_type_preserves_full_input_pattern_in_generated_schema():
+    import json
+
+    import yaml
+    from jsonschema.validators import validator_for
+    from linkml.generators.jsonschemagen import JsonSchemaGenerator
+    from linkml_runtime.linkml_model import SchemaDefinition
+    from linkml_runtime.utils.schemaview import SchemaView
+
+    from corpus_structure.model.compiled import model_source
+
+    declaration = yaml.safe_load(model_source('pdf-products.yaml'))
+    schema = SchemaDefinition(
+        id='https://example.org/pattern', name='pattern',
+        prefixes={'xsd': 'http://www.w3.org/2001/XMLSchema#', 'p': 'https://example.org/pattern/'},
+        default_prefix='p', types={'Digest': declaration['types']['PdfDigest']},
+        classes={'Record': {'attributes': {'digest': {'range': 'Digest', 'required': True}}}},
+    )
+    view = SchemaView(schema)
+    generated = json.loads(JsonSchemaGenerator(schema, schemaview=view, top_class='Record').serialize())
+    validator = validator_for(generated)(generated)
+    assert validator.is_valid({'digest': 'a' * 64})
+    assert not validator.is_valid({'digest': 'a' * 64 + '\n'})

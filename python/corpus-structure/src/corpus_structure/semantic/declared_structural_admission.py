@@ -24,7 +24,7 @@ class DdoStructuralAdmission(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     version: Literal["structural-admission-1"] = "structural-admission-1"
     report: DeclaredProductRef
-    component_id: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None
+    component_id: Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[a-f0-9]{64}$")] | None
     policy_id: Literal[
         "independent-structural-comparison-1",
         "independent-condition-qualification-1",

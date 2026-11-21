@@ -133,7 +133,7 @@ definitions:
             items:
             - const: integer
             - type: string
-              pattern: ^[+-]?[0-9]+$
+              pattern: '^[+-]?[0-9]+$(?![\s\S])'
             minItems: 2
             maxItems: 2
             additionalItems: false
@@ -148,7 +148,7 @@ definitions:
               items:
               - const: decimal
               - type: string
-                pattern: ^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?$
+                pattern: '^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?$(?![\s\S])'
               minItems: 2
               maxItems: 2
               additionalItems: false
@@ -419,6 +419,8 @@ definitions:
       model:
         type: string
         pattern: ^[0-9a-f]{64}$
+        minLength: 64
+        maxLength: 64
       roots:
         type: array
         items:
@@ -471,7 +473,7 @@ definitions:
     type: object
     properties:
       version: {const: data-demand-public-selection-v1}
-      model: {type: string, pattern: '^[0-9a-f]{64}$'}
+      model: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
       intent_digest: {$ref: '#/definitions/identifier'}
       roots: {type: array, items: {$ref: '#/definitions/root_subject'}}
       targets: {type: array, minItems: 1, items: {$ref: '#/definitions/identifier'}}
@@ -1691,12 +1693,12 @@ definitions:
         type: object
         properties:
           provider: {const: d1}
-          profile: {type: string, pattern: '^[0-9a-f]{64}$'}
-          runtime: {type: string, pattern: '^[0-9a-f]{64}$'}
+          profile: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
+          runtime: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
         required: [provider, profile, runtime]
         additionalProperties: false
-      members: {type: array, minItems: 1, maxItems: 16, items: {type: string, pattern: '^[0-9a-f]{64}$'}}
-      digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      members: {type: array, minItems: 1, maxItems: 16, items: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}}
+      digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
       member_ordinal: {type: integer, minimum: 0, maximum: 15}
     required: [version, header, members, digest, member_ordinal]
     additionalProperties: false
@@ -1727,7 +1729,7 @@ definitions:
       subject: {$ref: '#/definitions/identifier'}
       subject_definition: {$ref: '#/definitions/identifier'}
       document: {$ref: '#/definitions/identifier'}
-      projection_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      projection_digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
       section_pointer: {type: string}
       membership: {$ref: '#/definitions/identifier'}
       project_id: {$ref: '#/definitions/identifier'}
@@ -1746,8 +1748,8 @@ definitions:
       family: {$ref: '#/definitions/identifier'}
       stage: {type: integer, minimum: 0}
       request_json: {type: string, minLength: 1, maxLength: 67108864}
-      request_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
-      profile_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      request_digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
+      profile_digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
       native_reply: {$ref: '#/definitions/d1_limitation_reply'}
       inspected_count: {type: integer, enum: [0]}
       emitted_count: {type: integer, enum: [0]}
@@ -1906,7 +1908,7 @@ definitions:
     properties:
       project_id: {$ref: '#/definitions/identifier'}
       origin_id: {$ref: '#/definitions/identifier'}
-      draft_id: {type: string, pattern: '^[0-9a-f]{64}$'}
+      draft_id: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
       producer: {$ref: '#/definitions/retain_data_completion_intent_request'}
     required: [project_id, origin_id, draft_id, producer]
     additionalProperties: false
@@ -2436,8 +2438,8 @@ definitions:
     type: object
     properties:
       release_id: {$ref: '#/definitions/identifier'}
-      model_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
-      native_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      model_digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
+      native_digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
       conservative_operations:
         type: array
         items: {$ref: '#/definitions/identifier'}
@@ -2468,8 +2470,8 @@ definitions:
         - type: 'null'
         - type: object
           properties:
-            manifest_sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
-            archive_sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
+            manifest_sha256: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
+            archive_sha256: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
           required: [manifest_sha256, archive_sha256]
           additionalProperties: false
     required: [recipe, profile, implementation_revision, input_roles, output_roles, runtime]
@@ -2491,7 +2493,7 @@ definitions:
     type: object
     properties:
       packet_id: {$ref: '#/definitions/identifier'}
-      packet_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      packet_digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
       state: {const: awaiting-external}
     required: [packet_id, packet_digest, state]
     additionalProperties: false
@@ -2507,7 +2509,7 @@ definitions:
     type: object
     properties:
       packet_id: {$ref: '#/definitions/identifier'}
-      packet_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      packet_digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
       request_id: {$ref: '#/definitions/identifier'}
       generation: {$ref: '#/definitions/positive_integer'}
       task_id: {$ref: '#/definitions/task_id'}
@@ -2538,7 +2540,7 @@ definitions:
     type: object
     properties:
       packet_id: {$ref: '#/definitions/identifier'}
-      packet_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      packet_digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
       packet: {$ref: '#/definitions/json_value'}
     required: [packet_id, packet_digest, packet]
     additionalProperties: false
@@ -2630,9 +2632,9 @@ definitions:
       use_id: {$ref: '#/definitions/identifier'}
       product_id: {$ref: '#/definitions/identifier'}
       derivation_id: {$ref: '#/definitions/identifier'}
-      expected_cut: {type: string, pattern: '^cut-selection:[0-9a-f]{64}$'}
+      expected_cut: {type: string, pattern: '^cut-selection:[0-9a-f]{64}$', minLength: 78, maxLength: 78}
       cut_canonical_json: {type: string, minLength: 1}
-      frame_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      frame_digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
       max_bytes: {type: integer, minimum: 1024, maximum: 67108864}
     required: [variant, project_id, demand_id, read_id, use_id, product_id, derivation_id, expected_cut, cut_canonical_json, frame_digest]
     additionalProperties: false
@@ -2700,7 +2702,7 @@ definitions:
       occurrence_id: {$ref: '#/definitions/identifier'}
       cell_index: {type: integer, minimum: 0}
       query: {$ref: '#/definitions/identifier'}
-      artifact_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+      artifact_digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
     required: [source, evidence, mode, after, limit, max_bytes, regions]
     additionalProperties: false
     allOf:
@@ -2732,7 +2734,7 @@ definitions:
     - project_id
     - release_id
     additionalProperties: false
-  pdf_search_digest: {type: string, pattern: '^[0-9a-f]{64}$'}
+  pdf_search_digest: {type: string, pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
   pdf_search_recipe:
     type: object
     properties:
@@ -2806,7 +2808,7 @@ definitions:
     properties:
       state: {type: string, enum: [missing, ready]}
       population_id: {$ref: '#/definitions/identifier'}
-      set_digest: {type: [string, 'null'], pattern: '^[0-9a-f]{64}$'}
+      set_digest: {type: [string, 'null'], pattern: '^[0-9a-f]{64}$', minLength: 64, maxLength: 64}
       row_count: {$ref: '#/definitions/nonnegative_integer'}
     required: [state, population_id, set_digest, row_count]
     additionalProperties: false

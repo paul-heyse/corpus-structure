@@ -32,7 +32,7 @@ classes:
         minimum_cardinality: 1
       token_id_standing:
         required: true
-        pattern: ^(authenticated-vocabulary|execution-only-no-authenticated-vocabulary-namespace)$
+        pattern: '^(authenticated-vocabulary|execution-only-no-authenticated-vocabulary-namespace)$(?![\s\S])'
       vocabulary_namespace: {}
       input_ids:
         range: integer
@@ -106,7 +106,7 @@ classes:
     attributes:
       kind:
         required: true
-        pattern: ^(token|constituent)$
+        pattern: '^(token|constituent)$(?![\s\S])'
       constituent: {}
       token:
         range: DdoSemanticMemberReference
@@ -176,7 +176,7 @@ classes:
         required: true
       outcome:
         required: true
-        pattern: ^(complete|partial)$
+        pattern: '^(complete|partial)$(?![\s\S])'
       alignments:
         range: DdoHanlpAlignment
         inlined: true

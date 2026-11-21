@@ -13,11 +13,11 @@ types:
   PdfDigest:
     base: str
     uri: xsd:string
-    pattern: ^[0-9a-f]{64}$
+    pattern: '^[0-9a-f]{64}$(?![\s\S])'
   PdfPointer:
     base: str
     uri: xsd:string
-    pattern: ^#(/[^/]+)+$
+    pattern: '^#(/[^/]+)+$(?![\s\S])'
   PdfInteger:
     base: int
     uri: xsd:integer
@@ -484,7 +484,7 @@ classes:
       source_scope:
         range: PdfString
         required: true
-        pattern: ^(whole_document|page_range)$
+        pattern: '^(whole_document|page_range)$(?![\s\S])'
         slot_uri: pdf:PdfNativeEnvelope_source_scope
       page_start:
         range: PdfInteger
@@ -1619,6 +1619,6 @@ classes:
     is_a: PdfConversionHealth
     description: Native conversion health and explicit original scope for record publication; growing outcomes remain native metadata rows.
     attributes:
-      source_scope: {range: PdfString, required: true, pattern: ^(whole_document|page_range)$}
+      source_scope: {range: PdfString, required: true, pattern: '^(whole_document|page_range)$(?![\s\S])'}
       page_start: {range: PdfInteger, minimum_value: 1}
       page_end: {range: PdfInteger, minimum_value: 1}

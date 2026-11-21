@@ -36,7 +36,7 @@ from .identity import canonical_bytes
 from .structural_base import StructuralValue
 
 Positive = Annotated[int, Field(strict=True, gt=0)]
-Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+Digest = Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")]
 Nonempty = Annotated[str, Field(min_length=1)]
 Dimension = Literal[
     "actor",

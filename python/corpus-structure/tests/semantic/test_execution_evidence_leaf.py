@@ -148,6 +148,16 @@ def test_detached_execution_contract_validates_its_explicit_schema_dialect():
         validator.validate(value)
 
 
+@pytest.mark.parametrize("field", ["intent_payload_digest", "whole_reply_digest", "cohort_membership_digest", "input_basis_digest", "member_output_digest"])
+def test_detached_digest_contract_refuses_trailing_newline(field):
+    from jsonschema import Draft202012Validator, ValidationError
+
+    value, _ = protocol_example()
+    value[field] = "a" * 64 + "\n"
+    with pytest.raises(ValidationError):
+        Draft202012Validator(execution_evidence_leaf_schema()).validate(value)
+
+
 @pytest.mark.parametrize(
     "change",
     [

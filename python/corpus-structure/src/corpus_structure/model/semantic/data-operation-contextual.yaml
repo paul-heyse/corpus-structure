@@ -75,7 +75,7 @@ classes:
     attributes:
       object_id: {required: true}
       source_binding: {required: true}
-      role: {required: true, pattern: "^(query|document)$"}
+      role: {required: true, pattern: '^(query|document)$(?![\s\S])'}
       text: {required: true}
       final_input_digest: {required: true}
       truncated: {range: boolean, required: true}
@@ -109,7 +109,7 @@ classes:
       subject: {required: true}
       original_source: {required: true}
       analyzed_scope_meaning: {required: true}
-      contribution_id: {required: true, pattern: "^source-contribution:[0-9a-f]{64}$"}
+      contribution_id: {required: true, pattern: '^source-contribution:[0-9a-f]{64}$(?![\s\S])'}
   DdoContextualQuery:
     is_a: SourceRecordProduct
     attributes:
@@ -129,7 +129,7 @@ classes:
   DdoEncodedQueryContext:
     is_a: SourceRecordProduct
     attributes:
-      recipe: {required: true, pattern: "^(lexical-native-1|located-frame-2|located-referent-2|located-discourse-neighbor-2)$"}
+      recipe: {required: true, pattern: '^(lexical-native-1|located-frame-2|located-referent-2|located-discourse-neighbor-2)$(?![\s\S])'}
       report: {range: SourceValue, inlined: true, required: true}
       rendered: {required: true}
       representation_digest: {required: true}
@@ -165,8 +165,8 @@ classes:
     attributes:
       hypothesis_id: {required: true}
       target_id: {required: true}
-      relation: {required: true, pattern: "^(denotes|alias-of|defined-by|specializes|compared-with|participates-in|cites-section)$"}
-      asserted_basis: {required: true, pattern: "^(explicit_source_cue|producer_group|geometry|model_reading|admitted_derivation)$"}
+      relation: {required: true, pattern: '^(denotes|alias-of|defined-by|specializes|compared-with|participates-in|cites-section)$(?![\s\S])'}
+      asserted_basis: {required: true, pattern: '^(explicit_source_cue|producer_group|geometry|model_reading|admitted_derivation)$(?![\s\S])'}
       cue_refs: {range: DdoContextualCarrierInput, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 1}
   DdoContextualWitnessHypotheses:
     is_a: SourceRecordProduct
@@ -190,10 +190,10 @@ classes:
   DdoContextualNativeScoreHit:
     is_a: SourceRecordProduct
     attributes:
-      channel: {required: true, pattern: "^(alias|lexical|dense)$"}
+      channel: {required: true, pattern: '^(alias|lexical|dense)$(?![\s\S])'}
       target_id: {required: true}
       rank: {range: integer, required: true, minimum_value: 1}
-      score_float8_hex: {required: true, pattern: "^[0-9a-f]{16}$"}
+      score_float8_hex: {required: true, pattern: '^[0-9a-f]{16}$(?![\s\S])'}
   DdoContextualNativeScores:
     is_a: SourceRecordProduct
     attributes:

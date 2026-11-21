@@ -56,13 +56,13 @@ classes:
     attributes:
       document:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       content_hash:
         required: true
-        pattern: ^[0-9a-f]{64}$
+        pattern: '^[0-9a-f]{64}$(?![\s\S])'
       mime:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
   DdoNativeSourceCoordinate:
     is_a: SourceRecordProduct
     description: Semantic source identity and original projection coordinates; physical
@@ -70,25 +70,25 @@ classes:
     attributes:
       document:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       document_subject:
         required: true
-        pattern: ^original-document:[0-9a-f]{64}$
+        pattern: '^original-document:[0-9a-f]{64}$(?![\s\S])'
       section_pointer:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       membership:
         required: true
-        pattern: ^(direct|descendants)$
+        pattern: '^(direct|descendants)$(?![\s\S])'
       projection:
         required: true
-        pattern: ^[0-9a-f]{64}$
+        pattern: '^[0-9a-f]{64}$(?![\s\S])'
   DdoNativeSourcePiece:
     is_a: SourceRecordProduct
     attributes:
       kind:
         required: true
-        pattern: ^(native_text|synthetic_separator)$
+        pattern: '^(native_text|synthetic_separator)$(?![\s\S])'
       start:
         range: integer
         required: true
@@ -114,10 +114,10 @@ classes:
     attributes:
       self_ref:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       label:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       text: {}
       orig: {}
       parent: {}
@@ -152,10 +152,10 @@ classes:
     attributes:
       pointer:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       outcome:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
   DdoSelectedNativeSource:
     description: Exact selected original text, ancestry, links and native table-grid
       context. Native-pointer selectors filter captured selected atoms by retained
@@ -208,7 +208,7 @@ classes:
         equals_string: manifest
       outcome:
         required: true
-        pattern: ^(complete|partial|failed)$
+        pattern: '^(complete|partial|failed)$(?![\s\S])'
       dependencies:
         range: DdoSemanticProductReference
         inlined: true
@@ -222,7 +222,7 @@ classes:
     attributes:
       family:
         required: true
-        pattern: ^\S+$
+        pattern: '^\S+$(?![\s\S])'
       eligible:
         range: CharacterizationSourceSelector
         inlined: true
@@ -242,10 +242,10 @@ classes:
         minimum_cardinality: 0
       availability:
         required: true
-        pattern: ^(available|unknown|unsupported|unavailable)$
+        pattern: '^(available|unknown|unsupported|unavailable)$(?![\s\S])'
       outcome:
         required: true
-        pattern: ^(complete|empty|partial|failed|unknown|unsupported)$
+        pattern: '^(complete|empty|partial|failed|unknown|unsupported)$(?![\s\S])'
       reason: {}
   DdoCharacterizationEnvelope:
     is_a: SourceRecordProduct

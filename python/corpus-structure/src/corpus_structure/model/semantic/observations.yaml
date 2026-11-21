@@ -157,7 +157,7 @@ classes:
     attributes:
       constraint_id: {required: true}
       contribution_ids: {multivalued: true}
-      retained_input_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      retained_input_digest: {required: true, pattern: '^[0-9a-f]{64}$(?![\s\S])'}
       dependencies: {multivalued: true, required: true, minimum_cardinality: 1}
       independent_baseline: {required: true, equals_string: retained_independent_contributions}
       probability_standing: {required: true}
@@ -167,10 +167,10 @@ classes:
       outcome: {required: true, range: LocalInterpretationOutcome}
       reason: {required: true}
       request: {range: SourceObject, inlined: true}
-      request_digest: {pattern: '^[0-9a-f]{64}$'}
+      request_digest: {pattern: '^[0-9a-f]{64}$(?![\s\S])'}
       result: {range: SourceObject, inlined: true}
-      result_digest: {pattern: '^[0-9a-f]{64}$'}
-      seal: {required: true, pattern: '^[0-9a-f]{64}$'}
+      result_digest: {pattern: '^[0-9a-f]{64}$(?![\s\S])'}
+      seal: {required: true, pattern: '^[0-9a-f]{64}$(?![\s\S])'}
   RetainedContributionSourceBinding:
     is_a: SourceRecordProduct
     attributes:
@@ -178,7 +178,7 @@ classes:
       current_source_view_id: {range: integer, minimum_value: 1, required: true}
       original_source: {required: true}
       current_source: {required: true}
-      physical_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      physical_digest: {required: true, pattern: '^[0-9a-f]{64}$(?![\s\S])'}
   SourceContributionOperation:
     is_a: SourceRecordProduct
     description: One attributed semantic question under a shared invocation, including zero-output questions.
@@ -191,10 +191,10 @@ classes:
       inspected_count: {range: integer, minimum_value: 0, required: true}
       emitted_count: {range: integer, minimum_value: 0, required: true}
       retained_task_id: {range: integer, minimum_value: 1}
-      retained_result_digest: {pattern: '^[0-9a-f]{64}$'}
+      retained_result_digest: {pattern: '^[0-9a-f]{64}$(?![\s\S])'}
       retained_source_bindings: {range: RetainedContributionSourceBinding, multivalued: true, inlined: true}
       local_interpretation: {range: LocalInterpretationReport, inlined: true}
-      report_digest: {pattern: '^[0-9a-f]{64}$'}
+      report_digest: {pattern: '^[0-9a-f]{64}$(?![\s\S])'}
       inputs: {range: SourceObservationReference, inlined: true, multivalued: true}
       computation_dependencies: {multivalued: true}
       annotation_origin_task_id: {range: integer, minimum_value: 1}
@@ -285,14 +285,14 @@ classes:
     attributes:
       version: {range: integer, required: true, minimum_value: 2, maximum_value: 2}
       policy: {required: true}
-      context_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      context_digest: {required: true, pattern: '^[0-9a-f]{64}$(?![\s\S])'}
       model_start: {range: integer, required: true, minimum_value: 0}
       model_end: {range: integer, required: true, minimum_value: 1}
       gaps: {range: PM2DipoWhitespaceGap, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
   PM2DipoEDUPayload:
     is_a: PM2ParserPayload
     attributes:
-      arm: {required: true, pattern: '^(learned|layout_forced|supplied|predicted)$'}
+      arm: {required: true, pattern: '^(learned|layout_forced|supplied|predicted)$(?![\s\S])'}
       edu: {range: integer, required: true, minimum_value: 0}
       tokens: {range: integer, required: true, multivalued: true, minimum_value: 0, minimum_cardinality: 2, maximum_cardinality: 2}
       provider_chars: {range: integer, required: true, multivalued: true, minimum_value: 0, minimum_cardinality: 2, maximum_cardinality: 2}
@@ -303,7 +303,7 @@ classes:
     attributes:
       left: {range: integer, required: true, multivalued: true, minimum_value: 0, minimum_cardinality: 2, maximum_cardinality: 2}
       right: {range: integer, required: true, multivalued: true, minimum_value: 0, minimum_cardinality: 2, maximum_cardinality: 2}
-      nuclearity: {required: true, pattern: '^(NN|NS|SN)$'}
+      nuclearity: {required: true, pattern: '^(NN|NS|SN)$(?![\s\S])'}
       relation: {required: true, pattern: '.+'}
   PM2DipoBoundary:
     is_a: SourceRecordProduct
@@ -311,7 +311,7 @@ classes:
       token_end: {range: integer, required: true, minimum_value: 1}
       learned: {range: boolean, required: true}
       forced: {range: boolean, required: true}
-      disposition: {required: true, pattern: '^(retained|merged)$'}
+      disposition: {required: true, pattern: '^(retained|merged)$(?![\s\S])'}
   PM2DipoProviderGap:
     is_a: SourceRecordProduct
     attributes:
@@ -320,7 +320,7 @@ classes:
   PM2DipoTreePayload:
     is_a: PM2ParserPayload
     attributes:
-      arm: {required: true, pattern: '^(learned|layout_forced|supplied|predicted)$'}
+      arm: {required: true, pattern: '^(learned|layout_forced|supplied|predicted)$(?![\s\S])'}
       root: {range: integer, required: true, multivalued: true, minimum_value: 0, minimum_cardinality: 2, maximum_cardinality: 2}
       splits: {range: PM2DipoSplit, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
       provider_gaps: {range: PM2DipoProviderGap, value_presence: PRESENT, multivalued: true, inlined: true, minimum_cardinality: 0}
@@ -331,7 +331,7 @@ classes:
     attributes:
       policy_id: {required: true, equals_string: exact-source-local-1}
       policy_version: {required: true, equals_string: '1'}
-      event: {required: true, pattern: '^(source_occurrence|source_literal_quote)$'}
+      event: {required: true, pattern: '^(source_occurrence|source_literal_quote)$(?![\s\S])'}
       basis: {required: true, equals_string: deterministic_native_source_coordinates}
   LocalSemanticPublicationPolicy:
     is_a: SourceRecordProduct
@@ -346,7 +346,7 @@ classes:
     is_a: SourceRecordProduct
     description: Attributed evidence for a private component; never an admission witness.
     attributes:
-      kind: {required: true, pattern: '^(matched_cue|producer_group|native_geometry|model_reading|admitted_derivation)$'}
+      kind: {required: true, pattern: '^(matched_cue|producer_group|native_geometry|model_reading|admitted_derivation)$(?![\s\S])'}
       dependencies: {multivalued: true, required: true, minimum_cardinality: 1}
       anchor_ids: {multivalued: true}
   LocatedComponentRole:
@@ -355,8 +355,8 @@ classes:
       role: {required: true}
       anchor_ids: {multivalued: true, required: true, minimum_cardinality: 1}
       head_token: {range: integer, required: true, minimum_value: 0}
-      expansion: {required: true, pattern: '^(exact|sentence_subtree|conjuncts|noun_chunk)$'}
-      outcome: {required: true, pattern: '^(complete|partial|unresolved)$'}
+      expansion: {required: true, pattern: '^(exact|sentence_subtree|conjuncts|noun_chunk)$(?![\s\S])'}
+      outcome: {required: true, pattern: '^(complete|partial|unresolved)$(?![\s\S])'}
   WitnessedComponent:
     is_a: SourceRecordProduct
     abstract: true
@@ -368,7 +368,7 @@ classes:
       question_version: {required: true}
       scope: {required: true}
       effective_version: {}
-      interpretation: {required: true, pattern: '^(unassessed|supported|incompatible|unresolved)$'}
+      interpretation: {required: true, pattern: '^(unassessed|supported|incompatible|unresolved)$(?![\s\S])'}
       bases: {range: ComponentBasis, multivalued: true, inlined: true, required: true, minimum_cardinality: 1}
       dependencies: {multivalued: true, required: true, minimum_cardinality: 1}
   LocatedRoleComponent:
@@ -416,21 +416,21 @@ classes:
       primary_node: {range: DdoSemanticMemberReference, inlined: true}
       primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       contribution: {required: true}
-      role: {required: true, pattern: '^(predicate|focus|actor|subject|object|complement|marker)$'}
+      role: {required: true, pattern: '^(predicate|focus|actor|subject|object|complement|marker)$(?![\s\S])'}
       token_indices: {range: integer, minimum_value: 0, multivalued: true, required: true, minimum_cardinality: 1}
       extents: {range: PredicateProjectedExtent, multivalued: true, inlined: true, required: true, minimum_cardinality: 1}
       head_token: {range: integer, minimum_value: 0}
       inherited_from: {range: integer, minimum_value: 0}
-      outcome: {required: true, pattern: '^(complete|partial|unresolved)$'}
+      outcome: {required: true, pattern: '^(complete|partial|unresolved)$(?![\s\S])'}
   PredicateUnlocatedRole:
     is_a: SourceRecordProduct
     description: Retained grammatical role for which no exact source extent is selected.
     attributes:
-      role: {required: true, pattern: '^(actor|subject|object|complement)$'}
+      role: {required: true, pattern: '^(actor|subject|object|complement)$(?![\s\S])'}
       head_token: {range: integer, required: true, minimum_value: 0}
       token_indices: {range: integer, minimum_value: 0, multivalued: true, required: true, minimum_cardinality: 1}
       inherited_from: {range: integer, minimum_value: 0}
-      reason: {required: true, pattern: '^(outside_selection|unmappable)$'}
+      reason: {required: true, pattern: '^(outside_selection|unmappable)$(?![\s\S])'}
   PredicateFrameComponent:
     is_a: WitnessedComponent
     description: Neutral predicate and source-coordinate focus with grammatical role members.
@@ -438,12 +438,12 @@ classes:
       primary_node: {range: DdoSemanticMemberReference, inlined: true}
       primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       kind: {equals_string: predicate_frame}
-      annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$'}
+      annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$(?![\s\S])'}
       block: {required: true}
       predicate_token: {range: integer, minimum_value: 0, required: true}
       variant: {required: true}
       grammatical_reading: {required: true}
-      focus_state: {required: true, pattern: '^(exact|partial|unavailable)$'}
+      focus_state: {required: true, pattern: '^(exact|partial|unavailable)$(?![\s\S])'}
       frame_members: {range: PredicateFrameMember, multivalued: true, inlined: true, required: true, minimum_cardinality: 1}
       unlocated_roles: {range: PredicateUnlocatedRole, multivalued: true, inlined: true}
   PredicateCueComponent:
@@ -454,11 +454,11 @@ classes:
       primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       primary_marker: {range: DdoSemanticMemberReference, inlined: true}
       kind: {equals_string: predicate_cue}
-      annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$'}
+      annotation: {required: true, pattern: '^annotation:[0-9a-f]{64}$(?![\s\S])'}
       block: {required: true}
-      cue_kind: {required: true, pattern: '^(condition|assumption|parameterization|population_inclusion|exception|attribution|modality|negation|order|dependency|contrast|example|quotation)$'}
+      cue_kind: {required: true, pattern: '^(condition|assumption|parameterization|population_inclusion|exception|attribution|modality|negation|order|dependency|contrast|example|quotation)$(?![\s\S])'}
       variant: {required: true}
-      host_state: {required: true, pattern: '^(located|unresolved)$'}
+      host_state: {required: true, pattern: '^(located|unresolved)$(?![\s\S])'}
       candidate_tokens: {range: integer, minimum_value: 0, multivalued: true}
       cross_block_hosts: {multivalued: true}
       governing_token: {range: integer, minimum_value: 0}
@@ -476,13 +476,13 @@ classes:
       primary_choices: {range: DdoSemanticMemberReference, inlined: true, multivalued: true}
       kind: {equals_string: predicate_reading}
       frame: {required: true}
-      reading: {required: true, pattern: '^(definition|explanation|reference|prescribed_action|described_process|assumption_restriction|example|unresolved)$'}
+      reading: {required: true, pattern: '^(definition|explanation|reference|prescribed_action|described_process|assumption_restriction|example|unresolved)$(?![\s\S])'}
       voice: {required: true}
-      polarity: {required: true, pattern: '^(positive|negative|unresolved)$'}
+      polarity: {required: true, pattern: '^(positive|negative|unresolved)$(?![\s\S])'}
   PredicateCrossBlockHostWitness:
     is_a: SourceRecordProduct
     attributes:
-      kind: {required: true, pattern: '^(list_intro|parameter_note)$'}
+      kind: {required: true, pattern: '^(list_intro|parameter_note)$(?![\s\S])'}
       list_group: {}
       parameterization: {}
   PredicateQualifierComponent:
@@ -495,7 +495,7 @@ classes:
       kind: {equals_string: predicate_qualifier}
       qualifier_contribution_id: {required: true}
       host_contribution_id: {required: true}
-      qualifier_kind: {required: true, pattern: '^(condition|assumption|parameterization|population_inclusion|exception|attribution|modality|negation|order|dependency)$'}
+      qualifier_kind: {required: true, pattern: '^(condition|assumption|parameterization|population_inclusion|exception|attribution|modality|negation|order|dependency)$(?![\s\S])'}
       qualification: {range: SourceValue, inlined: true, description: Encoded released Qualification.}
       condition: {range: SourceValue, inlined: true, description: Encoded released Condition.}
       interpretation_member: {}
@@ -555,7 +555,7 @@ classes:
     description: Exact finite decimal/scientific spelling; never a binary float projection.
     attributes:
       kind: {equals_string: decimal}
-      lexical: {required: true, pattern: '^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$'}
+      lexical: {required: true, pattern: '^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$(?![\s\S])'}
   RecordClassification:
     is_a: RecordScalar
     attributes:
@@ -581,7 +581,7 @@ classes:
       membership: {range: string, required: true}
       original_source: {range: string, required: true}
       project_id: {range: string, required: true}
-      projection_digest: {pattern: '^[0-9a-f]{64}$', range: string, required: true}
+      projection_digest: {pattern: '^[0-9a-f]{64}$(?![\s\S])', range: string, required: true}
       section_pointer: {range: string, required: true}
       source: {range: string, required: true}
       source_member: {range: string}
@@ -603,7 +603,7 @@ classes:
     attributes:
       version: {range: integer, minimum_value: 2, maximum_value: 2, required: true}
       policy: {required: true, equals_string: synthetic-whitespace-1}
-      context_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      context_digest: {required: true, pattern: '^[0-9a-f]{64}$(?![\s\S])'}
       model_start: {range: integer, minimum_value: 0, required: true}
       model_end: {range: integer, minimum_value: 1, required: true}
       gaps: {range: RecordContextGap, inlined: true, multivalued: true}
@@ -621,7 +621,7 @@ classes:
       selected_occurrence_id: {required: true}
       task_id: {range: integer, minimum_value: 1, required: true}
       product_key: {required: true}
-      content_digest: {required: true, pattern: '^[0-9a-f]{64}$'}
+      content_digest: {required: true, pattern: '^[0-9a-f]{64}$(?![\s\S])'}
       occurrence_id: {required: true}
       relation_id: {required: true}
       endpoint_role: {range: RecordRecognitionRole, required: true}

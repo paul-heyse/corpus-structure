@@ -21,7 +21,7 @@ classes:
         minimum_value: 0
       outcome:
         required: true
-        pattern: ^(complete|empty|unsupported)$
+        pattern: '^(complete|empty|unsupported)$(?![\s\S])'
       reason: {}
   DdoSentenceScope:
     is_a: SourceRecordProduct
@@ -83,7 +83,7 @@ classes:
         required: true
       role:
         required: true
-        pattern: ^(prose|math|reference)$
+        pattern: '^(prose|math|reference)$(?![\s\S])'
       sentence_ref: {}
       piece_indices:
         range: integer
@@ -151,7 +151,7 @@ classes:
         required: true
       outcome:
         required: true
-        pattern: ^(complete|partial)$
+        pattern: '^(complete|partial)$(?![\s\S])'
       block_coverage:
         range: DdoSentenceCoverage
         inlined: true
@@ -188,7 +188,7 @@ classes:
       status:
         range: string
         required: true
-        pattern: ^(complete|partial|absent|not_applicable)$
+        pattern: '^(complete|partial|absent|not_applicable)$(?![\s\S])'
   DdoAnnotationExtent:
     is_a: SourceRecordProduct
     attributes:
@@ -216,7 +216,7 @@ classes:
       kind:
         range: string
         required: true
-        pattern: ^(native_text|synthetic_separator)$
+        pattern: '^(native_text|synthetic_separator)$(?![\s\S])'
       cell_index:
         range: integer
       source_field:
@@ -238,7 +238,7 @@ classes:
       role:
         range: string
         required: true
-        pattern: ^(prose|math|reference)$
+        pattern: '^(prose|math|reference)$(?![\s\S])'
       lemma:
         range: string
         required: true
@@ -307,7 +307,7 @@ classes:
       kind:
         range: string
         required: true
-        pattern: ^(paragraph|list_item|table_cell|caption)$
+        pattern: '^(paragraph|list_item|table_cell|caption)$(?![\s\S])'
       block_start:
         range: integer
         required: true
@@ -424,7 +424,7 @@ classes:
       outcome:
         range: string
         required: true
-        pattern: ^(complete|partial)$
+        pattern: '^(complete|partial)$(?![\s\S])'
   DdoSourceAnnotationMember:
     is_a: SourceRecordProduct
     abstract: true
@@ -502,7 +502,7 @@ classes:
       outcome:
         range: string
         required: true
-        pattern: ^(complete|partial)$
+        pattern: '^(complete|partial)$(?![\s\S])'
       block_coverage:
         range: DdoSentenceCoverage
         inlined: true

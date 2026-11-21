@@ -164,10 +164,10 @@ class OperationEventParameters(EventContract):
     event_version: str
     producer_version: str
     feature_names: tuple[str, ...]
-    frame_digest: str = Field(pattern="^[0-9a-f]{64}$")
+    frame_digest: str = Field(min_length=64, max_length=64, pattern="^[0-9a-f]{64}$")
     corpus_id: str = Field(min_length=1)
-    rubric_digest: str = Field(pattern="^[0-9a-f]{64}$")
-    reference_digest: str = Field(pattern="^[0-9a-f]{64}$")
+    rubric_digest: str = Field(min_length=64, max_length=64, pattern="^[0-9a-f]{64}$")
+    reference_digest: str = Field(min_length=64, max_length=64, pattern="^[0-9a-f]{64}$")
     assessment_mode: Literal["in_sample_development"] = "in_sample_development"
     means: tuple[FiniteFloat, ...]
     scales: tuple[FiniteFloat, ...]

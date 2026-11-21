@@ -21,7 +21,7 @@ from .identity import canonical_bytes
 from .types import PreparedRelease
 
 Nonempty = Annotated[str, StringConstraints(pattern=r"\S")]
-Digest = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{64}$")]
+Digest = Annotated[str, StringConstraints(min_length=64, max_length=64, pattern=r"^[a-f0-9]{64}$")]
 Family = Literal["definition", "assertion", "measurement", "table", "formula_context"]
 
 

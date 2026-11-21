@@ -21,7 +21,7 @@ classes:
     attributes:
       local_id:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       extents:
         range: DdoInterpretedExtent
         inlined: true
@@ -126,10 +126,10 @@ classes:
     attributes:
       member_id:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       kind_contract:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       context:
         range: DdoFormalMemberContext
         required: true
@@ -198,7 +198,7 @@ classes:
         equals_string: choice_member
       group_id:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
     annotations:
       cs:data_universe: ordinary
   DdoMeaningBinding:
@@ -250,13 +250,13 @@ classes:
     attributes:
       family:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       availability:
         required: true
-        pattern: ^(available|unknown|unavailable|unsupported)$
+        pattern: '^(available|unknown|unavailable|unsupported)$(?![\s\S])'
       outcome:
         required: true
-        pattern: ^(complete|empty|partial|unknown|failed|unsupported)$
+        pattern: '^(complete|empty|partial|unknown|failed|unsupported)$(?![\s\S])'
       products:
         range: DdoSemanticProductReference
         multivalued: true
@@ -272,7 +272,7 @@ classes:
     attributes:
       profile:
         required: true
-        pattern: ^(source_only|selected_layers|full_characterization)$
+        pattern: '^(source_only|selected_layers|full_characterization)$(?![\s\S])'
       products:
         range: DdoSemanticProductReference
         inlined: true
@@ -290,10 +290,10 @@ classes:
         minimum_cardinality: 0
       outcome:
         required: true
-        pattern: ^(complete|partial)$
+        pattern: '^(complete|partial)$(?![\s\S])'
       original_document:
         required: true
-        pattern: ^.+$
+        pattern: '^.+$(?![\s\S])'
       sources:
         range: DdoSelectedNativeSource
         multivalued: true
@@ -319,7 +319,7 @@ classes:
         multivalued: true
       outcome:
         required: true
-        pattern: ^(complete|partial|failed)$
+        pattern: '^(complete|partial|failed)$(?![\s\S])'
       coverage:
         range: DdoInterpretedCoverage
         inlined: true
@@ -361,7 +361,7 @@ classes:
     is_a: DdoSemanticProductReference
     description: An actual retained native block inside the exact annotation product; not a member address.
     attributes:
-      block_id: {required: true, pattern: '^.+$'}
+      block_id: {required: true, pattern: '^.+$(?![\s\S])'}
   DdoNamedBinding:
     is_a: CharacterizationNamedBinding
     slot_usage:
