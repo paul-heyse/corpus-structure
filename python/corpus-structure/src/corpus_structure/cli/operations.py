@@ -615,7 +615,9 @@ def release_reacquire_host(
         acquired: StorageTarget
 
     with result_boundary(json):
-        expected = None if expected_target is None else StorageTarget.model_validate_json(expected_target)
+        expected = (
+            None if expected_target is None else StorageTarget.model_validate_json(expected_target)
+        )
         store = result_store(ctx)
         selected, settings = select_target(ctx, target, effect=True)
     scope = dict(release=release, runtime=runtime, target=selected, database_oid=database_oid)

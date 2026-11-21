@@ -7,9 +7,7 @@ from typing import Any
 from pydantic import BaseModel
 
 
-def _untrusted_value(
-    value: Any, *, model_field: Callable[[BaseModel, str], Any] = getattr
-) -> Any:
+def _untrusted_value(value: Any, *, model_field: Callable[[BaseModel, str], Any] = getattr) -> Any:
     """Model instances can have bypassed validation; reconstruct their public fields."""
     if isinstance(value, BaseModel):
         return {

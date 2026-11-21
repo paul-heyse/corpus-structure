@@ -59,8 +59,8 @@ from .data_operation_source_sets import (
     source_sets_record,
 )
 from .data_operation_values import decode_semantic_value, semantic_value
-from .data_operation_wire import interpret_wire_record
 from .data_operation_version import MODEL_VERSION
+from .data_operation_wire import interpret_wire_record
 from .identity import canonical_bytes
 from .selected_support import ProducerOutputOccurrence
 

@@ -278,10 +278,11 @@ def test_create_and_report_preserve_exact_native_scope_numbers(cli, tmp_path, mo
 def test_execute_keeps_scope_numbers_in_retained_snapshot(cli, tmp_path, monkeypatch, routing):
     from decimal import Decimal
 
+    from semantic.demand_result_support import demand_result_page
+
     from corpus_structure.orchestrate.data_operations import DemandAdvance
     from corpus_structure.semantic import data_operation_service
     from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-    from semantic.demand_result_support import demand_result_page
 
     number = "0.12345678901234567890123456789"
     native_page = demand_result_page()

@@ -614,22 +614,18 @@ def test_frozen_intent_preserves_declared_scope_numbers_without_rewriting_bytes(
     compiled = model(operation("op:result"))
     intent = freeze_demand(
         compiled,
-        roots=(
-            RootSubject(
-                "document:one", "source:one", b'{"fraction":0.123456789012345678901}'
-            ),
-        ),
+        roots=(RootSubject("document:one", "source:one", b'{"fraction":0.123456789012345678901}'),),
         targets=("op:result",),
         inference="exact",
         execution_profile="one",
     )
     retained = intent.content
     record = intent.record
-    assert record["roots"][0]["analyzed_scope"] == {
-        "fraction": Decimal("0.123456789012345678901")
-    }
+    scope = record["roots"][0]["analyzed_scope"]
+    assert isinstance(scope, dict)
+    assert scope == {"fraction": Decimal("0.123456789012345678901")}
     assert json_bytes(record) == retained
-    record["roots"][0]["analyzed_scope"]["fraction"] = 9
+    scope["fraction"] = 9
     assert intent.record["roots"][0]["analyzed_scope"] == {
         "fraction": Decimal("0.123456789012345678901")
     }

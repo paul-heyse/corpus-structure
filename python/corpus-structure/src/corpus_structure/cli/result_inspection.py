@@ -318,34 +318,56 @@ def inspect_result(
             target = operation_account.acquired_target if operation_account is not None else None
             profile = captured["configured_target"]["profile"] if captured is not None else None
             missing = tuple(
-                name for name, value in (
-                    ("release_id", bindings.release_id), ("runtime_id", bindings.runtime_id),
-                    ("acquired_target", target), ("target_profile", profile),
-                ) if value is None
+                name
+                for name, value in (
+                    ("release_id", bindings.release_id),
+                    ("runtime_id", bindings.runtime_id),
+                    ("acquired_target", target),
+                    ("target_profile", profile),
+                )
+                if value is None
             )
             command = None
             if not missing and target is not None:
-                command = shlex.join([
-                    "ci", "release", "reacquire-host",
-                    "--release", str(bindings.release_id),
-                    "--runtime", str(bindings.runtime_id),
-                    "--database-oid", str(target.database_oid),
-                    "--target", str(profile),
-                    "--expected-target", target.model_dump_json(), "--json",
-                ])
-            actions.append(NextAction(
-                kind="reacquire_host", owner="shared_host", result_id=result,
-                demand_id=bindings.demand_id, release_id=bindings.release_id,
-                runtime_id=bindings.runtime_id, prerequisite=preparation,
-                target_profile=profile, expected_target=target,
-                standing="conditional", required_inputs=missing,
-                command=command,
-                reason=(
-                    "The captured shared-host runtime prerequisite changed. Reacquire the "
-                    "same release on its recorded target, then select the returned runtime "
-                    "for a successor execution. The recorded demand retains its original runtime."
-                ),
-            ))
+                command = shlex.join(
+                    [
+                        "ci",
+                        "release",
+                        "reacquire-host",
+                        "--release",
+                        str(bindings.release_id),
+                        "--runtime",
+                        str(bindings.runtime_id),
+                        "--database-oid",
+                        str(target.database_oid),
+                        "--target",
+                        str(profile),
+                        "--expected-target",
+                        target.model_dump_json(),
+                        "--json",
+                    ]
+                )
+            actions.append(
+                NextAction(
+                    kind="reacquire_host",
+                    owner="shared_host",
+                    result_id=result,
+                    demand_id=bindings.demand_id,
+                    release_id=bindings.release_id,
+                    runtime_id=bindings.runtime_id,
+                    prerequisite=preparation,
+                    target_profile=profile,
+                    expected_target=target,
+                    standing="conditional",
+                    required_inputs=missing,
+                    command=command,
+                    reason=(
+                        "The captured shared-host runtime prerequisite changed. Reacquire the "
+                        "same release on its recorded target, then select the returned runtime "
+                        "for a successor execution. The recorded demand retains its original runtime."
+                    ),
+                )
+            )
         if manifest.settled is None:
             actions.append(
                 NextAction(
@@ -734,11 +756,13 @@ def render_inspection(report: ResultInspection) -> Group:
             )
             parts.append(Text(str(observation.fields)))
     if report.preparation is not None:
-        parts.append(Text(
-            f"Captured prerequisite {report.preparation.prerequisite} · "
-            f"{report.preparation.resource} · expected {report.preparation.expected} · "
-            f"observed {report.preparation.actual}"
-        ))
+        parts.append(
+            Text(
+                f"Captured prerequisite {report.preparation.prerequisite} · "
+                f"{report.preparation.resource} · expected {report.preparation.expected} · "
+                f"observed {report.preparation.actual}"
+            )
+        )
     if report.deployment is not None:
         parts.append(
             Text(

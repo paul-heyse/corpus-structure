@@ -690,12 +690,17 @@ def validate_native_wire(
     return result
 
 
-def wire_record_schema(name: str, sources=None) -> dict[str, Any]:
-    """Return a named closed record from the same captured native schema owner."""
-    protocol = _protocol(sources)
-    if name not in protocol["definitions"]:
+@lru_cache(maxsize=256)
+def _wire_record_schema_bytes(name: str, checked_protocol: bytes) -> bytes:
+    definitions = json.loads(checked_protocol)["definitions"]
+    if name not in definitions:
         raise ValueError("unknown native wire record")
-    return schema_closure({"$ref": "#/definitions/" + name}, protocol["definitions"])
+    return canonical_bytes(schema_closure({"$ref": "#/definitions/" + name}, definitions))
+
+
+def wire_record_schema(name: str, sources=None) -> dict[str, Any]:
+    """Return a detached named record from the selected native schema owner."""
+    return json.loads(_wire_record_schema_bytes(name, _protocol_state(sources).checked))
 
 
 @lru_cache(maxsize=256)
@@ -717,7 +722,7 @@ def interpret_wire_record(
     their source artifacts, while current writers use the current declaration.
     Preparation is shared only for equal schema bytes and declared field roles.
     """
-    schema = canonical_bytes(wire_record_schema(name, sources))
+    schema = _wire_record_schema_bytes(name, _protocol_state(sources).checked)
     return _wire_record_interpretation(schema, wire_contextual_fields(sources))(value)
 
 

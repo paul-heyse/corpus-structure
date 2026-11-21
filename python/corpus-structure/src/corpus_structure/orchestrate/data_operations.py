@@ -35,7 +35,9 @@ from corpus_structure.core.work import (
 )
 from corpus_structure.methods.native_host import NativeRetirementUncertain
 from corpus_structure.semantic._data_operation_wire import (
+    WireAttachDataRequestsAttachedResult,
     WireAttemptFence,
+    WireBinding,
     WireClaimDataRequestsClaimedResult,
     WireClaimDataRequestsRequest,
     WireCompletion,
@@ -64,7 +66,6 @@ from corpus_structure.semantic.data_operation_json import (
     json_bytes,
     native_json_loads,
     scope_identity,
-    wire_json_loads,
 )
 from corpus_structure.semantic.data_operation_ports import (
     HydratedRoleValue,
@@ -77,6 +78,7 @@ from corpus_structure.semantic.data_operation_service import (
     DataExecutionBasis,
 )
 from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
+from corpus_structure.semantic.data_operation_wire import interpret_wire_record
 from corpus_structure.semantic.identifiers import RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
@@ -125,6 +127,16 @@ class DemandAdvance:
     @property
     def receipts_truncated(self) -> bool:
         return self.receipt_count > len(self.receipts)
+
+
+def _attached_ready_record(ready: ReadyDataRequest) -> WireAttachDataRequestsAttachedResult:
+    return interpret_wire_record(
+        "attach_data_requests_attached_result", native_json_loads(ready.native)
+    )
+
+
+def _ready_binding(content: bytes) -> WireBinding:
+    return interpret_wire_record("binding", native_json_loads(content))
 
 
 def _check_claim_active(owner, claim):
@@ -942,10 +954,6 @@ class NativeDemandExecutor:
     def _execution_context(self, claim):
         return self._basis_context(claim.release_id, claim.runtime_id)
 
-    def _ready_context(self, ready):
-        native = wire_json_loads(ready.native)
-        return self._basis_context(native["release_id"], native["runtime_id"])
-
     def _generation_ready(self, ready, request_id, claimed, context, authorization):
         """Reconstruct only the generation's original frozen native read, never latest."""
         from corpus_structure.semantic._data_operation_wire import WireReadDemandResultRequest
@@ -975,7 +983,7 @@ class NativeDemandExecutor:
         if (
             len(candidates) != 1
             or candidates[0].request_id != request_id
-            or semantic_value(wire_json_loads(candidates[0].binding)) != semantic_value(binding)
+            or semantic_value(_ready_binding(candidates[0].binding)) != semantic_value(binding)
         ):
             raise PortRefusal("claimed generation differs from its original frozen binding")
         bound = candidates[0]
@@ -993,15 +1001,15 @@ class NativeDemandExecutor:
         return original, (bound.operation,)
 
     def _prepare_ready(self, ready, authorization):
-        native = wire_json_loads(ready.native)
+        native = _attached_ready_record(ready)
         if native["action"] == "reconcile":
             return ready
-        context = self._ready_context(ready)
+        context = self._basis_context(native["release_id"], native["runtime_id"])
         if (
             native["release_id"] == self.prepared.release_id
             and native["runtime_id"] == self.runtime.runtime_id
             and native["binding_obligation_id"] == ready.obligation
-            and semantic_value(native["binding"]) == semantic_value(wire_json_loads(ready.binding))
+            and semantic_value(native["binding"]) == semantic_value(_ready_binding(ready.binding))
         ):
             # Native attachment has already validated this exact same-read
             # binding. Preserve its typed roles instead of rebuilding SQL/ASTs.
@@ -1018,7 +1026,7 @@ class NativeDemandExecutor:
             BoundConsumerSelection,
         )
 
-        pins = wire_json_loads(ready.resolved.trust_evidence)
+        pins = native_json_loads(ready.resolved.trust_evidence)
         with self.native_io.transaction() as connection:
             selected = connection.hydrate(
                 context.model,
@@ -1102,7 +1110,7 @@ class NativeDemandExecutor:
                 if value.meaning is None:
                     raise PortRefusal("output witnesses require canonical typed output meaning")
                 bodies.setdefault(value.role, []).append(
-                    decode_semantic_value(wire_json_loads(value.meaning))
+                    decode_semantic_value(native_json_loads(value.meaning))
                 )
             validate_output_witnesses(operation, bodies, physical.binding_rows[ready.obligation])
         output_bytes = sum(
@@ -1131,15 +1139,19 @@ class NativeDemandExecutor:
                     "product": {
                         "kind_contract": value.kind_contract,
                         "body": json.loads(value.meaning),
-                        "members": [wire_json_loads(member) for member in value.members],
+                        "members": [
+                            interpret_wire_record("product_member", native_json_loads(member))
+                            for member in value.members
+                        ],
                     },
                 }
             )
+        binding = _ready_binding(ready.binding)
         completion = {
             "outcome": answer.outcome,
             "outputs": outputs,
-            "inputs": wire_json_loads(ready.binding)["inputs"],
-            "support": wire_json_loads(ready.binding)["support"],
+            "inputs": binding["inputs"],
+            "support": binding["support"],
             "implementation_revision": port.identity.implementation,
         }
         if any(
@@ -1205,7 +1217,7 @@ class NativeDemandExecutor:
                             name: {"bytes": value.hex()} if isinstance(value, bytes) else value
                             for name, value in asdict(port.identity).items()
                         },
-                        binding=wire_json_loads(ready.binding),
+                        binding=binding,
                         runtime_manifest_sha256=sha256(context.basis.runtime.manifest).hexdigest(),
                         runtime_archive_sha256=sha256(context.basis.runtime.archive).hexdigest(),
                     )
@@ -1283,7 +1295,7 @@ class NativeDemandExecutor:
         origins = self._draft_origins[(claim.task_id, claim.attempt)]
         for candidate in origins["candidates"]:
             for draft in drafts.candidates(candidate["request_id"], candidate["generation"]):
-                if wire_json_loads(draft.basis).get("execution_origin") != candidate["origin_id"]:
+                if native_json_loads(draft.basis).get("execution_origin") != candidate["origin_id"]:
                     continue
                 original = draft.native_request()
 
@@ -1359,7 +1371,7 @@ class NativeDemandExecutor:
         preparations = [_ClaimPreparation(item) for item in ready]
         seen = set()
         with self.native_io.transaction() as connection:
-            requested = [wire_json_loads(item.native) for item in ready]
+            requested = [_attached_ready_record(item) for item in ready]
             result = connection.calls.claim_data_requests(
                 cast(
                     WireClaimDataRequestsRequest,
@@ -1859,16 +1871,12 @@ class NativeDemandExecutor:
             selected = tuple(getattr(planner, "selected_population_ids", ()))
             logical_progress = planner.logical_progress
             refusals = planner.refusals
-        ready = tuple(
-            item
-            for item in ready
-            if (
-                wire_json_loads(item.native)["request_id"],
-                wire_json_loads(item.native).get("generation"),
-            )
-            not in self._failed_requests
-        )
-        return ready, selected, logical_progress, refusals
+        eligible = []
+        for item in ready:
+            native = _attached_ready_record(item)
+            if (native["request_id"], native.get("generation")) not in self._failed_requests:
+                eligible.append(item)
+        return tuple(eligible), selected, logical_progress, refusals
 
     def _drive_sweep(self, pages, authorization, owner):
         """One frontier binds bounded compact pages between physical-work ticks."""
@@ -1936,7 +1944,7 @@ class NativeDemandExecutor:
                     ready, populations, done, errors = self._prepare_page(snapshot, authorization)
                     groups = {}
                     for item in ready:
-                        native = wire_json_loads(item.native)
+                        native = _attached_ready_record(item)
                         key = (native["release_id"], native["runtime_id"], item.operation)
                         groups.setdefault(key, []).append(item)
                     pending.extend(item for group in groups.values() for item in group)
@@ -1962,7 +1970,7 @@ class NativeDemandExecutor:
                             self._known_failure(claim, owner, error, phase=phase)
                         except Exception as release_error:
                             error = release_error
-                    native = wire_json_loads(item.native)
+                    native = _attached_ready_record(item)
                     self._failed_requests.add((native["request_id"], native.get("generation")))
                     error.add_note("native obligation: " + item.obligation)
                     failures.append(self._retained_failure(error, claim, phase=phase))
@@ -2029,11 +2037,11 @@ class NativeDemandExecutor:
                     try:
                         first = prepare(0)
                         ready = first.ready
-                        native = wire_json_loads(ready.native)
+                        native = _attached_ready_record(ready)
                         basis = native["release_id"], native["runtime_id"]
                         disposition = self._recovery_disposition(ready, native)
                         reconcile = disposition.action == "reconcile"
-                        context = None if reconcile else self._ready_context(ready)
+                        context = None if reconcile else self._basis_context(*basis)
                         operation = (
                             None if context is None else context.model.operation(ready.operation)
                         )
@@ -2062,7 +2070,7 @@ class NativeDemandExecutor:
                                 if isinstance(queued, (_PreparedReady, _ClaimedReady))
                                 else queued
                             )
-                            next_native = wire_json_loads(item.native)
+                            next_native = _attached_ready_record(item)
                             if items and (
                                 item.operation != ready.operation
                                 or next_native["action"] == "reconcile"
