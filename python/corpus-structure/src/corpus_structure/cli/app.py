@@ -10,15 +10,16 @@ from importlib import import_module
 import typer
 
 from corpus_structure.cli import REGISTRY, CommandRegistration
-from corpus_structure.cli.output import CliState
 
 
 def root(ctx: typer.Context) -> None:
     """corpus-structure: build and query a structured representation of a corpus."""
-    if ctx.obj is None:
-        ctx.obj = CliState()
+    from corpus_structure.cli.output import CliState
     from corpus_structure.model.compiled import model_request_scope
     from corpus_structure.orchestrate.execution_host import execution_host_scope
+
+    if ctx.obj is None:
+        ctx.obj = CliState()
 
     ctx.with_resource(model_request_scope())
     ctx.with_resource(execution_host_scope())
@@ -75,6 +76,8 @@ def build_command_app(arguments: list[str]) -> typer.Typer:
 def main() -> None:
     arguments = sys.argv[1:]
     if arguments[:1] == ["test"] and "--" in arguments:
+        from corpus_structure.cli.output import CliState
+
         boundary = arguments.index("--")
         app = build_command_app(arguments[:boundary])
         app(args=arguments[:boundary], obj=CliState(test_args=tuple(arguments[boundary + 1 :])))

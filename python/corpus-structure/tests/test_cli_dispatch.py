@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 from typer.core import TyperGroup
 from typer.main import get_command
@@ -15,6 +16,23 @@ def test_registry_covers_exact_installed_root_names():
     command = get_command(build_full_app())
     assert isinstance(command, TyperGroup)
     assert set(command.commands) == {name for entry in REGISTRY for name in entry.names}
+
+
+def test_installed_entrypoint_reimport_leaves_spawned_worker_before_model_setup():
+    # multiprocessing re-executes the console script as __mp_main__ before the
+    # child can install custody checks for generated dependency code.
+    entrypoint = Path(sys.executable).with_name("ci")
+    script = """
+import runpy
+import sys
+runpy.run_path(sys.argv[1], run_name="__mp_main__")
+assert "corpus_structure.cli.output" not in sys.modules
+assert "typing_inspection.typing_objects" not in sys.modules
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(entrypoint)], capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_fresh_status_dispatch_imports_only_its_command_module():
