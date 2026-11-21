@@ -164,6 +164,9 @@ def product_admission_native_sql(model: MetaData) -> str:
 def product_admission_native_programs(model: MetaData) -> tuple[NativeRoutine, ...]:
     """Retain product realization bodies for the shared typed program registry."""
     output = []
+    from .data_operation_partition_native import partition_admission_programs
+
+    partition_admission_programs(model, output, _routine)
     families = _member_families(model)
     _install_product(model, output, families)
     _original_admission(model, output, families)
@@ -347,7 +350,7 @@ def _install_product(model, output, families):
                 scopes, context["subject_definition"].astext, context["original_source"].astext
             )
         ),
-        _fields(packet_in, ("kind_contract", "body", "members"), ("artifact_digest",)),
+        _fields(packet_in, ("kind_contract", "body", "members"), ("artifact_digest", "partitions")),
         lookup("k", kind, kind.c.kind_contract == packet_in["kind_contract"].astext),
         Perform(func.ops.ddo_authorize(k("universe"))),
         _reject(
@@ -422,6 +425,7 @@ def _install_product(model, output, families):
             .on_conflict_do_nothing()
         ),
         GetRowCount("inserted_product"),
+        If(or_(k("collections") != cast(literal("{}"), JSONB()), packet_in.has_key("partitions")), (Perform(func.ops.ddo_install_product_partitions(key, k("collections"), body, func.coalesce(packet_in["partitions"], empty), core_variable("inserted_product", BigInteger()) > 0)),)),
         lookup("previous", product, product.c.id == key),
         _reject(
             or_(

@@ -445,6 +445,10 @@ def _native_protocol_sources(
             _captured_module(captured_module_sources, "data_product_admission_native.py"),
         ),
         SourceArtifact(
+            "native/data-operation-partition-native.py",
+            _captured_module(captured_module_sources, "data_operation_partition_native.py"),
+        ),
+        SourceArtifact(
             "native/data-operation-compiler.sql",
             compiler_native_sql(target_metadata, subject_scopes=subject_scope_values()).encode(),
         ),
