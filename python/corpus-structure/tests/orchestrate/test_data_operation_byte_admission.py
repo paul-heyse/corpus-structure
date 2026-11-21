@@ -637,7 +637,7 @@ def test_recovery_precedes_fresh_port_and_hydration(monkeypatch, prepared, form,
     assert executor.budget.used_bytes == 0
 
 
-def test_frozen_binding_comparison_distinguishes_decimal_from_literal_json():
+def test_frozen_binding_comparison_distinguishes_decimal_from_literal_json(monkeypatch, prepared):
     from corpus_structure.semantic.data_operation_json import json_bytes
 
     def verify_original(ready, request, native, context, authorization):
@@ -645,19 +645,16 @@ def test_frozen_binding_comparison_distinguishes_decimal_from_literal_json():
         assert native["binding"]["analyzed_scope"]["value"] == Decimal("1.23")
         return "verified original", ()
 
-    executor = SimpleNamespace(
-        prepared=SimpleNamespace(release_id="release:one"),
-        runtime=SimpleNamespace(runtime_id="runtime:one"),
-        _ready_context=lambda _: None,
-        _generation_ready=verify_original,
-    )
+    executor, _ = execution_case(monkeypatch, prepared, policy_for(prepared), ("scalar",), {})
+    monkeypatch.setattr(executor, "_ready_context", lambda _: None)
+    monkeypatch.setattr(executor, "_generation_ready", verify_original)
     ready = SimpleNamespace(
         obligation="one",
         native=json_bytes(
             {
                 "action": "compute",
-                "release_id": "release:one",
-                "runtime_id": "runtime:one",
+                "release_id": executor.prepared.release_id,
+                "runtime_id": executor.runtime.runtime_id,
                 "request_id": "request:one",
                 "binding_obligation_id": "one",
                 "binding": {"analyzed_scope": {"value": Decimal("1.23")}},
@@ -665,9 +662,7 @@ def test_frozen_binding_comparison_distinguishes_decimal_from_literal_json():
         ),
         binding=b'{"analyzed_scope":{"value":{"decimal":"1.23"}}}',
     )
-    assert data_operations.NativeDemandExecutor._prepare_ready(executor, ready, None) == (
-        "verified original"
-    )
+    assert executor._prepare_ready(ready, None) == "verified original"
 
 
 def test_mixed_batch_checks_deferred_draft_before_rehydrating(monkeypatch, prepared):
