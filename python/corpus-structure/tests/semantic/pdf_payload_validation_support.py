@@ -12,7 +12,7 @@ def captured(tmp_path, page):
     store = FrozenPayloadStore(tmp_path / "frozen.sqlite")
     context = trusted_pdf_context()
     store.schemas = {
-        kind: context.boundary.json_schema(cls) for kind, cls in metadata_classes().items()
+        kind: context.boundary.json_schema(cls) for kind, cls in metadata_classes(context.staging.content).items()
     }
     codec = prepare_payload_family(context)
     payload = codec.encode(page)

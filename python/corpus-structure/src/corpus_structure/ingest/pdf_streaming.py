@@ -15,6 +15,8 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, Protocol
 
+from corpus_structure.semantic.pdf_lowering_context import CapturedPdfLowering
+
 from .pdf_stream_types import (
     PdfPageRecovery,
     PdfReplayRef,
@@ -427,6 +429,7 @@ class StreamingPdfResult:
         source_digest: str,
         on_batch: Callable[[PdfReplayRef], None] | None = None,
         preparation_report: bytes = b"{}",
+        lowering: CapturedPdfLowering | None = None,
     ) -> tuple[PdfReplayRef, ...]:
         """Own IPC replay, emit bounded batches synchronously, retain files for retries."""
         import pyarrow as pa
@@ -436,12 +439,13 @@ class StreamingPdfResult:
             ScalarDescriptor,
             emit_parts,
         )
-        from corpus_structure.semantic.pdf_staging import (
-            MAX_BATCH_BYTES,
-            MAX_BATCH_ROWS,
-            artifact_profile,
-            stage_schema,
-        )
+
+        if lowering is None:
+            from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
+            from corpus_structure.semantic.pdf_lowering_context import capture_pdf_lowering
+
+            lowering = capture_pdf_lowering(trusted_pdf_context())
+        max_batch_bytes, max_batch_rows = lowering.max_batch_bytes, lowering.max_batch_rows
 
         root.mkdir(parents=True, exist_ok=False)
         pending: dict[str, list[dict[str, Any]]] = {}
@@ -453,9 +457,9 @@ class StreamingPdfResult:
             sizes.pop(family, None)
             if not rows:
                 return
-            schema = stage_schema(family)
+            schema = lowering.schema("stage:" + family)
             batch = pa.RecordBatch.from_pylist(rows, schema=schema)
-            if batch.nbytes > MAX_BATCH_BYTES:
+            if batch.nbytes > max_batch_bytes:
                 raise ValueError("native replay batch exceeds declared byte limit")
             path = root / f"{len(files):08}-{family}.arrow"
             temporary = path.with_suffix(".tmp")
@@ -478,11 +482,11 @@ class StreamingPdfResult:
                 sum(len(value) if isinstance(value, (str, bytes)) else 16 for value in row.values())
                 + 256
             )
-            if size > MAX_BATCH_BYTES:
+            if size > max_batch_bytes:
                 raise ValueError("native record requires artifact overflow")
             if (
-                sizes.get(family, 0) + size > MAX_BATCH_BYTES // 2
-                or len(pending.get(family, ())) >= MAX_BATCH_ROWS
+                sizes.get(family, 0) + size > max_batch_bytes // 2
+                or len(pending.get(family, ())) >= max_batch_rows
             ):
                 flush(family)
             pending.setdefault(family, []).append(row)
@@ -561,11 +565,11 @@ class StreamingPdfResult:
                 output.write(json.dumps({"kind": "formula", **asdict(outcome)}) + "\n")
             output.flush()
             os.fsync(output.fileno())
-        scalar("native/completion", artifact_profile("native_completion"), file_chunks(health))
-        scalar("native/recipe", artifact_profile("native_recipe"), iter((self.recipe,)))
+        scalar("native/completion", lowering.artifact_profile("native_completion"), file_chunks(health))
+        scalar("native/recipe", lowering.artifact_profile("native_recipe"), iter((self.recipe,)))
         scalar(
             "native/prepared-runtime",
-            artifact_profile("native_recipe"),
+            lowering.artifact_profile("native_recipe"),
             iter((preparation_report,)),
         )
 
@@ -587,10 +591,15 @@ class StreamingPdfResult:
         *,
         on_replay: Callable[[PdfReplayRef], None],
         preparation_report: bytes,
+        lowering: CapturedPdfLowering | None = None,
     ) -> PdfStreamReply:
         """Emit the exact certified record and access artifacts for native adoption."""
         from corpus_structure.semantic.pdf_certification import certify_native_stream
 
+        if lowering is None:
+            lowering = CapturedPdfLowering.from_document(
+                json.loads(request.validation_contract).get("lowering")
+            )
         records = self.write_record_batches(
             request.record_root,
             build_id=request.build_id,
@@ -598,6 +607,7 @@ class StreamingPdfResult:
             source_digest=request.source.digest,
             on_batch=on_replay,
             preparation_report=preparation_report,
+            lowering=lowering,
         )
         on_replay(_ref(request.record_root / "completion.jsonl", "native_completion"))
         prepared = PreparedPdfCertificationInput(
@@ -646,6 +656,9 @@ def run_pdf_stream(
     from .pdf_build_spool import native_preparation_identity
 
     request.source.verify()
+    lowering = CapturedPdfLowering.from_document(
+        json.loads(request.validation_contract).get("lowering")
+    )
     spool = PdfStreamSpool(
         request.spool_root,
         on_page=on_replay,
@@ -662,7 +675,9 @@ def run_pdf_stream(
     on_replay(prepared)
     spool.active()
     result = producer.convert(request.source, spool, page_range=request.page_range)
-    return result.certified_reply(request, on_replay=on_replay, preparation_report=report)
+    return result.certified_reply(
+        request, on_replay=on_replay, preparation_report=report, lowering=lowering
+    )
 
 
 class StreamingPdfProducer:

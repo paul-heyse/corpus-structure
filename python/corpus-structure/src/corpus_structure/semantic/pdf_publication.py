@@ -32,6 +32,7 @@ from corpus_structure.core.db.store import (
 
 from . import _pdf_native_calls as calls
 from .identifiers import ContentDigest, ProductKey, TaskAttempt, TaskId
+from .pdf_lowering_context import CapturedPdfLowering
 from .pdf_staging import PdfBuildRef
 
 if TYPE_CHECKING:
@@ -238,6 +239,7 @@ def prepare_pdf_companion_batches(
     *,
     on_batch: Callable[[str, pa.RecordBatch], None],
     payload_family,
+    lowering: CapturedPdfLowering | None = None,
     start_ordinal: int = 0,
     check_active: Callable[[], None] = lambda: None,
 ) -> None:
@@ -246,18 +248,22 @@ def prepare_pdf_companion_batches(
 
     from .identity import canonical_bytes
     from .pdf_record_identity import byte_root, emit_parts
-    from .pdf_record_model import record_arrow_schema
     from .pdf_records import _finite_json
-    from .pdf_staging import MAX_BATCH_BYTES, MAX_BATCH_ROWS
 
-    targets = COMPANION_STAGE_TARGETS
+    if lowering is None:
+        from .pdf_contracts import trusted_pdf_context
+        from .pdf_lowering_context import capture_pdf_lowering
+
+        lowering = capture_pdf_lowering(trusted_pdf_context())
+    max_batch_bytes, max_batch_rows = lowering.max_batch_bytes, lowering.max_batch_rows
+
     pending, streams, parts, descriptors = [], [], [], []
     byte_count = 0
 
     def copy(name, rows):
         if rows:
-            batch = pa.RecordBatch.from_pylist(rows, schema=record_arrow_schema(targets[name]))
-            if batch.num_rows > MAX_BATCH_ROWS or batch.nbytes > MAX_BATCH_BYTES:
+            batch = pa.RecordBatch.from_pylist(rows, schema=lowering.schema("companion:" + name))
+            if batch.num_rows > max_batch_rows or batch.nbytes > max_batch_bytes:
                 raise ValueError("companion COPY transfer exceeds bounded upload profile")
             on_batch(name, batch)
             rows.clear()
@@ -1159,7 +1165,7 @@ def write_pdf_oracle_capture(
 
         contract = {
             "schemas": {
-                key: context.boundary.json_schema(cls) for key, cls in metadata_classes().items()
+                key: context.boundary.json_schema(cls) for key, cls in metadata_classes(context.staging.content).items()
             },
             "publication_kind": kind,
             "integrated_metadata_policy": integrated_metadata_policy(context)

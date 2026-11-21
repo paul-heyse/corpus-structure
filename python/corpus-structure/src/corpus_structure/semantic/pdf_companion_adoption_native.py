@@ -419,7 +419,7 @@ def companion_adoption_programs(context, metadata) -> tuple[ProgramDeclaration, 
                 "parsing record shape differs: " + cls,
             )
         )
-    classes = metadata_classes()
+    classes = metadata_classes(context.staging.content)
     metadata_keys = case(
         (
             body["kind"].astext == "formula_outcomes",

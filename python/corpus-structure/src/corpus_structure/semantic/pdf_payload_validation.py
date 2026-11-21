@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from collections.abc import Collection, Iterator, Mapping
 from functools import lru_cache
-from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -55,12 +54,10 @@ _PAGE = Table(
 )
 
 
-def metadata_classes() -> dict[str, str]:
+def metadata_classes(staging_source: bytes) -> dict[str, str]:
     import yaml
 
-    model = yaml.safe_load(
-        files("corpus_structure").joinpath("model/semantic/pdf-staging.yaml").read_bytes()
-    )
+    model = yaml.safe_load(staging_source)
     return json.loads(model["annotations"]["pds:metadata_classes"])
 
 

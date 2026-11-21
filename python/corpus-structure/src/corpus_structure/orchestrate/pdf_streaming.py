@@ -722,9 +722,13 @@ def publish_pdf_record_draft(
         context = pdf_context_for_task(connection, claim.task_id)
         payload_family = prepare_payload_family(context)
         lowering_identity = require_lowering_identity(context)
+    from corpus_structure.semantic.pdf_lowering_context import capture_pdf_lowering
+
+    captured_lowering = capture_pdf_lowering(context)
     validation_contract = {
+        "lowering": captured_lowering.document(),
         "schemas": {
-            kind: context.boundary.json_schema(cls) for kind, cls in metadata_classes().items()
+            kind: context.boundary.json_schema(cls) for kind, cls in metadata_classes(context.staging.content).items()
         },
         "publication_kind": draft.kind,
         "integrated_metadata_policy": integrated_metadata_policy(context)
@@ -859,6 +863,7 @@ def publish_pdf_record_draft(
             build,
             companions,
             payload_family=payload_family,
+            lowering=captured_lowering,
             check_active=check_active,
             on_replay=draft_spool.append,
         )

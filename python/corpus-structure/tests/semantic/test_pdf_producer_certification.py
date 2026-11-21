@@ -35,9 +35,12 @@ def prepared(tmp_path, *, candidate=None):
     document = DoclingDocument(name="producer source")
     document.pages[1] = PageItem(page_no=1, size=Size(width=100, height=100))
     context = trusted_pdf_context()
+    from corpus_structure.semantic.pdf_lowering_context import capture_pdf_lowering
+
     contract = {
+        "lowering": capture_pdf_lowering(context).document(),
         "schemas": {
-            kind: context.boundary.json_schema(cls) for kind, cls in metadata_classes().items()
+            kind: context.boundary.json_schema(cls) for kind, cls in metadata_classes(context.staging.content).items()
         },
         "publication_kind": "native",
         "integrated_metadata_policy": None,
@@ -293,3 +296,61 @@ def test_oracle_capture_preserves_json_looking_native_strings(tmp_path, represen
             if family == "membership"
         ]
     assert actual == [{"value_kind": "scalar", "scalar_json": "null"}]
+
+
+def test_acquired_record_schemas_do_not_rebuild_ambient_metadata(tmp_path, monkeypatch):
+    from corpus_structure.semantic import pdf_record_model, pdf_staging
+
+    trusted_pdf_context()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("producer must consume its acquired record schemas")
+
+    monkeypatch.setattr(pdf_record_model, "record_arrow_schema", forbidden)
+    monkeypatch.setattr(pdf_staging, "stage_schema", forbidden)
+    payloads, document, basis = prepared(tmp_path)
+    try:
+        assert payloads.lowering.schema("stage:header").get_field_index("product_id") >= 0
+        certificate = payloads.certify(document, tmp_path / "access.jsonl", **basis)
+        assert certificate.source_digest == "a" * 64
+    finally:
+        payloads.close()
+
+
+def test_metadata_class_projection_uses_the_supplied_staging_source():
+    source = b"""annotations:
+  pds:metadata_classes: '{"retained":"ArchivedMetadata"}'
+"""
+    assert metadata_classes(source) == {"retained": "ArchivedMetadata"}
+
+
+def test_stream_requires_captured_lowering_before_provider_preparation(tmp_path):
+    from types import SimpleNamespace
+
+    from corpus_structure.ingest.pdf_stream_types import OwnedPdfSource, PdfStreamRequest
+    from corpus_structure.ingest.pdf_streaming import run_pdf_stream
+
+    original = tmp_path / "input.pdf"
+    original.write_bytes(b"%PDF-1.7\ncontrolled original")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("invalid lowering context must refuse before provider work")
+
+    with OwnedPdfSource.acquire(original, tmp_path / "owned") as source:
+        request = PdfStreamRequest(
+            source,
+            tmp_path / "pages",
+            tmp_path / "records",
+            "build",
+            "release",
+            b"{}",
+            "lowering",
+            b"{}",
+        )
+        with pytest.raises(ValueError, match="unsupported captured PDF lowering"):
+            run_pdf_stream(
+                request,
+                SimpleNamespace(prepare=forbidden, convert=forbidden),
+                on_replay=forbidden,
+            )
+    assert not (tmp_path / "pages").exists()

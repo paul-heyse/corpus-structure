@@ -19,6 +19,7 @@ import pyarrow as pa
 from sqlalchemy import Column, LargeBinary, MetaData, Table, Text, select
 
 from .identity import canonical_bytes
+from .pdf_lowering_context import CapturedPdfLowering
 from .pdf_payload_validation import FrozenPayloadStore
 from .pdf_record_identity import (
     ABSENT,
@@ -59,13 +60,15 @@ def prepare_pdf_producer_contract(
     """Explicit captured contract for deployed producers or unadmitted provider probes."""
     from .pdf_contracts import integrated_metadata_policy
     from .pdf_lowering import require_lowering_identity
+    from .pdf_lowering_context import capture_pdf_lowering
     from .pdf_payload_validation import metadata_classes
     from .pdf_payloads import prepare_payload_family, schema_dump
 
     family = prepare_payload_family(context)
     contract = {
+        "lowering": capture_pdf_lowering(context).document(),
         "schemas": {
-            key: context.boundary.json_schema(cls) for key, cls in metadata_classes().items()
+            key: context.boundary.json_schema(cls) for key, cls in metadata_classes(context.staging.content).items()
         },
         "publication_kind": kind,
         "schema_digest": context.native_schema_digest,
@@ -126,6 +129,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
     """Exact prepared producer rows, with disk ordering for the existing frame fold."""
 
     def __init__(self, path: Path, validation_contract: Mapping[str, Any]):
+        self.lowering = CapturedPdfLowering.from_document(validation_contract.get("lowering"))
         super().__init__(path)
         try:
             _PRODUCER.create_all(self.db)
@@ -155,22 +159,17 @@ class PdfProducerPayloads(FrozenPayloadStore):
                 self.add(family, row)
 
     def add_replays(self, replays, *, check_active=lambda: None) -> None:
-        from .pdf_staging import stage_schema
-
         for replay in replays:
             check_active()
             replay.verify()
             with pa.memory_map(str(replay.path), "r") as source:
                 reader = pa.ipc.open_file(source)
-                if not reader.schema.equals(stage_schema(replay.family), check_metadata=True):
+                if not reader.schema.equals(self.lowering.schema("stage:" + replay.family), check_metadata=True):
                     raise ValueError("producer native record replay schema differs")
                 for index in range(reader.num_record_batches):
                     self.add_batch(replay.family, reader.get_batch(index))
 
     def add_companion_replays(self, sets, *, check_active=lambda: None) -> None:
-        from .pdf_publication import COMPANION_STAGE_TARGETS
-        from .pdf_record_model import record_arrow_schema
-
         families = {
             "companion": "companion",
             "field": "companion_field",
@@ -185,7 +184,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
                 with pa.memory_map(str(replay.path), "r") as source:
                     reader = pa.ipc.open_file(source)
                     if not reader.schema.equals(
-                        record_arrow_schema(COMPANION_STAGE_TARGETS[target]), check_metadata=True
+                        self.lowering.schema("companion:" + target), check_metadata=True
                     ):
                         raise ValueError("producer companion replay schema differs")
                     for index in range(reader.num_record_batches):
@@ -398,6 +397,7 @@ def write_pdf_companion_sets(
     payload_family,
     check_active: Callable[[], None],
     on_replay=None,
+    lowering: CapturedPdfLowering | None = None,
 ):
     """Prepare bounded immutable sets once; certify and later COPY the same files."""
     from corpus_structure.ingest.pdf_stream_types import PdfPreparedCompanionSet
@@ -444,6 +444,7 @@ def write_pdf_companion_sets(
                 pending,
                 on_batch=write,
                 payload_family=payload_family,
+                lowering=lowering,
                 start_ordinal=start,
                 check_active=check_active,
             )
@@ -488,6 +489,7 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
     from .pdf_publication import PdfCompanionEncodingBasis
 
     contract = json.loads(request.validation_contract)
+    lowering = CapturedPdfLowering.from_document(contract.get("lowering"))
     if contract["publication_kind"] != "native":
         raise ValueError("native capture certification requires the native publication kind")
     build = PdfCompanionEncodingBasis(request.build_id, request.release_id)
@@ -533,6 +535,7 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
         build,
         companions,
         payload_family=streamed.spool.payload_family,
+        lowering=lowering,
         check_active=streamed.spool.active,
         on_replay=on_replay,
     )
