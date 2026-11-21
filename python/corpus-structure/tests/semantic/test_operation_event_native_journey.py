@@ -377,8 +377,12 @@ def test_actual_current_event_fitter_issuer_and_shared_scorer_keep_exact_private
 
     with kernel.purpose("read").begin() as connection:
         score_page = read_demand_result(
-            connection, scored["demand_id"], project_id=PROJECT, limit=1000
+            connection,
+            scored["demand_id"],
+            project_id=PROJECT,
+            scope={"operation_id": score_operation},
         )
+    assert score_page.continuation is None
     scored_rows = [row for row in score_page.members() if row["role"] == "probability"]
     assert len(scored_rows) == 1
     assert scored_rows[0]["body"] == pytest.approx(fit.result.predictions[0].fitted_probability)
