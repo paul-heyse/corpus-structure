@@ -15,6 +15,8 @@ from corpus_structure.semantic.data_operation_read_index import SelectedRecordIn
 from corpus_structure.semantic.demand_results import stream_demand_result, stream_selected_support
 from corpus_structure.semantic.sqlite_scratch import open_scratch
 
+from .demand_export_manifest import checked_export_manifest, decode_export_manifest
+
 _SPOOL = MetaData()
 _RECORDS = Table(
     "records",
@@ -425,6 +427,7 @@ def export_demand_result(
             files=files,
             trust="selected historical acquisition; current trust requires native reassessment",
         )
+        manifest = checked_export_manifest(manifest)
         manifest_bytes = json_bytes(manifest)
         (root / "manifest.json").write_bytes(manifest_bytes)
         root.rename(destination)
@@ -447,9 +450,7 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
     manifest_bytes = (root / "manifest.json").read_bytes()
     if sha256(manifest_bytes).hexdigest() != manifest_digest:
         raise ValueError("export manifest differs from the explicit trusted digest")
-    manifest = wire_json_loads(manifest_bytes)
-    if manifest["format"] != "demand-result-export-v3":
-        raise ValueError("unsupported selected result export")
+    manifest = decode_export_manifest(manifest_bytes)
     for name, descriptor in manifest["files"].items():
         path = root / name
         if (
