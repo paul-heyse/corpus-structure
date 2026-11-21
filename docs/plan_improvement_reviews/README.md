@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Push-based change propagation in Set-Based Execution](set-based-execution-push-propagation_2026-11-21.md).
+  Recommends publication-driven digest comparisons, separate readiness wakeups, and scoped freshness
+  for selected reads. Identifies where repeated prerequisite walks can retire once their consumers migrate.
+
 - [Set-based execution after SBX-01](set-based-execution-after-sbx01_2026-11-21.md).
   Recommends explicit block correspondence and proof authority, bounded reads, an early real
   Revision A chain, attributable cutover effects, and changes to carrier custody and test reuse.
