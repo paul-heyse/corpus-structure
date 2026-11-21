@@ -11,8 +11,8 @@ from .identifiers import ReleaseId as ReleaseId
 from .identifiers import RuntimeId as RuntimeId
 from .metadata import table
 
-PHYSICAL_MODEL_ID = "physical:4c91a85e67cde6ee08af114e4b47ee48ba85643b96124d35aa6fec8c67614798"
-TYPE_MODEL_ID = "ec6157aee44d25b3f697bbebbe22400fbb825cf07f154850e6009467b2847790"
+PHYSICAL_MODEL_ID = "physical:7652200488e92c2e1cd7462494caf7d354d181b2b87553b947cf5ca7ce0f109f"
+TYPE_MODEL_ID = "8d0107ffbf34f19fc1a8a5f669255fc6f12535b7d0e5bf0dc2374f6b4d1049ef"
 
 
 class SemRuntimeBindingColumns(TypedColumns):
