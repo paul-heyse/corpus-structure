@@ -5,7 +5,7 @@ from typing import cast
 import pytest
 from pglast import ast
 from psycopg.errors import CheckViolation, InsufficientPrivilege
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
@@ -22,18 +22,11 @@ from semantic.declared_scenarios import declared_serving_case as declared_servin
 from semantic.declared_scenarios import declared_serving_seed as declared_serving_seed
 
 
-def test_authorized_binding_observes_producer_without_disclosing_protected_support(
-    declared_serving_case,
-):
-    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+def _install_binding_projection(connection):
     from corpus_structure.semantic.data_operation_read_native import read_native_sql
-    from corpus_structure.semantic.producer_requirements import SelectedProducerContract
 
-    clone, stage = declared_serving_case, declared_serving_case.stage.agent
-    # Install the changed internal query on this owned clone, preserving the
-    # existing public frontdoor and purpose grants.
     statements = prepare_sql(read_native_sql(get_metadata()), source="producer-observation-test")
-    with clone.admin.begin() as connection, native_owner(connection, "corpus_sem_publisher"):
+    with native_owner(connection, "corpus_sem_publisher"):
         for index, statement in enumerate(statements.statements):
             node = statement.stmt
             if (
@@ -44,6 +37,18 @@ def test_authorized_binding_observes_producer_without_disclosing_protected_suppo
                 connection.exec_driver_sql(
                     statements.excerpt(index), execution_options={"no_parameters": True}
                 )
+
+
+def test_authorized_binding_observes_producer_without_disclosing_protected_support(
+    declared_serving_case,
+):
+    from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.producer_requirements import SelectedProducerContract
+
+    clone, stage = declared_serving_case, declared_serving_case.stage.agent
+    # The owned clone keeps its public frontdoor and existing purpose grants.
+    with clone.admin.begin() as connection:
+        _install_binding_projection(connection)
     model = bound_data_operation_model(stage.prepared)
     with clone.reader.begin() as connection:
         page = read_demand_result(
@@ -111,3 +116,21 @@ def test_authorized_binding_observes_producer_without_disclosing_protected_suppo
         connection.execute(select(read.relation.c.support_evidence)).all()
 
     assert isinstance(stale.value.orig, CheckViolation)
+
+
+def test_updated_binding_producer_projection_compiles_in_native_rollback(native_rollback):
+    connection = native_rollback.connection
+    connection.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
+    _install_binding_projection(connection)
+    signature = "ops.ddo_binding_rows(text,text,jsonb,text,text,jsonb,jsonb,boolean,jsonb,boolean)"
+    errors = (
+        connection.execute(
+            text(
+                "SELECT message FROM public.plpgsql_check_function_tb(CAST(:signature AS regprocedure),fatal_errors=>false) WHERE level='error'"
+            ),
+            {"signature": signature},
+        )
+        .scalars()
+        .all()
+    )
+    assert errors == []
