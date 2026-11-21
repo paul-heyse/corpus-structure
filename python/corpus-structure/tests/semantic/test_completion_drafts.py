@@ -7,6 +7,8 @@ import pytest
 
 from corpus_structure.semantic._data_operation_wire import WireInspectDataCompletionDraftResult
 from corpus_structure.semantic.completion_drafts import CompletionDraftStore
+from corpus_structure.semantic.data_operation_json import json_bytes
+from corpus_structure.semantic.data_operation_wire import wire_contracts
 
 
 def request():
@@ -26,6 +28,7 @@ def request():
 def acknowledge(store, **changes):
     return store.acknowledge(
         changes.pop("request", request()),
+        writer_schema=json_bytes(wire_contracts()["retain_data_completion_intent"]["input"]),
         release_id="release:original",
         operation="source.pdf/capture",
         basis=b'{"recipe":"recipe:one","binding":"binding:one","execution_origin":"origin:one"}',
@@ -121,7 +124,10 @@ def test_executor_acknowledges_before_native_rollback_and_retries_original_reque
     operation = SimpleNamespace(output_witnesses=(), outcomes=("empty",))
     context = SimpleNamespace(
         model=SimpleNamespace(operation=lambda _: operation),
-        basis=SimpleNamespace(runtime=SimpleNamespace(manifest=b"runtime", archive=b"archive")),
+        basis=SimpleNamespace(
+            captured_contracts=None,
+            runtime=SimpleNamespace(manifest=b"runtime", archive=b"archive"),
+        ),
     )
     monkeypatch.setattr(executor, "_execution_context", lambda claim: context)
     claim = NativeRequestClaim(
@@ -275,3 +281,38 @@ def test_inspection_failure_and_foreign_file_leave_draft_unretired(tmp_path):
         )
     assert other.read_bytes() == b"foreign"
     assert not tuple(tmp_path.glob("*.retired"))
+
+
+def test_draft_reopens_with_captured_writer_after_ambient_contract_changes(tmp_path, monkeypatch):
+    from corpus_structure.semantic import data_operation_wire
+
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    draft = acknowledge(store)
+    monkeypatch.setattr(data_operation_wire, "wire_contracts", lambda: {})
+    assert store.open(draft.identity).native_request() == request()
+
+
+def test_legacy_draft_requires_authenticated_writer_basis(tmp_path):
+    from corpus_structure.semantic.completion_drafts import DraftWriterContractUnavailable
+
+    store = CompletionDraftStore(tmp_path, max_bytes=65536)
+    draft = acknowledge(store)
+    envelope = __import__("json").loads((tmp_path / (draft.identity + ".ack")).read_bytes())
+    envelope["format"] = "ddo-completion-draft-v1"
+    envelope.pop("writer_schema")
+    envelope.pop("writer_schema_sha256")
+    content = json_bytes(envelope)
+    identity = sha256(content).hexdigest()
+    (tmp_path / (identity + ".ack")).write_bytes(content)
+    (tmp_path / (identity + ".body")).write_bytes(draft.request)
+    with pytest.raises(DraftWriterContractUnavailable):
+        store.open(identity)
+    acquired = []
+
+    def writer(release):
+        acquired.append(release)
+        return json_bytes(wire_contracts()["retain_data_completion_intent"]["input"])
+
+    reopened = CompletionDraftStore(tmp_path, max_bytes=65536, writer_schema_for_release=writer)
+    assert reopened.open(identity).native_request() == request()
+    assert acquired == ["release:original"]

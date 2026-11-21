@@ -297,6 +297,13 @@ def test_resume_preserves_exact_completion_observation_separate_from_frontier(st
             },
         ],
     }
+    snapshot["obligations"].append(
+        {
+            **snapshot["obligations"][0],
+            "id": "obligation:duplicate",
+            "obligation_id": "obligation:duplicate",
+        }
+    )
     observations = {
         "committed": {
             "state": "committed",

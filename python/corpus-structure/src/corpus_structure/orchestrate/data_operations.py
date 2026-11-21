@@ -20,7 +20,7 @@ from hashlib import sha256
 from pathlib import Path
 from threading import Event, Lock, Thread
 from time import monotonic
-from typing import Any, cast, overload
+from typing import Any, Literal, cast, overload
 from uuid import uuid4
 
 from sqlalchemy import Engine
@@ -194,6 +194,18 @@ class _RetainedAnswer:
 @dataclass(frozen=True)
 class _PreparedReady:
     ready: ReadyDataRequest
+
+
+@dataclass(frozen=True)
+class _RecoveryDisposition:
+    """The native claim and selected local recovery step share one lifetime."""
+
+    action: Literal["reconcile", "inspect-draft", "compute"]
+    native: WireClaimDataRequestsClaimedResult
+
+    @property
+    def retained_intent_id(self):
+        return self.native.get("retained_intent_id")
 
 
 @dataclass(frozen=True)
@@ -1166,10 +1178,18 @@ class NativeDemandExecutor:
         if self.completion_drafts is not None and ready.operation in SUPPORTED_OPERATIONS:
             from dataclasses import asdict
 
+            from corpus_structure.semantic.data_operation_wire import wire_contracts
+
+            writer_schema = json_bytes(
+                wire_contracts(context.basis.captured_contracts)["retain_data_completion_intent"][
+                    "input"
+                ]
+            )
             draft = self.completion_drafts.acknowledge(
                 request,
                 release_id=claim.release_id,
                 operation=ready.operation,
+                writer_schema=writer_schema,
                 basis=json_bytes(
                     dict(
                         execution_origin=self._draft_origins[(claim.task_id, claim.attempt)][
@@ -1223,6 +1243,14 @@ class NativeDemandExecutor:
 
     def _has_draft_path(self, ready):
         return self.completion_drafts is not None and ready.operation in SUPPORTED_OPERATIONS
+
+    def _recovery_disposition(self, ready, native):
+        action = (
+            "reconcile" if native["action"] == "reconcile"
+            else "inspect-draft" if self._has_draft_path(ready)
+            else "compute"
+        )
+        return _RecoveryDisposition(action, native)
 
     def _recover_answer(self, ready, claim, owner):
         """Native authority selects whether privately acknowledged bytes may be used."""
@@ -1943,13 +1971,15 @@ class NativeDemandExecutor:
                             if native is None:
                                 raise RuntimeError("native claim lacks its result custody")
                             owner.check_claim(claim)
-                            if native["action"] == "reconcile":
+                            disposition = self._recovery_disposition(ready, native)
+                            if disposition.action == "reconcile":
                                 receipt = self._reconcile(
-                                    claim, native.get("retained_intent_id"), owner
+                                    claim, disposition.retained_intent_id, owner
                                 )
                             elif (
-                                retained := self._recover_answer(ready, claim, owner)
-                            ) is not None:
+                                disposition.action == "inspect-draft"
+                                and (retained := self._recover_answer(ready, claim, owner)) is not None
+                            ):
                                 receipt = self._publish(claim, retained, owner)
                             else:
                                 boundary = _ClaimedReady(ready, claim, native)
@@ -1975,7 +2005,8 @@ class NativeDemandExecutor:
                         ready = first.ready
                         native = wire_json_loads(ready.native)
                         basis = native["release_id"], native["runtime_id"]
-                        reconcile = native["action"] == "reconcile"
+                        disposition = self._recovery_disposition(ready, native)
+                        reconcile = disposition.action == "reconcile"
                         context = None if reconcile else self._ready_context(ready)
                         operation = (
                             None if context is None else context.model.operation(ready.operation)
@@ -1985,7 +2016,7 @@ class NativeDemandExecutor:
                             and operation.external is None
                             and operation.capabilities.forms == ("batch",)
                         )
-                        recovery = reconcile or self._has_draft_path(ready)
+                        recovery = disposition.action != "compute"
                         claimed = isinstance(first, _ClaimedReady)
                         item_limit = self.policy.max_claims if batch else 1
                         if not recovery and not claimed and operation is not None:

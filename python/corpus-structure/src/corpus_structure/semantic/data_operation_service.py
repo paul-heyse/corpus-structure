@@ -272,13 +272,18 @@ def execute_data_demand(
         completion_drafts = None
         with engine.begin() as connection:
             if completion_draft_root is not None:
-                from .completion_drafts import completion_draft_store
+                from .completion_drafts import captured_writer_schema, completion_draft_store
                 from .storage_target import acquired_target
+
+                def writer_schema_for_release(release):
+                    with engine.begin() as archived:
+                        return captured_writer_schema(archived, release)
 
                 completion_drafts = completion_draft_store(
                     completion_draft_root,
                     acquired_target(connection, purpose=purpose),
                     selected_policy.max_reply_bytes,
+                    writer_schema_for_release=writer_schema_for_release,
                 )
             if admission_engine is not None:
                 from .storage_target import acquired_target

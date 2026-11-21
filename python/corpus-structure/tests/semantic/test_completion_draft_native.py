@@ -11,8 +11,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.completion_drafts import CompletionDraftStore
+from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_values import semantic_value
+from corpus_structure.semantic.data_operation_wire import wire_contracts
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.target_installation import capture_target_installation
 from native_test_support import principal_engine
@@ -88,6 +90,7 @@ def test_private_native_origin_recovery_preserves_original_and_refuses_unretired
         store = CompletionDraftStore(tmp_path / "private-drafts", max_bytes=65536)
         draft = store.acknowledge(
             {**original, "runtime_id": kernel.runtime, "completion": completion},
+            writer_schema=json_bytes(wire_contracts()["retain_data_completion_intent"]["input"]),
             release_id=kernel.prepared.release_id,
             operation="source.pdf/capture",
             basis=b'{"execution_origin":"' + origin["origin_id"].encode() + b'"}',

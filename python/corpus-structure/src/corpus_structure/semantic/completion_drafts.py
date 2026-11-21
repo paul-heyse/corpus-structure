@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 from uuid import uuid4
 
 from .data_operation_json import json_bytes, wire_json_loads
-from .data_operation_wire import validate_wire_schema, wire_contracts
+from .data_operation_wire import validate_wire_schema
 
 if TYPE_CHECKING:
     from ._data_operation_wire import (
@@ -57,14 +57,31 @@ class DraftRetirement:
 
 
 def completion_draft_store(
-    root: Path, target: StorageTarget, max_bytes: int
+    root: Path,
+    target: StorageTarget,
+    max_bytes: int,
+    *,
+    writer_schema_for_release: Callable[[str], bytes] | None = None,
 ) -> CompletionDraftStore:
     namespace = sha256(
         json_bytes(
             {"system_identifier": target.system_identifier, "database_oid": target.database_oid}
         )
     ).hexdigest()
-    return CompletionDraftStore(root / namespace, max_bytes=max_bytes)
+    return CompletionDraftStore(
+        root / namespace, max_bytes=max_bytes, writer_schema_for_release=writer_schema_for_release
+    )
+
+
+def captured_writer_schema(connection, release_id: str) -> bytes:
+    """Resolve the original writer through its authenticated release dependencies."""
+    from .data_operation_wire import wire_contracts
+    from .releases import load_release_inputs
+
+    _, dependencies, _, _ = load_release_inputs(connection, release_id)
+    return json_bytes(
+        wire_contracts(dependencies.artifacts)["retain_data_completion_intent"]["input"]
+    )
 
 
 def _candidate_key(request_id: str, generation: int) -> str:
@@ -104,14 +121,25 @@ def _read(path: Path, *, max_bytes: int, expected_bytes: int | None = None) -> b
         os.close(fd)
 
 
+class DraftWriterContractUnavailable(ValueError):
+    """Retained bytes lack an available authenticated writer interpretation."""
+
+
 class CompletionDraftStore:
     """One private local owner with independently durable content and acknowledgment."""
 
-    def __init__(self, root: Path, *, max_bytes: int):
+    def __init__(
+        self,
+        root: Path,
+        *,
+        max_bytes: int,
+        writer_schema_for_release: Callable[[str], bytes] | None = None,
+    ):
         if type(max_bytes) is not int or max_bytes < 1:
             raise ValueError("completion draft requires a positive byte bound")
         self.root = root
         self.max_bytes = max_bytes
+        self.writer_schema_for_release = writer_schema_for_release
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
         info = root.stat()
         if root.is_symlink() or info.st_uid != os.getuid() or info.st_mode & 0o077:
@@ -153,13 +181,14 @@ class CompletionDraftStore:
         operation: str,
         basis: bytes,
         check_active: Callable[[], None],
+        writer_schema: bytes,
     ) -> CompletionDraft:
         """Persist the original complete request before acknowledging it to its caller."""
         if not release_id or operation not in SUPPORTED_OPERATIONS:
             raise ValueError(
                 "completion draft requires its original release and supported operation"
             )
-        validate_wire_schema(wire_contracts()["retain_data_completion_intent"]["input"], request)
+        validate_wire_schema(writer_schema, request)
         content = json_bytes(dict(request))
         if len(content) > self.max_bytes or len(basis) > self.max_bytes:
             raise ValueError("completion draft exceeds its byte bound")
@@ -167,7 +196,9 @@ class CompletionDraftStore:
         basis = json_bytes(wire_json_loads(basis))
         envelope = json_bytes(
             dict(
-                format="ddo-completion-draft-v1",
+                format="ddo-completion-draft-v2",
+                writer_schema=writer_schema.hex(),
+                writer_schema_sha256=sha256(writer_schema).hexdigest(),
                 release_id=release_id,
                 operation=operation,
                 basis=wire_json_loads(basis),
@@ -197,11 +228,28 @@ class CompletionDraftStore:
         if sha256(envelope).hexdigest() != identity:
             raise ValueError("completion acknowledgment differs from its content identity")
         value = wire_json_loads(envelope)
-        if (
-            set(value)
-            != {"format", "release_id", "operation", "basis", "request_sha256", "request_bytes"}
-            or value["format"] != "ddo-completion-draft-v1"
-        ):
+        common = {"format", "release_id", "operation", "basis", "request_sha256", "request_bytes"}
+        if value.get("format") == "ddo-completion-draft-v2" and set(value) == common | {
+            "writer_schema",
+            "writer_schema_sha256",
+        }:
+            writer_schema = bytes.fromhex(value["writer_schema"])
+            if sha256(writer_schema).hexdigest() != value["writer_schema_sha256"]:
+                raise ValueError(
+                    "completion draft writer schema differs from its acknowledged digest"
+                )
+        elif value.get("format") == "ddo-completion-draft-v1" and set(value) == common:
+            if self.writer_schema_for_release is None:
+                raise DraftWriterContractUnavailable(
+                    "retained completion writer contract is unavailable"
+                )
+            try:
+                writer_schema = self.writer_schema_for_release(value["release_id"])
+            except (ValueError, FileNotFoundError) as error:
+                raise DraftWriterContractUnavailable(
+                    "retained completion writer contract cannot be acquired"
+                ) from error
+        else:
             raise ValueError("unsupported private completion draft")
         request = _read(
             self.root / (identity + ".body"),
@@ -210,9 +258,7 @@ class CompletionDraftStore:
         )
         if sha256(request).hexdigest() != value["request_sha256"]:
             raise ValueError("completion draft differs from its acknowledged body")
-        validate_wire_schema(
-            wire_contracts()["retain_data_completion_intent"]["input"], wire_json_loads(request)
-        )
+        validate_wire_schema(writer_schema, wire_json_loads(request))
         return CompletionDraft(
             identity, value["release_id"], value["operation"], json_bytes(value["basis"]), request
         )
@@ -233,7 +279,16 @@ class CompletionDraftStore:
                     self.root / (identity + ".ack")
                 ).exists():
                     continue
-                draft = self._open(identity)
+                try:
+                    draft = self._open(identity)
+                except DraftWriterContractUnavailable:
+                    import logging
+
+                    logging.getLogger(__name__).warning(
+                        "Retained draft %s needs regeneration because its writer contract is unavailable",
+                        identity,
+                    )
+                    continue
                 original = draft.native_request()
                 if (original["request_id"], original["generation"]) != (request_id, generation):
                     raise ValueError("completion candidate differs from the selected request")
@@ -260,6 +315,8 @@ class CompletionDraftStore:
             except FileNotFoundError:
                 try:
                     draft = self._open(identity)
+                except DraftWriterContractUnavailable:
+                    return DraftRetirement(identity, "retained", "writer-contract-unavailable")
                 except FileNotFoundError:
                     standing = (
                         "retained" if (self.root / (identity + ".body")).exists() else "unavailable"

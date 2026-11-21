@@ -590,8 +590,16 @@ class DemandPlanner:
             raise ValueError("resume requires the demand's original effective model")
         # Inspect uncertain completions before returning any executable work.
         inspections: dict[str, WireInspectDataCompletionResult] = {}
+        inspected = set()
         for obligation in snapshot["obligations"]:
-            if obligation.get("intent_id") is not None:
+            binding = (
+                obligation.get("intent_id"),
+                demand,
+                obligation.get("request_id"),
+                obligation.get("generation"),
+            )
+            if binding[0] is not None and binding not in inspected:
+                inspected.add(binding)
                 inspections[obligation["intent_id"]] = self.storage.inspect_data_completion(
                     cast(
                         WireInspectDataCompletionRequest,

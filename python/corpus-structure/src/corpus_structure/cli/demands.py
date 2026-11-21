@@ -347,7 +347,10 @@ def retire_draft(
     """Retire an exact private draft after native publication and producer retirement."""
     from corpus_structure.cli.characterization_options import method_settings
     from corpus_structure.cli.target import select_target
-    from corpus_structure.semantic.completion_drafts import completion_draft_store
+    from corpus_structure.semantic.completion_drafts import (
+        captured_writer_schema,
+        completion_draft_store,
+    )
     from corpus_structure.semantic.data_operation_storage import DataOperationStorage
     from corpus_structure.semantic.storage_target import verify_declared_route
 
@@ -366,7 +369,12 @@ def retire_draft(
             binding = acquired_target(connection, purpose="write")
             invocation.record_target(binding, None, None, None)
             store = completion_draft_store(
-                settings.paths.data_dir / "completion-drafts", binding, policy.max_reply_bytes
+                settings.paths.data_dir / "completion-drafts",
+                binding,
+                policy.max_reply_bytes,
+                writer_schema_for_release=lambda release: captured_writer_schema(
+                    connection, release
+                ),
             )
             report = store.retire(
                 draft,
