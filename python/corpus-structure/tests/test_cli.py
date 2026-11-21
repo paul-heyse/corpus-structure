@@ -137,8 +137,8 @@ def test_a_mistyped_field_inside_a_section_is_refused(cli) -> None:
     # A name that reaches a section meets its extra="forbid"; only names outside every section
     # are silently ignored, which is what the report's unknown list catches.
     result = cli("status", settings=lambda: Settings(), env={"CORPUS_PATHS__DATA_DIRR": "x"})
-    assert result.exit_code == 1
-    assert "data_dirr" in result.stderr
+    assert result.exit_code == 2
+    assert "paths.data_dirr: extra_forbidden" in result.stderr
 
 
 def test_recipe_redacts_credential_forms(cli, monkeypatch):
