@@ -583,6 +583,9 @@ def release_reacquire_host(
     release: Annotated[str, typer.Option()],
     runtime: Annotated[str, typer.Option()],
     database_oid: Annotated[int, typer.Option(min=1)],
+    expected_target: Annotated[
+        str | None, typer.Option(help="Exact previously acquired StorageTarget JSON identity.")
+    ] = None,
     target: DeploymentProfile | None = None,
     json: JsonOpt = False,
 ) -> None:
@@ -612,6 +615,7 @@ def release_reacquire_host(
         acquired: StorageTarget
 
     with result_boundary(json):
+        expected = None if expected_target is None else StorageTarget.model_validate_json(expected_target)
         store = result_store(ctx)
         selected, settings = select_target(ctx, target, effect=True)
     scope = dict(release=release, runtime=runtime, target=selected, database_oid=database_oid)
@@ -623,6 +627,8 @@ def release_reacquire_host(
                 if selected == "deployment":
                     verify_declared_route(conn, settings)
                 acquired = acquired_target(conn, purpose="admit")
+                if expected is not None:
+                    verify_target(conn, expected, purpose="admit")
                 result.record_target(acquired, None, None, release)
                 if acquired.database_oid != database_oid:
                     raise ResultError(

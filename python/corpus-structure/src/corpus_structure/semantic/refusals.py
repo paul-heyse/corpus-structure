@@ -74,10 +74,19 @@ def semantic_failure_fields(error: BaseException) -> dict[str, Any]:
     fields: dict[str, Any] = {"reason": ordinary_reason} if isinstance(ordinary_reason, str) else {}
     if isinstance(reason, SemanticReason):
         fields.update(code=reason.code, semantic_reason=asdict(reason))
-    if isinstance(error, PreparedProductRefusal):
+    pending = [error]
+    preparations = set()
+    while pending:
+        selected = pending.pop()
+        if isinstance(selected, BaseExceptionGroup):
+            pending.extend(selected.exceptions)
+        elif isinstance(selected, PreparedProductRefusal):
+            preparations.add(selected.diagnostic)
+    if len(preparations) == 1:
+        preparation = preparations.pop()
         fields["preparation"] = {
             name: _safe_refusal_fields(value)[:256] if value is not None else None
-            for name, value in asdict(error.diagnostic).items()
+            for name, value in asdict(preparation).items()
         }
     return fields
 

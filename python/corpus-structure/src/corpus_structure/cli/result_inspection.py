@@ -24,6 +24,7 @@ from corpus_structure.cli.operation_observation import (
 )
 from corpus_structure.semantic._data_operation_wire import WireReadDemandResultRequest
 from corpus_structure.semantic.code_reuse import ReuseExplanationReport
+from corpus_structure.semantic.data_operation_prepared_products import PreparedProductDiagnostic
 from corpus_structure.semantic.data_operation_storage import NativeKernelObservation
 from corpus_structure.semantic.demand_queries import DemandQueryRequest
 from corpus_structure.semantic.storage_target import StorageTarget
@@ -40,11 +41,14 @@ class NextAction(BaseModel):
         "query",
         "successor_admission",
         "resume_deployment",
+        "reacquire_host",
     ]
     command: str | None = None
-    owner: Literal["managed_result", "native_demand", "model_deployment"]
+    owner: Literal["managed_result", "native_demand", "model_deployment", "shared_host"]
     result_id: str | None = None
     demand_id: str | None = None
+    release_id: str | None = None
+    runtime_id: str | None = None
     required_inputs: tuple[str, ...] = ()
     target_profile: str | None = None
     standing: Literal["recorded", "conditional", "observed"] = "recorded"
@@ -52,6 +56,7 @@ class NextAction(BaseModel):
     expected_target: StorageTarget | None = None
     query: DemandQueryRequest | None = None
     retained_read: WireReadDemandResultRequest | None = None
+    prerequisite: PreparedProductDiagnostic | None = None
     read_scope: Literal["fresh_current", "retained_frontier"] | None = None
 
 
@@ -98,6 +103,7 @@ class ResultInspection(BaseModel):
     recovery_unavailable_reason: str | None = None
     reuse_explanation: ReuseExplanationReport | None = None
     preparation_refusal: Observation | None = None
+    preparation: PreparedProductDiagnostic | None = None
     recovery_observation: Observation | None = None
     deployment: DeploymentObservation | None = None
     owner_observations_omitted: bool = False
@@ -302,6 +308,44 @@ def inspect_result(
                 owner="managed_result",
             )
         ]
+        operation_account = manifest.operation_account
+        preparation = (
+            operation_account.failure.preparation
+            if operation_account is not None and operation_account.failure is not None
+            else None
+        )
+        if preparation is not None and preparation.prerequisite == "shared-host-runtime":
+            target = operation_account.acquired_target if operation_account is not None else None
+            profile = captured["configured_target"]["profile"] if captured is not None else None
+            missing = tuple(
+                name for name, value in (
+                    ("release_id", bindings.release_id), ("runtime_id", bindings.runtime_id),
+                    ("acquired_target", target), ("target_profile", profile),
+                ) if value is None
+            )
+            command = None
+            if not missing and target is not None:
+                command = shlex.join([
+                    "ci", "release", "reacquire-host",
+                    "--release", str(bindings.release_id),
+                    "--runtime", str(bindings.runtime_id),
+                    "--database-oid", str(target.database_oid),
+                    "--target", str(profile),
+                    "--expected-target", target.model_dump_json(), "--json",
+                ])
+            actions.append(NextAction(
+                kind="reacquire_host", owner="shared_host", result_id=result,
+                demand_id=bindings.demand_id, release_id=bindings.release_id,
+                runtime_id=bindings.runtime_id, prerequisite=preparation,
+                target_profile=profile, expected_target=target,
+                standing="conditional", required_inputs=missing,
+                command=command,
+                reason=(
+                    "The captured shared-host runtime prerequisite changed. Reacquire the "
+                    "same release on its recorded target, then select the returned runtime "
+                    "for a successor execution. The recorded demand retains its original runtime."
+                ),
+            ))
         if manifest.settled is None:
             actions.append(
                 NextAction(
@@ -531,6 +575,7 @@ def inspect_result(
                 ),
                 None,
             ),
+            preparation=preparation,
             recovery_observation=next(
                 (
                     row
@@ -688,6 +733,12 @@ def render_inspection(report: ResultInspection) -> Group:
                 Text(f"{observation.message} · retained observation at {observation.timestamp}")
             )
             parts.append(Text(str(observation.fields)))
+    if report.preparation is not None:
+        parts.append(Text(
+            f"Captured prerequisite {report.preparation.prerequisite} · "
+            f"{report.preparation.resource} · expected {report.preparation.expected} · "
+            f"observed {report.preparation.actual}"
+        ))
     if report.deployment is not None:
         parts.append(
             Text(
