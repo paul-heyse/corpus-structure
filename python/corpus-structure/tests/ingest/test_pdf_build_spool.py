@@ -247,7 +247,7 @@ def test_preparation_identity_binds_models_options_and_not_incidental_resources(
 
     report = {
         "_preparation": dict(
-            profile="pdf-prepared-native-runtime-v1",
+            profile="pdf-prepared-native-runtime-v2",
             requested_options={"artifacts_path": "/old", "do_ocr": True},
             effective_options={
                 "artifacts_path": "/old",
@@ -260,6 +260,7 @@ def test_preparation_identity_binds_models_options_and_not_incidental_resources(
             backend_options={"threads": 8},
             stage_scope="native",
             native_variants={"layout": "LayoutModel"},
+            initialized_bindings={"bindings": [{"role": "layout", "methods": [["run", "a" * 64]]}]},
             packages={"docling": "2.148.0"},
             image_ownership={"profile": "native-raster"},
             arrow_resources={"capacity": 4},
@@ -278,6 +279,13 @@ def test_preparation_identity_binds_models_options_and_not_incidental_resources(
     assert native_preparation_identity(json.dumps(ordered).encode()) != identity
     changed["_preparation"]["effective_options"]["scale"] = 3.0
     assert native_preparation_identity(json.dumps(changed).encode()) != identity
+    rebound = deepcopy(report)
+    rebound["_preparation"]["initialized_bindings"]["bindings"][0]["methods"][0][1] = "b" * 64
+    assert native_preparation_identity(json.dumps(rebound).encode()) != identity
+    historical = deepcopy(report)
+    historical["_preparation"]["profile"] = "pdf-prepared-native-runtime-v1"
+    with pytest.raises(ValueError, match="retain the original spool and regenerate"):
+        native_preparation_identity(json.dumps(historical).encode())
 
 
 def test_complete_spool_clones_exact_records_and_rebinds_only_private_raster_path(tmp_path):

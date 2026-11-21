@@ -178,7 +178,12 @@ def native_preparation_identity(content: bytes) -> str:
     """Bind determining prepared mechanisms, keeping incidental resources as provenance."""
     report = json.loads(content)
     preparation = report["_preparation"]
-    if preparation.get("profile") != "pdf-prepared-native-runtime-v1":
+    if preparation.get("profile") == "pdf-prepared-native-runtime-v1":
+        raise ValueError(
+            "PDF spool native preparation predates initialized binding custody; "
+            "retain the original spool and regenerate this capture with the current producer"
+        )
+    if preparation.get("profile") != "pdf-prepared-native-runtime-v2":
         raise ValueError("PDF spool has an unsupported native preparation profile")
     determining = {
         name: preparation[name]
@@ -189,6 +194,7 @@ def native_preparation_identity(content: bytes) -> str:
             "backend_options",
             "stage_scope",
             "native_variants",
+            "initialized_bindings",
             "packages",
             "image_ownership",
         )

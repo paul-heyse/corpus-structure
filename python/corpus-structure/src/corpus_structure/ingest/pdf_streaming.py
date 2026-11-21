@@ -711,6 +711,7 @@ class StreamingPdfProducer:
         converter = self.converter
         if converter is None:
             raise ValueError("native PDF conversion requires prepared options")
+        converter.verify_initialized_runtime()
         options = {} if page_range is None else {"page_range": page_range}
         result = None
         try:

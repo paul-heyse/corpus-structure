@@ -218,6 +218,7 @@ class PdfConverter:
         self._pipeline: Any = None
         self._options: Any = None
         self._prepared_options_report = b"{}"
+        self._initialized_runtime = None
         self._page_lifetime = FormulaPageLifetime()
 
     def _prepare(self) -> None:
@@ -430,6 +431,7 @@ class PdfConverter:
         import pyarrow as pa
 
         from .pdf_build_spool import canonical_native_options
+        from .pdf_runtime import capture_initialized_pdf_runtime
 
         assert self._formula is not None
         effective = canonical_native_options(
@@ -451,10 +453,11 @@ class PdfConverter:
             formula_stage=type(self._formula.native).__name__,
             formula_engine=type(getattr(self._formula.native, "engine", None)).__name__,
         )
+        self._initialized_runtime = capture_initialized_pdf_runtime(self, assets=self.assets)
         report = {
             **effective,
             "_preparation": {
-                "profile": "pdf-prepared-native-runtime-v1",
+                "profile": "pdf-prepared-native-runtime-v2",
                 "requested_options": requested_options,
                 "effective_options": effective,
                 "backend_options": (
@@ -464,6 +467,7 @@ class PdfConverter:
                 ),
                 "stage_scope": "native-pipeline" if self._pipeline is not None else "formula-only",
                 "native_variants": option_variants,
+                "initialized_bindings": json.loads(self._initialized_runtime.content),
                 "packages": dict(pdf_package_versions()),
                 "image_ownership": {
                     "profile": "docling-native-full-raster-crop-v1"
@@ -499,6 +503,11 @@ class PdfConverter:
         self._prepared_options_report = json.dumps(
             report, ensure_ascii=False, allow_nan=False, separators=(",", ":")
         ).encode()
+
+    def verify_initialized_runtime(self) -> None:
+        if self._initialized_runtime is None:
+            raise ValueError("PDF converter has no acquired initialized runtime")
+        self._initialized_runtime.check()
 
     @property
     def prepared_options_report(self) -> bytes:
@@ -591,6 +600,7 @@ class PdfConverter:
         if page_range is not None and not 1 <= page_range[0] <= page_range[1]:
             raise ValueError("page range uses positive physical pages in order")
         self._prepare()
+        self.verify_initialized_runtime()
         assert self._formula is not None
         self._formula.outcomes.clear()
         self._candidate_pages.clear()

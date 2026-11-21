@@ -92,6 +92,8 @@ def pdf_capture_custody(
         "core/work.py",
         "ingest/pdf_assets.py",
         "ingest/pdf.py",
+        "ingest/pdf_runtime.py",
+        "semantic/pdf_companion_encoding.py",
         "ingest/pdf_health.py",
         "ingest/pdf_hierarchy.py",
     )
