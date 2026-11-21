@@ -385,6 +385,28 @@ def test_new_profiles_default_to_cuda_without_changing_explicit_cpu_history(prof
     assert GlinerProfile(**asdict(profile)).device == "cpu"
 
 
+def test_standalone_gliner_host_uses_validated_endpoint_and_policy(profile, monkeypatch):
+    from types import SimpleNamespace
+
+    from corpus_structure.methods import native_host_clients
+    from corpus_structure.methods.gliner import CUDA_WHITESPACE_PROFILE
+
+    monkeypatch.setenv("CORPUS_NEMOTRON__ENDPOINT", "http://configured-recognizer/v1")
+    monkeypatch.setenv("CORPUS_CHARACTERIZATION_EXECUTION__MAX_PROVIDER_JOBS", "3")
+    observed = []
+
+    def group(policy, endpoint):
+        observed.append((policy, endpoint))
+        return SimpleNamespace(policy=policy, declared_selections=())
+
+    monkeypatch.setattr(native_host_clients, "NativeHostGroup", group)
+    selected = replace(profile, version=CUDA_WHITESPACE_PROFILE)
+    worker = native_host_clients.HostedGliner(selected)
+    assert worker.group.policy.max_provider_jobs == 3
+    assert worker.group.policy.provider_threads == selected.threads
+    assert observed[0][1] == "http://configured-recognizer/v1"
+
+
 @pytest.mark.parametrize("kind", ["metadata", "frame"])
 def test_hosted_gliner_refuses_invalid_request_before_native_start(profile, kind):
     from types import SimpleNamespace

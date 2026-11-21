@@ -361,11 +361,10 @@ class PreparedHanlpProfile:
     selection: Any
 
     def run(self, source, canonical, *, host=None, check_active=lambda: None):
-        from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
         from corpus_structure.methods.native_evidence import _native_heads
         from corpus_structure.methods.native_evidence_layers import HANLP_FAMILIES
         from corpus_structure.methods.native_host import NativeHostGroup
-        from corpus_structure.settings import NemotronSettings
+        from corpus_structure.settings import Settings
 
         rows = canonical_hanlp_rows(source, canonical)
         units, alignments, coverage, receipts = [], [], [], []
@@ -375,12 +374,14 @@ class PreparedHanlpProfile:
             original_source=source.value["source"]["document"],
             analyzed_scope=dict(source=source.value["source"], selectors=source.value["selectors"]),
         )
-        lifetime = (
-            nullcontext(host)
-            if host is not None
-            else NativeHostGroup(CharacterizationExecutionPolicy(), NemotronSettings().endpoint)
-        )
         if rows:
+            if host is None:
+                settings = Settings()
+                lifetime = NativeHostGroup(
+                    settings.characterization_execution, settings.nemotron.endpoint
+                )
+            else:
+                lifetime = nullcontext(host)
             with lifetime as active:
                 active.declare((self.selection,))
 

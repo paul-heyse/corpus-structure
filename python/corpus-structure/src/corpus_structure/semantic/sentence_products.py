@@ -678,9 +678,8 @@ class PreparedSentenceProfile:
         host: NativeHostGroup | None = None,
         source_pin=None,
     ) -> SourceAnnotations:
-        from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
         from corpus_structure.methods.native_host import NativeHostGroup
-        from corpus_structure.settings import NemotronSettings
+        from corpus_structure.settings import Settings
 
         check_active()
         source = FrozenNativeSource.acquire(self.prepared, source.value)
@@ -705,11 +704,13 @@ class PreparedSentenceProfile:
                 raise ValueError("sentence model/assets changed after explicit preparation")
             # An explicitly supplied host belongs to the enclosing execution owner;
             # direct bounded calls acquire and drain their own original host.
-            lifetime = (
-                nullcontext(host)
-                if host is not None
-                else NativeHostGroup(CharacterizationExecutionPolicy(), NemotronSettings().endpoint)
-            )
+            if host is None:
+                settings = Settings()
+                lifetime = NativeHostGroup(
+                    settings.characterization_execution, settings.nemotron.endpoint
+                )
+            else:
+                lifetime = nullcontext(host)
             with lifetime as active_host:
                 active_host.declare((selection,))
                 for offset in range(0, len(blocks), self.configuration.batch_size):

@@ -296,8 +296,10 @@ def test_shared_pm2_adapters_authenticate_and_delegate_without_global_retuning(
     assert len(calls) == 1
 
 
+@pytest.mark.parametrize("endpoint", [None, "http://explicit-recognizer/v1"])
 def test_direct_spacy_facade_loads_only_tokenizer_and_closes_phase_preserving_doc_constraints(
     monkeypatch,
+    endpoint,
 ):
     import base64
 
@@ -307,6 +309,8 @@ def test_direct_spacy_facade_loads_only_tokenizer_and_closes_phase_preserving_do
     from corpus_structure.ingest.hosted_spacy import HostedPipeline
     from corpus_structure.ingest.sentences import SentenceConfig
 
+    monkeypatch.setenv("CORPUS_NEMOTRON__ENDPOINT", "http://configured-recognizer/v1")
+    monkeypatch.setenv("CORPUS_CHARACTERIZATION_EXECUTION__MAX_PROVIDER_JOBS", "3")
     pipeline = HostedPipeline(SentenceConfig())
     assert pipeline._base.pipe_names == []
     declared = selection("spacy")
@@ -315,7 +319,8 @@ def test_direct_spacy_facade_loads_only_tokenizer_and_closes_phase_preserving_do
 
     class Group:
         def __init__(self, policy, endpoint=None):
-            assert endpoint == "http://127.0.0.1:8035/v1"
+            assert endpoint == expected_endpoint
+            assert policy.max_provider_jobs == 3
 
         def __enter__(self):
             events.append("enter")
@@ -345,10 +350,13 @@ def test_direct_spacy_facade_loads_only_tokenizer_and_closes_phase_preserving_do
             return {"documents": [base64.b64encode(doc.to_bytes()).decode("ascii")]}
 
     monkeypatch.setattr(native_host, "NativeHostGroup", Group)
+    expected_endpoint = endpoint or "http://configured-recognizer/v1"
     doc = Doc(pipeline.vocab, words=["Let", "x+y"], spaces=[True, False])
     doc[1].tag_ = "NNP"
     doc[1].is_sent_start = False
-    [(restored, marker)] = list(pipeline.pipe([(doc, "exact-input")], as_tuples=True))
+    [(restored, marker)] = list(
+        pipeline.pipe([(doc, "exact-input")], as_tuples=True, endpoint=endpoint)
+    )
     assert restored.text == "Let x+y" and marker == "exact-input"
     assert events == ["enter", "infer", "exit"]
 

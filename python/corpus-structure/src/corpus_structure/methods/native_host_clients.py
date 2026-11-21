@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from hashlib import sha256
 from typing import cast
 
 from pydantic import TypeAdapter
-
-from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
 
 from .gliner import MAX_DIAGNOSTIC_SPANS, GlinerInput, GlinerPack, GlinerRefused, GlinerReport
 from .gliner_worker import (
@@ -45,12 +43,15 @@ class HostedGliner:
             raise GlinerRefused("current GLiNER execution requires an explicit CUDA profile")
         self.profile, self._closed = profile, False
         self._owns_group = group is None
-        from corpus_structure.settings import NemotronSettings
+        if group is None:
+            from corpus_structure.settings import Settings
 
-        self.group = group or NativeHostGroup(
-            CharacterizationExecutionPolicy(provider_threads=profile.threads),
-            NemotronSettings().endpoint,
-        )
+            settings = Settings()
+            group = NativeHostGroup(
+                replace(settings.characterization_execution, provider_threads=profile.threads),
+                settings.nemotron.endpoint,
+            )
+        self.group = group
         from corpus_structure.semantic.identity import canonical_bytes
 
         values = asdict(profile)
