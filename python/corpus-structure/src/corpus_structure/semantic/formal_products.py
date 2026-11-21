@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.methods.math import grammar as math_grammar
+from corpus_structure.semantic.formal_evidence import FAMILIES
 from corpus_structure.semantic.source_products import (
     native_selector_covers_extent,
     native_selector_facts,
@@ -34,7 +35,6 @@ from .data_operation_model import EffectiveDataOperationModel, EffectiveOperatio
 from .data_operation_outcomes import successful_return_outcome
 from .established_validity import ProductValidation
 from .formal_evidence import (
-    FAMILIES,
     FormalIdentity,
     _LayerBuilder,
     extract_formal_facts,
@@ -240,6 +240,40 @@ def verify_formal_literal_geometry(text, pieces, members, lexicon):
                 )
 
 
+def verify_formal_member_local_addresses(packets):
+    """Check local member addresses and build the validated inventory indexes."""
+    data = {name: [] for name, _ in _INVENTORIES}
+    data["roles"] = []
+    names = {kind: name for name, kind in _INVENTORIES}
+    seen = set()
+    for packet in packets:
+        body = packet["body"]
+        local_id = body["local_id"]
+        if packet["member_id"] != local_id:
+            raise ValueError("formal packet differs from original semantic source/member")
+        if local_id in seen:
+            raise ValueError("formal packet repeats member identity")
+        seen |= {local_id}
+        if body["record_type"] != "choice_member":
+            data[names[body["record_type"]]] += [body]
+    indexes = {name: {row["local_id"]: row for row in data[name]} for name in data}
+    all_nodes = {key: indexes[name][key] for name in indexes for key in indexes[name]}
+    choices = {}
+    for group in data["choices"]:
+        for member in group["members"]:
+            if member["local_id"] in all_nodes:
+                raise ValueError("formal choice member repeats local identity")
+            all_nodes[member["local_id"]] = member
+            choices[member["local_id"]] = group
+    return data, indexes, all_nodes, choices
+
+
+def verify_formal_family_roster(coverage):
+    """Require every declared formal family in its canonical order."""
+    if tuple(row["family"] for row in coverage) != FAMILIES:
+        raise ValueError("formal product must retain every examined family outcome")
+
+
 def verify_formal_packed_members(packets):
     """Check that each projected packed alternative is exactly its group member."""
     expected = {
@@ -347,43 +381,23 @@ def validate_formal_product(
     member_contracts = formal_member_contracts(prepared, model)
     packets = analytical_packets(checked, member_contracts["manifest"])
     verify_formal_examined_scope(checked, selected)
-    data = {name: [] for name, _ in _INVENTORIES}
-    data["roles"] = []
-    by_kind = {kind: name for name, kind in _INVENTORIES}
+    data, indexes, all_nodes, choices = verify_formal_member_local_addresses(packets)
     subject = source_subject(checked["source"])
-    seen = set()
+    context = dict(
+        subject=subject,
+        subject_definition="original-source-view",
+        original_source=checked["source"]["document"],
+        analyzed_scope=dict(source=checked["source"], selectors=selected["selectors"]),
+    )
     for packet in packets:
         if packet["kind_contract"] != member_contracts[packet["body"]["record_type"]]:
             raise ValueError("formal packet has another admitted nominal member contract")
-        if (
-            packet["context"]
-            != dict(
-                subject=subject,
-                subject_definition="original-source-view",
-                original_source=checked["source"]["document"],
-                analyzed_scope=dict(source=checked["source"], selectors=selected["selectors"]),
-            )
-            or packet["member_id"] != packet["body"]["local_id"]
-        ):
+        if packet["context"] != context:
             raise ValueError("formal packet differs from original semantic source/member")
-        if packet["member_id"] in seen:
-            raise ValueError("formal packet repeats member identity")
-        seen.add(packet["member_id"])
-        if packet["body"]["record_type"] != "choice_member":
-            data[by_kind[packet["body"]["record_type"]]].append(packet["body"])
     verify_formal_packed_members(packets)
     verify_formal_literal_geometry(
         selected["text"], selected["pieces"], packets, checked["lexicon"]
     )
-    indexes = {name: {row["local_id"]: row for row in rows} for name, rows in data.items()}
-    all_nodes = {key: row for index in indexes.values() for key, row in index.items()}
-    choices = {}
-    for group in data["choices"]:
-        for member in group["members"]:
-            if member["local_id"] in all_nodes:
-                raise ValueError("formal choice member repeats local identity")
-            all_nodes[member["local_id"]] = member
-            choices[member["local_id"]] = group
     for occurrence in data["occurrences"]:
         if occurrence["local_id"] != occurrence_id(checked["source"], occurrence["extents"]):
             raise ValueError("formal occurrence differs from original semantic source address")
@@ -392,8 +406,7 @@ def validate_formal_product(
     validate_formal_positions(indexes)
     validate_formal_normalization(indexes["annotations"])
     validate_inventory_graph(data, indexes, all_nodes, choices, lambda _: None)
-    if [row["family"] for row in checked["coverage"]] != list(FAMILIES):
-        raise ValueError("formal product must retain every examined family outcome")
+    verify_formal_family_roster(checked["coverage"])
     from .established_validity import successful_product_validation
 
     proof = successful_product_validation(
@@ -775,7 +788,7 @@ def formal_operation_sources():
                     (semantic / (module + ".py")).read_bytes(),
                     str(semantic / (module + ".py")),
                 )
-                for module in ("characterization_evidence", "source_products")
+                for module in ("characterization_evidence", "formal_evidence", "source_products")
             ),
         ),
         boundary_contracts=(formal_profile_assets(), formal_execution_custody()),
@@ -841,6 +854,14 @@ class PreparedFormalEvidencePort:
                 (
                     "corpus_structure.semantic.formal_products.verify_formal_occurrence_origin",
                     verify_formal_occurrence_origin,
+                ),
+                (
+                    "corpus_structure.semantic.formal_products.verify_formal_family_roster",
+                    verify_formal_family_roster,
+                ),
+                (
+                    "corpus_structure.semantic.formal_products.verify_formal_member_local_addresses",
+                    verify_formal_member_local_addresses,
                 ),
                 (
                     "corpus_structure.semantic.source_products.native_selector_covers_extent",
@@ -927,6 +948,8 @@ class PreparedFormalEvidencePort:
                 "text.formal_evidence/examined-scope": selected,
                 "text.formal_evidence/occurrence-origin": selected,
                 "text.formal_evidence/lexical-inventory-links": None,
+                "text.formal_evidence/family-roster": None,
+                "text.formal_evidence/member-local-addresses": None,
                 "text.formal_evidence/symbolic-inventory-positions": None,
             }
             attestations = tuple(

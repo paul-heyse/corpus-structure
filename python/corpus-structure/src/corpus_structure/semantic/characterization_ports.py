@@ -661,19 +661,15 @@ class PreparedCharacterizationPort(ABC):
             from .sentence_products import validate_source_annotations
 
             selected = next(value for value in values if value.role == "sentences")
-            partitions = (
-                selected.partitioned.packets
-                if selected.partitioned is not None
-                else getattr(selected.value, "partitions", None)
-            )
             supplied = roles["sentences"]
-            annotation_body = (
-                json.loads(supplied.content)
-                if isinstance(supplied, SourceAnnotations)
-                else supplied
-                if partitions is not None
-                else _body(self.prepared, "DdoSourceAnnotations", supplied)
-            )
+            if selected.partitioned is not None:
+                annotation_body = json.loads(selected.partitioned.header)
+                partitions = selected.partitioned.packets
+            elif binding is None and isinstance(supplied, SourceAnnotations):
+                annotation_body = json.loads(supplied.content)
+                partitions = supplied.partitions
+            else:
+                raise PortRefusal("construction requires its selected annotation row partitions")
             native = validate_source_annotations(
                 self.prepared,
                 self.model,
@@ -797,7 +793,7 @@ class PreparedCharacterizationPort(ABC):
         if isinstance(inputs, _DocumentInputs) and not inputs.sources:
             return self._completion(None, binding)
         if isinstance(inputs, _ConstructionInputs):
-            product = PreparedConstructionProfile(self.prepared, self.model).run(
+            product = PreparedConstructionProfile(self.prepared, self.model)._construct(
                 inputs.source,
                 inputs.formal,
                 self.construction_options(),

@@ -3,7 +3,11 @@
 from dataclasses import replace
 
 from corpus_structure.semantic.canonical_sentences import canonical_partition_values
-from corpus_structure.semantic.sentence_partitions import annotation_blocks, blocks_from_packets
+from corpus_structure.semantic.sentence_partitions import (
+    SentenceBlock,
+    annotation_blocks,
+    blocks_from_packets,
+)
 
 
 def _annotation(start, *, key="#/texts/0", ordinal=0):
@@ -98,4 +102,69 @@ def test_renumbered_repeated_blocks_keep_separate_current_addresses():
     assert [[row["annotation"]["partition_key"] for row in block.rows] for block in blocks] == [
         ["#/texts/1", "#/texts/1"],
         ["#/texts/2", "#/texts/2"],
+    ]
+
+
+def test_reconverted_split_and_merged_blocks_use_their_current_addresses():
+    split = (
+        _annotation(8, key="#/texts/1"),
+        _annotation(12, key="#/texts/2", ordinal=1),
+    )
+    first, second = blocks_from_packets(split)
+    rows = [row | {"extent": 8} for row in first.rows]
+    for row in second.rows:
+        shifted = row | {
+            "ordinal": 1,
+            "start": row["start"] + 4,
+            "end": row["end"] + 4,
+            "extent": 8,
+        }
+        if shifted["record_type"] == "token":
+            shifted["sentence"] = 1
+        rows.append(shifted)
+    merged = SentenceBlock(
+        "#/texts/3",
+        0,
+        8,
+        16,
+        tuple(sorted(rows, key=lambda row: (row["record_type"], row["ordinal"]))),
+    ).packet()
+
+    def selected_token_addresses(packets, revision):
+        product = canonical_partition_values(
+            {
+                "header": {
+                    "source": {
+                        "document": "native",
+                        "projection": revision,
+                        "section_pointer": "#/groups/0",
+                        "membership": "descendants",
+                    },
+                    "selectors": [],
+                    "block_coverage": [],
+                    "coverage": [],
+                },
+                "partitions": packets,
+            },
+            {"families": [], "manifest_contract": "kind:manifest"},
+        )
+        return [
+            (
+                row["annotation"]["partition_key"],
+                row["annotation"]["item_key"][1]["integer"],
+                block.start + row["start"],
+                block.start + row["end"],
+            )
+            for block in blocks_from_packets(product["partitions"])
+            for row in block.rows
+            if row["record_type"] == "token"
+        ]
+
+    assert selected_token_addresses(split, "split") == [
+        ("#/texts/1", 0, 8, 11),
+        ("#/texts/2", 0, 12, 15),
+    ]
+    assert selected_token_addresses((merged,), "merged") == [
+        ("#/texts/3", 0, 8, 11),
+        ("#/texts/3", 1, 12, 15),
     ]

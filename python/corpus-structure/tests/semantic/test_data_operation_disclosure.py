@@ -133,6 +133,56 @@ def test_disclosed_ordinary_body_still_refuses_a_protected_nested_member(disclos
     assert error.value.orig.sqlstate == "42501"
 
 
+def test_support_export_only_authorizes_publicly_disclosed_product_bodies(disclosure_control):
+    from sqlalchemy import select
+
+    from corpus_structure.semantic.data_operation_projections import _support_export_body_access
+
+    connection = disclosure_control
+    connection.exec_driver_sql("CREATE SCHEMA kb")
+    connection.exec_driver_sql(
+        "CREATE TABLE kb.data_product(id text PRIMARY KEY,kind_contract text,canonical_body jsonb)"
+    )
+    connection.exec_driver_sql(
+        "INSERT INTO kb.data_product VALUES ('visible','ordinary','{}'),('hidden','protected','{}')"
+    )
+    metadata = get_metadata()
+    products = metadata.tables["kb.data_product"]
+    selected = select(products.c.id.label("product_id")).cte("test_selected_products")
+    execute_native_sql(
+        connection,
+        function(
+            "pg_temp",
+            "disclosed_support_bodies",
+            parameters=(Parameter("boundary", pg_type("pg_temp", "disclosure_cut")),),
+            returns=pg_type("bool"),
+            body=Block((Return(_support_export_body_access(metadata, products, selected)),)),
+            search_path=("pg_catalog", "pg_temp"),
+        ),
+    )
+
+    def authorize(*, public):
+        return connection.scalar(
+            text("SELECT pg_temp.disclosed_support_bodies(ROW(:public)::pg_temp.disclosure_cut)"),
+            {"public": public},
+        )
+
+    assert authorize(public=True) is True
+    with (
+        pytest.raises(DBAPIError, match="controlled kind refusal"),
+        connection.begin_nested(),
+    ):
+        authorize(public=False)
+    connection.exec_driver_sql(
+        "UPDATE kb.data_product SET canonical_body = '{\"protected_member\":true}' WHERE id='visible'"
+    )
+    with (
+        pytest.raises(DBAPIError, match="controlled member refusal"),
+        connection.begin_nested(),
+    ):
+        authorize(public=True)
+
+
 def test_selected_output_authorization_is_inside_exact_reached_public_support():
     from pglast import ast, parse_sql
     from sqlalchemy.dialects.postgresql import dialect

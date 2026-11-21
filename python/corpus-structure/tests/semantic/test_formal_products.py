@@ -911,7 +911,54 @@ def test_prepared_family_completion_preserves_declared_success_outcome(profile):
         "text.formal_evidence/lexical-inventory-links",
         "text.formal_evidence/symbolic-inventory-positions",
         "text.formal_evidence/occurrence-origin",
+        "text.formal_evidence/family-roster",
+        "text.formal_evidence/member-local-addresses",
     }
+
+
+def test_formal_family_roster_requires_all_families_in_order():
+    from corpus_structure.semantic.formal_products import verify_formal_family_roster
+
+    coverage = [
+        {"family": "formal.lexical"},
+        {"family": "formal.number"},
+        {"family": "formal.threshold"},
+        {"family": "formal.date"},
+        {"family": "formal.identifier"},
+        {"family": "formal.quantity"},
+        {"family": "formal.interval"},
+        {"family": "formal.math"},
+    ]
+    verify_formal_family_roster(coverage)
+    for invalid in (
+        coverage[:-1],
+        [*coverage[:-1], {"family": "formal.unknown"}],
+        [coverage[1], coverage[0], *coverage[2:]],
+    ):
+        with pytest.raises(ValueError, match="retain every examined family outcome"):
+            verify_formal_family_roster(invalid)
+
+
+def test_formal_member_local_addresses_refuse_packet_and_packed_collisions():
+    from corpus_structure.semantic.formal_products import verify_formal_member_local_addresses
+
+    term = {"member_id": "term", "body": {"local_id": "term", "record_type": "term"}}
+    group = {
+        "member_id": "site",
+        "body": {"local_id": "site", "record_type": "choice", "members": [{"local_id": "alt"}]},
+    }
+    alternative = {"member_id": "alt", "body": {"local_id": "alt", "record_type": "choice_member"}}
+    _, _, nodes, choices = verify_formal_member_local_addresses((term, group, alternative))
+    assert set(nodes) == {"term", "site", "alt"}
+    assert choices == {"alt": group["body"]}
+    with pytest.raises(ValueError, match="original semantic source/member"):
+        verify_formal_member_local_addresses(({**term, "member_id": "other"},))
+    with pytest.raises(ValueError, match="packet repeats member identity"):
+        verify_formal_member_local_addresses((term, term))
+    for packed in ([{"local_id": "alt"}, {"local_id": "alt"}], [{"local_id": "term"}]):
+        fake_group = {**group, "body": {**group["body"], "members": packed}}
+        with pytest.raises(ValueError, match="choice member repeats local identity"):
+            verify_formal_member_local_addresses((term, fake_group, alternative))
 
 
 def test_formal_occurrence_origin_requires_actual_page_and_selector_ancestry():

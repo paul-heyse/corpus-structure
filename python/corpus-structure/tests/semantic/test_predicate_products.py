@@ -85,7 +85,12 @@ def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses
         ("structure.scoped_relations/declared", retained_syntax),
         (
             "text.constructions/source-native",
-            lexical_reading | {"text.formal_evidence/occurrence-origin"},
+            (lexical_reading - {"text.formal_evidence/unique-coverage-family"})
+            | {
+                "text.formal_evidence/occurrence-origin",
+                "text.formal_evidence/family-roster",
+                "text.formal_evidence/member-local-addresses",
+            },
         ),
         ("text.contextual_evaluation/source-native", lexical_reading),
     ):

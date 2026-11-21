@@ -1097,11 +1097,6 @@ class PreparedConstructionProfile:
     ):
         options = ConstructionOptions() if options is None else options
         source = FrozenNativeSource.acquire(self.prepared, source.value)
-        FormalSourceReadings.from_products(formal, source, prepared=self.prepared, model=self.model)
-        snapshots = tuple(
-            CharacterizationSnapshot(product.semantic_id, product.content) for product in formal
-        )
-        native = None
         if sentences is not None:
             sentences = validate_source_annotations(
                 self.prepared,
@@ -1113,6 +1108,31 @@ class PreparedConstructionProfile:
                 subject_context=sentences.subject_context,
                 partitions=sentences.partitions,
             )
+        return self._construct(
+            source,
+            formal,
+            options,
+            sentences=sentences,
+            check_active=check_active,
+            subject_context=subject_context,
+        )
+
+    def _construct(
+        self,
+        source: FrozenNativeSource,
+        formal: tuple[FormalEvidenceProduct, ...],
+        options: ConstructionOptions,
+        *,
+        sentences: SourceAnnotations | None,
+        check_active: Callable[[], None],
+        subject_context: SubjectContext | None = None,
+    ):
+        FormalSourceReadings.from_products(formal, source, prepared=self.prepared, model=self.model)
+        snapshots = tuple(
+            CharacterizationSnapshot(product.semantic_id, product.content) for product in formal
+        )
+        native = None
+        if sentences is not None:
             native = CharacterizationSnapshot(
                 sentences.semantic_id, sentences.content, sentences.partitions
             )

@@ -19,6 +19,26 @@ class FormalEvidenceOperation:
         "id": "text.formal_evidence/source-native",
         "rules": [
             {
+                "id": "text.formal_evidence/family-roster",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.formal_evidence/source-native",
+                "checker_callable": "corpus_structure.semantic.formal_products.verify_formal_family_roster",
+                "parameters": {"paths": ["coverage"]},
+            },
+            {
+                "id": "text.formal_evidence/member-local-addresses",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.formal_evidence/source-native",
+                "checker_callable": "corpus_structure.semantic.formal_products.verify_formal_member_local_addresses",
+                "parameters": {"paths": ["members"]},
+            },
+            {
                 "id": "text.formal_evidence/unique-coverage-family",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
                 "collection": "coverage",

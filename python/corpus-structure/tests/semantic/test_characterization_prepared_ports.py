@@ -328,6 +328,8 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
     acquired,
     monkeypatch,
 ):
+    from dataclasses import replace
+
     from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
     from corpus_structure.core.work import drive_prepared_work
     from corpus_structure.ingest.sentences import SentenceConfig
@@ -348,6 +350,13 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
     port = admitted(acquired, "text.constructions/source-native", resolve_construction_port)
     from corpus_structure.semantic.data_operation_ports import PortRefusal
 
+    sentence_role = next(role for role in port.operation.roles if role.name == "sentences")
+    assert set(sentence_role.required_rules) == {
+        "segment.sentences/exact-source-scope",
+        "segment.sentences/native-dense-ordinal",
+        "segment.sentences/native-row-span",
+        "segment.sentences/native-source-order",
+    }
     with pytest.raises(PortRefusal, match="omits a required typed role"):
         port.invoke_python(values(port, source=source.value, formal=(primary,)))
     # Controlled lexical/sentence columns let the real grammar consume original
@@ -410,6 +419,9 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
     native = partition_controlled_annotations(
         prepared, model, annotations, source, subject_context=_publication_context(source)
     )
+    unbacked = replace(native, partitions=())
+    with pytest.raises(ValueError, match="selected collection commitment"):
+        port.invoke_python(values(port, source=source.value, formal=(primary,), sentences=unbacked))
     inputs = values(port, source=source.value, formal=(primary,), sentences=native)
     expected = port.invoke_python(inputs)
     cpu = CPUExecutionScope(

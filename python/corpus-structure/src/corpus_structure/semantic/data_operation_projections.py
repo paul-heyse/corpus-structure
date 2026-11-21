@@ -125,6 +125,23 @@ def _disclosed_body_access(metadata, kind, body):
     )
 
 
+def _support_export_body_access(metadata, products, product_ids):
+    # Hidden roots have no body in public support output. Keep their capability
+    # checks out of the aggregate that governs the disclosed body records.
+    access = case(
+        (
+            _kind_disclosed(metadata, products.c.kind_contract),
+            func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
+        ),
+        else_=literal(True),
+    )
+    return (
+        select(func.coalesce(func.bool_and(access), literal(True)))
+        .where(products.c.id.in_(select(product_ids.c.product_id)))
+        .scalar_subquery()
+    )
+
+
 def _custody_body_eligible(metadata, kind, body):
     """Authenticate identity-only material within the original acquisition's universes."""
     kinds = metadata.tables["sem.data_kind_contract"]
@@ -1212,8 +1229,9 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
             .select_from(products.join(product_ids, product_ids.c.product_id == products.c.id))
             .where(
                 products.c.id == partitions.c.product_id,
-                _disclosed_kind_access(metadata, products.c.kind_contract),
-                func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body),
+                _disclosed_body_access(
+                    metadata, products.c.kind_contract, products.c.canonical_body
+                ),
             )
         )
         fields["partitions"] = records(
@@ -1438,18 +1456,7 @@ def selected_support_export(metadata, selected_uses, admissions, in_page):
     body_bytes = select(
         func.coalesce(func.sum(func.octet_length(page.c.record.cast(Text))), 0)
     ).scalar_subquery()
-    body_access = (
-        select(
-            func.coalesce(
-                func.bool_and(
-                    func.ops.ddo_body_access(products.c.kind_contract, products.c.canonical_body)
-                ),
-                literal(True),
-            )
-        )
-        .where(products.c.id.in_(select(product_ids.c.product_id)))
-        .scalar_subquery()
-    )
+    body_access = _support_export_body_access(metadata, products, product_ids)
     value = case(
         (
             body_access,
