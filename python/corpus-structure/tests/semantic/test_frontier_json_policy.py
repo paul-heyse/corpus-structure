@@ -228,8 +228,8 @@ def test_historical_frontier_and_manifest_keep_original_cut_identity():
     source["cut_id"] = original.identity
     encoded = json_bytes(source)
     checked = decode_export_manifest(encoded)
-    assert json_bytes(checked.model_dump(mode="python")) == encoded
-    cut = CutSelection(json_bytes(checked.cut))
+    assert checked.to_bytes() == encoded
+    cut = checked.cut_selection
     assert cut.identity == original.identity
     expect_roles(cut.record)
 
@@ -311,8 +311,30 @@ def test_historical_ordinary_exponent_tokens_keep_page_and_v3_manifest_cut_ids(n
     source["cut_id"] = original.identity
     encoded = json_bytes(source)
     checked = decode_export_manifest(encoded)
-    assert json_bytes(checked.model_dump(mode="python")) == encoded
-    assert CutSelection(json_bytes(checked.cut)).identity == original.identity
+    assert checked.to_bytes() == encoded
+    assert checked.cut_selection.identity == original.identity
+
+
+@pytest.mark.parametrize("number", [1e-5, 1e20, -0.0])
+def test_manifest_ordinary_named_scope_keeps_original_exponent_bytes(number):
+    from corpus_structure.serve.demand_export_manifest import decode_export_manifest
+    from semantic.test_demand_export_manifest import manifest
+
+    value = frontier()
+    value["selection"]["operations"][0]["parameters"] = {
+        "ordinary": {"analyzed_scope": {"fraction": number}}
+    }
+    cut = CutSelection.from_native(value)
+    source = manifest()
+    source["cut"] = {name: value[name] for name in _PIN_FIELDS}
+    source["cut_id"] = cut.identity
+    encoded = json_bytes(source)
+    decoded = decode_export_manifest(encoded)
+    actual = decoded.cut["selection"]["operations"][0]["parameters"]["ordinary"]["analyzed_scope"]["fraction"]
+    assert type(actual) is float and actual.hex() == number.hex()
+    assert decoded.to_bytes() == encoded
+    assert decoded.cut_selection.content == cut.content
+    assert decoded.cut_selection.identity == cut.identity
 
 
 @pytest.mark.parametrize("explicit_view", [False, True])

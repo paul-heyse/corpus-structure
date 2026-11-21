@@ -51,11 +51,11 @@ def manifest() -> dict[str, Any]:
 def test_manifest_validation_preserves_v3_bytes_and_contextual_cut():
     source = manifest()
     before = json_bytes(source)
-    assert json_bytes(checked_export_manifest(source).model_dump(mode="python")) == before
+    assert checked_export_manifest(source).to_bytes() == before
     result = decode_export_manifest(before)
-    assert json_bytes(result.model_dump(mode="python")) == before
+    assert result.to_bytes() == before
     assert result.cut["selection"]["roots"][0]["analyzed_scope"] == {"scale": Decimal("1.20")}
-    assert CutSelection(json_bytes(result.cut)).identity == source["cut_id"]
+    assert result.cut_selection.identity == source["cut_id"]
     source["pages"].clear()
     assert result.pages == ["page.json"]
 
@@ -82,5 +82,44 @@ def test_manifest_refuses_independently_damaged_framing(damage):
 
 
 def test_manifest_decoder_refuses_duplicate_keys_before_validation():
-    with pytest.raises(ValueError, match="invalid native JSON"):
+    with pytest.raises(ValueError, match="invalid retained JSON"):
         decode_export_manifest(b'{"format":"demand-result-export-v3","format":"other"}')
+
+
+def test_manifest_writer_embeds_the_actual_cut_bytes_and_detaches_the_interpretation():
+    from semantic.test_frontier_json_policy import expect_roles, frontier
+
+    original = CutSelection.from_native(frontier())
+    cut = CutSelection(original.content.replace(b'":', b'": '))
+    metadata = manifest()
+    metadata.pop("cut")
+    metadata["cut_id"] = cut.identity
+    checked = checked_export_manifest(metadata, cut=cut)
+    expected = json_bytes({**metadata, "cut": "CUT_BYTES"}).replace(
+        b'"cut":"CUT_BYTES"', b'"cut":' + cut.content
+    )
+    assert checked.to_bytes() == expected
+    assert checked.cut_selection.content == cut.content
+    expect_roles(checked.cut)
+    restored = decode_export_manifest(expected)
+    assert restored.to_bytes() == expected
+    assert restored.cut_selection.content == cut.content
+    assert restored.cut_selection.identity == cut.identity
+    expect_roles(restored.cut)
+
+
+def test_historical_manifest_preserves_its_full_framing_bytes():
+    original = json_bytes(manifest()).replace(b',"encoding":', b',\n  "encoding":')
+    decoded = decode_export_manifest(original)
+    assert decoded.to_bytes() == original
+
+
+@pytest.mark.parametrize("mutate", ["cut", "files"])
+def test_manifest_emission_refuses_mutated_interpretation_or_metadata(mutate):
+    decoded = decode_export_manifest(json_bytes(manifest()))
+    if mutate == "cut":
+        decoded.cut["read_id"] = "different"
+    else:
+        decoded.files["page.json"].bytes += 1
+    with pytest.raises(ValueError, match="changed after validation"):
+        decoded.to_bytes()

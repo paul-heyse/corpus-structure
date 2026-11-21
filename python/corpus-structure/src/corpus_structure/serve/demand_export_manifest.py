@@ -4,15 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationInfo, model_validator
 
 from corpus_structure.semantic.data_operation_json import (
+    decode_retained_json_members,
     json_bytes,
-    native_json_loads,
-    own_wire_json_value,
 )
+
+if TYPE_CHECKING:
+    from corpus_structure.semantic.demand_results import CutSelection
 
 _Digest = Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")]
 _Count = Annotated[int, Field(ge=0)]
@@ -50,12 +52,19 @@ class DemandExportManifest(_ManifestRecord):
     relations: dict[str, ExportRelation]
     files: dict[str, ExportFile]
     trust: Literal["selected historical acquisition; current trust requires native reassessment"]
+    _cut: CutSelection = PrivateAttr()
+    _snapshot: dict[str, Any] = PrivateAttr()
+    _content: bytes | None = PrivateAttr(default=None)
 
     @model_validator(mode="after")
-    def check_references(self):
+    def check_references(self, info: ValidationInfo):
         from corpus_structure.semantic.demand_results import CutSelection
 
-        selected = CutSelection(json_bytes(self.cut))
+        selected = (info.context or {}).get("cut_selection")
+        if selected is None:
+            selected = CutSelection(json_bytes(self.cut))
+        if not isinstance(selected, CutSelection):
+            raise ValueError("detached manifest requires its exact cut selection")
         if selected.identity != self.cut_id:
             raise ValueError("detached manifest cut identity differs from its native pins")
         for path in self.files:
@@ -75,7 +84,35 @@ class DemandExportManifest(_ManifestRecord):
         ]
         if any(name not in self.files for name in references):
             raise ValueError("detached manifest references a file absent from its inventory")
+        self.cut = selected.record
+        self._cut = selected
+        self._snapshot = self.model_dump(mode="python")
         return self
+
+    @property
+    def cut_selection(self) -> CutSelection:
+        """Return the original cut owner whose immutable bytes establish cut_id."""
+        return self._cut
+
+    def to_bytes(self) -> bytes:
+        """Emit authenticated v3 framing with the exact embedded cut bytes."""
+        from corpus_structure.semantic.demand_wire import _same_json_material
+
+        view = self.model_dump(mode="python")
+        if not _same_json_material(view, self._snapshot):
+            raise ValueError("detached manifest changed after validation")
+        if self._content is not None:
+            return self._content
+        return (
+            b"{"
+            + b",".join(
+                json_bytes(name)
+                + b":"
+                + (self._cut.content if name == "cut" else json_bytes(view[name]))
+                for name in sorted(view)
+            )
+            + b"}"
+        )
 
 
 @dataclass(frozen=True)
@@ -90,18 +127,25 @@ class PublishedDemandExport:
         }
 
 
-def checked_export_manifest(value: dict[str, Any]) -> DemandExportManifest:
+def checked_export_manifest(
+    value: dict[str, Any], *, cut: CutSelection | None = None
+) -> DemandExportManifest:
     """Validate metadata without projecting contextual pins onto presentation numbers."""
-    return DemandExportManifest.model_validate(value)
+    if cut is None:
+        return DemandExportManifest.model_validate(value)
+    if "cut" in value:
+        raise ValueError("supply the exact cut separately from manifest metadata")
+    return DemandExportManifest.model_validate(
+        {**value, "cut": cut.record}, context={"cut_selection": cut}
+    )
 
 
 def decode_export_manifest(content: bytes) -> DemandExportManifest:
     """Decode strict JSON framing and preserve the native cut's existing numeric contract."""
-    parsed = native_json_loads(content)
-    if not isinstance(parsed, dict):
-        raise ValueError("detached manifest must be a JSON object")
-    if "cut" in parsed:
-        # v3's writer projection reproduces its canonical framing (notably float
-        # exponent spellings). CutSelection separately interprets declared roles.
-        parsed["cut"] = own_wire_json_value(parsed["cut"])
-    return checked_export_manifest(parsed)
+    from corpus_structure.semantic.demand_results import CutSelection
+
+    parsed, members = decode_retained_json_members(content, ("cut",))
+    cut = CutSelection(members["cut"])
+    result = DemandExportManifest.model_validate(parsed, context={"cut_selection": cut})
+    result._content = content
+    return result

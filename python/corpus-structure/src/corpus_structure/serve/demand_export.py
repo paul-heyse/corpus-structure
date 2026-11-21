@@ -458,7 +458,6 @@ def export_demand_result(
                 format="demand-result-export-v3",
                 encoding=format,
                 cut_id=cut.identity,
-                cut=cut.record,
                 pages=pages,
                 closure="closure.jsonl",
                 reader_contract="reader-contract.json",
@@ -472,9 +471,10 @@ def export_demand_result(
                 relations=relations,
                 files=files,
                 trust="selected historical acquisition; current trust requires native reassessment",
-            )
+            ),
+            cut=cut,
         )
-        manifest_bytes = json_bytes(manifest.model_dump(mode="python"))
+        manifest_bytes = manifest.to_bytes()
         (root / "manifest.json").write_bytes(manifest_bytes)
         root.rename(destination)
         return PublishedDemandExport(manifest, sha256(manifest_bytes).hexdigest())

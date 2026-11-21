@@ -152,6 +152,19 @@ def native_json_loads(content: str | bytes) -> Any:
 def decode_retained_json_object(
     content: bytes, fields: tuple[str, ...]
 ) -> tuple[dict[str, Any], bytes]:
+    """Select original members into the existing sorted object framing."""
+    values, selected = decode_retained_json_members(content, fields)
+    retained = (
+        b"{"
+        + b",".join(json_bytes(name) + b":" + selected[name] for name in sorted(fields))
+        + b"}"
+    )
+    return values, retained
+
+
+def decode_retained_json_members(
+    content: bytes, fields: tuple[str, ...]
+) -> tuple[dict[str, Any], dict[str, bytes]]:
     """Select an object's original member bytes without reformatting number tokens.
 
     The stdlib decoder owns JSON token boundaries. Only framing and field selection
@@ -203,12 +216,7 @@ def decode_retained_json_object(
                 raise ValueError("retained JSON object has a trailing comma")
         if skip(position) != len(document) or set(selected) != set(fields):
             raise ValueError("retained JSON selection lacks its exact object fields")
-        retained = (
-            b"{"
-            + b",".join(json_bytes(name) + b":" + selected[name] for name in sorted(fields))
-            + b"}"
-        )
-        return values, retained
+        return values, selected
     except (ValueError, RecursionError) as error:
         raise JsonBoundaryError("invalid retained JSON object") from error
 
