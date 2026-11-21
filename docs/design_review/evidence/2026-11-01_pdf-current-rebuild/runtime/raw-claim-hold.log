@@ -1,2 +1,3 @@
-{"pid": 3522135, "task_id": 4, "attempt": 2, "holder": "current-book-storage:4", "release_id": "release:7b15b6b25957107d9caeb8eed1e417188a78a24138032858c6c1320ac172fb8f", "phase": "maintaining_paused_frozen_claim"}
-{"phase": "claim_renewal_stopped", "task_id": 4}
+version https://git-lfs.github.com/spec/v1
+oid sha256:4519b7ad2b7698c5204328876b9a8507a947299cc6442a9f5090eb800d605054
+size 264

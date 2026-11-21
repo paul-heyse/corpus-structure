@@ -1,7 +1,7 @@
 ---
 name: implementation-reviewer
-description: "Independently review a stable implementation for correctness, regressions and contract violations."
-model: opus
+description: Independently review a stable implementation for correctness, regressions and contract violations.
+model: claude-opus-5-5
 effort: high
 ---
 

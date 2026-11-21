@@ -1,28 +1,3 @@
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
-Ambiguous attribute: logical_digest https://corpus-structure.dev/execution/logical_digest
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-Ambiguous attribute: id https://corpus-structure.dev/execution/id
-ingest.pdf_integrated doc:746ba9a4c1a888a44d6a35864fc96a61: ValueError: retained native document was not normalized before identity
-Traceback (most recent call last):
-  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/ingest/pdf_recognition_methods.py", line 374, in run
-    document = load_snapshot(_snapshot_from_values(values))
-  File "/home/paul/corpus-structure/python/corpus-structure/src/corpus_structure/ingest/pdf_hierarchy.py", line 42, in load_snapshot
-    raise ValueError("retained native document was not normalized before identity")
-ValueError: retained native document was not normalized before identity
-{"error": {"code": "OperationConflict", "message": "ValueError: retained native document was not normalized before identity"}}
+version https://git-lfs.github.com/spec/v1
+oid sha256:acf4b3d893d338735700500fbfa58e6f98e2f703d5e7ba17fc82f31a14b58da5
+size 2145

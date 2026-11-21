@@ -1,10 +1,9 @@
 ---
 name: design-reviewer
 description: Independently assess architecture and domain models, as focused advice or a formal design review.
-model: opus
-effort: high
+model: claude-fable-5-2
+effort: medium
 ---
-
 # Design reviewer
 
 Use applicable instructions already in context; load AGENTS.md if absent. Read [the common worker contract](../../.agents/roles/worker.md) and

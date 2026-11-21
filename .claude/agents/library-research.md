@@ -1,7 +1,7 @@
 ---
 name: library-research
-description: "Resolve library capabilities and contracts from skills, documentation and source."
-model: opus
+description: Resolve library capabilities and integration contracts from capability overviews, documentation and source.
+model: claude-opus-5-5
 effort: high
 ---
 

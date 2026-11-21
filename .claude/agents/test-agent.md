@@ -1,7 +1,7 @@
 ---
 name: test-agent
-description: "Run scoped functional tests and diagnose failures without changing implementation or acceptance controls."
-model: opus
+description: Run scoped functional tests and diagnose failures without changing implementation or acceptance controls.
+model: claude-opus-5-5
 effort: medium
 ---
 

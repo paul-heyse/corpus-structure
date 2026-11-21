@@ -1,1 +1,3 @@
-{"error": {"code": "SemanticRefusal", "message": "contribution response exceeds page byte budget; narrow the selection", "validation": {"report_version": 1, "report_schema_digest": "release:c787cdc552136402eac26e274a1eae000c1285612df77538f222fe33f2c09f27", "observations": [{"category": "unassessed", "code": "SemanticRefusal", "model_path": "operation/compatibility", "scope": "boundary", "message": "contribution response exceeds page byte budget; narrow the selection", "original_report": "refusal:SemanticRefusal"}], "complete": false}}}
+version https://git-lfs.github.com/spec/v1
+oid sha256:f9be88f517d969a32afefd8d7df09585b3df700377674a3e898ff5b6138de2ec
+size 542

@@ -1,8 +1,8 @@
 ---
 name: code-mapper
-description: "Map repository owners, contracts, dependencies and consumers with precise source evidence."
-model: sonnet
-effort: medium
+description: Map repository owners, contracts, dependencies and consumers with precise source evidence.
+model: claude-sonnet-5-5
+effort: high
 ---
 
 # Code mapper

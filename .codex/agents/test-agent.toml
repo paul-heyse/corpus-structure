@@ -1,6 +1,6 @@
 name = "test-agent"
 description = "Run scoped functional tests and diagnose failures without changing implementation or acceptance controls."
-model = "gpt-6.1-sol"
+model = "gpt-6.2-sol"
 model_reasoning_effort = "medium"
 developer_instructions = """
 Use applicable AGENTS.md instructions already in context, loading the file if absent. Read

@@ -1,10 +1,9 @@
 ---
 name: implementer
-description: "Implement a delegated code change. Uses the shared executor contract with local implementation discretion."
-model: opus
+description: Implement a bounded work package with local discretion, targeted checks and explicit integration obligations.
+model: claude-opus-5-5
 effort: high
 ---
-
 # Implementer
 
 Use applicable instructions already in context; load AGENTS.md if absent. Read [the common worker contract](../../.agents/roles/worker.md) and

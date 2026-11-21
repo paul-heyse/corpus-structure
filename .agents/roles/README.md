@@ -32,12 +32,12 @@ and their role; native definitions carry model and effort settings only.
 
 | Responsibility | Shared contract | Codex model / effort |
 |---|---|---|
-| Repository evidence and dependency mapping | [code-mapper](code-mapper.md) | `gpt-6-luna` / high |
-| Library capabilities, contracts and alternatives | [library-research](library-research.md) | `gpt-6.1-sol` / medium |
-| Independent architecture and domain assessment | [design-reviewer](design-reviewer.md) | `gpt-6.1-sol` / high |
-| Bounded implementation with local discretion | [executor](executor.md) | `gpt-6.1-sol` / high |
-| Correctness and regression review | [implementation-reviewer](implementation-reviewer.md) | `gpt-6.1-sol` / high |
-| Functional verification and failure diagnosis | [test-agent](test-agent.md) | `gpt-6.1-sol` / medium |
+| Repository evidence and dependency mapping | [code-mapper](code-mapper.md) | `gpt-6.2-sol` / medium |
+| Library capabilities, contracts and alternatives | [library-research](library-research.md) | `gpt-6.2-sol` / medium |
+| Independent architecture and domain assessment | [design-reviewer](design-reviewer.md) | `gpt-6.2-sol` / high |
+| Bounded implementation with local discretion | [executor](executor.md) | `gpt-6.2-sol` / high |
+| Correctness and regression review | [implementation-reviewer](implementation-reviewer.md) | `gpt-6.2-sol` / high |
+| Functional verification and failure diagnosis | [test-agent](test-agent.md) | `gpt-6.2-sol` / medium |
 
 Codex definitions live in [`.codex/agents/`](../../.codex/agents/). The coordinator defaults to
 Astra/high; use greater effort when the actual reasoning warrants it. These are policy defaults,
