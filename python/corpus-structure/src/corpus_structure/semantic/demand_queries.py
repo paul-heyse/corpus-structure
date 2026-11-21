@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
 from corpus_structure.semantic.demand_results import read_demand_result
 
-from .continuation_codec import decode_cursor, encode_cursor
+from .continuation_codec import decode_demand_cursor, encode_cursor
 from .demand_query_projection import prepare_demand_projection_inputs, selected_query_rows
 from .page_envelope import PageEnvelope
 from .selected_pages import byte_bounded_page
@@ -56,7 +56,7 @@ def serve_demand_query(connection, request: DemandQueryRequest) -> dict:
             "corpus_structure.semantic.demand_query_projection.selected_query_rows",
             "corpus_structure.semantic.selected_pages.byte_bounded_page",
             "corpus_structure.semantic.continuation_codec.encode_cursor",
-            "corpus_structure.semantic.continuation_codec.decode_cursor",
+            "corpus_structure.semantic.continuation_codec.decode_demand_cursor",
         ),
     ) as implementation:
         return _serve_demand_query(connection, request, implementation)
@@ -76,7 +76,7 @@ def _serve_demand_query(connection, request, implementation):
     decimal_fixed_point_digits = decimal_digit_limit()
     # This limit bounds the native inputs as well as presentation.
     digest = sha256(json_bytes([selection, request.max_bytes])).hexdigest()
-    cursor = None if request.cursor is None else decode_cursor(request.cursor)
+    cursor = None if request.cursor is None else decode_demand_cursor(request.cursor)
     if cursor is not None and (
         not isinstance(cursor, dict)
         or set(cursor) != {"version", "implementation", "selection", "request", "cut", "ordinal"}
@@ -209,7 +209,9 @@ def _serve_demand_query(connection, request, implementation):
         for key, value in wire_json_loads(page.request).items()
         if key not in {"selection", "trust_snapshot", "limit", "max_bytes", "recheck_bodies"}
     }
-    current_request.update(view=native_view, read_id=native["read_id"], scope=scope)
+    current_request.update(
+        demand_id=request.demand_id, view=native_view, read_id=native["read_id"], scope=scope
+    )
 
     def token_for(selected_request, ordinal):
         if selected_request is None:
@@ -219,7 +221,9 @@ def _serve_demand_query(connection, request, implementation):
             for key, value in selected_request.items()
             if key not in {"selection", "trust_snapshot", "limit", "max_bytes", "recheck_bodies"}
         }
-        selected_request.update(view=native_view, read_id=native["read_id"], scope=scope)
+        selected_request.update(
+            demand_id=request.demand_id, view=native_view, read_id=native["read_id"], scope=scope
+        )
         return encode_cursor(
             dict(
                 version="demand-query-v2",
@@ -258,7 +262,7 @@ def _serve_demand_query(connection, request, implementation):
                 )
             ),
         ),
-        cursor_basis=decode_cursor(current_cursor),
+        cursor_basis=decode_demand_cursor(current_cursor),
         following_cursor=following_cursor,
         include_knowledge=True,
         include_page_complete=True,

@@ -2,7 +2,7 @@
 
 import base64
 
-from .data_operation_json import json_bytes, json_loads, wire_json_loads
+from .data_operation_json import finite_json_loads, json_bytes, json_loads, wire_json_loads
 
 
 def encode_cursor(value):
@@ -18,6 +18,39 @@ def encode_cursor(value):
 def decode_cursor(value):
     try:
         return wire_json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
+    except (ValueError, TypeError) as error:
+        raise ValueError("invalid selected-result cursor") from error
+
+
+def decode_demand_cursor(value):
+    """Decode the finite continuation envelope, excluding captured context documents.
+
+    A selected demand cursor retains only native paging coordinates. The complete
+    contextual selection and trust snapshot belong to the acquired cut, not to
+    this public cursor's embedded request.
+    """
+    from .data_operation_wire import validate_native_wire
+
+    try:
+        parsed = finite_json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
+        if not isinstance(parsed, dict) or set(parsed) != {
+            "version", "implementation", "selection", "request", "cut", "ordinal"
+        }:
+            raise ValueError("invalid demand cursor envelope")
+        if (
+            parsed["version"] != "demand-query-v2"
+            or any(type(parsed[key]) is not str for key in ("implementation", "selection", "cut"))
+            or type(parsed["ordinal"]) is not int
+            or parsed["ordinal"] < 0
+        ):
+            raise ValueError("invalid demand cursor coordinates")
+        request = parsed["request"]
+        if not isinstance(request, dict) or {
+            "selection", "trust_snapshot", "limit", "max_bytes", "recheck_bodies"
+        } & request.keys():
+            raise ValueError("demand cursor cannot carry captured context or acquisition policy")
+        parsed["request"] = validate_native_wire("read_demand_result", "input", request)
+        return parsed
     except (ValueError, TypeError) as error:
         raise ValueError("invalid selected-result cursor") from error
 
