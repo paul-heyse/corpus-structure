@@ -276,36 +276,39 @@ def test_product_members_require_the_same_finite_ordered_packet(product_connecti
 
 def test_generated_product_admission_binds_in_actual_native_model(native_rollback):
     connection = native_rollback.connection
-    execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
-    with native_owner(connection, "corpus_sem_publisher"):
-        execute_native_sql(connection, product_admission_native_sql(get_metadata()))
-        for signature in (
-            "ops.ddo_install_product_context(jsonb,jsonb,jsonb)",
-            "ops.ddo_admit_original_source(jsonb)",
-            "ops.admit_authored_data(jsonb)",
-            "ops.admit_original_document_asset(jsonb)",
-        ):
-            errors = (
-                connection.execute(
-                    text(
-                        "SELECT message FROM public.plpgsql_check_function_tb(CAST(:signature AS regprocedure),fatal_errors=>false) WHERE level='error'"
-                    ),
-                    {"signature": signature},
+    from corpus_structure.semantic.native_authoring import physical_row_type_context
+
+    with physical_row_type_context(connection, get_metadata()):
+        execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
+        with native_owner(connection, "corpus_sem_publisher"):
+            execute_native_sql(connection, product_admission_native_sql(get_metadata()))
+            for signature in (
+                "ops.ddo_install_product_context(jsonb,jsonb,jsonb)",
+                "ops.ddo_admit_original_source(jsonb)",
+                "ops.admit_authored_data(jsonb)",
+                "ops.admit_original_document_asset(jsonb)",
+            ):
+                errors = (
+                    connection.execute(
+                        text(
+                            "SELECT message FROM public.plpgsql_check_function_tb(CAST(:signature AS regprocedure),fatal_errors=>false) WHERE level='error'"
+                        ),
+                        {"signature": signature},
+                    )
+                    .scalars()
+                    .all()
                 )
-                .scalars()
-                .all()
-            )
-            assert errors == [], (signature, errors)
-        for name, kind in (
-            ("admit_authored_data", "original-document"),
-            ("admit_original_document_asset", "authored-fact"),
-        ):
-            with pytest.raises(DBAPIError) as refusal, connection.begin_nested():
-                connection.execute(
-                    text("SELECT ops." + name + "(CAST(:p AS jsonb))"),
-                    {"p": json.dumps({"reference": {"kind": kind}})},
-                )
-            assert getattr(refusal.value.orig, "sqlstate", None) == "P0001"
+                assert errors == [], (signature, errors)
+            for name, kind in (
+                ("admit_authored_data", "original-document"),
+                ("admit_original_document_asset", "authored-fact"),
+            ):
+                with pytest.raises(DBAPIError) as refusal, connection.begin_nested():
+                    connection.execute(
+                        text("SELECT ops." + name + "(CAST(:p AS jsonb))"),
+                        {"p": json.dumps({"reference": {"kind": kind}})},
+                    )
+                assert getattr(refusal.value.orig, "sqlstate", None) == "P0001"
 
 
 def test_product_programs_retain_typed_bodies_and_follow_captured_member_schema():
@@ -430,6 +433,45 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
         assert row.partition_digest == packet["partitions"][n]["partition_digest"]
         assert row.body == packet["partitions"][n]["body"]
         assert row.group_digests == partition_group_digests(bodies[n], declaration["field_groups"])
+
+    from copy import deepcopy
+
+    from corpus_structure.semantic.data_operation_identity import canonical_identity
+    from corpus_structure.semantic.data_operation_partitions import partition_header
+
+    shuffled = deepcopy(packet)
+    shuffled["partitions"].reverse()
+    assert realize(product_connection, context, shuffled) == key
+    reordered_mapping = deepcopy(packet)
+    reordered_mapping["partitions"][0]["body"][1][0][1].reverse()
+    assert realize(product_connection, context, reordered_mapping) == key
+
+    edited = deepcopy(packet)
+    edited_body = [dict(bodies[0][0], label="changed")]
+    edited["partitions"][0]["body"] = semantic_value(edited_body)
+    edited["partitions"][0]["partition_digest"] = canonical_identity("partition", edited_body).key
+    edited["body"] = semantic_value({"tokens": partition_header(edited["partitions"])})
+    edited_key = realize(product_connection, context, edited)
+    assert edited_key != key
+    edited_groups = product_connection.scalar(text("SELECT group_digests FROM kb.data_product_partition WHERE product_id=:key AND ordinal=0"), {"key": edited_key})
+    assert edited_groups["geometry"] == rows[0].group_digests["geometry"]
+    assert edited_groups["labels"] != rows[0].group_digests["labels"]
+
+    moved = deepcopy(packet)
+    moved["partitions"][0]["placement"] = {"start": 100, "end": 105}
+    moved["body"] = semantic_value({"tokens": partition_header(moved["partitions"])})
+    moved_key = realize(product_connection, context, moved)
+    assert moved_key != key
+    assert product_connection.scalar(text("SELECT partition_digest FROM kb.data_product_partition WHERE product_id=:key AND ordinal=0"), {"key": moved_key}) == rows[0].partition_digest
+
+    reordered = deepcopy(packet)
+    reordered["partitions"][0]["ordinal"], reordered["partitions"][1]["ordinal"] = 1, 0
+    original_header = partition_header(packet["partitions"])
+    changed_header = partition_header(reordered["partitions"])
+    assert original_header["root"] == changed_header["root"]
+    assert original_header["placement_root"] != changed_header["placement_root"]
+    reordered["body"] = semantic_value({"tokens": changed_header})
+    assert realize(product_connection, context, reordered) != key
 
 
 @pytest.mark.parametrize(
