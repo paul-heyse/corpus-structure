@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any
-
-from corpus_structure.core.method import PdfRecordPublicationDraft
+from typing import TYPE_CHECKING, Any
 
 from .pdf_candidate_source import as_candidate_source
 from .pdf_hierarchy import load_snapshot, native_nodes
+
+if TYPE_CHECKING:
+    from corpus_structure.core.method import PdfRecordPublicationDraft
 
 
 def native_publication_draft(
@@ -23,6 +24,8 @@ def native_publication_draft(
     health: Mapping[str, Any] | None = None,
     metadata: Mapping[str, Any] | None = None,
 ) -> PdfRecordPublicationDraft:
+    from corpus_structure.core.method import PdfRecordPublicationDraft
+
     selected = conversion.native if native is None else native
     document = load_snapshot(selected)
     nodes = native_nodes(document)
@@ -77,7 +80,7 @@ def native_occurrence_rows(document):
 
     from docling_core.types.doc import DoclingDocument
 
-    from .pdf_reconciliation import _iter_selected_occurrences
+    from .pdf_occurrences import iter_selected_occurrences
 
     if isinstance(document, Mapping):
         from copy import deepcopy
@@ -87,7 +90,7 @@ def native_occurrence_rows(document):
         projected = document
     nodes = native_nodes(projected)
     origins = {id(node): SimpleNamespace(input_index=0) for node in nodes.values()}
-    for row in _iter_selected_occurrences(projected, origins):
+    for row in iter_selected_occurrences(projected, origins):
         # Text remains in the native field/stream, not duplicated into this
         # bounded address index. Its optional cached text is deliberately absent.
         row = {key: value for key, value in row.items() if key != "text"}

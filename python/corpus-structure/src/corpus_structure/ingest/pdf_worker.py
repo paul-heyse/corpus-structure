@@ -10,13 +10,13 @@ from dataclasses import dataclass
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
 from threading import Lock
+from typing import TYPE_CHECKING
 
 from corpus_structure.core.work import PhysicalRetirementUncertain
 
 from .pdf import PdfConversion, PdfConverter, PdfRecipe
 from .pdf_assets import PreparedPdfAssets
 from .pdf_build_spool import PdfSpoolWriterLease
-from .pdf_enrichment import PdfEnrichmentRequest, PdfEnrichmentResult, compute_enrichment
 from .pdf_health import error_summary
 from .pdf_stream_types import (
     PdfReplayReady,
@@ -24,6 +24,9 @@ from .pdf_stream_types import (
     PdfStreamReply,
     PdfStreamRequest,
 )
+
+if TYPE_CHECKING:
+    from .pdf_enrichment import PdfEnrichmentRequest, PdfEnrichmentResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,10 +115,12 @@ def _native_child(
                             result = run_pdf_stream(
                                 request, StreamingPdfProducer(recipe, assets=assets), on_replay=acknowledged
                             )
-                elif isinstance(request, PdfEnrichmentRequest):
-                    result = compute_enrichment(request, converter)
                 else:
-                    raise TypeError("unsupported finite PDF worker request")
+                    from .pdf_enrichment import PdfEnrichmentRequest, compute_enrichment
+
+                    if not isinstance(request, PdfEnrichmentRequest):
+                        raise TypeError("unsupported finite PDF worker request")
+                    result = compute_enrichment(request, converter)
                 connection.send(NativeReply(value=result))
             except Exception as error:
                 # App-envelope preparation remains in the parent. Native failures cross as
@@ -276,6 +281,8 @@ class PdfWorker:
     def enrich(
         self, request: PdfEnrichmentRequest, *, check_active: Callable[[], None] | None = None
     ) -> PdfEnrichmentResult:
+        from .pdf_enrichment import PdfEnrichmentResult
+
         value = self._exchange(request, check_active)
         if not isinstance(value, PdfEnrichmentResult):
             self.close()

@@ -24,16 +24,17 @@ from corpus_structure.semantic.file_custody import observed_file
 # Encoding, restoration, certification and conversion are one selected producer.
 # SQL publication, data-operation scheduling and Integrated producers are not members.
 STANDARD_MODULES = (
-    "__init__", "_query_custody", "core/work", "core/method",
-    "semantic/file_custody", "semantic/identity", "semantic/types",
+    "__init__", "_query_custody", "core/work",
+    "semantic/file_custody", "semantic/identity", "semantic/correction_detail",
+    "semantic/value_codec", "semantic/value_codec_core",
     "semantic/pdf_record_identity", "semantic/pdf_records", "semantic/pdf_lowering_context",
     "semantic/pdf_certification", "semantic/pdf_companion_encoding",
     "semantic/pdf_payload_validation", "semantic/pdf_payloads", "semantic/sqlite_scratch",
     "ingest/pdf", "ingest/pdf_assets", "ingest/pdf_runtime", "ingest/pdf_producer_contract",
     "ingest/pdf_worker", "ingest/pdf_stream_types", "ingest/pdf_streaming",
     "ingest/pdf_build_spool", "ingest/pdf_health", "ingest/pdf_hierarchy",
-    "ingest/pdf_candidates", "ingest/pdf_candidate_geometry", "ingest/pdf_candidate_source",
-    "ingest/pdf_enrichment", "ingest/pdf_record_product", "ingest/pdf_reconciliation",
+    "ingest/pdf_candidates", "ingest/pdf_candidate_source",
+    "ingest/pdf_assembly", "ingest/pdf_ocr", "ingest/pdf_record_product", "ingest/pdf_occurrences",
 )
 PROFILE = "standard-pdf-producer-files-v1"
 
@@ -120,22 +121,33 @@ def standard_pdf_contract() -> StandardPdfContract:
     first_party = tuple(
         (str(root / (name + ".py")), observed_file(root / (name + ".py")).digest)
         for name in STANDARD_MODULES
+    ) + tuple(
+        (str(root / name), observed_file(root / name).digest)
+        for name in ("model/semantic/pdf-payloads.yaml",)
     )
-    pending = list((*PDF_PACKAGE_FAMILY, "pyarrow", "cloudpickle", "wcwidth", "nvidia-ml-py", "sqlalchemy", "jsonschema", "referencing"))
-    selected = {}
-    files = {}
+    pending: list[tuple[str, tuple[str, ...]]] = [(name, ()) for name in (*PDF_PACKAGE_FAMILY, "pyarrow", "cloudpickle", "wcwidth", "nvidia-ml-py", "dill", "sqlalchemy", "referencing")]
+    pending.append(("jsonschema", ("format",)))
+    pending.append(("requests", ("use-chardet-on-py3",)))
+    selected: dict[str, str] = {}
+    selected_extras: dict[str, set[str]] = {}
+    files: dict[str, str] = {}
     while pending:
-        name = canonicalize_name(pending.pop())
+        name, extras = pending.pop()
+        name = canonicalize_name(name)
+        new_extras = {"", *extras} - selected_extras.get(name, set())
+        if not new_extras:
+            continue
+        selected_extras.setdefault(name, set()).update(new_extras)
+        package = distribution(name)
+        for requirement in package.requires or ():
+            requirement = Requirement(requirement)
+            if requirement.marker is None or any(requirement.marker.evaluate({"extra": extra}) for extra in new_extras):
+                pending.append((requirement.name, tuple(sorted(requirement.extras))))
         if name in selected:
             continue
-        package = distribution(name)
         if package.files is None:
             raise ValueError("Standard PDF dependency has no installed file inventory: " + name)
         selected[name] = package.version
-        for requirement in package.requires or ():
-            requirement = Requirement(requirement)
-            if requirement.marker is None or requirement.marker.evaluate({"extra": ""}):
-                pending.append(requirement.name)
         for member in package.files:
             if str(member).endswith((".pyc", ".pyo")):
                 continue

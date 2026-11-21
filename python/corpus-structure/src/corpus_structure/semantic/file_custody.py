@@ -152,10 +152,19 @@ def accept_file_receipt(receipt, *, path: Path, expected: str) -> FileCustody:
     if Path(receipt[0]) != Path(path) or receipt[1] != expected:
         raise FileCustodyError("model file handoff differs from admitted manifest")
     with _lock:
-        record = _records.get((Path(path), expected))
+        path = Path(path)
+        prior = _observed.get(path)
+        if prior is not None and prior.digest != expected:
+            raise FileCustodyError("file already has another runtime observation; restart required")
+        record = _records.get((path, expected))
         if record is None:
             record = FileCustody.accept(receipt)
-            _records[Path(path), expected] = record
+            _records[path, expected] = record
         else:
             record.check()
+        if prior is not None:
+            prior.check()
+        # A verified private parent handoff is already an observation. Priming the
+        # path index avoids scanning every admitted digest on the child's first use.
+        _observed.setdefault(path, record)
         return record

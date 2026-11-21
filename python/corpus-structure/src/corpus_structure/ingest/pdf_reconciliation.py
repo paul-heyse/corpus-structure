@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any
 
 from corpus_structure.semantic.identity import canonical_bytes
 
+from .pdf_occurrences import iter_selected_occurrences, native_cell_values
+
 if TYPE_CHECKING:
     from corpus_structure.semantic.pdf_integrated import PreparedIntegratedPdfProduct
 
@@ -468,110 +470,8 @@ class _Origin:
     evidence: dict[str, Any] = field(default_factory=dict)
 
 
-def _iter_selected_occurrences(document, origins):
-    from .pdf_hierarchy import native_nodes
-
-    nodes = native_nodes(document)
-    for pointer, node in nodes.items():
-        label = str(node.label)
-        origin = origins[id(node)]
-        original_witness = getattr(origin, "evidence", {})
-        row: dict[str, Any] = {
-            "occurrence_id": pointer,
-            "kind": "formula"
-            if label == "formula"
-            else "chart"
-            if label == "picture"
-            and getattr(node, "meta", None)
-            and getattr(node.meta, "tabular_chart", None)
-            else "item",
-            "address_space": "selected_item",
-            "precision": "item",
-            "pointer": pointer,
-        }
-        if hasattr(node, "text"):
-            row["text"] = node.text
-        anchor = node
-        while not getattr(anchor, "prov", ()) and anchor.parent is not None:
-            anchor = anchor.parent.resolve(document)
-        if getattr(anchor, "prov", ()):
-            p = anchor.prov[0]
-            box = p.bbox
-            generated = origin.input_index != 0 and not original_witness.get("positioned_original")
-            precision = "coarse" if generated else "item"
-            if anchor is not node:
-                row["grounding_pointer"] = anchor.self_ref
-                precision = "inherited"
-            row.update(
-                precision=precision,
-                page_no=p.page_no,
-                region={
-                    "address_space": "pdf_points",
-                    "precision": precision,
-                    "normalization": "inherited" if anchor is not node else "none",
-                    "left": box.l,
-                    "top": box.t,
-                    "right": box.r,
-                    "bottom": box.b,
-                    "origin": "top_left" if box.coord_origin.value == "TOPLEFT" else "bottom_left",
-                },
-            )
-        yield row
-        cell_path, cells = _native_cell_values(node)
-        if cells:
-            for i, cell in enumerate(cells):
-                entry: dict[str, Any] = {
-                    "occurrence_id": f"{pointer}{cell_path}/{i}",
-                    "pointer": pointer,
-                    "cell_index": i,
-                    "kind": "cell",
-                    "address_space": "native_cell",
-                    "precision": "coarse" if origins[id(node)].input_index else "cell",
-                    "text": cell.text,
-                }
-                if cell.bbox is not None and original_witness.get("positioned_grid"):
-                    entry.update(
-                        page_no=row["page_no"],
-                        precision="cell",
-                        region={
-                            "address_space": "pdf_points",
-                            "precision": "cell",
-                            "normalization": "none",
-                            "left": cell.bbox.l,
-                            "top": cell.bbox.t,
-                            "right": cell.bbox.r,
-                            "bottom": cell.bbox.b,
-                            "origin": "top_left",
-                        },
-                    )
-                elif row.get("region"):
-                    entry.update(
-                        page_no=row["page_no"],
-                        grounding_pointer=pointer,
-                        region={
-                            **row["region"],
-                            "precision": "inherited",
-                            "normalization": "inherited",
-                        },
-                        precision="inherited",
-                    )
-                yield entry
-
-
-def _native_cell_values(node):
-    if str(node.label) == "table":
-        return "/data/table_cells", node.data.table_cells
-    if str(node.label) == "picture":
-        chart = getattr(getattr(node, "meta", None), "tabular_chart", None)
-        return (
-            "/meta/tabular_chart/chart_data/table_cells",
-            chart.chart_data.table_cells if chart else (),
-        )
-    return "", ()
-
-
 def _selected_occurrences(document, origins):
-    return list(_iter_selected_occurrences(document, origins))
+    return list(iter_selected_occurrences(document, origins))
 
 
 @dataclass(frozen=True, slots=True)
@@ -1165,7 +1065,7 @@ def _select_pdf_integration(
         occurrences = _selected_occurrences(doc, origins)
     else:
         occurrences = collection("occurrence")
-        occurrences.extend(_iter_selected_occurrences(doc, origins))
+        occurrences.extend(iter_selected_occurrences(doc, origins))
     relations = collection("relation")
     final_nodes = native_nodes(doc)
     for occurrence in occurrences:
@@ -1173,7 +1073,7 @@ def _select_pdf_integration(
         origin = origins[id(node)]
         source_id = origin.occurrence_id
         if occurrence["kind"] == "cell" and origin.input_index == 0:
-            path, _ = _native_cell_values(node)
+            path, _ = native_cell_values(node)
             source_id += f"{path}/{occurrence['cell_index']}"
         endpoints = [
             {"role": "input", "input_index": origin.input_index, "occurrence_id": source_id},

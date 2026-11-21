@@ -13,8 +13,8 @@ from docling_core.types.doc import (
 
 from corpus_structure.ingest.pdf_hierarchy import native_nodes
 from corpus_structure.ingest.pdf_incumbent_recovery import RecoveryEvidence, source_provenance
+from corpus_structure.ingest.pdf_occurrences import iter_selected_occurrences
 from corpus_structure.ingest.pdf_reconciliation import (
-    _iter_selected_occurrences,
     _Origin,
     _repair_incumbent_source,
     _validate_native,
@@ -113,7 +113,7 @@ def test_source_recovery_keeps_one_caption_and_only_adds_the_witnessed_table(qua
     )
     selected_cell = next(
         row
-        for row in _iter_selected_occurrences(document, origins)
+        for row in iter_selected_occurrences(document, origins)
         if row["occurrence_id"] == f"{table.self_ref}/data/table_cells/0"
     )
     assert selected_cell["precision"] == "cell"

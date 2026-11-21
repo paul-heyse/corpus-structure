@@ -217,3 +217,37 @@ def test_worker_handoff_refreshes_equal_bytes_after_metadata_change(acquired):
     child = FileCustody.accept(receipt)
     assert child.digest == record.digest
     assert child.identity != record.identity
+
+
+def test_parent_receipt_primes_observation_without_scanning_all_digests(acquired, monkeypatch):
+    path, record = acquired
+    receipt = record.receipt()
+
+    class NoScan(dict):
+        def items(self):
+            pytest.fail("accepted observations must not scan the entire digest inventory")
+
+    monkeypatch.setattr(file_custody, "_records", NoScan())
+    monkeypatch.setattr(file_custody, "_observed", {})
+    adopted = file_custody.accept_file_receipt(receipt, path=path, expected=record.digest)
+    assert file_custody.observed_file(path) is adopted
+    replacement = path.with_suffix(".replacement")
+    replacement.write_bytes(b"other")
+    replacement.replace(path)
+    with pytest.raises(FileCustodyError, match="restart"):
+        file_custody.observed_file(path)
+
+
+def test_parent_receipt_does_not_replace_an_earlier_runtime_observation(acquired, monkeypatch):
+    path, original = acquired
+    monkeypatch.setattr(file_custody, "_records", {})
+    monkeypatch.setattr(file_custody, "_observed", {})
+    prior = file_custody.observed_file(path)
+    assert prior.digest == original.digest
+    path.write_bytes(b"other")
+    successor = FileCustody.acquire(path, sha256(b"other").hexdigest())
+    with pytest.raises(FileCustodyError, match="another runtime observation"):
+        file_custody.accept_file_receipt(successor.receipt(), path=path, expected=successor.digest)
+    assert file_custody._observed[path] is prior
+    with pytest.raises(FileCustodyError, match="restart"):
+        file_custody.observed_file(path)
