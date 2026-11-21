@@ -406,7 +406,9 @@ def test_native_mapping_and_callback_policy_use_the_acquired_context(tmp_path, m
         policy = lowering.callback_policy()
         policy["docling_core_version"] = "unavailable-profile"
         payloads.lowering = replace(lowering, native_policy=json.dumps(policy).encode())
-        with pytest.raises(ValueError, match="native callbacks require exactly docling-core unavailable-profile"):
+        with pytest.raises(
+            ValueError, match="native callbacks require exactly docling-core unavailable-profile"
+        ):
             payloads.certify(document, tmp_path / "wrong-policy.jsonl", **basis)
     finally:
         payloads.close()

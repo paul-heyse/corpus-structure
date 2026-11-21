@@ -40,7 +40,11 @@ def _schema_numbers(value):
         return {**value, **updates} if updates else value
     if type(value) is list:
         checked = [_schema_numbers(item) for item in value]
-        return value if all(before is after for before, after in zip(value, checked, strict=True)) else checked
+        return (
+            value
+            if all(before is after for before, after in zip(value, checked, strict=True))
+            else checked
+        )
     return value
 
 

@@ -87,8 +87,14 @@ class CapturedPdfLowering:
     @classmethod
     def from_document(cls, document: Any) -> CapturedPdfLowering:
         fields = {
-            "profile", "schemas", "artifact_profiles", "max_batch_bytes", "max_batch_rows",
-            "native_schema", "native_policy", "record_header",
+            "profile",
+            "schemas",
+            "artifact_profiles",
+            "max_batch_bytes",
+            "max_batch_rows",
+            "native_schema",
+            "native_policy",
+            "record_header",
         }
         if (
             not isinstance(document, dict)
@@ -121,7 +127,9 @@ def capture_pdf_lowering(context) -> CapturedPdfLowering:
     from .pdf_records import prepare_native_schema_mapping
     from .pdf_staging import UPLOAD_STAGE_FAMILIES
 
-    native_schema = context.domain.source("implementation/pdf/docling-validation.schema.json").content
+    native_schema = context.domain.source(
+        "implementation/pdf/docling-validation.schema.json"
+    ).content
     prepare_native_schema_mapping(native_schema)
     record_model = yaml.safe_load(context.domain.source("logical/pdf_records").content)
     header = record_model["classes"]["PdfRecordDocument"]["attributes"]
