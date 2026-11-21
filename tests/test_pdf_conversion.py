@@ -280,8 +280,9 @@ def test_converter_hashes_and_consumes_same_immutable_snapshot(tmp_path, monkeyp
     producer = PdfConverter(PdfRecipe("a" * 40, "b" * 40))
     consumed = []
 
-    def convert(stream, **kwargs):
-        consumed.append(stream.stream.getvalue())
+    def convert(stream, *, filename):
+        assert filename == path.name
+        consumed.append(stream.getvalue())
         return SimpleNamespace(
             document=native_document(),
             errors=[],
@@ -292,11 +293,11 @@ def test_converter_hashes_and_consumes_same_immutable_snapshot(tmp_path, monkeyp
 
     def prepare():
         path.write_bytes(b"%PDF-1.7 replaced during expensive initialization")
-        producer._converter = SimpleNamespace(convert=convert)
+        monkeypatch.setattr(producer, "_converter", SimpleNamespace(convert=convert))
         producer._formula = ObservedFormulaStage(CatchingStage(Engine()))
-        producer._options = SimpleNamespace(model_dump_json=lambda **kwargs: "{}")
 
     monkeypatch.setattr(producer, "_prepare", prepare)
+    monkeypatch.setattr(producer, "verify_initialized_runtime", lambda: None)
     monkeypatch.setattr(producer, "runtime_bindings", lambda: ())
     result = producer.convert(path)
     assert consumed == [original]
