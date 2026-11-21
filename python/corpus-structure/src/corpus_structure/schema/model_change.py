@@ -214,6 +214,23 @@ class ChangeEffects(BaseModel):
     checks: tuple[str, ...]
 
 
+class ContractRollout(BaseModel):
+    """Independent retained facts for the selected application and target."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    generated_source: Literal["changed", "unchanged"]
+    application_release: Literal["unchanged", "changed", "uncompared", "not_applicable"]
+    application_material: Literal["unchanged", "changed", "uncompared", "not_applicable"]
+    material_operations: tuple[str, ...] = ()
+    application_capture: Literal["deferred", "acquired", "uncompared", "not_applicable"]
+    execution_profile: str | None
+    runtime_id: str | None
+    native_program: Literal["unchanged", "changed", "uncompared"]
+    native_install_required: bool
+    target_prerequisites: Literal["requires_current_observation", "not_applicable"]
+
+
 class ChangePreview(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -253,6 +270,49 @@ class ChangePreview(BaseModel):
     inspection_sha256: str | None = None
     application_capture_required: bool = False
     captured_from: str | None = None
+
+    def contract_rollout(self) -> ContractRollout:
+        """Project the existing owners without inferring installation or reuse standing."""
+        comparison = self.source_comparison
+        changes = comparison.changes if comparison is not None else ()
+        material = tuple(sorted({
+            change.operation for change in changes
+            if change.facet == "recipe" and change.before is not None and change.after is not None
+        }))
+        application = self.request.data_operations is not None
+        delta = self.effects.native_delta
+        material_status: Literal["unchanged", "changed", "uncompared", "not_applicable"] = "uncompared"
+        if not application:
+            material_status = "not_applicable"
+        elif material:
+            material_status = "changed"
+        elif comparison is not None and not comparison.unknowns and not any(
+            change.facet == "recipe" for change in changes
+        ):
+            material_status = "unchanged"
+        capture_status: Literal["deferred", "acquired", "uncompared", "not_applicable"] = "uncompared"
+        if not application or not self.effects.admission:
+            capture_status = "not_applicable"
+        elif self.application_capture_required:
+            capture_status = "deferred"
+        elif self.runtime is not None:
+            capture_status = "acquired"
+        return ContractRollout(
+            generated_source="changed" if self.effects.generated else "unchanged",
+            application_release=self.effects.release,
+            application_material=material_status,
+            material_operations=material,
+            application_capture=capture_status,
+            execution_profile=self.request.execution_profile,
+            runtime_id=self.runtime.runtime_id if self.runtime is not None else None,
+            native_program=(
+                "uncompared" if delta is None else "unchanged" if delta.unchanged else "changed"
+            ),
+            native_install_required=self.effects.native,
+            target_prerequisites=(
+                "requires_current_observation" if self.target is not None else "not_applicable"
+            ),
+        )
 
     @model_validator(mode="after")
     def runtime_matches_application(self):

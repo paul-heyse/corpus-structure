@@ -214,6 +214,9 @@ def test_inspection_projects_bound_effects_and_pages_exact_hunks(model_results):
     assert body["next_command"] is None
     assert "another workspace" in body["action_detail"]
     assert body["comparison_status"] == "unavailable"
+    assert body["contract_rollout"]["native_program"] == "uncompared"
+    assert body["contract_rollout"]["target_prerequisites"] == "requires_current_observation"
+    assert body["contract_rollout"]["application_capture"] == "not_applicable"
     assert body["discovery_status"] == "available"
     assert "patch" not in body
 
@@ -239,6 +242,45 @@ def test_inspection_projects_bound_effects_and_pages_exact_hunks(model_results):
     discovery = _inspect(preview_id, "--view", "discovery", "--json")
     assert json.loads(discovery.stdout)["discovery"]["ast_grep_status"] == "inspected_no_hit"
     assert [item.id for item in model_results.list(None, 100, None).results] == [preview_id]
+
+
+def test_contract_rollout_keeps_application_and_native_observations_independent():
+    from corpus_structure.semantic.source_comparison import (
+        EffectiveChange,
+        EffectiveChangeComparison,
+    )
+
+    preview = _preview().model_copy(update={
+        "request": ChangeRequest(data_operations="fixture"),
+        "application_capture_required": True,
+        "effects": _preview().effects.model_copy(update={"admission": True, "generated": ("facade.py",)}),
+        "source_comparison": EffectiveChangeComparison(
+            before_digest="before", after_digest="after", unknowns=("unresolved binding",),
+            changes=(EffectiveChange(operation="capture", facet="recipe", kind="changed",
+                before="recipe:before", after="recipe:after", reason="determining option changed"),),
+        ),
+    })
+    rollout = preview.contract_rollout()
+    assert rollout.generated_source == "changed"
+    assert rollout.application_material == "changed"
+    assert rollout.material_operations == ("capture",)
+    assert rollout.application_capture == "deferred"
+    assert rollout.native_program == "uncompared"
+    assert rollout.native_install_required is False
+    assert rollout.target_prerequisites == "requires_current_observation"
+
+
+@pytest.mark.parametrize("unknowns, expected", [((), "unchanged"), (("binding absent",), "uncompared")])
+def test_contract_rollout_does_not_turn_missing_material_observations_into_equality(unknowns, expected):
+    from corpus_structure.semantic.source_comparison import EffectiveChangeComparison
+
+    preview = _preview().model_copy(update={
+        "request": ChangeRequest(data_operations="fixture"),
+        "source_comparison": EffectiveChangeComparison(
+            before_digest="same", after_digest="same", changes=(), unknowns=unknowns,
+        ),
+    })
+    assert preview.contract_rollout().application_material == expected
 
 
 def test_patch_attribution_skips_header_like_body_and_keeps_unterminated_lines():

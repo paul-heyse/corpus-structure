@@ -42,7 +42,7 @@ from corpus_structure.cli.target import (
     selection_summary,
 )
 from corpus_structure.schema.compiled_changes import CompiledModelComparison
-from corpus_structure.schema.model_change import RuntimeCustody
+from corpus_structure.schema.model_change import ContractRollout, RuntimeCustody
 from corpus_structure.schema.source_migrations import ConsumerOutcome
 from corpus_structure.semantic.code_reuse import ReuseExplanationReport
 from corpus_structure.semantic.migration_chain import NativeMigrationBase
@@ -135,11 +135,11 @@ class PreviewEffectsReport(EffectGuidance):
     runtime: RuntimeCustody | None = None
     changed_paths: tuple[str, ...]
     effects: dict[str, JsonValue]
+    contract_rollout: ContractRollout
     comparison_status: Literal["available", "unavailable", "not_applicable"]
     comparison: dict[str, JsonValue] | None
     discovery_status: Literal["available", "unavailable"]
     dependency_available: bool
-    native_change: Literal["no_native_change", "installed_change", "unobserved"] = "unobserved"
     prior_work: Literal["requires_native_binding"] = "requires_native_binding"
     live_conditions: tuple[str, ...] = (
         "Exact material inputs, current support and native authorization determine adoption.",
@@ -678,7 +678,11 @@ def _effects_view(report: PreviewEffectsReport) -> Table:
         ),
         ("Changed paths", _path_summary(report.changed_paths)),
         ("Native authoring", "required" if report.effects["native"] else "not required"),
-        ("Installed program change", report.native_change),
+        ("Generated source", report.contract_rollout.generated_source),
+        ("Application material", report.contract_rollout.application_material),
+        ("Application capture", report.contract_rollout.application_capture),
+        ("Compared native program", report.contract_rollout.native_program),
+        ("Target prerequisites", report.contract_rollout.target_prerequisites),
         ("Prior work", report.prior_work),
         ("Live conditions", "\n".join(report.live_conditions)),
         ("Release admission", "planned" if report.effects["admission"] else "not planned"),
@@ -1001,11 +1005,7 @@ def inspect_preview(
                 runtime=staged.runtime,
                 changed_paths=paths,
                 effects=staged.effects.model_dump(mode="json"),
-                native_change="no_native_change"
-                if staged.effects.native_delta is not None and staged.effects.native_delta.unchanged
-                else "installed_change"
-                if staged.effects.native
-                else "unobserved",
+                contract_rollout=staged.contract_rollout(),
                 comparison_status="available"
                 if staged.comparison is not None
                 else "not_applicable"

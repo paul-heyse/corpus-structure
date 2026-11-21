@@ -192,9 +192,9 @@ def test_native_reference_never_calls_callbacks_and_whole_tree_is_complete():
         (
             "inspect",
             (
-                "patch hunks or SQL change entries; default 8",
+                "patch hunks, source inventory rows or SQL entries; default 8",
                 "Continue after this hunk ordinal",
-                "Continue SQL detail after this ordinal",
+                "Continue source inventories or SQL detail after this ordinal",
             ),
         ),
         (
