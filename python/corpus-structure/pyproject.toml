@@ -69,6 +69,7 @@ dependencies = [
     "wcwidth==0.9.4",
     "requests[use-chardet-on-py3]==2.34.2",
     "dill==0.4.1",
+    "colorama==0.4.6",
 ]
 
 [project.scripts]

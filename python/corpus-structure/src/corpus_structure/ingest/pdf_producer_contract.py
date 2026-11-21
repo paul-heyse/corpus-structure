@@ -171,6 +171,7 @@ def standard_pdf_contract() -> StandardPdfContract:
             "wcwidth",
             "nvidia-ml-py",
             "dill",
+            "colorama",
             "sqlalchemy",
             "referencing",
         )
@@ -387,7 +388,19 @@ def standard_pdf_execution(contract: StandardPdfContract):
         elif path.is_relative_to(purelib):
             key = str(path)
             if key not in expected:
-                raise ValueError("Standard PDF called an undeclared dependency: " + key)
+                frame = sys._getframe(1).f_back
+                callers = []
+                while frame is not None and len(callers) < 3:
+                    module_name = str(frame.f_globals.get("__name__", ""))
+                    if not module_name.startswith(("importlib.", "_frozen_importlib")):
+                        callers.append((module_name + "." + frame.f_code.co_qualname)[:180])
+                    frame = frame.f_back
+                raise ValueError(
+                    "Standard PDF called an undeclared dependency: "
+                    + key
+                    + "; called by "
+                    + " <- ".join(callers)
+                )
             if path.suffix == ".py":
                 if key not in codes:
                     codes[key] = frozenset(
