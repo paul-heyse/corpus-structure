@@ -289,7 +289,10 @@ def test_linkml_digest_type_preserves_full_input_pattern_in_generated_schema():
     declaration = yaml.safe_load(model_source('pdf-products.yaml'))
     schema = SchemaDefinition(
         id='https://example.org/pattern', name='pattern',
-        prefixes={'xsd': 'http://www.w3.org/2001/XMLSchema#', 'p': 'https://example.org/pattern/'},
+        prefixes={
+            'xsd': {'prefix_prefix': 'xsd', 'prefix_reference': 'http://www.w3.org/2001/XMLSchema#'},
+            'p': {'prefix_prefix': 'p', 'prefix_reference': 'https://example.org/pattern/'},
+        },
         default_prefix='p', types={'Digest': declaration['types']['PdfDigest']},
         classes={'Record': {'attributes': {'digest': {'range': 'Digest', 'required': True}}}},
     )

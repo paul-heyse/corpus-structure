@@ -109,8 +109,8 @@ class OperationEventFrame(EventContract):
     event: OperationEvent = DEFAULT_OPERATION_EVENT
     event_version: str = Field(min_length=1)
     producer_version: str = Field(min_length=1)
-    rubric_digest: str = Field(pattern="^[0-9a-f]{64}$")
-    reference_digest: str = Field(pattern="^[0-9a-f]{64}$")
+    rubric_digest: str = Field(min_length=64, max_length=64, pattern="^[0-9a-f]{64}$")
+    reference_digest: str = Field(min_length=64, max_length=64, pattern="^[0-9a-f]{64}$")
     corpus_id: str = Field(min_length=1)
     feature_names: tuple[str, ...] = Field(min_length=1)
     event_ids: tuple[str, ...]

@@ -34,9 +34,9 @@ class OriginalDescriptor(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     project_id: Annotated[str, Field(min_length=1)]
-    key: Annotated[str, Field(pattern=r"^doc:[0-9a-f]{32}$")]
+    key: Annotated[str, Field(min_length=36, max_length=36, pattern=r"^doc:[0-9a-f]{32}$")]
     source_uri: Annotated[str, Field(min_length=1)]
-    content_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    content_hash: Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")]
     original_path: Annotated[str, Field(min_length=1)]
     mime: Literal["application/pdf"]
     title: str | None

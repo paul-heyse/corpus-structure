@@ -796,12 +796,14 @@ def report_schema(name: str) -> dict[str, object]:
 
 def write_report_schemas(destination: Path) -> None:
     """Generate registration metadata through the same authoritative prepared adapters."""
-    from jsonschema import Draft202012Validator
+    from .schema_validation import prepared_schema_validator
 
     boundary, _digest = _report_model()
     schemas = {name: boundary.json_schema(name, mode="serialization") for name in _SCHEMA_NAMES}
     for schema in schemas.values():
-        Draft202012Validator.check_schema(schema)
+        prepared_schema_validator(
+            canonical_bytes({"$schema": "https://json-schema.org/draft/2020-12/schema", **schema})
+        )
     content = canonical_bytes(
         dict(
             profile="operation-report-schema-2",

@@ -39,7 +39,7 @@ class DdoStructuralAssessmentFrame(StructuralAssessmentValue):
     question: Nonempty
     case_id: Nonempty
     operation: Literal["qualified_comparison", "condition_qualification", "definition_components"]
-    component_id: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None
+    component_id: Annotated[str, Field(min_length=64, max_length=64, pattern=r"^[a-f0-9]{64}$")] | None
     rubric_version: Literal[
         "independent-structural-comparison-1",
         "independent-condition-qualification-1",

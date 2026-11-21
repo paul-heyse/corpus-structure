@@ -37,7 +37,7 @@ class RecipeOutputBinding(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     version: Literal[1] = 1
     length: int = Field(ge=0, le=ARTIFACT_BYTES)
-    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    sha256: str = Field(min_length=64, max_length=64, pattern=r"^[a-f0-9]{64}$")
 
 
 class RecipeOutputDocument(BaseModel):

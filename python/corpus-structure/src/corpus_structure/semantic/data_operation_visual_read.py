@@ -48,7 +48,10 @@ class VisualArtifactReply(_Record):
     kind: Literal["artifact"]
     digest: str
     media_type: Literal["image/png", "text/html; charset=utf-8", "application/json"]
-    content_hex: str = Field(pattern="^(?:[0-9a-f]{2})*$")
+    content_hex: str = Field(
+        pattern="^(?:[0-9a-f]{2})*$",
+        json_schema_extra={"not": {"pattern": "[^0-9a-f]"}},
+    )
     offset: int = Field(ge=0)
     total_bytes: int = Field(ge=0)
     next_offset: int | None
@@ -60,8 +63,12 @@ VisualReadReply = Annotated[
 
 
 def _schema(value: Any) -> bytes:
-    schema = TypeAdapter(value).json_schema(ref_template="#/definitions/{model}")
-    definitions = schema.pop("$defs", {})
+    from .data_operation_wire import NativeJsonSchema
+
+    schema = TypeAdapter(value).json_schema(
+        ref_template="#/definitions/{model}", schema_generator=NativeJsonSchema, mode="validation"
+    )
+    definitions = schema.pop("definitions", {})
     prefix = "visual_read_"
 
     def rename(value: Any) -> Any:

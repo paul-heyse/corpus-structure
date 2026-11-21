@@ -15,9 +15,8 @@ DiagnosticView = Literal["summary", "correction", "document"]
 
 def decode_diagnostic_document(document: Any) -> dict:
     """Decode the supported custody envelope and declared report version, without preparation."""
-    from jsonschema import Draft202012Validator
-
     from .operation_reporting import report_schema
+    from .schema_validation import prepared_schema_validator
 
     if not isinstance(document, dict) or set(document) != {"version", "report", "members"}:
         raise ValueError("unsupported diagnostic artifact")
@@ -28,7 +27,8 @@ def decode_diagnostic_document(document: Any) -> dict:
     from jsonschema.exceptions import ValidationError
 
     try:
-        Draft202012Validator(report_schema("LocatedValidationReport")).validate(document["report"])
+        schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", **report_schema("LocatedValidationReport")}
+        prepared_schema_validator(canonical_bytes(schema)).validate(document["report"])
     except ValidationError as error:
         raise ValueError("retained report differs from its supported schema") from error
     names = set()

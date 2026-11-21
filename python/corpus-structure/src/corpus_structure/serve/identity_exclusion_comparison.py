@@ -42,7 +42,7 @@ class ExclusionComparisonRequest(BaseModel):
     before: ConstraintRootPin
     after: ConstraintRootPin
     include_unchanged: bool = False
-    implementation: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    implementation: str | None = Field(default=None, min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
     cursor: str | None = Field(default=None, max_length=32768)
     limit: int = Field(default=100, strict=True, ge=1, le=1000)
     max_bytes: int = Field(default=1048576, strict=True, ge=1024, le=67108864)

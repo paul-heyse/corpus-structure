@@ -151,3 +151,22 @@ def test_current_visual_wire_is_closed_and_preserves_semantic_pins():
     Draft7Validator(json.loads(visual_read_schema())).validate(
         dict(kind="rows", items=artifact().model_dump(mode="json")["rows"], next_after=None)
     )
+
+
+@pytest.mark.parametrize('content, accepted', [('ab00', True), ('', True), ('ab\n', False), ('abc', False)])
+def test_visual_artifact_hex_schema_matches_owning_model(content, accepted):
+    from jsonschema import Draft7Validator
+    from pydantic import ValidationError
+
+    from corpus_structure.semantic.data_operation_visual_read import VisualArtifactReply, _schema
+
+    schema = json.loads(_schema(VisualArtifactReply))
+    assert schema['$schema'] == 'http://json-schema.org/draft-07/schema#'
+    value = dict(kind='artifact', digest='original', media_type='image/png', content_hex=content,
+                 offset=0, total_bytes=2, next_offset=None)
+    assert Draft7Validator(schema).is_valid(value) is accepted
+    if accepted:
+        assert VisualArtifactReply.model_validate(value).content_hex == content
+    else:
+        with pytest.raises(ValidationError):
+            VisualArtifactReply.model_validate(value)

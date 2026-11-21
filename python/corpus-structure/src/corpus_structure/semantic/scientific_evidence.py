@@ -127,11 +127,10 @@ def scientific_report_schema():
 
 @model_projection
 def _scientific_report_validator():
-    from jsonschema import Draft202012Validator
+    from .schema_validation import prepared_schema_validator
 
     schema = scientific_report_schema()
-    Draft202012Validator.check_schema(schema)
-    return Draft202012Validator(schema)
+    return prepared_schema_validator(canonical_bytes(schema))
 
 
 def validate_reference_science(result):
