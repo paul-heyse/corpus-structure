@@ -5,7 +5,6 @@ import importlib
 import json
 import sys
 import sysconfig
-from importlib.metadata._collections import Pair
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -19,15 +18,22 @@ from corpus_structure.semantic.identity import canonical_bytes
 def _small_contract():
     root = Path(producer.__file__).parents[1]
     names = (
-        "__init__", "_query_custody", "semantic/file_custody", "semantic/identity",
-        "ingest/pdf_producer_contract", "ingest/pdf_stream_types",
+        "__init__",
+        "_query_custody",
+        "semantic/file_custody",
+        "semantic/identity",
+        "ingest/pdf_producer_contract",
+        "ingest/pdf_stream_types",
     )
     files = tuple(
-        (str(root / (name + ".py")), observed_file(root / (name + ".py")).digest)
-        for name in names
+        (str(root / (name + ".py")), observed_file(root / (name + ".py")).digest) for name in names
     )
     stdlib = Path(sysconfig.get_path("stdlib")).resolve()
-    runtime = tuple((str(path), observed_file(path).digest) for path in stdlib.rglob("*.py") if "site-packages" not in path.parts)
+    runtime = tuple(
+        (str(path), observed_file(path).digest)
+        for path in stdlib.rglob("*.py")
+        if "site-packages" not in path.parts
+    )
     return producer.StandardPdfContract(b"{}", runtime, files)
 
 
@@ -38,38 +44,55 @@ def test_closed_population_accepts_source_and_refuses_preloaded_unselected_call(
     contract = _small_contract()
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
 
+    pair = importlib.import_module("importlib.metadata._collections").Pair
     with producer.standard_pdf_execution(contract):
         assert canonical_bytes({"selected": True}) == b'{"selected":true}'
         assert PdfReplayRef(Path("unopened"), "a" * 64, 0, "test").family == "test"
         assert importlib.import_module("json") is json
-        generated = collections.namedtuple("SelectedControl", "value")
-        assert generated(3).value == 3
-        assert Pair("name", "value").name == "name"
-    with pytest.raises(ValueError, match="undeclared first-party helper"), producer.standard_pdf_execution(contract):
+        SelectedControl = collections.namedtuple("SelectedControl", "value")
+        assert SelectedControl(3).value == 3
+        assert pair("name", "value").name == "name"
+    with (
+        pytest.raises(ValueError, match="undeclared first-party helper"),
+        producer.standard_pdf_execution(contract),
+    ):
         canonical_native_options({})
 
 
 def test_closed_population_refuses_replaced_loaded_code(monkeypatch):
     contract = _small_contract()
     original = canonical_bytes.__code__
-    replacement = compile("def canonical_bytes(value):\n return b'forged'", original.co_filename, "exec")
+    replacement = compile(
+        "def canonical_bytes(value):\n return b'forged'", original.co_filename, "exec"
+    )
     forged = next(value for value in replacement.co_consts if hasattr(value, "co_code"))
     monkeypatch.setattr(canonical_bytes, "__code__", forged)
-    with pytest.raises(ValueError, match="loaded code differs"), producer.standard_pdf_execution(contract):
+    with (
+        pytest.raises(ValueError, match="loaded code differs"),
+        producer.standard_pdf_execution(contract),
+    ):
         canonical_bytes({})
 
 
-def test_selected_material_ignores_unrelated_files_and_authenticates_dependency(tmp_path, monkeypatch):
+def test_selected_material_ignores_unrelated_files_and_authenticates_dependency(
+    tmp_path, monkeypatch
+):
     dependency = tmp_path / "dependency.py"
     dependency.write_text("x = 1\n")
     unrelated = tmp_path / "orchestration.py"
     unrelated.write_text("first\n")
     monkeypatch.setattr(producer, "STANDARD_MODULES", ("ingest/pdf_producer_contract",))
     monkeypatch.setattr(sys, "prefix", str(tmp_path))
-    monkeypatch.setattr(producer, "distribution", lambda name: SimpleNamespace(
-        version="1.0", files=("dependency.py",), requires=(),
-        locate_file=lambda name: tmp_path / name,
-    ))
+    monkeypatch.setattr(
+        producer,
+        "distribution",
+        lambda name: SimpleNamespace(
+            version="1.0",
+            files=("dependency.py",),
+            requires=(),
+            locate_file=lambda name: tmp_path / name,
+        ),
+    )
     producer.standard_pdf_contract.cache_clear()
     try:
         first = producer.standard_pdf_contract()
@@ -89,14 +112,25 @@ def test_selected_material_ignores_unrelated_files_and_authenticates_dependency(
 def test_handoff_rejects_invented_or_missing_file_population():
     contract = _small_contract()
     root = Path(producer.__file__).parents[1]
-    content = json.dumps({
-        "profile": producer.PROFILE,
-        "first_party": [(str(Path(path).relative_to(root)), digest) for path, digest in contract.first_party],
-        "dependencies": [],
-    }).encode()
-    producer.accept_standard_pdf_custody(content, tuple(item for item in contract.custody() if item[0] in dict(contract.first_party)))
+    content = json.dumps(
+        {
+            "profile": producer.PROFILE,
+            "first_party": [
+                (str(Path(path).relative_to(root)), digest) for path, digest in contract.first_party
+            ],
+            "dependencies": [],
+        }
+    ).encode()
+    producer.accept_standard_pdf_custody(
+        content, tuple(item for item in contract.custody() if item[0] in dict(contract.first_party))
+    )
     with pytest.raises(ValueError, match="selected population"):
-        producer.accept_standard_pdf_custody(content, tuple(item for item in contract.custody() if item[0] in dict(contract.first_party))[:-1])
+        producer.accept_standard_pdf_custody(
+            content,
+            tuple(item for item in contract.custody() if item[0] in dict(contract.first_party))[
+                :-1
+            ],
+        )
     changed = list(item for item in contract.custody() if item[0] in dict(contract.first_party))
     changed[0] = (changed[0][0], "0" * 64, *changed[0][2:])
     with pytest.raises(ValueError, match="admitted manifest"):
@@ -111,6 +145,16 @@ def test_generic_sources_do_not_acquire_selected_recognition_population(monkeypa
 
     monkeypatch.setattr(producer, "standard_pdf_contract", forbidden)
     assert standard_producer_from_sources(SimpleNamespace(boundary_contracts=())) is None
-    assert standard_producer_from_sources(SimpleNamespace(boundary_contracts=(SimpleNamespace(
-        name="pdf-capture/profile-assets", content=b'{"version":"native-pdf-capture-v1"}'
-    ),))) is None
+    assert (
+        standard_producer_from_sources(
+            SimpleNamespace(
+                boundary_contracts=(
+                    SimpleNamespace(
+                        name="pdf-capture/profile-assets",
+                        content=b'{"version":"native-pdf-capture-v1"}',
+                    ),
+                )
+            )
+        )
+        is None
+    )
