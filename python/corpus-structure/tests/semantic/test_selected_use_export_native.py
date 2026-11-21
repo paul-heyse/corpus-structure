@@ -57,7 +57,7 @@ def selected_use_journey(scenario_seeds, tmp_path, monkeypatch):
         ),
     )
     with current_record_policy_journey(
-        scenario_seeds, tmp_path, monkeypatch, recipe=recipe
+        scenario_seeds, tmp_path, monkeypatch, recipe=recipe, source_count=1
     ) as journey:
         yield journey
 
