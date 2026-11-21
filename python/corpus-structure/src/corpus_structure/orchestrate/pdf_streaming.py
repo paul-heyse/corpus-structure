@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import ExitStack, closing, contextmanager
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol
 
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from corpus_structure.core.method import PdfRecordProducerRequest, PdfRecordPublicationDraft
     from corpus_structure.ingest.pdf import PdfRecipe
     from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
+    from corpus_structure.ingest.pdf_build_spool import PdfSpoolProducerBasis, VerifiedSpoolRecovery
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
     from corpus_structure.semantic.pdf_publication import (
         FrozenPdfBuildRef,
@@ -73,6 +75,26 @@ def ipc_replay_batches(
                 )
 
 
+def _original_pdf_spool_root(
+    current_root: Path, current: PdfSpoolProducerBasis, original: PdfSpoolProducerBasis
+) -> Path:
+    """Locate the selected producer within the configured capture storage root."""
+    if (current.request_id, current.generation) == (original.request_id, original.generation):
+        return current_root
+
+    current_path = Path(sha256(current.request_id.encode()).hexdigest()) / str(current.generation)
+    if current_root.parts[-3:] != (current_path / "producer").parts:
+        raise ValueError("current PDF spool location differs from its native producer basis")
+    storage_root = current_root.parents[2]
+    previous_path = Path(sha256(original.request_id.encode()).hexdigest()) / str(
+        original.generation
+    )
+    original_root = storage_root / previous_path / "producer"
+    if not original_root.resolve().is_relative_to(storage_root.resolve()):
+        raise ValueError("original PDF spool location escapes its configured storage root")
+    return original_root
+
+
 def run_private_native_pdf_build(
     engine: Engine,
     claim: PdfProducerClaim,
@@ -117,7 +139,7 @@ def run_private_native_pdf_build(
     owner = OwnedPdfSource.acquire(original, directory, expected_digest=source_digest)
     worker = None
     spool = None
-    recovered = ()
+    recovered: list[VerifiedSpoolRecovery] = []
     entered = False
     try:
 
@@ -215,22 +237,34 @@ def run_private_native_pdf_build(
                 ): row.premises_bytes
                 for row in candidate_rows
             }
-            selected_builds = sorted({(owner.build_id, owner.task_id) for owner in candidates})
-            recovered = tuple(
-                recovery
-                for selected_build in selected_builds
-                for recovery in verify_spool_recovery(
-                    directory,
-                    build_id=build.build_id,
-                    task_id=claim.task_id,
-                    before_attempt=claim.attempt,
-                    check_active=check_active,
-                    source_build=selected_build,
-                    authorize_source=lambda owner, original: (
-                        candidates.get(owner) == original.to_bytes()
-                    ),
-                )
+            selected_builds = sorted(
+                {
+                    (
+                        owner.build_id,
+                        owner.task_id,
+                        _original_pdf_spool_root(
+                            directory,
+                            basis,
+                            PdfSpoolProducerBasis(**json.loads(premises)["producer"]),
+                        ),
+                    )
+                    for owner, premises in candidates.items()
+                }
             )
+            for source_build_id, source_task_id, source_root in selected_builds:
+                recovered.extend(
+                    verify_spool_recovery(
+                        source_root,
+                        build_id=build.build_id,
+                        task_id=claim.task_id,
+                        before_attempt=claim.attempt,
+                        check_active=check_active,
+                        source_build=(source_build_id, source_task_id),
+                        authorize_source=lambda owner, original: (
+                            candidates.get(owner) == original.to_bytes()
+                        ),
+                    )
+                )
 
             spool = PdfBuildSpool(
                 directory,
@@ -625,7 +659,6 @@ def finish_existing_pdf_product(
 ) -> PublishedPdfDocumentRef | None:
     """Finish matching immutable progress before invoking any producer computation."""
     from dataclasses import replace
-    from hashlib import sha256
 
     from corpus_structure.semantic.pdf_publication import inspect_pdf_build, retain_pdf_stage_recipe
     from corpus_structure.semantic.pdf_staging import resume_pdf_build
@@ -691,8 +724,6 @@ def publish_pdf_record_draft(
     no connection is retained while lowering or executing native validation. A
     failure leaves authenticated private progress and original custody available.
     """
-    from hashlib import sha256
-
     from corpus_structure.ingest.pdf_streaming import PdfStreamSpool, StreamingPdfResult
     from corpus_structure.semantic.pdf_publication import (
         freeze_pdf_build,
@@ -990,8 +1021,6 @@ def produce_published_pdf_records(
     cancellation: BorrowerCancellation | None = None,
 ) -> PublishedPdfDocumentRef:
     """Actual finite page producer followed by frozen publication, never graph IPC."""
-    from hashlib import sha256
-
     from corpus_structure.semantic.pdf_publication import (
         freeze_pdf_build,
         prepare_pdf_build,

@@ -4,6 +4,7 @@ import json
 from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from types import SimpleNamespace
 from typing import cast
 from unittest.mock import MagicMock
@@ -55,8 +56,6 @@ class Transactions:
 
 
 def test_ipc_replay_uses_physical_retry_keys_and_preserves_batch_order(tmp_path):
-    from hashlib import sha256
-
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
 
     schema = pa.schema([("value", pa.int64())])
@@ -77,6 +76,31 @@ def test_ipc_replay_uses_physical_retry_keys_and_preserves_batch_order(tmp_path)
     path.write_bytes(b"corrupted")
     with pytest.raises(ValueError, match="changed"):
         next(execution.ipc_replay_batches([replay], lambda: None))
+
+
+def test_compatible_spool_lookup_uses_the_original_native_request_and_generation(tmp_path):
+    from corpus_structure.ingest.pdf_build_spool import PdfSpoolProducerBasis
+
+    current = PdfSpoolProducerBasis(
+        request_id="semantic-request:current",
+        generation=2,
+        release_id="release:current",
+        operation="source.pdf/capture",
+        definition="definition",
+        recipe="recipe",
+        implementation="implementation",
+        execution_profile="source-native",
+        runtime_id="runtime:current",
+        runtime_manifest_digest="a" * 64,
+        pdf_domain_digest="b" * 64,
+    )
+    prior = replace(current, request_id="semantic-request:prior", generation=1)
+    directory = tmp_path / sha256(current.request_id.encode()).hexdigest() / "2" / "producer"
+    expected = tmp_path / sha256(prior.request_id.encode()).hexdigest() / "1" / "producer"
+    assert execution._original_pdf_spool_root(directory, current, prior) == expected
+    assert execution._original_pdf_spool_root(directory, current, current) == directory
+    with pytest.raises(ValueError, match="current PDF spool location"):
+        execution._original_pdf_spool_root(tmp_path / "unrelated", current, prior)
 
 
 @pytest.mark.parametrize(
