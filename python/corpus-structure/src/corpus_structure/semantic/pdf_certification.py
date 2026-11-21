@@ -365,7 +365,7 @@ class PdfProducerPayloads(FrozenPayloadStore):
     ) -> PdfProducerCertification:
         from corpus_structure.ingest.pdf_streaming import _json_view
 
-        from .pdf_publication import write_pdf_access_projection
+        from .pdf_access_projection import write_pdf_access_projection
         from .pdf_records import validate_native_callbacks
 
         actual = json.loads(json.dumps(_json_view(document), allow_nan=False, ensure_ascii=False))

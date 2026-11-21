@@ -375,8 +375,7 @@ def test_native_mapping_and_callback_policy_use_the_acquired_context(tmp_path, m
     monkeypatch.setattr(pdf_records, "prepare_native_schema_mapping", forbidden)
     monkeypatch.setattr(pdf_records, "native_validation_contract", forbidden)
     monkeypatch.setattr(pdf_records, "native_schema_bytes", forbidden)
-    monkeypatch.setattr(pdf_records, "CONTRACT_VERSION", "wrong ambient contract")
-    monkeypatch.setattr(pdf_records, "MAPPING_PROFILE", "wrong ambient mapping")
+    monkeypatch.setattr(pdf_records, "_default_record_header", forbidden)
     streamed = StreamingPdfResult(
         document,
         PdfStreamSpool(tmp_path / "explicit-pages", payload_family=prepare_payload_family(context)),

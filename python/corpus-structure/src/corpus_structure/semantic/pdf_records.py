@@ -23,24 +23,33 @@ from jsonschema.validators import validator_for
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
-from corpus_structure.model.compiled import model_projection, model_source
-
 from .pdf_record_identity import ScalarDescriptor, canonical_scalar, scalar_payload
 
 if TYPE_CHECKING:
     from docling_core.types.doc import DoclingDocument
 
 
-@model_projection
-def _record_model() -> Mapping[str, Any]:
+@lru_cache(maxsize=4)
+def _record_model(content: bytes) -> Mapping[str, Any]:
     import yaml
 
-    return yaml.safe_load(model_source("pdf-records.yaml"))
+    return yaml.safe_load(content)
 
 
-_HEADER_FIELDS = _record_model()["classes"]["PdfRecordDocument"]["attributes"]
-CONTRACT_VERSION = str(_HEADER_FIELDS["contract_version"]["equals_string"])
-MAPPING_PROFILE = str(_HEADER_FIELDS["mapping_profile"]["equals_string"])
+def _default_record_model() -> Mapping[str, Any]:
+    from corpus_structure.model.compiled import model_source
+
+    return _record_model(model_source("pdf-records.yaml"))
+
+
+def _default_record_header() -> tuple[str, str]:
+    fields = _default_record_model()["classes"]["PdfRecordDocument"]["attributes"]
+    return (
+        str(fields["contract_version"]["equals_string"]),
+        str(fields["mapping_profile"]["equals_string"]),
+    )
+
+
 MAX_RECORD_BYTES = 65_536
 # JSONB renders whitespace and escapes; leave room for its physical projection.
 INLINE_SCALAR_BYTES = 512
@@ -156,14 +165,14 @@ class NativeSchemaMapping:
         _finite_json(value, "#")
 
 
-@model_projection
 def native_validation_contract() -> Mapping[str, Any]:
     """Read the semantic owner's placement and opaque-extension interpretation contract."""
-    return json.loads(_record_model()["annotations"]["pdr:native_validation_contract"])
+    return json.loads(_default_record_model()["annotations"]["pdr:native_validation_contract"])
 
 
-@model_projection
 def native_schema_bytes() -> bytes:
+    from corpus_structure.model.compiled import model_source
+
     return model_source("docling-validation.schema.json")
 
 
@@ -378,7 +387,7 @@ def iter_native_records(
 
     mapping = prepare_native_schema_mapping() if mapping is None else mapping
     contract_version, mapping_profile = (
-        (CONTRACT_VERSION, MAPPING_PROFILE) if record_header is None else record_header
+        _default_record_header() if record_header is None else record_header
     )
     if native_type == "DoclingDocument":
         root_schema = mapping.schema

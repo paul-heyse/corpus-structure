@@ -19,7 +19,7 @@ from sqlalchemy.schema import CreateTable
 
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
-from corpus_structure.semantic.pdf_publication import write_pdf_access_projection
+from corpus_structure.semantic.pdf_access_projection import write_pdf_access_projection
 from corpus_structure.semantic.pdf_publication_native import pdf_inventory_native_sql
 from corpus_structure.semantic.pdf_records import iter_native_records
 
