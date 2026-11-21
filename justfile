@@ -21,6 +21,9 @@ test-all *args:
     if [[ -n ${CORPUS_CI_RECEIPT_DIR:-} ]]; then
       options=(--managed-lane ordinary --out-dir "$CORPUS_CI_RECEIPT_DIR")
       options+=(--evidence-selection "${CORPUS_CI_EVIDENCE_SELECTION:-ordinary}")
+      if [[ -n ${CORPUS_CI_TEST_TIMEOUT:-} ]]; then
+        options+=(--test-timeout "$CORPUS_CI_TEST_TIMEOUT")
+      fi
       if [[ ${CORPUS_CI_COLLECTION_ONLY:-0} == 1 ]]; then
         options+=(--collection-only)
       fi
@@ -45,6 +48,9 @@ test-native-faults *args:
     export CORPUS_TEST_NATIVE_AUTH_CRASH=1
     if [[ -n ${CORPUS_CI_RECEIPT_DIR:-} ]]; then
       options=(--managed-lane fault --out-dir "$CORPUS_CI_RECEIPT_DIR")
+      if [[ -n ${CORPUS_CI_TEST_TIMEOUT:-} ]]; then
+        options+=(--test-timeout "$CORPUS_CI_TEST_TIMEOUT")
+      fi
       if [[ -n ${CORPUS_CI_SELECTION_FILE:-} ]]; then
         options+=(--selection-file "$CORPUS_CI_SELECTION_FILE")
       fi

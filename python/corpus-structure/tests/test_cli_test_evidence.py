@@ -175,8 +175,9 @@ def test_cli_fault_workers_reject_before_operation(cli, tmp_path, monkeypatch, r
 @pytest.mark.parametrize("retry", [False, True])
 @pytest.mark.parametrize("workers", [None, 1])
 @pytest.mark.parametrize("selection_count", [1, 3])
+@pytest.mark.parametrize("test_timeout", [None, 1800.0])
 def test_cli_workers_reach_owned_recipe_and_scope(
-    cli, tmp_path, monkeypatch, retry, workers, selection_count
+    cli, tmp_path, monkeypatch, retry, workers, selection_count, test_timeout
 ):
     from corpus_structure.cli import testing
 
@@ -184,13 +185,15 @@ def test_cli_workers_reach_owned_recipe_and_scope(
     nodes = [f"tests/test_sample.py::test_{index}" for index in range(selection_count)]
     original_id = None
     if retry:
-        with store.operation("test", scope={"lane": "ordinary"}) as original:
+        with store.operation("test", scope={"lane": "ordinary", "test_timeout": 1200.0}) as original:
             directory = original.directory / "ordinary"
             _receipt(directory, nodes, fail=True)
             original.publish("ordinary", directory)
             original.settle("failed", lanes={"ordinary": "failed"})
             original_id = original.id
     monkeypatch.setenv("CORPUS_CI_TEST_WORKERS", "999")
+    monkeypatch.setenv("CORPUS_CI_TEST_TIMEOUT", "999")
+    effective_timeout = test_timeout if test_timeout is not None else 1200.0 if retry else None
     monkeypatch.setenv("PYTEST_XDIST_AUTO_NUM_WORKERS", "999")
     monkeypatch.setenv("CORPUS_CI_RUN_SCOPE", "qualification")
     calls = []
@@ -199,6 +202,9 @@ def test_cli_workers_reach_owned_recipe_and_scope(
     def recipe(name, *args, env):
         assert name == "test-all"
         assert env.get("CORPUS_CI_TEST_WORKERS") == (str(workers) if workers else None)
+        assert env.get("CORPUS_CI_TEST_TIMEOUT") == (
+            str(effective_timeout) if effective_timeout is not None else None
+        )
         assert env["CORPUS_CI_PYTHON_ONLY"] == "1"
         assert env["CORPUS_CI_RUN_SCOPE"] == "narrowed"
         if retry:
@@ -251,6 +257,8 @@ def test_cli_workers_reach_owned_recipe_and_scope(
     arguments = ["test", *(["retry", original_id, "--lane", "ordinary"] if retry else [])]
     if workers is not None:
         arguments += ["--workers", str(workers)]
+    if test_timeout is not None:
+        arguments += ["--test-timeout", str(test_timeout)]
     arguments += ["--json"]
     from corpus_structure.cli.app import build_full_app
 
@@ -267,6 +275,7 @@ def test_cli_workers_reach_owned_recipe_and_scope(
     manifest = store.show(json.loads(result.stdout)["id"])
     assert manifest.scope["workers"] == {"ordinary": calls[0]}
     assert manifest.scope["required_lanes"] == ["ordinary"]
+    assert manifest.scope["test_timeout"] == effective_timeout
     assert len(collections) == int(retry)
     if retry:
         assert "--managed-selection" in collections[0]
@@ -286,6 +295,7 @@ def test_lane_owns_run_scope_instead_of_inheriting_outer_value(
 
     def recipe(name, *args, env):
         assert env["CORPUS_CI_RUN_SCOPE"] == expected
+        assert env["CORPUS_CI_TEST_TIMEOUT"] == "1800.0"
         directory = Path(env["CORPUS_CI_RECEIPT_DIR"])
         directory.mkdir()
         (directory / "classification.json").write_text("{}")
@@ -312,10 +322,51 @@ def test_lane_owns_run_scope_instead_of_inheriting_outer_value(
                 result,
                 lane,
                 narrowed=narrowed,
+                test_timeout=1800.0,
                 selection=tmp_path / "selection.txt" if retry else None,
             )
             == "passed"
         )
+
+
+@pytest.mark.parametrize("retry", [False, True])
+@pytest.mark.parametrize("timeout", ["0", "-1", "nan", "inf"])
+def test_invalid_test_timeout_refuses_before_execution(cli, tmp_path, retry, timeout):
+    from corpus_structure.cli.app import build_full_app
+
+    arguments = ["test", *(["retry", "missing"] if retry else []), "--test-timeout", timeout]
+    result = cli.runner.invoke(
+        build_full_app(), arguments, env={"CORPUS_CI_RESULTS": str(tmp_path / "results")}
+    )
+    assert result.exit_code == 2
+    assert "finite and positive" in result.output
+    assert not (tmp_path / "results").exists()
+
+
+@pytest.mark.parametrize("recipe", ["test-all", "test-native-faults"])
+def test_managed_watchdog_reaches_receipt_runner_argv(tmp_path, recipe):
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    uv = binaries / "uv"
+    uv.write_text(f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n")
+    uv.chmod(0o755)
+    result = subprocess.run(
+        ["just", "--justfile", str(ROOT / "justfile"), recipe],
+        env={
+            **os.environ,
+            "PATH": str(binaries) + os.pathsep + os.environ["PATH"],
+            "CORPUS_CI_RECEIPT_DIR": str(tmp_path / "receipt"),
+            "CORPUS_CI_TEST_TIMEOUT": "1800",
+        },
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    arguments = json.loads(result.stdout)
+    assert arguments[arguments.index("--test-timeout") + 1] == "1800"
+    assert arguments[arguments.index("--managed-lane") + 1] == (
+        "ordinary" if recipe == "test-all" else "fault"
+    )
 
 
 @pytest.mark.parametrize("authenticated_refusal", [False, True])

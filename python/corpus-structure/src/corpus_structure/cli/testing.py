@@ -7,6 +7,7 @@ import os
 import stat
 from collections import Counter
 from contextlib import ExitStack
+from math import isfinite
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -36,6 +37,21 @@ Workers = Annotated[
     int | None,
     typer.Option(
         min=1, help="Ordinary pytest workers (default: sized to explicit IDs; paths use auto)."
+    ),
+]
+
+
+def _positive_test_timeout(value: float | None) -> float | None:
+    if value is not None and (not isfinite(value) or value <= 0):
+        raise typer.BadParameter("test timeout must be finite and positive")
+    return value
+
+
+TestTimeout = Annotated[
+    float | None,
+    typer.Option(
+        callback=_positive_test_timeout,
+        help="Watchdog seconds for each complete pytest test, including setup and teardown (default: runner policy).",
     ),
 ]
 _DEFAULT_LIMIT = 20
@@ -747,6 +763,7 @@ def _lane(
     selection: Path | None = None,
     narrowed: bool = False,
     workers: int | None = None,
+    test_timeout: float | None = None,
     evidence_selection: EvidenceSelection = "ordinary",
     collection_only: bool = False,
     native_host: NativeHost = "shared",
@@ -764,6 +781,7 @@ def _lane(
             "CORPUS_CI_SELECTION_FILE",
             "CORPUS_CI_PYTHON_ONLY",
             "CORPUS_CI_TEST_WORKERS",
+            "CORPUS_CI_TEST_TIMEOUT",
             "CORPUS_CI_RUN_SCOPE",
             "CORPUS_CI_EVIDENCE_SELECTION",
             "CORPUS_CI_COLLECTION_ONLY",
@@ -773,6 +791,8 @@ def _lane(
     env["CORPUS_CI_RECEIPT_DIR"] = str(directory)
     env["CORPUS_CI_EVIDENCE_SELECTION"] = evidence_selection
     env["CORPUS_CI_NATIVE_HOST"] = native_host
+    if test_timeout is not None:
+        env["CORPUS_CI_TEST_TIMEOUT"] = str(test_timeout)
     if collection_only:
         env["CORPUS_CI_COLLECTION_ONLY"] = "1"
     env["CORPUS_CI_RUN_SCOPE"] = (
@@ -925,6 +945,7 @@ def run_tests(
     ctx: typer.Context,
     lane: Annotated[Lane | None, typer.Option()] = None,
     workers: Workers = None,
+    test_timeout: TestTimeout = None,
     native_host: Annotated[
         NativeHost, typer.Option(help="Native PostgreSQL host for the ordinary cohort.")
     ] = "shared",
@@ -939,6 +960,7 @@ def run_tests(
             (state(ctx).test_args and ctx.invoked_subcommand != "collect")
             or lane is not None
             or workers is not None
+            or test_timeout is not None
             or providers_only
             or native_host != "shared"
             or json
@@ -969,6 +991,7 @@ def run_tests(
                 "narrowed": narrowed,
                 "evidence_selection": evidence_selection,
                 "native_host": native_host,
+                "test_timeout": test_timeout,
                 "workers": {
                     name: {
                         "requested": workers if name == "ordinary" else 0,
@@ -987,6 +1010,7 @@ def run_tests(
                     args,
                     narrowed=narrowed,
                     workers=workers,
+                    test_timeout=test_timeout,
                     evidence_selection=evidence_selection,
                     native_host=native_host,
                 )
@@ -998,7 +1022,7 @@ def run_tests(
                 and not result.manifest.details.get("custody_unsettled")
                 and not result.manifest.details.get("selection_refusal")
             ):
-                outcomes["fault"] = _lane(result, "fault", args)
+                outcomes["fault"] = _lane(result, "fault", args, test_timeout=test_timeout)
             _finish(result, outcomes, json)
 
 
@@ -1781,6 +1805,7 @@ def retry(
     original: str,
     lane: Annotated[Lane | None, typer.Option()] = None,
     workers: Workers = None,
+    test_timeout: TestTimeout = None,
     json: JsonOpt = False,
 ) -> None:
     """Recollect and retry the unresolved identities from a retained receipt."""
@@ -1790,6 +1815,9 @@ def retry(
         store = result_store(ctx)
         with store.lease(original), ExitStack() as receipts_open:
             manifest = store.show(original, role=lane)
+            effective_timeout = (
+                test_timeout if test_timeout is not None else manifest.scope.get("test_timeout")
+            )
             if manifest.action == "test.collect":
                 raise ResultError(
                     "collection-only receipts have no functional retry; use ci test collect"
@@ -1805,6 +1833,7 @@ def retry(
                 scope={
                     "retry_of": original,
                     "native_host": manifest.scope.get("native_host", "shared"),
+                    "test_timeout": effective_timeout,
                     "evidence_selection": manifest.scope.get("evidence_selection", "ordinary"),
                     "required_lanes": [],
                     "workers": {},
@@ -1899,6 +1928,7 @@ def retry(
                             current,
                             selection=selection,
                             workers=workers,
+                            test_timeout=effective_timeout,
                             evidence_selection=prior.get("evidence_selection", "ordinary"),
                             native_host=prior.get("native_host", "shared"),
                         )
