@@ -274,22 +274,13 @@ class ChangePreview(BaseModel):
     def contract_rollout(self) -> ContractRollout:
         """Project the existing owners without inferring installation or reuse standing."""
         comparison = self.source_comparison
-        changes = comparison.changes if comparison is not None else ()
-        material = tuple(sorted({
-            change.operation for change in changes
-            if change.facet == "recipe" and change.before is not None and change.after is not None
-        }))
         application = self.request.data_operations is not None
         delta = self.effects.native_delta
         material_status: Literal["unchanged", "changed", "uncompared", "not_applicable"] = "uncompared"
         if not application:
             material_status = "not_applicable"
-        elif material:
-            material_status = "changed"
-        elif comparison is not None and not comparison.unknowns and not any(
-            change.facet == "recipe" for change in changes
-        ):
-            material_status = "unchanged"
+        elif comparison is not None:
+            material_status = comparison.material_comparison
         capture_status: Literal["deferred", "acquired", "uncompared", "not_applicable"] = "uncompared"
         if not application or not self.effects.admission:
             capture_status = "not_applicable"
@@ -301,7 +292,7 @@ class ChangePreview(BaseModel):
             generated_source="changed" if self.effects.generated else "unchanged",
             application_release=self.effects.release,
             application_material=material_status,
-            material_operations=material,
+            material_operations=comparison.material_operations if comparison is not None else (),
             application_capture=capture_status,
             execution_profile=self.request.execution_profile,
             runtime_id=self.runtime.runtime_id if self.runtime is not None else None,

@@ -170,3 +170,16 @@ def test_visual_artifact_hex_schema_matches_owning_model(content, accepted):
     else:
         with pytest.raises(ValidationError):
             VisualArtifactReply.model_validate(value)
+
+
+def test_visual_discriminator_mapping_names_the_emitted_namespaced_definitions():
+    schema = json.loads(visual_read_schema())
+    mapping = schema['discriminator']['mapping']
+    assert mapping == {
+        'artifact': '#/definitions/visual_read_VisualArtifactReply',
+        'header': '#/definitions/visual_read_VisualHeaderReply',
+        'rows': '#/definitions/visual_read_VisualRowsReply',
+    }
+    for tag, target in mapping.items():
+        body = schema['definitions'][target.removeprefix('#/definitions/')]
+        assert body['properties']['kind']['const'] == tag

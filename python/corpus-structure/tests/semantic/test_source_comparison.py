@@ -40,6 +40,7 @@ def test_same_signature_body_change_is_implementation_and_recipe_not_contract():
     after = compile_source(operation_source(body="return helper(x) + 1"))
     compared = compare_data_operation_models(before, after)
     assert facets(compared) == {"implementation", "recipe"}
+    assert compared.material_comparison == "changed"
     assert not compared.breakages
     assert compared.before_digest != compared.after_digest
     material = {item.facet: item.material for item in compared.changes}
@@ -69,6 +70,7 @@ def test_historical_key_without_corresponding_fields_stays_unavailable():
     )
     assert recipe.material is not None and recipe.material.source == "unavailable"
     assert recipe.material.path is None
+    assert compare_data_operation_models(historical, after).material_comparison == "uncompared"
 
 
 @pytest.mark.parametrize(
@@ -96,6 +98,8 @@ def test_documentation_is_prepared_and_compared_separately_from_callable_shape()
     compared = compare_data_operation_models(before, after)
     assert "documentation" in facets(compared)
     assert "contract" not in facets(compared)
+    # The current executable identity includes the function's runtime docstring.
+    assert compared.material_comparison == "changed"
 
 
 def test_inherited_interface_retains_supplier_exposure_and_structured_parameters():
@@ -211,6 +215,7 @@ def test_missing_archive_projection_stays_unavailable_and_model_content_is_uncha
     compared = compare_data_operation_models(retained, retained)
     assert not compared.changes
     assert any("documentation unavailable" in unknown for unknown in compared.unknowns)
+    assert compared.material_comparison == "unchanged"
 
 
 def test_native_griffe_breakages_are_auxiliary_to_full_contract_comparison():
@@ -227,6 +232,7 @@ def test_incomplete_source_determinants_remain_unknown_even_when_models_equal():
     compared = compare_data_operation_models(model, model)
     assert any("getattr" in unknown or "reflection" in unknown for unknown in compared.unknowns)
     assert not compared.changes
+    assert compared.material_comparison == "uncompared"
 
 
 def test_runtime_custody_change_does_not_change_semantic_recipe():
@@ -235,6 +241,7 @@ def test_runtime_custody_change_does_not_change_semantic_recipe():
         model, model, before_runtime="runtime:old", after_runtime="runtime:new"
     )
     assert facets(compared) == {"runtime"}
+    assert compared.material_comparison == "unchanged"
 
 
 def test_normal_preparation_archives_projection_and_bound_reader_uses_its_bytes(monkeypatch):

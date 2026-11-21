@@ -68,6 +68,8 @@ class EffectiveChangeComparison(BaseModel):
     changes: tuple[EffectiveChange, ...]
     breakages: tuple[SourceCompatibilityBreakage, ...] = ()
     unknowns: tuple[str, ...] = ()
+    material_comparison: Literal["changed", "unchanged", "uncompared"] = "uncompared"
+    material_operations: tuple[str, ...] = ()
 
 
 def _json(value):
@@ -157,6 +159,17 @@ def _material_change(facet, before, after, prior, proposed, old_ids, new_ids, ol
     return MaterialChange(source=source, path=first_material_path(old, new))
 
 
+def _compared_recipe_key(model, operation, identities):
+    """Establish recipe correspondence without borrowing documentation/runtime standing."""
+    try:
+        recipe = _recipe_identity(model, operation, identities)
+    except KeyError, StopIteration, ValueError, TypeError:
+        return None
+    if recipe is None or recipe.key != identities.get((operation.semantic_id, "recipe")):
+        return None
+    return recipe.key
+
+
 def _callable_container(operation):
     container = griffe.Module("operation")
     for surface in operation.callable_surfaces:
@@ -201,6 +214,8 @@ def compare_data_operation_models(
     old_ids = {(item.owner, item.domain): item.key for item in before.identities}
     new_ids = {(item.owner, item.domain): item.key for item in after.identities}
     changes, breakages, unknowns = [], [], []
+    material_operations = []
+    material_uncompared = False
 
     def append(
         owner, facet, prior, proposed, *, old_present=True, new_present=True, reason, material=None
@@ -222,6 +237,7 @@ def compare_data_operation_models(
     for owner in sorted(old.keys() | new.keys()):
         prior, proposed = old.get(owner), new.get(owner)
         if prior is None or proposed is None:
+            material_operations.append(owner)
             append(
                 owner,
                 "contract",
@@ -232,6 +248,13 @@ def compare_data_operation_models(
                 reason="Effective operation added or removed.",
             )
             continue
+
+        prior_recipe = _compared_recipe_key(before, prior, old_ids)
+        proposed_recipe = _compared_recipe_key(after, proposed, new_ids)
+        if prior_recipe is None or proposed_recipe is None:
+            material_uncompared = True
+        elif prior_recipe != proposed_recipe:
+            material_operations.append(owner)
 
         def contract(operation):
             return {
@@ -451,4 +474,8 @@ def compare_data_operation_models(
         changes=tuple(changes),
         breakages=tuple(breakages),
         unknowns=tuple(dict.fromkeys(unknowns)),
+        material_comparison=(
+            "changed" if material_operations else "uncompared" if material_uncompared else "unchanged"
+        ),
+        material_operations=tuple(material_operations),
     )

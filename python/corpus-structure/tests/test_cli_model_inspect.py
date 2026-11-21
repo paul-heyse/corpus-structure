@@ -256,6 +256,7 @@ def test_contract_rollout_keeps_application_and_native_observations_independent(
         "effects": _preview().effects.model_copy(update={"admission": True, "generated": ("facade.py",)}),
         "source_comparison": EffectiveChangeComparison(
             before_digest="before", after_digest="after", unknowns=("unresolved binding",),
+            material_comparison="changed", material_operations=("capture",),
             changes=(EffectiveChange(operation="capture", facet="recipe", kind="changed",
                 before="recipe:before", after="recipe:after", reason="determining option changed"),),
         ),
@@ -270,14 +271,15 @@ def test_contract_rollout_keeps_application_and_native_observations_independent(
     assert rollout.target_prerequisites == "requires_current_observation"
 
 
-@pytest.mark.parametrize("unknowns, expected", [((), "unchanged"), (("binding absent",), "uncompared")])
-def test_contract_rollout_does_not_turn_missing_material_observations_into_equality(unknowns, expected):
+@pytest.mark.parametrize("expected", ["unchanged", "uncompared"])
+def test_contract_rollout_consumes_material_owner_independently_of_other_unknowns(expected):
     from corpus_structure.semantic.source_comparison import EffectiveChangeComparison
 
     preview = _preview().model_copy(update={
         "request": ChangeRequest(data_operations="fixture"),
         "source_comparison": EffectiveChangeComparison(
-            before_digest="same", after_digest="same", changes=(), unknowns=unknowns,
+            before_digest="same", after_digest="same", changes=(),
+            unknowns=("Documentation is unavailable",), material_comparison=expected,
         ),
     })
     assert preview.contract_rollout().application_material == expected

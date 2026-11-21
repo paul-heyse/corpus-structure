@@ -71,16 +71,24 @@ def _schema(value: Any) -> bytes:
     definitions = schema.pop("definitions", {})
     prefix = "visual_read_"
 
+    def reference(value):
+        if isinstance(value, str) and value.startswith("#/definitions/"):
+            return "#/definitions/" + prefix + value.removeprefix("#/definitions/")
+        return value
+
     def rename(value: Any) -> Any:
         if isinstance(value, dict):
+            discriminator = value.get("discriminator")
+            if isinstance(discriminator, dict) and isinstance(discriminator.get("mapping"), dict):
+                value = {
+                    **value,
+                    "discriminator": {
+                        **discriminator,
+                        "mapping": {tag: reference(target) for tag, target in discriminator["mapping"].items()},
+                    },
+                }
             return {
-                key: (
-                    "#/definitions/" + prefix + child.removeprefix("#/definitions/")
-                    if key == "$ref"
-                    and isinstance(child, str)
-                    and child.startswith("#/definitions/")
-                    else rename(child)
-                )
+                key: reference(child) if key == "$ref" else rename(child)
                 for key, child in value.items()
             }
         if isinstance(value, list):
