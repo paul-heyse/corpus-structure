@@ -2,13 +2,14 @@
 
 import base64
 from copy import deepcopy
+from typing import Any
 
 import pytest
 
 from corpus_structure.semantic.continuation_codec import decode_demand_cursor, encode_cursor
 
 
-def cursor():
+def cursor() -> dict[str, Any]:
     return {
         "version": "demand-query-v2",
         "implementation": "implementation:A",
@@ -31,7 +32,9 @@ def test_demand_cursor_retains_exact_paging_request():
     assert value["request"]["scope"]["subject"] == "subject:A"
 
 
-@pytest.mark.parametrize("field", ["selection", "trust_snapshot", "limit", "max_bytes", "recheck_bodies"])
+@pytest.mark.parametrize(
+    "field", ["selection", "trust_snapshot", "limit", "max_bytes", "recheck_bodies"]
+)
 def test_demand_cursor_refuses_context_or_acquisition_policy(field):
     value = cursor()
     value["request"][field] = {} if field in {"selection", "trust_snapshot"} else 1

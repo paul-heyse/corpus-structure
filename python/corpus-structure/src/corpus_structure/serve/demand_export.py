@@ -15,7 +15,11 @@ from corpus_structure.semantic.data_operation_read_index import SelectedRecordIn
 from corpus_structure.semantic.demand_results import stream_demand_result, stream_selected_support
 from corpus_structure.semantic.sqlite_scratch import open_scratch
 
-from .demand_export_manifest import checked_export_manifest, decode_export_manifest
+from .demand_export_manifest import (
+    PublishedDemandExport,
+    checked_export_manifest,
+    decode_export_manifest,
+)
 
 _SPOOL = MetaData()
 _RECORDS = Table(
@@ -151,7 +155,7 @@ def export_demand_result(
     scope=None,
     read_id=None,
     expected_cut=None,
-):
+) -> PublishedDemandExport:
     """Acquire and stream every page before releasing native read/trust ownership.
 
     Parquet conversion consumes the same-session native rows already read under
@@ -408,30 +412,31 @@ def export_demand_result(
             ).scalar_one()
             else "complete"
         )
-        manifest = dict(
-            format="demand-result-export-v3",
-            encoding=format,
-            cut_id=cut.identity,
-            cut=cut.record,
-            pages=pages,
-            closure="closure.jsonl",
-            reader_contract="reader-contract.json",
-            authority_contract="authority-contract.json",
-            execution_evidence_contract="execution-evidence-contract.json",
-            support_disclosure=support_disclosure,
-            execution_evidence_disclosure=execution_disclosure,
-            releases=release_files,
-            runtimes=runtime_files,
-            source_artifacts=source_files,
-            relations=relations,
-            files=files,
-            trust="selected historical acquisition; current trust requires native reassessment",
+        manifest = checked_export_manifest(
+            dict(
+                format="demand-result-export-v3",
+                encoding=format,
+                cut_id=cut.identity,
+                cut=cut.record,
+                pages=pages,
+                closure="closure.jsonl",
+                reader_contract="reader-contract.json",
+                authority_contract="authority-contract.json",
+                execution_evidence_contract="execution-evidence-contract.json",
+                support_disclosure=support_disclosure,
+                execution_evidence_disclosure=execution_disclosure,
+                releases=release_files,
+                runtimes=runtime_files,
+                source_artifacts=source_files,
+                relations=relations,
+                files=files,
+                trust="selected historical acquisition; current trust requires native reassessment",
+            )
         )
-        manifest = checked_export_manifest(manifest)
-        manifest_bytes = json_bytes(manifest)
+        manifest_bytes = json_bytes(manifest.model_dump(mode="python"))
         (root / "manifest.json").write_bytes(manifest_bytes)
         root.rename(destination)
-        return dict(manifest, manifest_digest=sha256(manifest_bytes).hexdigest())
+        return PublishedDemandExport(manifest, sha256(manifest_bytes).hexdigest())
 
 
 @contextmanager
@@ -451,16 +456,16 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
     if sha256(manifest_bytes).hexdigest() != manifest_digest:
         raise ValueError("export manifest differs from the explicit trusted digest")
     manifest = decode_export_manifest(manifest_bytes)
-    for name, descriptor in manifest["files"].items():
+    for name, descriptor in manifest.files.items():
         path = root / name
         if (
             not path.resolve().is_relative_to(root.resolve())
-            or path.stat().st_size != descriptor["bytes"]
-            or _checksum(path) != descriptor["sha256"]
+            or path.stat().st_size != descriptor.bytes
+            or _checksum(path) != descriptor.sha256
         ):
             raise ValueError("detached file differs from its pinned manifest: " + name)
     prepared, kinds, definitions, models = {}, {}, {}, {}
-    for release_id, name in manifest["releases"].items():
+    for release_id, name in manifest.releases.items():
         captured = wire_json_loads((root / name).read_bytes())
         acquired = open_release_parts(
             release_id,
@@ -491,10 +496,10 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
                 raise ValueError("captured releases disagree on nominal kind meaning")
             kinds[kind["kind_contract"]] = kind
     runtime_ids = set()
-    for digest, name in manifest["source_artifacts"].items():
+    for digest, name in manifest.source_artifacts.items():
         if _checksum(root / name) != digest:
             raise ValueError("detached original source bytes differ from their content identity")
-    for name in manifest["runtimes"]:
+    for name in manifest.runtimes:
         captured = wire_json_loads((root / name).read_bytes())
         binding = RuntimeBinding(
             captured["release_id"],
@@ -504,15 +509,13 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
         )
         validate_data_operation_runtime(binding, prepared[binding.release_id])
         runtime_ids.add((binding.release_id, binding.runtime_id))
-    wire_schema = wire_json_loads((root / manifest["reader_contract"]).read_bytes())
-    authority_schema = wire_json_loads((root / manifest["authority_contract"]).read_bytes())
-    execution_schema = wire_json_loads(
-        (root / manifest["execution_evidence_contract"]).read_bytes()
-    )
+    wire_schema = wire_json_loads((root / manifest.reader_contract).read_bytes())
+    authority_schema = wire_json_loads((root / manifest.authority_contract).read_bytes())
+    execution_schema = wire_json_loads((root / manifest.execution_evidence_contract).read_bytes())
     with TemporaryDirectory(prefix="demand-verify-") as scratch:
         index = SelectedRecordIndex(Path(scratch) / "closure.sqlite")
         try:
-            with (root / manifest["closure"]).open("rb") as stream:
+            with (root / manifest.closure).open("rb") as stream:
                 for line in stream:
                     index.append(line.rstrip(b"\n"))
             actual_disclosure = (
@@ -520,16 +523,16 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
                 if next(index.rows("ops.data_authority_leaf"), None) is not None
                 else "complete"
             )
-            if manifest["support_disclosure"] != actual_disclosure:
+            if manifest.support_disclosure != actual_disclosure:
                 raise ValueError("detached manifest misstates its protected support disclosure")
             actual_execution = (
                 "bounded"
                 if next(index.rows("ops.data_execution_evidence_leaf"), None) is not None
                 else "complete"
             )
-            if manifest["execution_evidence_disclosure"] != actual_execution:
+            if manifest.execution_evidence_disclosure != actual_execution:
                 raise ValueError("detached manifest misstates its physical execution disclosure")
-            for ordinal, name in enumerate(manifest["pages"]):
+            for ordinal, name in enumerate(manifest.pages):
                 page = verify_detached_result(
                     wire_json_loads((root / name).read_bytes()),
                     index=index,
@@ -538,12 +541,12 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
                     definitions=definitions,
                     models=models,
                     runtimes=runtime_ids,
-                    source_artifacts=manifest["source_artifacts"],
+                    source_artifacts=manifest.source_artifacts,
                     authority_schema=authority_schema,
                     execution_evidence_schema=execution_schema,
                     validate_closure=ordinal == 0,
                 )
-                if page.cut.identity != manifest["cut_id"]:
+                if page.cut.identity != manifest.cut_id:
                     raise ValueError("detached page belongs to another selected cut")
                 index.append_page(page.record)
                 pins = page.cut.record
@@ -568,19 +571,19 @@ def verify_demand_export(root: Path, *, manifest_digest: str):
     with verified_demand_export(root, manifest_digest=manifest_digest) as (manifest, _, _, _):
         return dict(
             outcome="passed",
-            cut_id=manifest["cut_id"],
-            pages=len(manifest["pages"]),
+            cut_id=manifest.cut_id,
+            pages=len(manifest.pages),
             current_trust="not_assessed",
-            support_disclosure=manifest["support_disclosure"],
+            support_disclosure=manifest.support_disclosure,
             protected_dependencies="undisclosed"
-            if manifest["support_disclosure"] == "bounded"
+            if manifest.support_disclosure == "bounded"
             else "not_encountered",
-            execution_evidence_disclosure=manifest["execution_evidence_disclosure"],
+            execution_evidence_disclosure=manifest.execution_evidence_disclosure,
             physical_cpu_cohort="undisclosed"
-            if manifest["execution_evidence_disclosure"] == "bounded"
+            if manifest.execution_evidence_disclosure == "bounded"
             else "not_encountered",
             whole_cpu_reply_verification="native-member-assertion-only"
-            if manifest["execution_evidence_disclosure"] == "bounded"
+            if manifest.execution_evidence_disclosure == "bounded"
             else "not_encountered",
             inference="not_run",
         )

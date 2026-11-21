@@ -242,7 +242,7 @@ def export(
         open_runtime_engine(state(ctx).settings(), "ci-selected-export", purpose="read") as engine,
         engine.begin() as connection,
     ):
-        manifest = export_demand_result(
+        publication = export_demand_result(
             connection,
             demand,
             project_id=project,
@@ -251,7 +251,9 @@ def export(
             page_rows=page_rows,
             page_bytes=page_bytes,
         )
-    write_report_text(json_bytes(dict(path=str(out), manifest=manifest)).decode() + "\n")
+    write_report_text(
+        json_bytes(dict(path=str(out), manifest=publication.report())).decode() + "\n"
+    )
 
 
 records_app.command("export")(export)

@@ -48,7 +48,10 @@ def test_actual_computational_source_hierarchy_keeps_native_pointer_custody(
             format="jsonl",
         )
     pinned = request.model_copy(
-        update={"read_id": manifest["cut"]["read_id"], "expected_cut": manifest["cut_id"]}
+        update={
+            "read_id": manifest.manifest.cut["read_id"],
+            "expected_cut": manifest.manifest.cut_id,
+        }
     )
     live = _selected_snapshot(reader_engine.begin, kernel.prepared, pinned)
     assert _offline_snapshot(destination, "source-hierarchy").identity == live.identity

@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from decimal import Decimal
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -15,10 +16,14 @@ from corpus_structure.serve.demand_export_manifest import (
 from semantic.demand_result_support import demand_result_page
 
 
-def manifest():
+def manifest() -> dict[str, Any]:
     page = demand_result_page()
     page["selection"]["roots"] = [
-        {"subject": "doc", "original_source": "source:A", "analyzed_scope": {"scale": Decimal("1.20")}}
+        {
+            "subject": "doc",
+            "original_source": "source:A",
+            "analyzed_scope": {"scale": Decimal("1.20")},
+        }
     ]
     cut = CutSelection.from_native(page)
     names = ["page.json", "closure.jsonl", "reader.json", "authority.json", "execution.json"]
@@ -46,18 +51,18 @@ def manifest():
 def test_manifest_validation_preserves_v3_bytes_and_contextual_cut():
     source = manifest()
     before = json_bytes(source)
-    assert json_bytes(checked_export_manifest(source)) == before
+    assert json_bytes(checked_export_manifest(source).model_dump(mode="python")) == before
     result = decode_export_manifest(before)
-    assert json_bytes(result) == before
-    assert result["cut"]["selection"]["roots"][0]["analyzed_scope"] == {
-        "scale": Decimal("1.20")
-    }
-    assert CutSelection(json_bytes(result["cut"])).identity == source["cut_id"]
+    assert json_bytes(result.model_dump(mode="python")) == before
+    assert result.cut["selection"]["roots"][0]["analyzed_scope"] == {"scale": Decimal("1.20")}
+    assert CutSelection(json_bytes(result.cut)).identity == source["cut_id"]
     source["pages"].clear()
-    assert result["pages"] == ["page.json"]
+    assert result.pages == ["page.json"]
 
 
-@pytest.mark.parametrize("damage", ["extra", "fractional-count", "bool-count", "missing-file", "escape", "cut"])
+@pytest.mark.parametrize(
+    "damage", ["extra", "fractional-count", "bool-count", "missing-file", "escape", "cut"]
+)
 def test_manifest_refuses_independently_damaged_framing(damage):
     source = deepcopy(manifest())
     if damage == "extra":

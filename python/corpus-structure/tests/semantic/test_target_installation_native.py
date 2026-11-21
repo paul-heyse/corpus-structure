@@ -579,9 +579,7 @@ def test_actual_fresh_target_authoring_render_replay_install_and_acl(
                 page_rows=1,
             )
         assert (
-            verify_demand_export(destination, manifest_digest=exported["manifest_digest"])[
-                "outcome"
-            ]
+            verify_demand_export(destination, manifest_digest=exported.manifest_digest)["outcome"]
             == "passed"
         )
     finally:

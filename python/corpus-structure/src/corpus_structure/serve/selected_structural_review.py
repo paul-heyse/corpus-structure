@@ -69,7 +69,7 @@ def _replay(root, selection, native_digest):
         models,
         index,
     ):
-        cut = CutSelection.from_native(manifest["cut"])
+        cut = CutSelection.from_native(manifest.cut)
         release = cut.record["release_id"]
         with installed_read_implementation(
             type(request),
@@ -121,10 +121,13 @@ def export_selected_structural_review(
             page_bytes=request.max_graph_bytes,
         )
         pinned = request.model_copy(
-            update=dict(read_id=native["cut"]["read_id"], expected_cut=native["cut_id"])
+            update=dict(
+                read_id=native.manifest.cut["read_id"],
+                expected_cut=native.manifest.cut_id,
+            )
         )
         selection = selection.model_copy(update={"selection": pinned})
-        response = _replay(root, selection, native["manifest_digest"])
+        response = _replay(root, selection, native.manifest_digest)
         pinned = pinned.model_copy(update={"implementation": response["implementation"]})
         selection = selection.model_copy(update={"selection": pinned})
         files = {
@@ -135,8 +138,8 @@ def export_selected_structural_review(
             (root / name).write_bytes(content)
         manifest = dict(
             format="selected-structural-review-v1",
-            cut_id=native["cut_id"],
-            native_manifest_digest=native["manifest_digest"],
+            cut_id=native.manifest.cut_id,
+            native_manifest_digest=native.manifest_digest,
             files={name: sha256(content).hexdigest() for name, content in files.items()},
             completeness="declared_selected_closure",
             current_trust="not_assessed",

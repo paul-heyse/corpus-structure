@@ -623,8 +623,12 @@ def release_reacquire_host(
                 if selected == "deployment":
                     verify_declared_route(conn, settings)
                 acquired = acquired_target(conn, purpose="admit")
+                result.record_target(acquired, None, None, release)
                 if acquired.database_oid != database_oid:
-                    raise ResultError("acquired database OID differs from the approved host target")
+                    raise ResultError(
+                        f"acquired database OID {acquired.database_oid} differs from "
+                        f"approved host target {database_oid}"
+                    )
                 _, _, _, prepared = load_release_inputs(conn, release)
                 original = runtime_binding_for_release(conn, prepared, runtime)
             refreshed = reacquire_shared_host_runtime(prepared, original)

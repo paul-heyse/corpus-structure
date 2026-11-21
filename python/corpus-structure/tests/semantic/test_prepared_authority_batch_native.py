@@ -205,7 +205,7 @@ def test_real_batch_retained_intent_keeps_original_member_after_adoption(
             for row in rows
             if row["relation"] == "kb.data_product"
         } == {expected_input, expected_output}
-        verified = verify_demand_export(destination, manifest_digest=manifest["manifest_digest"])
+        verified = verify_demand_export(destination, manifest_digest=manifest.manifest_digest)
         assert verified["support_disclosure"] == "complete"
         assert verified["execution_evidence_disclosure"] == "bounded"
         assert verified["physical_cpu_cohort"] == "undisclosed"

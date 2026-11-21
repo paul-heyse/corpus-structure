@@ -374,7 +374,7 @@ def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_e
             scope={"product_ids": [case.relationship.row["product_id"]]},
             page_rows=1,
         )
-    digest = receipt["manifest_digest"]
+    digest = receipt.manifest_digest
     assert isinstance(digest, str)
     with verified_demand_export(destination, manifest_digest=digest) as (manifest, _, _, index):
         product = index.mapping("kb.data_product", ("id",))[case.relationship.row["product_id"]]
@@ -385,7 +385,7 @@ def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_e
             source_python(detached["relationship_decision"])["selected_edges"]
             == decision["selected_edges"]
         )
-        assert manifest["cut"]["scope"]["product_ids"] == [case.relationship.row["product_id"]]
+        assert manifest.cut["scope"]["product_ids"] == [case.relationship.row["product_id"]]
 
 
 @pytest.mark.parametrize(

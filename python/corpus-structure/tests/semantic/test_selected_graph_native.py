@@ -68,8 +68,8 @@ def test_actual_selected_precedence_support_public_and_offline(
     # merely have equal topology from two fresh observations.
     pinned = request.model_copy(
         update={
-            "read_id": manifest["cut"]["read_id"],
-            "expected_cut": manifest["cut_id"],
+            "read_id": manifest.manifest.cut["read_id"],
+            "expected_cut": manifest.manifest.cut_id,
             "cursor": None,
             "limit": 1000,
         }
@@ -79,8 +79,8 @@ def test_actual_selected_precedence_support_public_and_offline(
         clone.reader.begin, pinned.model_copy(update={"max_examined_bytes": 1024})
     )
     assert bounded.standing == "partial"
-    assert json_loads(bounded.pins_json)["cut_id"] == manifest["cut_id"]
-    assert json_loads(bounded.pins_json)["read_id"] == manifest["cut"]["read_id"]
+    assert json_loads(bounded.pins_json)["cut_id"] == manifest.manifest.cut_id
+    assert json_loads(bounded.pins_json)["read_id"] == manifest.manifest.cut["read_id"]
 
     def forbidden(*args, **kwargs):
         raise AssertionError("offline graph inspection must not prepare or parse sources")

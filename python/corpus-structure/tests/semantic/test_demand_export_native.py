@@ -51,17 +51,17 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
         )
     assert len(support_calls) == 1 and support_calls[0]["whole_read"] is True
     expected = sha256((destination / "manifest.json").read_bytes()).hexdigest()
-    assert expected == manifest["manifest_digest"]
+    assert expected == manifest.manifest_digest
     # This authored external recipe has no Python declarations to document.
     assert all(
         artifact["values"]["artifact_name"] != SOURCE_INTERFACE_ARTIFACT
-        for name in manifest["releases"].values()
+        for name in manifest.manifest.releases.values()
         for artifact in json_loads((destination / name).read_bytes())["artifacts"]
     )
 
     checked = verify_demand_export(destination, manifest_digest=expected)
-    assert checked["cut_id"] == manifest["cut_id"]
-    pages = [json_loads((destination / name).read_bytes()) for name in manifest["pages"]]
+    assert checked["cut_id"] == manifest.manifest.cut_id
+    pages = [json_loads((destination / name).read_bytes()) for name in manifest.manifest.pages]
     outputs = [output for page in pages for use in page["uses"] for output in use["products"]]
     assert sorted(int(output["body"][1]) for output in outputs) == [3, 5, 7]
     source_episode = json.loads(stage.source_receipt)["derivation_id"]
@@ -72,19 +72,20 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
         if any(int(output["body"][1]) in {3, 5} for output in use["products"])
     } == {source_episode}
     closure = [
-        json_loads(line) for line in (destination / manifest["closure"]).read_bytes().splitlines()
+        json_loads(line)
+        for line in (destination / manifest.manifest.closure).read_bytes().splitlines()
     ]
     assert {
         "ops.data_derivation",
         "ops.data_completion_intent",
         "ops.data_publication_receipt",
     } <= {row["relation"] for row in closure}
-    assert manifest["cut"]["demand_id"] == stage.demand_id
-    assert manifest["cut"]["project_id"] == stage.project_id
+    assert manifest.manifest.cut["demand_id"] == stage.demand_id
+    assert manifest.manifest.cut["project_id"] == stage.project_id
 
     # Even a newly trusted transfer digest cannot make an incomplete semantic
     # witness valid. Keep every product and archived schema, remove its episode.
-    closure_path = destination / manifest["closure"]
+    closure_path = destination / manifest.manifest.closure
     retained = [
         row
         for row in closure
@@ -99,7 +100,7 @@ def test_selected_export_preserves_actual_episode_closure_and_offline_identity(
     altered = b"".join(json_bytes(row) + b"\n" for row in retained)
     closure_path.write_bytes(altered)
     captured = json_loads((destination / "manifest.json").read_bytes())
-    captured["files"][manifest["closure"]].update(
+    captured["files"][manifest.manifest.closure].update(
         sha256=sha256(altered).hexdigest(), bytes=len(altered)
     )
     changed = json_bytes(captured)
@@ -182,7 +183,7 @@ def test_python_producer_export_keeps_prepared_interfaces_readable_offline(
             page_rows=1,
         )
     expected = sha256((destination / "manifest.json").read_bytes()).hexdigest()
-    assert manifest["manifest_digest"] == expected
+    assert manifest.manifest_digest == expected
 
     # Detached verification and interface reads must consume the captured release
     # facts without preparing a release or reparsing currently installed sources.
@@ -206,8 +207,8 @@ def test_python_producer_export_keeps_prepared_interfaces_readable_offline(
             for key, value in row["values"].items()
         }
 
-    assert manifest["releases"]
-    for release_id, name in manifest["releases"].items():
+    assert manifest.manifest.releases
+    for release_id, name in manifest.manifest.releases.items():
         captured = json_loads((destination / name).read_bytes())
         artifact_rows = [unpack(row) for row in captured["artifacts"]]
         sidecars = [
@@ -235,7 +236,7 @@ def test_python_producer_export_keeps_prepared_interfaces_readable_offline(
 
     checked = verify_demand_export(destination, manifest_digest=expected)
     assert checked["outcome"] == "passed"
-    assert checked["cut_id"] == manifest["cut_id"]
+    assert checked["cut_id"] == manifest.manifest.cut_id
     assert checked["inference"] == "not_run"
 
 

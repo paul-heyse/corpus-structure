@@ -360,14 +360,14 @@ def test_original_pdf_fact_admission_and_runless_private_stage_use_actual_reques
             {"digest": document.content_hash},
         )
         assert (
-            destination / manifest["source_artifacts"][document.content_hash]
+            destination / manifest.manifest.source_artifacts[document.content_hash]
         ).read_bytes() == stored_original
         assert (
             verify_demand_export(
                 destination,
-                manifest_digest=manifest["manifest_digest"],
+                manifest_digest=manifest.manifest_digest,
             )["cut_id"]
-            == manifest["cut_id"]
+            == manifest.manifest.cut_id
         )
     with kernel.engine.begin() as connection:
         storage = DataOperationStorage(connection)

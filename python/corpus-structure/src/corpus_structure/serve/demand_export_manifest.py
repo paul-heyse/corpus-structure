@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Annotated, Any, Literal
 
@@ -77,12 +78,24 @@ class DemandExportManifest(_ManifestRecord):
         return self
 
 
-def checked_export_manifest(value: dict[str, Any]) -> dict[str, Any]:
+@dataclass(frozen=True)
+class PublishedDemandExport:
+    manifest: DemandExportManifest
+    manifest_digest: str
+
+    def report(self) -> dict[str, Any]:
+        return {
+            **self.manifest.model_dump(mode="python"),
+            "manifest_digest": self.manifest_digest,
+        }
+
+
+def checked_export_manifest(value: dict[str, Any]) -> DemandExportManifest:
     """Validate metadata without projecting contextual pins onto presentation numbers."""
-    return DemandExportManifest.model_validate(value).model_dump(mode="python")
+    return DemandExportManifest.model_validate(value)
 
 
-def decode_export_manifest(content: bytes) -> dict[str, Any]:
+def decode_export_manifest(content: bytes) -> DemandExportManifest:
     """Decode strict JSON framing and preserve the native cut's existing numeric contract."""
     parsed = native_json_loads(content)
     if not isinstance(parsed, dict):
