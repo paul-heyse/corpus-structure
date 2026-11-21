@@ -279,7 +279,9 @@ def test_generated_product_admission_binds_in_actual_native_model(native_rollbac
     from corpus_structure.semantic.native_authoring import physical_row_type_context
 
     with physical_row_type_context(connection, get_metadata()):
-        execute_native_sql(connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'")
+        execute_native_sql(
+            connection, "CREATE EXTENSION IF NOT EXISTS plpgsql_check VERSION '2.10'"
+        )
         with native_owner(connection, "corpus_sem_publisher"):
             execute_native_sql(connection, product_admission_native_sql(get_metadata()))
             for signature in (
@@ -443,7 +445,13 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
     shuffled["partitions"].reverse()
     assert realize(product_connection, context, shuffled) == key
     reordered_mapping = deepcopy(packet)
-    reordered_mapping["partitions"][0]["body"][1][0][1].reverse()
+    rows = reordered_mapping["partitions"][0]["body"][1]
+    assert isinstance(rows, list)
+    item = rows[0]
+    assert isinstance(item, list)
+    fields = item[1]
+    assert isinstance(fields, list)
+    fields.reverse()
     assert realize(product_connection, context, reordered_mapping) == key
 
     edited = deepcopy(packet)
@@ -453,7 +461,12 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
     edited["body"] = semantic_value({"tokens": partition_header(edited["partitions"])})
     edited_key = realize(product_connection, context, edited)
     assert edited_key != key
-    edited_groups = product_connection.scalar(text("SELECT group_digests FROM kb.data_product_partition WHERE product_id=:key AND ordinal=0"), {"key": edited_key})
+    edited_groups = product_connection.scalar(
+        text(
+            "SELECT group_digests FROM kb.data_product_partition WHERE product_id=:key AND ordinal=0"
+        ),
+        {"key": edited_key},
+    )
     assert edited_groups["geometry"] == rows[0].group_digests["geometry"]
     assert edited_groups["labels"] != rows[0].group_digests["labels"]
 
@@ -462,7 +475,15 @@ def test_partition_admission_recomputes_content_groups_and_roots(product_connect
     moved["body"] = semantic_value({"tokens": partition_header(moved["partitions"])})
     moved_key = realize(product_connection, context, moved)
     assert moved_key != key
-    assert product_connection.scalar(text("SELECT partition_digest FROM kb.data_product_partition WHERE product_id=:key AND ordinal=0"), {"key": moved_key}) == rows[0].partition_digest
+    assert (
+        product_connection.scalar(
+            text(
+                "SELECT partition_digest FROM kb.data_product_partition WHERE product_id=:key AND ordinal=0"
+            ),
+            {"key": moved_key},
+        )
+        == rows[0].partition_digest
+    )
 
     reordered = deepcopy(packet)
     reordered["partitions"][0]["ordinal"], reordered["partitions"][1]["ordinal"] = 1, 0
