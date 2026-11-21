@@ -97,15 +97,16 @@ def validate_source_roles(native, integrated) -> None:
         raise SourceRequestError("select one exact native or integrated PDF input role")
 
 
+_EXECUTION_POLICY = TypeAdapter(CharacterizationExecutionPolicy)
+
+
 def method_settings(settings, overrides: dict[str, Any] | None = None) -> MethodSettings:
     """Merge result-neutral overrides and build the complete shared method view."""
     policy = settings.characterization_execution
     if overrides is not None:
         if not isinstance(overrides, dict):
             raise SourceRequestError("execution policy must be an object")
-        policy = TypeAdapter(CharacterizationExecutionPolicy).validate_python(
-            {**asdict(policy), **overrides}
-        )
+        policy = _EXECUTION_POLICY.validate_python({**asdict(policy), **overrides})
     return MethodSettings(
         data_dir=settings.paths.data_dir,
         model_cache=settings.paths.model_cache,

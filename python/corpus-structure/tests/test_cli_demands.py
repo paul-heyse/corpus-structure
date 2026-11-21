@@ -156,6 +156,16 @@ def test_read_routes_complete_native_continuation_without_semantic_defaults(
     assert json.loads(result.stdout)["continuation"] == pins
 
 
+def test_read_refuses_duplicate_continuation_pins_before_target_acquisition(cli, tmp_path, routing):
+    opened, _ = routing
+    source = tmp_path / "continuation.json"
+    source.write_bytes(b'{"demand_id":"demand:one","demand_id":"demand:two"}')
+    result = cli("demands", "read", "demand:one", "--continuation", str(source), "--json")
+    assert result.exit_code != 0
+    assert opened == []
+    assert "request must be valid JSON" in result.stdout
+
+
 def test_cancel_routes_original_demand_and_reason_and_retains_shared_status(
     cli,
     tmp_path,
@@ -430,7 +440,12 @@ def test_retire_draft_selects_exact_project_target_and_private_namespace(
                 result["failure_id"],
             )
 
-    def open_store(root, target, max_bytes):
+    def writer_schema(actual_connection, release_id):
+        assert actual_connection is connection
+        assert release_id == "release:writer"
+        return b"writer schema"
+
+    def open_store(root, target, max_bytes, *, writer_schema_for_release):
         assert root == tmp_path / "data" / "completion-drafts"
         assert (target.database, target.database_oid, target.purpose) == (
             "routing-only",
@@ -438,10 +453,12 @@ def test_retire_draft_selects_exact_project_target_and_private_namespace(
             "write",
         )
         assert max_bytes > 0
+        assert writer_schema_for_release("release:writer") == b"writer schema"
         return Store()
 
     monkeypatch.setattr(data_operation_storage, "DataOperationStorage", Storage)
     monkeypatch.setattr(completion_drafts, "completion_draft_store", open_store)
+    monkeypatch.setattr(completion_drafts, "captured_writer_schema", writer_schema)
     env = {
         "CORPUS_CI_RESULTS": str(tmp_path / "results"),
         "CORPUS_PATHS__DATA_DIR": str(tmp_path / "data"),

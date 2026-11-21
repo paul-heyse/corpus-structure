@@ -336,11 +336,11 @@ def run_preview(
     """Inspect typed choices and physical bounds before acquiring native or provider work."""
     from corpus_structure.orchestrate.source_request import SourceRunRequest
 
+    from .characterization_options import execution_methods
     from .execution_context import (
         ExecutionPreview,
         capture_execution_context,
         emit_preview,
-        execution_methods,
     )
 
     if (request is None) == (demand is None):
@@ -445,21 +445,18 @@ def tasks(
     json: JsonOpt = False,
 ) -> None:
     """Inspect bounded demand obligations and their actual physical attempt failures."""
-    from corpus_structure.cli.output import write_report_text
-    from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
+    from corpus_structure.cli.output import read_continuation, write_report_text
+    from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.demand_results import read_demand_result
 
     with _refusals(json), READ_ENGINE(state(ctx).settings()) as engine, engine.begin() as conn:
-        from rapidjson import JSONDecodeError
-
-        try:
-            pins = None if continuation is None else wire_json_loads(continuation.read_bytes())
-        except (JSONDecodeError, UnicodeDecodeError) as error:
-            raise SemanticRefusal("continuation must be valid native JSON") from error
-        if pins is not None and not isinstance(pins, dict):
-            raise SemanticRefusal("continuation must be a native cursor object")
         page = read_demand_result(
-            conn, demand, project_id=project, continuation=pins, limit=limit, view="frontier"
+            conn,
+            demand,
+            project_id=project,
+            continuation=read_continuation(continuation),
+            limit=limit,
+            view="frontier",
         )
     if json:
         write_report_text(json_bytes(page.report()).decode() + "\n")

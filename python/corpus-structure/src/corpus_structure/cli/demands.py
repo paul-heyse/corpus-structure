@@ -13,8 +13,16 @@ from pydantic import BaseModel, RootModel
 
 from corpus_structure.cli.failures import failure_boundary
 from corpus_structure.cli.managed import managed_operation, result_store
-from corpus_structure.cli.output import JsonOpt, emit, read_request_bytes, state, write_report_text
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads, wire_json_loads
+from corpus_structure.cli.output import (
+    JsonOpt,
+    emit,
+    read_continuation,
+    read_request_json,
+    read_request_model,
+    state,
+    write_report_text,
+)
+from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_service import (
     CreateDataDemand,
     DdoJsonValue,
@@ -98,7 +106,7 @@ def create(
 ) -> None:
     """Create or resume the deterministic demand for an existing frozen intent."""
     with failure_boundary(json, expected=(ValueError, OSError)):
-        parsed = CreateDataDemand.model_validate(json_loads(read_request_bytes(request)))
+        parsed = read_request_model(request, CreateDataDemand)
         report = _mutation(ctx, "create", parsed.model_dump(mode="python"), json=json)
     _emit_demand(report, json=json)
 
@@ -123,9 +131,7 @@ def read(
 ) -> None:
     """Inspect the native frontier, preserving source, read and pagination pins."""
     with failure_boundary(json, expected=(ValueError, OSError)):
-        pins = None if continuation is None else wire_json_loads(read_request_bytes(continuation))
-        if pins is not None and not isinstance(pins, dict):
-            raise ValueError("continuation must be a complete native JSON object")
+        pins = read_continuation(continuation)
         with ENGINE(state(ctx).settings(), purpose="read") as engine, engine.begin() as connection:
             snapshot = read_data_demand(
                 connection,
@@ -204,10 +210,10 @@ def execute_request(
     json: bool = False,
 ) -> DemandActionReport:
     """One managed path for source creation, explicit native requests and exact resume."""
+    from corpus_structure.cli.characterization_options import execution_methods
     from corpus_structure.cli.execution_context import (
         capture_execution_context,
         configured_route,
-        execution_methods,
         read_execution_context,
         recovery_target,
         retain_execution_context,
@@ -238,7 +244,11 @@ def execute_request(
             from corpus_structure.cli.managed import ResultError
 
             raise ResultError("configured recovery route differs from the captured target")
-    methods, policy_overrides = execution_methods(settings, execution_policy, inherited=inherited)
+    methods, policy_overrides = execution_methods(
+        settings,
+        execution_policy,
+        inherited=inherited.execution_policy if inherited is not None else None,
+    )
     account = capture_execution_context(
         ctx,
         settings=settings,
@@ -345,7 +355,7 @@ def retire_draft(
     json: JsonOpt = False,
 ) -> None:
     """Retire an exact private draft after native publication and producer retirement."""
-    from corpus_structure.cli.characterization_options import method_settings
+    from corpus_structure.cli.characterization_options import execution_methods
     from corpus_structure.cli.target import select_target
     from corpus_structure.semantic.completion_drafts import (
         captured_writer_schema,
@@ -362,7 +372,8 @@ def retire_draft(
         scope={"draft_id": draft, "project": project, "target": target},
     ) as invocation:
         selected, settings = select_target(ctx, target, effect=True)
-        policy = method_settings(settings, execution_policy).execution_policy
+        methods, _ = execution_methods(settings, execution_policy)
+        policy = methods.execution_policy
         with ENGINE(settings, purpose="write") as engine, engine.begin() as connection:
             if selected == "deployment":
                 verify_declared_route(connection, settings)
@@ -402,7 +413,7 @@ def plan(
 ) -> None:
     """Freeze declared operation choices and register the exact native demand."""
     with failure_boundary(json, expected=(ValueError, KeyError, OSError)):
-        parsed = NativeDemandRequest.model_validate(json_loads(read_request_bytes(request)))
+        parsed = read_request_model(request, NativeDemandRequest)
     with managed_operation(
         result_store(ctx), "demands.plan", json=json, expected=(ValueError, KeyError, OSError)
     ) as invocation:
@@ -465,9 +476,7 @@ def external(
         json=json,
         expected=(ValueError, KeyError, OSError, TypeError),
     ) as invocation:
-        from corpus_structure.semantic.data_operation_json import native_json_loads
-
-        payload = native_json_loads(read_request_bytes(request))
+        payload = read_request_json(request)
         if not isinstance(payload, dict):
             raise ValueError("external action arguments must be a JSON object")
         argument_path = invocation.directory / "request.json"

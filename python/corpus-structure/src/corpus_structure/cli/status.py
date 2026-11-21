@@ -15,6 +15,7 @@ from corpus_structure.cli.output import (
     JsonOpt,
     cli_settings_report,
     emit,
+    read_continuation,
     safe_text,
     state,
     write_report_text,
@@ -80,7 +81,7 @@ def status(
 
     from corpus_structure.cli import orchestrate
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.semantic.data_operation_json import json_bytes, wire_json_loads
+    from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.demand_results import read_demand_result
 
     with failure_boundary(json, expected=(ValueError, OSError)):
@@ -90,9 +91,7 @@ def status(
         report = cli_settings_report(settings)
         result = StatusResult(settings=report)
         if demand is not None and project is not None:
-            pins = None if continuation is None else wire_json_loads(continuation.read_bytes())
-            if pins is not None and not isinstance(pins, dict):
-                raise ValueError("continuation must be a native cursor object")
+            pins = read_continuation(continuation)
             try:
                 with orchestrate.READ_ENGINE(settings) as engine, engine.begin() as connection:
                     page = read_demand_result(

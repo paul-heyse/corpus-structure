@@ -69,6 +69,17 @@ def test_two_settings_do_not_leak() -> None:
     assert (b.database.url, b.gpu.mode) == ("postgresql:///b", "auto")
 
 
+def test_database_rebinding_validates_without_rereading_environment(monkeypatch) -> None:
+    settings = Settings(database={"url": "postgresql:///first"})
+    monkeypatch.setenv("CORPUS_PATHS__DATA_DIR", "/replacement")
+    selected = settings.with_database(settings.database, url="postgresql:///second")
+    assert selected.database.url == "postgresql:///second"
+    assert selected.paths == settings.paths
+    assert settings.database.url == "postgresql:///first"
+    with pytest.raises(ValidationError, match="pool_min_size"):
+        settings.with_database(settings.database, pool_min_size=10, pool_max_size=1)
+
+
 def test_frozen_and_forbidding() -> None:
     settings = Settings()
     with pytest.raises(ValidationError):

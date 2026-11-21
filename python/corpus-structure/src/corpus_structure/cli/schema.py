@@ -539,17 +539,10 @@ def author_native_candidate(
     }:
         raise SemanticRefusal("native authoring requires a non-system, non-template database")
     maintenance = make_url(settings.database.maintenance_url).set(database=authoring_database)
-    selected = settings.model_copy(
-        update={
-            "database": settings.database.model_copy(
-                update={
-                    "url": source.set(database=authoring_database).render_as_string(
-                        hide_password=False
-                    ),
-                    "maintenance_url": maintenance.render_as_string(hide_password=False),
-                }
-            )
-        }
+    selected = settings.with_database(
+        settings.database,
+        url=source.set(database=authoring_database).render_as_string(hide_password=False),
+        maintenance_url=maintenance.render_as_string(hide_password=False),
     )
     if assert_explicit_route(selected)["dbname"] != authoring_database:
         raise SemanticRefusal("configured authoring database conflicts with its libpq route")

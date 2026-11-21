@@ -6,7 +6,7 @@ from typing import Annotated
 import typer
 
 from corpus_structure.cli.output import JsonOpt, emit, state, write_report_text
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.semantic.data_operation_json import json_bytes
 
 app = typer.Typer(
     help="Inspect released terminology and source-preserving private interpretations.",
@@ -97,15 +97,14 @@ def review(
 ):
     """Inspect genuine selected private proposal members; no accepted standing follows."""
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.cli.output import read_request_bytes
-    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.cli.output import read_request_model
     from corpus_structure.serve.interpretations import (
         SelectedProposalRequest,
         inspect_selected_proposals,
     )
 
     with failure_boundary(json, expected=(ValueError, OSError)), snapshot(ctx) as connection:
-        selected = SelectedProposalRequest.model_validate(json_loads(read_request_bytes(request)))
+        selected = read_request_model(request, SelectedProposalRequest)
         result = inspect_selected_proposals(connection, selected)
     _emit(result, json=json)
 
@@ -174,9 +173,9 @@ def author(
     them as an active result. Inspect the admitted kind contract before authoring.
     """
     from pydantic import ValidationError
-    from rapidjson import JSONDecodeError
 
     from corpus_structure.cli.failures import failure_boundary
+    from corpus_structure.semantic.data_operation_json import JsonBoundaryError, native_json_loads
     from corpus_structure.semantic.data_operation_service import NativeDemandRequest
     from corpus_structure.semantic.demand_results import selected_read_snapshot
     from corpus_structure.semantic.refusal_types import SemanticRefusal
@@ -191,8 +190,8 @@ def author(
         if len(content) > 4 * 1024**2:
             raise SemanticRefusal("authored review input exceeds 4MiB")
         try:
-            request = NativeDemandRequest.model_validate(json_loads(content))
-        except (ValidationError, JSONDecodeError, UnicodeDecodeError) as error:
+            request = NativeDemandRequest.model_validate(native_json_loads(content))
+        except (ValidationError, JsonBoundaryError) as error:
             raise SemanticRefusal(
                 "authored input must match the native demand request contract"
             ) from error
@@ -222,15 +221,13 @@ def groups(
 ):
     """Read complete SourceRecord alternatives for selected occurrences."""
     from corpus_structure.cli.failures import failure_boundary
-    from corpus_structure.cli.output import read_request_bytes
+    from corpus_structure.cli.output import read_request_model
     from corpus_structure.semantic.grouped_record_interpretations import (
         GroupedInterpretationRequest,
     )
     from corpus_structure.serve.interpretations import group_selected_interpretations
 
     with failure_boundary(json, expected=(ValueError, OSError)), snapshot(ctx) as connection:
-        selected = GroupedInterpretationRequest.model_validate(
-            json_loads(read_request_bytes(request))
-        )
+        selected = read_request_model(request, GroupedInterpretationRequest)
         result = group_selected_interpretations(connection, selected)
     _emit(result, json=json)

@@ -322,6 +322,11 @@ class Settings(BaseSettings):
         reports.append(report)
         return (init_settings, env_settings, report)
 
+    def with_database(self, database: DatabaseSettings, /, **overrides: Any) -> Settings:
+        """Bind validated database settings without rereading ambient sources."""
+        selected = type(database).model_validate({**database.model_dump(), **overrides})
+        return self.model_copy(update={"database": selected})
+
 
 class SettingsReport(BaseModel):
     """What a process resolved, secrets masked, and the `CORPUS_*` names that set nothing."""

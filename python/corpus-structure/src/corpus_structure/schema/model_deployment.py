@@ -183,7 +183,7 @@ def deployment_settings(
         return selected, settings
     if settings.deployment is None:
         raise ModelError(["the bound deployment profile is not configured"])
-    return selected, settings.model_copy(update={"database": settings.deployment})
+    return selected, settings.with_database(settings.deployment)
 
 
 def target_fingerprint(settings: Settings) -> str:

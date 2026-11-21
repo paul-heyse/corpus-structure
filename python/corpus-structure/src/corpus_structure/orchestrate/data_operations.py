@@ -71,7 +71,7 @@ from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
 from corpus_structure.semantic.data_operation_service import (
     DataExecutionBasis,
 )
-from corpus_structure.semantic.data_operation_values import decode_semantic_value
+from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.identifiers import RuntimeId
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.python_operation_sources import PythonSourceCollection
@@ -970,7 +970,7 @@ class NativeDemandExecutor:
         if (
             len(candidates) != 1
             or candidates[0].request_id != request_id
-            or canonical_bytes(wire_json_loads(candidates[0].binding)) != canonical_bytes(binding)
+            or semantic_value(wire_json_loads(candidates[0].binding)) != semantic_value(binding)
         ):
             raise PortRefusal("claimed generation differs from its original frozen binding")
         bound = candidates[0]
@@ -996,8 +996,7 @@ class NativeDemandExecutor:
             native["release_id"] == self.prepared.release_id
             and native["runtime_id"] == self.runtime.runtime_id
             and native["binding_obligation_id"] == ready.obligation
-            and canonical_bytes(native["binding"])
-            == canonical_bytes(wire_json_loads(ready.binding))
+            and semantic_value(native["binding"]) == semantic_value(wire_json_loads(ready.binding))
         ):
             # Native attachment has already validated this exact same-read
             # binding. Preserve its typed roles instead of rebuilding SQL/ASTs.
@@ -1254,6 +1253,18 @@ class NativeDemandExecutor:
         )
         return _RecoveryDisposition(action, native)
 
+    @staticmethod
+    def _observe_recovery(claim, action, *, retained_intent_id=None):
+        from corpus_structure.cli.observation_logging import bound, logger
+
+        with bound(**claim.fence, release_id=claim.release_id, runtime_id=claim.runtime_id):
+            logger(__name__).info(
+                "native_demand.recovery_selected",
+                recovery_action=action,
+                retained_intent_id=retained_intent_id,
+                observation_scope="checked committed claim",
+            )
+
     def _recover_answer(self, ready, claim, owner):
         """Native authority selects whether privately acknowledged bytes may be used."""
         drafts = self.completion_drafts
@@ -1261,6 +1272,7 @@ class NativeDemandExecutor:
             return None
         from sqlalchemy.exc import DBAPIError
 
+        self._observe_recovery(claim, "inspect-draft")
         origins = self._draft_origins[(claim.task_id, claim.attempt)]
         for candidate in origins["candidates"]:
             for draft in drafts.candidates(candidate["request_id"], candidate["generation"]):
@@ -1452,6 +1464,8 @@ class NativeDemandExecutor:
         if not retained:
             raise ValueError("native reconciliation lacks exact retained intent")
 
+        self._observe_recovery(claim, "reconcile", retained_intent_id=retained)
+
         def adopt(calls):
             return calls.adopt_data_completion_intent(
                 {
@@ -1569,10 +1583,11 @@ class NativeDemandExecutor:
                     return _ExecutionResult()
             physical.claim = claim
             owner.check_claim(claim)
-            if claimed["action"] == "reconcile":
+            disposition = self._recovery_disposition(ready, claimed)
+            if disposition.action == "reconcile":
                 phase = "reconciliation"
                 return _ExecutionResult(
-                    (self._reconcile(claim, claimed.get("retained_intent_id"), owner),)
+                    (self._reconcile(claim, disposition.retained_intent_id, owner),)
                 )
             if self._execution_context(claim).model.operation(ready.operation).external is not None:
                 phase = "external packet custody"
@@ -1657,9 +1672,10 @@ class NativeDemandExecutor:
                     phase = "reconciliation"
                     # A concurrent retained intent can win even when attachment
                     # saw fresh work. No member hydrates in that case.
-                    if claimed["action"] == "reconcile":
+                    disposition = self._recovery_disposition(item, claimed)
+                    if disposition.action == "reconcile":
                         receipts.append(
-                            self._reconcile(claim, claimed.get("retained_intent_id"), owner)
+                            self._reconcile(claim, disposition.retained_intent_id, owner)
                         )
                     else:
                         phase = "computation"

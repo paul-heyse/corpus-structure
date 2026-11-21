@@ -4,8 +4,8 @@ from pathlib import Path
 
 import typer
 
-from corpus_structure.cli.output import JsonOpt, read_request_bytes, state, write_report_text
-from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+from corpus_structure.cli.output import JsonOpt, read_request_model, state, write_report_text
+from corpus_structure.semantic.data_operation_json import json_bytes
 
 app = typer.Typer(help="Inspect selected structural reports, dossiers, gaps and source journeys.")
 
@@ -16,7 +16,7 @@ def _read(ctx, path, contract, operation, json):
     from corpus_structure.semantic.runtime import open_runtime_engine
 
     with failure_boundary(json, expected=(ValueError, KeyError)):
-        request = contract.model_validate(json_loads(read_request_bytes(path)))
+        request = read_request_model(path, contract)
         with (
             open_runtime_engine(
                 state(ctx).settings(), "ci-selected-structure", purpose="read"
@@ -80,9 +80,7 @@ def export_review(ctx: typer.Context, request: Path, out: Path, json: JsonOpt = 
     )
 
     with failure_boundary(json, expected=(ValueError, KeyError, OSError)):
-        selection = SelectedStructuralReviewRequest.model_validate(
-            json_loads(read_request_bytes(request))
-        )
+        selection = read_request_model(request, SelectedStructuralReviewRequest)
         with (
             open_runtime_engine(
                 state(ctx).settings(), "ci-structural-review", purpose="read"

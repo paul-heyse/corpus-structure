@@ -13,7 +13,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from pydantic import BaseModel
@@ -152,16 +152,26 @@ def read_request_bytes(source: str | Path) -> bytes:
 
 def read_request_json(source: str | Path):
     """Decode bounded caller JSON exactly without translating implementation failures."""
-    from rapidjson import JSONDecodeError
-
-    from corpus_structure.semantic.data_operation_json import json_loads
+    from corpus_structure.semantic.data_operation_json import JsonBoundaryError, native_json_loads
     from corpus_structure.semantic.refusal_types import SemanticRefusal
 
     content = read_request_bytes(source)
     try:
-        return json_loads(content)
-    except (JSONDecodeError, UnicodeDecodeError) as error:
+        return native_json_loads(content)
+    except JsonBoundaryError as error:
         raise SemanticRefusal("request must be valid JSON") from error
+
+
+def read_continuation(source: Path | None) -> dict[str, Any] | None:
+    """Read exact native paging coordinates for the consuming operation."""
+    if source is None:
+        return None
+    from corpus_structure.semantic.refusal_types import SemanticRefusal
+
+    value = read_request_json(source)
+    if not isinstance(value, dict):
+        raise SemanticRefusal("continuation must be a complete native JSON object")
+    return value
 
 
 def read_request_model[Request: BaseModel](source: str | Path, model: type[Request]) -> Request:
