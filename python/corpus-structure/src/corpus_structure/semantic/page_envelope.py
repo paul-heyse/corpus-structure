@@ -75,6 +75,8 @@ def apply_page_reuse_refusal(record: dict, refusal: PageReuseRefusal | None) -> 
 
 
 def render_envelope(envelope: PageEnvelope, end: int, has_rows: bool, more: bool) -> dict:
+    from .serving_code import ServingImplementation
+
     if type(envelope) is not PageEnvelope:
         raise TypeError("selected pages require their acquired presentation")
     continuation = envelope.following_cursor
@@ -83,6 +85,8 @@ def render_envelope(envelope: PageEnvelope, end: int, has_rows: bool, more: bool
         cursor[envelope.position_field] = end
         continuation = encode_cursor(cursor)
     result = dict(envelope.header)
+    if type(result.get("implementation")) is ServingImplementation:
+        result["implementation"] = str(result["implementation"])
     result.update({name: [] for name, _, _, _ in envelope.arrays})
     result[envelope.cursor_field] = continuation
     if envelope.include_knowledge:

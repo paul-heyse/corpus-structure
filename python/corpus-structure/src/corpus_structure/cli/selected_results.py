@@ -160,7 +160,7 @@ def query(
             result = serve_demand_query(connection, request)
         if explain_reuse:
             result = attach_reuse_explanation(result, explanations)
-    emit_selected_result(result, json=json, explain=explain_reuse)
+        emit_selected_result(result, json=json, explain=explain_reuse)
 
 
 contributions_app = typer.Typer(
