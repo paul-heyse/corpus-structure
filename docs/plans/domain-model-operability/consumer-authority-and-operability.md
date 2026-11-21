@@ -8,6 +8,12 @@ and [I07][i07] from review revision `7c17b403a`. The amendment of 2026-11-21 con
 [I03 recovery dependency][n44-i03]. Its additional consumer migrations and acceptance scenarios
 are scheduled work.
 
+The execution-followup amendment integrates [I02][followup-i02], [I04][followup-i04]
+and the diagnostic and qualification parts of [I01][followup-i01], [I03][followup-i03],
+[I05][followup-i05] and [I06][followup-i06]. These additions schedule captured support
+interpretation, owner-supplied recovery decisions and contract-specific rollout explanations.
+The scoped passes below retain their recorded source and context. The added cases remain open.
+
 **N44 execution checkpoint · 2026-11-21.** Event prediction consumes the acquired pages for its
 selected uses directly. Record-grade production supplies its selected obligations and the protected
 grade reader supplies its use ID. The selected-use index stops when it has resolved the requested
@@ -80,6 +86,16 @@ and release lifecycle and serves actual consumers. The tested command-class row 
 an admitted fact can change behavior without editing the generated guard. [Rich admission source][rich] ·
 [Native selected validity](../../adr/0122-set-wise-support-validity.md)
 
+The selected consumer's semantic reader also needs the authenticated exported relation and,
+for a product or member body, its captured nominal kind. Use the prepared transfer projection
+owned by [DMO-05/06](json-contracts-and-settings.md#captured-support-interpretation).
+Producer requirements, record interpretation and current disclosure authority answer distinct
+questions. Apply each at its existing owner. An unknown relation or kind yields unsupported
+semantic interpretation while its authenticated bytes remain retained. Historical interpretation
+comes from captured contracts. Present disclosure still checks live authority. Include a request
+with a contextual `analyzed_scope` alongside a product whose ordinary body contains a field of
+that name, and verify their different declared meanings. [Follow-up I02][followup-i02]
+
 **Library realization.** Preserve the current LinkML and linkml-runtime 1.12.1 declaration route.
 Use schema classes, slots and enums at the existing owner for structural facts. Where a requirement
 uses a modeled slot, resolve its effective per-class contract through `SchemaView.induced_slot` or
@@ -144,6 +160,26 @@ with that page in the same connection, transaction and purpose scope. Each suppo
 match the exact acquired cut. Retire the second acquisition and unscoped readback when the
 consumer takes this contract.
 
+Deliver the first complete typed support slice through an actual `ops.data_request` and its
+associated `kb.data_product`. Carry the [captured support interpretation](json-contracts-and-settings.md#captured-support-interpretation)
+from the admitted reader through `stream_selected_support`, the invocation-owned
+`SelectedRecordIndex`, detached verification and Parquet shaping. Classify the relation wrapper
+before interpreting its record, then select embedded product or member meaning from its captured
+kind. Reuse the kind acquisition already owned by detached export. The index keeps its existing
+deduplication, bounds, freeze and lifetime. Its prepared reader interprets append, mapping, row
+and replay operations consistently. Its retained records grant no lasting disclosure authority.
+Retire spelling-based support interpretation and duplicate row preparation as their callers move.
+
+Keep the original acquired cut bytes and the captured format's checksums independent of that
+interpretation. Support values are encoded at the index or export ingress. That encoding defines
+the captured byte boundary. Preserve exact custody from that point through replay. Derive Parquet
+columns from the captured transfer shape with explicit column correspondence, including virtual
+authority and execution-evidence leaves. Check detached replay after ambient declarations change,
+fractional D1 scope, an ordinary nested `analyzed_scope`, integer-coordinate refusal, manifest
+hashes and independently expected product identities. Keep JSONL as the detached closure.
+DMO-06 owns any generated or native contract transition identified by this slice.
+[Follow-up I02][followup-i02] · [Contract-specific rollout](json-contracts-and-settings.md#contract-specific-rollout)
+
 The selected-use lookup currently pages authenticated frontier metadata and stops once all use
 IDs have been resolved. Include a real later-page selected use before treating that behavior as
 qualified across regional populations. If this scan remains consequential, compare a bounded
@@ -184,6 +220,14 @@ Retire repeated observation only after the replacement carries those outcomes.
 [Core result handling](../../libraries/postgresql/sqlalchemy.md#85-result-processing-and-streaming) ·
 [Continuation semantics](../../adr/0141-serving-continuation-and-reuse.md)
 
+Carry the same owner-supplied `reconcile`, `inspect-draft` or `compute` disposition into
+DMO-07 inspection, together with the scope and lifetime of its observations. Native intent,
+lease and receipt establish settlement facts. The process owner establishes retirement.
+Draft custody establishes compatible retained material or a regeneration reason. A set-wise
+read preserves these distinctions for every pending item. The real lost-acknowledgement
+composite establishes its recorded one-publication outcome. Wider recovery and operator-action
+cases still require their own observations. [Follow-up I04][followup-i04]
+
 Parse a selected-source event once within its owned input/read lifetime. Reuse immutable validated
 values established at ingress after [DMO-06](json-contracts-and-settings.md#dmo-06) when this
 removes redundant structural checks. Retire unscoped readback/frontier walks for migrated callers
@@ -196,6 +240,19 @@ the required uses resolve. Verify stable equality and order across pages, exact 
 distinct original/prediction cuts. A row or byte bound on delivery must retain the required support
 semantics. Keep the successful real event probability, public issuer and private-label exclusion
 assertions alongside independent wrong-issuer, counterfeit-parameter and substituted-use controls.
+
+Keep the full positive event journey and independent same-kind authored-input negative.
+Use the existing frame-only fixture for ordinary-purpose and substituted-use refusals. Its
+PostgreSQL grant refusal and the substituted-use rule each need an assertion against the
+boundary actually reached. Share immutable admission or preparation only when acquired target,
+release, fixture state and isolation support the selected assertions. Route safe shared setup
+through the existing preparation fixture and managed worker affinity. Preserve the separate
+exclusive lane for native faults. Use retained reportlog setup, call and teardown phases and
+managed schedules to locate work before changing product traversal. The recorded selections
+use different sources and fixtures, so their setup times supply investigation evidence.
+Statement-level lock/transaction and wider regional attribution remain open. DMO-08 owns
+final-source applicability of each claim. [Follow-up I05][followup-i05] ·
+[Qualification owner](qualification-and-adoption.md#dmo-08)
 
 **Continuation and shared guarantees.** The immutable cut facts consumed by Python, CLI and MCP
 readers have a declared lifetime. Reacquire current authority for every continued live disclosure
@@ -233,6 +290,25 @@ the next incomplete effect. Consume DMO-02's recovery disposition and DMO-01's h
 instead of reconstructing their decisions at the presentation boundary. Deliver each view when
 its owning operation supplies reliable facts. [N44 actionable state][n44-i07]
 
+For Standard acquisition, expose the selected parent contract, material comparison and required
+worker acknowledgement from DMO-01/02. Distinguish an unresolved determining fact, a changed
+resource or binding, equal material under transport refresh, and stale host startup premises.
+A passive view can name the observation still required. A ready observation includes its scope
+and mutable premises, which execution rechecks. The first actual cross-demand reuse pass remains
+with DMO-02. [Follow-up I01][followup-i01]
+
+For model changes, consume DMO-06's [contract-specific rollout facts](json-contracts-and-settings.md#contract-specific-rollout)
+in the existing `ChangeEffects`, preview and inspection views. Show generated-source,
+application material/runtime, native/catalog and acquired-target prerequisite comparisons with
+their actual observation standing. Identify which application needs capture or admission and
+which generation or installation is required. An unobserved dimension remains uncompared.
+A matching digest establishes its owning contract's scope. Include a target-local TEMP-policy
+mismatch despite matching revision heads, and show the existing declared policy replay or
+`DatabaseTemporaryPrivilegeOp` route appropriate to that target before expensive authoring.
+Keep the approved after-state, release lock and original candidate in deployment recovery.
+Show admission pending after committed migration and separate Standard and Integrated status.
+[Follow-up I03][followup-i03]
+
 Use `ci query` for operation-scoped current native detail, with its existing demand, project,
 operation, view, row/byte bounds and continuation selectors. `ci results inspect` hands off the
 exact selectors in a typed next action after establishing their recorded target. Material comparison
@@ -245,6 +321,14 @@ CLI and MCP results and replay. Retire scratch extraction and duplicated
 scope logic as these views take their consumers. [I07 route design][i07] ·
 [Selected CLI query](../../../python/corpus-structure/src/corpus_structure/cli/selected_results.py) ·
 [Result inspection model][inspect] · [Managed CLI custody](../../adr/0069-cli-operations-custody.md)
+
+Attach the executor's owning recovery disposition to the existing action when that observation
+is available. Retain its target, invocation, demand or candidate, effect and observation scope.
+`ExecutionRecoveryAccount` supplies captured invocation facts. Current effect, process and draft
+inspection supply their own standing. Resume rechecks current premises. A captured invocation
+alone cannot establish which recovery branch will be possible. Keep absent or expired facts
+explicit and preserve the continuation's exact cut and bounds. Retire diagnostic reconstruction
+when the managed view consumes these owning facts. [Follow-up I04][followup-i04]
 
 **Library realization.** Typer 0.28.0 `Typer` sub-apps and `Context` use the existing command and
 resolved profile state. Keep typed `Argument`/`Option` scope and result selectors at the commands.
@@ -259,6 +343,11 @@ bulk scans and a second source of managed truth. [Typer command composition](../
 [Rich rendering boundary](../../libraries/python_introspection/rich.md#21-console-as-the-rendering-and-output-boundary) ·
 [pglast syntax limits](../../libraries/postgresql/pglast.md#22-raw-syntax-versus-analyzed-sql)
 
+The same typed facts feed structured FastMCP results through the existing shared delivery owner.
+Use FastMCP 4.1.3 `ToolResult` and MCP 2.3.0 `CallToolResult` with the actual complete serialized
+response for byte bounds. Keep captured recovery and current read actions bound to their
+respective authority and observation lifetimes through replay. [Structured delivery](../../adr/0142-structured-selected-result-delivery.md)
+
 **Acceptance.** Compare a native parity pass with an actual pre-provider acquisition refusal and
 an actual publication with scoped readback. Check matching terminal/JSON facts, explicit missing
 observations, bounded output, stable selection, and redaction for credentials and protected support.
@@ -272,6 +361,18 @@ through the installed command. Assert configured/acquired targets, last settled 
 action against independently established native or managed facts. Retire duplicate diagnostic
 lookups when these views serve their consumers. [N44 action acceptance][n44-i07] ·
 [Typer testing](https://typer.tiangolo.com/tutorial/testing/)
+
+Add the frontier-only and tuple/native transitions as distinct rollout cases. Check an indirect
+captured edit, an equal-head target privilege mismatch, migration committed with admission
+pending and the second application on the same native revision. For recovery, check known
+rollback, a surviving worker, committed acknowledgement loss after retirement, a missing
+historical writer, target mismatch and changed live authority. Assert the exact next action
+against independently established facts. Use Typer's installed runner stdout/stderr streams
+to check human and JSON views, and exercise the managed route for operator-behavior claims.
+Integrate these views as their owners become available during the representative regional
+acquisition, publication, continued-read and interrupted-recovery journey. Retire duplicate
+extraction and scope logic with their migrated consumers. [Follow-up I03][followup-i03] ·
+[Follow-up I04][followup-i04] · [Follow-up integration][followup-i06]
 
 [o03]: ../../functional_reviews/udm-operability-and-json_2026-11-20.md#O03
 [o04]: ../../functional_reviews/udm-operability-and-json_2026-11-20.md#O04
@@ -289,3 +390,9 @@ lookups when these views serve their consumers. [N44 action acceptance][n44-i07]
 [n44-i03]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I03
 [n44-i04]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I04
 [n44-i07]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I07
+[followup-i01]: ../../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I01
+[followup-i02]: ../../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I02
+[followup-i03]: ../../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I03
+[followup-i04]: ../../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I04
+[followup-i05]: ../../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I05
+[followup-i06]: ../../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I06

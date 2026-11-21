@@ -7,6 +7,8 @@ records the exercised cases and remaining boundaries.
 The N43 amendment integrates [I01][i01], [I02][i02] and [I06][i06] from review revision
 `7c17b403a`. The 2026-11-21 amendment consumes the post-N44 review at `c73a9e958`,
 integrating [I01][n44-i01], [I02][n44-i02] and [I03][n44-i03] into the remaining work below.
+The execution follow-up at `101d67a53` integrates [I01][followup-i01], [I04][followup-i04]
+and the acquisition/recovery sequencing in [I06][followup-i06].
 The execution checkpoint retains its recorded source and verification scope.
 
 **N44 execution checkpoint · 2026-11-21.** Resident declaration, preparation and guarded
@@ -23,8 +25,10 @@ asset correspondence. Conversion checks that custody in the worker. Historical v
 with instructions to retain the original and regenerate under v2. The actual three-page Docling
 interruption, missing-page resume and same-spool rebuild passed
 (`36e22cf1e8dd4905be18a55c14d357ea`, source `534ec613c`). Parent acquisition still needs a
-bounded executable contract that the worker can authenticate at its existing pre-conversion
-preparation acknowledgement. Standard eligibility still depends on the combined lowering workload.
+bounded material and executable contract that makes native attachment decidable before provider
+startup. The remaining worker integration will compare its existing pre-conversion
+preparation acknowledgement with that acquired contract. Standard eligibility still depends
+on the combined lowering workload.
 The producer must retire before publication because its process owns the spool writer lease.
 Cross-demand attachment and a real material-change refusal remain open.
 
@@ -60,8 +64,8 @@ The record mapper resolves default metadata only for callers that lack a capture
 Record, certification and inventory checks passed 122 cases (`f3219ac77666457ea4a757e45593c5b5`).
 Cross-demand capture still gets its eligibility from the combined lowering workload. On `0082d0e03`,
 the lowering provenance reported 167 unresolved import initialization contracts and 161 unresolved
-initializer effects. The selected stream and the remaining companion-publication dependency need
-an acquired executable boundary before the eligibility rule can change.
+initializer effects. The database-free companion encoder is now implemented. The selected stream,
+restoration and lowering still need an acquired executable boundary before eligibility can change.
 
 Native managed selection `3807264712ca47bd81940b51bd6775cb` passed known rollback and loss of
 acknowledgement after an actual commit. Independent native readback found one original intent and
@@ -137,7 +141,8 @@ receipt, and operation-scoped native readback through [DMO-08](qualification-and
 <a id="selected-host-preparation"></a>
 ### Prepare every required shared-host resident
 
-Integrate [N43 I01][i01] and [N44 I02][n44-i02] at the selected-operation preparation owner.
+Integrate [N43 I01][i01], [N44 I02][n44-i02] and [follow-up I01][followup-i01] at the
+selected-operation preparation owner.
 Derive the required resident population from the declared target closure and acquired ports. Before upstream PDF
 work or a native work claim, compare every required resident with its acquired host context.
 Carry the selected profiles, interpreter and resource facts, exact execution inventory, inference
@@ -152,24 +157,22 @@ Use the existing `NativeProfile.identity_projections()` and provider attestation
 inference meaning separately from exact execution custody. A transport-only reacquisition binds
 the new runtime to the exact release and acquired target through the current runtime-binding
 owner. DMO-05 owns validated settings and redacted origins. DMO-07 exposes the guarded acquisition
-and the failed prerequisite through the installed CLI. Replace the evidence-only refresh script,
-ambient provider settings reads and duplicate resident lists as those consumers migrate.
+and the failed prerequisite through the installed `ci release reacquire-host` route. Use that
+route for recurring runtime refresh. Retire ambient provider settings reads and duplicate
+resident lists as those consumers migrate, preserving evidence-only scripts with their receipts.
 [Settings owner](json-contracts-and-settings.md#dmo-05-settings) ·
 [Operator diagnostics](consumer-authority-and-operability.md#dmo-07) ·
 [Provider profiles](../../../python/corpus-structure/src/corpus_structure/methods/native_profiles.py)
 
-Use one grouping rule for preparation and guarded reacquisition, keyed by the selected project,
-interpreter and worker script. The current preparation groups residents this way, while
-`reacquire_shared_host_runtime` observes the first resident's environment for its combined
-population. Inspect the supported release declarations before changing that path. If releases
-are intentionally restricted to one group, make the single-group invariant explicit in declaration,
-preparation and reacquisition and reject a heterogeneous release with its attributed bindings.
-Otherwise reacquire each supported group independently and identify an unsupported provider at
-its actual binding. Each provider owner rebuilds its attested transport artifact and verifies
-unchanged inference meaning. Retire the first-resident shortcut once the shared grouping rule
-serves both paths. A group observation covers its environment, with model and tokenizer checks
-still owned by each provider. This bounded investigation supplies the grouping contract consumed
-by DMO-05 settings and DMO-07 explanation.
+Keep the implemented single-environment invariant and shared grouping rule for declaration,
+preparation and guarded reacquisition. The selected project, interpreter and worker script
+identify the physical host. Heterogeneous populations refuse with their attributed bindings.
+Each provider owner rebuilds its attested transport artifact and verifies unchanged inference
+meaning. A group observation covers the environment, while each provider owns its model and
+tokenizer checks. Startup consumes the same selected resident population and rechecks mutable
+premises. The N44 checkpoint supplies scoped grouping and preflight evidence. Assess remaining
+consumer gaps against that implementation before adding coordination or repeating those checks.
+DMO-05 supplies settings and DMO-07 renders the owned observation and failed prerequisite.
 [Execution grouping](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py#L484) ·
 [Reacquisition owner](../../../python/corpus-structure/src/corpus_structure/semantic/native_host_reacquisition.py#L21)
 
@@ -193,8 +196,8 @@ policy, an unavailable unselected provider, and an interpreter or asset change a
 A valid transport refresh keeps the recorded inference identity and obtains new execution
 custody. A changed determining provider resource or inference parameter moves the material basis.
 Verify these decisions through preparation, the actual worker and the managed explanation.
-Include a heterogeneous resident population to establish either independent group refresh or the
-explicit declared refusal. Verify the wrong database OID guard and compare the refreshed runtime
+Include a heterogeneous resident population to verify the explicit single-group refusal.
+Verify the wrong database OID guard and compare the refreshed runtime
 and retained inference identity independently.
 
 <a id="dmo-02"></a>
@@ -234,9 +237,11 @@ must be available before the real transport-change case.
 <a id="standard-cross-demand-reuse"></a>
 ### First delivery through a Standard capture boundary
 
-Integrate [N43 I02][i02] and [N44 I01][n44-i01] by establishing the material basis of one real
-Standard PDF capture and lowering path. Project original bytes and declared scope, capture recipe and options,
-model resources, output schema, determining callable code and required initialization, and the
+Integrate [N43 I02][i02], [N44 I01][n44-i01] and [follow-up I01][followup-i01] by establishing
+the material basis of one real Standard PDF capture and lowering path. Make the parent decide
+attachment from its acquired contract before starting a provider. Project original bytes and
+declared scope, capture recipe and options, model resources, output schema, determining
+callable code and required initialization, and the
 lowering that determines the published result. The current capture asset takes reuse eligibility
 from a shared lowering workload that includes Integrated production. The retained root-removal
 probe reduced that workload's unknowns from 328 to 208 and still discovered 608 modules including
@@ -255,16 +260,24 @@ dependencies and unresolved determining facts attributed at the code-analysis ow
 [NetworkX projections](../../libraries/scientific_compute/networkx.md)
 
 The active Standard worker enters `StreamingPdfProducer.prepare` and `convert`, which lead to
-`PdfConverter._prepare` and its selected Docling pipeline, stage and model initialization. The
-current external-runtime acquisition profiles authenticate codecs. Extend the existing acquisition
-owner to cover the selected installed producer, backend, initialized pipeline and concrete stages,
-dynamic factory bindings and resolved resource bytes used at initialization. Include the repository's
-streaming and restored-page assembly, recipe options, callback policy, companion encoding and output
-schemas in the determining contract. The worker still reaches the database publication module
-through companion encoding. Give its pure preparation a database-free owner and pass the acquired
-output contracts into the existing worker. The execution inventory and original attempt remain
-attributed provenance, while the native material predicate decides attachment with current support
-and publication authority.
+`PdfConverter._prepare` and selected Docling pipeline, stage and model initialization. The
+implemented initialized descriptor records loaded methods, options and resources. Transitive
+helpers and dynamic bindings still need the admitted execution contract. Extend the existing
+selected-executable acquisition owner to cover the installed producer, converter/backend/stage
+selection, code, required initialization and resolved resource bytes. Include the repository's
+streaming and restored-page assembly, recipe options, callback policy, database-free companion
+encoding and output/lowering schemas in the determining contract. Keep acquired output contracts
+in the existing worker. Exact runtime inventory and original attempt remain attributable, while
+the native material predicate decides attachment with current support and publication authority.
+
+Use the acquired contract to decide whether a completed capture can be attached without a new
+provider process. Fresh computation and checkpoint uptake use the existing worker preparation
+acknowledgement to compare the actual loaded executable against that contract before conversion
+or restored-page use. An initialized report from the new computation cannot supply the earlier
+attachment decision. Resolve the selected closure or bounded producer contract at acquisition,
+then carry its facts into parent comparison and worker verification. Use the same selected
+contract for both consumers. The v2 descriptor remains observed custody until its relation to
+the complete determining surface is established.
 [Streaming producer](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_streaming.py#L696) ·
 [Selected Docling initialization](../../../python/corpus-structure/src/corpus_structure/ingest/pdf.py#L223) ·
 [Runtime acquisition profiles](../../../python/corpus-structure/src/corpus_structure/semantic/external_runtime.py#L52)
@@ -275,15 +288,21 @@ instances by pipeline class and options hash, and `StandardPdfPipeline._init_mod
 selected factories with options and the artifact path. Keep that pipeline instance for its useful
 worker lifetime. Observe the actual repository subclasses and inserted stages after initialization,
 authenticate their loaded bindings and selected resource files, and recheck mutable premises at
-worker startup. The options hash establishes Docling's instance-cache selection. The acquisition
-owner supplies code and resource correspondence. Python `inspect`, distribution records and the
-existing external-runtime checks supply runtime facts; ty and LibCST resolve first-party definitions
+worker startup. Docling Core 2.106.0 supplies the selected output contracts where serialized
+meaning depends on them. The options hash establishes Docling's instance-cache selection. The
+acquisition owner supplies code and resource correspondence. Python `inspect`, distribution
+records and existing external-runtime checks supply runtime facts. ty and LibCST resolve first-party definitions
 where useful, and the declared NetworkX projection supplies reachability. Preserve unresolved facts
 at their owner until the complete selected boundary can support reuse.
 [Docling converter at v2.148.0](https://github.com/docling-project/docling/blob/v2.148.0/docling/document_converter.py) ·
 [Standard pipeline at v2.148.0](https://github.com/docling-project/docling/blob/v2.148.0/docling/pipeline/standard_pdf_pipeline.py) ·
 [Docling capabilities](../../libraries/primary_intake/docling.md) ·
 [LibCST capabilities](../../libraries/python_introspection/libcst.md)
+
+Cachetools 8.0.1 `LRUCache` may bound reusable process-local prepared observations keyed by
+their already acquired facts where an actual consumer repeats that preparation. Native attachment standing
+continues to come from its current owner. A cache hit must preserve the acquired premises and
+their lifetime. [Cachetools capabilities](../../libraries/analytical_infrastructure/cachetools.md)
 
 If ambient imports prevent the selected first-party path from supplying a sufficient boundary,
 assess an explicit bounded Python package owning its actual dependencies and resource inputs.
@@ -304,10 +323,15 @@ fresh work. Modified replay bytes, counterfeit producer, revoked support or inco
 publication authority still refuse. Retire the shared all-mode eligibility determinant only
 where the selected contract takes its consumers. Retain the broad graph for attributed discovery.
 
-**Closure.** Make this the first DMO-02 product delivery. Independently observe the original
-derivation, original attempt and provider activity in the two-demand case. Change one model
-file or loaded factory binding while preserving the distribution version and recipe text to
-challenge the acquired producer contract. Compare restored acknowledged pages with clean
+**Closure.** Make this the first DMO-02 product delivery under the current D1 scope contract.
+Complete one actual Standard path while the typed support read/index/export work proceeds in
+parallel. DMO-06 supplies any generated transition the chosen material contract actually changes,
+and DMO-07 adds action views as the owning facts become available. Carry these scoped results
+into DMO-08, then DMO-09's canonical and whole-book qualification after consumer retirement.
+Independently observe the original derivation, original attempt and zero provider starts in the
+second-demand attachment case. Change one model file or loaded factory binding while preserving
+the distribution version and recipe text to challenge the acquired producer contract.
+Compare restored acknowledged pages with clean
 conversion under the same material basis using independently expected output meaning. DMO-07
 consumes the resulting material, transport-only or unresolved comparison.
 
@@ -340,9 +364,9 @@ The N29/N42 recipe census lacks constituent fields. The equal-recipe case was de
 lowering proof was incomplete. An equal output can stop downstream changes only under its declared
 substitutability contract. [Book evidence][cause] · [Python and native attachment][attach]
 
-**Recovery.** Integrate [N44 I03][n44-i03] through the existing ready-item owner. Carry one selected
-recovery disposition with the native premises that support it into preparation, execution and the
-operator explanation. The disposition distinguishes known committed intent reconciliation,
+**Recovery.** Integrate [N44 I03][n44-i03] and [follow-up I04][followup-i04] through the existing
+ready-item owner. Carry one selected recovery disposition with its native premises into preparation,
+execution and the operator explanation. The disposition distinguishes known committed intent reconciliation,
 compatible private draft or acknowledged-page adoption, fresh computation permitted by inspection,
 and uncertain effects requiring readback. Retained answers can settle before host preparation.
 Keep branch-local checks wherever their evidence lifetime differs from the shared decision.
@@ -356,12 +380,24 @@ ineligible derived results through the current path. Retire active legacy reader
 adapters as the new owner takes their actual consumers. [Checkpoint contract](../../adr/0139-compatible-pdf-checkpoint-custody.md) ·
 [Recovery contract](../../adr/0140-durable-recovery-and-exact-stop.md) · [Spool material projection][spool]
 
+Carry the owning recovery disposition and its observation scope into the existing managed
+inspection and action views. Resume remains an executable action that rechecks current premises.
+The native owner reports committed intent, lease and receipt facts. The process owner reports
+retirement. The draft owner reports compatible retained bytes or its regeneration reason.
+Bind the action to the applicable acquired target, invocation, candidate or demand, and effect.
+Captured invocation inputs alone establish which action can be requested. Current observations
+establish what that action can presently do. Keep unknown standing explicit when an observed
+status or authority premise has expired. A passive preview names the observations still required.
+Carry recorded cuts and bounds with continuation, and acquire live authority for a fresh query.
+DMO-07 renders those same owner-supplied facts in human and machine views and retires duplicated
+diagnostic lookups when their consumers migrate.
+
 Authenticate retained draft acknowledgement and body bytes before interpretation. Reopen a
 supported historical draft using its recorded writer-contract identity, then apply current native
-eligibility at adoption. The current `CompletionDraftStore._open` validates under an ambient wire
-contract, which can refuse a supported historical request before native applicability is assessed.
-Inventory the actual supported retained drafts and their available contract provenance before
-choosing conversion. Faithfully convert useful material when the original writer basis and target
+eligibility at adoption. New drafts now carry their writer schema, and V1 reopen uses the
+authenticated writer release. Preserve the recorded custody of this implemented route. Inventory
+the supported retained drafts and available contract provenance before choosing conversion.
+Faithfully convert useful material when the original writer basis and target
 meaning can be established. Otherwise record regeneration under the existing custody rules.
 DMO-06 supplies the affected writer/schema transition, and DMO-07 renders its recovery action.
 Retire duplicated branch selection and legacy draft readers as the target serves their consumers.
@@ -372,9 +408,12 @@ Retire duplicated branch selection and legacy draft readers as the target serves
 <a id="uncertain-effect-recovery"></a>
 ### Settle uncertain effects before repeating work
 
-Integrate [N43 I06][i06] and [N44 I03][n44-i03] with DMO-02 recovery and DMO-08's failure selection. The N43 held-region
-case proves recovery after releasing an uncomputed claim. Add a bounded native case that loses
-acknowledgement after a committed write, then stops or replaces the owner before retry.
+Integrate [N43 I06][i06], [N44 I03][n44-i03] and [follow-up I04][followup-i04] with DMO-02
+recovery and DMO-08's failure selection. The N43 held-region case proves recovery after releasing
+an uncomputed claim. The N44 composite retained above establishes actual committed acknowledgement
+loss, CPU producer retirement, one publication and zero duplicate work through a fresh executor.
+Consume that result at its recorded source and context. Add only the affected missing failure
+cases or current-source reobservation needed by the selected consumer.
 Independently read the committed intent, native task/lease and publication receipts and observe
 physical retirement. Establish which original result was adopted, one effective publication,
 and retirement of the superseded provider. Pair this with known rollback, where retry must
@@ -391,6 +430,11 @@ during publication and stale-owner replacement through the existing managed rout
 receipt counts and process observations independent of the executor's summary.
 The shared recovery disposition is a prerequisite for reducing completion inspection. A set-wise
 projection must retain each pending intent's standing and the inspection-before-execution fence.
+The operator view must distinguish reconciliation, known rollback, a surviving worker, missing
+historical writer provenance, target mismatch and changed live authority. Exercise the action
+through the installed CLI to establish its delivery and prerequisite behavior. Preserve the
+native composite's settled effect and original receipt in that explanation. An action with
+expired authority or unobserved physical retirement retains the corresponding uncertainty.
 [Read-work owner](consumer-authority-and-operability.md#dmo-04) ·
 [Durable recovery](../../adr/0140-durable-recovery-and-exact-stop.md) ·
 [Continuation and reuse](../../adr/0141-serving-continuation-and-reuse.md)
@@ -431,3 +475,6 @@ provider execution. An active original producer keeps its private material unava
 [n44-i01]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I01
 [n44-i02]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I02
 [n44-i03]: ../../plan_improvement_reviews/domain-model-operability-after-n44_2026-11-20.md#I03
+[followup-i01]: ../../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I01
+[followup-i04]: ../../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I04
+[followup-i06]: ../../plan_improvement_reviews/domain-model-operability-execution-followup_2026-11-21.md#I06
