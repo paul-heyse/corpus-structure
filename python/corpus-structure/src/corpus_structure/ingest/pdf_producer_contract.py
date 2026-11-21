@@ -43,6 +43,7 @@ STANDARD_MODULES = (
     "semantic/pdf_payload_validation",
     "semantic/pdf_payloads",
     "semantic/sqlite_scratch",
+    "ingest/_pdf_producer_profiles",
     "ingest/pdf",
     "ingest/pdf_assets",
     "ingest/pdf_runtime",

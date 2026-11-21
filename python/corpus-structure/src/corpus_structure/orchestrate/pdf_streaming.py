@@ -12,12 +12,19 @@ from contextlib import ExitStack, closing, contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING, Annotated, Literal, Protocol
 
 import pyarrow as pa
+from pydantic import Field, TypeAdapter
 from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.db.lifetime import BorrowerCancellation
+from corpus_structure.ingest._pdf_producer_profiles import (
+    STANDARD_LOWERING,
+    STANDARD_PREPARATION,
+    DemandPreparationIdentity,
+    StandardPreparationIdentity,
+)
 from corpus_structure.ingest.pdf_stream_types import PdfStreamRequest
 from corpus_structure.semantic.claim_lifetime import OwnedClaim
 
@@ -38,6 +45,14 @@ if TYPE_CHECKING:
 class PdfProducerClaim(OwnedClaim, Protocol):
     @property
     def runtime_id(self) -> str: ...
+
+
+_PREPARATION_IDENTITY = TypeAdapter(
+    Annotated[
+        DemandPreparationIdentity | StandardPreparationIdentity,
+        Field(discriminator="profile"),
+    ]
+)
 
 
 @dataclass(frozen=True)
@@ -477,7 +492,7 @@ def run_private_native_pdf_build(
             selected_lowering = json.loads(context.domain.source(LOWERING_CONTRACT).content)
             selected_producer = (
                 standard_pdf_contract()
-                if selected_lowering["profile"] == "pdf-record-lowering-contract-v3"
+                if selected_lowering["profile"] == STANDARD_LOWERING
                 else None
             )
             if selected_producer is not None:
@@ -488,10 +503,11 @@ def run_private_native_pdf_build(
                     import json
 
                     replay.verify()
-                    preparation = json.loads(replay.path.read_bytes())["_preparation"]
+                    report = json.loads(replay.path.read_bytes())["_preparation"]
+                    preparation = _PREPARATION_IDENTITY.validate_python(report, strict=True)
                     if (
-                        preparation.get("profile") != "pdf-prepared-native-runtime-v3"
-                        or preparation.get("producer_contract") != selected_producer.digest
+                        preparation["profile"] != STANDARD_PREPARATION
+                        or preparation["producer_contract"] != selected_producer.digest
                     ):
                         raise ValueError(
                             "PDF child preparation differs from parent selected producer"

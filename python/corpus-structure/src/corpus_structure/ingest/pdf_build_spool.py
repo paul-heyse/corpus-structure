@@ -22,6 +22,7 @@ from typing import Any
 
 from corpus_structure.core.work import PhysicalRetirementUncertain
 
+from ._pdf_producer_profiles import PREPARATION_FIELDS
 from .pdf_stream_types import PdfPageRecovery, PdfPreparedCompanionSet, PdfReplayRef, PdfStreamReply
 
 
@@ -183,27 +184,10 @@ def native_preparation_identity(content: bytes) -> str:
             "PDF spool native preparation predates initialized binding custody; "
             "retain the original spool and regenerate this capture with the current producer"
         )
-    if preparation.get("profile") not in {
-        "pdf-prepared-native-runtime-v2",
-        "pdf-prepared-native-runtime-v3",
-    }:
+    profile = preparation.get("profile")
+    if profile not in PREPARATION_FIELDS:
         raise ValueError("PDF spool has an unsupported native preparation profile")
-    determining = {
-        name: preparation[name]
-        for name in (
-            "profile",
-            "requested_options",
-            "effective_options",
-            "backend_options",
-            "stage_scope",
-            "native_variants",
-            "initialized_bindings",
-            "packages",
-            "image_ownership",
-        )
-    }
-    if preparation["profile"] == "pdf-prepared-native-runtime-v3":
-        determining["producer_contract"] = preparation["producer_contract"]
+    determining = {name: preparation[name] for name in PREPARATION_FIELDS[profile]}
     for name in ("requested_options", "effective_options"):
         determining[name] = canonical_native_options(
             {key: value for key, value in determining[name].items() if key != "artifacts_path"}

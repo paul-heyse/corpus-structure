@@ -1,5 +1,10 @@
 """Model-owned native producer attestation and reconstruction oracle custody."""
 
+from corpus_structure.ingest._pdf_producer_profiles import (
+    DEMAND_LOWERING,
+    STANDARD_LOWERING,
+    STANDARD_SCOPE,
+)
 from corpus_structure.schema.integrity import role_name
 
 from .native_objects import (
@@ -121,7 +126,7 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
         value("item_", JSONB()),
     )
     profile = contract["profile"].astext
-    selected_standard = profile == "pdf-record-lowering-contract-v3"
+    selected_standard = profile == STANDARD_LOWERING
     code = contract["code_identity"]
     complete = cast(literal("true"), JSONB())
     inputs = func.jsonb_array_elements(contract["inputs"]).table_valued(column("value", JSONB()))
@@ -141,15 +146,13 @@ def pdf_certification_native_programs(*, target_metadata=None) -> tuple[ProgramD
                 If(
                     or_(
                         and_(
-                            profile.is_distinct_from("pdf-record-lowering-contract-v2"),
-                            profile.is_distinct_from("pdf-record-lowering-contract-v3"),
+                            profile.is_distinct_from(DEMAND_LOWERING),
+                            profile.is_distinct_from(STANDARD_LOWERING),
                         ),
                         and_(
                             selected_standard,
                             or_(
-                                code["scope"].astext.is_distinct_from(
-                                    "docling-standard-pdf-stream-v1"
-                                ),
+                                code["scope"].astext.is_distinct_from(STANDARD_SCOPE),
                                 code["complete"].is_distinct_from(complete),
                             ),
                         ),

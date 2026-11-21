@@ -380,7 +380,11 @@ class PreparedPdfCapturePort:
     def _verify(self):
         from corpus_structure.ingest.pdf_capture import PdfCaptureOperation
 
-        from .data_operation_prepared_products import verify_prepared_product
+        from .data_operation_prepared_products import (
+            PreparedProductDiagnostic,
+            PreparedProductRefusal,
+            verify_prepared_product,
+        )
 
         contracts = {artifact.name: artifact for artifact in self.custody}
         acquired = contracts.get("pdf-capture/execution-custody")
@@ -388,11 +392,17 @@ class PreparedPdfCapturePort:
             raise ValueError("PDF capture has no exact acquired runtime custody")
         record = json.loads(acquired.content)
         root = Path(__file__).parents[1]
-        if any(
-            (root / name).read_bytes() != bytes.fromhex(content)
-            for name, content in record["files"]
-        ):
-            raise ValueError("PDF capture implementation changed after acquisition")
+        for name, content in record["files"]:
+            expected = sha256(bytes.fromhex(content)).hexdigest()
+            try:
+                actual = sha256((root / name).read_bytes()).hexdigest()
+            except FileNotFoundError:
+                actual = None
+            if actual != expected:
+                raise PreparedProductRefusal(
+                    "PDF capture implementation changed after acquisition",
+                    PreparedProductDiagnostic(name, expected, actual, "pdf_runtime_custody"),
+                )
         verify_prepared_product(
             self.identity,
             self.profile.model,

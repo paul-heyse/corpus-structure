@@ -74,6 +74,12 @@ def _facade_outputs() -> tuple[_FacadeOutput, ...]:
             "semantic/_pdf_native_ids.py",
             lambda inputs: pdf_call_generation.generated_enums(domain=inputs.pdf_domain),
         ),
+        _FacadeOutput(
+            "ingest/_pdf_producer_profiles.py",
+            lambda inputs: pdf_call_generation.generated_producer_profiles(
+                inputs.pdf_domain.source("implementation/pdf/staging-model.yaml").content
+            ),
+        ),
         _FacadeOutput("semantic/_data_operation_wire.py", data_wire),
     )
 

@@ -481,6 +481,7 @@ class PdfConverter:
         """Freeze actual prepared variants and resource/image policy once per native owner."""
         import pyarrow as pa
 
+        from ._pdf_producer_profiles import DEMAND_PREPARATION
         from .pdf_build_spool import canonical_native_options
         from .pdf_runtime import capture_initialized_pdf_runtime
 
@@ -508,7 +509,7 @@ class PdfConverter:
         report = {
             **effective,
             "_preparation": {
-                "profile": "pdf-prepared-native-runtime-v2",
+                "profile": DEMAND_PREPARATION,
                 "requested_options": requested_options,
                 "effective_options": effective,
                 "backend_options": (

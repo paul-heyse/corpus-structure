@@ -404,6 +404,30 @@ classes:
       release_id:
         range: PdfRecordString
         required: true
+  PdfNativePreparationIdentity:
+    description: Determining preparation fields of a demand-scoped native PDF producer.
+    annotations:
+      pds:preparation_profile: pdf-prepared-native-runtime-v2
+      pds:lowering_profile: pdf-record-lowering-contract-v2
+    attributes:
+      profile: {required: true}
+      requested_options: {range: PdfRecordJson, required: true}
+      effective_options: {range: PdfRecordJson, required: true}
+      backend_options: {range: PdfRecordJson, required: true}
+      stage_scope: {required: true}
+      native_variants: {range: PdfRecordJson, required: true}
+      initialized_bindings: {range: PdfRecordJson, required: true}
+      packages: {range: PdfRecordJson, required: true}
+      image_ownership: {range: PdfRecordJson, required: true}
+  PdfStandardNativePreparationIdentity:
+    is_a: PdfNativePreparationIdentity
+    description: Determining preparation fields of the selected Standard native PDF producer.
+    annotations:
+      pds:preparation_profile: pdf-prepared-native-runtime-v3
+      pds:lowering_profile: pdf-record-lowering-contract-v3
+      pds:lowering_scope: docling-standard-pdf-stream-v1
+    attributes:
+      producer_contract: {required: true}
   PdfProducerCertificationRecord:
     description: Producer callbacks, payload interiors and exact encoded logical fold, captured before freeze.
     attributes:

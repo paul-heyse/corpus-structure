@@ -8,6 +8,7 @@ from hashlib import sha256
 from pathlib import Path
 
 from corpus_structure.caches import declare
+from corpus_structure.ingest._pdf_producer_profiles import DEMAND_LOWERING, STANDARD_LOWERING
 from corpus_structure.model.compiled import model_projection
 
 from .determinants import determinant_version
@@ -160,9 +161,7 @@ def _prepared_lowering_sources(
         "pdf-domain/" + LOWERING_CONTRACT,
         canonical_bytes(
             {
-                "profile": "pdf-record-lowering-contract-v2"
-                if standard_producer is None
-                else "pdf-record-lowering-contract-v3",
+                "profile": DEMAND_LOWERING if standard_producer is None else STANDARD_LOWERING,
                 "compiler_policy": SEMANTIC_COMPILER_VERSION,
                 "code_identity": {
                     **(
@@ -297,7 +296,7 @@ def require_lowering_identity(context) -> str:
     ):
         raise ValueError("PDF runtime metadata differs from the lowering basis; restart required")
     standard_producer = None
-    if json.loads(retained.content)["profile"] == "pdf-record-lowering-contract-v3":
+    if json.loads(retained.content)["profile"] == STANDARD_LOWERING:
         from corpus_structure.ingest.pdf_producer_contract import standard_pdf_contract
 
         standard_producer = standard_pdf_contract()
