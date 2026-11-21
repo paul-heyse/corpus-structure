@@ -188,7 +188,7 @@ def test_reconciliation_companions_use_current_prepared_set_bytes(native_source,
     import pyarrow as pa
 
     from corpus_structure.semantic.pdf_certification import write_pdf_companion_sets
-    from corpus_structure.semantic.pdf_publication import PdfCompanionEncodingBasis
+    from corpus_structure.semantic.pdf_companion_encoding import PdfCompanionEncodingBasis
 
     document = DoclingDocument.model_validate(native_source.payload["document"])
     with reconcile_pdf_stream(

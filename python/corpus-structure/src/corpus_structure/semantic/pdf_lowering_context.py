@@ -123,7 +123,7 @@ def capture_pdf_lowering(context) -> CapturedPdfLowering:
     """Project already archived schemas and staging policy, without rebuilding metadata."""
     import yaml
 
-    from .pdf_publication import COMPANION_STAGE_TARGETS
+    from .pdf_companion_encoding import COMPANION_STAGE_TARGETS
     from .pdf_records import prepare_native_schema_mapping
     from .pdf_staging import UPLOAD_STAGE_FAMILIES
 

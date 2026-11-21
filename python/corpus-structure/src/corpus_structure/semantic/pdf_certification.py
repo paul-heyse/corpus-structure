@@ -406,13 +406,13 @@ def write_pdf_companion_sets(
     from corpus_structure.ingest.pdf_stream_types import PdfPreparedCompanionSet
     from corpus_structure.ingest.pdf_streaming import _ref
 
-    from .pdf_payloads import EncodedPagePayload
-    from .pdf_publication import (
+    from .pdf_companion_encoding import (
         COMPANION_BATCH_BYTES,
         COMPANION_BATCH_ROWS,
         PdfCompanionRecord,
         prepare_pdf_companion_batches,
     )
+    from .pdf_payloads import EncodedPagePayload
 
     root.mkdir(parents=True, exist_ok=False)
     sets = []
@@ -489,7 +489,7 @@ def certify_native_stream(streamed, request, replays, *, on_replay):
     from corpus_structure.ingest.pdf_record_product import native_occurrence_rows
     from corpus_structure.ingest.pdf_streaming import _atomic_bytes, _ref
 
-    from .pdf_publication import PdfCompanionEncodingBasis
+    from .pdf_companion_encoding import PdfCompanionEncodingBasis
 
     contract = json.loads(request.validation_contract)
     lowering = CapturedPdfLowering.from_document(contract.get("lowering"))

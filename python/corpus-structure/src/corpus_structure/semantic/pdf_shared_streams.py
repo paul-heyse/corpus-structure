@@ -103,7 +103,7 @@ def pdf_stage_scratch_specs(model: MetaData) -> tuple[PdfScratchSpec, ...]:
 
 
 def pdf_companion_scratch_specs(model: MetaData) -> tuple[PdfScratchSpec, ...]:
-    from .pdf_publication import COMPANION_STAGE_TARGETS
+    from .pdf_companion_encoding import COMPANION_STAGE_TARGETS
 
     return tuple(
         PdfScratchSpec(

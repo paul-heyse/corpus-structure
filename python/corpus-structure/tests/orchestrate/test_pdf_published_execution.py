@@ -12,7 +12,7 @@ from sqlalchemy import Connection, Engine
 
 from corpus_structure.core.method import PdfRecordPublicationDraft
 from corpus_structure.orchestrate.pdf_streaming import publish_pdf_record_draft
-from corpus_structure.semantic.pdf_publication import (
+from corpus_structure.semantic.pdf_companion_encoding import (
     COMPANION_BATCH_BYTES,
     COMPANION_BATCH_ROWS,
     COMPANION_STAGE_TARGETS,

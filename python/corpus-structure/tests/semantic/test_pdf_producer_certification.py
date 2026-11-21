@@ -13,11 +13,11 @@ from corpus_structure.semantic.pdf_certification import (
     jsonb_canonical_text,
     write_pdf_companion_sets,
 )
+from corpus_structure.semantic.pdf_companion_encoding import PdfCompanionEncodingBasis
 from corpus_structure.semantic.pdf_contracts import trusted_pdf_context
 from corpus_structure.semantic.pdf_lowering import LOWERING_CONTRACT, require_lowering_identity
 from corpus_structure.semantic.pdf_payload_validation import metadata_classes
 from corpus_structure.semantic.pdf_payloads import prepare_payload_family
-from corpus_structure.semantic.pdf_publication import PdfCompanionEncodingBasis
 from corpus_structure.semantic.pdf_records import native_schema_bytes
 
 

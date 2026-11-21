@@ -5,7 +5,12 @@ from typing import Any, cast
 
 import pyarrow as pa
 
-from corpus_structure.semantic import arrow_transfer, pdf_payloads, pdf_publication
+from corpus_structure.semantic import (
+    arrow_transfer,
+    pdf_companion_encoding,
+    pdf_payloads,
+    pdf_publication,
+)
 
 
 def setup_transfer(monkeypatch):
@@ -43,7 +48,7 @@ def setup_transfer(monkeypatch):
 def test_many_field_parts_copy_in_bounded_units_then_adopt_once(monkeypatch):
     build, events, copies = setup_transfer(monkeypatch)
     batches = []
-    pdf_publication.prepare_pdf_companion_batches(
+    pdf_companion_encoding.prepare_pdf_companion_batches(
         build,
         "native_metadata",
         [
@@ -73,7 +78,7 @@ def test_prepared_encoded_payload_retains_exact_bytes_across_adoptions(monkeypat
     encoded = pdf_payloads.EncodedPagePayload(b"original-ipc", "a" * 64, "b" * 64, 1)
     for _ in range(2):
         batches = []
-        pdf_publication.prepare_pdf_companion_batches(
+        pdf_companion_encoding.prepare_pdf_companion_batches(
             build,
             "native_metadata",
             [

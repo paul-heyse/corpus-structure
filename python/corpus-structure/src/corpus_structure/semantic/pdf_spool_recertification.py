@@ -23,7 +23,7 @@ def rebind_pdf_recovery_reply(
     reply, root: Path, *, original_build, original_release, build, on_replay, check_active
 ):
     """Project declared transport columns; preserve original typed output values."""
-    from .pdf_publication import COMPANION_STAGE_TARGETS
+    from .pdf_companion_encoding import COMPANION_STAGE_TARGETS
     from .pdf_record_model import record_arrow_schema
     from .pdf_staging import stage_schema
 

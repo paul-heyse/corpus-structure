@@ -81,8 +81,8 @@ def _prepared_lowering_sources(boundary_sources, include_producer, native_schema
 
     from corpus_structure.schema.physical import compile_physical
 
+    from .pdf_companion_encoding import COMPANION_STAGE_TARGETS
     from .pdf_payloads import FAMILY, prepare_payload_schema, schema_dump
-    from .pdf_publication import COMPANION_STAGE_TARGETS
     from .pdf_record_model import record_arrow_schema
     from .pdf_staging import UPLOAD_STAGE_FAMILIES
     from .prepare import prepare_release

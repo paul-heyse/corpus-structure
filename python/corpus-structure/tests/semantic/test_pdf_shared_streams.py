@@ -457,7 +457,7 @@ def test_pending_reclaim_does_not_race_a_locked_original_append_fence(
 def test_replay_and_companion_producers_emit_descriptors_before_complete_parts(tmp_path):
     from corpus_structure.ingest.pdf_stream_types import PdfReplayRef
     from corpus_structure.ingest.pdf_streaming import iter_replay_artifact_batches
-    from corpus_structure.semantic.pdf_publication import (
+    from corpus_structure.semantic.pdf_companion_encoding import (
         PdfCompanionEncodingBasis,
         prepare_pdf_companion_batches,
     )

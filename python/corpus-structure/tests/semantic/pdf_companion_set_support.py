@@ -9,9 +9,9 @@ from corpus_structure.semantic.pdf_record_model import record_arrow_schema, reco
 
 def prepare_controlled_companions(connection, build, family, records, *, start_ordinal=0):
     """Materialize bounded test input using the production pre-adoption encoder."""
+    from corpus_structure.semantic.pdf_companion_encoding import prepare_pdf_companion_batches
     from corpus_structure.semantic.pdf_contracts import pdf_context_for_task
     from corpus_structure.semantic.pdf_payloads import prepare_payload_family
-    from corpus_structure.semantic.pdf_publication import prepare_pdf_companion_batches
 
     batches = []
     prepare_pdf_companion_batches(
