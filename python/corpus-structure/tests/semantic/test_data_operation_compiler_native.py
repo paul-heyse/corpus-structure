@@ -211,7 +211,9 @@ def test_current_native_compiler_lowers_exact_literal_archive_and_replays(native
     assert retained["binding_expression"] == {"operator": "scan", "roles": []}
     assert retained["quantified"] is False
     assert retained["dependencies"] == {"required": [], "potential": []}
-    assert retained["validity_family"] is None and retained["command_class"] is None
+    assert retained["validity_families"] == []
+    assert retained["validity_conservative"] is False
+    assert retained["command_class"] is None
     assert (
         connection.scalar(
             text(
