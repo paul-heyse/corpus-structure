@@ -350,7 +350,7 @@ class EventFramePlan:
                     expected_cut=selection.cut_id,
                     capture_frontier=True,
                     use_ids={row.selection.use_id for row in question.judgments}
-                    if selection == prediction_selection
+                    if selection == prediction_selection and selection != original_selection
                     else None,
                 ) as (_, index):
                     if selection == original_selection:
