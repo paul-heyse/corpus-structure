@@ -415,7 +415,7 @@ def run_private_native_pdf_build(
                     preparation = json.loads(replay.path.read_bytes())["_preparation"]
                     if (
                         preparation.get("profile") != "pdf-prepared-native-runtime-v3"
-                        or preparation.get("selected_producer") != selected_producer.digest
+                        or preparation.get("producer_contract") != selected_producer.digest
                     ):
                         raise ValueError(
                             "PDF child preparation differs from parent selected producer"
