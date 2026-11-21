@@ -728,7 +728,8 @@ def publish_pdf_record_draft(
     validation_contract = {
         "lowering": captured_lowering.document(),
         "schemas": {
-            kind: context.boundary.json_schema(cls) for kind, cls in metadata_classes(context.staging.content).items()
+            kind: context.boundary.json_schema(cls)
+            for kind, cls in metadata_classes(context.staging.content).items()
         },
         "publication_kind": draft.kind,
         "integrated_metadata_policy": integrated_metadata_policy(context)

@@ -364,7 +364,9 @@ class EventFramePlan:
                     read_id=selection.read_id,
                     expected_cut=selection.cut_id,
                     capture_frontier=True,
-                    obligation_ids=prediction_obligations if selection == prediction_selection else None,
+                    obligation_ids=prediction_obligations
+                    if selection == prediction_selection
+                    else None,
                 ) as (_, index):
                     if selection == original_selection:
                         for member, body in zip(

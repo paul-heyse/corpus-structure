@@ -68,7 +68,8 @@ def prepare_pdf_producer_contract(
     contract = {
         "lowering": capture_pdf_lowering(context).document(),
         "schemas": {
-            key: context.boundary.json_schema(cls) for key, cls in metadata_classes(context.staging.content).items()
+            key: context.boundary.json_schema(cls)
+            for key, cls in metadata_classes(context.staging.content).items()
         },
         "publication_kind": kind,
         "schema_digest": context.native_schema_digest,
@@ -164,7 +165,9 @@ class PdfProducerPayloads(FrozenPayloadStore):
             replay.verify()
             with pa.memory_map(str(replay.path), "r") as source:
                 reader = pa.ipc.open_file(source)
-                if not reader.schema.equals(self.lowering.schema("stage:" + replay.family), check_metadata=True):
+                if not reader.schema.equals(
+                    self.lowering.schema("stage:" + replay.family), check_metadata=True
+                ):
                     raise ValueError("producer native record replay schema differs")
                 for index in range(reader.num_record_batches):
                     self.add_batch(replay.family, reader.get_batch(index))

@@ -565,7 +565,9 @@ class StreamingPdfResult:
                 output.write(json.dumps({"kind": "formula", **asdict(outcome)}) + "\n")
             output.flush()
             os.fsync(output.fileno())
-        scalar("native/completion", lowering.artifact_profile("native_completion"), file_chunks(health))
+        scalar(
+            "native/completion", lowering.artifact_profile("native_completion"), file_chunks(health)
+        )
         scalar("native/recipe", lowering.artifact_profile("native_recipe"), iter((self.recipe,)))
         scalar(
             "native/prepared-runtime",

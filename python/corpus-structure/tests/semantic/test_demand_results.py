@@ -1066,14 +1066,19 @@ def test_selected_record_index_seeds_only_explicit_obligations_under_the_same_cu
     monkeypatch.setattr(owner, "read_demand_result", read)
     monkeypatch.setattr(owner, "stream_selected_support", witness)
     with owner.selected_record_index(
-        None, "demand:A", project_id="project:A", scope={},
-        read_id="read:A", expected_cut=expected_cut.identity,
+        None,
+        "demand:A",
+        project_id="project:A",
+        scope={},
+        read_id="read:A",
+        expected_cut=expected_cut.identity,
         obligation_ids=("obligation:A", "obligation:B", "obligation:A"),
         capture_frontier=True,
     ) as (cut, index):
         assert cut.content == expected_cut.content
         assert {row["use_id"] for row in index.frontier_rows("uses")} == {
-            "use:obligation:A", "use:obligation:B"
+            "use:obligation:A",
+            "use:obligation:B",
         }
     assert observed == ["obligation:A", "obligation:B"]
     assert support == [("obligation:A", False), ("obligation:B", False)]
@@ -1124,8 +1129,12 @@ def test_selected_record_index_retains_support_from_every_selected_frontier_page
     monkeypatch.setattr(owner, "read_demand_result", read)
     monkeypatch.setattr(owner, "stream_selected_support", support)
     with owner.selected_record_index(
-        None, "demand:A", project_id="project:A", scope={},
-        read_id="read:A", expected_cut=expected_cut.identity,
+        None,
+        "demand:A",
+        project_id="project:A",
+        scope={},
+        read_id="read:A",
+        expected_cut=expected_cut.identity,
         obligation_ids=("obligation:A",),
     ) as (cut, index):
         assert cut.content == expected_cut.content

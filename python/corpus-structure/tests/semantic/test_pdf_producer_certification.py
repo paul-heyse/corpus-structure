@@ -40,7 +40,8 @@ def prepared(tmp_path, *, candidate=None):
     contract = {
         "lowering": capture_pdf_lowering(context).document(),
         "schemas": {
-            kind: context.boundary.json_schema(cls) for kind, cls in metadata_classes(context.staging.content).items()
+            kind: context.boundary.json_schema(cls)
+            for kind, cls in metadata_classes(context.staging.content).items()
         },
         "publication_kind": "native",
         "integrated_metadata_policy": None,

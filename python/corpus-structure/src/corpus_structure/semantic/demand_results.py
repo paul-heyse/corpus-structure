@@ -365,7 +365,9 @@ def selected_record_index(
     ):
         raise ValueError("selected record bound must be a nonnegative integer")
     selected = (None,) if obligation_ids is None else tuple(dict.fromkeys(obligation_ids))
-    if not selected or any(value is not None and (not isinstance(value, str) or not value) for value in selected):
+    if not selected or any(
+        value is not None and (not isinstance(value, str) or not value) for value in selected
+    ):
         raise ValueError("selected record acquisition requires nonempty obligation identities")
     if obligation_ids is not None and (read_id is None or expected_cut is None):
         raise ValueError("selected obligations require an authenticated pinned cut")
@@ -377,7 +379,9 @@ def selected_record_index(
                 continuation = (
                     None
                     if read_id is None
-                    else dict(demand_id=demand_id, read_id=read_id, scope=dict(scope), view="frontier")
+                    else dict(
+                        demand_id=demand_id, read_id=read_id, scope=dict(scope), view="frontier"
+                    )
                 )
                 if obligation_id is not None:
                     assert continuation is not None
@@ -396,7 +400,9 @@ def selected_record_index(
                     )
                     cut = page.cut
                     if expected_cut is not None and cut.identity != expected_cut:
-                        raise ValueError("selected resource belongs to another cut/trust assessment")
+                        raise ValueError(
+                            "selected resource belongs to another cut/trust assessment"
+                        )
                     if capture_frontier:
                         index.append_page(page.record)
                     if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
@@ -415,11 +421,17 @@ def selected_record_index(
                             connection, page, whole_read=obligation_ids is None
                         ):
                             index.append(json_bytes(record), allow_equal=True)
-                            if max_total_records is not None and index.retained_records > max_total_records:
+                            if (
+                                max_total_records is not None
+                                and index.retained_records > max_total_records
+                            ):
                                 raise SelectedGraphBudgetExceeded(
                                     "selected graph examined closure exceeds record bound", cut=cut
                                 )
-                            if max_total_bytes is not None and index.retained_bytes > max_total_bytes:
+                            if (
+                                max_total_bytes is not None
+                                and index.retained_bytes > max_total_bytes
+                            ):
                                 raise SelectedGraphBudgetExceeded(
                                     "selected graph examined closure exceeds byte bound", cut=cut
                                 )

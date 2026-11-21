@@ -1165,7 +1165,8 @@ def write_pdf_oracle_capture(
 
         contract = {
             "schemas": {
-                key: context.boundary.json_schema(cls) for key, cls in metadata_classes(context.staging.content).items()
+                key: context.boundary.json_schema(cls)
+                for key, cls in metadata_classes(context.staging.content).items()
             },
             "publication_kind": kind,
             "integrated_metadata_policy": integrated_metadata_policy(context)
