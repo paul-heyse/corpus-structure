@@ -439,6 +439,7 @@ def selected_record_index(
                         break
                     if obligation_id is not None:
                         continuation = {**continuation, "obligation_id": obligation_id}
+            assert cut is not None
             yield cut, index
         finally:
             index.close()
