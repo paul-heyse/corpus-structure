@@ -718,7 +718,14 @@ def _binding_programs(model):
     )
     rows = (
         func.ops.ddo_binding_rows(
-            p_demand, p_operation, trust, p_read, p_subject, source, scope, True,
+            p_demand,
+            p_operation,
+            trust,
+            p_read,
+            p_subject,
+            source,
+            scope,
+            True,
             core_variable("p_selected", JSONB()),
         )
         .table_valued(*binding_columns())

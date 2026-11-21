@@ -30,8 +30,9 @@ def test_ambient_protocol_is_prepared_once_while_results_remain_detached(monkeyp
     from corpus_structure.caches import clear
     from corpus_structure.model.compiled import model_request_scope
     from corpus_structure.semantic import data_operation_wire as wire
+    from corpus_structure.semantic import native_protocol_model
 
-    prepare = wire._prepare_protocol_content
+    prepare = native_protocol_model._prepare_protocol_content
     preparations = []
 
     def observed(sources):
@@ -40,7 +41,7 @@ def test_ambient_protocol_is_prepared_once_while_results_remain_detached(monkeyp
 
     clear("model_entries")
     with model_request_scope():
-        monkeypatch.setattr(wire, "_prepare_protocol_content", observed)
+        monkeypatch.setattr(native_protocol_model, "_prepare_protocol_content", observed)
         first = wire.wire_contracts()
         first["claim_data_requests"]["input"].clear()
         assert wire.wire_role_kind("claim_data_requests", "input").endswith(
@@ -137,8 +138,8 @@ def test_prepared_schema_resources_are_captured_and_participate_in_cache_identit
 
 
 def test_native_pydantic_generator_retains_tuple_elements_and_literal_payloads():
-    from pydantic import TypeAdapter
     from jsonschema import Draft7Validator, ValidationError
+    from pydantic import TypeAdapter
 
     from corpus_structure.semantic.data_operation_wire import NativeJsonSchema
 

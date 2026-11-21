@@ -33,14 +33,14 @@ from .native_host import (
 from .native_profiles import NativeSelection, pm2_selection
 from .pm2_worker import Pm2WorkerError, Pm2WorkerRefused
 
-
 _ReceiptText = Annotated[str, Field(min_length=1)]
+
 
 @dataclass(frozen=True)
 class LogicalProviderMember:
     """Exact producing attempt and contiguous ordered native-input membership."""
-    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
     request_id: _ReceiptText
     generation: int
@@ -55,8 +55,8 @@ class LogicalProviderMember:
 @dataclass(frozen=True)
 class ProviderExecutionReceipt:
     """Immutable original-work/cohort scatter and physical exchange correspondence."""
-    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
     correlation: _ReceiptText
     cohort_digest: _ReceiptText

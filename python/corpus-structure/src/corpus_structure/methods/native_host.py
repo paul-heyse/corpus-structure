@@ -76,11 +76,12 @@ def payload_digest(payload) -> str:
 
 _ReceiptText = Annotated[str, Field(min_length=1)]
 
+
 @dataclass(frozen=True)
 class NativeExecutionReceipt:
     """Matched private-host response custody, separate from semantic request identity."""
-    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
     host_generation: _ReceiptText
     request_id: _ReceiptText

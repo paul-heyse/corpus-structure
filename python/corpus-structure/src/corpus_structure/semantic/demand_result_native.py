@@ -303,12 +303,18 @@ def _read_demand_result(model, *, context_only=False):
                 (
                     Return(
                         func.jsonb_build_object(
-                            "demand_id", demand_id,
-                            "selection", read_selection(),
-                            "trust_snapshot", snapshot,
-                            "read_id", pinned("id"),
-                            "read_snapshot", pinned("read_snapshot"),
-                            "frontier_at", pinned("frontier_at"),
+                            "demand_id",
+                            demand_id,
+                            "selection",
+                            read_selection(),
+                            "trust_snapshot",
+                            snapshot,
+                            "read_id",
+                            pinned("id"),
+                            "read_snapshot",
+                            pinned("read_snapshot"),
+                            "frontier_at",
+                            pinned("frontier_at"),
                         )
                     ),
                 )

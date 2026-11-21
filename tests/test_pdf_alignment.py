@@ -101,9 +101,7 @@ def test_retained_comma_gap_preserves_punctuation_and_qualifies_native_word_orde
         cells=words,
         parsed_page=SimpleNamespace(word_cells=words, has_words=True, has_chars=False),
     )
-    legacy = capture_candidates(source, centroid_order=False)
     current = capture_candidates(source)
-    assert legacy.candidates[0].after == "often called"
     assert current.candidates[0].after == ", often"
     found = positioned_inline_candidates(document, (current,), frozenset({item.self_ref}))
     assert not found.reports

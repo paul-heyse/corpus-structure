@@ -671,9 +671,9 @@ def test_rich_consumes_exact_sealed_policy_authority_without_reentering_issuance
     )
     assert (
         parse_sql("SELECT " + producing)[0].stmt
-        == parse_sql(
-            "SELECT ops.ddo_rich_producing_request(r,reference,'policy_authorizations')"
-        )[0].stmt
+        == parse_sql("SELECT ops.ddo_rich_producing_request(r,reference,'policy_authorizations')")[
+            0
+        ].stmt
     )
     public_kind = condition_before("rich policy is not the actual public authorization contract")
     assert (

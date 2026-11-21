@@ -344,7 +344,8 @@ def _rich_input_programs(p):
                 .select_from(definitions.join(consumer_roles, literal(True)))
                 .where(
                     definitions.c.release_id == p.row("consumer", "ops.data_request", "release_id"),
-                    definitions.c.operation_id == p.row("consumer", "ops.data_request", "operation_id"),
+                    definitions.c.operation_id
+                    == p.row("consumer", "ops.data_request", "operation_id"),
                     consumer_roles.c.value["name"].astext == _value("role", Text()),
                 ),
                 ("requirement",),
@@ -1247,9 +1248,11 @@ def _rich_admission_program(p):
                 ),
                 "rich admission changes actual rule eligibility or its checked policy basis",
             ),
-            Perform(func.ops.ddo_rich_require_proposal_inputs(
-                p.row("consolidation_request", "ops.data_request"), consolidation_basis
-            )),
+            Perform(
+                func.ops.ddo_rich_require_proposal_inputs(
+                    p.row("consolidation_request", "ops.data_request"), consolidation_basis
+                )
+            ),
             ForQuery(
                 ("selected",),
                 select(bound.c.value).where(bound.c.value["role"].astext == "known_universe"),
@@ -1364,7 +1367,9 @@ def _rich_admission_program(p):
                     Assign(
                         "authorization_request",
                         func.ops.ddo_rich_producing_request(
-                            request, reference, "policy_authorizations",
+                            request,
+                            reference,
+                            "policy_authorizations",
                         ),
                     ),
                     _reject(
@@ -1406,11 +1411,7 @@ def _rich_admission_program(p):
                 select(bound.c.value).where(bound.c.value["role"].astext == "records"),
                 (
                     Assign("reference", _selected_reference(selected)),
-                    Perform(
-                        func.ops.ddo_rich_producing_request(
-                            request, reference, "records"
-                        )
-                    ),
+                    Perform(func.ops.ddo_rich_producing_request(request, reference, "records")),
                     SelectInto(
                         select(func.ops.ddo_digest(products.c.canonical_body)).where(
                             products.c.id == selected["product_id"].astext,
@@ -1436,9 +1437,7 @@ def _rich_admission_program(p):
                     Assign("reference", _selected_reference(selected)),
                     Assign(
                         "resolution_request",
-                        func.ops.ddo_rich_producing_request(
-                            request, reference, "readings"
-                        ),
+                        func.ops.ddo_rich_producing_request(request, reference, "readings"),
                     ),
                     Assign(
                         "resolution_basis",

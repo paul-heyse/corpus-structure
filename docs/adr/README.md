@@ -96,6 +96,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0139](0139-compatible-pdf-checkpoint-custody.md) | Adopt compatible PDF checkpoints with original contributor custody | 2026-11-18 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0127, ADR-0099 |
 | [ADR-0140](0140-durable-recovery-and-exact-stop.md) | Recover acknowledged work and stop an exact managed invocation | 2026-11-18 | [§B1](../design/DESIGN.md#section-b1), [§B2](../design/DESIGN.md#section-b2), [§B4](../design/DESIGN.md#section-b4) | Proposed |  |
 | [ADR-0141](0141-serving-continuation-and-reuse.md) | Separate continuation compatibility from cache reuse | 2026-11-20 | [§B3](../design/DESIGN.md#section-b3) | Proposed | [ADR-0137](0137-serving-code-and-model-custody.md) |
+| [ADR-0142](0142-structured-selected-result-delivery.md) | Deliver selected results as bounded structured JSON | 2026-11-20 | [§B3](../design/DESIGN.md#section-b3) | Proposed |  |
 
 ## Superseded, still in the tree
 

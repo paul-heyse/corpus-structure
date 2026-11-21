@@ -112,7 +112,9 @@ def compile_nominal_parameters(parameters, *, schema, definitions, vocabularies,
     }
     for name, definition in nominal.items():
         kind = kinds[definition["kind"]]
-        wrapper = adapters[wrappers[name]].json_schema(schema_generator=NativeJsonSchema, mode="validation")
+        wrapper = adapters[wrappers[name]].json_schema(
+            schema_generator=NativeJsonSchema, mode="validation"
+        )
         body = {
             "$schema": "http://json-schema.org/draft-07/schema#",
             **({"definitions": wrapper["definitions"]} if "definitions" in wrapper else {}),

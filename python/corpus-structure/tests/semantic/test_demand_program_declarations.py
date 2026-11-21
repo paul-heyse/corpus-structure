@@ -132,9 +132,7 @@ def test_context_acquisition_authenticates_read_without_constructing_frontier(mo
     def refuse_frontier(*args, **kwargs):
         raise AssertionError("compact context acquisition constructed a result page")
 
-    monkeypatch.setattr(
-        "corpus_structure.semantic.demand_result_native.read_page", refuse_frontier
-    )
+    monkeypatch.setattr("corpus_structure.semantic.demand_result_native.read_page", refuse_frontier)
     routine = _read_demand_result(get_metadata(), context_only=True)
     sql = routine.render()
     assert routine.name == "acquire_data_read_context"

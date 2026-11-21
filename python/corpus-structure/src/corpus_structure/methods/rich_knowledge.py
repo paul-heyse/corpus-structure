@@ -24,7 +24,12 @@ class RichKnowledgeConsolidation:
         "roles": [
             {
                 "name": "proposals",
-                "producer_requirement": {'output_role': 'result', 'requires_cpu': True, 'required_effect': None, 'required_family': 'rich'},
+                "producer_requirement": {
+                    "output_role": "result",
+                    "requires_cpu": True,
+                    "required_effect": None,
+                    "required_family": "rich",
+                },
                 "parameter": "proposals",
                 "direction": "input",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoLocatedExternalExtraction",
@@ -46,7 +51,12 @@ class RichKnowledgeConsolidation:
             },
             {
                 "name": "proposal_contexts",
-                "producer_requirement": {'output_role': 'result', 'requires_cpu': True, 'required_effect': None, 'required_family': 'rich'},
+                "producer_requirement": {
+                    "output_role": "result",
+                    "requires_cpu": True,
+                    "required_effect": None,
+                    "required_family": "rich",
+                },
                 "parameter": "proposal_contexts",
                 "direction": "input",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-external-extraction/DdoExternalExtractionPacket",
@@ -90,7 +100,12 @@ class RichKnowledgeConsolidation:
             },
             {
                 "name": "records",
-                "producer_requirement": {'output_role': None, 'requires_cpu': True, 'required_effect': None, 'required_family': 'none'},
+                "producer_requirement": {
+                    "output_role": None,
+                    "requires_cpu": True,
+                    "required_effect": None,
+                    "required_family": "none",
+                },
                 "parameter": "records",
                 "direction": "input",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport",
@@ -112,7 +127,12 @@ class RichKnowledgeConsolidation:
             },
             {
                 "name": "readings",
-                "producer_requirement": {'output_role': 'result', 'requires_cpu': True, 'required_effect': None, 'required_family': 'none'},
+                "producer_requirement": {
+                    "output_role": "result",
+                    "requires_cpu": True,
+                    "required_effect": None,
+                    "required_family": "none",
+                },
                 "parameter": "readings",
                 "direction": "input",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport",
@@ -134,7 +154,12 @@ class RichKnowledgeConsolidation:
             },
             {
                 "name": "known_universe",
-                "producer_requirement": {'output_role': 'admission', 'requires_cpu': False, 'required_effect': 'native-rich-knowledge-admission', 'required_family': 'rich'},
+                "producer_requirement": {
+                    "output_role": "admission",
+                    "requires_cpu": False,
+                    "required_effect": "native-rich-knowledge-admission",
+                    "required_family": "rich",
+                },
                 "parameter": "known_universe",
                 "direction": "input",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichAdmission",
@@ -297,7 +322,12 @@ class RichKnowledgeAdmission:
         "roles": [
             {
                 "name": "consolidation",
-                "producer_requirement": {'output_role': 'consolidated', 'requires_cpu': True, 'required_effect': None, 'required_family': 'rich'},
+                "producer_requirement": {
+                    "output_role": "consolidated",
+                    "requires_cpu": True,
+                    "required_effect": None,
+                    "required_family": "rich",
+                },
                 "parameter": "consolidation",
                 "direction": "input",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-rich-knowledge/DdoRichConsolidation",
@@ -317,7 +347,12 @@ class RichKnowledgeAdmission:
             },
             {
                 "name": "records",
-                "producer_requirement": {'output_role': None, 'requires_cpu': True, 'required_effect': None, 'required_family': 'none'},
+                "producer_requirement": {
+                    "output_role": None,
+                    "requires_cpu": True,
+                    "required_effect": None,
+                    "required_family": "none",
+                },
                 "parameter": "records",
                 "direction": "input",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-candidate-inspection/DdoCandidateInspectionReport",
@@ -339,7 +374,12 @@ class RichKnowledgeAdmission:
             },
             {
                 "name": "readings",
-                "producer_requirement": {'output_role': 'result', 'requires_cpu': True, 'required_effect': None, 'required_family': 'none'},
+                "producer_requirement": {
+                    "output_role": "result",
+                    "requires_cpu": True,
+                    "required_effect": None,
+                    "required_family": "none",
+                },
                 "parameter": "readings",
                 "direction": "input",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-reading-resolution/DdoResolvedReadingReport",
@@ -361,7 +401,12 @@ class RichKnowledgeAdmission:
             },
             {
                 "name": "policy_authorizations",
-                "producer_requirement": {'output_role': 'authorization', 'requires_cpu': False, 'required_effect': 'native-evaluator-policy-authorization', 'required_family': 'none'},
+                "producer_requirement": {
+                    "output_role": "authorization",
+                    "requires_cpu": False,
+                    "required_effect": "native-evaluator-policy-authorization",
+                    "required_family": "none",
+                },
                 "parameter": "policy_authorizations",
                 "direction": "input",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-record-policy/DdoRecordPolicyAuthorization",

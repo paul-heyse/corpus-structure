@@ -435,9 +435,8 @@ def verify_detached_result(
     Export verification authenticates the captured contracts/runtime and trusted
     manifest first. A page alone establishes neither authenticity nor current trust.
     """
-    from .schema_validation import prepared_schema_validator
-
     from .data_operation_wire import validate_native_wire, validate_wire_schema
+    from .schema_validation import prepared_schema_validator
 
     admitted = (
         validate_native_wire("read_demand_result", "output", dict(record))
@@ -506,7 +505,9 @@ def verify_detached_result(
                     raise ValueError(
                         "detached canonical container member is missing from its support closure"
                     )
-        prepared_schema_validator(json_bytes(kind["meaning_schema"])).validate(product["canonical_body"])
+        prepared_schema_validator(json_bytes(kind["meaning_schema"])).validate(
+            product["canonical_body"]
+        )
         prepared_schema_validator(json_bytes(kind["body_schema"])).validate(decoded)
         body = body_identity(decoded).key
         context = SubjectContext(

@@ -1538,7 +1538,10 @@ def _preview(
         store = result_store(ctx)
         root = checkout(ctx)
         with managed_operation(
-            store, "model.preview", json=json_, expected=expected,
+            store,
+            "model.preview",
+            json=json_,
+            expected=expected,
             scope={"source_preview": request} if capture_after_apply else None,
         ) as result:
             model_stage(result, "resolve request")
@@ -1647,17 +1650,23 @@ def _preview(
                     or authoring_identity != source_stage.authoring_identity
                     or (
                         native_base.model_dump(exclude={"execution_context"})
-                        if native_base is not None else None
-                    ) != (
+                        if native_base is not None
+                        else None
+                    )
+                    != (
                         source_stage.native_base.model_dump(exclude={"execution_context"})
-                        if source_stage.native_base is not None else None
+                        if source_stage.native_base is not None
+                        else None
                     )
                     or (
                         deployment_base.model_dump(exclude={"execution_context"})
-                        if deployment_base is not None else None
-                    ) != (
+                        if deployment_base is not None
+                        else None
+                    )
+                    != (
                         source_stage.deployment_base.model_dump(exclude={"execution_context"})
-                        if source_stage.deployment_base is not None else None
+                        if source_stage.deployment_base is not None
+                        else None
                     )
                 ):
                     raise ModelError(["applied source capture target or predecessor changed"])

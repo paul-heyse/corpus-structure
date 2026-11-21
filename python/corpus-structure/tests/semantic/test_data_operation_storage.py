@@ -1465,7 +1465,12 @@ def test_frontier_view_defers_bodies_and_same_receipt_can_read_products(ddo_kern
         assert compact == {
             name: frontier[name]
             for name in (
-                "demand_id", "selection", "trust_snapshot", "read_id", "read_snapshot", "frontier_at"
+                "demand_id",
+                "selection",
+                "trust_snapshot",
+                "read_id",
+                "read_snapshot",
+                "frontier_at",
             )
         }
         product = frontier["uses"][0]["products"][0]

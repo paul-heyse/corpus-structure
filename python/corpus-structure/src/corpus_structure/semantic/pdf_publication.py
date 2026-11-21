@@ -54,6 +54,7 @@ class _PdfFrozenScope(TypedDict):
 
 _ReceiptText = Annotated[str, Field(min_length=1)]
 
+
 @dataclass(frozen=True, slots=True)
 class PdfCompanionRecord(Mapping[str, Any]):
     """Decoded producer row with its already encoded UTF-8 byte length."""
@@ -144,8 +145,8 @@ class PdfPublicationCertification:
 @dataclass(frozen=True, slots=True)
 class PdfExecutionReceipt:
     """Actual sealed publisher, distinct from a later completion's admitting claim."""
-    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
+    __pydantic_config__: ClassVar[ConfigDict] = ConfigDict(extra="forbid", strict=True)
 
     publication: PublishedPdfDocumentRef
     publisher_attempt: int

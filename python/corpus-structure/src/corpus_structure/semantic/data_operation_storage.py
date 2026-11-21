@@ -54,11 +54,13 @@ class DataOperationStorage(DataOperationCalls):
         """Authenticate the exact read without constructing an output frontier."""
         acquired = self.connection.scalar(
             select(func.ops.acquire_data_read_context(bindparam("read_context", type_=JSONB))),
-            {"read_context": {
-                "demand_id": demand_id,
-                "trust_snapshot": trust_snapshot,
-                "read_id": read_id,
-            }},
+            {
+                "read_context": {
+                    "demand_id": demand_id,
+                    "trust_snapshot": trust_snapshot,
+                    "read_id": read_id,
+                }
+            },
         )
         context = _READ_CONTEXT.validate_python(acquired, strict=True)
         if context["read_id"] != read_id or context["demand_id"] != demand_id:

@@ -25,8 +25,11 @@ def test_binding_statement_materializes_role_selections_and_decodes_context_only
         DataOperationStorage,
         "acquire_data_read_context",
         lambda *_args: dict(
-            read_id="read:controlled", trust_snapshot={}, selection={},
-            read_snapshot="1:2:", frontier_at="now"
+            read_id="read:controlled",
+            trust_snapshot={},
+            selection={},
+            read_snapshot="1:2:",
+            frontier_at="now",
         ),
     )
     projections = admitted_data_projection(

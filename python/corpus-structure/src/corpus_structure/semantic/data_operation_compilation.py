@@ -1263,11 +1263,13 @@ def compile_data_operations(
                 if family not in vocabulary("ValidityFamily").members:
                     _fail(semantic_id, "producer requirement names an undeclared validity family")
                 producer_requirement = ProducerRequirement(
-                    None if requirement.get("output_role") is None else
-                    _text(requirement["output_role"], semantic_id),
+                    None
+                    if requirement.get("output_role") is None
+                    else _text(requirement["output_role"], semantic_id),
                     requires_cpu,
-                    None if requirement.get("required_effect") is None else
-                    _text(requirement["required_effect"], semantic_id),
+                    None
+                    if requirement.get("required_effect") is None
+                    else _text(requirement["required_effect"], semantic_id),
                     family,
                 )
             roles.append(
@@ -2474,7 +2476,11 @@ def project_operation_binding(
     for name, role in input_roles.items():
         actual = bound_roles[name]
         requirement = role.producer_requirement
-        if actual.members and requirement is not None and requirement.required_family == "undetermined":
+        if (
+            actual.members
+            and requirement is not None
+            and requirement.required_family == "undetermined"
+        ):
             _fail(name, "consumer role has unresolved producer requirements")
         if actual.state not in {"present", "known-absent", "unavailable", "unknown"}:
             _fail(name, "unknown resolved role state")

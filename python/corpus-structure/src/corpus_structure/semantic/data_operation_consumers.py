@@ -154,9 +154,7 @@ def hydrate_consumer_selection(
         selected_pins=[
             {"product_id": product, "member_id": member}
             for product, member in dict.fromkeys(
-                (member.product, member.member)
-                for role in binding.roles
-                for member in role.members
+                (member.product, member.member) for role in binding.roles for member in role.members
             )
         ],
     )

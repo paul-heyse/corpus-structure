@@ -170,10 +170,7 @@ def capture_candidates(page: Any, ocr: dict[str, Any] | None = None) -> Candidat
                     for word, wb in nearby
                     if (
                         wb.r <= box.l
-                        or (
-                            wb.l <= box.l <= wb.r
-                            and (wb.l + wb.r) / 2 < (box.l + box.r) / 2
-                        )
+                        or (wb.l <= box.l <= wb.r and (wb.l + wb.r) / 2 < (box.l + box.r) / 2)
                     )
                 ],
                 key=lambda pair: pair[1].r,
@@ -184,10 +181,7 @@ def capture_candidates(page: Any, ocr: dict[str, Any] | None = None) -> Candidat
                     for word, wb in nearby
                     if (
                         wb.l >= box.r
-                        or (
-                            wb.l <= box.r <= wb.r
-                            and (wb.l + wb.r) / 2 > (box.l + box.r) / 2
-                        )
+                        or (wb.l <= box.r <= wb.r and (wb.l + wb.r) / 2 > (box.l + box.r) / 2)
                     )
                 ],
                 key=lambda pair: pair[1].l,

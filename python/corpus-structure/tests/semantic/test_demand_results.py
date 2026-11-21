@@ -263,8 +263,15 @@ def _detached_closure(
             dict(
                 kind_contract=kind_contract,
                 kind="urn:Amount",
-                meaning_schema={"$schema": "http://json-schema.org/draft-07/schema#", "type": "array"},
-                body_schema={"$schema": "http://json-schema.org/draft-07/schema#", "type": "object", "required": list(body)},
+                meaning_schema={
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "array",
+                },
+                body_schema={
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "required": list(body),
+                },
             ),
         ),
         (
@@ -513,8 +520,15 @@ def test_detached_container_requires_members_even_when_selected_as_whole_product
             relation="sem.data_kind_contract",
             record=dict(
                 kind_contract="kind:item",
-                meaning_schema={"$schema": "http://json-schema.org/draft-07/schema#", "type": "array"},
-                body_schema={"$schema": "http://json-schema.org/draft-07/schema#", "type": "object", "required": ["value"]},
+                meaning_schema={
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "array",
+                },
+                body_schema={
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "type": "object",
+                    "required": ["value"],
+                },
             ),
         ),
         dict(
@@ -774,7 +788,10 @@ def test_detached_protected_authority_has_explicit_bounded_custody():
         kind=AUTHORIZATION_KIND,
         universe="ordinary",
         meaning_schema={"$schema": "http://json-schema.org/draft-07/schema#", "type": "array"},
-        body_schema={"$schema": "https://json-schema.org/draft/2020-12/schema", **DdoRecordPolicyAuthorization.model_json_schema()},
+        body_schema={
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            **DdoRecordPolicyAuthorization.model_json_schema(),
+        },
     )
     effect = {
         **asdict(AUTHORIZATION_EFFECT),
