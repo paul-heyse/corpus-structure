@@ -234,6 +234,8 @@ def test_native_jsonb_preserves_fraction_and_context_key_meaning(native_rollback
         ('integer', ['integer', '-12\n'], False),
         ('decimal', ['decimal', '1.25e-3'], True),
         ('decimal', ['decimal', '1.25e-3\n'], False),
+        ('advisory-date', '2026-11-21', True),
+        ('advisory-date', 'not-a-date', True),
     ],
 )
 def test_declared_portable_patterns_match_native_at_true_input_end(native_rollback, kind, value, expected):
@@ -244,12 +246,21 @@ def test_declared_portable_patterns_match_native_at_true_input_end(native_rollba
     from sqlalchemy import JSON, func
 
     from corpus_structure.model.compiled import model_source
-    from corpus_structure.semantic.data_operation_wire import DRAFT7, schema_closure
+    from corpus_structure.semantic.data_operation_wire import (
+        DRAFT7,
+        generated_json_schema,
+        schema_closure,
+    )
     from corpus_structure.semantic.schema_validation import prepared_schema_validator
 
-    definitions = yaml.safe_load(model_source('data-operation-native.yaml'))['definitions']
-    name = 'pdf_search_digest' if kind == 'digest' else 'semantic_value'
-    schema = {'$schema': DRAFT7, **schema_closure({'$ref': '#/definitions/' + name}, definitions)}
+    if kind == 'advisory-date':
+        schema = generated_json_schema({'type': 'string', 'format': 'date'})
+        assert schema['x-ddo-format'] == 'date'
+        assert 'format' not in schema
+    else:
+        definitions = yaml.safe_load(model_source('data-operation-native.yaml'))['definitions']
+        name = 'pdf_search_digest' if kind == 'digest' else 'semantic_value'
+        schema = {'$schema': DRAFT7, **schema_closure({'$ref': '#/definitions/' + name}, definitions)}
     encoded = json.dumps(schema).encode()
     validator = prepared_schema_validator(encoded)
     if expected:

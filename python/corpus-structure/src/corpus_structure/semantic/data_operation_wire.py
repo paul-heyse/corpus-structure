@@ -418,6 +418,13 @@ def _generated_schema_node(schema):
     if not isinstance(schema, dict):
         return schema
     result = dict(schema)
+    if "format" in result:
+        annotation = result.pop("format")
+        if "x-ddo-format" in result and result["x-ddo-format"] != annotation:
+            raise ValueError("generated schema has conflicting format metadata")
+        # pg_jsonschema asserts Draft 7 format by default. This shared profile
+        # carries presentation metadata while typed domain owners enforce meaning.
+        result["x-ddo-format"] = annotation
     for key in ("properties", "patternProperties", "definitions", "$defs"):
         if key in result:
             result[key] = {

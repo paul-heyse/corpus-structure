@@ -1346,3 +1346,26 @@ def test_scoped_read_selection_has_explicit_private_intent_digest_contract():
             validate_native_wire(
                 "read_demand_result", "input", {**request, "selection": {**selection, field: {}}}
             )
+
+
+def test_generated_native_format_is_advisory_while_date_model_owns_domain_check():
+    from datetime import date
+
+    from pydantic import BaseModel, ValidationError
+
+    from corpus_structure.semantic.data_operation_wire import NativeJsonSchema, checked_json_schema
+    from corpus_structure.semantic.schema_validation import prepared_schema_validator
+
+    class DatedRecord(BaseModel):
+        observed: date
+
+    schema = DatedRecord.model_json_schema(schema_generator=NativeJsonSchema)
+    assert schema['properties']['observed']['x-ddo-format'] == 'date'
+    assert 'format' not in schema['properties']['observed']
+    assert DatedRecord.model_validate_json('{"observed":"2026-11-21"}').observed == date(2026, 11, 21)
+    with pytest.raises(ValidationError):
+        DatedRecord.model_validate_json('{"observed":"not-a-date"}')
+    # Native profile remains structural. The actual domain owner enforces dates.
+    prepared_schema_validator(json.dumps(schema).encode()).validate({'observed': 'not-a-date'})
+    authored = {'type': 'string', 'format': 'date'}
+    assert checked_json_schema(authored) == authored
