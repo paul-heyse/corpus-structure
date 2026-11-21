@@ -1009,7 +1009,9 @@ def native_operation_calls(
     nominals = wire_nominal_correspondence(sources)
     from .wire_json_policy import CONTEXTUAL_JSON_TYPE
 
-    ordinary_nominals = tuple((pointer, role) for pointer, role in nominals if role != CONTEXTUAL_JSON_TYPE)
+    ordinary_nominals = tuple(
+        (pointer, role) for pointer, role in nominals if role != CONTEXTUAL_JSON_TYPE
+    )
     resolved = OperationFieldType("json_payload", False, False)
     protocol = _protocol(sources)
     captured = {"data." + item["name"] for item in protocol}

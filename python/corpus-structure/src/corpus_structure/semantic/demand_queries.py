@@ -156,7 +156,9 @@ def _serve_demand_query(connection, request, implementation):
         with SELECTED_QUERY_CACHE.loading(key) as entry:
             if entry is None:
                 whole_request = dict(
-                    decode_wire_demand_request(page.request, demand_id=request.demand_id), view="products", read_id=native["read_id"]
+                    decode_wire_demand_request(page.request, demand_id=request.demand_id),
+                    view="products",
+                    read_id=native["read_id"],
                 )
                 whole_request.pop("recheck_bodies", None)
                 whole = read_demand_result(
@@ -207,7 +209,9 @@ def _serve_demand_query(connection, request, implementation):
     ]
     current_request = {
         key: value
-        for key, value in decode_wire_demand_request(page.request, demand_id=request.demand_id).items()
+        for key, value in decode_wire_demand_request(
+            page.request, demand_id=request.demand_id
+        ).items()
         if key not in {"selection", "trust_snapshot", "limit", "max_bytes", "recheck_bodies"}
     }
     current_request.update(

@@ -149,9 +149,11 @@ def render_call_bindings(
                         raise ValueError("structural native nominal collision at " + path)
                     nominals[path] = name
         out += [
-            ("from .data_operation_json import json_bytes, native_json_loads, wire_json_loads"
-             if any(call.id == "read_demand_result" for call in structural)
-             else "from .data_operation_json import json_bytes, wire_json_loads"),
+            (
+                "from .data_operation_json import json_bytes, native_json_loads, wire_json_loads"
+                if any(call.id == "read_demand_result" for call in structural)
+                else "from .data_operation_json import json_bytes, wire_json_loads"
+            ),
             "",
             render_wire_types(definitions, tuple(nominals.items())),
         ]
@@ -360,10 +362,13 @@ def render_call_bindings(
             )
             from .wire_json_policy import CONTEXTUAL_JSON_TYPE
 
-            contextual_fields = tuple(sorted(path for path, role in nominals.items() if role == CONTEXTUAL_JSON_TYPE))
+            contextual_fields = tuple(
+                sorted(path for path, role in nominals.items() if role == CONTEXTUAL_JSON_TYPE)
+            )
             contextual_options = (
                 f", contextual_fields={contextual_fields!r}, frontier_path=('payload',)"
-                if name == "read_demand_result" and contextual_fields else ""
+                if name == "read_demand_result" and contextual_fields
+                else ""
             )
             out += [
                 "",
@@ -421,7 +426,11 @@ def render_call_bindings(
                 f"    statement = prepare_{name}({parameter.name}={parameter.name}, projection_context=projection_context)",
                 f"    with native_result_scope({operation!r}, {call.result_class!r}):",
                 "        encoded = conn.scalar(statement)",
-                ("        value = native_json_loads(encoded)" if name == "read_demand_result" and contextual_fields else "        value = wire_json_loads(encoded)"),
+                (
+                    "        value = native_json_loads(encoded)"
+                    if name == "read_demand_result" and contextual_fields
+                    else "        value = wire_json_loads(encoded)"
+                ),
                 *(
                     [
                         "        if not isinstance(value, dict) or set(value) != {'payload', 'contract_digest'}:",

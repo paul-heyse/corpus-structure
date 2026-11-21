@@ -669,7 +669,9 @@ def validate_native_wire(
                 contextual_fields=wire_contextual_fields(sources),
                 frontier_path=(),
             )
-            if operation == "read_demand_result" and isinstance(value, dict) and value.get("view", "frontier") == "frontier"
+            if operation == "read_demand_result"
+            and isinstance(value, dict)
+            and value.get("view", "frontier") == "frontier"
             else state.validators[operation, direction]
         )
     except KeyError as exc:
@@ -839,10 +841,13 @@ def _wire_correspondence_document(sources=None):
 def _contextual_fields(document):
     from .wire_json_policy import CONTEXTUAL_JSON_TYPE
 
-    return tuple(sorted(
-        pointer for pointer, nominal in document["fields"].items()
-        if nominal == CONTEXTUAL_JSON_TYPE
-    ))
+    return tuple(
+        sorted(
+            pointer
+            for pointer, nominal in document["fields"].items()
+            if nominal == CONTEXTUAL_JSON_TYPE
+        )
+    )
 
 
 @lru_cache(maxsize=16)
@@ -923,9 +928,12 @@ def wire_nominal_correspondence(sources=None) -> tuple[tuple[str, str], ...]:
             raise ValueError("unresolved nominal wire source " + pointer) from error
         if nominal == CONTEXTUAL_JSON_TYPE:
             if not isinstance(value, dict) or value.get("$ref") not in {
-                "#/definitions/json_value", "#/definitions/DdoJsonValue"
+                "#/definitions/json_value",
+                "#/definitions/DdoJsonValue",
             }:
-                raise ValueError("contextual wire role requires its explicit JSON field: " + pointer)
+                raise ValueError(
+                    "contextual wire role requires its explicit JSON field: " + pointer
+                )
             continue
         while isinstance(value, dict) and "$ref" in value:
             value = definitions[value["$ref"].removeprefix("#/definitions/")]

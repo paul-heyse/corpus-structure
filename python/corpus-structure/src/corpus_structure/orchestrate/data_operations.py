@@ -1246,8 +1246,10 @@ class NativeDemandExecutor:
 
     def _recovery_disposition(self, ready, native):
         action = (
-            "reconcile" if native["action"] == "reconcile"
-            else "inspect-draft" if self._has_draft_path(ready)
+            "reconcile"
+            if native["action"] == "reconcile"
+            else "inspect-draft"
+            if self._has_draft_path(ready)
             else "compute"
         )
         return _RecoveryDisposition(action, native)
@@ -1978,7 +1980,8 @@ class NativeDemandExecutor:
                                 )
                             elif (
                                 disposition.action == "inspect-draft"
-                                and (retained := self._recover_answer(ready, claim, owner)) is not None
+                                and (retained := self._recover_answer(ready, claim, owner))
+                                is not None
                             ):
                                 receipt = self._publish(claim, retained, owner)
                             else:

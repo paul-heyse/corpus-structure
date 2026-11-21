@@ -34,11 +34,15 @@ def frontier():
             product.pop("body", None)
             product["body_state"] = "not_requested"
     value["selection"]["roots"] = [
-        {"subject": "root", "original_source": "source:A", "analyzed_scope": {
-            "fraction": Decimal("0.12345678901234567890123456789"),
-            "whole": Decimal("9007199254740993.0"),
-            "analyzed_scope": {"fraction": Decimal("1.20")},
-        }}
+        {
+            "subject": "root",
+            "original_source": "source:A",
+            "analyzed_scope": {
+                "fraction": Decimal("0.12345678901234567890123456789"),
+                "whole": Decimal("9007199254740993.0"),
+                "analyzed_scope": {"fraction": Decimal("1.20")},
+            },
+        }
     ]
     value["selection"]["operations"][0]["parameters"] = {
         "ordinary": {"analyzed_scope": {"fraction": Decimal("0.12345678901234567890123456789")}}
@@ -85,10 +89,17 @@ def test_frontier_cut_identity_retains_existing_d1_bytes():
 def test_frontier_continuation_keeps_context_and_ordinary_parameter_meanings():
     value = frontier()
     value["continuation"] = {
-        "demand_id": value["demand_id"], "selection": value["selection"],
-        "trust_snapshot": {}, "after": "obligation:A", "limit": 1, "max_bytes": 8192,
-        "read_id": value["read_id"], "read_snapshot": value["read_snapshot"],
-        "frontier_at": value["frontier_at"], "view": "frontier", "scope": {},
+        "demand_id": value["demand_id"],
+        "selection": value["selection"],
+        "trust_snapshot": {},
+        "after": "obligation:A",
+        "limit": 1,
+        "max_bytes": 8192,
+        "read_id": value["read_id"],
+        "read_snapshot": value["read_snapshot"],
+        "frontier_at": value["frontier_at"],
+        "view": "frontier",
+        "scope": {},
     }
     page = DemandResult(json_bytes(value))
     continuation = page.continuation
@@ -98,10 +109,15 @@ def test_frontier_continuation_keeps_context_and_ordinary_parameter_meanings():
 
 @pytest.mark.parametrize("token", ["1.00000000000000000000001", "true"])
 def test_frontier_integer_constraints_see_exact_tokens_before_projection(token):
-    request = '{"demand_id":"demand:A","view":"frontier","limit":' + token + '}'
+    request = '{"demand_id":"demand:A","view":"frontier","limit":' + token + "}"
     with pytest.raises(ValueError, match="schema"):
         decode_wire_demand_request(request.encode())
-    assert decode_wire_demand_request(b'{"demand_id":"demand:A","view":"frontier","limit":1.0}')["limit"] == 1
+    assert (
+        decode_wire_demand_request(b'{"demand_id":"demand:A","view":"frontier","limit":1.0}')[
+            "limit"
+        ]
+        == 1
+    )
 
 
 def test_frontier_refuses_dynamic_support_page_in_declared_slice():
@@ -120,8 +136,20 @@ def test_ambient_storage_and_compact_context_retain_native_number_tokens():
             return encoded
 
     storage = DataOperationStorage(cast(Any, Connection()))
-    expect_roles(storage.read_demand_result(cast(Any, {"demand_id": "demand:A", "view": "frontier"})))
-    compact = {name: value[name] for name in ("demand_id", "selection", "trust_snapshot", "read_id", "read_snapshot", "frontier_at")}
+    expect_roles(
+        storage.read_demand_result(cast(Any, {"demand_id": "demand:A", "view": "frontier"}))
+    )
+    compact = {
+        name: value[name]
+        for name in (
+            "demand_id",
+            "selection",
+            "trust_snapshot",
+            "read_id",
+            "read_snapshot",
+            "frontier_at",
+        )
+    }
     encoded = json_bytes(compact).decode()
     expect_roles(storage.acquire_data_read_context("demand:A", "read:A", {}))
 
@@ -137,9 +165,31 @@ def test_captured_generated_frontier_call_freezes_sidecar_policy(monkeypatch):
 
     schemas = wire_contracts()["read_demand_result"]
     scalar = OperationFieldType("json_payload", False, False)
-    fields = [OperationFieldBinding("payload", "native-wire", False, resolved=scalar, wire_schema=json.dumps(schemas[direction]), wire_nominals=wire_nominal_correspondence()) for direction in ("input", "output")]
-    call = OperationCallBinding("read_demand_result", "ops.read_demand_result", (fields[0],), result_class="ReadDemandResultResult", result_fields=(fields[1],), cardinality="one", ordered=False, result_mode="json", wire_contract_digest=wire_contract_digest())
-    source = render_call_bindings((("data.read_demand_result", call),), identifiers_module=".identifiers")
+    fields = [
+        OperationFieldBinding(
+            "payload",
+            "native-wire",
+            False,
+            resolved=scalar,
+            wire_schema=json.dumps(schemas[direction]),
+            wire_nominals=wire_nominal_correspondence(),
+        )
+        for direction in ("input", "output")
+    ]
+    call = OperationCallBinding(
+        "read_demand_result",
+        "ops.read_demand_result",
+        (fields[0],),
+        result_class="ReadDemandResultResult",
+        result_fields=(fields[1],),
+        cardinality="one",
+        ordered=False,
+        result_mode="json",
+        wire_contract_digest=wire_contract_digest(),
+    )
+    source = render_call_bindings(
+        (("data.read_demand_result", call),), identifiers_module=".identifiers"
+    )
     module = ModuleType("corpus_structure.semantic._controlled_frontier_call")
     module.__package__ = "corpus_structure.semantic"
     monkeypatch.setitem(sys.modules, module.__name__, module)
@@ -156,7 +206,11 @@ def test_captured_generated_frontier_call_freezes_sidecar_policy(monkeypatch):
         def scalar(self, statement):
             return encoded
 
-    expect_roles(module.read_demand_result(cast(Any, Connection()), payload={"demand_id": "demand:A", "view": "frontier"})["payload"])
+    expect_roles(
+        module.read_demand_result(
+            cast(Any, Connection()), payload={"demand_id": "demand:A", "view": "frontier"}
+        )["payload"]
+    )
 
 
 def test_historical_frontier_and_manifest_keep_original_cut_identity():
@@ -185,16 +239,39 @@ def test_ambiguous_object_union_selects_its_actual_nested_field_role(kind):
     from corpus_structure.semantic.data_operation_wire import prepare_wire_schema
 
     def branch(tag):
-        return {"type": "object", "properties": {"packet": {
-            "type": "object", "properties": {"kind": {"const": tag}, "value": {"$ref": "#/definitions/json_value"}},
-            "required": ["kind", "value"], "additionalProperties": False,
-        }}, "required": ["packet"], "additionalProperties": False}
+        return {
+            "type": "object",
+            "properties": {
+                "packet": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"const": tag},
+                        "value": {"$ref": "#/definitions/json_value"},
+                    },
+                    "required": ["kind", "value"],
+                    "additionalProperties": False,
+                }
+            },
+            "required": ["packet"],
+            "additionalProperties": False,
+        }
 
-    schema = {"oneOf": [{"$ref": "#/definitions/contextual"}, {"$ref": "#/definitions/ordinary"}],
-              "definitions": {"contextual": branch("contextual"), "ordinary": branch("ordinary"),
-                              "json_value": {"type": ["object", "array", "number", "string", "boolean", "null"]}}}
-    validate = prepare_wire_schema(schema, contextual_fields=("#/definitions/contextual/properties/packet/properties/value",))
-    value = validate(native_json_loads(json_bytes({"packet": {"kind": kind, "value": {"analyzed_scope": Decimal("1.20")}}})))
+    schema = {
+        "oneOf": [{"$ref": "#/definitions/contextual"}, {"$ref": "#/definitions/ordinary"}],
+        "definitions": {
+            "contextual": branch("contextual"),
+            "ordinary": branch("ordinary"),
+            "json_value": {"type": ["object", "array", "number", "string", "boolean", "null"]},
+        },
+    }
+    validate = prepare_wire_schema(
+        schema, contextual_fields=("#/definitions/contextual/properties/packet/properties/value",)
+    )
+    value = validate(
+        native_json_loads(
+            json_bytes({"packet": {"kind": kind, "value": {"analyzed_scope": Decimal("1.20")}}})
+        )
+    )
     number = value["packet"]["value"]["analyzed_scope"]
     assert type(number) is (Decimal if kind == "contextual" else float)
     assert number == (Decimal("1.20") if kind == "contextual" else 1.2)

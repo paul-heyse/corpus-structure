@@ -51,8 +51,13 @@ def _read_context_validator():
     root = captured["definitions"]["cut_selection"]
     names = tuple(AcquiredDataReadContext.__annotations__)
     return prepare_wire_schema(
-        {"type": "object", "properties": {name: root["properties"][name] for name in names},
-         "required": list(names), "additionalProperties": False, "definitions": captured["definitions"]},
+        {
+            "type": "object",
+            "properties": {name: root["properties"][name] for name in names},
+            "required": list(names),
+            "additionalProperties": False,
+            "definitions": captured["definitions"],
+        },
         contextual_fields=wire_contextual_fields(),
     )
 
@@ -68,7 +73,11 @@ class DataOperationStorage(DataOperationCalls):
     ) -> AcquiredDataReadContext:
         """Authenticate the exact read without constructing an output frontier."""
         acquired = self.connection.scalar(
-            select(cast(func.ops.acquire_data_read_context(bindparam("read_context", type_=JSONB)), Text)),
+            select(
+                cast(
+                    func.ops.acquire_data_read_context(bindparam("read_context", type_=JSONB)), Text
+                )
+            ),
             {
                 "read_context": {
                     "demand_id": demand_id,

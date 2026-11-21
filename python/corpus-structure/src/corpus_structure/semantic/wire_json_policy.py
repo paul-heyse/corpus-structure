@@ -39,36 +39,71 @@ def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str
             return False
         if "$ref" in node:
             reference = node["$ref"]
-            return reference not in _ORDINARY_JSON and reference not in active and needed(
-                resolve(node), reference, active | {reference}
+            return (
+                reference not in _ORDINARY_JSON
+                and reference not in active
+                and needed(resolve(node), reference, active | {reference})
             )
         if node.get("type") == "integer":
             return True
         for key in ("properties", "patternProperties"):
-            if any(needed(child, pointer + "/" + key + "/" + name, active) for name, child in node.get(key, {}).items()):
+            if any(
+                needed(child, pointer + "/" + key + "/" + name, active)
+                for name, child in node.get(key, {}).items()
+            ):
                 return True
         for key in ("items", "additionalProperties", "additionalItems", "then", "else"):
             child = node.get(key, {})
             if isinstance(child, list):
-                if any(needed(item, pointer + "/" + key + "/" + str(index), active) for index, item in enumerate(child)):
+                if any(
+                    needed(item, pointer + "/" + key + "/" + str(index), active)
+                    for index, item in enumerate(child)
+                ):
                     return True
             elif needed(child, pointer + "/" + key, active):
                 return True
-        return any(needed(child, pointer + "/" + key + "/" + str(index), active) for key in ("anyOf", "oneOf", "allOf") for index, child in enumerate(node.get(key, [])))
+        return any(
+            needed(child, pointer + "/" + key + "/" + str(index), active)
+            for key in ("anyOf", "oneOf", "allOf")
+            for index, child in enumerate(node.get(key, []))
+        )
 
     def predicate(node, *, disjoint_types=False):
         selected = resolve(node)
         # Native-admitted tagged records and disjoint JSON types need no schema replay.
         if isinstance(selected, dict):
-            constants = {key: child["const"] for key, child in selected.get("properties", {}).items() if isinstance(child, dict) and "const" in child and key in selected.get("required", ())}
+            constants = {
+                key: child["const"]
+                for key, child in selected.get("properties", {}).items()
+                if isinstance(child, dict)
+                and "const" in child
+                and key in selected.get("required", ())
+            }
             if constants:
-                return lambda value: isinstance(value, dict) and all(value.get(key) == expected for key, expected in constants.items())
+                return lambda value: (
+                    isinstance(value, dict)
+                    and all(value.get(key) == expected for key, expected in constants.items())
+                )
             typ = selected.get("type")
-            classes = {"object": dict, "array": list, "string": str, "boolean": bool, "null": type(None)}
+            classes = {
+                "object": dict,
+                "array": list,
+                "string": str,
+                "boolean": bool,
+                "null": type(None),
+            }
             if disjoint_types and isinstance(typ, str) and typ in classes:
                 return lambda value: type(value) is classes[typ]
         # Only an actually differing, non-disjoint branch reaches a schema predicate.
-        validator = prepared_schema_validator(json_bytes({"$schema": "http://json-schema.org/draft-07/schema#", "definitions": definitions, **node}))
+        validator = prepared_schema_validator(
+            json_bytes(
+                {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "definitions": definitions,
+                    **node,
+                }
+            )
+        )
 
         def valid(value):
             try:
@@ -91,6 +126,7 @@ def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str
 
         compiled[pointer] = (project, ("recursive", pointer))
         if pointer in contextual:
+
             def contextual_value(value):
                 return own_native_json_value(value, contextual=True)
 
@@ -101,14 +137,23 @@ def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str
             target, shape = compile_node(resolve(node), reference)
         elif "oneOf" in node or "anyOf" in node:
             keyword = "oneOf" if "oneOf" in node else "anyOf"
-            branches = tuple(compile_node(branch, pointer + "/" + keyword + "/" + str(index)) for index, branch in enumerate(node[keyword]))
+            branches = tuple(
+                compile_node(branch, pointer + "/" + keyword + "/" + str(index))
+                for index, branch in enumerate(node[keyword])
+            )
             shapes = tuple(shape for _, shape in branches)
             if all(shape == shapes[0] for shape in shapes):
                 target, shape = branches[0]
             else:
                 types = [resolve(branch).get("type") for branch in node[keyword]]
-                disjoint_types = all(isinstance(typ, str) and typ in {"object", "array", "string", "boolean", "null"} for typ in types) and len(set(types)) == len(types)
-                alternatives = tuple((predicate(branch, disjoint_types=disjoint_types), convert) for branch, (convert, _) in zip(node[keyword], branches, strict=True))
+                disjoint_types = all(
+                    isinstance(typ, str) and typ in {"object", "array", "string", "boolean", "null"}
+                    for typ in types
+                ) and len(set(types)) == len(types)
+                alternatives = tuple(
+                    (predicate(branch, disjoint_types=disjoint_types), convert)
+                    for branch, (convert, _) in zip(node[keyword], branches, strict=True)
+                )
 
                 def alternative(value):
                     for valid, convert in alternatives:
@@ -118,32 +163,56 @@ def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str
 
                 target, shape = alternative, ("union", shapes)
         elif node.get("type") == "integer":
+
             def integer_value(value):
                 return int(value) if type(value) is Decimal else ordinary(value)
 
             target = integer_value
             shape = ("integer",)
         elif node.get("type") == "object" or "properties" in node:
-            properties = {key: compile_node(child, pointer + "/properties/" + key) for key, child in node.get("properties", {}).items()}
+            properties = {
+                key: compile_node(child, pointer + "/properties/" + key)
+                for key, child in node.get("properties", {}).items()
+            }
             properties = {key: value for key, value in properties.items() if value[1] is not None}
-            additional, additional_shape = compile_node(node.get("additionalProperties", {}), pointer + "/additionalProperties")
+            additional, additional_shape = compile_node(
+                node.get("additionalProperties", {}), pointer + "/additionalProperties"
+            )
+
             def object_value(value):
-                return {key: properties[key][0](item) if key in properties else additional(item) for key, item in value.items()}
+                return {
+                    key: properties[key][0](item) if key in properties else additional(item)
+                    for key, item in value.items()
+                }
 
             target = object_value
-            shape = ("object", tuple(sorted((key, value[1]) for key, value in properties.items())), additional_shape)
+            shape = (
+                "object",
+                tuple(sorted((key, value[1]) for key, value in properties.items())),
+                additional_shape,
+            )
         elif node.get("type") == "array":
             items = node.get("items", {})
             if isinstance(items, list):
-                elements = tuple(compile_node(child, pointer + "/items/" + str(index)) for index, child in enumerate(items))
-                extra, extra_shape = compile_node(node.get("additionalItems", {}), pointer + "/additionalItems")
+                elements = tuple(
+                    compile_node(child, pointer + "/items/" + str(index))
+                    for index, child in enumerate(items)
+                )
+                extra, extra_shape = compile_node(
+                    node.get("additionalItems", {}), pointer + "/additionalItems"
+                )
+
                 def tuple_values(value):
-                    return [(elements[index][0] if index < len(elements) else extra)(item) for index, item in enumerate(value)]
+                    return [
+                        (elements[index][0] if index < len(elements) else extra)(item)
+                        for index, item in enumerate(value)
+                    ]
 
                 target = tuple_values
                 shape = ("tuple", tuple(item[1] for item in elements), extra_shape)
             else:
                 element, element_shape = compile_node(items, pointer + "/items")
+
                 def array_values(value):
                     return [element(item) for item in value]
 
@@ -152,7 +221,9 @@ def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str
         else:
             # No selected field uses a conditional or intersection to change its
             # numeric role. Refuse a future declaration instead of erasing it.
-            raise ValueError("native JSON field role needs an explicit structural projection: " + pointer)
+            raise ValueError(
+                "native JSON field role needs an explicit structural projection: " + pointer
+            )
         compiled[pointer] = (project, shape)
         return project, shape
 

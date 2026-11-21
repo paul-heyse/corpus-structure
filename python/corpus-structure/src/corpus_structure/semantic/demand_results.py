@@ -117,7 +117,9 @@ class DemandResult:
 
         parsed, cut_content = decode_retained_json_object(self.content, _PIN_FIELDS)
         interpreted = (
-            project_frontier_record(parsed) if declared_frontier(parsed) else own_wire_json_value(parsed)
+            project_frontier_record(parsed)
+            if declared_frontier(parsed)
+            else own_wire_json_value(parsed)
         )
         return freeze_native(interpreted), cut_content
 
@@ -576,9 +578,7 @@ def verify_detached_result(
                     raise ValueError(
                         "detached canonical container member is missing from its support closure"
                     )
-        captured_kind_validator(kind["meaning_schema"]).validate(
-            product["canonical_body"]
-        )
+        captured_kind_validator(kind["meaning_schema"]).validate(product["canonical_body"])
         captured_kind_validator(kind["body_schema"]).validate(decoded)
         body = body_identity(decoded).key
         context = SubjectContext(

@@ -71,7 +71,9 @@ def _same_json_material(source, result) -> bool:
 def _cut_validator():
     from .data_operation_wire import prepare_wire_schema, wire_contextual_fields, wire_record_schema
 
-    return prepare_wire_schema(wire_record_schema("cut_selection"), contextual_fields=wire_contextual_fields())
+    return prepare_wire_schema(
+        wire_record_schema("cut_selection"), contextual_fields=wire_contextual_fields()
+    )
 
 
 def decode_wire_cut(content: bytes) -> dict:
@@ -107,7 +109,11 @@ def decode_wire_demand_result(content: bytes) -> WireReadDemandResultResult:
     if type(content) is not bytes:
         raise TypeError("native demand decoding requires exact immutable bytes")
     parsed = native_json_loads(content)
-    source = project_frontier_record(parsed) if declared_frontier(parsed) else own_wire_json_value(parsed)
+    source = (
+        project_frontier_record(parsed)
+        if declared_frontier(parsed)
+        else own_wire_json_value(parsed)
+    )
     candidate = own_json_value(source)
     validator = captured_demand_wire_validator()
     result = (

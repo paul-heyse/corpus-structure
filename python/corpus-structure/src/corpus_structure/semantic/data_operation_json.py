@@ -171,20 +171,20 @@ def decode_retained_json_object(
             return position
 
         position = skip(0)
-        if document[position:position + 1] != "{":
+        if document[position : position + 1] != "{":
             raise ValueError("retained JSON selection requires an object")
         position += 1
         values, selected = {}, {}
         while True:
             position = skip(position)
-            if document[position:position + 1] == "}":
+            if document[position : position + 1] == "}":
                 position += 1
                 break
             name, position = decoder.raw_decode(document, position)
             if type(name) is not str or name in values:
                 raise ValueError("retained JSON selection requires unique string keys")
             position = skip(position)
-            if document[position:position + 1] != ":":
+            if document[position : position + 1] != ":":
                 raise ValueError("invalid retained JSON object member")
             start = skip(position + 1)
             value, position = decoder.raw_decode(document, start)
@@ -192,18 +192,22 @@ def decode_retained_json_object(
             if name in fields:
                 selected[name] = document[start:position].encode("utf-8")
             position = skip(position)
-            token = document[position:position + 1]
+            token = document[position : position + 1]
             if token == "}":
                 position += 1
                 break
             if token != ",":
                 raise ValueError("invalid retained JSON object delimiter")
             position = skip(position + 1)
-            if document[position:position + 1] == "}":
+            if document[position : position + 1] == "}":
                 raise ValueError("retained JSON object has a trailing comma")
         if skip(position) != len(document) or set(selected) != set(fields):
             raise ValueError("retained JSON selection lacks its exact object fields")
-        retained = b"{" + b",".join(json_bytes(name) + b":" + selected[name] for name in sorted(fields)) + b"}"
+        retained = (
+            b"{"
+            + b",".join(json_bytes(name) + b":" + selected[name] for name in sorted(fields))
+            + b"}"
+        )
         return values, retained
     except (ValueError, RecursionError) as error:
         raise JsonBoundaryError("invalid retained JSON object") from error

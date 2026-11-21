@@ -34,7 +34,12 @@ def decode_demand_cursor(value):
     try:
         parsed = finite_json_loads(base64.b64decode(value, altchars=b"-_", validate=True))
         if not isinstance(parsed, dict) or set(parsed) != {
-            "version", "implementation", "selection", "request", "cut", "ordinal"
+            "version",
+            "implementation",
+            "selection",
+            "request",
+            "cut",
+            "ordinal",
         }:
             raise ValueError("invalid demand cursor envelope")
         if (
@@ -45,9 +50,11 @@ def decode_demand_cursor(value):
         ):
             raise ValueError("invalid demand cursor coordinates")
         request = parsed["request"]
-        if not isinstance(request, dict) or {
-            "selection", "trust_snapshot", "limit", "max_bytes", "recheck_bodies"
-        } & request.keys():
+        if (
+            not isinstance(request, dict)
+            or {"selection", "trust_snapshot", "limit", "max_bytes", "recheck_bodies"}
+            & request.keys()
+        ):
             raise ValueError("demand cursor cannot carry captured context or acquisition policy")
         parsed["request"] = validate_native_wire("read_demand_result", "input", request)
         return parsed
