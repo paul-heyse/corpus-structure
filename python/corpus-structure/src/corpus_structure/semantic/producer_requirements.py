@@ -3,8 +3,24 @@
 from dataclasses import dataclass
 from typing import Literal
 
-from .data_operation_model import ProducerRequirement
+from pydantic import BaseModel, ConfigDict, Field
+
+from .data_operation_json import json_bytes, native_json_loads
+from .data_operation_model import BoundRoleMember, ProducerRequirement
 from .selected_support import ProducerOutputOccurrence
+
+
+class SelectedProducerContract(BaseModel):
+    model_config = ConfigDict(strict=True, frozen=True, extra="forbid")
+
+    version: Literal["selected-producer-contract-v1"]
+    derivation_id: str = Field(min_length=1)
+    release_id: str = Field(min_length=1)
+    runtime_id: str = Field(min_length=1)
+    publication_receipt: bool
+    cpu_receipt: bool
+    admitted_effects: tuple[str, ...]
+    validity_families: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -69,4 +85,23 @@ def compare_producer_requirement(
         validity_families,
         tuple(name for name, outcome in checks if outcome is False),
         tuple(name for name, outcome in checks if outcome is None),
+    )
+
+
+def compare_bound_producer(required: ProducerRequirement, member: BoundRoleMember):
+    """Consume observations from the same native binding as the selected output."""
+    evidence = native_json_loads(member.support_evidence)
+    observed = evidence.get("producer_contract")
+    if observed is None:
+        return compare_producer_requirement(required, output=member.producer_output)
+    contract = SelectedProducerContract.model_validate_json(json_bytes(observed))
+    if member.support_episodes != (contract.derivation_id,):
+        raise ValueError("producer observation differs from its selected computational support")
+    return compare_producer_requirement(
+        required,
+        output=member.producer_output,
+        publication_receipt=contract.publication_receipt,
+        cpu_receipt=contract.cpu_receipt,
+        admitted_effects=contract.admitted_effects,
+        validity_families=contract.validity_families,
     )

@@ -2501,11 +2501,12 @@ def project_operation_binding(
         actual_support = []
         for member in actual.members:
             if requirement is not None:
-                from .producer_requirements import compare_producer_requirement
+                from .producer_requirements import compare_bound_producer
 
-                comparison = compare_producer_requirement(
-                    requirement, output=member.producer_output
-                )
+                try:
+                    comparison = compare_bound_producer(requirement, member)
+                except ValueError as error:
+                    _fail(name, str(error))
                 if comparison.failed:
                     _fail(name, "selected producer violates " + ", ".join(comparison.failed))
             for value in (member.product, member.subject):

@@ -323,6 +323,8 @@ def _rich_input_programs(p):
         p.row("definition", "sem.data_operation_definition", "support_contract"),
         p.row("intent", "ops.data_completion_intent", "payload"),
     )
+    from .producer_correspondence_native import producer_cpu_witness
+
     requirement = _value("requirement")
     required_effect = requirement["required_effect"].astext
     required_family = requirement["required_family"].astext
@@ -440,18 +442,11 @@ def _rich_input_programs(p):
                     ),
                     and_(
                         cast(requirement["requires_cpu"].astext, Boolean()),
-                        or_(
-                            p.row(
-                                "definition", "sem.data_operation_definition", "profile"
-                            ).is_distinct_from("derivation"),
-                            contract["effects"].is_distinct_from(_json([])),
-                            func.jsonb_array_length(
-                                func.coalesce(
-                                    payload["execution_evidence"]["cpu_receipts"], _json([])
-                                )
-                            )
-                            != 1,
-                        ),
+                        producer_cpu_witness(
+                            p.row("definition", "sem.data_operation_definition", "profile"),
+                            contract["effects"],
+                            payload,
+                        ).is_not(True),
                     ),
                 ),
                 "rich selection lacks its actual admitted producer and CPU/common receipt",

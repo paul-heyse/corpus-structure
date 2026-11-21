@@ -107,3 +107,56 @@ def test_normal_binding_projection_refuses_wrong_selected_output_before_capture(
         model, replace(binding, roles=(replace(role, members=(correct,)),))
     )
     assert request.identity.key
+
+
+def test_normal_preparation_consumes_scoped_native_producer_observation():
+    from corpus_structure.semantic.data_operation_compilation import (
+        compile_data_operations,
+        project_operation_binding,
+    )
+    from corpus_structure.semantic.data_operation_json import json_bytes
+    from corpus_structure.semantic.data_operation_support import ComputationalSupportReference
+    from corpus_structure.semantic.types import PreparationError
+    from semantic.data_operation_declaration_support import contract, declarations, resolved_binding
+
+    declaration = contract()
+    declaration["roles"][0]["producer_requirement"] = {
+        "output_role": "result",
+        "requires_cpu": True,
+        "required_effect": None,
+        "required_family": "rich",
+    }
+    model = compile_data_operations(declarations=declarations(declaration))
+    binding = resolved_binding(model)
+    role = binding.roles[0]
+    observation = {
+        "version": "selected-producer-contract-v1",
+        "derivation_id": "episode:observed",
+        "release_id": "release:producing",
+        "runtime_id": "runtime:producing",
+        "publication_receipt": True,
+        "cpu_receipt": True,
+        "admitted_effects": [],
+        "validity_families": ["rich"],
+    }
+    member = replace(
+        role.members[0],
+        producer_output=output(),
+        support_episodes=("episode:observed",),
+        support_references=(ComputationalSupportReference(derivation_id="episode:observed"),),
+        support_evidence=json_bytes({"producer_contract": observation}),
+    )
+    selected = replace(binding, roles=(replace(role, members=(member,)),))
+    assert project_operation_binding(model, selected)[0].identity.key
+    for changed, expected in (
+        ({"cpu_receipt": False}, "cpu_receipt"),
+        ({"validity_families": []}, "validity_family"),
+        ({"derivation_id": "episode:other"}, "selected computational support"),
+    ):
+        wrong = replace(
+            member, support_evidence=json_bytes({"producer_contract": {**observation, **changed}})
+        )
+        with pytest.raises(PreparationError, match=expected):
+            project_operation_binding(
+                model, replace(selected, roles=(replace(role, members=(wrong,)),))
+            )

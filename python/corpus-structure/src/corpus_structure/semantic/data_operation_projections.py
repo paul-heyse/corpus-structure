@@ -837,6 +837,8 @@ def binding_branches(metadata):
         )
         .scalar_subquery()
     )
+    from .producer_correspondence_native import selected_producer_contract
+
     evidence = _obj(
         member_body_identity=case(
             (
@@ -856,6 +858,7 @@ def binding_branches(metadata):
             position=candidates.c.output_position,
             multiplicity=candidates.c.output_multiplicity,
         ),
+        producer_contract=selected_producer_contract(metadata, candidates),
         demand_id=demand,
         use_id=candidates.c.use_id,
         trust_snapshot=_var("snapshot", JSONB),
