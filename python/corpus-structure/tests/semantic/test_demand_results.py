@@ -610,7 +610,9 @@ def test_selected_record_index_counts_unique_support_and_frontier_rows(tmp_path)
     from corpus_structure.semantic.data_operation_read_index import SelectedRecordIndex
 
     index = SelectedRecordIndex(tmp_path / "bounded.sqlite")
-    payload = json_bytes({"key": "record:A", "relation": "ops.data_derivation", "record": {"id": "A"}})
+    payload = json_bytes(
+        {"key": "record:A", "relation": "ops.data_derivation", "record": {"id": "A"}}
+    )
     try:
         index.append(payload)
         index.append(payload, allow_equal=True)
@@ -1185,7 +1187,9 @@ def test_selected_record_index_retains_support_from_every_selected_frontier_page
         assert whole_read is False
         identity = page.record["uses"][0]["use_id"]
         observed.append(identity)
-        return iter(({"relation": "ops.data_derivation", "key": identity, "record": {"id": identity}},))
+        return iter(
+            ({"relation": "ops.data_derivation", "key": identity, "record": {"id": identity}},)
+        )
 
     monkeypatch.setattr(owner, "read_demand_result", read)
     monkeypatch.setattr(owner, "stream_selected_support", support)
@@ -1199,7 +1203,10 @@ def test_selected_record_index_retains_support_from_every_selected_frontier_page
         obligation_ids=("obligation:A",),
     ) as (cut, index):
         assert cut.content == expected_cut.content
-        assert {row["id"] for row in index.rows("ops.data_derivation")} == {"use:page1", "use:page2"}
+        assert {row["id"] for row in index.rows("ops.data_derivation")} == {
+            "use:page1",
+            "use:page2",
+        }
     assert observed == ["use:page1", "use:page2"]
 
 

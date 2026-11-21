@@ -225,20 +225,22 @@ def test_native_jsonb_preserves_fraction_and_context_key_meaning(native_rollback
 
 
 @pytest.mark.parametrize(
-    'kind,value,expected',
+    "kind,value,expected",
     [
-        ('digest', 'a' * 64, True),
-        ('digest', 'a' * 64 + '\n', False),
-        ('digest', 'a' * 63, False),
-        ('integer', ['integer', '-12'], True),
-        ('integer', ['integer', '-12\n'], False),
-        ('decimal', ['decimal', '1.25e-3'], True),
-        ('decimal', ['decimal', '1.25e-3\n'], False),
-        ('advisory-date', '2026-11-21', True),
-        ('advisory-date', 'not-a-date', True),
+        ("digest", "a" * 64, True),
+        ("digest", "a" * 64 + "\n", False),
+        ("digest", "a" * 63, False),
+        ("integer", ["integer", "-12"], True),
+        ("integer", ["integer", "-12\n"], False),
+        ("decimal", ["decimal", "1.25e-3"], True),
+        ("decimal", ["decimal", "1.25e-3\n"], False),
+        ("advisory-date", "2026-11-21", True),
+        ("advisory-date", "not-a-date", True),
     ],
 )
-def test_declared_portable_patterns_match_native_at_true_input_end(native_rollback, kind, value, expected):
+def test_declared_portable_patterns_match_native_at_true_input_end(
+    native_rollback, kind, value, expected
+):
     import json
 
     import yaml
@@ -253,14 +255,17 @@ def test_declared_portable_patterns_match_native_at_true_input_end(native_rollba
     )
     from corpus_structure.semantic.schema_validation import prepared_schema_validator
 
-    if kind == 'advisory-date':
-        schema = generated_json_schema({'type': 'string', 'format': 'date'})
-        assert schema['x-ddo-format'] == 'date'
-        assert 'format' not in schema
+    if kind == "advisory-date":
+        schema = generated_json_schema({"type": "string", "format": "date"})
+        assert schema["x-ddo-format"] == "date"
+        assert "format" not in schema
     else:
-        definitions = yaml.safe_load(model_source('data-operation-native.yaml'))['definitions']
-        name = 'pdf_search_digest' if kind == 'digest' else 'semantic_value'
-        schema = {'$schema': DRAFT7, **schema_closure({'$ref': '#/definitions/' + name}, definitions)}
+        definitions = yaml.safe_load(model_source("data-operation-native.yaml"))["definitions"]
+        name = "pdf_search_digest" if kind == "digest" else "semantic_value"
+        schema = {
+            "$schema": DRAFT7,
+            **schema_closure({"$ref": "#/definitions/" + name}, definitions),
+        }
     encoded = json.dumps(schema).encode()
     validator = prepared_schema_validator(encoded)
     if expected:
@@ -269,8 +274,12 @@ def test_declared_portable_patterns_match_native_at_true_input_end(native_rollba
         with pytest.raises(ValidationError):
             validator.validate(value)
     native = native_rollback.connection.scalar(
-        select(func.public.json_matches_schema(cast(bindparam('schema'), JSON), cast(bindparam('value'), JSON))),
-        {'schema': encoded.decode(), 'value': json.dumps(value)},
+        select(
+            func.public.json_matches_schema(
+                cast(bindparam("schema"), JSON), cast(bindparam("value"), JSON)
+            )
+        ),
+        {"schema": encoded.decode(), "value": json.dumps(value)},
     )
     assert native is expected
 
@@ -286,18 +295,25 @@ def test_linkml_digest_type_preserves_full_input_pattern_in_generated_schema():
 
     from corpus_structure.model.compiled import model_source
 
-    declaration = yaml.safe_load(model_source('pdf-products.yaml'))
+    declaration = yaml.safe_load(model_source("pdf-products.yaml"))
     schema = SchemaDefinition(
-        id='https://example.org/pattern', name='pattern',
+        id="https://example.org/pattern",
+        name="pattern",
         prefixes={
-            'xsd': {'prefix_prefix': 'xsd', 'prefix_reference': 'http://www.w3.org/2001/XMLSchema#'},
-            'p': {'prefix_prefix': 'p', 'prefix_reference': 'https://example.org/pattern/'},
+            "xsd": {
+                "prefix_prefix": "xsd",
+                "prefix_reference": "http://www.w3.org/2001/XMLSchema#",
+            },
+            "p": {"prefix_prefix": "p", "prefix_reference": "https://example.org/pattern/"},
         },
-        default_prefix='p', types={'Digest': declaration['types']['PdfDigest']},
-        classes={'Record': {'attributes': {'digest': {'range': 'Digest', 'required': True}}}},
+        default_prefix="p",
+        types={"Digest": declaration["types"]["PdfDigest"]},
+        classes={"Record": {"attributes": {"digest": {"range": "Digest", "required": True}}}},
     )
     view = SchemaView(schema)
-    generated = json.loads(JsonSchemaGenerator(schema, schemaview=view, top_class='Record').serialize())
+    generated = json.loads(
+        JsonSchemaGenerator(schema, schemaview=view, top_class="Record").serialize()
+    )
     validator = validator_for(generated)(generated)
-    assert validator.is_valid({'digest': 'a' * 64})
-    assert not validator.is_valid({'digest': 'a' * 64 + '\n'})
+    assert validator.is_valid({"digest": "a" * 64})
+    assert not validator.is_valid({"digest": "a" * 64 + "\n"})

@@ -268,7 +268,12 @@ def _lower_set_operations(protocol: dict[str, Any]) -> None:
                 "type": "object",
                 "properties": {
                     "state": {"const": "refused"},
-                    "sqlstate": {"type": "string", "minLength": 5, "maxLength": 5, "pattern": "^[0-9A-Z]{5}$"},
+                    "sqlstate": {
+                        "type": "string",
+                        "minLength": 5,
+                        "maxLength": 5,
+                        "pattern": "^[0-9A-Z]{5}$",
+                    },
                     "reason": {"type": "string", "minLength": 1},
                 },
                 "required": ["state", "sqlstate", "reason"],
@@ -692,8 +697,7 @@ def validate_native_wire(
                 contextual_fields=wire_contextual_fields(sources),
                 frontier_path=(),
             )
-            if operation == "read_demand_result"
-            and isinstance(value, dict)
+            if operation == "read_demand_result" and isinstance(value, dict)
             else state.validators[operation, direction]
         )
     except KeyError as exc:

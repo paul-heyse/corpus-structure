@@ -37,17 +37,36 @@ def compare_producer_requirement(
     """Missing observations stay explicit and grant no native publication authority."""
     checks: list[tuple[str, bool | None]] = [("publication_receipt", publication_receipt)]
     if required.output_role is not None:
-        checks.append(("output_role", None if output is None else output.role == required.output_role))
+        checks.append(
+            ("output_role", None if output is None else output.role == required.output_role)
+        )
     if required.requires_cpu:
         checks.append(("cpu_receipt", cpu_receipt))
     if required.required_effect is not None:
-        checks.append(("admitted_effect", None if admitted_effects is None else required.required_effect in admitted_effects))
+        checks.append(
+            (
+                "admitted_effect",
+                None if admitted_effects is None else required.required_effect in admitted_effects,
+            )
+        )
     if required.required_family == "undetermined":
         checks.append(("required_family", None))
     elif required.required_family != "none":
-        checks.append(("validity_family", None if validity_families is None else required.required_family in validity_families))
+        checks.append(
+            (
+                "validity_family",
+                None
+                if validity_families is None
+                else required.required_family in validity_families,
+            )
+        )
     return ProducerRequirementComparison(
-        required, output, publication_receipt, cpu_receipt, admitted_effects, validity_families,
+        required,
+        output,
+        publication_receipt,
+        cpu_receipt,
+        admitted_effects,
+        validity_families,
         tuple(name for name, outcome in checks if outcome is False),
         tuple(name for name, outcome in checks if outcome is None),
     )

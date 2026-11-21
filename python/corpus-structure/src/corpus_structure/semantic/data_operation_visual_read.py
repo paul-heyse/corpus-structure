@@ -84,7 +84,10 @@ def _schema(value: Any) -> bytes:
                     **value,
                     "discriminator": {
                         **discriminator,
-                        "mapping": {tag: reference(target) for tag, target in discriminator["mapping"].items()},
+                        "mapping": {
+                            tag: reference(target)
+                            for tag, target in discriminator["mapping"].items()
+                        },
                     },
                 }
             return {

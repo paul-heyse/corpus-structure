@@ -27,7 +27,10 @@ def decode_diagnostic_document(document: Any) -> dict:
     from jsonschema.exceptions import ValidationError
 
     try:
-        schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", **report_schema("LocatedValidationReport")}
+        schema = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            **report_schema("LocatedValidationReport"),
+        }
         prepared_schema_validator(canonical_bytes(schema)).validate(document["report"])
     except ValidationError as error:
         raise ValueError("retained report differs from its supported schema") from error

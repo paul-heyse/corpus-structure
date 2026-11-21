@@ -17,15 +17,20 @@ def output(role="result"):
 def test_none_family_and_public_issuer_can_satisfy_their_own_role():
     required = ProducerRequirement("authorization", False, "policy-authorization", "none")
     actual = compare_producer_requirement(
-        required, output=output("authorization"), publication_receipt=True,
-        admitted_effects=("policy-authorization",), validity_families=(),
+        required,
+        output=output("authorization"),
+        publication_receipt=True,
+        admitted_effects=("policy-authorization",),
+        validity_families=(),
     )
     assert actual.standing == "satisfied"
     assert actual.cpu_receipt is None
     assert actual.failed == actual.unobserved == ()
     rich = compare_producer_requirement(
         ProducerRequirement("consolidated", True, None, "rich"),
-        output=output("consolidated"), publication_receipt=True, cpu_receipt=True,
+        output=output("consolidated"),
+        publication_receipt=True,
+        cpu_receipt=True,
         validity_families=("rich",),
     )
     assert rich.standing == "satisfied"
@@ -37,16 +42,31 @@ def test_unobserved_requirement_and_missing_receipt_are_explicit():
     assert observed.standing == "unobserved"
     assert observed.failed == ()
     assert observed.unobserved == ("publication_receipt", "cpu_receipt", "required_family")
-    known = compare_producer_requirement(replace(required, required_family="none"), output=output(), publication_receipt=False)
+    known = compare_producer_requirement(
+        replace(required, required_family="none"), output=output(), publication_receipt=False
+    )
     assert known.standing == "refused"
     assert known.failed == ("publication_receipt",)
 
 
-@pytest.mark.parametrize("damage,failed", [("role", "output_role"), ("cpu", "cpu_receipt"), ("effect", "admitted_effect"), ("family", "validity_family")])
+@pytest.mark.parametrize(
+    "damage,failed",
+    [
+        ("role", "output_role"),
+        ("cpu", "cpu_receipt"),
+        ("effect", "admitted_effect"),
+        ("family", "validity_family"),
+    ],
+)
 def test_each_wrong_producer_fact_names_its_failed_requirement(damage, failed):
     required = ProducerRequirement("result", True, "effect:actual", "rich")
-    facts: dict[str, Any] = dict(output=output(), publication_receipt=True, cpu_receipt=True,
-                 admitted_effects=("effect:actual",), validity_families=("rich",))
+    facts: dict[str, Any] = dict(
+        output=output(),
+        publication_receipt=True,
+        cpu_receipt=True,
+        admitted_effects=("effect:actual",),
+        validity_families=("rich",),
+    )
     if damage == "role":
         facts["output"] = output("other")
     elif damage == "cpu":
@@ -71,8 +91,10 @@ def test_normal_binding_projection_refuses_wrong_selected_output_before_capture(
 
     declaration = contract()
     declaration["roles"][0]["producer_requirement"] = {
-        "output_role": "result", "requires_cpu": True,
-        "required_effect": None, "required_family": "none",
+        "output_role": "result",
+        "requires_cpu": True,
+        "required_effect": None,
+        "required_family": "none",
     }
     model = compile_data_operations(declarations=declarations(declaration))
     binding = resolved_binding(model)
@@ -81,5 +103,7 @@ def test_normal_binding_projection_refuses_wrong_selected_output_before_capture(
     with pytest.raises(PreparationError, match=r"source.*selected producer violates output_role"):
         project_operation_binding(model, replace(binding, roles=(replace(role, members=(wrong,)),)))
     correct = replace(wrong, producer_output=output())
-    request, _ = project_operation_binding(model, replace(binding, roles=(replace(role, members=(correct,)),)))
+    request, _ = project_operation_binding(
+        model, replace(binding, roles=(replace(role, members=(correct,)),))
+    )
     assert request.identity.key

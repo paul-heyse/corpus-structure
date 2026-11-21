@@ -1360,12 +1360,14 @@ def test_generated_native_format_is_advisory_while_date_model_owns_domain_check(
         observed: date
 
     schema = DatedRecord.model_json_schema(schema_generator=NativeJsonSchema)
-    assert schema['properties']['observed']['x-ddo-format'] == 'date'
-    assert 'format' not in schema['properties']['observed']
-    assert DatedRecord.model_validate_json('{"observed":"2026-11-21"}').observed == date(2026, 11, 21)
+    assert schema["properties"]["observed"]["x-ddo-format"] == "date"
+    assert "format" not in schema["properties"]["observed"]
+    assert DatedRecord.model_validate_json('{"observed":"2026-11-21"}').observed == date(
+        2026, 11, 21
+    )
     with pytest.raises(ValidationError):
         DatedRecord.model_validate_json('{"observed":"not-a-date"}')
     # Native profile remains structural. The actual domain owner enforces dates.
-    prepared_schema_validator(json.dumps(schema).encode()).validate({'observed': 'not-a-date'})
-    authored = {'type': 'string', 'format': 'date'}
+    prepared_schema_validator(json.dumps(schema).encode()).validate({"observed": "not-a-date"})
+    authored = {"type": "string", "format": "date"}
     assert checked_json_schema(authored) == authored

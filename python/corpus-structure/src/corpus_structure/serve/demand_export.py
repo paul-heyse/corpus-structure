@@ -96,7 +96,8 @@ def _relation_schema(relation, names, cut_id):
         ]
     else:
         columns = tuple(
-            column for column in table(relation).c
+            column
+            for column in table(relation).c
             if column.name not in omitted_support_fields(relation)
         )
         if names != {column.name for column in columns}:
@@ -311,7 +312,8 @@ def export_demand_result(
             runtime_files.append(name)
         support_reader = SelectedSupportReader()
         selected_relations = [
-            relation for (relation,) in spool.execute(
+            relation
+            for (relation,) in spool.execute(
                 select(_RECORDS.c.relation).distinct().order_by(_RECORDS.c.relation)
             )
         ]
@@ -321,15 +323,20 @@ def export_demand_result(
 
         for relation in selected_relations:
             first = spool.execute(
-                select(_RECORDS.c.payload).where(_RECORDS.c.relation == relation)
-                .order_by(_RECORDS.c.key).limit(1)
+                select(_RECORDS.c.payload)
+                .where(_RECORDS.c.relation == relation)
+                .order_by(_RECORDS.c.key)
+                .limit(1)
             ).scalar_one()
             names = set(native_json_loads(first)["record"])
             arrow, columns = _relation_schema(relation, names, cut.identity)
             support_contracts[relation]["arrow_schema"] = arrow.serialize().to_pybytes().hex()
             support_contracts[relation]["encodings"] = {
-                column.name: "json" if isinstance(column.type, JSONB) else
-                "timestamp" if isinstance(column.type, DateTime) else "native"
+                column.name: "json"
+                if isinstance(column.type, JSONB)
+                else "timestamp"
+                if isinstance(column.type, DateTime)
+                else "native"
                 for column in columns
             }
         reader_schema = wire_contracts()["read_demand_result"]["output"]
@@ -371,7 +378,9 @@ def export_demand_result(
                 authority = relation == "ops.data_authority_leaf"
                 execution = relation == "ops.data_execution_evidence_leaf"
                 captured = support_contracts[relation]
-                schema = pa.ipc.read_schema(pa.BufferReader(bytes.fromhex(captured["arrow_schema"])))
+                schema = pa.ipc.read_schema(
+                    pa.BufferReader(bytes.fromhex(captured["arrow_schema"]))
+                )
                 encodings = captured["encodings"]
                 name = relation.replace(".", "_") + ".parquet"
                 count = 0
@@ -542,8 +551,12 @@ def verified_demand_export(root: Path, *, manifest_digest: str):
         runtime_ids.add((binding.release_id, binding.runtime_id))
     wire_schema = native_json_loads((root / manifest.reader_contract).read_bytes())
     if SUPPORT_EXTENSION not in wire_schema:
-        raise ValueError("detached reader has no captured support interpretation; regenerate export")
-    support_reader = SelectedSupportReader(wire_schema[SUPPORT_EXTENSION], kinds=kinds, wire_schema=wire_schema)
+        raise ValueError(
+            "detached reader has no captured support interpretation; regenerate export"
+        )
+    support_reader = SelectedSupportReader(
+        wire_schema[SUPPORT_EXTENSION], kinds=kinds, wire_schema=wire_schema
+    )
     authority_schema = wire_json_loads((root / manifest.authority_contract).read_bytes())
     execution_schema = wire_json_loads((root / manifest.execution_evidence_contract).read_bytes())
     with TemporaryDirectory(prefix="demand-verify-") as scratch:

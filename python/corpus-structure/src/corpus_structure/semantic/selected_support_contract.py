@@ -23,7 +23,9 @@ def support_declarations():
     try:
         content = model_source("selected-support.yaml")
     except KeyError as error:
-        raise ValueError("captured model has no selected support interpretation; regenerate result") from error
+        raise ValueError(
+            "captured model has no selected support interpretation; regenerate result"
+        ) from error
     document = yaml.safe_load(content)
     if document["version"] != "selected-support-v1":
         raise ValueError("unsupported selected support declaration")
@@ -43,7 +45,10 @@ def _column_schema(column) -> dict[str, Any]:
     elif isinstance(typ, ARRAY):
         from sqlalchemy import Column
 
-        shape = {"type": "array", "items": _column_schema(Column(type_=typ.item_type, nullable=False))}
+        shape = {
+            "type": "array",
+            "items": _column_schema(Column(type_=typ.item_type, nullable=False)),
+        }
     elif isinstance(typ, Boolean):
         shape = {"type": "boolean"}
     elif isinstance(typ, Integer):
@@ -67,7 +72,10 @@ def ambient_support_contract(relation: str) -> bytes:
     if relation == "ops.data_authority_leaf":
         from .authority_leaf import NativeAuthorityLeaf
 
-        schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", **NativeAuthorityLeaf.model_json_schema()}
+        schema = {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            **NativeAuthorityLeaf.model_json_schema(),
+        }
     elif relation == "ops.data_execution_evidence_leaf":
         from .execution_evidence_leaf import execution_evidence_leaf_schema
 
@@ -107,7 +115,11 @@ def ambient_support_contract(relation: str) -> bytes:
     if "definitions" in schema:
         contextual.extend(wire_contextual_fields())
     return json_bytes(
-        {"schema": schema, "contextual_fields": contextual, "kind_body": declaration.get("kind_body")}
+        {
+            "schema": schema,
+            "contextual_fields": contextual,
+            "kind_body": declaration.get("kind_body"),
+        }
     )
 
 
@@ -131,10 +143,14 @@ class SelectedSupportReader:
 
     def __init__(self, contracts: dict[str, Any] | None = None, *, kinds=None, wire_schema=None):
         self.contracts = (
-            None if contracts is None else {name: json_bytes(contract) for name, contract in contracts.items()}
+            None
+            if contracts is None
+            else {name: json_bytes(contract) for name, contract in contracts.items()}
         )
         self.kinds = None if kinds is None else native_json_loads(json_bytes(kinds))
-        self.wire_schema = None if wire_schema is None else native_json_loads(json_bytes(wire_schema))
+        self.wire_schema = (
+            None if wire_schema is None else native_json_loads(json_bytes(wire_schema))
+        )
 
     def contract(self, relation: str) -> bytes:
         if self.contracts is None:
@@ -158,7 +174,9 @@ class SelectedSupportReader:
             kind = self.kinds[kind_id]
             # Structural and semantic admission remain with the native/captured
             # closure validator. The same captured kind selects interpretation.
-            body[kind_body] = _kind_projection(json_bytes(kind["meaning_schema"]))(row["record"][kind_body])
+            body[kind_body] = _kind_projection(json_bytes(kind["meaning_schema"]))(
+                row["record"][kind_body]
+            )
         return {"key": row["key"], "relation": relation, "record": body}
 
     def loads(self, content: bytes | str, *, validate=True):
@@ -173,17 +191,21 @@ class SelectedSupportReader:
             "original_source_admissions": "original_source_admission_result",
         }[kind]
         schema = (
-            wire_record_schema(name) if self.wire_schema is None else
-            {"$ref": "#/definitions/" + name, "definitions": self.wire_schema["definitions"]}
+            wire_record_schema(name)
+            if self.wire_schema is None
+            else {"$ref": "#/definitions/" + name, "definitions": self.wire_schema["definitions"]}
         )
         roles = (
-            wire_contextual_fields() if self.wire_schema is None else
-            tuple(self.wire_schema["x-corpus-contextual-fields"])
+            wire_contextual_fields()
+            if self.wire_schema is None
+            else tuple(self.wire_schema["x-corpus-contextual-fields"])
         )
         return prepare_json_projection(schema, roles)(value)
 
     def capture(self, relations):
-        return {relation: native_json_loads(self.contract(relation)) for relation in sorted(relations)}
+        return {
+            relation: native_json_loads(self.contract(relation)) for relation in sorted(relations)
+        }
 
 
 def prepare_demand_interpretation(schema, contextual_fields):
@@ -198,7 +220,9 @@ def prepare_demand_interpretation(schema, contextual_fields):
         except (TypeError, AttributeError, KeyError) as error:
             raise ValueError("native demand fields differ from their declared structure") from error
         if support is not None:
-            projected["support_page"]["records"] = [reader.record(row) for row in support["records"]]
+            projected["support_page"]["records"] = [
+                reader.record(row) for row in support["records"]
+            ]
         return projected
 
     return interpret

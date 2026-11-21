@@ -150,7 +150,9 @@ class M1Config(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
     local_schema: dict[str, Any] | None = None
     region_pointers: tuple[str, ...] | None = None
-    source_projection_digest: str | None = Field(default=None, min_length=64, max_length=64, pattern="^[0-9a-f]{64}$")
+    source_projection_digest: str | None = Field(
+        default=None, min_length=64, max_length=64, pattern="^[0-9a-f]{64}$"
+    )
     policy: Literal[
         "m1-canonical-related-context-candidates-4",
         "m1-canonical-related-context-candidates-5",

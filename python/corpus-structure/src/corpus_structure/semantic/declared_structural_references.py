@@ -95,7 +95,9 @@ class DeclaredProductRef(StructuralValue):
 
 
 class DeclaredContributionRef(DeclaredProductRef):
-    contribution_id: Annotated[str, Field(min_length=84, max_length=84, pattern=r"^source-contribution:[0-9a-f]{64}$")]
+    contribution_id: Annotated[
+        str, Field(min_length=84, max_length=84, pattern=r"^source-contribution:[0-9a-f]{64}$")
+    ]
 
 
 class DeclaredStructuralRef(DeclaredProductRef):

@@ -475,7 +475,11 @@ def compare_data_operation_models(
         breakages=tuple(breakages),
         unknowns=tuple(dict.fromkeys(unknowns)),
         material_comparison=(
-            "changed" if material_operations else "uncompared" if material_uncompared else "unchanged"
+            "changed"
+            if material_operations
+            else "uncompared"
+            if material_uncompared
+            else "unchanged"
         ),
         material_operations=tuple(material_operations),
     )

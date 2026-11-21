@@ -2503,7 +2503,9 @@ def project_operation_binding(
             if requirement is not None:
                 from .producer_requirements import compare_producer_requirement
 
-                comparison = compare_producer_requirement(requirement, output=member.producer_output)
+                comparison = compare_producer_requirement(
+                    requirement, output=member.producer_output
+                )
                 if comparison.failed:
                     _fail(name, "selected producer violates " + ", ".join(comparison.failed))
             for value in (member.product, member.subject):

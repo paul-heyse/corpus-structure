@@ -15,19 +15,26 @@ from corpus_structure.semantic.selected_support_contract import SelectedSupportR
 
 def test_request_scope_and_product_body_use_distinct_declared_roles(tmp_path):
     request = {
-        "key": "request:A", "relation": "ops.data_request",
+        "key": "request:A",
+        "relation": "ops.data_request",
         "record": {"id": "A", "analyzed_scope": {"scale": Decimal("0.123456789012345678901")}},
     }
     product = {
-        "key": "product:A", "relation": "kb.data_product",
-        "record": {"id": "P", "analyzed_scope": {"scale": Decimal("0.123456789012345678901")},
-                   "canonical_body": {"analyzed_scope": Decimal("0.125")}},
+        "key": "product:A",
+        "relation": "kb.data_product",
+        "record": {
+            "id": "P",
+            "analyzed_scope": {"scale": Decimal("0.123456789012345678901")},
+            "canonical_body": {"analyzed_scope": Decimal("0.125")},
+        },
     }
     index = SelectedRecordIndex(tmp_path / "support.sqlite")
     try:
         for row in (request, product):
             index.append(json_bytes(row))
-        assert index.mapping("ops.data_request", ("id",))["A"]["analyzed_scope"]["scale"] == Decimal("0.123456789012345678901")
+        assert index.mapping("ops.data_request", ("id",))["A"]["analyzed_scope"][
+            "scale"
+        ] == Decimal("0.123456789012345678901")
         body = index.mapping("kb.data_product", ("id",))["P"]
         assert body["analyzed_scope"]["scale"] == Decimal("0.123456789012345678901")
         assert type(body["canonical_body"]["analyzed_scope"]) is float
@@ -44,15 +51,18 @@ def test_captured_shape_survives_ambient_change_and_refuses_unknown_contract(mon
     historical = SelectedSupportReader(captured)
     properties = captured["ops.data_request"]["schema"]["properties"]
     record: dict[str, Any] = {
-        name: None if "anyOf" in schema else "value"
-        for name, schema in properties.items()
+        name: None if "anyOf" in schema else "value" for name, schema in properties.items()
     }
     record["analyzed_scope"] = {"scale": Decimal("1.234567890123456789")}
     row = {"key": "request:A", "relation": "ops.data_request", "record": record}
     payload = json_bytes(row)
     expected_digest = sha256(payload).digest()
-    monkeypatch.setattr(owner, "ambient_support_contract", lambda _: pytest.fail("ambient schema read"))
-    assert historical.loads(payload)["record"]["analyzed_scope"]["scale"] == Decimal("1.234567890123456789")
+    monkeypatch.setattr(
+        owner, "ambient_support_contract", lambda _: pytest.fail("ambient schema read")
+    )
+    assert historical.loads(payload)["record"]["analyzed_scope"]["scale"] == Decimal(
+        "1.234567890123456789"
+    )
     assert sha256(payload).digest() == expected_digest
     changed = deepcopy(row)
     changed["record"]["future_column"] = "added"
@@ -71,7 +81,9 @@ def test_support_integer_coordinate_is_checked_before_projection():
     schema["properties"] = {"position": {"type": "integer"}}
     schema["required"] = ["position"]
     owned = SelectedSupportReader(captured)
-    row = native_json_loads(b'{"key":"x","relation":"ops.data_derivation_output","record":{"position":3.0}}')
+    row = native_json_loads(
+        b'{"key":"x","relation":"ops.data_derivation_output","record":{"position":3.0}}'
+    )
     assert owned.record(row)["record"]["position"] == 3
     row["record"]["position"] = Decimal("3.125")
     with pytest.raises(ValidationError):
@@ -85,10 +97,16 @@ def test_captured_kind_selects_body_numbers_and_unknown_kind_refuses():
     schema = captured["kb.data_product"]["schema"]
     schema["properties"] = {"kind_contract": {"type": "string"}, "canonical_body": {}}
     schema["required"] = list(schema["properties"])
-    kinds = {"kind:A": {"meaning_schema": {
-        "type": "object", "properties": {"count": {"type": "integer"}, "analyzed_scope": {}},
-        "required": ["count", "analyzed_scope"], "additionalProperties": False,
-    }}}
+    kinds = {
+        "kind:A": {
+            "meaning_schema": {
+                "type": "object",
+                "properties": {"count": {"type": "integer"}, "analyzed_scope": {}},
+                "required": ["count", "analyzed_scope"],
+                "additionalProperties": False,
+            }
+        }
+    }
     reader = SelectedSupportReader(captured, kinds=kinds)
     payload = b'{"key":"product:A","relation":"kb.data_product","record":{"kind_contract":"kind:A","canonical_body":{"count":3.0,"analyzed_scope":0.125}}}'
     row = reader.loads(payload)
@@ -96,4 +114,4 @@ def test_captured_kind_selects_body_numbers_and_unknown_kind_refuses():
     assert row["record"]["canonical_body"]["count"] == 3
     assert type(row["record"]["canonical_body"]["analyzed_scope"]) is float
     with pytest.raises(ValueError, match="unsupported captured support kind"):
-        reader.loads(payload.replace(b'kind:A', b'kind:B'))
+        reader.loads(payload.replace(b"kind:A", b"kind:B"))

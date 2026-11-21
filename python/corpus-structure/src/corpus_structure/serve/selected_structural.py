@@ -30,7 +30,9 @@ class StructuralReadRequest(BaseModel):
     project_id: str = Field(min_length=1)
     read_id: str | None = None
     expected_cut: str | None = None
-    implementation: str | None = Field(default=None, min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+    implementation: str | None = Field(
+        default=None, min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$"
+    )
     max_bytes: int = Field(default=1_000_000, strict=True, ge=1024, le=67_108_864)
     max_graph_bytes: int = Field(default=8_388_608, strict=True, ge=1024, le=67_108_864)
     max_graph_records: int = Field(default=100_000, strict=True, ge=1, le=1_000_000)

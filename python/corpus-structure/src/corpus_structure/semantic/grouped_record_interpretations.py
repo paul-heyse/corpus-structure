@@ -64,7 +64,9 @@ class GroupedInterpretationRequest(GroupedRecord):
     max_graph_bytes: int = Field(default=8388608, strict=True, ge=1024, le=67108864)
     max_graph_records: int = Field(default=100000, strict=True, ge=1, le=1000000)
     max_support_edges: int = Field(default=100000, strict=True, ge=1, le=1000000)
-    implementation: str | None = Field(default=None, min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+    implementation: str | None = Field(
+        default=None, min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$"
+    )
     cursor: str | None = Field(default=None, max_length=32768)
     limit: int = Field(default=20, strict=True, ge=1, le=1000)
     max_bytes: int = Field(default=1048576, strict=True, ge=1024, le=67108864)

@@ -43,14 +43,20 @@ class NativeSourceRequest(SelectedPdfSourceReference):
         "visual_evidence",
     ] = "items"
     projection_digest: str | None = Field(
-        default=None, min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$", exclude_if=lambda value: value is None
+        default=None,
+        min_length=64,
+        max_length=64,
+        pattern=r"^[0-9a-f]{64}$",
+        exclude_if=lambda value: value is None,
     )
     section_pointer: str | None = None
     membership: Literal["direct", "descendants"] | None = None
     pointer: str | None = None
     cell_index: int | None = Field(default=None, ge=0)
     occurrence_id: str | None = None
-    artifact_digest: str | None = Field(default=None, min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+    artifact_digest: str | None = Field(
+        default=None, min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$"
+    )
     collection: Literal["inputs", "coverage", "relations", "mapping_reports"] | None = None
     evidence: VisualEvidencePin | None = Field(default=None, exclude_if=lambda value: value is None)
     page_no: int | None = Field(default=None, gt=0, exclude_if=lambda value: value is None)

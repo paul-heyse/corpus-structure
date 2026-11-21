@@ -12,8 +12,10 @@ from .schema_validation import prepared_schema_validator
 
 CONTEXTUAL_JSON_TYPE = "corpus_structure.semantic.data_operation_json.ContextualJsonValue"
 _ORDINARY_JSON = {
-    "#/definitions/json_value", "#/definitions/DdoJsonValue",
-    "#/$defs/DdoJsonValue", "#/$defs/JsonValue",
+    "#/definitions/json_value",
+    "#/definitions/DdoJsonValue",
+    "#/$defs/DdoJsonValue",
+    "#/$defs/JsonValue",
 }
 
 
@@ -167,7 +169,9 @@ def prepare_json_projection(schema: dict[str, Any], contextual_fields: tuple[str
                     for valid, convert in alternatives:
                         if valid(value):
                             return convert(value)
-                    raise ValueError("admitted native JSON has no applicable schema branch at " + pointer)
+                    raise ValueError(
+                        "admitted native JSON has no applicable schema branch at " + pointer
+                    )
 
                 target, shape = alternative, ("union", shapes)
         elif node.get("type") == "integer":

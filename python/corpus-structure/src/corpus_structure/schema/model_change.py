@@ -276,12 +276,16 @@ class ChangePreview(BaseModel):
         comparison = self.source_comparison
         application = self.request.data_operations is not None
         delta = self.effects.native_delta
-        material_status: Literal["unchanged", "changed", "uncompared", "not_applicable"] = "uncompared"
+        material_status: Literal["unchanged", "changed", "uncompared", "not_applicable"] = (
+            "uncompared"
+        )
         if not application:
             material_status = "not_applicable"
         elif comparison is not None:
             material_status = comparison.material_comparison
-        capture_status: Literal["deferred", "acquired", "uncompared", "not_applicable"] = "uncompared"
+        capture_status: Literal["deferred", "acquired", "uncompared", "not_applicable"] = (
+            "uncompared"
+        )
         if not application or not self.effects.admission:
             capture_status = "not_applicable"
         elif self.application_capture_required:
