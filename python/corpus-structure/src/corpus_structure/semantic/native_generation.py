@@ -81,7 +81,15 @@ def capture_generator_inputs(
     if pdf_sources is not None and pdf_actions is not None:
         raise ValueError("select PDF action input or an already captured PDF source cohort")
     model = running_model()
-    model_inputs = tuple(sorted(model.sources.items()))
+    # Explicit target and logical selections own their corresponding model bytes.
+    # Ambient declarations only supply the unaffected remainder of the capture.
+    effective = {
+        **model.sources,
+        **selected.info["physical_sources"],
+        **(logical_sources or {}),
+        "linkml:types": selected.info["physical_linkml_types"],
+    }
+    model_inputs = tuple(sorted(effective.items()))
     logical = (
         native_logical_sources(model_sources=dict(model_inputs))
         if logical_sources is None

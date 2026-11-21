@@ -20,6 +20,23 @@ def prepared_target():
     )
 
 
+def test_explicit_native_target_supplies_its_effective_model_bytes():
+    from corpus_structure.model.compiled import running_model
+    from corpus_structure.semantic.native_generation import capture_generator_inputs
+
+    ambient = running_model()
+    sources = dict(get_metadata().info["physical_sources"])
+    document = yaml.safe_load(sources["physical.yaml"])
+    document["description"] = "Reviewed prospective physical source."
+    sources["physical.yaml"] = yaml.safe_dump(document).encode()
+    target = compile_physical(sources)
+    acquired = capture_generator_inputs(target)
+    assert dict(acquired.model_sources)["physical.yaml"] == sources["physical.yaml"]
+    assert dict(acquired.physical_sources) == sources
+    assert running_model() is ambient
+    assert ambient.sources["physical.yaml"] != sources["physical.yaml"]
+
+
 def test_target_physical_model_keeps_request_pdf_and_release_custody_without_old_roots():
     target = prepared_target()
     assert {
