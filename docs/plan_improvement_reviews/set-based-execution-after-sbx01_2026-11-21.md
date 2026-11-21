@@ -22,30 +22,38 @@ affected boundaries. [Design principles](../design_review/design_principles/core
 ## Identity, proof, and authority
 
 <a id="I01"></a>
-### I01 · Give block correspondence and publication context explicit owners
+### I01 · Key computation on declared inputs and bind publication to the current occurrence
 
 **Observed boundary.** SBX-01's keyed content root and placement root are distinct. The sentence producer
 gets its block keys from source node pointers and adds cell suffixes for table blocks. A reconversion may
-renumber those pointers. The request key also hashes the complete subject context, including original source
-and analyzed scope, so equal input projections can still yield different request keys. The retained sample
-supports whole blocks as a physical unit within that sample. It does not establish stable correspondence
-between conversions. [Partition identity](../../python/corpus-structure/src/corpus_structure/semantic/data_operation_partitions.py#L152) ·
+renumber those pointers. Today's request key also hashes the complete subject context, including original
+source and analyzed scope. Native attachment checks that context against the occurrence being bound. The
+retained sample supports whole blocks as a physical unit within that sample. Correspondence between
+conversions remains unverified. [Partition identity](../../python/corpus-structure/src/corpus_structure/semantic/data_operation_partitions.py#L152) ·
 [Block producer](../../python/corpus-structure/src/corpus_structure/semantic/sentence_products.py#L407) ·
 [Request identity](../../python/corpus-structure/src/corpus_structure/semantic/data_operation_identity.py#L440) ·
-[Subject context](../../python/corpus-structure/src/corpus_structure/semantic/data_operation_model.py#L1168)
+[Subject context](../../python/corpus-structure/src/corpus_structure/semantic/data_operation_model.py#L1168) ·
+[Native attachment](../../python/corpus-structure/src/corpus_structure/semantic/request_attachment_native.py#L1552)
 
-**Proposed.** In SBX-03 and SBX-05, let the source acquisition or lowering owner establish the occurrence and
-any exact correspondence between source conversions. In SBX-06, keep project, source occurrence, and
-publication authority explicit. If SBX-07 is adopted, let a kernel whose declared computation inputs permit
-it reuse relative work and publish it under the newly acquired occurrence. This supports targeted reuse
-without changing the meaning of an occurrence-bound request or giving the reference resolver a matching
-policy. Start with source-local keys and regeneration where correspondence is unavailable. A cross-original
-correspondence mechanism earns its cost only for a supported consumer that needs it. Content equality alone
-leaves repeated paragraphs, cells with identical text, and split or merged blocks ambiguous.
+**Proposed.** In SBX-06, derive reusable computation identity from the operation and its declared inputs,
+including parameters and any relevant execution policy. Include an occurrence fact in the projection when
+it affects the result. Inserting a paragraph earlier in a document can change its source identity and later
+blocks' absolute offsets while leaving a later block's text and relative geometry unchanged. A kernel that
+reads absolute offsets needs a placement premise. A kernel that reads only the unchanged local values can
+reuse its result under the applicable reuse policy. Attachment and publication still require the exact current
+occurrence, selected inputs, and project authority.
+
+In SBX-03 and SBX-05, let acquisition or lowering own occurrence identification and any exact correspondence
+needed to locate or rebind a particular block. Equal complete projections can establish computational
+equivalence without a cross-source occurrence map. Repeated paragraphs, identical table cells, and split or
+merged blocks still require independent evidence to establish a specific correspondence. If SBX-07 is adopted,
+use source-local keys where sufficient and acquire the current partitions afresh when their correspondence
+cannot be established.
 
 **Closure.** Pair an unchanged block moved under its retained key with a reconversion that renumbers
-pointers. Check relative content, absolute readback, and the identity and authority of the new publication.
-Use a second control with repeated text or a split block where unsupported correspondence must regenerate.
+pointers. Establish whether the relative-only projection retains its computation key, whether a consumer of
+changed placement gets a different key, and whether readback uses the current occurrence and authority.
+Use a repeated-text or split-block control to check that reuse carries no guessed occurrence mapping.
 State which of request attachment, partition computation reuse, and proof reuse each case establishes.
 This refines the existing ADR-0144 revisit condition. [ADR-0144](../adr/0144-sbx-partitioned-products.md) ·
 [Memo eligibility](../plans/set-based-execution/references-and-projection-keys.md#sbx-07)
@@ -262,8 +270,8 @@ exposed the cross-demand defect.
 
 - Settle I01–I04 before SBX-02, SBX-05 and SBX-06 make competing assumptions about premise selection,
   provenance, and keyed reads. I05 is the first integrated feedback once those contracts are
-  expressible. The operator decision is whether cross-original work reuse warrants source
-  correspondence in this series or remains conditional after source-local partition adoption.
+  expressible. Decide whether a specific consumer needs cross-source occurrence correspondence after
+  establishing what projection equivalence and source-local acquisition already cover.
 - Align I06 and I09 with candidate integration. Keep one registered identity cutover. If a narrower
   wire closure is proposed, review it through the existing decision route after demonstrating a
   concrete effect. Keep the single native export journey as the regression for actual publication.
