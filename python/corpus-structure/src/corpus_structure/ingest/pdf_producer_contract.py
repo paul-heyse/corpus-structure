@@ -82,6 +82,26 @@ def _code_tree(code):
             yield from _code_tree(value)
 
 
+def _torch_context_wrapper_matches(code: CodeType, templates: frozenset[CodeType]) -> bool:
+    """Torch's exact two context wrappers deliberately change stack display names.
+
+    _set_stack_frame_name changes only co_name/co_qualname. Executable code,
+    constants, flags, argument/closure layout and line information remain exact.
+    """
+    for template in templates:
+        if (
+            template.co_qualname
+            in {
+                "context_decorator.<locals>.decorate_context",
+                "_wrap_generator.<locals>.generator_context",
+            }
+            and _code_key(code.replace(co_name=template.co_name, co_qualname=template.co_qualname))
+            == template
+        ):
+            return True
+    return False
+
+
 def _generated_dataclass_codes(module):
     """Re-derive supported generated methods through the pinned stdlib factory."""
     known = set()
@@ -408,6 +428,11 @@ def standard_pdf_execution(contract: StandardPdfContract):
                         _code_tree(compile(path.read_bytes(), key, "exec", dont_inherit=True))
                     )
                 if _code_key(code) not in codes[key]:
+                    if (
+                        path == purelib / "torch/utils/_contextlib.py"
+                        and _torch_context_wrapper_matches(code, codes[key])
+                    ):
+                        return sys.monitoring.DISABLE
                     raise ValueError(
                         "Standard PDF dependency code differs from captured source: " + key
                     )

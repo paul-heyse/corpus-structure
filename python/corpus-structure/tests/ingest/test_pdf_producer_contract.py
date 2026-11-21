@@ -175,3 +175,40 @@ def test_generic_sources_do_not_acquire_selected_recognition_population(monkeypa
         )
         is None
     )
+
+
+def test_pinned_torch_context_rename_preserves_code_and_rejects_changed_execution():
+    import torch
+    import torch.utils._contextlib as native_context
+
+    source = Path(native_context.__file__)
+    templates = frozenset(
+        producer._code_tree(compile(source.read_bytes(), str(source), "exec", dont_inherit=True))
+    )
+
+    @torch.no_grad()
+    def wrapped():
+        return torch.is_grad_enabled()
+
+    with torch.enable_grad():
+        assert wrapped() is False
+    assert producer._torch_context_wrapper_matches(wrapped.__code__, templates)
+
+    def changed(ctx_factory, func):
+        def execute(*args, **kwargs):
+            _ = ctx_factory, func
+            return True
+
+        return execute
+
+    original = wrapped.__code__
+    assert wrapped.__closure__ is not None
+    replacement = changed(*(cell.cell_contents for cell in wrapped.__closure__))
+    wrapped.__code__ = replacement.__code__.replace(
+        co_filename=original.co_filename,
+        co_name=original.co_name,
+        co_qualname=original.co_qualname,
+    )
+    with torch.enable_grad():
+        assert wrapped() is True
+    assert not producer._torch_context_wrapper_matches(wrapped.__code__, templates)
