@@ -102,9 +102,10 @@ that hand a value to spaCy, HanLP or GLiNER are not resolvable and are declared.
 proposes projections and reports a declared group that is never read; it is never what makes
 reuse sound.
 
-**Projection digest.** For one input, the identity of the projection specification together with
-the roots of the declared field groups over the partitions in scope. For `whole` scope over all
-field groups it equals today's content address.
+**Projection digest.** For one input, combine the projection specification with the roots of the
+declared field groups over the partitions in scope and any observed membership, order, placement
+or source premises. Relative-content consumers can omit placement. A consumer that emits
+absolute spans or depends on adjacency includes the relevant placement or ordering facts.
 
 **Request identity.** An input contributes its projection digest in place of its product id. A
 change to a field group or partition outside the projection leaves the key unchanged; the

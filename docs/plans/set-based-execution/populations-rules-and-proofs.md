@@ -1,6 +1,7 @@
 # Populations, rules and proofs
 
-**Status:** Proposed. Companion of [Set-based execution](../set-based-execution_2026-11-21.md),
+**Status:** SBX-01 implemented and tested in rollback-only native scope. SBX-02 through SBX-04
+retain their planned acceptance. Companion of [Set-based execution](../set-based-execution_2026-11-21.md),
 which owns package state, decisions and the disposition table. **Created:** 2026-11-21.
 
 This companion owns the central contracts of the series: how a homogeneous population is stored
@@ -44,16 +45,17 @@ A kind declares **collections** on its multivalued slots. A collection declares 
 order, the fields that form an item's address, and its **field groups**.
 
 **Storage.** `kb.data_product_partition(product_id, collection, partition_key, ordinal,
-partition_digest, item_count, group_digests, body)`, primary key on the first three, with an
+partition_digest, item_count, group_digests, placement, body)`, primary key on the first three, with an
 index for ordinal order. `body` is the tagged value of one partition. `group_digests` is a
 mapping from field-group name to the digest of that group's values in item order.
 
 **Identity.** `partition_digest = ddo_identity('partition', body)`, with its Python twin through
 `canonical_identity`. The existing identity function already takes its domain as a parameter, so
 no new hashing protocol is introduced. In the product header the collection property becomes a
-record of root, partition count and item count; the root is the identity of the sorted
-`(partition_key, partition_digest)` pairs. Body digest and product id keep their formulas over
-that header. A field group's root is computed the same way over `(partition_key, group digest)`
+record of content root, placement root, partition count and item count. The content root is the
+identity of key-sorted `(partition_key, partition_digest)` pairs. The separate placement root
+authenticates key, ordinal and absolute extent. Both enter the header and its product identity.
+A field group's root is computed the same way over `(partition_key, group digest)`
 pairs when a projection needs it ([read projections](references-and-projection-keys.md#read-projections)).
 
 **Field groups.** A field group is a named set of an item's fields that is read together: for
@@ -63,11 +65,20 @@ tokens, for example, geometry (`start`, `end`, `space`), sentence membership, le
 consumer's key can ignore a change. Too many groups cost digests; too few forfeit reuse. SBX-01
 fixes the first populations' groups from the read sets the consumers actually have.
 
-**Block-relative addresses.** Offsets stored in a partition are relative to the block's start;
-the block's own extent is in the partition's header fields. A token's address is
+For the first cutover, annotation and canonical token groups separate span and segmentation,
+sentence membership, lexical labels, dependency and layout. Sentence spans and membership supply
+HanLP batching and construction matching. HanLP groups separate token alignment, dependency,
+constituency and semantic roles, keyed to the canonical sentence in its block of origin. Whole
+coverage and outcome remain product facts. SBX-03 binds these groups to the executable slots and
+SBX-06 binds consumer projections. Group rows preserve omitted fields and explicit nulls.
+
+**Block-relative addresses.** Offsets stored in a partition are relative to the block's start.
+Absolute extent is stored as keyed placement and authenticated by the placement root. A token's address is
 `(collection, block_id, start, end)` with relative offsets. The address is what today's hashed
-id is computed from, left unhashed and made stable under edits elsewhere in the source. An
-absolute offset is a derived value: block start plus relative offset.
+id is computed from, left unhashed and stable for an unchanged block key. An absolute offset is
+the block start plus the relative offset. A consumer that observes order or absolute position needs
+the corresponding placement premise. Reconversion can rename positional source pointers, so
+cross-original reuse requires established block correspondence.
 
 **Normalization before rules.** The token-to-sentence link is stored one way, as the sentence's
 ordinal on the token. `token_ids`, `sentence_ref`, `head_ref` and the separate `lexemes` list are
@@ -132,10 +143,12 @@ reference. If more than about a third fail to fit after normalization, SBX-02 st
 `(rule_fingerprint, premise)`, written only by security-definer programs. `sem.data_rule(release_id,
 rule_id, fingerprint, …)` holds each release's current fingerprints.
 
-**Premise.** For a partition rule, the partition digest. For a pair or cross-product rule, the
-identity of the digests in declared order. For a product-scope rule, the body digest. A roll-up
-row with the collection root as premise is written when every partition of the collection has
-its proof.
+**Premise.** Use the digest of the facts the rule observes. A rule over all relative partition
+content can use the partition digest directly. Narrower rules use the relevant group digests.
+Rules that observe placement, order, selected source text or membership include those premises.
+Pair and cross-product rules combine the required digests in declared order. A product-scope rule
+that observes the whole header can use the body digest. A roll-up binds the corresponding
+collection premises after every partition has its proof.
 
 **No invalidation step.** A proof is an immutable fact about content. Whether it is current is a
 join: a release whose rule reads an unchanged closure computes the same fingerprint, and every
@@ -181,6 +194,23 @@ equal values written by hand in the test from the canonical bytes. Changing one 
 exactly one partition digest, one or more of that partition's group digests, and the root. A
 partition body one byte off its declared digest is refused. Python and PostgreSQL agree on every
 digest for bodies containing non-ASCII text, a float, a decimal and an absent optional field.
+
+**Verified · 2026-11-21.** Managed selection `a28f4c6e5c8d44328a780193e99d20ce` passed 36
+compiler, generated-wire and PostgreSQL cases. It exercised the compiled header and item
+schemas, digest parity with tagged non-ASCII/numeric/absent/null values, group isolation,
+placement and reorder isolation, exact and shuffled replay, malformed population rollback,
+and keyed parent-project and kind custody. The private keyed routine assumes its caller has
+already acquired the selected parent. SBX-11 owns the public read shape. Item order and address
+paths compile in SBX-01. Set-wise rule enforcement belongs to SBX-02.
+
+The managed model preview `e5ab8d360fcf4954a55e55b5d4f4ff34` bound the N47 stage. Rollback-only
+authoring `4867ee4d101a4c9c86cd2209e2c5cb40` used canonical N29 as its acquired authoring base and
+replayed the registered predecessor under the authoring transaction. The operation recorded
+established cleanup. Public producer declarations and final Revision A registration belong to
+SBX-03 and SBX-20.
+
+The acquired catalog in the candidate grants partition lookup only to the native publisher
+owner. Post-authoring maintenance readback found canonical N29 and stage N47.
 
 <a id="sbx-02"></a>
 ## SBX-02 — Rules and proofs

@@ -1,8 +1,8 @@
 # Set-based execution
 
-**Status:** Proposed; owns the pivot to partition-unit storage, declared rules and proofs,
-projection-keyed reuse, owner-resolved reads and the single-derivation PDF path. Not yet
-authorized for execution. **Created:** 2026-11-21.
+**Status:** In implementation. SBX-00 and SBX-01 are authorized. This series owns the pivot to
+partition-unit storage, declared rules and proofs, projection-keyed reuse, owner-resolved reads
+and the single-derivation PDF path. **Created:** 2026-11-21.
 
 **Basis.** The [execution outside PostgreSQL review](../functional_reviews/columnar-execution-outside-postgresql_2026-11-21.md)
 at revision `b8109d423` (T1–T9, O01–O19, six defects). Nine investigations and one independent
@@ -54,8 +54,7 @@ dependent work.
 | Read programs and scratch stores | Accepted | ADR; native revision B; DESIGN §2 store statement |
 | One kernel family rebuilt as set operations, as a gated trial | Accepted | Package SBX-19 ends in a recorded decision |
 
-Changes this plan's authoring revealed, **awaiting operator confirmation** before the packages
-that depend on them:
+The operator also confirmed these changes before execution of SBX-00 and SBX-01:
 
 | Change | Consequence | Depends |
 |---|---|---|
@@ -138,8 +137,8 @@ capability consumed.
 
 | Package | Delivers | Needs | Companion |
 |---|---|---|---|
-| SBX-00 | Decision records; entry checks; baseline of tests and fixtures that pin changing shapes; fix of defect 1 | — | this document |
-| SBX-01 | Collection declarations, partition storage, digests, roots, field groups, block-relative addresses, in both languages | SBX-00 decisions | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-01) |
+| SBX-00 | Complete. Decision records, entry evidence and fixture baseline are recorded. Exact selected-use readers and detached demand ownership passed genuine finite and rich export checks. | — | [Entry and reader evidence](#sbx-00) |
+| SBX-01 | Complete for generic collection declarations, partition storage, content and placement identity, field groups and block-relative addresses. Managed rollback-only candidate passed. | SBX-00 decisions | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-01) |
 | SBX-02 | Rule declarations, forms, fingerprints, admission evaluation, proof rows, establish routine, proofs required at binding | SBX-01 partitions | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-02) |
 | SBX-03 | Sentence, canonical and HanLP products cut over; consumers read partitions; packet machinery retired | SBX-01, SBX-02, SBX-05 carrier | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-03) |
 | SBX-04 | Existing validators as attested rules; one stance at hand-off; projection families and member-level outputs retired | SBX-02 | [PRP](set-based-execution/populations-rules-and-proofs.md#sbx-04) |
@@ -184,9 +183,12 @@ re-keys all proofs).
 <a id="sbx-00"></a>
 ## SBX-00 — Decisions, entry checks and baseline
 
-**Decision records.** One per row of the accepted table, written with `uv run ci adr new`, each
-amending its owning design section in the same commit. The four changes awaiting confirmation are
-put to the operator here with the evidence below, and recorded or dropped.
+**Decisions recorded · 2026-11-21.** ADR-0143 through ADR-0148 record the accepted targets and
+their governing design sections. The focused
+[Revision A target review](../design_review/reviews/design_review_sbx-revision-a-identity-and-authority_2026-11-21.md)
+set the acceptance for F01–F04. It separated content from placement and ordering, required
+parent authority before fetching partition bodies, and distinguished current-use selection
+from the producing derivation's recorded inputs.
 
 **Entry checks.** Each settles a premise a package depends on, by reading or a focused existing
 test, not a campaign.
@@ -200,15 +202,34 @@ test, not a campaign.
 | `ddo_valid_closure` behaviour with proof lookups in binding | Where required proofs are checked (SBX-02) | Proofs are checked in the binding program only, outside the validity fixpoint |
 | Which model hosts make a block's output depend on its batch peers | Which kernels can be memoised per partition (SBX-07) | Those kernels stay whole-collection |
 
-**Baseline.** A list, kept in this plan's evidence folder, of test modules and fixtures that
-assert on shapes this series changes (member packets and ids, reference dictionaries, read page
-shapes, PDF staging columns), from the paths the investigations recorded. It is the migration
-checklist for tests; it is not a new register.
+**Entry evidence · 2026-11-21.** The authenticated retained 66-page sentence answer contained
+1,002 blocks, 25,543 tokens and 1,842 sentences. Its largest serialized block was 100,614 bytes.
+Containment held throughout this sample and the canonical and HanLP paths preserve block origin
+on inspection. Whole-block partitions are the working unit. Group projections preserve absence
+and explicit null. Reconverted positional pointers still require established block correspondence
+before cross-original reuse. SBX-05 owns citation-to-input gaps, SBX-02 checks proofs at binding
+outside the validity fixpoint, and cohort and batch dependencies remain with SBX-07.
+[Entry evidence and fixture inventory](../design_review/evidence/2026-11-21_sbx-entry/README.md)
 
 **Defect 1.** `actual_graph_inputs` and the grouped interpretation projection read
-`request["binding"]`, which the support export omits. They read the consumed use's `selection`
-instead, as change impact already does. This is fixed now, with a test that builds its index from
-exported rows and not from a hand-made record.
+`request["binding"]`, which the support export omits. The repaired readers use the exact consumed
+use's authenticated `selection` and verify its derivation. Detached verification now recomputes a
+nonreusable request with the retained use's owning demand and separately checks current frontier
+ownership. The initial genuine finite export exposed the mismatch
+(`e338c1bc055f479f8a357a7d1edc1622`). Replaying its original bytes after the fix verified the
+archive and produced two groups and one finite universe. The selected graph and grouped controls
+passed 28 cases on main, including refusal of a frontier scan for the keyed use selection
+(`96405d064ed74bbd9f16a97d9e4f526c`). Detached manifest and partition parity controls passed
+27 cases after the verifier change (`4763dfba58ca4e8dafa4a60fa4ed6e57`).
+The single-source native regression published actual finite and rich outputs and exercised both
+readers through verified detached exports (`55f6b07f94bb4ff1ab1ea376e9a4dbef`). Both exported
+results were replayed through the final keyed reader on main.
+
+**Checks · 2026-11-21.** `uv run ci check --only types`
+(`d23e8b229a6a48c3afa196ab769ea5cf`), `uv run ci check --only lint`
+(`aae1c3d436494f66adb713a11a82b84f`) and `just model check` passed. `uv run ci schema check`
+compiled the statistics pack and reported projection analysis unassessed. Native package evidence
+comes from the rollback-only candidate and the specific native controls.
 
 ## Disposition of the review
 
@@ -262,9 +283,8 @@ including the four change scenarios; superseded machinery is gone with its tests
 design sections and decision records describe the implemented state. The kernel trial is complete
 when its decision is recorded, whichever way it goes.
 
-Whether a formal design review is due before revision A is determined in SBX-00 from the
-[repository binding](../design_review/design_principles/binding/corpus-structure.md); the focused
-foundation assessment that plan authoring requires is the nine investigations cited above.
+SBX-00 records the focused Revision A target review and its disposition. Revision A registration
+and assembled qualification retain their package acceptance.
 
 ## Risks
 
