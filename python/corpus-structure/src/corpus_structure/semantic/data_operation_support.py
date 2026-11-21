@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, model_validator
 
-from .data_operation_json import DdoJsonValue, json_bytes, json_loads, wire_json_loads
+from .data_operation_json import DdoJsonValue, json_bytes, json_loads
 from .identity import canonical_bytes
 
 Nonempty = Annotated[str, Field(min_length=1)]
@@ -143,7 +143,7 @@ class OriginalSourceSelection:
 
     def record(self) -> dict:
         return {
-            "reference": wire_json_loads(self.reference),
+            "reference": read_original_source_reference(self.reference).model_dump(mode="python"),
             "selectors": json.loads(self.selectors),
         }
 
