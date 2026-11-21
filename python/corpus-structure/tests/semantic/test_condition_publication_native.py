@@ -13,6 +13,7 @@ from corpus_structure.orchestrate.data_operations import NativeDemandExecutionEr
 from corpus_structure.semantic.data_operation_service import DemandOperationSelection
 from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 from corpus_structure.semantic.data_operation_values import semantic_value
+from corpus_structure.semantic.effect_policy import ApprovedEffect, admit_effect_grants
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.current_pdf_source_support import admit_current_target
 from semantic.structural_admission_native_support import ISSUER, execute, request, selected
@@ -131,6 +132,13 @@ def test_condition_admits_only_the_exact_supported_roles(
                 host_predicate=[citation(host)],
             ),
         )
+        with kernel.purpose("admit").begin() as connection:
+            admit_effect_grants(
+                connection,
+                kernel.prepared,
+                kernel.model,
+                (ApprovedEffect(ISSUER, "native-evaluator-structural-admission"),),
+            )
         issued, admission, originals, _ = publish_statement(
             kernel, report, expected, inference="condition-support:" + host
         )
@@ -141,7 +149,11 @@ def test_condition_admits_only_the_exact_supported_roles(
             admission.body["statement_meaning_json"]
             == canonical_bytes(semantic_value(expected)).decode()
         )
-        pending, page = read_statement(kernel, issued["demand_id"], report, admission)
+        # Both explicit roots retain a multi-release closure, including source
+        # and predicate proof. The response still uses its own normal byte limit.
+        pending, page = read_statement(
+            kernel, issued["demand_id"], report, admission, max_graph_bytes=32 * 1024 * 1024
+        )
         assert page["public_admission"] == "selected_native_statements"
         assert page["reports"][0]["public_assertions"][0]["admission"] == admission.body
         assert page["reports"][0]["public_assertions"][0]["authority"]["standing"] == "valid"

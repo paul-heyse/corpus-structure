@@ -202,7 +202,7 @@ def publish_statement(kernel, report, expected, *, inference, component_id=None)
     return retained, admission, originals, passes
 
 
-def read_statement(kernel, demand, report, admission):
+def read_statement(kernel, demand, report, admission, *, max_graph_bytes=None):
     from corpus_structure.serve.structural_products import (
         SelectedStructuralAdmissionBinding,
         SelectedStructuralRequest,
@@ -216,6 +216,7 @@ def read_statement(kernel, demand, report, admission):
         admissions=(
             SelectedStructuralAdmissionBinding(report=report.root, admission=admission.root),
         ),
+        **({"max_graph_bytes": max_graph_bytes} if max_graph_bytes is not None else {}),
     )
     with kernel.purpose("read").begin() as connection:
         page = inspect_selected_structures(connection, pending)
@@ -233,7 +234,11 @@ def assert_native_transport_parity(kernel, native_settings, pending, page, direc
     from fastmcp import Client
     from fastmcp.client.transports import StdioTransport
 
-    from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
+    from corpus_structure.semantic.data_operation_json import (
+        finite_json_bytes,
+        finite_result_bytes,
+        json_bytes,
+    )
     from semantic.companion_export_native_support import read_settings
 
     settings = read_settings(native_settings, kernel.engine)
@@ -261,7 +266,7 @@ def assert_native_transport_parity(kernel, native_settings, pending, page, direc
         check=True,
         timeout=120,
     )
-    assert json_loads(reply.stdout) == page
+    assert reply.stdout == json_bytes(page) + b"\n", "CLI changed the selected structural page"
 
     async def inspect():
         transport = StdioTransport(
@@ -277,6 +282,8 @@ def assert_native_transport_parity(kernel, native_settings, pending, page, direc
                 "inspect_structures", {"request": pinned.model_dump(mode="json")}
             )
             assert not response.is_error and response.structured_content is not None
-            assert response.structured_content["result"] == page
+            assert finite_json_bytes(response.structured_content["result"]) == finite_result_bytes(
+                page
+            ), "MCP changed the selected structural page"
 
     anyio.run(inspect)

@@ -109,8 +109,10 @@ def structural_scope(connection, request, *, roots, source_products=()):
 
 
 def bounded_result(request, result):
-    from corpus_structure.semantic.serving_code import serving_report
+    from corpus_structure.semantic.serving_code import ServingImplementation, serving_report
 
+    if type(result.get("implementation")) is ServingImplementation:
+        result = dict(result, implementation=str(result["implementation"]))
     result = serving_report(result)
     if len(json_bytes(result)) > request.max_bytes:
         raise ValueError("structural response exceeds max_bytes; narrow the page")

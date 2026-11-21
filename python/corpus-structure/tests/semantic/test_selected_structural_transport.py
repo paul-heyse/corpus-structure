@@ -15,8 +15,10 @@ from corpus_structure.cli import structure as cli_adapter
 from corpus_structure.cli.app import build_full_app
 from corpus_structure.intervene import structural_read_tools
 from corpus_structure.intervene.semantic_server import build_retained_reader_server
+from corpus_structure.semantic.code_identity import CodeIdentity
 from corpus_structure.semantic.data_operation_json import json_bytes, json_loads
-from corpus_structure.serve import structural_products
+from corpus_structure.semantic.serving_code import ServingImplementation
+from corpus_structure.serve import selected_structural, structural_products
 
 app = build_full_app()
 
@@ -24,15 +26,21 @@ app = build_full_app()
 def test_installed_cli_and_actual_mcp_use_exact_selected_structural_request(monkeypatch, tmp_path):
     engine = create_engine("sqlite://")
     captured = []
+    basis = CodeIdentity(("structural.test",), (), (), (), b"{}")
+    implementation = ServingImplementation("a" * 64, basis)
+    exact_scope = Decimal("0.12345678901234567890123456789")
 
     def inspect(conn, request):
         captured.append(request.model_dump(mode="python"))
-        return dict(
-            cut_id="cut:actual",
-            cut=dict(read_id="read:actual"),
-            implementation="a" * 64,
-            exact_scope=Decimal("0.12345678901234567890123456789"),
-            reports=[],
+        return selected_structural.bounded_result(
+            request,
+            dict(
+                cut_id="cut:actual",
+                cut=dict(read_id="read:actual"),
+                implementation=implementation,
+                exact_scope=exact_scope,
+                reports=(dict(qualifier=("if ready",), host_predicate=("acts",)),),
+            ),
         )
 
     monkeypatch.setattr(
@@ -61,7 +69,14 @@ def test_installed_cli_and_actual_mcp_use_exact_selected_structural_request(monk
     path.write_bytes(json_bytes(request))
     output = CliRunner().invoke(app, ["structure", "list", str(path), "--json"])
     assert output.exit_code == 0, output.output
-    assert json_loads(output.stdout)["exact_scope"] == Decimal("0.12345678901234567890123456789")
+    expected = dict(
+        cut_id="cut:actual",
+        cut=dict(read_id="read:actual"),
+        implementation="a" * 64,
+        exact_scope=exact_scope,
+        reports=[dict(qualifier=["if ready"], host_predicate=["acts"])],
+    )
+    assert json_loads(output.stdout) == expected
     assert CliRunner().invoke(app, ["retained-structure", "--help"]).exit_code != 0
 
     async def check():
@@ -79,7 +94,7 @@ def test_installed_cli_and_actual_mcp_use_exact_selected_structural_request(monk
             assert not response.is_error
             result = response.structured_content
             assert result is not None
-            assert result["result"]["exact_scope"] == float("0.12345678901234567890123456789")
+            assert result["result"] == dict(expected, exact_scope=float(exact_scope))
             resource = await client.read_resource(result["resource"])
             assert resource and captured[-1]["read_id"] == "read:actual"
             assert captured[-1]["expected_cut"] == "cut:actual"

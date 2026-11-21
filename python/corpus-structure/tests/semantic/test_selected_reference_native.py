@@ -3,9 +3,9 @@
 import json
 from pathlib import Path
 
-import pytest
-
 from corpus_structure.evaluate.selected_references import author_selected_references
+from corpus_structure.schema.model_change import native_model_inputs
+from corpus_structure.semantic import migrations
 from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.data_operation_service import (
@@ -15,10 +15,16 @@ from corpus_structure.semantic.data_operation_service import (
 from corpus_structure.semantic.data_operation_support import authored_fact_selection
 from corpus_structure.semantic.data_operation_version import MODEL_VERSION
 from corpus_structure.semantic.demand_results import read_demand_result, selected_record_index
+from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.observations import source_value
+from corpus_structure.semantic.target_installation import capture_target_installation
+from native_test_support import principal_engine
 from semantic.data_operation_declaration_support import source_declaration
 from semantic.data_operation_demand_support import attach, claim, publish, retain
-from semantic.data_operation_kernel_support import KernelRecipe
+from semantic.data_operation_kernel_support import KernelRecipe, admit_kernel, prepare_kernel
+from semantic.test_target_installation_native import install_target_root
+
+ROOT = Path(__file__).resolve().parents[4]
 
 
 def reference_recipe():
@@ -31,9 +37,16 @@ def reference_recipe():
     )
 
 
-@pytest.mark.parametrize("ddo_kernel", [reference_recipe()], indirect=True)
-def test_evaluator_snapshot_executes_and_preserves_complete_authored_reference(ddo_kernel):
-    kernel = ddo_kernel
+def test_evaluator_snapshot_executes_and_preserves_complete_authored_reference(
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+):
+    epoch = capture_target_installation(get_metadata(), logical_sources=native_model_inputs(ROOT))
+    *_, revision_path = install_target_root(semantic_bare_engine, epoch, tmp_path)
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+    recipe = reference_recipe()
+    preparation = prepare_kernel(recipe, directory=tmp_path / "reference")
+    with semantic_bare_engine.begin() as connection:
+        kernel = admit_kernel(connection, recipe, preparation=preparation)
     source_demand, _, _, attached = attach(
         kernel, subject="source:reference", original_source="document:reference", analyzed_scope={}
     )
@@ -57,6 +70,7 @@ def test_evaluator_snapshot_executes_and_preserves_complete_authored_reference(d
             dict(
                 product_id=member["product_id"],
                 subject="source:reference",
+                subject_definition=member["subject_definition"],
                 original_source="document:reference",
                 analyzed_scope_meaning='["mapping",[]]',
                 kind_contract=kernel.kind,
@@ -113,8 +127,8 @@ def test_evaluator_snapshot_executes_and_preserves_complete_authored_reference(d
             original_sources={original.name: original.record()},
         )
     )
-    evaluator = kernel.purpose("evaluate")
-    admitted = kernel.purpose("admit")
+    evaluator = principal_engine(native_settings, "evaluate", kernel.engine.url.database)
+    admitted = principal_engine(native_settings, "admit", kernel.engine.url.database)
     try:
         authored = author_selected_references(evaluator, kernel.prepared, request=request)
         result = execute_data_demand(
