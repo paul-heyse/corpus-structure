@@ -13,9 +13,7 @@ from corpus_structure.semantic.sentence_products import sentence_execution_custo
 from corpus_structure.semantic.types import PreparedRelease, SourceArtifact
 
 
-def test_reacquires_both_admitted_profiles_with_one_installation_observation(
-    monkeypatch, tmp_path
-):
+def test_reacquires_both_admitted_profiles_with_one_installation_observation(monkeypatch, tmp_path):
     config = SentenceConfig()
     original = {"lock_sha256": "before"}
 
@@ -33,9 +31,7 @@ def test_reacquires_both_admitted_profiles_with_one_installation_observation(
         hanlp_execution_custody(selected("hanlp", {}, {}, "sdpa")),
     )
     sources = tuple(replace(item, name="runtime-transport/" + item.name) for item in artifacts)
-    attestations = {
-        item.name: json.loads(item.content)["provider_profile"] for item in sources
-    }
+    attestations = {item.name: json.loads(item.content)["provider_profile"] for item in sources}
     unrelated = SourceArtifact("other-input", b"unchanged")
     prior = RuntimeBinding(
         "release:old",
@@ -85,7 +81,10 @@ def test_reacquires_both_admitted_profiles_with_one_installation_observation(
 
     monkeypatch.setattr(native_host_reacquisition, "preflight_pm2_residents", preflight)
     monkeypatch.setattr(native_host_reacquisition, "prepare_data_operation_runtime", prepare)
-    assert native_host_reacquisition.reacquire_shared_host_runtime(
-        cast(PreparedRelease, object()), prior
-    ) == refreshed
+    assert (
+        native_host_reacquisition.reacquire_shared_host_runtime(
+            cast(PreparedRelease, object()), prior
+        )
+        == refreshed
+    )
     assert observed == [("hanlp", "spacy")]

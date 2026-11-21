@@ -634,8 +634,12 @@ def release_reacquire_host(
                     raise ResultError("prior release runtime changed during host reacquisition")
                 persisted = persist_runtime_binding(conn, prepared, refreshed)
         report = HostReacquisition(
-            result_id=result.id, release=release, prior_runtime=runtime, runtime=persisted,
-            target=selected, acquired=acquired
+            result_id=result.id,
+            release=release,
+            prior_runtime=runtime,
+            runtime=persisted,
+            target=selected,
+            acquired=acquired,
         )
         artifact = result.directory / "host-reacquisition.json"
         artifact.write_text(report.model_dump_json(), encoding="utf-8")

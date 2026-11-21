@@ -417,9 +417,9 @@ def test_native_publication_outcome_is_read_before_a_fresh_executor_retries(
         ), caught.value.failures
         assert lost == [True, True]
     else:
-        assert any(
-            "controlled rollback" in str(error) for error in caught.value.failures
-        ), caught.value.failures
+        assert any("controlled rollback" in str(error) for error in caught.value.failures), (
+            caught.value.failures
+        )
         assert lost == [False]
     with ddo_kernel.engine.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 1
@@ -442,7 +442,13 @@ def test_native_publication_outcome_is_read_before_a_fresh_executor_retries(
         assert connection.scalar(text("SELECT count(*) FROM ops.data_completion_intent")) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.data_derivation")) == 1
         assert connection.scalar(text("SELECT count(*) FROM ops.task WHERE status='running'")) == 0
-        assert connection.scalar(text("SELECT canonical_body FROM kb.data_product")) == ["integer", "7"]
-    assert execute_data_demand(
-        ddo_kernel.engine, demand, source_root=preparation.directory, database_capacity=6
-    ).receipt_count == 0
+        assert connection.scalar(text("SELECT canonical_body FROM kb.data_product")) == [
+            "integer",
+            "7",
+        ]
+    assert (
+        execute_data_demand(
+            ddo_kernel.engine, demand, source_root=preparation.directory, database_capacity=6
+        ).receipt_count
+        == 0
+    )
