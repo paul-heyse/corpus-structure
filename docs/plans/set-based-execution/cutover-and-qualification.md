@@ -116,9 +116,12 @@ nor a general timing claim. This test allocation applies in SBX-11/12 and SBX-20
 **Current finite and rich replay · Tested by selected identity · 2026-11-22.** The current-source
 private fixture fulfilled the candidate producer and left `interpret.finite_candidates` awaiting
 inputs before export (`uv run ci test --native-host private`, `20cb15b07fd9491cb263a742723d1871`
-and `29ea050ed99640ed8a7bfaa2d29b8824`). The dependency-free finite operation uses generic local
-readiness for its computed candidates and authored policy. The retry must distinguish an absent
-wake from a binding refusal before recording a fix and restoring joined finite and rich coverage.
+and `29ea050ed99640ed8a7bfaa2d29b8824`). Ordinary resume produced zero further receipts. The
+diagnostic current native binding projection returned both the computed candidate report and
+the authored finite policy while the waiter retained the same binding read and its earlier
+candidate-cardinality refusal (`0d4efd2171c64d8ca8e08da153278db3`). SBX-06 owns delivery of
+the late computed candidate to that dependency-free operation. Joined finite and rich coverage
+requires that ordinary wake and successful publication.
 [Readiness](references-and-projection-keys.md#readiness-delivery)
 
 <a id="early-revision-a-integration"></a>
@@ -195,6 +198,12 @@ origins and the scalar contextual graph roles. Preview passed (`bdc5e54bc5b74ed4
 and rollback-only authoring passed (`e9dbb5ca18a54b99b038ef688cdc11f5`). The output records
 development N29 as the authoring boundary and registered N47 as the candidate predecessor.
 Registration and the development reset belong to final-root acceptance.
+
+The combined primary formal set, witnessed relationship and grouped premise changes also passed
+preview (`2b8471426f4a4a2989e1fafd9a36d83a`) and rollback-only candidate authoring
+(`5ab684b05d734307b343c92a7e808849`). The named predecessor remains N47. The focused
+integrated selection passed all 78 native and ordinary cases (`uv run ci test --native-host private`,
+`f8bc830c6e92439f9b4619d574d302c3`).
 
 **Projection and activation checkpoint · 2026-11-21.** The partial integrated source at
 `2375de39b` passed managed rollback-only authoring against the exact N47 predecessor

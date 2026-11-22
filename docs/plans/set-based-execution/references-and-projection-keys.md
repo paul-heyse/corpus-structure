@@ -253,6 +253,15 @@ through the generic verifier using its own captured schema. Current structural i
 uses the current admitted-member shape. The dependent component citations and contextual
 relationship edge work have their own acceptance.
 
+**Applicability and dossier inputs · Tested by selected identity · 2026-11-22.** Applicability
+and dossier results address admitted definition components through their `components` roles.
+Private applicability publication and reads verified applicable and unresolved readings. The
+corrected native lineage dispatch refused an equal-content component from a different report
+and kept settlement atomic (`5648243b38f9445385a31e236d11a84c`). The issuer-to-dossier journey
+passed publication, structural reads, detached replay and exact revocation
+(`3561ac986f8142b9bcfd077e88f43451`). Its dossier input had an empty applicability predecessor
+set. Native origin controls exercised actual applicability predecessors separately.
+
 **Discovery-derived reference roles · Inspected · 2026-11-22.** The remaining construction
 and contextual dependency rosters include discovered `formal`, `constructions` and
 `supporting` occurrences. Two admitted products can share source scope and a local member ID.
@@ -273,6 +282,19 @@ in the original binding. Exercise this case alongside same-member overlap, multi
 and unauthorized substitution before retiring the rosters.
 [ADR-0151](../../adr/0151-sbx-discovered-formal-inputs.md) · [Native position owner](../../../python/corpus-structure/src/corpus_structure/semantic/binding_support_native.py)
 
+**Primary construction formal set · Tested by selected identity · 2026-11-22.** Native
+attachment supplies ledger addresses from the exact frozen request. Construction publishes
+grammar-atom premises through the unordered `formal` role and resolves their original input
+occurrences. Eighty ordinary controls passed, including two actual formal reports with one
+source scope and overlapping local member IDs. Reversing their input order preserved byte-identical
+construction output (`03dc639a6a88427c94ca37857900167f`). Private native controls checked both
+emitting positions at zero, native settlement, live and detached resolution, current set rank
+changes and unauthorized substitution (`cbf3eadd35d84ba2a2df73932291220d`). An actual private CUDA
+construction with one formal report passed attachment, proof settlement and selected partition
+readback (`74eb5f706a3840898e90148d6f84a75d`). Remaining work includes the adjacent contextual
+sequence and supporting roles, whole dependency rosters, packed external-choice edges and the
+integrated installed two-report producer journey.
+
 **Bound contextual witness outputs · Tested by selected identity · 2026-11-22.** Published
 carrier and cue references address exact admitted contribution members through the frozen
 `cues` role and its occurrence labels. Authored request pins still govern acquisition.
@@ -282,6 +304,21 @@ Native publication and detached replay passed in the selected current-source ide
 passed (`2a7b52bc1af346598547f25f583c0741`), including receipt-backed tamper refusal
 and the same-span workflow. The earlier parallel run
 (`00f660a4a27744bdad5841f6191463bb`) refused changed source custody during setup.
+
+**Selected relationship members · Tested by selected identity · 2026-11-22.** Witnessed
+retrieval publishes selected relationship edges as nominal members. The decision reconstructs
+its ordered meaning from that population. Applicability cites the relationship role and edge.
+Dossier comparison checks its independently selected relationship against the applicability
+predecessor's original exact relationship input and edge. The existing `specializes` semantics
+use the admitted selected edge. Private native same-span publication and verified replay passed
+(`3b4e981d48134065b98b2ab863cf2b07`). Seventeen final-source preparation, selected reader and
+dossier controls passed (`cf489c7db81045fb9a5c6938aa158b7b`), including equal-edge and different-origin
+refusal. The installed applicability and origin controls passed together on the combined
+lineage and relationship source (`1f67d1b8507645d881f5e1070a00bbca`). They exercised the
+actual admitted edge and refused another selected edge or a different component origin.
+Actual live structural readback passed (`191e6dbaefbc4194912c3d56f36f3d68`). Thirty combined
+dossier and admission controls passed (`ed2408d8fcad496fb06f4e93e6a4febc`).
+Installed dossier publication with a populated applicability predecessor remains open.
 
 **Contextual native graph proxies · Tested by selected identity · 2026-11-22.** The native
 contextual report names formal and construction proxy endpoints through scalar nominal member
@@ -389,6 +426,13 @@ partition and exposed an assertion that grouped the selected Maverick report wit
 (`d423aa9a82fe4d0eaa35c629976eba5c`), including the selected Maverick report in a verified archive
 and an unchanged resume. The actual literal D1 fixture uses the fixed-question path.
 Candidate-conditioned `text.d1_candidates/source-native` has separate acceptance.
+
+The private candidate-conditioned D1 run passed contextual publication and returned a real
+candidate with a nonempty proxy population. Its broad support read exceeded the 8 MiB page
+bound before export (`2a421f4617134d5fb8223bdc7c9ff689`). This run used a shorter source and
+an explicit 240-second completion bound. The focused retry uses separate keyed product
+selections and an explicit 32 MiB archive page bound. Final-root provider and read qualification
+remain with their owners.
 
 **Named-definition cutover · 2026-11-21.** The named producer publishes a nominal refinement
 of definition components. Each witness belongs to the producing report and is keyed by the

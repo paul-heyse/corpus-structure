@@ -645,6 +645,15 @@ including exact retained acquisition without repeating the annotation proof and 
 the retained dependency is missing. Remaining external premises, family addresses and
 registered-root qualification stay open.
 
+**Shared observed premises · Tested by selected identity · 2026-11-22.** Native settlement
+calculates one observed premise per admitted product, partition and matching premise specification.
+Claims still match each rule's exact fingerprint, output and partition. The private regression
+verified that two rules can share a premise and each requires its own attestation before binding
+(`uv run ci test --native-host private`, `bdc253d62cfb415eaeb9be40b7dd25c4`). A larger
+candidate-conditioned provider run hit the completion statement limit during native premise
+construction before this change (`cd503bd25d994d528fecafc4177c9b03`). The provider workload
+has separate qualification.
+
 **Construction rule uptake · Tested by selected identity · 2026-11-22.** Contextual
 interpretation requires the construction selected-primary-members establishment. Predicate and
 scoped-relation construction inputs require the declared geometry, topology and coverage their

@@ -449,7 +449,9 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
     )
 
     header_target = {key: value for key, value in target.items() if key != "output_collection"}
-    current = dict(id="current", fate="fulfilled", derivation_id="captured-artifact")
+    current: dict[str, object] = dict(
+        id="current", fate="fulfilled", derivation_id="captured-artifact"
+    )
     output = dict(role="result")
     selected = SimpleNamespace(
         use_id="current", derivation_id="captured-artifact", operation_id="derive", output=output
