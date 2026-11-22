@@ -92,10 +92,12 @@ the [carrier retention contract](validated-values-and-handoff.md#target). Bytes 
 the worker pipe and validation child. Captured policy and independent digest checks remain at
 those boundaries and adoption retains file-custody checks.
 
-**Verified carriers.** A page payload read once yields a carrier holding the decoded batch, its
-schema digest and its verified logical digest, accepted by the status check, the draft, companion
-encoding and the certifier. A replay file verified at acknowledgement yields a handle; it is
-verified again at the copy into PostgreSQL and after any gap in custody, and nowhere else.
+**Verified carriers.** Full page admission yields a carrier binding exact encoded bytes,
+schema, page number, receipt and verified logical digest. Status, geometry, draft, companion
+encoding and certification consume that admission within its owned lifetime. Sparse consumers
+can decode only their columns from authenticated admitted bytes. Consumers needing the same
+complete batch share one bounded decoded value. A replay file verified at acknowledgement yields
+a handle, which is verified again at copy into PostgreSQL and after a custody gap.
 
 **Common analytics amendment · Scheduled · 2026-11-22.** SBX-12's frozen selected-review
 archive is the first persisted Parquet boundary. PDF page IPC retains its acknowledgement,
@@ -166,6 +168,39 @@ index return today's values through the view.
 <a id="sbx-16"></a>
 ## SBX-16 — One document, verified carriers, build identifier at load
 
+**Projected candidate replay · Scheduled · 2026-11-22.** Candidate `_read_replay` currently
+hashes bytes, decodes every column and recomputes the whole-page logical digest before
+`iter_batches` selects the caller's columns. Status and geometry use different projections.
+Carry the exact byte-to-logical admission in the page carrier, then reuse
+`PreparedPayloadFamily.read_batch(payload, schema_digest=..., columns=...)` for sparse reads.
+Its PyArrow 26.0.0 implementation uses `pa.BufferReader`, `pa.ipc.open_stream` and
+`pa.ipc.IpcReadOptions(included_fields=top_level_indices, use_threads=False)`, compares the full
+schema header and calls `RecordBatch.validate(full=True)`. Include `page_no` in the physical
+projection to verify the released binding, then return requested fields in caller order. Empty
+`included_fields` means all fields at the Arrow API, so retain the codec's explicit projection
+validation. Page payloads use the IPC stream format. Certification files below use IPC file readers.
+[Production codec](../../../python/corpus-structure/src/corpus_structure/semantic/pdf_payloads.py#L317) ·
+[Candidate replay](../../../python/corpus-structure/src/corpus_structure/ingest/pdf_candidate_source.py#L45) ·
+[IPC read options](https://arrow.apache.org/docs/python/generated/pyarrow.ipc.IpcReadOptions.html)
+
+Authenticate the exact received bytes after custody gaps. If prior logical admission cannot be
+established, fully admit the recovered payload before sparse use. The codec refuses `columns`
+together with whole-page `logical_digest` recomputation. A projected result cannot establish
+omitted-column identity, as the retained payload probe demonstrates. When status and geometry
+can share one bounded admitted batch, use `RecordBatch.select()` on that owned value instead.
+Keep owner lifetime through all buffer consumers and release derived state with its carrier.
+Keyed region rendering and one-observation visual mapping stay on their current selected routes.
+[Post-pilot I05](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I05) ·
+[Projected custody probe](../../design_review/evidence/2026-11-22_sbx09-review/README.md)
+
+**Projected replay acceptance.** Compare status, geometry and complete-page expectations on
+null and absent fields, nested values, page numbers, ordinals and requested field order. Change
+an omitted field while retaining the projected values, alter bytes after admission, and recover
+a real spool. Verify refusal or fresh full admission at the relevant custody boundary. Assert
+that sparse reads request only the intended columns and that shared complete-batch consumers
+reuse one decode. Preserve schema, page, logical and receipt bindings through adoption and
+certification, including cancellation and owner close.
+
 **Owns.** The in-process document interface across `pdf_transforms`, `pdf_methods`,
 `pdf_hierarchy`, enrichment and the publication draft; the page and file carriers and the
 signatures that accept them; replay schemas without build columns; the adopt program and scratch
@@ -183,8 +218,9 @@ validation child independently checks its digest and captured policy, as now.
 
 **Evidence.** An enrich operation on a fixture performs two Docling validations in the parent
 path and one in each child, asserted by counting, and publishes records whose logical digest
-equals today's. A page payload is decoded once per process. A recovered spool is adopted under a
-new build without any file being rewritten, and its recertification compares recorded file
+equals today's. Whole-page logical admission is reused for its bound bytes and schema. Sparse
+consumers project columns or share a bounded decoded batch under the carrier owner. A recovered
+spool is adopted under a new build without any file being rewritten, and its recertification compares recorded file
 digests. A mutation attempt through a retained draft alias leaves the sealed lowering input
 unchanged. Releasing the sealed owner releases its derived views. Parent and child use the same
 captured policy, including after recovery.
@@ -195,6 +231,13 @@ captured policy, including after recovery.
 **Owns.** The two-pass certifier; the keyed companion store for validators; typed capture and the
 child's reads; closure checks before the rebuild; conversion of logical rows by column in the
 companion export with the existing encoder.
+
+Consume SBX-16's admitted page and replay carriers in the certifier and child. Retain complete
+logical validation where the whole payload first enters the domain or its premises change.
+Use `pa.memory_map`, `pa.ipc.open_file` and `RecordBatchFileReader.get_batch()` for typed
+certification files, holding maps and batches until the readers finish. The existing page
+stream decoder remains the route for page payloads. Preserve ordinal and duplicate expectations
+independently of the typed reader. [Arrow file reader](https://arrow.apache.org/docs/python/generated/pyarrow.ipc.open_file.html)
 
 **Open choice, settled in the package.** The engine for the external sort of frames: the
 analytical owner over a temporary Arrow file, or the existing SQLite table. Either keeps byte

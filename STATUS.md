@@ -5,7 +5,7 @@ _Updated 2026-11-22. The SBX hard cutover is in progress through SBX-09. All dev
 ## Current owners
 
 - [Set-based execution](docs/plans/set-based-execution_2026-11-21.md) owns package disposition and qualification. Its [development reset](docs/plans/set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09) establishes an empty database after integrated acceptance.
-- The [common analytics amendment](docs/plans/set-based-execution_2026-11-21.md#common-analytics-review-amendment) schedules the early population decision, later scoped-relations comparison and selected-review Parquet replay. Its linked packages own implementation and acceptance.
+- The [post-pilot amendment](docs/plans/set-based-execution_2026-11-21.md#post-pilot-review-amendment) schedules the installed successor, native settlement and final-root acceptance. The [common analytical basis](docs/plans/set-based-execution/common-analytical-basis.md#projection-contract) owns the selected carrier and downstream library placement.
 - [Population rules and proofs](docs/plans/set-based-execution/populations-rules-and-proofs.md#sbx-04) owns replacement proof declarations and remaining validator obligations. [References and computation](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-05) owns addressing, demand delivery and the canonical memo.
 - [Validated values and hand-off](docs/plans/set-based-execution/validated-values-and-handoff.md#sbx-08) owns remaining family carriers, execution brackets and mutable-premise verification. [ADR-0149](docs/adr/0149-contextual-requests-and-projected-computation.md) separates projected computation and exact current custody.
 - [Domain Model Operability](docs/plans/domain-model-operability_2026-11-20.md#completion-and-handoff) retains earlier provider and acceptance evidence. [Test-domain coordinator](docs/plans/test-domain-model-and-execution_2026-11-17.md#implementation-evidence) owns the test fixture and TDM-18 findings. [Library-discovery tooling](tooling/docs/plans/library-discovery-tooling_2026-11-17.md#current-state) retains its verified current and conditional work.
@@ -29,9 +29,10 @@ _Updated 2026-11-22. The SBX hard cutover is in progress through SBX-09. All dev
 - **Failed at native descriptor correspondence.** The registered `uv run ci test --native-host private` stream cases and the `--providers-only` learned-definition case stopped before execution (`a9e448fa74394151a3e4e3dcb33c310a`, `e528f0a381604f5a9c8039dcd8649749`). The first result covered 25 other selected CPU controls. [Carrier and provider evidence](docs/plans/set-based-execution/validated-values-and-handoff.md#sbx-08)
 - **Passed.** The actual GLiNER definition journey passed with `uv run ci test --native-host private --providers-only` on a fresh current-source root (`a26f03bf6d004cc4bd3b46854bede4ae`). This covers its actual exchange, native publication, exact downstream component source and unchanged repeat. [Provider evidence](docs/plans/set-based-execution/validated-values-and-handoff.md#sbx-09)
 
-**Documentation · 2026-11-22.** `uv run ci docs check` passed for the common analytics
-amendment (`71cef8befe5542c7a1ac9dc40f3eb4dc`). Product qualification is `not_run` for
-this documentation change and remains with the linked SBX packages.
+**Documentation · 2026-11-22.** `uv run ci docs check` passed for the post-pilot amendment
+(`f82642b2dda447b1844995e2b782841c`) and the earlier common analytics amendment
+(`71cef8befe5542c7a1ac9dc40f3eb4dc`). Product qualification is `not_run` for the plan
+revision and remains with the linked SBX packages.
 
 ## Retained scoped evidence · 2026-11-21
 
@@ -46,7 +47,7 @@ this documentation change and remains with the linked SBX packages.
 
 ## Remaining acceptance
 
-- Carry the [selected annotation route](docs/plans/set-based-execution/common-analytical-basis.md#pilot-implementation-and-evidence) into final SBX-09 qualification. Finish the remaining native settlement and executable custody acceptance before authoring and qualifying the cold root.
+- Bind exact construction and contextual premises, then run the [installed successor](docs/plans/set-based-execution/cutover-and-qualification.md#early-revision-a-integration) to establish governed changes, current attachment and the conditional keyed-read decision. Finish native settlement and executable custody before authoring and qualifying the cold root.
 - Finish native move and reconversion coverage, qualify the remaining readiness origins and scoped joins, and remove the remaining stored scheduling watermark. [Readiness and settlement](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-06)
 - Finish the cross-product proofs and remaining reference families. Run the joined native-to-detached journey and installed provider and execution paths on the final root. The textbook MCP closure watchdog belongs to SBX-11/12. [SBX queue](docs/plans/set-based-execution_2026-11-21.md#execution-queue) · [Read evidence](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-05)
 - **Not run.** Complete-scope `uv run ci test` and `uv run ci check`, cold registration and replacement of development await the integrated acceptance above. The registered chain still contains the superseded revisions. [Development reset](docs/plans/set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)

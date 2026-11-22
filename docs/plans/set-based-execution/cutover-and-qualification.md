@@ -27,9 +27,9 @@ the integrated source against an empty authoring target on the dedicated Postgre
 
 ### Development reset through SBX-09
 
-1. Decide the [typed population pilot](common-analytical-basis.md#typed-population-pilot),
-   integrate its chosen route and affected consumers, and finish the functional changes through
-   SBX-09. Run their scoped checks. Retire the active
+1. Integrate the remaining consumers of the [selected immutable carrier](common-analytical-basis.md#pilot-implementation-and-evidence)
+   and finish the functional changes through SBX-09. Run their scoped checks through the
+   [installed successor](#early-revision-a-integration). Retire the active
    legacy Alembic chain and its predecessor-specific data-step code. Preserve generic successor
    authoring. Record the old stage predecessor and its Git baseline for SBX-20. Create an empty
    authoring database on `18/corpus` with `uv run ci db init --creation-only`. Bind the reader
@@ -37,13 +37,20 @@ the integrated source against an empty authoring target on the dedicated Postgre
    `inspect-candidate` for `semantic_sbx_current_root` with a null predecessor and zero data steps.
    Confirm captured source, descriptor, objects, grants and rollback. Register the inspected
    candidate with `uv run ci model change register` and install it with `uv run ci db init` on
-   a separate fresh qualification target. Confirm the sole head, exact descriptor and purpose-role behavior.
+   a separate fresh qualification target. Confirm the sole head, exact descriptor, and intended
+   purpose-role admission and refusal before starting the larger qualification runs.
 2. Run `just turn-end` before final-source qualification. Run `uv run ci test` and
    `uv run ci check` for the applicable ordinary and shared fault scope. Use
    `uv run ci test --providers-only` for changed real annotation and canonical, HanLP
    declaration, construction, learned definition, contextual, protected reference and PDF
-   provider paths. Use private native runs for isolated journeys, and the dedicated shared
-   host for shared authentication and durability. Run the ordinary executor against fresh
+   provider paths. Use the existing verified native deployment template and per-test commit clones
+   for ordinary provider and sentence-chain fixtures. Point their preparation at the registered
+   root. Replace fixture-local authorship and installation in those journeys. Keep independent
+   cold authoring and rollback controls, and use the dedicated shared host for shared
+   authentication, faults and durability.
+   [Verified test deployments](../../adr/0101-verified-test-deployments.md) ·
+   [Commit clone fixtures](../../../python/corpus-structure/tests/conftest.py#L377)
+   Run the ordinary executor against fresh
    fixtures through the committed propagation, binding, recovery, memo and hand-off scenarios.
    Exercise the chosen annotation fork through publication and exact selected readback, including
    the relevant occurrence, support, provider and worker controls. Keep one authentic finite and
@@ -109,17 +116,23 @@ nor a general timing claim. This test allocation applies in SBX-11/12 and SBX-20
 <a id="early-revision-a-integration"></a>
 ## Early Revision A integration
 
-Bring one actual annotation-to-canonical chain forward once the minimum SBX-02, SBX-03 and
-SBX-05 contracts can express it. Implement any necessary resolver prerequisite before running
-the chain. Use the target partition, proof and role-relative reference contracts in the shared
-rollback-only native fixture. The path must admit actual producer partitions, require a declared
-proof at binding, resolve an item reference, and read the selected result through the owning
-disclosure boundary. Later family conversions consume the same contracts.
+Use the installed real annotation-to-canonical chain as the successor journey for SBX-03/05/06/07.
+Exercise ordinary admission, execution, publication, settlement and selected readback on the
+target partition, proof and role-relative reference contracts. Admit actual producer partitions,
+require the declared proof at binding, and resolve an actual construction item through the owning
+disclosure boundary. Use this caller to decide the [SBX-05 keyed read](references-and-projection-keys.md#sbx-05).
+Later reference family conversions consume the same contracts.
 
-Compare annotation meaning with an independent expected result. Exercise missing required proof
-and dangling-address refusals, then an unchanged repeat. Record which request attachment, proof
-and computation reuse behavior the repeat establishes. Retain the exact prepared contracts and
-managed result for applicable later reader checks. The initial rollback candidate
+Compare with independent expected annotation meaning, occurrence provenance and attachment
+identities. Extend the unchanged-pilot fork with the governed changes in the
+[shared change](#change-scenarios) and [propagation](#propagation-scenarios) scenarios.
+Distinguish the unchanged repeat, an unread edit, and an actual producer attempt whose downstream
+projection settles equal. Verify local computation and proof reuse independently from the exact
+current attachment. Include missing proof and dangling-address refusals. Retain the actual
+prepared contracts, installed descriptor and managed result for applicable reader checks.
+[Post-pilot review I01](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I01)
+
+**Entry evidence.** The initial rollback candidate
 `4867ee4d101a4c9c86cd2209e2c5cb40` and 36-case result
 `a28f4c6e5c8d44328a780193e99d20ce` covered authoring and synthetic partition behavior.
 
@@ -293,8 +306,10 @@ rollback-only candidate establishes its captured authoring and validation scope.
 Registration, application admission and fresh production results require their own managed
 receipts.
 
-For A, include a committed change and a native settlement or recoverable pending outcome on
-the registered chain. For B, exercise the authorized freshness read against A's scope and
+For A, retain the registered singleton and the governed successor acceptance established by the
+[development cutover](#development-reset-through-sbx-09). Account for the exact stage predecessor
+separately. Include a committed change and a native settlement or recoverable pending outcome on
+the registered stage chain. For B, exercise the authorized freshness read against A's scope and
 coverage, including a pending upstream change and subsequent unchanged settlement. Retain the
 separate selected-read and export evidence. Attribute any producer, admission or receipt effects
 of the new read wire through the existing predecessor comparison.
@@ -302,8 +317,9 @@ of the new read wire through the existing predecessor comparison.
 <a id="sbx-21"></a>
 ## SBX-21 — Retirement sweep
 
-Each package removes what it supersedes. This package removes what no single package owns and
-confirms nothing was left behind. Follow the last live production or test consumer of each
+Each package removes what it supersedes. SBX-06 removes its recursive watermark, obsolete
+fields and displaced sweeps when the scheduler and read consumers have moved. SBX-21 checks the
+retirement and removes what no single package owns. Follow the last live production or test consumer of each
 retired surface. Migrate independent semantic checks to the replacement before deleting tests
 specific to the old mechanism.
 
@@ -391,7 +407,7 @@ controls. It specifies expected semantic effects rather than a mandatory test pe
 | A model field declaration read by one rule and no consumer is edited | The affected rule's fingerprint changes. Consumer projection identities and request keys remain stable, and no operation re-runs. |
 | An upstream product changes only in a field group a consumer does not read | The consumer's request key is unchanged and its existing derivation attaches with no new attempt. A consumer that reads the group re-runs. |
 | One block of a source document changes, with other blocks independently matched | Its content digest changes and the matched unchanged blocks retain their content digests. An eligible block-local producer runs for that block when SBX-07 is adopted. Proofs whose complete premises remain stable still match. A consumer that observes the changed whole-collection content re-runs. |
-| A block moves under a known key | Content and relative-only premises stay stable. Placement changes. Absolute-position consumers and placement-sensitive proofs observe it. Readback resolves the current occurrence's absolute spans. |
+| A block moves under a known key or is renamed with independently established correspondence | Content and relative-only premises stay stable. Placement changes on a move. Absolute-position consumers and placement-sensitive proofs observe it. When local projected bytes and effective parameters agree, the canonical memo can hit. Readback resolves the current occurrence, exact attachment and absolute spans. |
 | A reference's body-relative span changes within an unchanged text body | Full-text-only keys stay stable. Consumers of the chosen span get a different key because its position in the body changed. Page-coordinate premises stay stable when page placement is unchanged. |
 | Unchanged blocks are reordered | The key-sorted content root stays stable. Placement and order commitments change, along with affected adjacency and ordered-read premises. |
 | A block is added or removed, including the empty-population boundary | Existing content digests stay stable. Population membership and affected completeness, absence and neighbourhood premises change. |
@@ -427,7 +443,9 @@ can distinguish execution paths. Use the actual native boundary for durability a
 | Activate a release with a material producer edit and a descriptive edit | The material determinant puts its operation in scope. The descriptive edit preserves computation identity. Eligibility edits can affect binding or discovery. An activation alone leaves the release pinned by an existing frozen demand intact. |
 | Change an unread annotation field, then separately change the producer recipe and settle equal canonical input projections | An unread field leaves the consumer computation reusable. The material recipe change creates a producer attempt. Equal declared output projection creates no downstream attempt once the owner settles it. Compare with a changed observed span or placement, and verify the exact current attachment independently. |
 | Publish another usable episode for the same exact pinned product; exercise late discovery, original admission, proof establishment and support revocation | An unrelated episode leaves the waiter waiting. Applicable support can wake the exact waiter with a stable computational digest. Native binding establishes its decision and revocation can refuse unchanged content. Revisit settled work and check that a covered request avoids the recursive watermark scan. |
-| Settle a diamond where one arm changes and one ends unchanged | The join sees both current arms before comparing its combined key. The unchanged arm contributes settlement without another provider attempt at its downstream boundary. |
+| Settle a same-generation diamond with a changed and an unchanged arm, then with one unavailable arm | The join sees both current arms before comparing its combined key. The unchanged arm contributes settlement without another downstream provider attempt. An unavailable arm leaves the dependent scope unavailable or uncovered under its declared contract. An independently covered scope stays available. |
+| Overlap publication and enrollment in both commit orders, including a gap after both commit | Ordinary resume or drain finds exact committed fulfillment and delivers once to the enrolled current generation. Repeat resume to verify idempotence. A stale generation cannot advance current coverage. |
+| Re-admit a discovery witness under the same semantic key after its exact prior support is revoked | A historical closure cannot hide the newly admissible exact use. Exercise incomplete, valid complete-empty, first member, and loss of the last eligible witness. Verify exact closure and affected recipients independently. |
 | Supersede a selection during execution; lose acknowledgement after a native commit | A late valid publication retains its historical meaning but cannot advance the superseding selection. Replay recovers committed change delivery and settles it without duplicate attempts or publication. |
 | Pause delivery between edges after the upstream commit, while the immediate read target has no queued work | The authorized freshness-aware read reports pending for the affected scope, the pinned read retains its selected cut subject to current authority, and an independently covered scope stays available. After unchanged settlement, the governed scope advances without a new provider attempt. Check unavailable or unknown where coverage cannot be established, and confirm digest acquisition stays body-free alongside explicit body and export requests. |
 
@@ -440,6 +458,11 @@ establish the intended bound. Preserve the full required closure for genuine rep
 Functional scenarios can establish avoided operations, evaluations and decodes. Qualitative
 execution-fit reasoning is sufficient for expected gains unless a consequential uncertainty needs
 a comparison.
+
+After retiring scheduler state from shared reads, recheck the pinned public result and grading's
+exact obligations, uses and completion against the same cut. Run authentic detached export and
+replay. A previously sealed page keeps its original reader schema and byte identity.
+[Post-pilot review I04](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I04)
 
 **Completion.** The series is complete when the evidence above is recorded, the kernel trial's
 decision is recorded, and the owning design sections and decision records describe the

@@ -211,6 +211,17 @@ projection, which is what makes replay meaningless.
 <a id="sbx-11"></a>
 ## SBX-11 — The read programs
 
+**Conditional early slice · Scheduled · 2026-11-22.** SBX-05 may deliver the installed scalar
+construction caller through the existing resolver and guarded exact-parent/partition reads.
+Accept that earlier migration only if its final contract removes full-closure preparation,
+works within the normal 8 MiB examined bound, and preserves producing input, exact current use,
+occurrence, multiplicity and withheld-versus-absent behavior. Otherwise this package owns the
+migration. Reuse the one acquired cut and authorize each lookup. Keep genuine transitive and
+detached acquisition until their consumers move. The fork's 64 MiB scoped result and the
+textbook's separate 32 MiB experiment retain their original evidence scopes.
+[Post-pilot I03](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I03) ·
+[SBX-05](references-and-projection-keys.md#sbx-05)
+
 **Additional scope and evidence.** Demonstrate a keyed read, a legitimate empty
 answer, and a filtered continuation with unrelated partitions, frontier uses and protected
 leaves present. Use independent expected rows and authority outcomes. Apply the read contract's
@@ -265,6 +276,28 @@ package consumes the projection decision from the early pilot and the scoped aut
 from SBX-11. The archive comparison itself follows its runnable proof, reference and export
 prerequisites and remains scheduled after the SBX-09 cold root.
 [Review I04](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#I04)
+
+**Pinned APIs and selection · Scheduled · 2026-11-22.** Reuse the existing export pattern
+`pyarrow.parquet.ParquetWriter(path, schema).write_batch(batch)` on model-derived typed batches.
+Close each writer, verify its exact schema, logical rows and file digest, then publish the
+complete manifest. Open its exact file set with no inferred schema-union fallback. Compare
+`pyarrow.dataset.dataset(paths, format="parquet", schema=...).scanner(columns=...,
+filter=pyarrow.dataset.field(...) == ...).to_batches()` for filtered/keyed access with the
+analytical owner's `from_parquet()` or named DuckDB `read_parquet()` query for combined relation
+scans. `ParquetFile.iter_batches(columns=...)` supplies projection for sequential reads and has
+no row filter. For repeated keys over a bounded relation, compare one owned Arrow `Table` and
+lookup index. Select by first replay and reread work, movement, verification and buffer lifetime.
+Explicit semantic keys and order govern the answer. File paths and row positions do not replace them.
+[Existing writer](../../../python/corpus-structure/src/corpus_structure/serve/companion_export.py#L196) ·
+[Arrow Dataset API](https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Dataset.html) ·
+[Parquet writer API](https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetWriter.html) ·
+[DuckDB 2.0 Parquet scans](https://duckdb.org/docs/2.0/data/parquet/overview)
+
+Extend first replay and reopen acceptance to compare complete schema, selected cut, logical rows,
+explicit ordering, null/presence and occurrence multiplicity independently of physical pushdown.
+Verify exact file authentication before projected interpretation and include changed omitted
+columns, a partial or truncated file, empty relations and protected leaves. The manifest owner
+retains publication and interruption recovery. [Post-pilot I03/I06](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I03)
 
 **Owns.** The typed relation interface and its two backings; the export's relation list,
 including partitions and proof rows; the manifest's per-relation digests; the detached verifier's

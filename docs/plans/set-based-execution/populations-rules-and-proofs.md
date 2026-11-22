@@ -358,11 +358,20 @@ authoring. SBX-20 owns registration of the integrated Revision A, including subs
 <a id="sbx-03"></a>
 ## SBX-03 — The first populations
 
-**Early placement comparison · Proposed · 2026-11-22.** Use the runnable partition and
-binding slices for the [annotation-fork pilot](common-analytical-basis.md#typed-population-pilot)
-before finishing the affected migrations. Canonical, HanLP and declaration exercise one branch.
-Primary construction reads annotations and formal evidence on the other. Integrate the chosen
-route across these consumers, including ordinary publication and exact selected readback.
+**Selected placement · 2026-11-22.** The [annotation-fork pilot decision](common-analytical-basis.md#pilot-implementation-and-evidence)
+retains immutable annotation blocks and acquired contextual rows. Primary construction uses the
+already admitted blocks. The real fork passed on its private current-source root. Those receipts
+establish their captured source and selected use. Final integrated acceptance remains open.
+
+**Installed successor · Proposed · 2026-11-22.** Finish the canonical, HanLP, declaration and
+primary construction migrations on that route. Use the ordinary installed successor shared by
+SBX-05/06/07 to exercise an unread edit, an actual producer attempt settling an equal downstream
+projection, and a changed read field. Check local computation, eligible proof and exact current
+attachment independently. Move or rename a block, then reconvert with independent provenance.
+Repeated text and split or merged blocks must retain occurrence meaning when local bytes can
+share computation. Compare exact addressed results after ordinary publication and selected
+readback. [Shared successor scenarios](cutover-and-qualification.md#change-scenarios) ·
+[Review I01](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I01)
 
 **Declaration ingress · Tested by selected identity · 2026-11-22.** The declaration
 kernel acquires its canonical and HanLP rows through the same immutable partition
@@ -562,21 +571,47 @@ A constructions result on the fixture equals today's after mapping token ids to 
 <a id="sbx-04"></a>
 ## SBX-04 — One stance on validity
 
-**Common projection · Proposed · 2026-11-22.** The pilot compares relational rule
-establishment on the admitted population with the current work. Apply the same rule premises
-and retain eligible establishments for each scope. Remove repeated checks only after the
-replacement establishes their facts at the governing boundary. Keep ingress validation and
-atomic native publication. [Projection contract](common-analytical-basis.md#projection-contract)
+**Proof boundary · Proposed · 2026-11-22.** Establish construction and contextual navigation
+against the exact selected producing role, member, occurrence and logical slot. Name the output
+navigation and coverage facts and the annotation layout, address and token facts actually read.
+The intrinsic navigation proof over construction members does not by itself establish all those
+cross-input premises. Keep ingress and atomic native publication as the admission boundaries.
+[Review I02](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I02)
 
-**Remaining execution · Proposed · 2026-11-22.** Use the selected construction and contextual
-dependency-member rules and released attachment-policy witness already declared. Migrate external
-premises and choices to exact producing roles and addressed members before freezing their target
-fingerprints. Bind each rule on the actual roles that read it. Establish the selected annotation
-layout and navigation premises before deleting the last duplicate acquired checks. Keep standalone
-ingress and producer validation. Use the actual canonical successor journey for moves and
-reconversion, with repeated text and split or merged blocks as ambiguity controls. Recheck
-selective establishment, fingerprint isolation, alternative admissible establishments and the
-body-only binding on the final root.
+**Remaining execution · Proposed · 2026-11-22.** Use the declared dependency-member rules and
+release-owned attachment-policy witness. Convert external premises and choices to exact producing
+roles and addressed members before freezing their fingerprints. First use the existing
+establishment reader over declared role header paths and the observed output fields. Annotation
+headers carry distinct body and placement commitments. Bind each commitment only where the rule
+observes its facts. A whole-collection header is the initial conservative premise. Narrow to a
+role, collection or field-group premise only if a concrete reuse case needs it and producer and
+current consumer can derive the same fact. Preserve contextual annotation support when the
+interpretation independently reads it. A historical proof requires an eligible current
+establishment or admissible substitute and exact current input access before use.
+[Header commitments](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_partitions.py#L152) ·
+[Establishment reader](../../../python/corpus-structure/src/corpus_structure/semantic/rule_establishment_native.py#L74)
+
+Reuse the admitted primary or retained characterization block views through SBX-08. Sparse
+address consumers acquire only the requested authorized partitions. Claims over a closed or
+complete domain still inspect their full declared scope. Remove repeated acquired checks only
+when the proof covers the omitted facts and each migrated consumer binds that proof. Native
+publication and projected adoption already validate declared reference addresses. SBX-05 owns
+reuse or grouping of that exact authorized partition lookup. Keep the existing native grouped
+uniqueness, anti-join, rank, ordering and extent checks in their transaction owner. On a dense
+already typed input, Arrow or DuckDB can supply an independent relational comparison if it
+resolves an uncertain result. Building another production validator would introduce extraction
+and duplicate semantic ownership on this path.
+[Native rule owner](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_rule_native.py#L563) ·
+[Reference work](references-and-projection-keys.md#sbx-05) ·
+[Carrier work](validated-values-and-handoff.md#sbx-08)
+
+Use the installed successor for move and reconversion acceptance. Include equal content at
+changed placement, duplicate occurrences, malformed ordinals and extents, token membership and
+order, partial versus complete coverage, missing versus withheld addresses, and an ineligible or
+revoked premise. Recheck selective establishment, fingerprint isolation, alternative admissible
+establishments and body-only binding on the final root. Publication and adoption must remain
+atomic when any required reference or proof refuses. Retain independent expected addresses and
+coverage facts in the tests. [Shared scenarios](cutover-and-qualification.md#change-scenarios)
 
 **Construction rule uptake · Tested by selected identity · 2026-11-22.** Contextual
 interpretation requires the construction selected-primary-members establishment. Predicate and

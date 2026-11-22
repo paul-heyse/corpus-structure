@@ -186,11 +186,43 @@ made batch-independent.
 <a id="sbx-05"></a>
 ## SBX-05 — One reference model
 
-**Pilot readback · Proposed · 2026-11-22.** Use the original producing roles and exact
-current support for both branches of the
-[annotation-fork pilot](common-analytical-basis.md#typed-population-pilot). Exercise a
-missing member within a disclosed parent and a separate withheld-parent outcome. A retained
-projection can carry admitted membership. Each use still acquires its own authority.
+**Selected route · Scheduled · 2026-11-22.** The [completed annotation fork](common-analytical-basis.md#pilot-implementation-and-evidence)
+retains immutable acquired rows and exact original producing roles. Finish this contract on
+the installed successor and remaining families. A retained projection carries admitted
+membership while each lookup acquires its current authority. Keep authorized absence distinct
+from a withheld parent. [Post-pilot review I02/I03](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I03)
+
+**Native grouping investigation · Scheduled · 2026-11-22.** Publication and projected adoption
+already validate declared references in the native owner. Its contiguous-partition reuse can
+re-expand a partition when references interleave. Inspect that path in the installed fork.
+Reuse one address index per exact authorized producing input and partition, or group requested
+addresses by those keys and use native cardinality and anti-join checks if repeated expansion
+makes grouping useful. Retain stable failure order and exact slot/address diagnostics,
+malformed keys, member and occurrence multiplicity, and publication/adoption atomicity.
+SBX-04 still establishes specialized layout, token and dependency premises. Use Arrow or DuckDB
+only as an independent comparison over an already typed dense input where it answers a real
+question. [Native validator](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_reference_native.py#L124)
+
+**Keyed live-read slice · Conditional · 2026-11-22.** Start with the scalar construction slot
+in the installed successor. The existing `ReferenceResolver`, guarded exact-parent acquisition
+and native `data_binding_partitions` reader supply the physical route. Capture original
+producing bindings, exact current selected use and disclosure once under the same read cut,
+then reuse the resolver and partition index while reauthorizing each lookup. The existing
+`LiveReferenceAccess` single-binding contract needs explicit extension before use with labelled
+or multiple occurrences. Keep exact product/member/kind matching and independently compare
+current attachment with historical reference meaning.
+
+Advance this slice within SBX-05 only if its actual ordinary caller uses the final reference
+contract, avoids full selected-closure preparation and passes within the normal 8 MiB examined
+budget. Otherwise SBX-11 owns the keyed migration. Preserve the genuine transitive and detached
+closure paths until their owners replace them. Keep the scoped 64 MiB fork rerun at its
+recorded request scope. The textbook MCP watchdog remains with SBX-11/12. Verify cached
+lookup denial, admitted absence, wrong or stale selection, duplicate and ambiguous occurrence,
+protected issuer access and independent ordered readback. The local resolver probe establishes
+one partition acquisition across repeated lookups with authorization per call, with native
+selection and budget acceptance still open. [Scoped probe](../../design_review/evidence/2026-11-22_sbx09-review/README.md) ·
+[Live adapter](../../../python/corpus-structure/src/corpus_structure/semantic/live_reference_resolution.py#L50) ·
+[SBX-11](owner-resolved-reads.md#sbx-11)
 
 **Remaining family order · Proposed · 2026-11-22.** Complete construction and contextual
 premises with SBX-04, then characterization and declaration nodes, artifact and contextual witness
@@ -440,17 +472,19 @@ exercises this interface before the remaining families migrate.
 <a id="sbx-06"></a>
 ## SBX-06 — Projection-keyed request identity
 
-The [common projection pilot](common-analytical-basis.md#typed-population-pilot) exercises
-stable computational keys across representation and unobserved placement changes while
-binding exact selected support. Native settlement can proceed on the runnable existing
-slices while the pilot compares physical routes.
+The [completed common projection pilot](common-analytical-basis.md#pilot-implementation-and-evidence)
+selected immutable acquired annotation rows. Use the installed successor to extend the scoped
+native controls through actual governed changes, exact current support and downstream adoption.
+The shared [change scenarios](cutover-and-qualification.md#change-scenarios) own the journey.
+[Post-pilot review I01/I04](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I04)
 
 **Remaining delivery sequence · Proposed · 2026-11-22.** Start from the direct scalar
 settlement and pinned-read controls in `285ce76aa`. Use authoritative publication, attachment,
 selection, activation, original admission, membership, closure, proof and trust writes. Match
 selected and prospective roles and use the existing executor to settle bounded immediate
-recipients. Retain a transactional transition fact only where authoritative replay loses a
-required change. Finish exact-pin and first-match wake, same-generation joins, in-flight
+recipients. Reuse retained publication fulfillment and release activation facts for replay.
+Add a transition fact only for an origin whose required change cannot be recovered from its
+existing authoritative records. Finish exact-pin and first-match wake, same-generation joins, in-flight
 coverage, supersession and lost-acknowledgement recovery before deleting their last recursive
 watermark and sweep consumers. Preserve record-grade and pinned read authority. Exercise both
 computation cutoffs on the actual canonical chain, including compatible release contexts and
@@ -719,14 +753,23 @@ fixpoint and semantics.
 <a id="settlement-coverage"></a>
 ### Settlement and coverage
 
-Commit recoverable origin facts with each governed transition. The current publication receipt
-is immutable and settles atomically with outputs, establishments and fulfilled uses. Reuse it
-and its output facts as the publication anchor. The activation compare-and-swap furnishes a
-fence, while its mutable project pointer alone loses earlier transitions. For each origin check
-whether its native records can replay the transition and identify affected work. Where history
-or delivery custody is missing, add the smallest durable transition fact or work reference in
-the same transaction. Confirm the selection transition's owner and authority before choosing
-its storage. A lost acknowledgement after commit must recover the same origin and work.
+Reuse the recoverable facts committed with governed transitions. The publication receipt
+settles atomically with outputs, establishments and fulfilled uses, and native publication
+already retains exact demand, receipt and use delivery identity. Activation already records
+project, generation and old/new releases atomically with its compare-and-swap. Recover by that
+exact transition after lost acknowledgement, retaining prospective selection opt-in and frozen
+demand semantics. For other origins, inspect their authoritative records before adding the
+smallest missing work reference in the same transaction.
+
+**Ordinary recovery · Scheduled · 2026-11-22.** The overlap control currently repairs a pending
+publication gap by replaying selection advancement. Make normal bounded executor resume or
+drain reconcile the committed facts and feed immediate recipients without a second selection
+call. Exercise event-before-enrollment and enrollment-before-event, interrupted delivery and
+lost acknowledgement. Repeated resume must reuse the same delivery claim, and an obsolete
+generation must never advance current coverage. Keep settlement in the existing native owners.
+[Publication reconciler](../../../python/corpus-structure/src/corpus_structure/semantic/publication_delivery_native.py#L115) ·
+[Overlap control](../../../python/corpus-structure/tests/semantic/test_publication_delivery_native.py#L209) ·
+[Activation record](../../../python/corpus-structure/src/corpus_structure/semantic/closure_native.py#L558)
 [Publication settlement](../../../python/corpus-structure/src/corpus_structure/semantic/data_derivation_native.py#L653) ·
 [Durable recovery](../../adr/0140-durable-recovery-and-exact-stop.md)
 
@@ -740,6 +783,18 @@ demand-driven. For an eligible current binding, equal observed input and operati
 determinants preserve computation. A changed determinant can run the producer. Equal
 declared output after it settles ends computational propagation toward that consumer.
 Current-use attachment and readiness still settle through their native owners.
+
+**Arm and discovery adequacy · Scheduled · 2026-11-22.** Extend generation-checked attached
+scalar cuts with affected, unchanged and unavailable outcomes per relevant arm. Include an
+interrupted join with an unchanged arm and a change between edges. Discovery's prior-closure
+anti-join currently compares semantic product/derivation keys, while population validity also
+requires the exact admitted use. Test a revoked or historical closure followed by a newly
+admissible use of the same product and derivation. Distinguish incomplete, valid complete-empty,
+first-member arrival, departure and closure, with independent expected uses and recipients.
+Batch common population-close work only where the native owner preserves support locks,
+active demand, current context/recipe, output authority, completeness, duplicate contexts and
+atomic closure insertion. This investigation can choose a native set update or retain per-close
+calls when their individual semantics require them. [Population close owner](../../../python/corpus-structure/src/corpus_structure/semantic/demand_registration_native.py#L1544)
 
 Advance coverage for a governed selection only when all relevant committed changes and
 upstream decisions for the scoped cut are accounted for, including branches that settle
@@ -767,19 +822,33 @@ check. Keep the computational digest comparison body-free.
 [Exact-pin readiness control](../../../python/corpus-structure/tests/semantic/test_data_operation_pinned_reuse_native.py#L538) ·
 [Native attachment](../../../python/corpus-structure/src/corpus_structure/semantic/request_attachment_native.py#L1778)
 
-**Migration investigation.** Trace the watermark projected on native demand-result pages
-and the shared record-grade census through waiting fates, retained planner state, discovery
-and frontier sweeps, wire records and diagnostic or export readers. For each route, identify
-the scoped decision or evidence it needs and the write that wakes it. Use the early chain
-to verify wake, recovery, refusal, exact resume, bounded selection and waiting-owner reporting.
-Retire redundant ancestry expansion, watermark hashing and replaced discovery sweeps with
-their last consumers. Keep any uncovered route explicitly open with its consumer and missing
-wake or observation contract. SBX-11 supplies keyed reads and SBX-12 preserves pinned and
-detached evidence.
-[Watermark projection](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_projections.py#L2004) ·
-[Planner waiting decision](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_demands.py#L739) ·
-[Executor sweep](../../../python/corpus-structure/src/corpus_structure/orchestrate/data_operations.py#L2240) ·
-[Record-grade read](../../../python/corpus-structure/src/corpus_structure/semantic/record_grade_native.py#L447)
+**Projection migration · Scheduled · 2026-11-22.** The shared native demand page computes
+fallback watermark state when native readiness is absent. Grading reacquires exact obligations
+and uses through that page, and export serializes its full native bytes. Give scheduling fields
+a scheduler-owned projection. Preserve pinned identity and authorization, historical grade census
+and completion, and public status, visual and interpretation answers when removing scheduler
+material from shared reads. Test a genuine detached publication-to-export replay and preserve
+already sealed pages under their recorded reader schema.
+
+Migrate the planner's waiting gate to exact native readiness and scoped coverage. Finish normal
+resume delivery for prerequisite fulfillment, original and population discovery, attachment,
+closure, proof and trust changes, including first match without a prior address. Retire recursive
+ancestry expansion, watermark hashing, obsolete wire fields and replaced repeated discovery
+sweeps with their last consumers. SBX-21 checks their retirement. SBX-11 supplies keyed reads and
+SBX-12 preserves exact pinned and detached evidence. An uncovered consumer keeps its required
+wake or observation contract open. [Post-pilot review I04](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I04) ·
+[Watermark call](../../../python/corpus-structure/src/corpus_structure/semantic/data_operation_projections.py#L2559) ·
+[Record-grade read](../../../python/corpus-structure/src/corpus_structure/semantic/record_grade_native.py#L447) ·
+[Export](../../../python/corpus-structure/src/corpus_structure/serve/demand_export.py#L208)
+
+**Finite comparison · Conditional.** If selector semantics remain uncertain, compare the same
+captured typed role/occurrence/generation relation with independent expected multisets using
+DuckDB 2.0 `WITH RECURSIVE … USING KEY` and `EXCEPT ALL`. Include equal payloads on parallel arms
+and changed support under an equal semantic key. Node-only keys can erase distinct arms, and
+plain `EXCEPT` erases duplicate occurrences. The retained finite probe establishes these
+behaviors. Native PostgreSQL retains enrollment, trust, generation and transactional settlement.
+Use a small literal expected relation when it settles the same question. [Finite probe](../../design_review/evidence/2026-11-22_sbx09-review/README.md) ·
+[DuckDB recursive CTEs](https://duckdb.org/docs/2.0/sql/query_syntax/with)
 
 **Current consumers · inspected 2026-11-22.** The planner saves the remaining page watermark in
 waiting-use selection and skips an unchanged `awaiting-inputs`, `awaiting-population` or
@@ -844,16 +913,17 @@ stopping, join, supersession, lost acknowledgement and exact-pin wake evidence.
 
 The [common projection contract](common-analytical-basis.md#projection-contract) carries
 block-local meaning separately from observed placement and current address. Exercise that
-distinction through the pilot's real canonical branch, using the memo control when runnable.
+distinction through the installed successor after the [recorded pilot decision](common-analytical-basis.md#pilot-implementation-and-evidence),
+using one charged worker-local canonical memo and current occurrence assembly.
 
-**Canonical adoption checkpoint · 2026-11-21.** The spawned canonical calculation memoizes the
+**Earlier canonical checkpoint · Tested · 2026-11-21.** The spawned canonical calculation memoizes the
 local row transformation under the runtime-byte owner for its deterministic single-result policy.
 The key includes project, acquired recipe, projection and effective parameters,
 block address and projected row bytes. Current assembly supplies order, membership and placement.
 Every request acquires its own authorized binding and proof premises, and the current CPU reply
 and publication retain their own receipts. A focused test changed one block, moved and reordered
 the other, and checked one memo hit, changed body and current placement against a direct
-calculation. Renaming the block caused a miss and produced its current address
+calculation. At that source revision, renaming the block caused a miss and produced its current address
 (`uv run ci test`, `70f0850b5bf14af892a565d2a1499b29`, passed). Retention is local to a live worker
 process. A different process reacquires its own memo.
 
@@ -893,14 +963,24 @@ declares cohort/order dependence. Keep their corresponding whole-collection prem
 the same for any candidate whose independence remains uncertain. Whole-source scoped
 relations, composition and rich consolidation remain out.
 
-**Open design, settled in the package.** Where retained partition results live (the proposal is
-the partition table itself, addressed by a result key beside the digest); how a reused
-partition's proof conclusions apply by matching complete premises; and how required
-establishments and support sustain a reused partition under the current use. Follow the
-SBX-02/06 distinction between immutable content and required admissible provenance. Do not
-introduce an unconditional dependency on whichever derivation first produced equal content.
-Use source-local keys where sufficient and fresh current acquisition where occurrence
-correspondence is unknown; equal complete projections do not imply occurrence correspondence.
+**Retention decision · Scheduled · 2026-11-22.** Keep the charged live-worker canonical memo
+keyed on project, acquired recipe, declared projection, effective parameters and local projected
+bytes. Current assembly renders and hashes exact references, order and placement. The 2026-11-22
+rename-hit controls supersede the earlier address-in-key behavior. Apply SBX-02/06 proof and
+support requirements independently of the computation hit. A historical valid proof gives no
+access to an equal replacement input. Use fresh current acquisition where occurrence
+correspondence is unknown. [Post-pilot review I01](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I01)
+
+Persistent partition-result tables or cross-worker caches are deferred until a named consumer
+requires reuse beyond this worker lifetime and can establish complete determinants, ownership,
+eviction and current support. The worker-local memo supplies reuse through SBX-09.
+
+**Installed acceptance.** In the shared successor, distinguish an unread edit from an actual
+producer run settling an equal downstream projection. Test move/rename and reconversion with
+independent provenance, repeated equal blocks and ambiguous split/merge, then a read-field and
+eligibility change. Assert host-call reuse, exact canonical bytes and digest, proof applicability
+and current selected attachment independently. Rebind all local addresses under the current
+occurrence. Retain whole-result execution for hosts observing peers or cohorts. [Shared cases](cutover-and-qualification.md#change-scenarios)
 
 **Decision.** Record adoption per eligible host and policy after its determining scope is
 established. A focused case must demonstrate skipped unchanged work; this creates no mandatory

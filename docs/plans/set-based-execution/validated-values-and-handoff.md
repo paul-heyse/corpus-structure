@@ -93,9 +93,12 @@ envelope and the kernel all use. Role values are not deep-copied; carriers are i
 single acceptance path, as the formal operation does today. The parent validates the returned
 product against its own carriers. The packet format is unchanged.
 
-**One bracket.** Each port builds its authenticated slice once at admission, covering the files
-of its code closure, and checks it before submitting a computation and after collecting the
-reply. Family-specific verification is rebuilt on that mechanism.
+**One bracket.** Each port builds its authenticated slice once at admission, covering its code
+closure and assets. Check it inside actual work admission, after capacity is granted, and after
+the final work using those captured premises. The CPU route checks after collecting the result.
+The threaded PDF and visual routes check after their final captured code or asset use, including
+result encoding where it uses those premises. The parent also checks current attempt activity
+after collection. Family-specific verification uses the same two-check mechanism.
 
 *Alternatives rejected.* Keeping per-access validation and adding caches inside each wrapper:
 leaves construction open, so the validation cannot be dropped. A cache keyed by object identity:
@@ -106,19 +109,27 @@ it does not detect a file changed during the run.
 <a id="sbx-08"></a>
 ## SBX-08 — Validated carriers
 
-**Population hand-off · Proposed · 2026-11-22.** Supply the runnable acquired carriers
-to the [annotation-fork pilot](common-analytical-basis.md#typed-population-pilot). The
-pilot decides whether model-derived typed batches or an owned Arrow worker transfer can
-replace a full reconstruction path. Finish affected migrations on that decision and carry
-the admitted shape through ordinary and spawned consumers. Keep sealed ingress, byte
-admission, attempt correspondence and cleanup under their existing owners.
+**Population hand-off · Selected · 2026-11-22.** The [annotation-fork pilot](common-analytical-basis.md#pilot-implementation-and-evidence)
+retains immutable blocks and already-acquired contextual rows. Primary construction now consumes
+the admitted blocks directly. Finish the affected consumers on that carrier, preserving sealed
+ingress, exact byte admission, attempt correspondence and cleanup. The pilot's alternate Arrow
+transport and native extraction controls remain scoped comparison evidence. The final ordinary
+and spawned consumer paths use the selected carrier.
 
-**Remaining carrier order · Proposed · 2026-11-22.** Finish formal evidence, construction
-and contextual products, then retained characterization and enriched composition. Migrate
-ordinary and spawned consumers together. Adopt acquired source and exact pin in the secondary
-native frame carrier and preserve sealed packet fields. Keep scope and authority on each use.
-Retain sentence-family bodies separately by partition and decoder and assemble placed views
-under the invocation. Keep the request fence and independent retained-reply verification.
+**Remaining carrier acceptance · Proposed · 2026-11-22.** Formal, interpreted, retained
+characterization, composition, native frame and sentence partition carriers already have the
+scoped implementation receipts below. Thread their admitted values through remaining ordinary,
+retained, detached and spawned consumers. Keep decoded partition bodies shared within the
+existing byte owner, population and placement commitments on each acquired assembly, and derived
+indexes within their invocation or charged owner. Reuse admitted characterization blocks in
+construction when their current support permits it. Sparse reference acquisition follows SBX-05.
+Retain scope and authority on each use and independently verify retained replies against the
+request. Run the five native stream cases that stopped at the legacy descriptor on the final
+registered root. Close ordinary provider acceptance through the installed successor and cold-root
+qualification. [Proof premises](populations-rules-and-proofs.md#sbx-04) ·
+[Reference work](references-and-projection-keys.md#sbx-05) ·
+[Final-root qualification](cutover-and-qualification.md#development-reset-through-sbx-09) ·
+[Review I05](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I05)
 
 **Partition retention · Tested · 2026-11-22.** The sentence-family carrier retains nominal
 headers and decoded partition bodies separately in the runtime byte budget. Each acquired
@@ -221,20 +232,32 @@ declared lifetime.
 <a id="sbx-09"></a>
 ## SBX-09 — One verification bracket
 
-**Executable custody comparison · Proposed · 2026-11-22.** Independently assess whether
-an immutable execution capture could simplify the verification bracket. Inspect what the
-actual worker can load after admission, including late imports and assets, and what binds
-the capture to the executing attempt and returned reply. Change the bracket only if a
-simpler route can enforce those guarantees and pass the existing tamper and refusal controls
-on the normal worker route. Otherwise retain the current checks inside work admission and
-after reply collection. Keep this choice independent of the analytical engine and preserve
-native descriptor, fencing and acknowledgement checks. [Review custody findings](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#which-checks-earn-their-place)
+**Executable custody · Selected · 2026-11-22.** Retain the two-check bracket. The actual CPU
+worker uses live Python loading and can import captured modules or read assets during execution.
+A sealed input or source digest alone does not bind those later loads. Reopen this choice only
+for a concrete loader that binds the executing code, late imports and assets to the capture and
+simplifies the complete handoff while preserving native descriptors, attempt fencing,
+cancellation and acknowledgment. Such a proposal follows the existing custody decision route.
+[Review I05](../../plan_improvement_reviews/set-based-execution-through-sbx09_2026-11-22.md#I05) ·
+[Decision routes](common-analytical-basis.md#decision-routes)
 
-**Remaining execution · Proposed · 2026-11-22.** Migrate both PDF region modes and visual
-mapping to a retained authenticated slice. Acquire it with exact model, implementation and
-assets, then check it inside actual work admission and after reply collection. Exercise a
-captured function-local import changed during the call, keeping the two-check construction
-control and actual learned provider verification on the final root.
+**Remaining execution · Proposed · 2026-11-22.** Both PDF region modes and visual mapping
+already retain authenticated slices and have scoped threaded controls. Their current second
+verification precedes result encoding. Align that existing check with the last use of captured
+code or assets, moving it after encoding when encoding uses those premises. Keep exactly two
+full checks around actual work. The CPU route's final check stays after result collection.
+Retain current-attempt checks after collection and the independent request and reply fences.
+Exercise the ordinary executor on the final registered root, including a function-local import
+or asset changed during the call, an expired attempt, and refusal before publishing an invalid
+reply. Keep the existing construction two-check assertion and actual learned-provider acceptance.
+[Final-root qualification](cutover-and-qualification.md#development-reset-through-sbx-09)
+
+Keyed PDF rendering already acquires a selected region and original bytes and releases its
+database lease before rendering. Visual mapping consumes one observation and PNG. Their remaining
+custody work uses these routes. The concrete projected IPC opportunity belongs to candidate
+page status and geometry replay in SBX-16, where decoding currently precedes column selection.
+Carry full logical admission and exact-byte custody into that owner's projected-reader work.
+[PDF replay](pdf-path.md#sbx-16)
 
 **PDF regions and visual mapping · Tested · 2026-11-22.** Both region modes and visual
 mapping retain their acquired verification and check inside actual work. Seventeen selected

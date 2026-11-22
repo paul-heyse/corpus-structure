@@ -13,7 +13,7 @@ the trial investigation ran, which are re-run and retained by SBX-18.
 and [I03](../../plan_improvement_reviews/set-based-execution-common-analytics_2026-11-22.md#I03)
 expand the comparison to captured DuckDB SQL and PostgreSQL-native set work. The
 [common analytical basis](common-analytical-basis.md#typed-population-pilot) owns the earlier
-annotation-fork pilot and its pre-SBX-09 decision. SBX-18/19 use its implemented projection and
+annotation-fork pilot and its recorded immutable-carrier decision. SBX-18/19 use its implemented projection and
 transfer results when applicable and keep their complete family trial downstream. The
 [pinned-build probe](../../design_review/evidence/2026-11-22_sbx-common-analytics/README.md)
 establishes fixture-level DuckDB 2.0.0 and PyArrow 26.0.0 behavior, including a typed window
@@ -90,6 +90,25 @@ its findings into this family's complete comparison. SQL authoring changes follo
 <a id="sbx-18"></a>
 ## SBX-18 — The analytical owner states the fidelity rules
 
+**Pinned execution APIs · Scheduled · 2026-11-22.** On DuckDB 2.0.0, use the existing
+`AnalyticalConnection.from_arrow(pa.Table)` and `Relation.select`, `join`, `aggregate`, `sort`
+and `except_all` for the typed comparison. Build columns and constants with `duckdb.col` and
+`duckdb.lit`. A typed ordinal window can use `duckdb.fn("row_number").over(partition_by=[...],
+order_by=[duckdb.col(...).asc().nulls_last()])`. Use the existing `count_all().over(...)` where
+the rule needs per-group counts. Compare the same steps with named captured
+`con.sql(query, params=[...])` definitions using `SEMI JOIN`, `ANTI JOIN`, `EXCEPT ALL`,
+`row_number() OVER (PARTITION BY ... ORDER BY ... NULLS ...)`, `QUALIFY` and ordered aggregates.
+Pair dense-order checks with duplicate cardinality and expected-scope anti-joins so a rank-only
+comparison cannot hide a duplicate or absent group. Bind explicit role, occurrence and generation
+keys where the fact needs them. Set `default_collation` to `binary` beside UTC and preserve
+Python canonical encoding at publication. [Existing analytical owner](../../../python/corpus-structure/src/corpus_structure/analytics.py#L34) ·
+[DuckDB 2.0 expression API](https://duckdb.org/docs/2.0/clients/python/expression) ·
+[Window functions](https://duckdb.org/docs/2.0/sql/functions/window_functions)
+
+The captured SQL route is a comparison candidate under the existing decision routes. A selected
+change to authoring, connection lifetime or authority receives its operator decision and owning
+ADR update before dependent production adoption. [Post-pilot library dispositions](common-analytical-basis.md#capability-dispositions)
+
 **Owns.** In `cs/analytics.py`, the configured analytical execution boundary, fidelity
 contract, captured query custody, input and output checks and connection/resource policy.
 Set binary collation beside UTC, require explicit order and NULL placement where observable,
@@ -120,13 +139,21 @@ per relation.
 **Each job owns resources.** Invocation-owned connections and private spill directories are
 the baseline. Consider worker-wide reuse only when it removes material setup work. Each
 computation owns its temporary relations, registered inputs, readers and spill. Success,
-failure and stop must drain or abort the active result and release those resources before
-another job uses a retained connection. Retire the connection if cleanup cannot establish a
+failure and stop must finish or close the relation reader, or end the DB-API result as appropriate,
+and release those resources before another job uses a retained connection. Retire the connection if cleanup cannot establish a
 usable state. Establish job isolation through the real worker route before selecting reuse.
 
-DuckDB 2.0.0 `DuckDBPyRelation.to_arrow_reader` provides an Arrow `RecordBatchReader`. Compare
-batch consumption with `to_arrow_table` for the actual operator and consume incrementally where
-the consumer permits it. This does not establish bounded memory inside a join or sort. The
+DuckDB 2.0.0 `DuckDBPyRelation.to_arrow_reader(batch_size=...)` provides an Arrow
+`RecordBatchReader`. Use it for incremental consumption and `to_arrow_table()` for deliberately
+bounded complete materialization. Keep Arrow table owners alive for repeat evaluation. An input
+`RecordBatchReader` is single-use unless explicitly materialized once. Drain or close each output
+reader before another query on its connection. For an unfinished DB-API `execute()` result,
+`DuckDBPyConnection.complete()` or `abort()` ends that result, while another `execute()` replaces
+it. Use relation Arrow output to avoid the extra copied result path. Verify these distinct
+lifetimes on the worker route. Incremental consumption does not establish bounded memory inside
+a join or sort. [DuckDB 2.0 Python migration](https://duckdb.org/docs/2.0/clients/python/migration)
+
+The
 binding exposes `DuckDBPyConnection.interrupt`, but its cancellation outcome and connection reuse
 must be established through the actual worker route before relying on it. Cooperative activity
 checks still surround engine work. See [result conversion](../../libraries/analytical_infrastructure/duckdb_2.md#35-materialization-result-conversion-and-streaming),
@@ -165,6 +192,17 @@ Qualify the selected implementation through native publication and exact artifac
 The artifact consumer must follow the independently selected report occurrence and its actual
 source. SBX-08's acquired inputs and SBX-04's established premises remove repeated entry
 re-acquisition, validation and inventory reconstruction for the covered scope.
+
+**API-to-step comparison.** Acquire the shared inventories as model-derived Arrow tables, with
+explicit ordinal and occurrence columns. Use range joins for pieces and extents, grouped counts
+for caption candidates, windows for earlier rows under the same parent, and one formal-symbol
+join per prepared inventory. Direct `pyarrow.compute` kernels suit simple existing column
+transforms. Consider `ASOF` or `NEAREST` only where the named question has the same direction,
+range and tie semantics, then verify exact provenance separately. Compare PostgreSQL-native
+preparation using the admitted snapshot and transfer route in the shared owner. Account for
+server tagged-packet extraction, movement back to Python, ordering and cleanup when choosing.
+No timing requirement follows unless memory, spill, transfer or setup uncertainty could change
+the choice. [Shared placement](common-analytical-basis.md#postgresql-placement-and-transfer)
 
 **Success criteria.**
 
