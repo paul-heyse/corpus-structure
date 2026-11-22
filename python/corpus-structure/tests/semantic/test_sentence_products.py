@@ -614,6 +614,10 @@ def test_canonical_prepared_kernel_runs_in_actual_shared_cpu_scope(profile):
     from corpus_structure.semantic.data_operation_ports import PythonRoleValue
 
     port = canonical_port(profile)
+    determinants = [
+        asset for asset in port.operation.assets if asset.contract == "canonical/profile-assets"
+    ]
+    assert determinants and all(asset.reuse_eligible for asset in determinants)
     source = selected(profile, "")
     product = profile.run(source, subject_context=publication_context(source))
     assert product.partitions is not None

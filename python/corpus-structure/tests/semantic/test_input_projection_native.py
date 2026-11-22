@@ -4,7 +4,7 @@ import json
 from dataclasses import asdict, replace
 from decimal import Decimal
 from hashlib import sha256
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from sqlalchemy import bindparam, insert, text
@@ -12,6 +12,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic import migrations
+from corpus_structure.semantic._data_operation_wire import WireResultBinding
 from corpus_structure.semantic.data_operation_demands import (
     DemandPlanner,
     OperationSelection,
@@ -373,4 +374,6 @@ def test_native_projected_basis_preserves_distinct_request_custody(
     )
     assert result["fate"] == "fulfilled" and result["derivation_id"] == retained_episode
     assert result["request_id"] == current_request
-    assert result["selection"]["support"][0]["derivation_id"] == original["derivation_id"]
+    selection = cast(WireResultBinding, result["selection"])
+    support = selection["support"][0]
+    assert "derivation_id" in support and support["derivation_id"] == original["derivation_id"]

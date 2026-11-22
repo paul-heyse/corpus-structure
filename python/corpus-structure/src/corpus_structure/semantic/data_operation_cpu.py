@@ -147,12 +147,12 @@ class PythonCPUDescriptor:
     "runtime_bytes",
     weight=lambda descriptor: sum(len(content) for _, _, content in descriptor.sources),
 )
-def prepared_cpu_descriptor(sources, entrypoint, prepared_release_id, asset_custody):
+def prepared_cpu_descriptor(sources, entrypoint, prepared_release_id, asset_custody, *, helpers=()):
     """Retain one descriptor for the exact immutable prepared execution contract."""
     return PythonCPUDescriptor(
         sources,
         entrypoint,
-        (),
+        helpers,
         verification="prepared-kernel",
         control_parameter="check_active",
         prepared_parameter="prepared" if prepared_release_id is not None else None,
@@ -372,15 +372,27 @@ def _load_original(call):
             for source in sources.sources
         )
         getters = []
+        required_helpers = set(call.expected_nodes)
         for source in sources.sources:
             module = modules[source.module]
-            for path, _node, value, _ in _runtime_members(
+            for path, _node, value, expected_code in _runtime_members(
                 ast.parse(source.content).body,
                 module,
                 compile(source.content, source.filename, "exec", dont_inherit=True),
                 source.module,
             ):
-                if inspect.isfunction(value):
+                actual_helper = (
+                    value.__func__ if isinstance(value, (staticmethod, classmethod)) else value
+                )
+                if path in required_helpers:
+                    if (
+                        not inspect.isfunction(actual_helper)
+                        or actual_helper.__code__ != expected_code
+                        or actual_helper.__globals__ is not module.__dict__
+                    ):
+                        raise PortRefusal("prepared CPU kernel helper differs: " + path)
+                    required_helpers.remove(path)
+                if inspect.isfunction(actual_helper):
                     components = path.removeprefix(source.module + ".").split(".")
 
                     def getter(module=module, components=components):
@@ -390,6 +402,8 @@ def _load_original(call):
                         return value
 
                     getters.append(getter)
+        if required_helpers:
+            raise PortRefusal("prepared CPU kernel helper is outside its acquired sources")
         actual = function.__func__ if inspect.ismethod(function) else function
         globals = tuple(
             (modules[module_name], name, actual.__builtins__.get(name))
