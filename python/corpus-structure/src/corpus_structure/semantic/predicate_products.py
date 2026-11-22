@@ -125,7 +125,7 @@ class PreparedPredicateInputs:
         from .declared_candidate_products import candidate_inspection_report
         from .declared_record_sources import DeclaredNativeFrameSource
         from .enriched_document_products import RetainedCharacterizationProduct
-        from .formal_products import retained_formal_product
+        from .formal_products import acquired_formal_product
         from .sentence_products import (
             acquired_source_annotations,
             retained_source_annotation_products,
@@ -154,7 +154,7 @@ class PreparedPredicateInputs:
             original = FrozenNativeSource.acquire(
                 self.prepared, {**selected.value, "selectors": body["selectors"]}
             )
-            product = retained_formal_product(
+            product = acquired_formal_product(
                 self.prepared,
                 body,
                 original,

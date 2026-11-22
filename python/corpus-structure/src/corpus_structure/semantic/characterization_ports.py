@@ -38,7 +38,11 @@ from .enriched_document_products import (
     compose_enriched_document_values,
     ordered_composition_inputs,
 )
-from .formal_products import FormalEvidenceProduct, retained_formal_product
+from .formal_products import (
+    FormalEvidenceProduct,
+    acquired_formal_product,
+    validate_formal_product,
+)
 from .identity import canonical_bytes
 from .python_operation_sources import PythonSource, PythonSourceCollection
 from .sentence_products import SourceAnnotations
@@ -599,21 +603,22 @@ class PreparedCharacterizationPort(ABC):
             original = FrozenNativeSource.acquire(
                 self.prepared, {**source.value, "selectors": body["selectors"]}
             )
-            result.append(
-                self._selected_product(
-                    retained_formal_product(
-                        self.prepared,
-                        body,
-                        original,
-                        model=self.model,
-                        subject_context=self._context(binding, "formal", len(result), value),
-                        member=self._member(binding, "formal", len(result)),
-                    ),
-                    binding,
-                    "formal",
-                    len(result),
+            context = self._context(binding, "formal", len(result), value)
+            if binding is None:
+                product = validate_formal_product(
+                    self.prepared, body, original, model=self.model, subject_context=context
                 )
-            )
+                product._publication_context()
+            else:
+                product = acquired_formal_product(
+                    self.prepared,
+                    body,
+                    original,
+                    model=self.model,
+                    subject_context=context,
+                    member=self._member(binding, "formal", len(result)),
+                )
+            result.append(product)
         return tuple(result)
 
     def _retained(self, raw, binding, name):

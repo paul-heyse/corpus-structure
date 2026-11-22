@@ -113,7 +113,7 @@ def execute_scoped_relations(
     from .declared_record_sources import DeclaredNativeFrameSource
     from .declared_structural_references import DeclaredStructuralSource
     from .enriched_document_products import RetainedCharacterizationProduct
-    from .formal_products import retained_formal_product
+    from .formal_products import acquired_formal_product
     from .source_products import FrozenNativeSource
     from .structural_products import StructuralPassage
 
@@ -151,7 +151,7 @@ def execute_scoped_relations(
         products.append(CharacterizationSnapshot(product.semantic_id, product.content))
     navigation = NativeNavigationIndex(tuple(products), selected).require()
     for member, value in zip(profile.members("formal"), formal, strict=True):
-        product = retained_formal_product(
+        product = acquired_formal_product(
             profile.prepared,
             value,
             selected,

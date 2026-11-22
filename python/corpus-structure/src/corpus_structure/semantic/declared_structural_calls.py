@@ -294,7 +294,7 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
     from .data_operation_model import SubjectContext
     from .data_product_reference import DataProductReference
     from .declared_record_sources import DeclaredNativeFrameSource
-    from .formal_products import retained_formal_product
+    from .formal_products import acquired_formal_product
     from .formal_readings import FormalSourceReadings
     from .source_products import FrozenNativeSource
     from .structural_products import DeclaredComparisonReport, DeclaredStructuralInput
@@ -367,7 +367,7 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
             member.analyzed_scope,
             subject_definition=member.subject_definition,
         )
-        product = retained_formal_product(
+        product = acquired_formal_product(
             profile.prepared, raw, source, model=model, subject_context=context, member=member
         )
         if product.semantic_id != member.product:

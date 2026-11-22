@@ -416,13 +416,24 @@ def validate_formal_product(
     return FormalEvidenceProduct(canonical_bytes(checked), prepared, model, subject_context)
 
 
-def retained_formal_product(prepared, value, source, *, model, subject_context=None, member=None):
-    """Decode every boundary; reuse only the exact native producer's established facts."""
-    product = validate_formal_product(
-        prepared, value, source, model=model, subject_context=subject_context
-    )
-    if member is not None and product.semantic_id != member.product:
-        raise ValueError("formal body differs from its exact selected native product")
+def acquired_formal_product(
+    prepared, value, source, *, model, subject_context, member
+) -> FormalEvidenceProduct:
+    """Decode an exact whole formal product whose consumer's rules were bound natively."""
+    from .data_operation_model import BoundRoleMember
+
+    if type(member) is not BoundRoleMember or member.member is not None:
+        raise ValueError("selected formal evidence requires its exact whole binding member")
+    typed = prepared.validate_json("DdoFormalProduct", canonical_bytes(value))
+    checked = _values(typed)
+    selected = source.value
+    product = FormalEvidenceProduct(canonical_bytes(checked), prepared, model, subject_context)
+    if (
+        product.semantic_id != member.product
+        or checked["source"] != selected["source"]
+        or tuple(checked["selectors"]) != tuple(selected["selectors"])
+    ):
+        raise ValueError("formal body differs from its exact selected native product/source")
     return product
 
 

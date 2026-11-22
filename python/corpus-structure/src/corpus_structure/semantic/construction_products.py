@@ -1139,6 +1139,7 @@ class PreparedConstructionProfile:
                 subject_context=sentences.subject_context,
                 partitions=sentences.partitions,
             )
+        FormalSourceReadings.from_products(formal, source, prepared=self.prepared, model=self.model)
         return self._construct(
             source,
             formal,
@@ -1158,7 +1159,6 @@ class PreparedConstructionProfile:
         check_active: Callable[[], None],
         subject_context: SubjectContext | None = None,
     ):
-        FormalSourceReadings.from_products(formal, source, prepared=self.prepared, model=self.model)
         snapshots = tuple(
             CharacterizationSnapshot(product.semantic_id, product.content) for product in formal
         )

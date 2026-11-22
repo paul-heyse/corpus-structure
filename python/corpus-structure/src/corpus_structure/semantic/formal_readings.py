@@ -181,7 +181,7 @@ class FormalSourceReadings:
     @classmethod
     def from_products(cls, products, source, *, prepared=None, model=None):
         """Immediate construction input: retain exact typed facts, never parse again."""
-        from .formal_products import FrozenFormalSource, retained_formal_product
+        from .formal_products import FrozenFormalSource, validate_formal_product
 
         selected = source.value
         coordinate = selected["source"]
@@ -196,7 +196,7 @@ class FormalSourceReadings:
             original = FrozenFormalSource.acquire(
                 prepared or product.prepared, {**selected, "selectors": body["selectors"]}
             )
-            checked = retained_formal_product(
+            checked = validate_formal_product(
                 prepared or product.prepared,
                 body,
                 original,
