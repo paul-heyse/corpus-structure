@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Annotated, Literal, TypedDict
+from typing import Annotated, Any, Literal, TypedDict
 
 from pydantic import ConfigDict, Field, with_config
 
@@ -198,9 +198,13 @@ class SemanticReference:
 
 
 def read_semantic_reference(value) -> SemanticReference:
+    from .native_source_view import FrozenJsonArray
+
     if not isinstance(value, Mapping):
         raise ValueError("reference must be a mapping")
-    fields = {field: item for field, item in value.items() if field != "item_key"}
+    if isinstance(key := value.get("item_key"), FrozenJsonArray):
+        value = {**value, "item_key": list(key)}
+    fields: dict[str, Any] = {field: item for field, item in value.items() if field != "item_key"}
     if "item_key" in value:
         if not isinstance(value["item_key"], list):
             raise ValueError("reference item key must be an ordered list")

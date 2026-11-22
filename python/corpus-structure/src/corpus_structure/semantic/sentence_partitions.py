@@ -98,9 +98,7 @@ def _sentence_partition_body(meaning, tagged: bytes, decoder) -> _SentencePartit
 
 
 def sentence_product_payload(content, partitions, prepared, nominal_type):
-    from .data_operation_json import native_json_loads
     from .data_operation_version import MODEL_VERSION
-    from .native_source_view import freeze_native
     from .value_codec import decimal_digit_limit
 
     if (
@@ -111,8 +109,31 @@ def sentence_product_payload(content, partitions, prepared, nominal_type):
         raise TypeError("sentence products require owned immutable header and partition bytes")
     decoder = (MODEL_VERSION, decimal_digit_limit())
     header = _sentence_product_header(content, prepared, nominal_type, decoder)
+    packets, blocks = acquire_sentence_partitions(partitions, header.value[COLLECTION])
+    return SentenceProductPayload(
+        header.content,
+        header.value,
+        header.meaning,
+        header.tagged,
+        header.members,
+        header.member_packets,
+        header.body_identity,
+        partitions,
+        packets,
+        blocks,
+    )
+
+
+def acquire_sentence_partitions(partitions, commitment):
+    """Acquires committed partition packets at a product or sealed worker ingress."""
+    from .data_operation_json import native_json_loads
+    from .data_operation_version import MODEL_VERSION
+    from .native_source_view import freeze_native
+    from .value_codec import decimal_digit_limit
+
+    decoder = (MODEL_VERSION, decimal_digit_limit())
     packets = tuple(native_json_loads(packet) for packet in partitions)
-    if partition_header(packets) != header.value[COLLECTION]:
+    if partition_header(packets) != commitment:
         raise ValueError("sentence rows differ from their selected collection commitment")
     blocks = []
     frozen_packets = []
@@ -134,18 +155,7 @@ def sentence_product_payload(content, partitions, prepared, nominal_type):
         )
         metadata = {key: freeze_native(value) for key, value in packet.items() if key != "body"}
         frozen_packets.append(MappingProxyType({**metadata, "body": body.tagged}))
-    return SentenceProductPayload(
-        header.content,
-        header.value,
-        header.meaning,
-        header.tagged,
-        header.members,
-        header.member_packets,
-        header.body_identity,
-        partitions,
-        tuple(frozen_packets),
-        tuple(sorted(blocks, key=lambda item: item.ordinal)),
-    )
+    return tuple(frozen_packets), tuple(sorted(blocks, key=lambda item: item.ordinal))
 
 
 @declare(

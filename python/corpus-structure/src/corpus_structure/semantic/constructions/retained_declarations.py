@@ -324,32 +324,41 @@ def _emit_declaration_sentence(layer, view, sentence, *, source_key, premises):
 
 def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, source_frame=None):
     """Index original canonical units and actual HanLP heads without re-recognition."""
-    from ..data_operation_partitions import partition_header
     from ..data_product_reference import SemanticReference, read_semantic_reference
     from ..declared_record_sources import DeclaredNativeFrameSource
-    from ..hanlp_products import canonical_hanlp_rows
-    from ..sentence_partitions import COLLECTION, blocks_from_packets
+    from ..hanlp_products import canonical_hanlp_rows_from_blocks
+    from ..sentence_partitions import COLLECTION, acquire_sentence_partitions
     from ..source_contexts import PreparedNativeSources, source_slice
 
     selected = source.value
     body = json.loads(hanlp.content)
-    if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(selected["selectors"]):
+    if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(
+        selected["selectors"]
+    ):
         raise DeclarationNotQualified(
             "declaration HanLP differs from exact original source and scope"
         )
     if read_semantic_reference(body["canonical_input"]) != SemanticReference.whole("canonical"):
         raise DeclarationNotQualified("declaration HanLP input has no canonical producing role")
-    candidates = sorted(canonical_hanlp_rows(source, canonical), key=lambda item: item[0]["start"])
+    canonical_header = json.loads(canonical.content)
+    _, canonical_blocks = acquire_sentence_partitions(
+        canonical.partitions, canonical_header[COLLECTION]
+    )
+    candidates = sorted(
+        canonical_hanlp_rows_from_blocks(source, canonical_header, canonical_blocks),
+        key=lambda item: item[0]["start"],
+    )
     addresses = {(sentence["block_id"], sentence["ordinal"]) for sentence, _ in candidates}
     if len({(row["start"], row["end"]) for row, _ in candidates}) != len(candidates):
         raise DeclarationNotQualified("declaration requires unique exact canonical sentences")
-    packets = tuple(json.loads(packet) for packet in hanlp.partitions)
-    if partition_header(packets) != body[COLLECTION]:
+    try:
+        _, blocks = acquire_sentence_partitions(hanlp.partitions, body[COLLECTION])
+    except ValueError as error:
         raise DeclarationNotQualified(
             "declaration HanLP partitions differ from their exact commitment"
-        )
+        ) from error
     grouped = {}
-    for block in blocks_from_packets(packets):
+    for block in blocks:
         for unit in block.rows:
             if unit["record_type"] not in {"token", "srl_group"}:
                 continue
@@ -369,10 +378,13 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, 
             raise DeclarationNotQualified(
                 "declaration syntax requires an admitted original source frame"
             )
-        source_frame = DeclaredNativeFrameSource(
-            source.content.decode(), canonical_bytes(native_products[0].source.values()).decode()
+        source_frame = DeclaredNativeFrameSource.from_source(
+            source, canonical_bytes(native_products[0].source.values()).decode()
         )
-    if not isinstance(source_frame, DeclaredNativeFrameSource) or source_frame.value != selected:
+    if (
+        not isinstance(source_frame, DeclaredNativeFrameSource)
+        or source_frame.source_content.encode() != source.content
+    ):
         raise DeclarationNotQualified(
             "declaration frame differs from its exact selected original source"
         )
@@ -402,9 +414,9 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, 
                 (row for row in units if row["record_type"] == "token"),
                 key=lambda row: row["ordinal"],
             )
-            refs = [reference for reference, _ in canonical_tokens]
+            refs = tuple(read_semantic_reference(reference) for reference, _ in canonical_tokens)
             _require(tokens and [row["ordinal"] for row in tokens] == list(range(len(tokens))))
-            _require([row["token"] for row in tokens] == refs)
+            _require(tuple(read_semantic_reference(row["token"]) for row in tokens) == refs)
             positions = original["token_extents"]
             _require(start <= positions[0][0] < positions[-1][1] <= end)
 
@@ -496,7 +508,8 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, 
                 for role in group["roles"]:
                     left, right = role["start"], role["end"]
                     _require(
-                        0 <= left < right <= len(tokens) and role["tokens"] == refs[left:right]
+                        0 <= left < right <= len(tokens)
+                        and tuple(map(read_semantic_reference, role["tokens"])) == refs[left:right]
                     )
                     location = located(left, right)
                     if role["label"] == "PRED":
@@ -660,7 +673,9 @@ def declaration_sentences_products(products, source, passage):
 
     for product in products:
         body = json.loads(product.content)
-        if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(selected["selectors"]):
+        if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(
+            selected["selectors"]
+        ):
             raise DeclarationNotQualified(
                 "declaration product differs from exact original source and analyzed scope"
             )

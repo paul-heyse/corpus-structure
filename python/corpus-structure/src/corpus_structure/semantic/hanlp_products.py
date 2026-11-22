@@ -55,16 +55,21 @@ def hanlp_product_inputs(bundle):
 
 def canonical_hanlp_rows(source, canonical):
     """Acquire closed block-local membership and recover original pretokenized words."""
+    return canonical_hanlp_rows_from_blocks(source, canonical.value, canonical._payload.blocks)
+
+
+def canonical_hanlp_rows_from_blocks(source, header, blocks):
+    """Interpret acquired block rows against their exact source."""
     from .data_product_reference import SemanticReference
     from .sentence_partitions import COLLECTION
 
-    selected, header = source.value, canonical.value
+    selected = source.value
     if header["source"] != selected["source"] or tuple(header["selectors"]) != tuple(
         selected["selectors"]
     ):
         raise ValueError("HanLP canonical source/selector scope differs from original source")
     result = []
-    for block in canonical._payload.blocks:
+    for block in blocks:
         if not 0 <= block.start <= block.end <= len(selected["text"]):
             raise ValueError("HanLP canonical block exceeds its selected original source")
         addresses = set()
@@ -406,16 +411,24 @@ class HanlpProduct:
     def __post_init__(self):
         from .sentence_partitions import sentence_product_payload
 
-        if type(self.execution_receipts) is not tuple or any(type(receipt) is not bytes for receipt in self.execution_receipts):
+        if type(self.execution_receipts) is not tuple or any(
+            type(receipt) is not bytes for receipt in self.execution_receipts
+        ):
             raise TypeError("HanLP execution custody requires immutable receipt bytes")
-        payload = sentence_product_payload(self.content, self.partitions, self.prepared, "DdoHanlpInventory")
+        payload = sentence_product_payload(
+            self.content, self.partitions, self.prepared, "DdoHanlpInventory"
+        )
         object.__setattr__(self, "content", payload.content)
         object.__setattr__(self, "partitions", payload.partitions)
         object.__setattr__(self, "_payload", payload)
 
     @property
     def value(self) -> Mapping[str, Any]:
-        if "_payload" not in vars(self) or self.content is not self._payload.content or self.partitions is not self._payload.partitions:
+        if (
+            "_payload" not in vars(self)
+            or self.content is not self._payload.content
+            or self.partitions is not self._payload.partitions
+        ):
             raise TypeError("HanLP product lacks its validating acquisition")
         return self._payload.value
 
@@ -1067,6 +1080,7 @@ class PreparedHanlpPort:
         attestations = ()
         if binding is not None and binding.subject_context is not None:
             from .native_source_view import thaw_native
+
             kind = next(kind for kind in model.kinds if kind.semantic_id == output.kind)
             assert result.meaning is not None
             packet: WireOutputMember = {
