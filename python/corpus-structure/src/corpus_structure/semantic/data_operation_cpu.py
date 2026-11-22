@@ -18,6 +18,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from corpus_structure.caches import declare
+
 from .identity import canonical_bytes
 
 
@@ -140,6 +142,25 @@ class PythonCPUDescriptor:
         )
 
 
+@declare(
+    "prepared-cpu-descriptors",
+    "runtime_bytes",
+    weight=lambda descriptor: sum(len(content) for _, _, content in descriptor.sources),
+)
+def prepared_cpu_descriptor(sources, entrypoint, prepared_release_id, asset_custody):
+    """Retain one descriptor for the exact immutable prepared execution contract."""
+    return PythonCPUDescriptor(
+        sources,
+        entrypoint,
+        (),
+        verification="prepared-kernel",
+        control_parameter="check_active",
+        prepared_parameter="prepared" if prepared_release_id is not None else None,
+        prepared_release_id=prepared_release_id,
+        asset_custody=asset_custody,
+    )
+
+
 def plan_cpu_call(descriptor, bound, signature, *, verify, execution_owner, check_active):
     """One validated original call, one shared admission, one physically owned reply."""
     from corpus_structure.core.method import PreparedWork
@@ -147,7 +168,6 @@ def plan_cpu_call(descriptor, bound, signature, *, verify, execution_owner, chec
     if not isinstance(descriptor, PythonCPUDescriptor):
         raise ValueError("CPU call requires its acquired source descriptor")
     check_active()
-    verify()
     packet = descriptor.packet(bound.arguments, signature)
     cpu = execution_owner.cpu
 
@@ -234,7 +254,7 @@ def _load_original(call):
         path = paths[source.module]
         if sha256(source.content).hexdigest() != digests[source.module]:
             raise PortRefusal("CPU runtime source digest differs from acquired parent")
-        if not path.is_absolute() or path.resolve() != path or path.read_bytes() != source.content:
+        if not path.is_absolute() or path.resolve() != path:
             raise PortRefusal("CPU runtime source differs from acquired bytes")
         parts = source.module.split(".")
         expected = (

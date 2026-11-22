@@ -616,7 +616,9 @@ class ResolvedPythonPort:
             )
         if self.operation.capabilities.forms != ("scalar",):
             raise PortRefusal("batch capability requires explicit member invocation")
-        bound = self._arguments(values, route="python", binding=binding, signature=self.signature)
+        bound = self._arguments(
+            values, route="python", binding=binding, signature=self.signature, verify=False
+        )
         reply = yield from plan_cpu_call(
             self.cpu_descriptor,
             bound,
@@ -697,7 +699,7 @@ class ResolvedPythonPort:
 
         from .data_operation_cpu import plan_cpu_call
 
-        bound = self._batch_arguments(members, route="python")
+        bound = self._batch_arguments(members, route="python", verify=False)
         reply = yield from plan_cpu_call(
             self.cpu_descriptor,
             bound,
@@ -910,7 +912,7 @@ class ResolvedPythonPort:
     def invoke_batch_json(self, members: tuple[JSONBatchMember, ...]) -> BatchPortCompletion:
         return self._invoke_batch(members, route="json")
 
-    def _batch_arguments(self, members, *, route):
+    def _batch_arguments(self, members, *, route, verify=True):
         signature = self.logical_signature
         if self.operation.capabilities.forms != ("batch",) or signature is None:
             raise PortRefusal("operation has no admitted native batch capability")
@@ -920,7 +922,8 @@ class ResolvedPythonPort:
             or len({item.member for item in members}) != len(members)
         ):
             raise PortRefusal("batch requires distinct explicit logical member identities")
-        self.verify_runtime()
+        if verify:
+            self.verify_runtime()
         rows = tuple(
             self._arguments(
                 item.values, route=route, binding=item.binding, signature=signature, verify=False

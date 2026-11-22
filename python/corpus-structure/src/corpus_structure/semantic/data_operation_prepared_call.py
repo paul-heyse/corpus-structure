@@ -218,22 +218,18 @@ class PreparedOriginalCallPort:
         constructs the fixed source descriptor and keeps admission verification
         attached through submission and collection; it acquires no resources.
         """
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
+        from .data_operation_cpu import plan_cpu_call, prepared_cpu_descriptor
 
         def verify_call():
             self._verify()
             if verify is not None:
                 verify()
 
-        descriptor = PythonCPUDescriptor(
+        descriptor = prepared_cpu_descriptor(
             tuple((source.module, source.filename, source.content) for source in captured.sources),
             kernel.__module__ + "." + kernel.__qualname__,
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-            prepared_parameter="prepared" if prepared_release_id is not None else None,
-            prepared_release_id=prepared_release_id,
-            asset_custody=asset_custody,
+            prepared_release_id,
+            asset_custody,
         )
         return (
             yield from plan_cpu_call(

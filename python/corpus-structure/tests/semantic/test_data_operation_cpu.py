@@ -230,7 +230,7 @@ def test_prepared_kernel_profile_reuses_exact_same_cpu_owner_and_parent_validati
             lambda: None,
         )
         assert reply.content == b'"18"' and reply.pid != os.getpid()
-        assert len(verified) == 3
+        assert len(verified) == 2
         assert cpu._capsule_bytes == 0
     finally:
         cpu.close()

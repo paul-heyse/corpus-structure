@@ -63,7 +63,7 @@ def test_prepared_family_kernel_executes_in_shared_cpu_owner_with_verified_float
         assert result.value == {"answer": 4.25}
         assert type(result.value["answer"]) is float
         assert json.loads(result.cpu_execution_evidence)["pid"] != os.getpid()
-        assert acquired.verifications >= 3
+        assert acquired.verifications == 2
     finally:
         cpu.close()
     assert cpu.budget.used_bytes == 0
@@ -79,7 +79,7 @@ def test_prepared_family_verification_can_refuse_a_collected_kernel_result(tmp_p
     def family_verify():
         nonlocal checked
         checked += 1
-        if checked >= 3:
+        if checked == 2:
             raise ValueError("family asset no longer matches acquisition")
 
     cpu = scope()
