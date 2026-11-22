@@ -672,9 +672,10 @@ def _assert_population_traversal(engine, current, demand, parent):
             ),
             {"population": root},
         ).all()
-        assert {(kind, identity) for kind, identity, _ in validity} == expected | {
-            ("producer", episode)
-        }
+        # Current value validity follows selected support and the producer fence.
+        # Scope and public traversal still retain the full historical episode.
+        expected_validity = expected - {("episode", episode)} | {("producer", episode)}
+        assert {(kind, identity) for kind, identity, _ in validity} == expected_validity
         assert all(valid for _, _, valid in validity)
         nodes = walk(metadata, "scope")
         scopes = _scope_projection(

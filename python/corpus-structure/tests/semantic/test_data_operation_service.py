@@ -11,6 +11,28 @@ from corpus_structure.semantic import data_operation_service as service
 from semantic.data_operation_kernel_support import STORAGE
 
 
+@pytest.fixture
+def current_service_kernel(semantic_bare_engine, tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from corpus_structure.schema.model_change import native_model_inputs
+    from corpus_structure.semantic import migrations
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.target_installation import capture_target_installation
+    from semantic.data_operation_kernel_support import admit_kernel, prepare_kernel
+    from semantic.test_target_installation_native import install_target_root
+
+    admin = semantic_bare_engine
+    epoch = capture_target_installation(
+        get_metadata(), logical_sources=native_model_inputs(Path(__file__).resolve().parents[4])
+    )
+    *_, revision_path = install_target_root(admin, epoch, tmp_path)
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+    preparation = prepare_kernel(STORAGE, directory=tmp_path / "service-kernel")
+    with admin.begin() as connection:
+        return admit_kernel(connection, STORAGE, engine=admin, preparation=preparation)
+
+
 def test_service_read_preserves_full_native_continuation(monkeypatch):
     from semantic.data_operation_binding_support import WireCheckedStorage
 
@@ -85,12 +107,14 @@ def test_service_read_preserves_full_native_continuation(monkeypatch):
     assert len(storage.calls) == 1
 
 
-@pytest.mark.parametrize("ddo_kernel", [STORAGE], indirect=True, ids=["storage"])
-def test_native_service_creation_read_and_cancellation_preserve_original_pins(ddo_kernel):
+def test_native_service_creation_read_and_cancellation_preserve_original_pins(
+    current_service_kernel,
+):
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
 
+    kernel = current_service_kernel
     intent = freeze_demand(
-        ddo_kernel["model"],
+        kernel.model,
         roots=(RootSubject("subject:one", "source:test", b'{"page":1}'),),
         targets=("urn:ddo-test:source",),
         inference="inference:test",
@@ -98,59 +122,47 @@ def test_native_service_creation_read_and_cancellation_preserve_original_pins(dd
     )
     request = service.CreateDataDemand(
         project_id="ddo-test",
-        release_id=ddo_kernel["prepared"].release_id,
-        runtime_id=ddo_kernel["runtime"],
+        release_id=kernel.prepared.release_id,
+        runtime_id=kernel.runtime,
         intent=cast(dict, intent.record),
     )
-    with ddo_kernel["engine"].begin() as connection:
+    with kernel.engine.begin() as connection:
         registered = service.create_data_demand(connection, request)
         assert registered["selection"] == intent.record
         assert registered["inserted_obligations"] == 1
         demand = registered["demand_id"]
-    with ddo_kernel["engine"].begin() as connection:
+    with kernel.engine.begin() as connection:
         created = service.read_data_demand(connection, demand, limit=1)
         assert created["release_id"] == request.release_id
         assert created["runtime_id"] == request.runtime_id
         assert created["obligations"][0]["subject"] == "subject:one"
         current = service.read_data_demand(connection, demand, limit=1)
         assert current["read_id"] != created["read_id"]
-    with ddo_kernel["engine"].begin() as connection:
+    with kernel.engine.begin() as connection:
         cancelled = service.cancel_data_demand(connection, demand, reason="operator cancelled")
         assert cancelled["state"] == "cancelled"
-    with ddo_kernel["engine"].begin() as connection:
+    with kernel.engine.begin() as connection:
         assert service.read_data_demand(connection, demand)["state"] == "cancelled"
 
 
 def test_native_named_selection_advancement_replays_exact_history_and_fences_cancellation(
-    semantic_bare_engine, native_settings, tmp_path, monkeypatch, request
+    current_service_kernel, native_settings, request
 ):
     from concurrent.futures import ThreadPoolExecutor
-    from pathlib import Path
 
     from sqlalchemy import select
     from sqlalchemy.exc import DBAPIError
 
-    from corpus_structure.schema.model_change import native_model_inputs
-    from corpus_structure.semantic import migrations
     from corpus_structure.semantic.data_operation_demands import RootSubject, freeze_demand
     from corpus_structure.semantic.metadata import get_metadata
-    from corpus_structure.semantic.target_installation import capture_target_installation
     from native_test_support import principal_engine
-    from semantic.data_operation_kernel_support import admit_kernel, prepare_kernel
-    from semantic.test_target_installation_native import install_target_root
 
-    admin = semantic_bare_engine
+    kernel = current_service_kernel
+    admin = kernel.engine
     model = get_metadata()
-    epoch = capture_target_installation(
-        model, logical_sources=native_model_inputs(Path(__file__).resolve().parents[4])
-    )
-    *_, revision_path = install_target_root(admin, epoch, tmp_path)
-    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
-    preparation = prepare_kernel(STORAGE, directory=tmp_path / "selection-contract")
     history = model.tables["ops.data_demand_selection"]
     project, other_project = "ddo-test", "named-selection-other"
     with admin.begin() as connection:
-        kernel = admit_kernel(connection, STORAGE, engine=admin, preparation=preparation)
         connection.execute(model.tables["data.project"].insert().values(project_id=other_project))
 
     assert admin.url.database is not None
