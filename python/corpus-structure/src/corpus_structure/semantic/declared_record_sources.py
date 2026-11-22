@@ -10,10 +10,10 @@ from pydantic import JsonValue
 
 from .data_operation_model import BoundRoleMember, SubjectContext, json_context_meaning
 from .identity import canonical_bytes
+from .source_products import FrozenNativeSource
 
 if TYPE_CHECKING:
     from .proposals import ProposalSentence
-    from .source_products import FrozenNativeSource
 
 
 @dataclass(frozen=True)
@@ -210,8 +210,6 @@ class DeclaredNativeFrameSource:
 
     @classmethod
     def acquire(cls, prepared, value, member, *, project):
-        from .source_products import FrozenNativeSource
-
         source = FrozenNativeSource.acquire(prepared, value)
         address = DeclaredRecordSource.from_bound(source, member, project=project)
         return cls.from_source(source, canonical_bytes(address.pin()).decode())
@@ -224,8 +222,6 @@ class DeclaredNativeFrameSource:
     @classmethod
     def from_retained_record(cls, source_content: str, pin_content: str, version: int = 4):
         """Re-establish projection facts at an authorized retained-read boundary."""
-        from .source_products import FrozenNativeSource
-
         source = FrozenNativeSource._accept_retained_projection(source_content.encode())
         return cls._from_acquired(source, pin_content, version)
 
@@ -233,23 +229,24 @@ class DeclaredNativeFrameSource:
     def acquire_record(cls, prepared, source_content: str, pin_content: str, version: int = 4):
         """Validate a detached record under its caller's acquired source declaration."""
         from .data_operation_json import wire_json_loads
-        from .source_products import FrozenNativeSource
 
         source = FrozenNativeSource.acquire(prepared, wire_json_loads(source_content))
         return cls._from_acquired(source, pin_content, version)
 
     @classmethod
-    def _from_worker_record(cls, source_content: str, pin_content: str, version: int = 4):
+    def _from_worker_record(
+        cls, source_content: str, pin_content: str, version: int = 4, *, source=None
+    ):
         """Use source bytes from an already authenticated, parent-validated worker packet."""
-        from .source_products import FrozenNativeSource
-
-        source = FrozenNativeSource._accept_parent_validated(source_content.encode())
+        content = source_content.encode()
+        if source is None:
+            source = FrozenNativeSource._accept_parent_validated(content)
+        elif source.content != content:
+            raise ValueError("worker frame differs from the sealed source carrier")
         return cls._from_acquired(source, pin_content, version)
 
     @classmethod
     def _from_acquired(cls, source, pin_content, version=4, *, state=()):
-        from .source_products import FrozenNativeSource
-
         FrozenNativeSource._require_acquired(source)
         result = object.__new__(cls)
         object.__setattr__(result, "source_content", source.content.decode())

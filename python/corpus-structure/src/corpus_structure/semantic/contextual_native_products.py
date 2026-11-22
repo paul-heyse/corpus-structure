@@ -245,7 +245,7 @@ def execute_contextual_native(receiver, source, formal, constructions, maverick,
 
 def execute_contextual_native_kernel(
     source: FrozenNativeSource,
-    frame: DeclaredNativeFrameSource,
+    frame: dict,
     products: tuple[CharacterizationSnapshot, ...],
     maverick: CharacterizationSnapshot,
     dipo: CharacterizationSnapshot,
@@ -255,11 +255,13 @@ def execute_contextual_native_kernel(
 ) -> dict[str, Any]:
     from corpus_structure.methods.learned_primary import ContextualNativePrimaryOperation
 
+    acquired_frame = DeclaredNativeFrameSource._from_worker_record(**frame, source=source)
+
     class BoundKernel:
         def run(self, source, formal, constructions, maverick_value, dipo_value):
             return contextual_native_values(
                 source,
-                frame,
+                acquired_frame,
                 (formal, constructions),
                 CharacterizationSnapshot(maverick.semantic_id, canonical_bytes(maverick_value)),
                 CharacterizationSnapshot(dipo.semantic_id, canonical_bytes(dipo_value)),
@@ -446,7 +448,7 @@ class PreparedContextualNativePort:
         }
         args = dict(
             source=source,
-            frame=frame,
+            frame=frame.record,
             products=(snapshots["formal"], snapshots["constructions"]),
             maverick=snapshots["maverick"],
             dipo=snapshots["dipo"],
