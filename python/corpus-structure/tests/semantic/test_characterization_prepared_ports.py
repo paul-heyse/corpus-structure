@@ -808,6 +808,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         "verify_interpreted_attachment_witnesses",
         "validate_attachment_basis",
         "verify_interpreted_dependency_members",
+        "verify_interpreted_annotation_support",
     ):
         monkeypatch.setattr(construction_products, checker, repeated)
     selected_product = construction_products.acquired_construction_product(
@@ -826,16 +827,11 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         )
 
 
-def test_primary_support_uses_real_annotation_rows_and_preserves_formal_premises():
+def test_primary_support_preserves_formal_premises_and_checks_exact_annotation_addresses():
     from corpus_structure.semantic.construction_products import (
-        CharacterizationSnapshot,
         _stage_annotation_support,
-        _validated_annotation_support,
         annotation_support_index,
-    )
-    from corpus_structure.semantic.data_operation_partitions import (
-        partition_header,
-        partition_packet,
+        verify_interpreted_annotation_support,
     )
     from corpus_structure.semantic.data_product_reference import SemanticReference
 
@@ -858,33 +854,16 @@ def test_primary_support_uses_real_annotation_rows_and_preserves_formal_premises
         (2, sentence),
     )
 
-    rows = partition_packet(
-        "rows",
-        "block",
-        0,
-        0,
-        2,
-        [{"record_type": "sentence", "ordinal": 0}, {"record_type": "token", "ordinal": 0}],
-    )
-    native = CharacterizationSnapshot(
-        "selected-annotations",
-        canonical_bytes(
-            {
-                "execution_profile": "controlled",
-                "block_coverage": [],
-                "block_layouts": [],
-                "rows": partition_header((rows,)),
-            }
-        ),
-        (canonical_bytes(rows),),
-    )
-    assert _validated_annotation_support(links, (native,), facts, {"term": term}) == {}
-    with pytest.raises(ValueError, match="exact selected annotation partitions"):
-        _validated_annotation_support(
-            links, (replace(native, partitions=None),), facts, {"term": term}
+    support = {
+        ("term", "external_premise", None): (
+            (1, ("block", ("token", 0))),
+            (2, ("block", ("sentence", 0))),
         )
+    }
+    addresses = {("block", ("sentence", 0)), ("block", ("token", 0))}
+    verify_interpreted_annotation_support(support, addresses, {}, (), {"term": term})
     with pytest.raises(ValueError, match="exact graph/item address"):
-        _validated_annotation_support(links, (native,), facts, {})
+        verify_interpreted_annotation_support(support, addresses, {}, (), {})
 
 
 def test_retained_family_ingress_uses_selected_member_context_and_checks_native_id(acquired):

@@ -734,6 +734,53 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
             subject_context=context,
         )
 
+    from corpus_structure.semantic.construction_products import acquired_construction_product
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember
+
+    product_kind = construction.prepared.index.definitions[product.kind_name].iri
+    member = BoundRoleMember(
+        product=product.semantic_id,
+        kind_contract=next(
+            row.key for row in construction.model.identities
+            if row.owner == product_kind and row.domain == "kind"
+        ),
+        subject=context.subject,
+        subject_definition=context.subject_definition,
+        original_source=context.original_source,
+        analyzed_scope=context.analyzed_scope,
+        coverage=b"{}",
+        support_episodes=(),
+        support_evidence=b"{}",
+        support_references=(),
+    )
+
+    def repeated(*_args, **_kwargs):
+        pytest.fail("already established annotation support was validated again")
+
+    monkeypatch.setattr(
+        "corpus_structure.semantic.construction_products.verify_interpreted_annotation_support",
+        repeated,
+    )
+    assert acquired_construction_product(
+        construction.prepared,
+        construction.model,
+        product.value,
+        source,
+        (primary, rebound),
+        subject_context=context,
+        member=member,
+    ).content == product.content
+    with pytest.raises(ValueError, match="exact retained dependency closure"):
+        acquired_construction_product(
+            construction.prepared,
+            construction.model,
+            product.value,
+            source,
+            (primary,),
+            subject_context=context,
+            member=member,
+        )
+
 
 def test_statistics_named_rule_configuration_belongs_to_construction_profile():
     from corpus_structure.semantic.construction_products import load_construction_options

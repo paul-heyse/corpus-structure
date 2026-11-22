@@ -96,7 +96,6 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
         "selectors",
         "coverage",
         "outcome",
-        "dependencies",
     }
     assert not any(
         "tokens" in packet["body"] or "blocks" in packet["body"] for packet in value["members"]

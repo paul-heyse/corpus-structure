@@ -781,9 +781,10 @@ def _selected_annotation_blocks(selected):
     for product in selected:
         if type(product) is SourceAnnotations:
             native.append((product.value, product.partition_blocks))
-        elif type(product) is RetainedCharacterizationProduct:
-            if (blocks := product.partition_blocks) is not None:
-                native.append((product.value, blocks))
+        elif type(product) is RetainedCharacterizationProduct and (
+            blocks := product.partition_blocks
+        ) is not None:
+            native.append((product.value, blocks))
     return native
 
 
@@ -846,7 +847,7 @@ def verify_interpreted_annotation_support(support, items, layouts, annotations, 
             raise ValueError("construction navigation lacks its exact selected tokens")
 
 
-def _validated_annotation_support(value, selected, annotations, nodes):
+def _validated_annotation_support(value, selected, annotations, nodes, *, established=False):
     support = annotation_support_index(value)
     if not support and not any(
         "named_match" in row or row.get("navigation", {}).get("native_tokens")
@@ -856,28 +857,31 @@ def _validated_annotation_support(value, selected, annotations, nodes):
     native = _selected_annotation_blocks(selected)
     if len(native) != 1:
         raise ValueError("construction requires its exact selected annotation partitions")
-    ((header, blocks),) = native
-    requested = {ref.partition_key for rows in support.values() for _, ref in rows}
-    items = {
-        (block.key, (row["record_type"], row["ordinal"]))
-        for block in blocks
-        if block.key in requested
-        for row in block.rows
-    }
-    layouts = {
-        row["annotation"]["block_id"]: row["annotation"]["dependency_digest"]
-        for row in header["block_layouts"]
-    }
-    verify_interpreted_annotation_support(
-        {
-            key: tuple((position, (ref.partition_key, ref.item_key)) for position, ref in rows)
-            for key, rows in support.items()
-        },
-        items,
-        layouts,
-        annotations,
-        nodes,
-    )
+    # The contextual binding requires the producer's attestation. Its retained dependency
+    # closure still requires this exact admitted annotation product.
+    if not established:
+        ((header, blocks),) = native
+        requested = {ref.partition_key for rows in support.values() for _, ref in rows}
+        items = {
+            (block.key, (row["record_type"], row["ordinal"]))
+            for block in blocks
+            if block.key in requested
+            for row in block.rows
+        }
+        layouts = {
+            row["annotation"]["block_id"]: row["annotation"]["dependency_digest"]
+            for row in header["block_layouts"]
+        }
+        verify_interpreted_annotation_support(
+            {
+                key: tuple((position, (ref.partition_key, ref.item_key)) for position, ref in rows)
+                for key, rows in support.items()
+            },
+            items,
+            layouts,
+            annotations,
+            nodes,
+        )
     navigation = {}
     for node in annotations:
         owner = node["local_id"]
@@ -1167,7 +1171,13 @@ def _checked_interpreted_product(
             include_annotations=product_type is not ConstructionProduct,
         )
     navigation = (
-        _validated_annotation_support(checked, formal, inventory["annotations"], all_nodes)
+        _validated_annotation_support(
+            checked,
+            formal,
+            inventory["annotations"],
+            all_nodes,
+            established=bound_member is not None,
+        )
         if product_type is ConstructionProduct
         else {}
     )
