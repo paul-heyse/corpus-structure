@@ -9,7 +9,15 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SkipValidation,
+    TypeAdapter,
+    field_validator,
+    model_validator,
+)
 
 from ._data_operation_wire import WireAttemptFence, WireCompletion
 from .cpu_receipts import CPUExecutionReceipt
@@ -31,7 +39,8 @@ class NativeExecutionEvidenceLeaf(BaseModel):
     producer: WireAttemptFence
     intent_id: str = Field(min_length=1)
     intent_payload_digest: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
-    selected_completion: WireCompletion
+    # projected_completion validates the exact native record before this carrier is built.
+    selected_completion: SkipValidation[WireCompletion]
     publication_receipt_id: str = Field(min_length=1)
     product_id: str = Field(min_length=1)
     kind_contract: str = Field(min_length=1)
