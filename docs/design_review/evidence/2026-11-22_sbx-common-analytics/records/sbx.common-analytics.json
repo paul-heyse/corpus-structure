@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "id": "sbx.common-analytics",
+  "title": "Shared analytical population controls",
+  "group": "sbx-common-analytics",
+  "package": "SBX-18",
+  "finalized": "2026-11-22",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Can one typed population serve set validation and replay on Arrow and Parquet with the selected library builds?",
+  "answers": [
+    "I01",
+    "I02",
+    "I04"
+  ],
+  "method": "Compare synthetic Arrow and Parquet inputs against independent expected answers. Inspect the CLI plan and exercise connection reuse and a truncated file.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-22_sbx-common-analytics/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "reproducible source",
+      "sha256": "ddb4fbd359723e4cb32ff1c574e7511bc52c22b715e1597c79047c12541753e2"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/probe.json",
+      "role": "normalized probe observations",
+      "sha256": "314bd25ea827bcff47f9a7d319d44ced27af0fbafb96f0c81e8d3f23b27ae2a3"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Independent expectations matched by each scan",
+      "value": 4,
+      "of": 4,
+      "unit": null,
+      "note": "Scope includes only the synthetic population."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "The checked set queries give equal answers on both typed inputs. Structural Arrow validation accepts the fixture with invalid population facts. Connection draining and durable publication require separate ownership.",
+  "consumed_by": [
+    "SBX-12",
+    "SBX-18",
+    "SBX-19"
+  ]
+}

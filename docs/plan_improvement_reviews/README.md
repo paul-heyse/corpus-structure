@@ -41,6 +41,10 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [A common analytical basis for Set-based Execution](set-based-execution-common-analytics_2026-11-22.md).
+  Recommends an early typed-population pilot, comparison of captured SQL with typed expressions,
+  and Parquet for frozen selected-review replay. Reassesses PostgreSQL placement and integration.
+
 - [Push-based change propagation in Set-Based Execution](set-based-execution-push-propagation_2026-11-21.md).
   Recommends publication-driven digest comparisons, separate readiness wakeups, and scoped freshness
   for selected reads. Identifies where repeated prerequisite walks can retire once their consumers migrate.
