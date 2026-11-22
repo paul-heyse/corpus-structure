@@ -605,34 +605,42 @@ source set. Five private native and preparation controls passed
 model and comparison without formal inputs. The integrated comparison with a selected formal
 source set reached native publication after the selected-output proof correction. Its
 `threshold_unit` dimension returned an empty left group (`uv run ci test`,
-`452918a0eccd49ef951b7ea1103ee2a9`, failed). The retained trace leaves formal role binding,
-normalization and containment of the reading by an admitted focus or condition unresolved.
+`452918a0eccd49ef951b7ea1103ee2a9`, failed). The formal producer found the threshold. The parser
+attached the conditional marker to a nominal subordinate that lacked a separately recognized
+predicate. Primary construction now uses the exact selected formal threshold inside the complete
+marked clause together with the parser's direct nominal attachment. The real private provider
+journey read both 25,000 and 50,000 through formal, construction, predicate and structural
+publication. The scientific outcome remained unknown (`uv run ci test`,
+`5e006ef3c6e0412db7e223434d2667f4`, passed).
 
 Removed the coordinate, role, endpoint, coverage and choice side tables from the target compiler
 and generated wire. The generated successor passed rollback-only candidate authoring against N47
 (`27c37c0e9aaa403ebbb53817d6cee671`). Native binding uses derivation output position and
-multiplicity. Native product admission still checks exact nominal member rows. The rest of the
-formal inventory graph, numeric normalization and occurrence ID checks,
-the remaining construction and contextual graph, cross-product and source-relative coverage checks,
-remaining consumer declarations, and `ProductValidation` receipt retirement remain open. Resolve
-member-level output retirement against the actual output declarations and native consumers before
-deleting that path.
+multiplicity. Native product admission still checks exact nominal member rows. Formal, construction and contextual graph topology and canonical occurrence addresses now
+have separate checker declarations. The remaining exact cross-product checks and consumer
+declarations are open. Resolve member-level output
+retirement against the actual output declarations and native consumers before deleting that path.
 
-Formal completion still needs separate internal graph, normalization and occurrence identity
-conclusions alongside the existing nominal member enforcement.
-Construction and contextual completion still need their graph, cross-input and source-relative
-coverage authority. The exact selector depends on the native source index and the occurrence
-geometry check depends on the native source view. The captured checker must include those
-decisions before either can replace its existing validation.
-Remove the shared completion receipt field, binding projection and settlement programs after those
-three producer families have replaced their obligations.
+The omnibus `ProductValidation` field and its producer, settlement, projection and generated
+wire branches have been deleted. Existing independent producer and retained-value validation
+continues for premises that have not yet moved to a scoped checker. Formal numeric normalization
+now has a closed attested rule acquired by structural binding. The scoped receipt and numeric
+controls passed (`uv run ci test`, `3c8ed29eb3834b1a82450d0591a469ba` and
+`76a3d670f83c427c9a0d72d67b96af0b`). Construction and contextual completion also declare
+complete or empty family coverage over actual selected source ranges, ancestry and pieces.
+Contextual binding requires the construction establishment. Independent graph and cross-input
+authority still needs its corresponding scope before dependent validation can be removed.
 
 **Checker capture · Inspected 2026-11-21.** The attempted formal split hit unresolved source
 and callable determinants in the graph, normalization and occurrence checkers
 (`uv run ci test`, `5cc6e93778fa4a5dbedd7df433ca8243`,
 `2f3eb050d9974a7c8835c3775c415fb3` and `18a251456152429aa96e7c7cb1419e14`, failed).
-The attempted declarations were withdrawn. Close the actual checker capture for those
-groups, then migrate their consumers and retire the associated receipt path.
+The attempted declarations were withdrawn. The closed numeric rule above resolved the
+normalization slice. The later topology and occurrence checks closed their captured code and
+codec premises. The native occurrence checker uses the acquired finite standard JSON codec and
+exact source addresses. A named CUDA construction publication resolved its exact annotation row
+(`uv run ci test --native-host private --providers-only`, `4ef3459bb032443da522db1e8f0c28b9`,
+passed). The exact cross-input witness and release-owned attachment-policy checks remain open.
 
 **Vision.** Every existing semantic validator becomes one or more rules. Consumers accept proofs
 and no hand-off differs in stance.

@@ -1,6 +1,6 @@
 # References and projection keys
 
-**Status:** SBX-05 and SBX-06 in progress. SBX-07 proposed.
+**Status:** SBX-05 through SBX-07 in progress.
 Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
@@ -186,6 +186,16 @@ made batch-independent.
 <a id="sbx-05"></a>
 ## SBX-05 — One reference model
 
+**Named-definition cutover · 2026-11-21.** The named producer publishes a nominal refinement
+of definition components. Each witness belongs to the producing report and is keyed by the
+component ID. Annotation and construction addresses resolve through the actual bound roles.
+Downstream components keep their reusable semantic fields and obtain witness evidence through
+the original report. The superseded component-embedded witness is rejected. Fifty-six focused
+cases passed across the selected results and the corrected empty-partition fixture
+(`uv run ci test`, `f401d78025654b2f833ea9ccd8327f2b` and
+`7fb452f8308a4b5f8512e5295afbabbe`). The actual native named publication and altered-body
+refusal passed in the mixed result `cce6ea7526ff438daf6df1a70913a5b3`.
+
 **Implementation checkpoint · 2026-11-21.** Operations declare the output slot, producing
 input role, target variant, and collection when applicable. Compilation checks the nominal
 reference paths in output bodies and partition items. Native settlement verifies whole-product,
@@ -284,15 +294,17 @@ readback checks the original whole input against current support, including when
 inspected no frames. It acquires only the predicate metadata for that anchor. Nineteen
 focused and compiled profile cases passed, alongside six private native closure controls
 (`2a26d12c7cf14c8da0b845401e8efb87`, `d839653e6751473ba2d16cbc1044c523`).
-Contextual carrier conversion, clause learned-function references and the other structural,
-contribution and rich families remain open.
+Clause GLiNER and D1 witnesses now use distinct role-relative member targets and preserve
+the selected observation-set occurrence. Forty-one focused controls passed in the implementing
+checkout (`uv run ci test`, `8b52d7a4b39a4de482d040a0b2d5237a`,
+`d476ce0657c34c6398c885a10dbc0cb8`). Provider and installed-path coverage for those
+backends, the contextual carrier and the other structural, contribution and rich families
+remain open.
 
-The named-definition basis witness uses nullable shared report fields. Its current compiled
-schema lowers those nullable objects to JSON, so native witness paths cannot traverse them
+The initial named-definition basis witness used nullable shared report fields. That schema
+lowered the nullable objects to JSON, so native witness paths could not traverse them
 (`uv run ci test`, `eef88ba16c1a4888b26057ccdfad1eea`, failed at model capture).
-The other producers of that shared report lack the named definition's annotation and
-construction roles. Give the named occurrence its own declared shape or establish an
-operation-specific reference contract before changing the shared report.
+The named producer now has its own nominal report with annotation and construction roles.
 
 **Vision.** Every reference in the model declares its target; bodies refer by role; one carrier
 and one resolver serve all families; closure is a declared rule or an attested one.
@@ -341,7 +353,8 @@ geometry and observed header, membership, order and placement through the synchr
 spawned CPU routes. `uv run ci test` passed 19 focused cases on that slice
 (`51c6b3aec36b47e9b2fbcd3b867322d4`) and 36 projection, annotation and reference cases
 after integration (`670d348f1f4e4a2489a47780987193f1`). Canonical code custody still rules
-out cross-request reuse. The compiler and applied envelope do not enable a new request key.
+out cross-request reuse at that checkpoint. The later native lookup and canonical custody are
+recorded below.
 
 The private native projection digest uses the exact authorized binding and the selected
 product's stored group commitments. A rollback-only fixture removed the partition body column
@@ -413,6 +426,43 @@ that shares that request. Before closing the origin, record the checked role occ
 against the actual successor use and preserve pending status while that successor or a join
 arm remains unresolved.
 
+**Ordinary delivery checkpoint · 2026-11-21.** The normal planner queries current named
+enrollment and admitted publication or reuse uses in one bounded native page. The real CUDA
+annotation-to-canonical demand observed this route during ordinary execution
+(`uv run ci test --providers-only`, `d98622743039499c92b89a692f736a4c`, passed). The exact route
+record carries the selected name and generation, origin use and both role occurrences. The native
+reader derives `pending`, `attached` and `fulfilled` from the actual latest recipient use and its
+selected support. A current fulfilled use must pass native validity. The installed scalar and
+publication controls passed (`uv run ci test`, `70f0850b5bf14af892a565d2a1499b29`). Collection,
+readiness-only origins and complete scoped cut coverage remain open.
+
+The explicit-origin executor entry point has been removed. The ordinary executor now asks the
+native population owner to close only newly visible fulfilled discovery outputs for its pinned
+page. The native owner checks existing closure before invoking the same authenticated settlement.
+Private publication and request controls passed (`uv run ci test`,
+`c2355bad832e4219b38a13f0a5c15fd9`). Cold-root authoring verified the generated discovery program
+(`uv run ci model change candidate`, `ac0c58dfeee945d587966c7c69c29bda`).
+The real CUDA annotation-to-canonical and HanLP journeys both passed in ordinary native
+execution on that combined source (`uv run ci test --native-host private --providers-only`,
+`0161fd2155dc4bf2b15455df24033138`).
+Waiting uses now retain their acquired read identity. Native scalar delivery compares
+origin visibility with that exact read and routes only current valid producer uses.
+The installed control observed a late publication once, then retained the same pending
+recipient without re-waking it at the next read (`9bb19eb0c42a497d8c8ec25cd5c0fc17`,
+six selected cases passed).
+For a required scalar original-source scan, the native binding owner delivers readiness from
+the exact admitted source at the acquired read. This shape omits the recursive watermark.
+The private installed control exercised own admission, cross-demand equal content, rollback,
+retained earlier reads and current revocation
+(`uv run ci test --native-host private`, `418cd9f8bc074e0396fa3e6523bb1bcb`, passed).
+The native owner now handles eligible joins of required scalar computed arms with exact
+original scans and zero-premise producers. Both installed original and join identities passed
+in `4290f9f41f354ea0b5c0e8df35a188f2`. The join used an actually attached unchanged arm, excluded
+an equal product outside the demand, and returned its current binding on one acquired read.
+Three planner fixtures needed the required nullable native readiness field. The corrected
+26-case planner run passed (`uv run ci test`, `9de533795136429598f16cbe56b5fadb`). Remaining
+origin and settlement coverage stays open.
+
 The native attachment owner records a project-scoped canonical computation key beside an exact
 new request generation, leaving the retained request row and its execution-origin snapshot shape
 intact. PostgreSQL and Python agree on the admitted recipe, parameters, inference and projected
@@ -422,6 +472,18 @@ prior contextual result as the new request's publication
 (`uv run ci test`, `8f55c7a9f62f4bf09480b12e70fc5c28`, three passed).
 The execution eligibility and independent current-occurrence authority still govern any future
 adoption of a retained result.
+
+Native request attachment now looks up the indexed projection before admitting a new task. An
+eligible same-occurrence, same-release result must have a valid producer and pass the consuming
+definition. Declared output references are checked against the current binding. The selected use
+keeps current support and the retained derivation keeps the producing support. On a private
+target, different lexical material with the same observed value reused a retained derivation
+under a distinct exact request. An equal key alone did not authorize an output from another
+context, and another project had a distinct key (`uv run ci test`, `c2355bad832e4219b38a13f0a5c15fd9`).
+Canonical preparation now declares its deterministic helper code, exact numeric policy and
+acquired JSON codecs. The real spawned kernel passed with eligibility enabled in
+`9bb19eb0c42a497d8c8ec25cd5c0fc17`. Cross-request adoption of an actual canonical
+publication and relocation to a new contextual product remain open.
 
 **Target · Proposed.** Consumer roles declare projections, kernels receive those projections,
 and reusable computation uses their versioned specifications and digests. PostgreSQL acquires
@@ -609,6 +671,25 @@ stopping, join, supersession, lost acknowledgement and exact-pin wake evidence.
 
 <a id="sbx-07"></a>
 ## SBX-07 — Partition memo for block-local kernels
+
+**Canonical adoption checkpoint · 2026-11-21.** The spawned canonical calculation memoizes the
+local row transformation under the runtime-byte owner for its deterministic single-result policy.
+The key includes project, acquired recipe, projection and effective parameters,
+block address and projected row bytes. Current assembly supplies order, membership and placement.
+Every request acquires its own authorized binding and proof premises, and the current CPU reply
+and publication retain their own receipts. A focused test changed one block, moved and reordered
+the other, and checked one memo hit, changed body and current placement against a direct
+calculation. Renaming the block caused a miss and produced its current address
+(`uv run ci test`, `70f0850b5bf14af892a565d2a1499b29`, passed). Retention is local to a live worker
+process. A different process reacquires its own memo.
+
+Keep whole-result execution for the other current hosts. The spaCy and HanLP provider fixtures
+establish partition addressing and typed publication without establishing identical results and
+receipts across peer and order changes. Clause classification observes selected neighbors and
+its learned-primary inputs. Learned primaries retain their selected cohort and replicate
+authority. GLiNER and the contextual encoder have declared batch and cohort determinants.
+Adopt a narrower key for any of those hosts only when evidence establishes its full locality
+premise. [Conditions](#sbx-07)
 
 **Vision.** For a kernel whose projection scope is `partition` or `halo`, the envelope computes a
 key per output partition from the recipe, the parameters and the projection digests of that

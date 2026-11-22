@@ -1,7 +1,7 @@
 # Cutover and qualification
 
-**Status:** Early Revision A producer chain passed in a private target. The SBX-06 propagation
-slice, cutover and final qualification are proposed.
+**Status:** The early producer chain passed in a private target. The cold-root rehearsal
+registered and installed the replacement on an empty database. Integrated acceptance remains open.
 Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
@@ -36,6 +36,44 @@ the integrated source against an empty authoring target on the dedicated Postgre
    writers, and drop and recreate that database at the registered root. Verify the new database
    identity, native revision, roles and empty application relations. Stage stays on its installed
    revision until SBX-20.
+
+**Cold authoring checkpoint · 2026-11-21.** `uv run ci db init --creation-only` created
+`corpus_structure_sbx09_author` on the dedicated cluster. Managed preview
+`038a531859e443c19f46429255d4876f` and rollback-only candidate
+`9d52c84a67124150a960535150fd60e5` passed for a null predecessor and zero data steps. Candidate
+inspection identified the active N47 migration head as the remaining registration conflict for
+this preliminary source. The exact integrated source needs its own candidate and cold install.
+
+The follow-up `uv run ci model change candidate` passed rollback-only authoring on the same
+empty target after native pending discovery, indexed adoption and construction source proofs
+(`ac0c58dfeee945d587966c7c69c29bda`, preview `aa4c26a371534e2990b1eb911fc221e3`).
+
+**Cold installation rehearsal · 2026-11-21.** The isolated checkout retired 256
+frozen predecessor files, five revision data-step builders, and the native re-lowering entry
+point used by the old data steps. Generic native successor authoring remains available.
+`uv run ci model change candidate` passed (`8fa321fb099d4a5b9175279ba5dac76f`,
+preview `42df5b1b7dd541d397f522020c8e2db2`).
+`uv run ci model change register` registered the sole null-predecessor root in that
+checkout (`3c8d0725d0b34912b5f2860699486a0d`).
+`uv run ci db init` installed `semantic_sbx_current_root` on the empty
+`corpus_structure_sbx09_cold` database. This rehearsal predates the remaining SBX-06
+and SBX-08/09 integration. Main registration and the development reset stay open.
+
+The next isolated build compared the native stored empty-collection default in online
+inspection and detached export. Candidate `0b87567e253a4cb699ee9d3b22f1fdfc` and
+registration `54656b69aedd4bfb9afa2fd20750778e` passed. `uv run ci db init`
+installed the refreshed root on a second empty rehearsal database. The targeted native
+run `037643e85d0a48daad9cfb3b0c35d2dc` passed 36 cases, including installed reader
+correspondence, detached export replay and changed-child population reuse. One controlled
+composition case reached an analytical provider before it could check the selected source
+population. Its fixture now stops at the actual source-view publication boundary. Retry
+that case against the next integrated root.
+
+A subsequent isolated checkout containing the newer native demand and proof changes passed
+preview `b7ee66f404f44834b5976bc30bb12768`, null-predecessor candidate
+`7e1e964fbc534356b5bd6bf70b640d5a` and registration `3ae875080cb74428bb24e1ce1e21fa68`.
+It retained one active root. The installed ordinary scope and later source changes still need
+integrated evidence before replacing development.
 
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority

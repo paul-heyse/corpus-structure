@@ -1,6 +1,7 @@
 # Validated values and hand-off
 
-**Status:** Proposed. Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
+**Status:** SBX-08 and SBX-09 in progress. SBX-10 proposed.
+Companion of [Set-based execution](../set-based-execution_2026-11-21.md).
 **Created:** 2026-11-21.
 
 This companion owns what happens to a value between PostgreSQL and a kernel, and between one
@@ -105,6 +106,28 @@ it does not detect a file changed during the run.
 <a id="sbx-08"></a>
 ## SBX-08 — Validated carriers
 
+**Implementation checkpoint · 2026-11-21.** The closed source constructor, same-decoder
+acceptance and sealed CPU worker ingress share the selected validation contract. The immutable
+decoded source payload is bounded by the process runtime-byte owner. Invocation-owned indexes
+are derived separately. Scoped source and CPU controls passed
+(`uv run ci test`, `6b2500dde3244790a839a8e3f8d00fb9`). The binding query carries both admitted
+display and tagged meaning, and hydration measures both owned buffers. The private typed value
+controls passed for a date, optional and collection values and the byte ceiling
+(`0f9b4ffe3ac2478bbf5d144c62cf18d7`). An integrated writer exposed a call to the private decoder
+(`7b5b49844c394cc08392c57500788df0`, failed). Hydration subsequently switched to the decoded
+column already returned by the authorized native binding reader.
+Selected values now use one sealed acquisition across consumers. The native-bound entry
+accepts an immutable decoded value, exact stored bytes and, when applicable, its selected
+partition layout. The raw JSON fallback was removed. Thirty-four selected carrier and
+capability cases passed in the implementing checkout
+(`uv run ci test`, `3891a1503b524211829214bc6e97c1a8`).
+Scalar hydration now carries the selected value and exact stored display and tagged bytes into
+source acquisition. The native source memo independently binds the selected kind and tagged
+meaning. A changed tagged value and a scalar role with multiplicity two refuse. The 150-case
+source and consumer selection, five final affected controls and three actual CUDA controls
+passed (`d7396424c28940318bbf91a21db6a240`, `59e8ceba050048cbbbd182c2a6f7c465`,
+`f3083e4d95d24ef19210c110a5781012`).
+
 **Owns.** Closing construction of the source and product carriers; the worker acceptance path;
 the bounded shared payload registry, occurrence carriers and derived-state lifetime, following
 the existing process-owned caches; the single decode in `_hydrate` and
@@ -136,6 +159,35 @@ declared lifetime.
 
 <a id="sbx-09"></a>
 ## SBX-09 — One verification bracket
+
+**Implementation checkpoint · 2026-11-21.** The shared CPU plan verifies inside a successful
+admission and after collection. The descriptor retains its immutable source and asset mapping in
+the existing runtime cache. The child eliminated a redundant immediate read. The focused CPU,
+port and source controls passed (`uv run ci test`, `3af37b0a12b64ccda4fcbb3d06088aad` and
+`6b2500dde3244790a839a8e3f8d00fb9`). Canonical acquisition retains its authenticated slice and
+descriptor and uses that bracket on each calculation. Construction, contextual and composed
+characterization ports acquire their descriptor and verification at port resolution. A spawned
+construction control asserted exactly two post-admission verification checks and zero source
+compilations (`c2355bad832e4219b38a13f0a5c15fd9`, passed). Remaining family hooks and
+integrated late-import and tamper controls are open.
+The formal port retains its acquired code and grammar before admission. Its real CPU test
+observed one full preparation pass and exactly two runtime checks despite deferred capacity.
+A separate control refused a changed acquired grammar
+(`uv run ci test`, `54cec804d4d74e6c841dff799604a9fd`, 42 selected cases passed).
+Sentence and HanLP ports now retain their source and active runtime premises across physical
+work. Twenty-six selected CPU cases passed in their implementing checkout, including deferred
+admission checks (`uv run ci test`, `26b9c652d124418198c17ad80de22296`). Three actual CUDA
+controls passed after the port changes (`454279c5a2924784bdfb32b794ca6a62`).
+Discovery retains one authenticated source slice and its validated publication value. PDF
+capture and selected views share the acquired original value and bracket their actual work.
+Thirty-three selected CPU and private native controls passed (`c921f6be868c4268a9c98edcdbd2b22a`).
+All four PDF transform modes retain their own admission, source and configuration premises.
+Twenty PDF preparation, custody and worker-tamper controls passed
+(`7da5fc5ff00b40ddbceeaa255bac6f7e`). Contextual-native spawned CPU checks passed
+(`f3cf88b763ae43f7b1ecd65063e6c2a5`). The learned primary port retains source and question-file
+premises across the provider exchange. Seventeen focused controls passed
+(`cda975ebe9e544f08a417f0defa4d4c0`). The live learned tests against the old registered root
+failed release correspondence before provider execution (`2bfa687618314088bd140ba61d885de0`).
 
 **Owns.** An authenticated slice per family-specific port, built at admission; the two checks per
 computation; one descriptor per prepared port; the family `verify` hooks that re-read assets per
