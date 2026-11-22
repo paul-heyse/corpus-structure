@@ -1,10 +1,10 @@
 """Preparation and scientific kernels used by the current native consumer controls."""
 
 from corpus_structure.semantic.construction_products import PreparedConstructionProfile
-from corpus_structure.semantic.data_operation_json import json_bytes
 from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.formal_evidence import grammar_identity
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions, prepare_formal_evidence
+from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.source_products import source_subject
 from semantic.characterization_native_support import (
     current_characterization_recipe as current_characterization_recipe,
@@ -54,7 +54,7 @@ def test_current_positioned_kernels_preserve_partial_private_interpretations(
         "current-kernel-control",
         source_subject(value["source"]),
         value["source"]["document"],
-        json_bytes({"source": value["source"], "selectors": value["selectors"]}),
+        canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
         subject_definition="original-source-view",
     )
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
@@ -86,7 +86,7 @@ def test_current_formal_kernel_retains_original_syntax_without_recognized_text(
         "item-anchored-control",
         source_subject(value["source"]),
         value["source"]["document"],
-        json_bytes({"source": value["source"], "selectors": value["selectors"]}),
+        canonical_bytes({"source": value["source"], "selectors": value["selectors"]}),
         subject_definition="original-source-view",
     )
     product = formal.run(source, FormalEvidenceOptions(), subject_context=context)
