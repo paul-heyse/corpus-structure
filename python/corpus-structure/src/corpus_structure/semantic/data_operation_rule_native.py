@@ -76,6 +76,30 @@ def _variables():
     return spec, product, partition, target, target_partition
 
 
+def rule_premise_specification(specification):
+    """The complete projection contract read by the native premise evaluator.
+
+    Checker identity, policy determinants and input-role observations govern
+    their own authorities; they do not alter these output facts.
+    """
+    return func.jsonb_build_object(
+        *(
+            item
+            for field in ("scope", "collection", "reads", "form", "checker")
+            for item in (field, specification[field])
+        ),
+        "parameters",
+        func.jsonb_build_object(
+            *(
+                item
+                for field in ("inline_collection", "target_collection")
+                for item in (field, specification["parameters"][field])
+            )
+        ),
+        type_=JSONB(),
+    )
+
+
 def _collection_scope(table, product_id, collection, partition_key):
     return and_(
         table.c.product_id == product_id,
@@ -103,7 +127,8 @@ def _inline_rule_items(product, product_id, collection, name):
 def _premise(model, output):
     product = model.tables["kb.data_product"]
     partitions = model.tables["kb.data_product_partition"]
-    spec, product_id, partition_key, target_id, target_key = _variables()
+    supplied_spec, product_id, partition_key, target_id, target_key = _variables()
+    spec = core_variable("v_projection", JSONB())
     scope = spec["scope"].astext
     reads = _rows(spec["reads"], "read_paths")
     groups = _rows(reads.c.value["groups"], "read_groups")
@@ -287,6 +312,7 @@ def _premise(model, output):
         "ddo_rule_premise",
         _SPEC,
         (
+            Assign("v_projection", rule_premise_specification(supplied_spec)),
             _reject(
                 or_(
                     scope.is_(None),
@@ -305,6 +331,7 @@ def _premise(model, output):
             ),
             Return(func.data.ddo_identity("rule-premise", func.data.ddo_json_meaning(datum))),
         ),
+        (Local("v_projection", pg_type("jsonb")),),
         returns="text",
     )
 

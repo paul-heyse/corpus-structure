@@ -88,6 +88,25 @@ def _reject(condition, message):
     return If(condition, (Raise(message, "23514"),))
 
 
+def _event_component_present(model, product_id, component_id):
+    """Resolve the nominal member within the already authenticated whole report."""
+    members = model.tables["kb.data_product_member"].alias("event_component")
+    kinds = model.tables["sem.data_kind_contract"].alias("event_component_kind")
+    return (
+        select(1)
+        .select_from(members.join(kinds, kinds.c.kind_contract == members.c.kind_contract))
+        .where(
+            members.c.product_id == product_id,
+            members.c.member_id == component_id,
+            kinds.c.kind == "urn:corpus:structural:DeclaredLocatedDefinitionComponent",
+            kinds.c.universe == "ordinary",
+            func.data.ddo_field(members.c.body, "component_id", type_=JSONB())[1].astext
+            == members.c.member_id,
+        )
+        .exists()
+    )
+
+
 @dataclass(frozen=True)
 class _Record:
     name: str
@@ -424,12 +443,6 @@ def _require_frame(p):
     )
     judgments, roles = _items(question["judgments"], "judgment"), _items(cpu_roles[1], "cpu_role")
     selected_cut = cast(_text(selected, "cut_canonical_json"), JSONB())
-    components = _items(
-        func.data.ddo_json(report_product("canonical_body"), type_=JSONB())[
-            "definition_components"
-        ]["components"],
-        "component",
-    )
     report_reference = func.jsonb_build_array(
         _text(source_pin, "source_product"), _text(source_pin, "source_member")
     )
@@ -647,12 +660,9 @@ def _require_frame(p):
                 ),
                 Perform(func.ops.ddo_definition_component_basis(role_meaning)),
                 _reject(
-                    ~select(1)
-                    .select_from(components)
-                    .where(
-                        _text(components.c.value, "component_id") == _text(selected, "component_id")
-                    )
-                    .exists(),
+                    ~_event_component_present(
+                        p.model, report_product("id"), _text(selected, "component_id")
+                    ),
                     "event component is absent from its actual whole report",
                 ),
                 SelectInto(

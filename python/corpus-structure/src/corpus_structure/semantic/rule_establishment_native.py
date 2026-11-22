@@ -69,7 +69,7 @@ def _input_reads(specification):
     return func.coalesce(specification["parameters"]["input_reads"], _json("{}"), type_=JSONB())
 
 
-def _with_input_reads(model, base, reads, episode):
+def _observed_input_values(model, reads, episode):
     """Reproduce the observed role premises from exact native producing input occurrences."""
     inputs = model.tables["ops.data_derivation_input"].alias("observed_inputs")
     parent = model.tables["kb.data_product"].alias("observed_product")
@@ -130,7 +130,7 @@ def _with_input_reads(model, base, reads, episode):
         .correlate_except(inputs, parent, member)
         .scalar_subquery()
     )
-    role_values = (
+    return (
         select(
             func.jsonb_agg(
                 aggregate_order_by(
@@ -143,14 +143,21 @@ def _with_input_reads(model, base, reads, episode):
         .correlate_except(roles)
         .scalar_subquery()
     )
+
+
+def _with_observed_input_values(base, reads, observed):
     return case(
         (reads == _json("{}"), base),
         else_=func.data.ddo_identity(
             "rule-observed-premise",
-            func.data.ddo_json_meaning(func.jsonb_build_array(base, role_values)),
+            func.data.ddo_json_meaning(func.jsonb_build_array(base, observed)),
             type_=Text(),
         ),
     )
+
+
+def _with_input_reads(model, base, reads, episode):
+    return _with_observed_input_values(base, reads, _observed_input_values(model, reads, episode))
 
 
 def _request_field(request, field):
@@ -212,6 +219,8 @@ def _attestation_shape():
 
 
 def _settle_attestations(model):
+    from .data_operation_rule_native import rule_premise_specification
+
     rules = model.tables["sem.data_rule"]
     conclusions = model.tables["kb.data_validity"]
     establishments = model.tables["kb.data_validity_establishment"]
@@ -222,16 +231,14 @@ def _settle_attestations(model):
     episode = core_variable("episode", Text())
     release = _request_field(request, "release_id")
     operation = _request_field(request, "operation_id")
-    # Checker identities govern which assertion can establish a conclusion. The premise
-    # uses the retained data scope and observed facts, which identical rules can share.
-    specification = rules.c.specification.op("-")(
-        array(("id", "fingerprint", "checker_callable", "checker_determinant"), type_=Text())
-    )
+    # Reuse output projections separately from exact producing-role observations.
+    # Each checker still matches its own fingerprint and complete assertion.
     targets = (
         select(
             rules.c.rule_id,
             rules.c.fingerprint.label("rule_fingerprint"),
-            specification.label("premise_specification"),
+            rule_premise_specification(rules.c.specification).label("premise_specification"),
+            _input_reads(rules.c.specification).label("input_reads"),
             product.c.id.label("product_id"),
             outputs.c.role,
             outputs.c.position,
@@ -257,22 +264,67 @@ def _settle_attestations(model):
         )
         .cte("attestation_targets")
     )
-    needed = (
+    base_targets = (
         select(targets.c.product_id, targets.c.partition_key, targets.c.premise_specification)
         .distinct()
-        .subquery("distinct_attestation_premises")
+        .cte("attestation_base_targets")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    bases = (
+        select(
+            base_targets,
+            _rule_premise(
+                base_targets.c.premise_specification,
+                base_targets.c.product_id,
+                base_targets.c.partition_key,
+            ).label("premise"),
+        )
+        .cte("attestation_base_premises")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    input_targets = (
+        select(targets.c.input_reads)
+        .distinct()
+        .cte("attestation_input_targets")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    observed = (
+        select(
+            input_targets.c.input_reads,
+            _observed_input_values(model, input_targets.c.input_reads, episode).label("values"),
+        )
+        .cte("attestation_input_values")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    needed = (
+        select(
+            targets.c.product_id,
+            targets.c.partition_key,
+            targets.c.premise_specification,
+            targets.c.input_reads,
+        )
+        .distinct()
+        .cte("attestation_premise_targets")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
     )
     premises = (
         select(
             needed,
-            _with_input_reads(
-                model,
-                _rule_premise(
-                    needed.c.premise_specification, needed.c.product_id, needed.c.partition_key
-                ),
-                _input_reads(needed.c.premise_specification),
-                episode,
+            _with_observed_input_values(
+                bases.c.premise,
+                needed.c.input_reads,
+                observed.c["values"],
             ).label("premise"),
+        )
+        .select_from(
+            needed.join(
+                bases,
+                and_(
+                    needed.c.product_id == bases.c.product_id,
+                    needed.c.partition_key.is_not_distinct_from(bases.c.partition_key),
+                    needed.c.premise_specification == bases.c.premise_specification,
+                ),
+            ).join(observed, observed.c.input_reads == needed.c.input_reads)
         )
         .cte("attestation_premises")
         .prefix_with("MATERIALIZED", dialect="postgresql")
@@ -293,6 +345,7 @@ def _settle_attestations(model):
                     targets.c.product_id == premises.c.product_id,
                     targets.c.partition_key.is_not_distinct_from(premises.c.partition_key),
                     targets.c.premise_specification == premises.c.premise_specification,
+                    targets.c.input_reads == premises.c.input_reads,
                 ),
             )
         )

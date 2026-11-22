@@ -307,7 +307,7 @@ def execute_contextual_kernel(
 
 
 def execute_view_kernel(
-    sources: tuple[FrozenNativeSource, ...],
+    sources: tuple[bytes, ...],
     products: tuple[CharacterizationSnapshot, ...],
     active: tuple[DataProductReference, ...],
     profile: str,
@@ -319,7 +319,7 @@ def execute_view_kernel(
     if assets != _semantic_assets("view").digest:
         raise ValueError("composition child lacks acquired semantic assets")
     return compose_enriched_document_values(
-        sources,
+        tuple(FrozenNativeSource._accept_parent_validated(content) for content in sources),
         products,
         active=active,
         profile=profile,
@@ -1035,7 +1035,7 @@ class PreparedCharacterizationPort(ABC):
 
             require_composition_inputs(inputs.products)
             arguments = dict(
-                sources=inputs.sources,
+                sources=tuple(source.content for source in inputs.sources),
                 products=tuple(
                     CharacterizationSnapshot(product.semantic_id, product.content)
                     for product in inputs.products

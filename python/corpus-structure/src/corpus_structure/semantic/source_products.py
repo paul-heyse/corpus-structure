@@ -349,7 +349,8 @@ class _NativeSourcePayload:
     "native-source-payloads",
     "runtime_bytes",
     key=lambda content, decoder, prepared=None, selected=None: (
-        sha256(content).digest(), decoder,
+        sha256(content).digest(),
+        decoder,
         sha256(selected.meaning).digest() if selected is not None else None,
     ),
     weight=lambda payload: len(payload.content),
@@ -456,7 +457,9 @@ class FrozenNativeSource:
         if (
             type(self) is not FrozenNativeSource
             or "_validation" not in vars(self)
+            or "_payload" not in vars(self)
             or self._validation[0] is not self.content
+            or self._payload.content is not self.content
         ):
             raise TypeError("native source lacks its validating acquisition")
 
@@ -564,6 +567,7 @@ class FrozenNativeSource:
 
     @property
     def _value(self):
+        self._require_acquired()
         return self._payload.value
 
     @cached_property
