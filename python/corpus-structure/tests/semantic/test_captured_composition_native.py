@@ -82,28 +82,40 @@ def test_composition_closes_its_coordinate_ordering_dependency(captured):
 
 @pytest.mark.parametrize("captured", (False, True))
 def test_composition_presents_sets_by_source_coordinate(captured, monkeypatch):
-    from types import SimpleNamespace
-
     from corpus_structure.methods import full_document_composition
     from corpus_structure.methods.captured_document_composition import ComposeCapturedDocumentFamily
     from corpus_structure.semantic.enriched_document_products import RetainedCharacterizationProduct
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.native_source_view import thaw_native
     from corpus_structure.semantic.source_products import FrozenNativeSource
+    from semantic.formal_products_support import publication_context, released_profile, selected
 
-    # Only the ordering projection reaches these doubles at the mocked port.
-    first = cast(FrozenNativeSource, SimpleNamespace(value={"source": {"section_pointer": "a"}}))
-    second = cast(FrozenNativeSource, SimpleNamespace(value={"source": {"section_pointer": "b"}}))
-    early = cast(
-        RetainedCharacterizationProduct,
-        SimpleNamespace(content=b'{"source":{"section_pointer":"a"}}', semantic_id="a"),
-    )
-    late = cast(
-        RetainedCharacterizationProduct,
-        SimpleNamespace(content=b'{"source":{"section_pointer":"a"}}', semantic_id="z"),
-    )
-    last = cast(
-        RetainedCharacterizationProduct,
-        SimpleNamespace(content=b'{"source":{"section_pointer":"b"}}', semantic_id="b"),
-    )
+    profile = released_profile()
+    original = selected(profile, "Literal composition ordering control.")
+
+    def region(section):
+        body = thaw_native(original.value)
+        body["source"]["section_pointer"] = section
+        return FrozenNativeSource.acquire(profile.prepared, body)
+
+    first, second = region("#/groups/a"), region("#/groups/b")
+
+    def manifest(source, outcome):
+        return RetainedCharacterizationProduct.acquire(
+            profile.prepared,
+            profile.model,
+            profile.prepared.index.definitions["DdoFormalManifest"].iri,
+            canonical_bytes(dict(
+                record_type="manifest", source=source.value["source"],
+                selectors=source.value["selectors"], coverage=[], outcome=outcome,
+            )),
+            subject_context=publication_context(source),
+        )
+
+    left, right = manifest(first, "complete"), manifest(first, "partial")
+    assert left.semantic_id != right.semantic_id
+    early, late = (left, right) if left.semantic_id < right.semantic_id else (right, left)
+    last = manifest(second, "complete")
     observed = []
 
     def execute(receiver, sources, products, active, profile):
@@ -171,6 +183,9 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
     from pdf_controlled_support import controlled_pdf_converter
 
     from corpus_structure.orchestrate.source_operation import _default_profile_selections
+    from corpus_structure.semantic.data_operation_bindings import inspect_binding_scopes
+    from corpus_structure.semantic.data_operation_service import read_data_demand
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
 
     target = "text.compose_view/captured-full-native"
     producer = "source.pdf_views/discovery"
@@ -185,8 +200,31 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
         inputs = [
             role for role in kernel.model.operation(target).roles if role.direction == "input"
         ]
-        assert len(inputs) == 8 and {role.collection for role in inputs} == {"set"}
-        selections = _default_profile_selections(kernel.model, (target,), {})
+        family_roles = {
+            "annotations", "canonical", "hanlp", "formal", "constructions",
+            "declaration_syntax", "contextual",
+        }
+        assert {role.name for role in inputs} == {"sources", *family_roles}
+        assert {role.collection for role in inputs} == {"set"}
+        expression = next(
+            row.expression for row in kernel.model.bindings
+            if row.semantic_id == kernel.model.operation(target).binding
+        )
+        assert inspect_binding_scopes(expression, tuple(role.name for role in inputs), {}).populations == {
+            role: "selected-source-views" for role in {"sources", *family_roles}
+        }
+        # Select one pure CPU child to receive the genuine source population.
+        # Stop before it executes. The shared source denominator closes while
+        # the selected family manifestations do not cover its two contexts.
+        # Preparation-only native profiles are never provider evidence.
+        selections = _default_profile_selections(
+            kernel.model, (target,), {
+                target: DemandOperationSelection(
+                    operation=target,
+                    selected_dependencies=("text.formal_evidence/source-native",),
+                ),
+            },
+        )
         selections[producer] = DemandOperationSelection(
             operation=producer,
             parameters={"sections": list(source.sections), "membership": "direct"},
@@ -203,6 +241,9 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             for operation in sorted(required)
             for relation in source_discovery_relations(kernel.model, producer, "result", operation)
         )
+        # Execute genuine native capture/discovery in this same demand. PDF
+        # capture is attempt-only when lowering custody is incomplete, so a
+        # publication from another demand cannot stand in for this execution.
         with kernel.purpose("write").begin() as connection:
             original = acquire_original_document_selection(
                 connection, project_id=PROJECT, document_key=source.document_key
@@ -229,19 +270,8 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
             demand = DemandPlanner(kernel.model, DataOperationStorage(connection)).register(
                 frozen, project=PROJECT, release=kernel.prepared.release_id, runtime=kernel.runtime
             )["demand_id"]
-        # The existing capture may be attached immediately. Stop at the first
-        # pinned read that contains the source-view publication, before its
-        # population makes downstream analytical tasks ready.
         with controlled_pdf_converter(section_content(rows)):
             for _ in range(3):
-                with kernel.purpose("write").begin() as connection:
-                    planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-                    snapshot = planner.resume(demand)
-                if any(
-                    row["operation_id"] == producer and row["fate"] == "fulfilled"
-                    for row in snapshot["obligations"]
-                ):
-                    break
                 execute_data_demand(
                     kernel.purpose("write"),
                     demand,
@@ -251,38 +281,79 @@ def test_two_native_source_members_do_not_invent_composition_sequence_positions(
                     database_capacity=6,
                     max_rounds=1,
                 )
+                with kernel.purpose("write").begin() as connection:
+                    snapshot = DemandPlanner(
+                        kernel.model, DataOperationStorage(connection)
+                    ).resume(demand)
+                if any(
+                    row["operation_id"] == producer and row["fate"] == "fulfilled"
+                    for row in snapshot["obligations"]
+                ):
+                    break
             else:
                 pytest.fail("native source-view publication did not settle")
-        obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
-        (discovered,) = [
-            use
-            for use in snapshot["uses"]
-            if obligations[use["obligation_id"]]["operation_id"] == producer
-        ]
-        assert discovered["fate"] == "fulfilled"
+        # Receipt writes use the acquired read in a fresh native transaction.
         with kernel.purpose("write").begin() as connection:
             planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
             assert planner.settle_pending_discovery(snapshot)
         with kernel.purpose("write").begin() as connection:
-            snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
+            snapshot = DemandPlanner(
+                kernel.model, DataOperationStorage(connection)
+            ).resume(demand)
+        with kernel.purpose("write").begin() as connection:
+            source_page = read_data_demand(connection, demand, view="products", limit=1000)
+        source_operations = {
+            row["obligation_id"]: row["operation_id"] for row in source_page["obligations"]
+        }
+        assert {
+            source_operations[use["obligation_id"]] for use in source_page["uses"]
+            if use["fate"] == "fulfilled"
+        } == {"source.pdf/capture", producer}
+        (published,) = [
+            product
+            for use in source_page["uses"]
+            if source_operations[use["obligation_id"]] == producer
+            for product in use["products"]
+            if product["member_id"] is None and product["role"] == "result"
+        ]
+        published_members = decode_semantic_value(published["body"])["members"]
+        assert {
+            (packet["body"]["source"]["section_pointer"], packet["body"]["text"])
+            for packet in published_members
+        } == {("#/groups/0", "First region."), ("#/groups/1", "Second region.")}
+        expected_members = {
+            packet["member_id"]: packet["context"] for packet in published_members
+        }
+
         (population,) = [
             row for row in snapshot["populations"] if row["name"] == "selected-source-views"
         ]
+        assert population["complete"] is True
         assert len(population["members"]) == 2
-        with kernel.purpose("write").begin() as connection:
-            tuple(
-                DemandPlanner(kernel.model, DataOperationStorage(connection)).bound_requests(
-                    snapshot, authorization=b"{}"
+        assert {
+            member["member_id"]: {
+                name: member[name] for name in (
+                    "subject", "subject_definition", "original_source", "analyzed_scope"
                 )
-            )
+            }
+            for member in population["members"]
+        } == expected_members
         with kernel.purpose("write").begin() as connection:
-            current = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
-        obligations = {row["obligation_id"]: row for row in current["obligations"]}
+            tuple(DemandPlanner(kernel.model, DataOperationStorage(connection)).bound_requests(
+                snapshot, authorization=b"{}"
+            ))
+        with kernel.purpose("write").begin() as connection:
+            snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
+        obligations = {row["obligation_id"]: row for row in snapshot["obligations"]}
         (composition,) = [
             use
-            for use in current["uses"]
+            for use in snapshot["uses"]
             if obligations[use["obligation_id"]]["operation_id"] == target
         ]
-        assert composition["fate"] == "not-applicable"
+        # This is a source-only selection against a closed shared denominator,
+        # not an assertion that all analytical producer families have settled.
+        assert composition["fate"] == "not-applicable", composition
         reasons = cast(WireReasonSelection, composition["selection"]).get("reasons")
-        assert reasons and {row["code"] for row in reasons} == {"binding-covers"}
+        assert reasons and len(reasons) == len(family_roles)
+        assert {row["code"] for row in reasons} == {"binding-covers"}
+        assert all(row["location"].startswith(target + "/binding/") for row in reasons)
