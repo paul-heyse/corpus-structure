@@ -83,7 +83,7 @@ def event_value(
         PROJECT,
         "pure:source:" + str(number),
         coordinate["document"],
-        json_bytes(scope),
+        canonical_bytes(scope),
         subject_definition="original-source-view",
     )
     source_kind = next(

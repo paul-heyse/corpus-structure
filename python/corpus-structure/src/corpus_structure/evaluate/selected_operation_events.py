@@ -309,8 +309,8 @@ def component_event_features(
         or source_reference.membership != coordinate["membership"]
     ):
         raise ValueError("event source differs from its actual selected original")
-    frame = DeclaredNativeFrameSource(
-        source.content.decode(),
+    frame = DeclaredNativeFrameSource.from_source(
+        source,
         canonical_bytes(source_reference.model_dump(mode="json", exclude_none=True)).decode(),
     )
     passages, extents = [], []

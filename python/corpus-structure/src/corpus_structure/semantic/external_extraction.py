@@ -292,7 +292,7 @@ def _proposal_source(prepared, source, annotations: RichAnnotationsInput, pin):
     from .source_products import FrozenNativeSource
 
     native = FrozenNativeSource.acquire(prepared, source)
-    base = DeclaredNativeFrameSource(native.content.decode(), canonical_bytes(pin).decode())
+    base = DeclaredNativeFrameSource.from_source(native, canonical_bytes(pin).decode())
     header = annotations.header
     if (
         header["source"] != native.value["source"]
