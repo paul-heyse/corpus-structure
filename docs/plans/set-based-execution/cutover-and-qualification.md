@@ -322,6 +322,49 @@ managed coverage comparison. Assess that evidence against the changed executable
 The fresh provider selection addresses the ten outstanding identities outside the three
 journeys already running on the refreshed root.
 
+The broad ordinary run also exposed an inherited private authored-judgment defect. The
+baseline terminology declaration combines a required collection with a zero minimum, which
+the existing compiler lowers to a minimum of one. This refuses the empty candidates of a
+no-match decision. An isolated declaration correction advanced the actual journey to native
+admission (`b9aafa2fe6eb458d92f54cccb9a1440b`), where the exact release-kind lookup refused the
+authored measurement judgment. Preparation confirms both private authored-judgment kinds
+are absent from that release's native kind projection despite having semantic identities.
+The terminology declaration, compiler behavior and native kind dependency roots predate
+this cutover. This result remains a failed ordinary identity.
+
+**Native replay and premise follow-through · Tested by selected scope · 2026-11-22.**
+All 26 cases in `15c732e51b524bca82e59a6b14d0574f` passed their assertions. This includes
+stream fencing and cancellation, scoped readiness and wake delivery, the exact finite and rich
+detached replay, and dossier publication with selected applicability. The original invocation
+failed teardown on a retained multiprocessing socket. Focused cleanup and custody tests passed
+all 54 cases (`ee29bfa07f924fd08940369199e56ddd`). Managed recovery established the stopped
+host's cleanup. `uv run ci test coverage` reports all 26 identities covered and preserves the
+original invocation outcome.
+
+The real two-region composition case passed on the refreshed root. The M1 case in the same
+provider result (`ecb00e443c4d4e68a867d9f5dafb0352`) still hit the default publication timeout
+inside the recursive JSON-to-meaning traversal. The isolated codec repair converts nested
+object-free arrays in one ordered pass and uses the existing proof identity envelope
+with those canonical observations. Independent native controls passed for exact proof bytes
+and changed-input refusal (`28a1116ea3e0420792292b06533557d9`), including a follow-up with
+4,096 member records under a local 60-second statement bound
+(`ed253bec603441ed8e995466a572d4ed`). Actual M1 acceptance remains on the installed codec root.
+
+Managed codec preview `51fd211ec98b4079aa21c7129601dc35`, rollback-only candidate
+`eeb083631e6f4fbf87d456b174f84767`, and registration `69e6a4d8b90b4671856d9b7207a32e07`
+passed in the isolated assembly. `uv run ci db init` installed that sole root on
+`corpus_structure_sbx09_proof_qualification` (OID `136473031`). Maintenance readback matched
+the registered descriptor and verified the purpose grants and empty data. All 16 native
+identity and rule tests and `uv run ci check` passed
+(`3e0fbdcc3dae4c3db3a5331402ca892a`, `604f40cb0e5143fe88903e794503c92f`). The actual M1
+rerun at the usual statement limit is `7c1659f02d00483a83953d1b9b5b24bd`.
+
+The refreshed event suite (`c1bc745541c246ee8184a53541707d2f`) passed 85 independent worker,
+source and migration controls. Its native journey published the corrected event frame and
+reached fitter and issuer execution before the 40-minute test watchdog stopped the worker.
+The codec-root event selection starts with the independently acquired restricted-frame check,
+then runs the fitter, issuer and scorer controls in the same module fixture.
+
 Keep one authentic cross-boundary producer, publication and export journey. Reader-only checks
 can consume its authenticated artifacts while their producer, prepared release, wire and authority
 premises remain applicable. Give these checks independent expected meaning, malformed-input and
