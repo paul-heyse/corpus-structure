@@ -270,6 +270,13 @@ def characterization_source(
     tmp_path,
     request,
 ):
+    from docling_core.types.doc import DoclingDocument
+    from pdf_controlled_support import ControlledPdfContent, controlled_pdf_converter
+
+    from corpus_structure.ingest.pdf_health import FormulaOutcome
+    from corpus_structure.semantic.pdf_record_reader import PublishedPdfReader, PublishedReadBudget
+    from corpus_structure.semantic.product_reference import ProductReference
+
     factory = _private_build_factory(
         commit_db_engine,
         commit_writer_engine,
@@ -289,6 +296,26 @@ def characterization_source(
         unprojected_formula=unprojected,
     )
     factory.complete(build, publication)
+    # Later native demands may acquire another capture under their own exact
+    # support. Keep the converter controlled for the complete fixture lifetime,
+    # using the same authored document and outcomes from its sealed publication.
+    with commit_writer_engine.begin() as connection:
+        reader = PublishedPdfReader(
+            connection,
+            ProductReference(
+                publication.task_id, publication.product_key, publication.logical_digest
+            ),
+            projection_context=factory.kernel.prepared,
+            read_budget=PublishedReadBudget(1000, 8 * 1024**2),
+        )
+        content = ControlledPdfContent.from_document(
+            DoclingDocument.model_validate(reader.hydrate_document()),
+            formula_outcomes=tuple(
+                FormulaOutcome(item["pointer"], item["outcome"])
+                for item in reader.native_metadata("formula_outcomes")
+            ),
+        )
     section = "Unprojected formula section" if unprojected else "Nested selected section"
-    (source,) = factory.selected_sources(build, sections=(section,))
-    return CurrentCharacterization(factory, build, publication, source, commit_reader_engine)
+    with controlled_pdf_converter(content):
+        (source,) = factory.selected_sources(build, sections=(section,))
+        yield CurrentCharacterization(factory, build, publication, source, commit_reader_engine)
