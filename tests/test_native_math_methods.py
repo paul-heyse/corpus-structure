@@ -34,6 +34,7 @@ from corpus_structure.semantic.data_operation_model import SubjectContext
 from corpus_structure.semantic.declared_math_products import DeclaredMathOptions, PreparedMathInputs
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.math_context import acquire_analysis_context_profile
+from corpus_structure.semantic.native_source_view import thaw_native
 
 
 def occurrence(profile, source, options=None, *, inherited=(), parents=(), constructions=None):
@@ -67,15 +68,15 @@ def occurrence(profile, source, options=None, *, inherited=(), parents=(), const
         lambda: None,
     )
     result = DeclaredMathOccurrences(inputs).run(
-        source.value,
-        formal.value.model_dump(mode="json", exclude_unset=True),
+        dict(source.value),
+        thaw_native(formal.value),
         inherited=tuple(body for pin, body in inherited),
         ancestor_sources=tuple(body for pin, body in parents),
         constructions=None
         if constructions is None
         else constructions
         if isinstance(constructions, dict)
-        else constructions.value.model_dump(mode="json", exclude_unset=True),
+        else thaw_native(constructions.value),
     )
     return inputs, source, source_pin, formal_pin, result
 
@@ -220,7 +221,7 @@ def normalize_and_scope(inputs, source, source_pin, formal_pin, original, cues):
     normalizer = replace(
         inputs, roles=(_role("source", (source_pin,)), _role("occurrences", (occurrence_pin,)))
     )
-    normalized = DeclaredMathNormalization(normalizer).run(source.value, original)
+    normalized = DeclaredMathNormalization(normalizer).run(dict(source.value), original)
     scoped = DeclaredMathScope(
         replace(
             inputs,
@@ -233,7 +234,7 @@ def normalize_and_scope(inputs, source, source_pin, formal_pin, original, cues):
                 _role("ancestor_sources", ()),
             ),
         )
-    ).run(source.value, original, normalized, cues)
+    ).run(dict(source.value), original, normalized, cues)
     return normalized, scoped
 
 
@@ -624,7 +625,7 @@ def test_current_partial_recognition_preserves_known_items_without_complete_cont
                 _role("occurrences", (replace(formal_pin, product="actual-occurrences"),)),
             ),
         )
-    ).run(source.value, original)
+    ).run(dict(source.value), original)
     assert normalized["outcome"] == "partial" and len(normalized["items"]) == 1
     assert normalized["items"][0]["symbolic"]["expression"] == "Symbol('x')"
 

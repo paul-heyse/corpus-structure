@@ -61,11 +61,11 @@ def test_current_positioned_kernels_preserve_partial_private_interpretations(
     product = PreparedConstructionProfile(acquired.prepared, acquired.model).run(
         source, (primary,), subject_context=context
     )
-    assert product.value.model_dump(mode="python")["outcome"] == "partial"
+    assert product.value["outcome"] == "partial"
     inventory = product.inventory()
     assert any(row["kind"] == "binder" for row in inventory["terms"])
     assert any(row["value"] == "negation" for row in inventory["terms"])
-    assert product.value.model_dump(mode="python")["source"] == value["source"]
+    assert product.value["source"] == value["source"]
     assert b"source_view_id" not in product.content and b"task_id" not in product.content
 
 

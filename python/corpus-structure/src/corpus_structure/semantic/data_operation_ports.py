@@ -1092,6 +1092,10 @@ class ResolvedPythonPort:
 
 
 def _validated_python_input(annotation: Any, value: Any, *, adapters=None) -> Any:
+    from .construction_products import ConstructionProduct, ContextualMeaningProduct
+    from .contextual_native_products import ContextualNativeProduct
+    from .declaration_products import DeclarationSyntaxProduct
+    from .enriched_document_products import EnrichedDocumentProduct, RetainedCharacterizationProduct
     from .formal_products import FormalEvidenceProduct
     from .source_products import FrozenNativeSource
 
@@ -1103,6 +1107,18 @@ def _validated_python_input(annotation: Any, value: Any, *, adapters=None) -> An
     if annotation is FrozenNativeSource:
         if type(value) is not FrozenNativeSource:
             raise PortRefusal("native source ingress requires its exact acquired carrier")
+        value._require_acquired()
+        return value
+    if annotation in (
+        ConstructionProduct,
+        ContextualMeaningProduct,
+        ContextualNativeProduct,
+        DeclarationSyntaxProduct,
+        EnrichedDocumentProduct,
+        RetainedCharacterizationProduct,
+    ):
+        if type(value) is not annotation:
+            raise PortRefusal("characterization ingress requires its exact acquired carrier")
         value._require_acquired()
         return value
     adapters = adapters or PortAdapters()

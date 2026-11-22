@@ -65,6 +65,12 @@ class PredicateEvidenceOperation:
                 "parameter": "constructions",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "direction": "input",
+                "required_rules": [
+                    "text.constructions/body-coverage",
+                    "text.constructions/inventory-topology",
+                    "text.constructions/literal-source",
+                    "text.constructions/positioned-source-geometry",
+                ],
                 "minimum": 1,
                 "maximum": None,
                 "collection": "sequence",

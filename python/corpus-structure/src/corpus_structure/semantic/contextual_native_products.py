@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from .runtime_slice import AuthenticatedSlice
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class ContextualNativeProduct(InterpretedProduct):
     kind_name: ClassVar[str] = "DdoContextualNativeProduct"
     manifest_name: ClassVar[str] = "DdoContextualManifest"
@@ -407,10 +407,7 @@ class PreparedContextualNativePort:
         from .data_operation_ports import (
             PortCompletion,
             PortRefusal,
-            RoleValue,
-            project_product_members,
         )
-        from .data_operation_values import semantic_value
 
         if (
             binding is None
@@ -475,18 +472,9 @@ class PreparedContextualNativePort:
             subject_context=binding.subject_context,
         )
         output = next(role for role in self.operation.roles if role.direction == "output")
-        body = product.value.model_dump(mode="python", exclude_unset=True)
         return PortCompletion(
             self.operation.semantic_id,
-            (
-                RoleValue(
-                    output.name,
-                    ids[output.kind, "kind"],
-                    product.content,
-                    canonical_bytes(semantic_value(body)),
-                    project_product_members(self.model, output.kind, body),
-                ),
-            ),
+            (product.publication(output.name, ids[output.kind, "kind"]),),
             cpu_execution_evidence=canonical_bytes(reply.execution_receipt.record()),
         )
 

@@ -75,7 +75,7 @@ def test_occurrence_and_normalization_consume_exact_retained_syntax(math_profile
 
     monkeypatch.setattr(grammar, "syntax", refuse_parse)
     monkeypatch.setattr(grammar, "syntax_forest", refuse_parse)
-    actual = DeclaredMathOccurrences(profile).run(source.value, thaw_native(formal.value))
+    actual = DeclaredMathOccurrences(profile).run(dict(source.value), thaw_native(formal.value))
     product = DeclaredMathProduct.model_validate(actual)
     assert product.phase == "occurrences" and product.outcome == "complete"
     assert product.source.source_product == "product:source"
@@ -91,7 +91,7 @@ def test_occurrence_and_normalization_consume_exact_retained_syntax(math_profile
         roles=(_role("source", (source_member,)), _role("occurrences", (occurrence_member,))),
     )
     result = DeclaredMathSymbolicProduct.model_validate(
-        DeclaredMathNormalization(normalizer).run(source.value, actual)
+        DeclaredMathNormalization(normalizer).run(dict(source.value), actual)
     )
     assert result.phase == "symbolic"
     assert result.occurrence_input == {"role": "occurrences", "variant": "product"}
@@ -103,15 +103,15 @@ def test_occurrence_and_normalization_consume_exact_retained_syntax(math_profile
         ),
     )
     assert DeclaredMathNormalization(equal_body_replacement).run(
-        source.value, actual
+        dict(source.value), actual
     ) == result.model_dump(mode="json")
     assert result.items[0]["symbolic"] == {"format": "sympy-srepr-1", "expression": "Integer(3)"}
     changed = {**actual, "source": {**actual["source"], "membership": "direct"}}
     with pytest.raises(ValueError, match="exact selected source"):
-        DeclaredMathNormalization(normalizer).run(source.value, changed)
+        DeclaredMathNormalization(normalizer).run(dict(source.value), changed)
     changed = {**actual, "items": [{**actual["items"][0], "occurrence_basis": "wrong"}]}
     with pytest.raises(ValueError, match="normalization context"):
-        DeclaredMathNormalization(normalizer).run(source.value, changed)
+        DeclaredMathNormalization(normalizer).run(dict(source.value), changed)
 
 
 def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
@@ -150,7 +150,7 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
         acquire_analysis_context_profile(),
         lambda: None,
     )
-    original = DeclaredMathOccurrences(profile).run(source.value, thaw_native(formal.value))
+    original = DeclaredMathOccurrences(profile).run(dict(source.value), thaw_native(formal.value))
     occurrence_member = replace(
         formal_member, product="product:occurrences", kind_contract="kind:math"
     )
@@ -158,7 +158,7 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
         profile,
         roles=(_role("source", (source_member,)), _role("occurrences", (occurrence_member,))),
     )
-    symbolic = DeclaredMathNormalization(normalizer).run(source.value, original)
+    symbolic = DeclaredMathNormalization(normalizer).run(dict(source.value), original)
     scope_profile = replace(
         profile,
         roles=(
@@ -177,7 +177,7 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
     )
     result = DeclaredMathScopeProduct.model_validate(
         DeclaredMathScope(scope_profile).run(
-            source.value,
+            dict(source.value),
             original,
             symbolic,
             thaw_native(construction.value),
@@ -201,7 +201,7 @@ def test_symbol_scope_retains_unavailable_binder_coverage_and_exact_math_inputs(
     )
     with pytest.raises(ValueError, match="correspondence"):
         DeclaredMathScope(substituted).run(
-            source.value,
+            dict(source.value),
             original,
             symbolic,
             thaw_native(construction.value),
@@ -286,11 +286,11 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
         acquire_analysis_context_profile(),
         lambda: None,
     )
-    original = DeclaredMathOccurrences(profile).run(source.value, thaw_native(formal.value))
+    original = DeclaredMathOccurrences(profile).run(dict(source.value), thaw_native(formal.value))
     occurrence_pin = replace(formal_pin, product="product:occurrences", kind_contract="kind:math")
     symbolic = DeclaredMathNormalization(
         replace(profile, roles=(_role("source", (pin,)), _role("occurrences", (occurrence_pin,))))
-    ).run(source.value, original)
+    ).run(dict(source.value), original)
     projection = source.value["source"]["projection"]
     policy = policy_identity(binders, ())
     # Every cue has exact literal support; the independent fixture declares only
@@ -377,7 +377,7 @@ def test_symbol_scope_uses_retained_cues_forward_and_preserves_original_formula_
     monkeypatch.setattr(
         grammar, "syntax", lambda *_a, **_kw: pytest.fail("scope reparsed primary syntax")
     )
-    actual = DeclaredMathScope(scope_profile).run(source.value, original, symbolic, cues)
+    actual = DeclaredMathScope(scope_profile).run(dict(source.value), original, symbolic, cues)
     assert [
         (row["pointer"], row["recognized_start"], row["recognized_end"], row["outcome"])
         for row in actual["items"]

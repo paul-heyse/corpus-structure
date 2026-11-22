@@ -97,10 +97,25 @@ def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses
                 "text.formal_evidence/numeric-normalization",
             },
         ),
-        ("text.contextual_evaluation/source-native", lexical_reading),
+        (
+            "text.contextual_evaluation/source-native",
+            lexical_reading | {"text.formal_evidence/canonical-occurrence-addresses"},
+        ),
     ):
         consumer = model.operation(semantic_id)
         assert (
             set(next(role.required_rules for role in consumer.roles if role.name == "formal"))
             == rules
         )
+    for semantic_id in (
+        "structure.predicate_evidence/declared",
+        "structure.scoped_relations/declared",
+    ):
+        consumer = model.operation(semantic_id)
+        construction = next(role for role in consumer.roles if role.name == "constructions")
+        assert set(construction.required_rules) == {
+            "text.constructions/body-coverage",
+            "text.constructions/inventory-topology",
+            "text.constructions/literal-source",
+            "text.constructions/positioned-source-geometry",
+        }

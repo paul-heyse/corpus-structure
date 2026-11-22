@@ -10,6 +10,7 @@ from corpus_structure.semantic.characterization_evidence import (
     validate_formal_normalization,
     validate_formal_positions,
 )
+from corpus_structure.semantic.native_source_view import thaw_native
 from semantic.characterization_evidence_support import (
     EVIDENCE_MUTATIONS as EVIDENCE_MUTATIONS,
 )
@@ -84,7 +85,7 @@ def navigation_product():
     native = primary.native
     assert native is not None
     token = next(row for row in native.inventory("token"))
-    body = primary.construction.value.model_dump(mode="json", exclude_unset=True)
+    body = thaw_native(primary.construction.value)
     navigation = next(
         packet["body"]
         for packet in body["members"]

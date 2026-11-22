@@ -8,7 +8,7 @@ these source-addressed semantic facts.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -23,7 +23,11 @@ from corpus_structure.semantic.characterization import (
     admitted_characterization_graph,
     validate_inventory_topology,
 )
-from corpus_structure.semantic.native_source_view import matches_positioned_source_extent
+from corpus_structure.semantic.native_source_view import (
+    freeze_native,
+    matches_positioned_source_extent,
+    thaw_native,
+)
 from corpus_structure.semantic.source_products import (
     native_selected_ranges,
     native_selected_unprojected_atoms,
@@ -203,12 +207,64 @@ def interpreted_member_contracts(prepared, model):
 
 
 @dataclass(frozen=True)
+class _InterpretedPayload:
+    content: bytes
+    value: Mapping[str, Any]
+    inventory: Mapping[str, Any]
+    meaning: bytes
+    members: tuple[bytes, ...]
+    body_digest: str
+    kind_contract: str
+
+
+@dataclass(frozen=True, init=False)
 class InterpretedProduct:
     kind_name: ClassVar[str]
     content: bytes
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
-    subject_context: SubjectContext | None = None
+    subject_context: SubjectContext | None
+    _payload: ClassVar[_InterpretedPayload]
+    _source: ClassVar[FrozenNativeSource]
+
+    def __init__(self, *args, **kwargs):
+        raise TypeError("interpreted evidence requires validated production or exact native acquisition")
+
+    @classmethod
+    def _from_payload(cls, payload, source, prepared, model, subject_context):
+        product = object.__new__(cls)
+        object.__setattr__(product, "content", payload.content)
+        object.__setattr__(product, "prepared", prepared)
+        object.__setattr__(product, "model", model)
+        object.__setattr__(product, "subject_context", subject_context)
+        object.__setattr__(product, "_source", source)
+        object.__setattr__(product, "_payload", payload)
+        return product
+
+    def _require_acquired(self):
+        if "_payload" not in vars(self) or self.content is not self._payload.content:
+            raise TypeError("interpreted evidence lacks its acquired payload")
+
+    def __deepcopy__(self, memo):
+        self._require_acquired()
+        return self
+
+    def with_context(self, context: SubjectContext | None):
+        self._require_acquired()
+        return self._from_payload(self._payload, self._source, self.prepared, self.model, context)
+
+    def require_readable_from(self, source, model, dependencies):
+        self._require_acquired()
+        FrozenNativeSource._require_acquired(source)
+        if self._source.value != source.value:
+            raise ValueError("construction product belongs to another original source/scope")
+        kind = self.prepared.index.definitions[self.kind_name].iri
+        if not any(
+            (item.owner, item.domain, item.key) == (kind, "kind", self._payload.kind_contract)
+            for item in model.identities
+        ):
+            raise ValueError("construction product has another nominal contract")
+        _construction_dependencies(self.value, dependencies)
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -218,20 +274,27 @@ class InterpretedProduct:
         return self.subject_context
 
     @property
-    def value(self):
-        return self.prepared.validate_json(self.kind_name, self.content)
+    def value(self) -> Mapping[str, Any]:
+        self._require_acquired()
+        return self._payload.value
+
+    def publication(self, role, kind_contract):
+        from .data_operation_ports import RoleValue
+
+        self._require_acquired()
+        if kind_contract != self._payload.kind_contract:
+            raise ValueError("interpreted publication changes its acquired kind")
+        return RoleValue(
+            role, kind_contract, self.content, self._payload.meaning, self._payload.members
+        )
 
     @cached_property
     def semantic_id(self):
-        kind = next(
-            item.key
-            for item in self.model.identities
-            if item.owner == self.prepared.index.definitions[self.kind_name].iri
-            and item.domain == "kind"
-        )
-        value = self.value.model_dump(mode="python", exclude_unset=True)
+        self._require_acquired()
         return contextual_product_identity(
-            kind=kind, context=self._publication_context(), body=body_identity(value).key
+            kind=self._payload.kind_contract,
+            context=self._publication_context(),
+            body=self._payload.body_digest,
         ).key
 
     @property
@@ -239,15 +302,11 @@ class InterpretedProduct:
         return DataProductReference(self.semantic_id)
 
     def inventory(self):
-        result = {name: [] for name, _ in _INVENTORIES}
-        names = {tag: name for name, tag in _INVENTORIES}
-        for packet in json.loads(self.content)["members"]:
-            if packet["body"]["record_type"] not in {"choice_member", "manifest"}:
-                result[names[packet["body"]["record_type"]]].append(packet["body"])
-        return result
+        self._require_acquired()
+        return self._payload.inventory
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class ConstructionProduct(InterpretedProduct):
     kind_name: ClassVar[str] = "DdoPrimaryConstructionProduct"
     manifest_name: ClassVar[str] = "DdoConstructionManifest"
@@ -265,8 +324,18 @@ class CharacterizationSnapshot:
     def semantic_id(self):
         return self.product_id
 
+    @cached_property
+    def value(self) -> Mapping[str, Any]:
+        return freeze_native(json.loads(self.content))
+
+    @classmethod
+    def from_product(cls, product):
+        snapshot = cls(product.semantic_id, product.content, getattr(product, "partitions", None))
+        object.__setattr__(snapshot, "value", product.value)
+        return snapshot
+
     def inventory(self):
-        body = json.loads(self.content)
+        body = self.value
         result = {name: [] for name, _ in _INVENTORIES}
         result["source_facts"] = []
         names = {tag: name for name, tag in _INVENTORIES}
@@ -347,7 +416,7 @@ def construction_product_values(
         tuple(
             (DataProductReference(product.semantic_id), product.inventory()) for product in formal
         ),
-        tuple(row for product in formal for row in json.loads(product.content)["lexicon"]),
+        tuple(row for product in formal for row in product.value["lexicon"]),
     )
     view = ConstructionSource.from_native(source)
     builder = ConstructionLayer(
@@ -363,7 +432,7 @@ def construction_product_values(
     )
     atom_references = {}
     for product in formal:
-        for packet in json.loads(product.content)["members"]:
+        for packet in product.value["members"]:
             if packet["body"]["record_type"] == "occurrence":
                 atom_references.setdefault(packet["member_id"], []).append(
                     member_reference(
@@ -377,7 +446,7 @@ def construction_product_values(
             builder.record(family, selector, "unknown", "selected original ancestry is unavailable")
     regions = []
     for product in formal:
-        for region in json.loads(product.content)["lexicon"]:
+        for region in product.value["lexicon"]:
             regions.extend(
                 (max(region["start"], a), min(region["end"], b))
                 for a, b in requested
@@ -1007,18 +1076,32 @@ def _checked_interpreted_product(
     subject_context=None,
     bound_member=None,
 ):
+    from .data_operation_ports import project_product_members
+    from .data_operation_values import semantic_value
+
     typed = prepared.validate_json(product_type.kind_name, canonical_bytes(value))
     checked = typed.model_dump(mode="json", exclude_unset=True)
+    typed_value = typed.model_dump(mode="python", exclude_unset=True)
+    kind = prepared.index.definitions[product_type.kind_name].iri
+    kind_contract = next(
+        item.key
+        for item in model.identities
+        if (item.owner, item.domain) == (kind, "kind")
+    )
+    body_digest = body_identity(typed_value).key
     packets = analytical_packets(
         checked, manifest_contract(prepared, model, product_type.manifest_name)
     )
     selected = source.value
-    product = product_type(canonical_bytes(checked), prepared, model, subject_context)
     if bound_member is None:
         verify_interpreted_literal_source(checked, selected)
     elif (
-        bound_member.member is not None
-        or product.semantic_id != bound_member.product
+        subject_context is None
+        or bound_member.kind_contract != kind_contract
+        or bound_member.member is not None
+        or contextual_product_identity(
+            kind=kind_contract, context=subject_context, body=body_digest
+        ).key != bound_member.product
         or checked["source"] != selected["source"]
         or tuple(checked["selectors"]) != tuple(selected["selectors"])
     ):
@@ -1044,36 +1127,46 @@ def _checked_interpreted_product(
     if bound_member is None:
         verify_inventory_occurrence_ids(checked)
         verify_interpreted_positioned_geometry(packets, selected)
-    dependencies = tuple((product.semantic_id, json.loads(product.content)) for product in formal)
-    verify_interpreted_dependency_members(
-        checked,
-        all_nodes,
-        dependencies,
-        include_annotations=product_type is not ConstructionProduct,
-    )
+    if bound_member is None:
+        dependencies = tuple((product.semantic_id, product.value) for product in formal)
+        verify_interpreted_dependency_members(
+            checked,
+            all_nodes,
+            dependencies,
+            include_annotations=product_type is not ConstructionProduct,
+        )
     navigation = (
         _validated_annotation_support(checked, formal, inventory, all_nodes)
         if product_type is ConstructionProduct
         else {}
     )
-    policies = attachment_policies(prepared)
-
-    for role in inventory["roles"]:
-        validate_attachment_basis(
-            role["basis"],
-            policies,
-            lambda name, body: prepared.validate_json(
-                "DdoSemantic" + name.removeprefix("Characterization"), canonical_bytes(body)
-            ),
-        )
     validate_navigation_evidence({**indexes, "annotations": indexes["annotations"] | navigation})
     if bound_member is None:
+        policies = attachment_policies(prepared)
+
+        for role in inventory["roles"]:
+            validate_attachment_basis(
+                role["basis"],
+                policies,
+                lambda name, body: prepared.validate_json(
+                    "DdoSemantic" + name.removeprefix("Characterization"), canonical_bytes(body)
+                ),
+            )
         verify_interpreted_attachment_witnesses(inventory["roles"], all_nodes, policies)
     if bound_member is None:
         verify_inventory_native_scores(packets)
         verify_interpreted_body_coverage(checked["coverage"], checked["outcome"], inventory)
         verify_interpreted_source_coverage(checked["coverage"], selected)
-    return product
+    payload = _InterpretedPayload(
+        canonical_bytes(checked),
+        freeze_native(checked),
+        freeze_native({name: inventory[name] for name, _ in _INVENTORIES}),
+        canonical_bytes(semantic_value(typed_value)),
+        project_product_members(model, kind, typed_value),
+        body_digest,
+        kind_contract,
+    )
+    return product_type._from_payload(payload, source, prepared, model, subject_context)
 
 
 def _construction_dependencies(value, formal):
@@ -1167,14 +1260,8 @@ class PreparedConstructionProfile:
         check_active: Callable[[], None],
         subject_context: SubjectContext | None = None,
     ):
-        snapshots = tuple(
-            CharacterizationSnapshot(product.semantic_id, product.content) for product in formal
-        )
-        native = None
-        if sentences is not None:
-            native = CharacterizationSnapshot(
-                sentences.semantic_id, sentences.content, sentences.partitions
-            )
+        snapshots = tuple(CharacterizationSnapshot.from_product(product) for product in formal)
+        native = CharacterizationSnapshot.from_product(sentences) if sentences is not None else None
         value = construction_product_values(
             source,
             snapshots,
@@ -1193,7 +1280,7 @@ class PreparedConstructionProfile:
         )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class ContextualMeaningProduct(InterpretedProduct):
     kind_name: ClassVar[str] = "DdoContextualMeaningProduct"
     manifest_name: ClassVar[str] = "DdoContextualManifest"
@@ -1219,20 +1306,13 @@ class PreparedContextualProfile:
     ):
         source = FrozenNativeSource.acquire(self.prepared, source)
         FormalSourceReadings.from_products(formal, source, prepared=self.prepared, model=self.model)
-        checked = tuple(
-            validate_construction_product(
-                self.prepared,
-                self.model,
-                json.loads(product.content),
-                source,
-                (*formal, *supporting),
-                subject_context=product.subject_context,
-            )
-            for product in constructions
-        )
+        for product in constructions:
+            if type(product) is not ConstructionProduct:
+                raise TypeError("contextual inputs require acquired construction products")
+            product.require_readable_from(source, self.model, (*formal, *supporting))
         return self._evaluate(
             source,
-            checked,
+            constructions,
             formal,
             roots=roots,
             env=env,
@@ -1256,19 +1336,11 @@ class PreparedContextualProfile:
         max_nodes=20000,
     ):
         for product in supporting:
-            if (
-                product.value.model_dump(mode="json", exclude_unset=True)["source"]
-                != source.value["source"]
-            ):
+            if product.value["source"] != source.value["source"]:
                 raise ValueError("context support belongs to another original source")
         products = (*formal, *supporting, *constructions)
         symbolic = tuple(product.reference for product in constructions)
-        snapshots = tuple(
-            CharacterizationSnapshot(
-                product.semantic_id, product.content, getattr(product, "partitions", None)
-            )
-            for product in products
-        )
+        snapshots = tuple(CharacterizationSnapshot.from_product(product) for product in products)
         value = contextual_product_values(
             source,
             snapshots,
@@ -1359,4 +1431,4 @@ def contextual_product_values(
             attribution=[ref.values() for ref in env.attribution],
         ),
     )
-    return append_manifest(value, contracts["contextual_manifest"])
+    return thaw_native(append_manifest(value, contracts["contextual_manifest"]))

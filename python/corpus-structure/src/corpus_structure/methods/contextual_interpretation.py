@@ -207,6 +207,7 @@ class ContextualEvaluationOperation:
                     "text.constructions/native-numeric-scores",
                     "text.constructions/positioned-source-geometry",
                     "text.constructions/released-attachment-witnesses",
+                    "text.constructions/selected-primary-members",
                 ],
                 "minimum": 1,
                 "maximum": None,

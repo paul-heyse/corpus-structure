@@ -458,7 +458,7 @@ def test_native_current_unprojected_formula_keeps_item_anchored_original_syntax(
 )
 def test_current_formal_validator_refuses_foreign_original_evidence(positioned_formal, field, bad):
     acquired, source, context, primary = positioned_formal
-    body = primary.value.model_dump(mode="python", exclude_unset=True)
+    body = thaw_native(primary.value)
     occurrence = next(
         row["body"] for row in body["members"] if row["body"]["record_type"] == "occurrence"
     )
@@ -476,7 +476,7 @@ def test_current_construction_validator_refuses_relabelled_or_unreleased_witness
     profiles, mutation
 ):
     acquired, source, context, primary, product = profiles
-    body = product.value.model_dump(mode="python", exclude_unset=True)
+    body = thaw_native(product.value)
     if mutation == "nominal":
         body["members"][0]["kind_contract"] = "another-contract"
     elif mutation == "dependency":
@@ -512,8 +512,8 @@ def test_current_composition_missing_dependency_and_source_only_claim_refuse(pro
     weak = compose_enriched_document(
         acquired.prepared, acquired.model, (source,), (), profile="full_characterization"
     )
-    assert weak.value.model_dump(mode="python")["outcome"] == "partial"
-    coverage = weak.value.model_dump(mode="python")["coverage"]
+    assert weak.value["outcome"] == "partial"
+    coverage = weak.value["coverage"]
     assert coverage and all(row["outcome"] == "unknown" for row in coverage)
 
 

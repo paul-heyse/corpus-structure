@@ -29,7 +29,7 @@ from .construction_products import (
 )
 from .data_operation_model import SubjectContext
 from .data_operation_outcomes import successful_return_outcome
-from .data_operation_values import decode_semantic_value, semantic_value
+from .data_operation_values import decode_semantic_value
 from .data_product_reference import DataProductReference
 from .enriched_document_products import (
     EnrichedDocumentProduct,
@@ -796,18 +796,13 @@ class PreparedCharacterizationPort(ABC):
         supporting = self._retained(roles["supporting"], binding, "supporting")
         constructions = []
         for index, value in enumerate(roles["constructions"]):
-            body = _body(value)
             context = self._context(binding, "constructions", index, value)
             if binding is None:
-                product = validate_construction_product(
-                    self.prepared,
-                    self.model,
-                    body,
-                    source,
-                    (*formal, *supporting),
-                    subject_context=context,
-                )
-                product._publication_context()
+                if type(value) is not ConstructionProduct:
+                    raise PortRefusal("contextual inputs require acquired construction products")
+                value.require_readable_from(source, self.model, (*formal, *supporting))
+                value._publication_context()
+                product = value
             else:
                 member = self._member(binding, "constructions", index)
                 if context is None or member is None:
@@ -815,7 +810,7 @@ class PreparedCharacterizationPort(ABC):
                 product = acquired_construction_product(
                     self.prepared,
                     self.model,
-                    body,
+                    _body(value),
                     source,
                     (*formal, *supporting),
                     subject_context=context,
@@ -843,7 +838,7 @@ class PreparedCharacterizationPort(ABC):
                 if retained.semantic_id != member.product:
                     raise ValueError("dependency attestation requires its exact producing input")
                 observed.append(
-                    RuleObservedInput(json.loads(retained.content), member.multiplicity)
+                    RuleObservedInput(retained.value, member.multiplicity)
                 )
                 position += member.multiplicity
             if position != len(values):
@@ -863,13 +858,9 @@ class PreparedCharacterizationPort(ABC):
         if binding is not None:
             if binding.subject_context is None:
                 raise ValueError("publication requires acquired output subject context")
-            product = (
-                product.with_context(binding.subject_context)
-                if isinstance(product, EnrichedDocumentProduct)
-                else replace(product, subject_context=binding.subject_context)
-            )
+            product = product.with_context(binding.subject_context)
         from ._data_operation_wire import WireKindContract, WireOutputMember
-        from .data_operation_ports import PortCompletion, RoleValue, project_product_members
+        from .data_operation_ports import PortCompletion
         from .established_validity import (
             RuleObservedInput,
             successful_rule_attestation,
@@ -881,15 +872,13 @@ class PreparedCharacterizationPort(ABC):
             for item in self.model.identities
             if item.owner == output.kind and item.domain == "kind"
         )
+        publication = product.publication(output.name, kind)
         if isinstance(product, EnrichedDocumentProduct):
             return PortCompletion(
                 self.operation.semantic_id,
-                (product.publication(output.name, kind),),
+                (publication,),
                 outcome=successful_return_outcome(self.operation),
             )
-        value = product.value.model_dump(mode="python", exclude_unset=True)
-        meaning = semantic_value(value)
-        members = project_product_members(self.model, output.kind, value)
         attestations = ()
         if binding is not None and isinstance(
             product, (ConstructionProduct, ContextualMeaningProduct)
@@ -897,6 +886,7 @@ class PreparedCharacterizationPort(ABC):
             if (
                 not isinstance(inputs, (_ConstructionInputs, _ContextualInputs))
                 or product.subject_context is None
+                or publication.meaning is None
             ):
                 raise ValueError("interpreted attestation requires its selected source and subject")
             source = inputs.source
@@ -926,8 +916,8 @@ class PreparedCharacterizationPort(ABC):
                 "multiplicity": 1,
                 "product": {
                     "kind_contract": WireKindContract(kind),
-                    "body": meaning,
-                    "members": [json.loads(member) for member in members],
+                    "body": json.loads(publication.meaning),
+                    "members": [json.loads(member) for member in publication.members],
                 },
             }
             attestations = tuple(
@@ -945,15 +935,7 @@ class PreparedCharacterizationPort(ABC):
             )
         return PortCompletion(
             self.operation.semantic_id,
-            (
-                RoleValue(
-                    output.name,
-                    kind,
-                    product.content,
-                    canonical_bytes(meaning),
-                    members,
-                ),
-            ),
+            (publication,),
             outcome=successful_return_outcome(self.operation),
             rule_attestations=attestations,
         )

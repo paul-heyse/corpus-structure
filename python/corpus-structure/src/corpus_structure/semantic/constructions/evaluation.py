@@ -107,7 +107,7 @@ class ContextualEvaluator:
         payloads = {}
         alternatives = {}
         for product in products:
-            body = json.loads(product.content)
+            body = product.value
             if body["source"] != coordinate:
                 raise ValueError("contextual inputs belong to another original source")
             pin = DataProductReference(product.semantic_id)

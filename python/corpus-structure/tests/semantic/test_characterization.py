@@ -191,11 +191,11 @@ def test_discontinuity_cross_page_overlapping_memberships_and_native_scores():
         )
     ]
     result = current_product(case, body).inventory()
-    assert result["roles"][0]["occurrences"] == [b, a]
+    assert result["roles"][0]["occurrences"] == (b, a)
     assert result["annotations"][0]["scores"][0]["value"] == dict(
         kind="float", hexadecimal="0x1.8000000000000p-1"
     )
-    assert result["annotations"][0]["occurrences"] == [a, b]
+    assert result["annotations"][0]["occurrences"] == (a, b)
 
 
 def test_declared_attachment_policy_rejects_model_promotion_and_missing_premises(graph_source):
@@ -248,7 +248,7 @@ def test_explicit_unknown_and_successful_empty_are_distinct(graph_source):
     body["terms"] = []
     body["coverage"][0]["outcome"] = "empty"
     product = current_product(graph_source, body)
-    assert product.value.model_dump(mode="json")["coverage"][0]["outcome"] == "empty"
+    assert product.value["coverage"][0]["outcome"] == "empty"
     body["coverage"][0].update(eligible=[], examined=[])
     assert current_product(graph_source, body).inventory()["occurrences"]
     body["outcome"] = "partial"
@@ -260,7 +260,7 @@ def test_explicit_unknown_and_successful_empty_are_distinct(graph_source):
         unexamined=body["coverage"][0]["eligible"],
     )
     assert (
-        current_product(graph_source, body).value.model_dump(mode="json")["coverage"][0]["outcome"]
+        current_product(graph_source, body).value["coverage"][0]["outcome"]
         == "unknown"
     )
 
@@ -628,7 +628,7 @@ def test_complete_coverage_requires_the_eligible_union_but_accepts_partitions(el
     with pytest.raises(ValueError, match="eligible source scope unexamined"):
         current_product(case, body)
     row["examined"].append(dict(projection=projection, start=5, end=10))
-    assert current_product(case, body).value.model_dump(mode="json")["outcome"] == "complete"
+    assert current_product(case, body).value["outcome"] == "complete"
 
 
 def test_complete_coverage_uses_original_pointer_ancestry_and_page_membership():

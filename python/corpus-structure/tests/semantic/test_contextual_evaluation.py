@@ -27,6 +27,7 @@ from corpus_structure.semantic.data_product_reference import (
 from corpus_structure.semantic.declared_formal_readings import declared_formal_layers
 from corpus_structure.semantic.formal_products import formal_operation_sources
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import (
     PreparationProfile,
@@ -57,7 +58,7 @@ def literal_facts(release, *, source=None):
     """Independent graph controls positioned in an actual current selected source."""
     source = select_source(release, "all x runs") if source is None else source
     coordinate = source.value["source"]
-    selector = source.value["selectors"][0]
+    selector = thaw_native(source.value["selectors"][0])
     occurrences = []
     for start, end, text in ((0, 3, "all"), (4, 5, "x"), (6, 10, "runs")):
         extents = [
@@ -131,7 +132,7 @@ def controlled_product(release, facts, *, dependencies=None, source=None):
     dependencies = tuple((dependencies or {}).values())
     value = interpreted_product_value(
         source,
-        copy.deepcopy(facts),
+        thaw_native(facts),
         interpreted_member_contracts(release.prepared, release.model),
         dependencies,
     )
@@ -548,7 +549,7 @@ def test_context_failure_preserves_local_meaning_and_marks_dependent_family(rele
         [member_reference(pin, "p")],
         environment(context_layers=(cpin,)),
     )
-    coverage = {r["family"]: r for r in report.value.model_dump(mode="python")["coverage"]}
+    coverage = {r["family"]: r for r in report.value["coverage"]}
     assert coverage["meaning.reference"]["outcome"] == "partial"
     assert coverage["meaning.predication"]["outcome"] == "complete"
     assert any(t["value"] == "run" for t in report.inventory()["terms"])
@@ -671,7 +672,7 @@ def test_source_first_functions_evaluate_without_any_symbolic_roots(release):
         "function:assertion",
         "function:definition",
     }
-    coverage = {r["family"]: r for r in report.value.model_dump(mode="python")["coverage"]}
+    coverage = {r["family"]: r for r in report.value["coverage"]}
     assert coverage["meaning.function"]["outcome"] == "complete"
     assert coverage["meaning.predication"]["outcome"] == "unknown"
     assert coverage["meaning.predication"]["availability"] == "unavailable"

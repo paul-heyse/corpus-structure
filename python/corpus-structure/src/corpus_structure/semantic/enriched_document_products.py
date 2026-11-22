@@ -365,7 +365,7 @@ def ordered_composition_inputs(sources, products):
         sorted(
             products,
             key=lambda product: (
-                canonical_bytes(json.loads(product.content)["source"]),
+                canonical_bytes(product.value["source"]),
                 product.semantic_id,
             ),
         )
@@ -395,11 +395,7 @@ def compose_enriched_document_values(
     owned = {}
     for product in products:
         check_active()
-        body = (
-            product.value
-            if isinstance(product, RetainedCharacterizationProduct)
-            else json.loads(product.content)
-        )
+        body = product.value
         if canonical_bytes(body["source"]) not in source_by_key:
             raise ValueError("combined view product has no retained original source coordinate")
         pin = DataProductReference(product.semantic_id)
@@ -569,11 +565,7 @@ class EnrichedDocumentReadings:
         )
         if product is None:
             raise ValueError("member product is outside frozen document selection")
-        body = (
-            product.value
-            if isinstance(product, RetainedCharacterizationProduct)
-            else json.loads(product.content)
-        )
+        body = product.value
         packet = next(
             (
                 packet

@@ -20,10 +20,10 @@ def test_source_only_view_preserves_source_without_analytical_coverage(profiles)
         (),
         profile="source_only",
         subject_context=publication_context(source, document=True),
-    ).value.model_dump(mode="json", exclude_unset=True)
-    assert view["sources"] == [source.value]
+    ).value
+    assert view["sources"] == (source.value,)
     assert view["profile"] == "source_only"
-    assert view["products"] == view["active"] == view["coverage"] == []
+    assert view["products"] == view["active"] == view["coverage"] == ()
 
 
 def test_retained_dependency_is_not_an_active_interpretation_or_relabelled_product(profiles):
@@ -40,15 +40,15 @@ def test_retained_dependency_is_not_an_active_interpretation_or_relabelled_produ
         (primary, symbolic),
         active=(DataProductReference(symbolic.semantic_id),),
         subject_context=publication_context(source, document=True),
-    ).value.model_dump(mode="json", exclude_unset=True)
-    assert result["products"] == [
+    ).value
+    assert result["products"] == (
         DataProductReference(primary.semantic_id).values(),
         DataProductReference(symbolic.semantic_id).values(),
-    ]
-    assert result["active"] == [DataProductReference(symbolic.semantic_id).values()]
+    )
+    assert result["active"] == (DataProductReference(symbolic.semantic_id).values(),)
     assert result["coverage"]
     assert all(
-        row["products"] == [DataProductReference(symbolic.semantic_id).values()]
+        row["products"] == (DataProductReference(symbolic.semantic_id).values(),)
         for row in result["coverage"]
     )
     assert (primary.content, primary.semantic_id, primary.prepared) == original

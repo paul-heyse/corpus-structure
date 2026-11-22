@@ -27,6 +27,7 @@ from corpus_structure.semantic.formal_evidence import grammar_identity
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions, prepare_formal_evidence
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.m1_products import PreparedM1Inputs, m1_operation_inputs
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_contexts import (
     NativeSourceContext,
@@ -252,7 +253,7 @@ def test_current_m1_passes_selected_primary_meaning_to_exact_assertion_qualifica
             profile.run(
                 source.value,
                 annotations,
-                construction.value.model_dump(mode="json", exclude_unset=True),
+                thaw_native(construction.value),
                 (source.value,),
             )
         )
@@ -265,7 +266,7 @@ def test_current_m1_refuses_changed_or_unselected_primary_before_provider(
     selected_inputs, monkeypatch, change
 ):
     profile, source, annotations, construction, context = selected_inputs
-    body = construction.value.model_dump(mode="json", exclude_unset=True)
+    body = thaw_native(construction.value)
     if change == "product":
         profile = replace(
             profile,
@@ -320,6 +321,6 @@ def test_current_annotation_fixture_uses_declared_source_and_separate_nominal_pr
         native.value["source"] == frame.value["source"]
     )
     assert (
-        primary[0].value.model_dump(mode="json", exclude_unset=True)["source"]
+        primary[0].value["source"]
         == frame.value["source"]
     )

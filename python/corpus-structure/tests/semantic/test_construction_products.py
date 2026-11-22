@@ -40,7 +40,7 @@ def test_target_grammar_preserves_operators_binders_choices_and_witnesses(profil
     assert values["roles"]
     assert all(row["basis"]["kind"] == "released_construction" for row in values["roles"])
     assert (
-        product.value.outcome == "partial"
+        product.value["outcome"] == "partial"
     )  # richer native reading families are explicitly unavailable
     assert b"task_id" not in product.content and b"release_id" not in product.content
     assert all(
@@ -52,6 +52,8 @@ def test_target_grammar_preserves_operators_binders_choices_and_witnesses(profil
 
 
 def test_limits_and_custody_do_not_salt_successful_constructed_meaning(profiles):
+    from corpus_structure.semantic.construction_products import ConstructionProduct
+
     formal, construction = profiles
     source = selected(formal, "All samples are finite.")
     primary = formal.run(
@@ -72,6 +74,10 @@ def test_limits_and_custody_do_not_salt_successful_constructed_meaning(profiles)
     assert left.content == right.content
     assert left.semantic_id == right.semantic_id
     assert left.reference.values() == {"product_id": left.semantic_id}
+    assert left.with_context(left.subject_context).value is left.value
+    assert left.inventory() is left.inventory()
+    with pytest.raises(TypeError, match="validated production"):
+        ConstructionProduct(left.content, left.prepared, left.model, left.subject_context)
 
 
 def test_target_nominal_member_and_original_occurrence_cannot_be_relabelled(profiles):
@@ -81,7 +87,7 @@ def test_target_nominal_member_and_original_occurrence_cannot_be_relabelled(prof
         source, FormalEvidenceOptions(), subject_context=publication_context(source)
     )
     product = construction.run(source, (primary,), subject_context=publication_context(source))
-    body = product.value.model_dump(mode="json", exclude_unset=True)
+    body = thaw_native(product.value)
     occurrence = next(
         packet for packet in body["members"] if packet["body"]["record_type"] == "occurrence"
     )
@@ -90,7 +96,7 @@ def test_target_nominal_member_and_original_occurrence_cannot_be_relabelled(prof
         validate_construction_product(
             construction.prepared, construction.model, body, source, (primary,)
         )
-    body = product.value.model_dump(mode="json", exclude_unset=True)
+    body = thaw_native(product.value)
     body["members"][0]["kind_contract"] = "another-nominal-kind"
     with pytest.raises(ValueError, match="nominal meaning"):
         validate_construction_product(
@@ -197,7 +203,7 @@ def test_contextual_evaluation_consumes_real_products_and_retains_governed_premi
     )
     inventory = meaning.inventory()
     assert inventory["terms"]
-    assert meaning.value.model_dump(mode="python")["environment"] is not None
+    assert meaning.value["environment"] is not None
     assert b"task_id" not in meaning.content and b"source_view_id" not in meaning.content
     refs = [ref for row in inventory["terms"] for ref in row.get("external_premises", ())]
     assert refs and all(set(ref) == {"product_id", "member_id"} for ref in refs)
@@ -213,7 +219,7 @@ def test_construction_choice_members_are_real_flattened_addresses(profiles):
         source, FormalEvidenceOptions(), subject_context=publication_context(source)
     )
     product = construction.run(source, (primary,), subject_context=publication_context(source))
-    body = product.value.model_dump(mode="json", exclude_unset=True)
+    body = thaw_native(product.value)
     groups = [
         packet["body"] for packet in body["members"] if packet["body"]["record_type"] == "choice"
     ]
@@ -258,7 +264,7 @@ def test_combined_document_preserves_source_and_exact_cross_layer_member_address
     assert readings.source().content == source.content
     member_id = next(
         packet["member_id"]
-        for packet in symbolic.value.model_dump(mode="json", exclude_unset=True)["members"]
+        for packet in symbolic.value["members"]
         if packet["body"]["record_type"] == "choice_member"
     )
     reference = DataProductMemberReference(DataProductReference(symbolic.semantic_id), member_id)
@@ -437,7 +443,7 @@ def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(m
     )
     native = retained_source_annotations(source, frame, context, (annotation,), annotation_profile)
     value = json.loads(native.content)
-    value["blocks"] = list(source_annotation_blocks(native))
+    value["blocks"] = thaw_native(source_annotation_blocks(native))
     value["blocks"][0]["lexemes"] = [
         dict(
             lower=token.lower_,

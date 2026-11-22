@@ -35,7 +35,7 @@ def inputs(profile, text="x+x", health="succeeded", *, contextual=False):
     roles = (_role("source", (source_member,)), _role("formal", (formal_member,)))
     arguments = {
         "source": source.value,
-        "formal": formal.value.model_dump(mode="json", exclude_unset=True),
+        "formal": formal.value,
         "pointer": "",
         "question": "",
         "predicate": "",
@@ -54,7 +54,7 @@ def inputs(profile, text="x+x", health="succeeded", *, contextual=False):
         )
         arguments.update(
             {
-                "constructions": construction.value.model_dump(mode="json", exclude_unset=True),
+                "constructions": construction.value,
                 "inherited": (),
                 "ancestor_sources": (),
             }

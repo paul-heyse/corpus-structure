@@ -422,9 +422,8 @@ def test_acquired_construction_kernel_runs_real_parser_in_child_and_preserves_ty
     native = partition_controlled_annotations(
         prepared, model, annotations, source, subject_context=_publication_context(source)
     )
-    unbacked = replace(native, partitions=())
     with pytest.raises(ValueError, match="selected collection commitment"):
-        port.invoke_python(values(port, source=source.value, formal=(primary,), sentences=unbacked))
+        replace(native, partitions=())
     inputs = values(port, source=source.value, formal=(primary,), sentences=native)
     expected = port.invoke_python(inputs)
     from corpus_structure.semantic import data_operation_prepared_products as prepared_products
@@ -548,6 +547,7 @@ def test_interpreted_body_coverage_refuses_empty_family_with_analytical_members(
 
 
 def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired, monkeypatch):
+    from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.semantic import construction_products
     from corpus_structure.semantic.characterization_ports import (
         _ConstructionInputs,
@@ -561,6 +561,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         verify_interpreted_source_coverage,
     )
     from corpus_structure.semantic.data_operation_model import BoundRoleMember
+    from corpus_structure.semantic.data_operation_partitions import partition_header
     from corpus_structure.semantic.sentence_products import SourceAnnotations
 
     _, _, prepared, model, formal = acquired
@@ -573,9 +574,22 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
     contextual = PreparedContextualProfile(prepared, model).run(
         source, (construction,), (primary,), subject_context=context
     )
-    # These header fields are the complete observation of the annotation input for this proof.
+    # A nominal empty row envelope isolates the completion's premise projection.
     annotation = SourceAnnotations(
-        b'{"execution_profile":"selected","block_coverage":[]}',
+        canonical_bytes(
+            {
+                "source": source.value["source"],
+                "selectors": source.value["selectors"],
+                "execution_profile": "selected",
+                "configuration": SentenceConfig(exclude=("ner",)).model_dump(mode="json"),
+                "outcome": "partial",
+                "block_coverage": [],
+                "coverage": [],
+                "block_layouts": [],
+                "members": [],
+                "rows": partition_header(()),
+            }
+        ),
         prepared,
         model,
         (),
@@ -667,6 +681,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         "text.constructions/native-numeric-scores",
         "text.constructions/positioned-source-geometry",
         "text.constructions/released-attachment-witnesses",
+        "text.constructions/selected-primary-members",
         "text.constructions/selected-source-coverage",
     )
     (reference_target,) = model.operation("text.constructions/source-native").reference_targets
@@ -734,7 +749,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         support_evidence=b"{}",
         support_references=(),
     )
-    payload = construction.value.model_dump(mode="json", exclude_unset=True)
+    payload = construction.value
 
     def repeated(*args, **kwargs):
         pytest.fail("selected construction repeated an established source or coverage rule")
@@ -748,6 +763,8 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         "verify_inventory_native_scores",
         "verify_inventory_occurrence_ids",
         "verify_interpreted_attachment_witnesses",
+        "validate_attachment_basis",
+        "verify_interpreted_dependency_members",
     ):
         monkeypatch.setattr(construction_products, checker, repeated)
     selected_product = construction_products.acquired_construction_product(
@@ -828,35 +845,39 @@ def test_primary_support_uses_real_annotation_rows_and_preserves_formal_premises
 
 
 def test_retained_family_ingress_uses_selected_member_context_and_checks_native_id(acquired):
-    from dataclasses import replace
-    from types import SimpleNamespace
-
-    from corpus_structure.semantic.data_operation_ports import PortRefusal
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember
 
     _, _, _, _, formal = acquired
     source = selected(formal, "All samples are finite.")
     context = _publication_context(source)
     original = formal.run(source, FormalEvidenceOptions(), subject_context=context)
     port = admitted(acquired, "text.constructions/source-native", resolve_construction_port)
-    member = SimpleNamespace(
+    formal_role = next(role for role in port.operation.roles if role.name == "formal")
+    member = BoundRoleMember(
         product=original.semantic_id,
+        kind_contract=next(
+            item.key for item in port.model.identities
+            if item.owner == formal_role.kind and item.domain == "kind"
+        ),
         subject=context.subject,
         subject_definition=context.subject_definition,
         original_source=context.original_source,
         analyzed_scope=context.analyzed_scope,
-        member=None,
-        multiplicity=1,
+        coverage=b"{}",
+        support_episodes=(),
+        support_evidence=b"{}",
+        support_references=(),
     )
     binding = SimpleNamespace(
         subject_context=context, roles=(SimpleNamespace(role="formal", members=(member,)),)
     )
-    unbound = replace(original, subject_context=None)
-    restored = port._selected_product(unbound, binding, "formal", 0)
+    unbound = original.with_context(None)
+    (restored,) = port._formal(source, (unbound,), binding)
     assert restored.content == original.content
     assert restored.subject_context == context
     assert restored.semantic_id == member.product
     other_project = SimpleNamespace(
         subject_context=replace(context, project_id="another-project"), roles=binding.roles
     )
-    with pytest.raises(PortRefusal, match="selected native product identity"):
-        port._selected_product(unbound, other_project, "formal", 0)
+    with pytest.raises(ValueError, match="exact selected native product/source"):
+        port._formal(source, (unbound,), other_project)

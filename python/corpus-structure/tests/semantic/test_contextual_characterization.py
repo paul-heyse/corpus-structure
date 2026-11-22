@@ -1,6 +1,5 @@
 """Independently authored symbolic endpoints and structural inheritance boundaries."""
 
-import json
 from typing import Any
 
 from methods.contextual_characterization_support import context_builder, context_product, dipo_reply
@@ -121,8 +120,7 @@ def symbolic_layer(case, *, conflicting=False):
 def test_distinct_binders_host_and_attribution_keep_exact_original_term_endpoints(native_source):
     symbolic = symbolic_layer(native_source)
     product = context_product(native_source, dipo=dipo_reply(), products=(symbolic,))
-    body = product.inventory()
-    body["coverage"] = json.loads(product.content)["coverage"]
+    body = {**product.inventory(), "coverage": product.value["coverage"]}
     nodes = {a["local_id"]: a for a in body["annotations"]}
 
     def original(key):
@@ -155,8 +153,7 @@ def test_incompatible_external_choices_do_not_erase_completed_native_evidence(na
     symbolic = symbolic_layer(native_source, conflicting=True)
     original = symbolic.content
     product = context_product(native_source, dipo=dipo_reply(), products=(symbolic,))
-    body = product.inventory()
-    body["coverage"] = json.loads(product.content)["coverage"]
+    body = {**product.inventory(), "coverage": product.value["coverage"]}
     assert any(a["kind"] == "native.rst_node" for a in body["annotations"])
     assert (
         next(c for c in body["coverage"] if c["family"] == "context.binding")["outcome"]

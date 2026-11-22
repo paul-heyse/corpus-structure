@@ -19,6 +19,7 @@ from .construction_products import (
 )
 from .data_operation_model import ResolvedRoleBinding, SubjectContext
 from .identity import canonical_bytes
+from .native_source_view import thaw_native
 from .python_module_projection import admitted_operation_module_meaning
 from .types import PreparedRelease, SourceArtifact
 
@@ -43,7 +44,7 @@ _PATHS = (
 )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class DeclarationSyntaxProduct(InterpretedProduct):
     kind_name: ClassVar[str] = "DdoDeclarationSyntaxProduct"
     manifest_name: ClassVar[str] = "DdoConstructionManifest"
@@ -224,7 +225,7 @@ class PreparedDeclarationInputs:
             subject_context=self.context,
         )
         self.check_active()
-        return json.loads(product.content)
+        return thaw_native(product.value)
 
 
 def execute_declaration_profile(receiver, source, canonical, hanlp):
