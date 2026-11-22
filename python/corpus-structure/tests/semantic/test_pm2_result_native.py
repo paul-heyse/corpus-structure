@@ -261,14 +261,25 @@ def test_actual_seventeen_question_refusal_stays_at_provider_boundary():
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
-def test_actual_literal_provider_answer_survives_current_selected_read(scenario_seeds, tmp_path):
+def test_actual_literal_provider_answer_survives_current_selected_read(
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+):
+    from evaluate.declared_record_native_support import table_source_content
+
     from corpus_structure.methods.native_profiles import pm2_selection, preflight_native_runtime
+    from corpus_structure.semantic.data_operation_values import decode_semantic_value
+    from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
+    from semantic.current_pdf_source_support import PROJECT, PdfSourceScenario
     from semantic.current_pm2_provider_fixture import OPERATION as ACTUAL
+    from semantic.test_sentence_partition_chain_native import _private_source
 
     assets = Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])
     checked = preflight_native_runtime("d1", assets)
     selected = pm2_selection("d1", assets, checked["runtime_identity"], checked["assets"])
-    with table_source(scenario_seeds) as source:
+    scenario = PdfSourceScenario(table_source_content(), ("#/groups/0",))
+    with _private_source(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch, "", scenario=scenario
+    ) as source:
         kernel = admit_current_target(
             source, provider_recipe(tmp_path, selected), tmp_path / "consumer"
         )
@@ -319,6 +330,25 @@ def test_actual_literal_provider_answer_survives_current_selected_read(scenario_
             for receipt in evidence["provider_receipts"]
             for item in receipt["physical"]
         )
+        archive = tmp_path / "d1"
+        with kernel.purpose("read").begin() as connection:
+            exported = export_demand_result(
+                connection,
+                demand,
+                project_id=PROJECT,
+                destination=archive,
+                format="jsonl",
+                scope={"product_ids": [product["product_id"]]},
+            )
+        assert isinstance(exported.manifest_digest, str)
+        with verified_demand_export(archive, manifest_digest=exported.manifest_digest) as (
+            _manifest,
+            _prepared,
+            _models,
+            index,
+        ):
+            row = index.mapping("kb.data_product", ("id",))[product["product_id"]]
+            assert decode_semantic_value(row["canonical_body"]) == product["body"]
         assert execute(kernel, demand).receipt_count == 0
 
 
