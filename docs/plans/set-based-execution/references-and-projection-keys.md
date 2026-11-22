@@ -430,9 +430,12 @@ Candidate-conditioned `text.d1_candidates/source-native` has separate acceptance
 The private candidate-conditioned D1 run passed contextual publication and returned a real
 candidate with a nonempty proxy population. Its broad support read exceeded the 8 MiB page
 bound before export (`2a421f4617134d5fb8223bdc7c9ff689`). This run used a shorter source and
-an explicit 240-second completion bound. The focused retry uses separate keyed product
-selections and an explicit 32 MiB archive page bound. Final-root provider and read qualification
-remain with their owners.
+an explicit 240-second completion bound. The combined-source retry passed the selected live
+HanLP partition and Maverick report checks, then reached D1 export. With separate product-scoped
+reads, 16 rows per archive page and an explicit 32 MiB page bound, the worker reached its
+15-minute watchdog in the native selected-support query (`774993634d3c4393b6f77882f5f1d756`).
+Candidate-conditioned detached acceptance remains open. [SBX-11/12](owner-resolved-reads.md#sbx-11)
+own the bounded support and replay path that this provider journey needs.
 
 **Named-definition cutover · 2026-11-21.** The named producer publishes a nominal refinement
 of definition components. Each witness belongs to the producing report and is keyed by the
