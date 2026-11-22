@@ -152,6 +152,14 @@ test`, `76adb046d16044b089d50ec9a4a2aa46`, isolated implementation worktree). Th
 receiving-consumer controls passed by identity across `cc5010ae49514ae4a93ac63a83404cf8`
 and `1f0d5e3266b040f7874f9bbccbc51713`. Final registered-root provider qualification remains open.
 
+**CPU descriptor handoff · Tested by selected identity · 2026-11-22.** The child acquires one
+descriptor per invocation and carries its callable, signature, adapters and verification through
+scalar, batch, stream and coroutine execution. Twenty-five focused controls passed by identity
+in `uv run ci test --native-host private` (`a9e448fa74394151a3e4e3dcb33c310a`). The five native
+stream controls stopped before execution at the legacy installed descriptor. Run them on the
+registered cold root. The request fence and the independent retained-reply check remain part
+of acceptance.
+
 **Implementation checkpoint · 2026-11-21.** The closed source constructor, same-decoder
 acceptance and sealed CPU worker ingress share the selected validation contract. The immutable
 decoded source payload is bounded by the process runtime-byte owner. Invocation-owned indexes
@@ -246,6 +254,9 @@ Twenty PDF preparation, custody and worker-tamper controls passed
 premises across the provider exchange. Seventeen focused controls passed
 (`cda975ebe9e544f08a417f0defa4d4c0`). The live learned tests against the old registered root
 failed release correspondence before provider execution (`2bfa687618314088bd140ba61d885de0`).
+The actual learned-definition journey also stopped at that comparison on the old registered
+root (`uv run ci test --native-host private --providers-only`,
+`e528f0a381604f5a9c8039dcd8649749`).
 
 **Owns.** An authenticated slice per family-specific port, built at admission; the two checks per
 computation; one descriptor per prepared port; the family `verify` hooks that re-read assets per

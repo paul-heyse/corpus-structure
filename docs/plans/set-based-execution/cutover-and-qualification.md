@@ -27,15 +27,15 @@ the integrated source against an empty authoring target on the dedicated Postgre
 
 ### Development reset through SBX-09
 
-1. Complete the packages through SBX-09. Retire the active legacy Alembic chain and its
-   predecessor-specific data-step code. Preserve generic successor authoring. Record the old
-   stage predecessor and its Git baseline for SBX-20. Create an empty authoring database on
-   `18/corpus` with `uv run ci db init --creation-only`. Bind the reader and maintenance
-   settings to it. Run `uv run ci model change preview`, `candidate` and `inspect-candidate` for
-   `semantic_sbx_current_root` with a null predecessor and zero data steps. Confirm captured source,
-   descriptor, objects, grants and rollback. Register the inspected candidate with
-   `uv run ci model change register` and install it with `uv run ci db init` on a separate fresh
-   qualification target. Confirm the sole head, exact descriptor and purpose-role behavior.
+1. Integrate the functional changes through SBX-09 and run their scoped checks. Retire the active
+   legacy Alembic chain and its predecessor-specific data-step code. Preserve generic successor
+   authoring. Record the old stage predecessor and its Git baseline for SBX-20. Create an empty
+   authoring database on `18/corpus` with `uv run ci db init --creation-only`. Bind the reader
+   and maintenance settings to it. Run `uv run ci model change preview`, `candidate` and
+   `inspect-candidate` for `semantic_sbx_current_root` with a null predecessor and zero data steps.
+   Confirm captured source, descriptor, objects, grants and rollback. Register the inspected
+   candidate with `uv run ci model change register` and install it with `uv run ci db init` on
+   a separate fresh qualification target. Confirm the sole head, exact descriptor and purpose-role behavior.
 2. Run `just turn-end` before final-source qualification. Run `uv run ci test` and
    `uv run ci check` for the applicable ordinary and shared fault scope. Use
    `uv run ci test --providers-only` for changed real annotation and canonical, HanLP

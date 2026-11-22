@@ -213,6 +213,24 @@ The real witnessed-retrieval identity passed after that repair in
 same-span detached workflow in that result still failed before export because it
 obtained no witnessed report.
 
+The next private run (`9cc7011aaedb42b28e8c59945ee0c18c`) reached genuine export on
+the selected route and failed when the detached validator saw native tuple constraints
+under a different schema dialect. The same-span path refused valid cues sharing an
+ordinal. Cues now use exact set membership, and detached execution evidence uses the
+native Draft 7 generator. The twenty-two witness and declaration checks and twenty
+evidence leaf controls passed (`uv run ci test`, `f92c3b20769440bea1bc8ec6c414060c`,
+`9addd92daefb4822b184a8a98b10d3b6`). The next native retry
+`253b130a1a574022bfcf144a2a23a9d2` exposed that merging the native completion schema
+dropped local leaf definitions. The support owner now preserves those definitions.
+Twenty leaf controls passed again (`3a8e615dd88d445680585e5e47b4fa38`). The fresh two-case
+native result `30d13215361b4aac9a2a819a7720ac8d` reached both detached archives and was
+interrupted while the exported, generated completion union repeatedly traversed recursive
+values. The export now composes the leaf with the existing native completion definition,
+including its tag-directed value schema. All twenty leaf controls passed (`uv run ci test`,
+`8a3e46010d7a44acae7b2dee881c4d5b`). The exact contract validated three selected execution
+evidence rows from the retained same-span archive and four from witnessed retrieval.
+Fresh full replay remains required.
+
 **Artifact sources · Tested by selected identity · 2026-11-22.** Artifacts verify their
 exact source pins through the original binding and reference witness. The redundant
 source and report rosters are gone. The nineteen passing identities in
@@ -398,12 +416,36 @@ and the following exact episode allowed binding to all required uses
 (`uv run ci test --native-host private`, `b7ae512c07654fbda060d649e43d17e1`,
 isolated current-source installation). The other watermark origins remain open.
 
-**Actual canonical adoption · Partial · 2026-11-22.** Two genuine annotation captures
+**Late original admission · Tested · 2026-11-22.** The ordinary planner compares committed,
+newly visible original or authored admissions with the retained wait read and the role's
+expected kind, origin and context. Body-dependent selectors can wake conservatively and
+binding makes the exact decision. The planner uses the matching marker instead of including
+all original admissions in the old watermark. In the private two-original collection control,
+each first admission wakes only its matching waiter, leaves the unrelated obligation asleep and
+binds the exact admission ID (`uv run ci test --native-host private`,
+`33feb2a48a674b6a810484b3862f4d5b`). The direct scalar control passed by selected identity in
+`035fc38a06244ba4acd2b48e5409804e`.
+
+**Selected population wake · Tested · 2026-11-22.** The native read checks a newly visible,
+valid selection for the exact waiting obligation. The private PostgreSQL control preserved both
+watermarks and the old pinned read when a selected receipt was committed. The ordinary planner
+attached the selected holder and left its peer waiting (`uv run ci test --native-host private`,
+`14146e1598e1404cbc300283ea8fdaeb`). Base discovery closures and uncovered dependency wake routes
+remain with the scheduling watermark.
+
+**Actual canonical adoption · Tested · 2026-11-22.** Two genuine annotation captures
 with different batch sizes prepare distinct releases and annotation recipes with the same
 canonical recipe. A private real-provider run passed the initial chain and failed on the
 successor's discovery attachment before adoption (`uv run ci test --native-host private
---providers-only`, `ac9812c001f94d349cd52164f2ae6de6`). Exact support for a current use
-of an earlier discovery episode is a prerequisite of this ordinary successor route.
+--providers-only`, `ac9812c001f94d349cd52164f2ae6de6`). The corrected native discovery
+gate binds its retained admission-use ID to the current demand and obligation and separately
+authenticates the producing episode and compatible released recipe. The CUDA-backed retry
+passed (`fc1c520ca269452496679c52b1f3310d`). The successor had a distinct request and selected
+the new annotation product, attached the earlier canonical derivation with zero new canonical
+generations, and retained the original producing input. Substitution of the previous demand's
+genuine use for the same discovery episode refused. This establishes reuse across distinct
+release/runtime coordinates for equal effective canonical computation at one exact occurrence.
+Move, reconversion and full scoped delivery acceptance remain open.
 
 **Compiler checkpoint · 2026-11-21.** Input roles can declare whole, partition or bounded
 halo reads. The compiler emits versioned projection identities and typed edges to the
