@@ -1,6 +1,9 @@
 """Controlled native values exercise mappings and hypotheses, never provider passage."""
 
 from dataclasses import asdict
+from typing import Any
+
+from pydantic import TypeAdapter
 
 from corpus_structure.methods.pm2_result import _parser_products, pm2_contribution_values
 from corpus_structure.semantic.construction_products import CharacterizationSnapshot
@@ -97,6 +100,7 @@ def test_declared_maverick_mapping_retains_original_contributions_and_context_hy
     result = contextual_native_values(
         source, frame, (), maverick, dipo, contracts, "controlled-assets", lambda: None
     )
+    assert TypeAdapter(dict[str, Any]).dump_json(result)
     assert result["outcome"] == "partial"
     assert result["dependencies"] == [
         {"product_id": "selected-native-maverick"},

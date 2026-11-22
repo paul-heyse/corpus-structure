@@ -145,6 +145,155 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
     assert frozen["selections"]["d1"]["profile"]["dtype"] == "bfloat16"
     assert frozen["selections"]["maverick"]["profile"]["dtype"] == "float32"
     assert frozen["selections"]["gliner"]["profile"]["device"] == "cuda"
+    _assert_contextual_native_cpu_bracket(inputs, prepared, model, monkeypatch)
+
+
+def _assert_contextual_native_cpu_bracket(inputs, prepared, model, monkeypatch):
+    import os
+    from types import SimpleNamespace
+
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.core.work import drive_prepared_work
+    from corpus_structure.semantic import data_operation_prepared_products
+    from corpus_structure.semantic.characterization_manifests import (
+        append_manifest,
+        manifest_contract,
+    )
+    from corpus_structure.semantic.construction_products import PreparedConstructionProfile
+    from corpus_structure.semantic.contextual_native_products import resolve_contextual_native_port
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+    from corpus_structure.semantic.data_operation_model import BoundRoleMember, ResolvedRoleBinding
+    from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+    from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
+    from corpus_structure.semantic.formal_evidence import grammar_identity
+    from corpus_structure.semantic.formal_products import (
+        FormalEvidenceOptions,
+        prepare_formal_evidence,
+    )
+    from corpus_structure.semantic.identity import canonical_bytes
+    from semantic.formal_products_support import selected
+    from semantic.test_characterization_prepared_ports import _publication_context, admitted
+
+    operation = "text.contextual_native/source-native"
+    port = admitted(
+        (inputs.bundle, inputs.sources, prepared, model, None),
+        operation,
+        resolve_contextual_native_port,
+    )
+    formal = prepare_formal_evidence(prepared, model, grammar=grammar_identity())
+    source = selected(formal, "All samples are finite.")
+    context = _publication_context(source)
+    evidence = formal.run(source, FormalEvidenceOptions(), subject_context=context)
+    constructions = PreparedConstructionProfile(prepared, model).run(
+        source, (evidence,), subject_context=context
+    )
+    kind_contracts = {item.owner: item.key for item in model.identities if item.domain == "kind"}
+    roles = {
+        role.name: kind_contracts[role.kind]
+        for role in port.operation.roles
+        if role.direction == "input"
+    }
+    members = {
+        role: BoundRoleMember(
+            product,
+            roles[role],
+            context.subject,
+            context.original_source,
+            context.analyzed_scope,
+            coverage=b"{}",
+            subject_definition=context.subject_definition,
+            support_episodes=(),
+            support_evidence=b"{}",
+            support_references=(),
+        )
+        for role, product in (
+            ("source", "controlled:source"),
+            ("formal", evidence.semantic_id),
+            ("constructions", constructions.semantic_id),
+            ("maverick", "controlled:maverick"),
+            ("dipo", "controlled:dipo"),
+        )
+    }
+    frame = DeclaredNativeFrameSource.acquire(
+        prepared, source, members["source"], project=context.project_id
+    )
+
+    def observation(provider, nominal):
+        return append_manifest(
+            {
+                "source": source.value["source"],
+                "selectors": source.value["selectors"],
+                "source_pin": frame.pin.values(),
+                "provider": provider,
+                "profile_digest": "f" * 64,
+                "standing": "native_provider_observation",
+                "observations": [],
+                "coverage": [],
+                "outcome": "complete",
+                "dependencies": [],
+            },
+            manifest_contract(prepared, model, "Ddo" + nominal + "Manifest"),
+        )
+
+    values = tuple(
+        PythonRoleValue(role, roles[role], value)
+        for role, value in (
+            ("source", source.value),
+            ("formal", json.loads(evidence.content)),
+            ("constructions", json.loads(constructions.content)),
+            ("maverick", observation("maverick", "Maverick")),
+            ("dipo", observation("dipo", "Dipo")),
+        )
+    )
+    binding = SimpleNamespace(
+        operation=operation,
+        subject_context=context,
+        roles=tuple(
+            ResolvedRoleBinding(role, "present", (member,)) for role, member in members.items()
+        ),
+        sufficient=True,
+    )
+    checked = port._verification.check
+    checks = []
+
+    def observed_check():
+        checks.append(True)
+        checked()
+
+    def unexpected_compile(*args, **kwargs):
+        raise AssertionError("the prepared contextual native call compiled source after admission")
+
+    monkeypatch.setattr(port._verification, "check", observed_check)
+    monkeypatch.setattr(
+        data_operation_prepared_products, "compile", unexpected_compile, raising=False
+    )
+    cpu = CPUExecutionScope(
+        prepared,
+        CharacterizationExecutionPolicy(
+            workers=1, max_submissions=1, max_packet_bytes=8 * 1024**2, max_reply_bytes=8 * 1024**2
+        ),
+        retain_schema=False,
+    )
+    try:
+        completion = drive_prepared_work(
+            port.plan_python(
+                values, binding=binding, execution_owner=SimpleNamespace(cpu=cpu, reservation=None)
+            ),
+            lambda: None,
+        )
+        assert checks == [True, True]
+        (output,) = completion.outputs
+        assert len(output.members) == 1
+        body = json.loads(output.content)
+        assert body["outcome"] == "partial"
+        assert body["dependencies"] == [
+            {"product_id": members[role].product}
+            for role in ("formal", "constructions", "maverick", "dipo")
+        ]
+        assert canonical_bytes(body) == output.content
+        assert json.loads(completion.cpu_execution_evidence)["pid"] != os.getpid()
+    finally:
+        cpu.close()
 
 
 def test_explicit_learned_focus_keeps_context_and_unknown_remainder_separate():

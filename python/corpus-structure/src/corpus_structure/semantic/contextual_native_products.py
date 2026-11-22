@@ -5,13 +5,18 @@ from __future__ import annotations
 import inspect
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Any, ClassVar
+from dataclasses import dataclass, field
+from hashlib import sha256
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from .construction_products import CharacterizationSnapshot, InterpretedProduct
 from .declared_record_sources import DeclaredNativeFrameSource
 from .identity import canonical_bytes
 from .source_products import FrozenNativeSource
+
+if TYPE_CHECKING:
+    from .data_operation_cpu import PythonCPUDescriptor
+    from .runtime_slice import AuthenticatedSlice
 
 
 @dataclass(frozen=True)
@@ -50,7 +55,9 @@ def contextual_native_values(
     native_complete, native_unexamined = {}, []
     for provider, snapshot in (("maverick", maverick), ("dipo", dipo)):
         body = json.loads(snapshot.content)
-        if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(selected["selectors"]):
+        if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(
+            selected["selectors"]
+        ):
             raise ValueError("contextual native dependency changes original selected scope")
         native_complete[provider] = all(
             row["outcome"] in {"complete", "empty"}
@@ -73,6 +80,8 @@ def contextual_native_values(
             if provider in group:
                 raise ValueError("native contextual dependency repeats an original scope")
             group[provider] = (snapshot.semantic_id, ordinal, value)
+    coordinate = dict(selected["source"])
+    selectors = [dict(selector) for selector in selected["selectors"]]
     inventories = {
         name: {}
         for name in ("occurrences", "annotations", "memberships", "roles", "terms", "choices")
@@ -85,7 +94,7 @@ def contextual_native_values(
             (dict(projection=frame.projection_digest, start=start, end=end),),
         )
         builder = ContextualLayer(
-            selected["source"],
+            coordinate,
             {"selectors": list(context.focal)},
             {"key": "text.contextual_native/source-native", "assets": assets},
             context,
@@ -142,15 +151,14 @@ def contextual_native_values(
     combined = []
     for family in CONTEXT_FAMILIES:
         rows = coverage[family]
-        eligible = selected["selectors"]
         if not rows:
             complete = not selected["text"].strip()
             combined.append(
                 {
                     "family": family,
-                    "eligible": eligible,
-                    "examined": eligible if complete else [],
-                    "unexamined": [] if complete else eligible,
+                    "eligible": selectors,
+                    "examined": selectors if complete else [],
+                    "unexamined": [] if complete else selectors,
                     "availability": "available" if complete else "unavailable",
                     "outcome": "empty" if complete else "partial",
                     "operation": "text.contextual_native/source-native",
@@ -165,7 +173,7 @@ def contextual_native_values(
         combined.append(
             {
                 "family": family,
-                "eligible": eligible,
+                "eligible": selectors,
                 "examined": [selector for row in rows for selector in row["examined"]],
                 "unexamined": [
                     *native_unexamined,
@@ -192,10 +200,10 @@ def contextual_native_values(
             }
         )
     context = {
-        "subject": source_subject(selected["source"]),
+        "subject": source_subject(coordinate),
         "subject_definition": "original-source-view",
-        "original_source": selected["source"]["document"],
-        "analyzed_scope": {"source": selected["source"], "selectors": selected["selectors"]},
+        "original_source": coordinate["document"],
+        "analyzed_scope": {"source": coordinate, "selectors": selectors},
     }
     members = []
     for name, tag in (
@@ -216,8 +224,8 @@ def contextual_native_values(
                 }
             )
     value = {
-        "source": selected["source"],
-        "selectors": selected["selectors"],
+        "source": coordinate,
+        "selectors": selectors,
         "coverage": combined,
         "outcome": "complete"
         if all(row["outcome"] in {"complete", "empty"} for row in combined)
@@ -278,65 +286,124 @@ class PreparedContextualNativePort:
     authorize: Any
     custody: tuple
     sources: Any
-    selections: Any
-    threshold: float
-    max_context_chars: int
+    _verification: AuthenticatedSlice = field(init=False, repr=False, compare=False)
+    _descriptor: PythonCPUDescriptor = field(init=False, repr=False, compare=False)
+    _signature: inspect.Signature = field(init=False, repr=False, compare=False)
+    _asset_digest: str = field(init=False, repr=False, compare=False)
+    _member_contracts: tuple[tuple[str, str], ...] = field(init=False, repr=False, compare=False)
     native_selections = ()
 
-    def _verify(self):
+    def __post_init__(self):
         from corpus_structure.methods.learned_primary import ContextualNativePrimaryOperation
 
-        from .data_operation_prepared_products import verify_prepared_product
-        from .learned_primary import learned_execution_custody, learned_profile_assets
+        from .construction_products import interpreted_member_contracts
+        from .data_operation_cpu import prepared_cpu_descriptor
+        from .data_operation_prepared_products import (
+            authenticated_prepared_product,
+            verify_prepared_product,
+        )
+        from .file_custody import verified_file
+        from .learned_primary import (
+            _ROOT,
+            learned_execution_custody,
+            learned_profile_assets,
+            resolve_learned_selections,
+        )
 
+        selections, threshold, max_context_chars = resolve_learned_selections(self.custody)
+        profile = learned_profile_assets(
+            selections, threshold=threshold, max_context_chars=max_context_chars
+        )
+        custody = learned_execution_custody(
+            selections, threshold=threshold, max_context_chars=max_context_chars
+        )
+        entrypoint = (
+            "corpus_structure.semantic.contextual_native_products.execute_contextual_native_kernel"
+        )
+        functions = (
+            (
+                self.operation.callable_surfaces[0].declaration,
+                ContextualNativePrimaryOperation.run,
+            ),
+            (
+                "corpus_structure.semantic.contextual_native_products.execute_contextual_native",
+                execute_contextual_native,
+            ),
+            (
+                "corpus_structure.semantic.contextual_native_products.contextual_native_values",
+                contextual_native_values,
+            ),
+            (entrypoint, execute_contextual_native_kernel),
+        )
         verify_prepared_product(
             self.identity,
             self.model,
             self.operation,
             self.sources,
             self.custody,
-            assets=(
-                learned_profile_assets(
-                    self.selections,
-                    threshold=self.threshold,
-                    max_context_chars=self.max_context_chars,
-                ),
-                learned_execution_custody(
-                    self.selections,
-                    threshold=self.threshold,
-                    max_context_chars=self.max_context_chars,
-                ),
-            ),
-            functions=(
-                (
-                    self.operation.callable_surfaces[0].declaration,
-                    ContextualNativePrimaryOperation.run,
-                ),
-                (
-                    "corpus_structure.semantic.contextual_native_products.execute_contextual_native",
-                    execute_contextual_native,
-                ),
-                (
-                    "corpus_structure.semantic.contextual_native_products.contextual_native_values",
-                    contextual_native_values,
-                ),
-                (
-                    "corpus_structure.semantic.contextual_native_products.execute_contextual_native_kernel",
-                    execute_contextual_native_kernel,
-                ),
-            ),
+            assets=(profile, custody),
+            functions=functions,
             authorize=self.authorize,
             required_sources=self.sources,
         )
+        verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=self.sources
+        )
+        configuration = json.loads(profile.content)
+        captured = {source.module: source.content for source in self.sources.sources}
+        sources = []
+        questions = bytes.fromhex(configuration["questions"])
+        files = [
+            verified_file(
+                _ROOT / "model/semantic/characterization-questions.yaml",
+                sha256(questions).hexdigest(),
+            )
+        ]
+        for name, encoded in configuration["files"]:
+            module = "corpus_structure." + name.removesuffix(".py").replace("/", ".")
+            path = (_ROOT / name).resolve()
+            # The declaration module contributes normalized meaning to the profile.
+            # Its exact executable bytes come from the admitted operation sources.
+            content = (
+                captured[module] if name == "methods/learned_primary.py" else bytes.fromhex(encoded)
+            )
+            sources.append((module, str(path), content))
+            files.append(verified_file(path, sha256(content).hexdigest()))
+        verification.files = tuple(
+            {file.path: file for file in (*verification.files, *files)}.values()
+        )
+        object.__setattr__(self, "_verification", verification)
+        object.__setattr__(
+            self, "_signature", inspect.signature(execute_contextual_native_kernel, eval_str=True)
+        )
+        object.__setattr__(self, "_asset_digest", profile.digest)
+        object.__setattr__(
+            self,
+            "_member_contracts",
+            tuple(interpreted_member_contracts(self.prepared, self.model).items()),
+        )
+        object.__setattr__(
+            self,
+            "_descriptor",
+            prepared_cpu_descriptor(
+                tuple(sources), entrypoint, None, tuple(file.receipt() for file in files)
+            ),
+        )
+
+    def _verify(self):
+        from .data_operation_ports import PortRefusal
+
+        try:
+            self._verification.check()
+        except ValueError as error:
+            raise PortRefusal(str(error)) from error
+        self.authorize(self.identity)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.semantic.input_values import _untrusted_value
 
-        from .construction_products import (
-            interpreted_member_contracts,
-            validate_interpreted_product,
-        )
-        from .data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
+        from .construction_products import validate_interpreted_product
+        from .data_operation_cpu import plan_cpu_call
         from .data_operation_ports import (
             PortCompletion,
             PortRefusal,
@@ -344,9 +411,7 @@ class PreparedContextualNativePort:
             project_product_members,
         )
         from .data_operation_values import semantic_value
-        from .learned_primary import _FILES, _ROOT, learned_profile_assets
 
-        self._verify()
         if (
             binding is None
             or not binding.sufficient
@@ -374,7 +439,7 @@ class PreparedContextualNativePort:
         selected = {role.role: role.members[0] for role in binding.roles}
         frame = DeclaredNativeFrameSource.acquire(
             self.prepared,
-            source.value,
+            source,
             selected["source"],
             project=binding.subject_context.project_id,
         )
@@ -388,32 +453,14 @@ class PreparedContextualNativePort:
             products=(snapshots["formal"], snapshots["constructions"]),
             maverick=snapshots["maverick"],
             dipo=snapshots["dipo"],
-            contracts=interpreted_member_contracts(self.prepared, self.model),
-            assets=learned_profile_assets(
-                self.selections, threshold=self.threshold, max_context_chars=self.max_context_chars
-            ).digest,
+            contracts=dict(self._member_contracts),
+            assets=self._asset_digest,
             check_active=check_active,
         )
-        signature = inspect.signature(execute_contextual_native_kernel, eval_str=True)
-        files = tuple(
-            (
-                "corpus_structure." + name.removesuffix(".py").replace("/", "."),
-                str((_ROOT / name).resolve()),
-                (_ROOT / name).read_bytes(),
-            )
-            for name in _FILES
-        )
-        descriptor = PythonCPUDescriptor(
-            files,
-            "corpus_structure.semantic.contextual_native_products.execute_contextual_native_kernel",
-            (),
-            verification="prepared-kernel",
-            control_parameter="check_active",
-        )
         reply = yield from plan_cpu_call(
-            descriptor,
-            signature.bind(**args),
-            signature,
+            self._descriptor,
+            self._signature.bind(**args),
+            self._signature,
             verify=self._verify,
             execution_owner=execution_owner,
             check_active=check_active,
@@ -447,23 +494,9 @@ class PreparedContextualNativePort:
 def resolve_contextual_native_port(
     prepared, model, operation, *, identity, authorize, custody, sources
 ):
-    from .learned_primary import resolve_learned_selections
-
     selected = model.operation(operation)
     if selected.semantic_id != "text.contextual_native/source-native" or selected.effects:
         raise ValueError("contextual native factory differs from its declared source owner")
-    selections, threshold, max_context_chars = resolve_learned_selections(custody)
-    port = PreparedContextualNativePort(
-        identity,
-        selected,
-        prepared,
-        model,
-        authorize,
-        custody,
-        sources,
-        selections,
-        threshold,
-        max_context_chars,
+    return PreparedContextualNativePort(
+        identity, selected, prepared, model, authorize, custody, sources
     )
-    port._verify()
-    return port
