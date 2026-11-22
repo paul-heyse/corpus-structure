@@ -11,12 +11,17 @@ from typing import TYPE_CHECKING, Any
 from .characterization_manifests import append_manifest
 from .data_operation_model import SubjectContext
 from .data_operation_outcomes import successful_return_outcome
+from .data_operation_projection_values import materialize_whole_input_projection
 from .identity import canonical_bytes
 from .types import SourceArtifact
 
 if TYPE_CHECKING:
     from .data_operation_admission import PreparedCapabilityIdentity
-    from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation
+    from .data_operation_model import (
+        EffectiveDataOperationModel,
+        EffectiveOperation,
+        InputReadProjection,
+    )
     from .types import PreparedRelease
 
 
@@ -86,8 +91,9 @@ def canonical_projection_spec(model, container_kind):
 
 
 def canonical_partition_values(inventory: dict, projection: dict) -> dict:
+    from .data_operation_values import decode_semantic_value
     from .data_product_reference import SemanticReference
-    from .sentence_partitions import COLLECTION, SentenceBlock, blocks_from_packets
+    from .sentence_partitions import COLLECTION, SentenceBlock
 
     header = inventory["header"]
     coverage = [row for row in header["coverage"] if row["family"] in projection["families"]]
@@ -98,30 +104,22 @@ def canonical_partition_values(inventory: dict, projection: dict) -> dict:
         if all(row["outcome"] in {"complete", "empty"} for row in coverage)
         else "partial",
     }
-    fields = {
-        "record_type",
-        "ordinal",
-        "start",
-        "end",
-        "extent",
-        "sentence",
-        "space",
-        "role",
-        "piece_indices",
-    }
     packets = []
-    for block in blocks_from_packets(inventory["partitions"]):
+    for part in inventory["collections"][COLLECTION]:
+        key = part["partition_key"]
         rows = tuple(
-            {key: value for key, value in row.items() if key in fields}
+            row
             | {
                 "annotation": SemanticReference.item(
-                    "inventory", COLLECTION, block.key, (row["record_type"], row["ordinal"])
+                    "inventory", COLLECTION, key, (row["record_type"], row["ordinal"])
                 ).values()
             }
-            for row in block.rows
+            for row in decode_semantic_value(part["body"])
         )
         packets.append(
-            SentenceBlock(block.key, block.ordinal, block.start, block.end, rows).packet()
+            SentenceBlock(
+                key, part["ordinal"], part["placement"]["start"], part["placement"]["end"], rows
+            ).packet()
         )
     return {"header": append_manifest(body, projection["manifest_contract"]), "partitions": packets}
 
@@ -133,6 +131,8 @@ class PreparedCanonicalProfile:
     operation: EffectiveOperation
     projection: bytes
     output_kind: str
+    input_projection: InputReadProjection
+    input_layouts: bytes
 
     def output(self, value):
         return CanonicalProduct.from_projection(value, self.prepared, self.model, self.output_kind)
@@ -152,7 +152,12 @@ def canonical_profile_assets():
 
     return code_asset(
         "canonical/profile-assets",
-        (execute_canonical_projection, PreparedCanonicalProfile.project, canonical_projection_spec),
+        (
+            execute_canonical_projection,
+            PreparedCanonicalProfile.project,
+            canonical_projection_spec,
+            materialize_whole_input_projection,
+        ),
         parameters={"families": SPACY_FAMILIES[:2]},
     )
 
@@ -165,6 +170,7 @@ def canonical_execution_custody():
         root / "sentence_products.py",
         root / "sentence_partitions.py",
         root / "source_products.py",
+        root / "data_operation_projection_values.py",
         root / "data_operation_prepared_products.py",
         root / "data_operation_ports.py",
         root / "data_operation_cpu.py",
@@ -196,6 +202,11 @@ def canonical_sentence_operation_sources(*, sentence_configuration=None, include
                 "corpus_structure.semantic.data_operation_ports",
                 Path(__file__).with_name("data_operation_ports.py").read_bytes(),
                 str(Path(__file__).with_name("data_operation_ports.py")),
+            ),
+            PythonSource(
+                "corpus_structure.semantic.data_operation_projection_values",
+                Path(__file__).with_name("data_operation_projection_values.py").read_bytes(),
+                str(Path(__file__).with_name("data_operation_projection_values.py")),
             ),
             PythonSource(
                 "corpus_structure.methods.canonical_sentences", path.read_bytes(), str(path)
@@ -262,6 +273,10 @@ class PreparedCanonicalPort:
                     "corpus_structure.semantic.canonical_sentences.PreparedCanonicalProfile.project",
                     PreparedCanonicalProfile.project,
                 ),
+                (
+                    "corpus_structure.semantic.data_operation_projection_values.materialize_whole_input_projection",
+                    materialize_whole_input_projection,
+                ),
             ),
             authorize=self.authorize,
             required_sources=canonical_sentence_operation_sources(include_dependencies=False),
@@ -296,7 +311,12 @@ class PreparedCanonicalPort:
             or decode_semantic_value(json.loads(binding.parameters)) != {}
         ):
             raise PortRefusal("canonical inventory differs from frozen selected binding")
-        return inventory
+        return materialize_whole_input_projection(
+            self.profile.input_projection,
+            json.loads(self.profile.input_layouts),
+            inventory["header"],
+            inventory["partitions"],
+        )
 
     def _complete(self, value, binding=None):
         if binding is not None:
@@ -379,12 +399,18 @@ def resolve_canonical_sentence_port(
         raise PortRefusal(
             "canonical projection requires its declared prepared scalar product profile"
         )
+    input_projection = inputs[0].read_projection
+    if input_projection is None or input_projection.scope != "whole":
+        raise PortRefusal("canonical inventory requires its declared whole read projection")
+    inventory_kind = next(kind for kind in model.kinds if kind.semantic_id == inputs[0].kind)
     profile = PreparedCanonicalProfile(
         prepared,
         model,
         selected,
         canonical_bytes(canonical_projection_spec(model, outputs[0].kind)),
         outputs[0].kind,
+        input_projection,
+        canonical_bytes(json.loads(inventory_kind.facts)["collections"]),
     )
     port = PreparedCanonicalPort(
         identity, profile, authorize, custody, sources or canonical_sentence_operation_sources()

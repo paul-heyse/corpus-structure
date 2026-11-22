@@ -49,6 +49,19 @@ class CanonicalSentenceProjection:
             {
                 "name": "inventory",
                 "parameter": "inventory",
+                "read_projection": {
+                    "scope": "whole",
+                    "header": ["source", "selectors", "block_coverage", "coverage"],
+                    "collections": [
+                        {
+                            "name": "rows",
+                            "groups": ["geometry"],
+                            "membership": True,
+                            "order": True,
+                            "placement": True,
+                        }
+                    ],
+                },
                 "required_rules": [
                     "segment.sentences/native-dense-ordinal",
                     "segment.sentences/native-row-span",

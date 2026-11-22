@@ -3,11 +3,52 @@
 from dataclasses import replace
 
 from corpus_structure.semantic.canonical_sentences import canonical_partition_values
+from corpus_structure.semantic.data_operation_identity import canonical_identity
+from corpus_structure.semantic.data_operation_model import InputReadProjection, ProjectedCollection
+from corpus_structure.semantic.data_operation_projection_values import (
+    input_projection_digest,
+    materialize_whole_input_projection,
+)
 from corpus_structure.semantic.sentence_partitions import (
     SentenceBlock,
     annotation_blocks,
     blocks_from_packets,
 )
+
+_CANONICAL_READ = InputReadProjection(
+    1,
+    "whole",
+    ("block_coverage", "coverage", "selectors", "source"),
+    (ProjectedCollection("rows", ("geometry",), True, True, True),),
+    None,
+    "input-read-projection:fixture",
+)
+_LAYOUTS = {
+    "rows": {
+        "field_groups": {
+            "geometry": (
+                "record_type",
+                "ordinal",
+                "start",
+                "end",
+                "extent",
+                "sentence",
+                "space",
+                "role",
+                "piece_indices",
+            ),
+        }
+    }
+}
+
+
+def _canonical_values(inventory, projection):
+    return canonical_partition_values(
+        materialize_whole_input_projection(
+            _CANONICAL_READ, _LAYOUTS, inventory["header"], inventory["partitions"]
+        ),
+        projection,
+    )
 
 
 def _annotation(start, *, key="#/texts/0", ordinal=0):
@@ -55,7 +96,7 @@ def test_block_movement_keeps_local_geometry_and_canonical_reference():
         "coverage": [],
     }
     projection = {"families": [], "manifest_contract": "kind:manifest"}
-    projected = canonical_partition_values({"header": header, "partitions": [moved]}, projection)
+    projected = _canonical_values({"header": header, "partitions": [moved]}, projection)
     (block,) = blocks_from_packets(projected["partitions"])
     sentence, token = block.rows
     assert [token["start"], token["end"], token["sentence"]] == [0, 3, 0]
@@ -77,7 +118,7 @@ def test_renumbered_repeated_blocks_keep_separate_current_addresses():
         _annotation(12, key="#/texts/2", ordinal=1),
     )
     assert {row["partition_digest"] for row in repeated} == {original["partition_digest"]}
-    projected = canonical_partition_values(
+    projected = _canonical_values(
         {
             "header": {
                 "source": {
@@ -131,7 +172,7 @@ def test_reconverted_split_and_merged_blocks_use_their_current_addresses():
     ).packet()
 
     def selected_token_addresses(packets, revision):
-        product = canonical_partition_values(
+        product = _canonical_values(
             {
                 "header": {
                     "source": {
@@ -168,3 +209,93 @@ def test_reconverted_split_and_merged_blocks_use_their_current_addresses():
         ("#/texts/3", 0, 8, 11),
         ("#/texts/3", 1, 12, 15),
     ]
+
+
+def test_whole_projection_excludes_unread_tags_and_forwards_order_and_placement():
+    packets = [_annotation(12, key="#/one", ordinal=1), _annotation(0, key="#/two", ordinal=0)]
+    for packet in packets:
+        _, rows = packet["body"]
+        # The admitted envelope has already checked these values. A marker in the
+        # lexical field makes a semantic decode of unread content fail this test.
+        for _, fields in rows:
+            for field in fields:
+                if field[0] == "lower":
+                    field[1] = ["unread-tag"]
+    header = {
+        "source": {"document": "same", "projection": "scope", "membership": "exact"},
+        "selectors": [],
+        "coverage": [],
+        "block_coverage": [],
+        "execution_profile": "unread",
+    }
+    projected = materialize_whole_input_projection(_CANONICAL_READ, _LAYOUTS, header, packets)
+    assert projected["header"] == {
+        "source": {"document": "same", "projection": "scope", "membership": "exact"},
+        "selectors": [],
+        "coverage": [],
+        "block_coverage": [],
+    }
+    output = canonical_partition_values(projected, {"families": [], "manifest_contract": "test"})
+    blocks = blocks_from_packets(output["partitions"])
+    assert [(block.key, block.start) for block in blocks] == [("#/two", 0), ("#/one", 12)]
+    assert all("lower" not in row for block in blocks for row in block.rows)
+
+
+def test_whole_projection_digest_requires_only_declared_metadata():
+    header = {"source": {"document": "a"}, "execution_profile": "first"}
+    first = {
+        "collection": "rows",
+        "partition_key": "first",
+        "ordinal": 0,
+        "placement": {"start": 1, "end": 5},
+        "group_digests": {"geometry": "same", "lexical": "before"},
+    }
+    second = {
+        **first,
+        "partition_key": "second",
+        "ordinal": 1,
+        "placement": {"start": 8, "end": 12},
+    }
+
+    def digest(*packets, observed=header):
+        return input_projection_digest(_CANONICAL_READ, observed, packets)
+
+    base = digest(first, second)
+    expected = canonical_identity(
+        "input-projection-value",
+        {
+            "projection": "input-read-projection:fixture",
+            "header": {"source": {"document": "a"}},
+            "collections": {
+                "rows": [
+                    {
+                        "partition_key": "first",
+                        "ordinal": 0,
+                        "placement": {"start": 1, "end": 5},
+                        "groups": {"geometry": "same"},
+                    },
+                    {
+                        "partition_key": "second",
+                        "ordinal": 1,
+                        "placement": {"start": 8, "end": 12},
+                        "groups": {"geometry": "same"},
+                    },
+                ]
+            },
+        },
+    ).key
+    assert base == expected
+    assert (
+        digest(
+            second,
+            first | {"group_digests": {"geometry": "same", "lexical": "after"}},
+            observed=header | {"execution_profile": "second"},
+        )
+        == base
+    )
+    assert digest(first, second | {"placement": {"start": 9, "end": 13}}) != base
+    assert digest(first | {"ordinal": 1}, second | {"ordinal": 0}) != base
+    assert digest(first, second | {"partition_key": "third"}) != base
+    assert digest(first, second | {"group_digests": {"geometry": "changed"}}) != base
+    assert digest(first, second, observed={"source": {"document": "b"}}) != base
+    assert digest(first) != base

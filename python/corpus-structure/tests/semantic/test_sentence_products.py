@@ -467,9 +467,11 @@ def test_declared_canonical_projection_has_actual_independent_member_contracts(p
         for item in port.profile.model.identities
         if item.owner == port.operation.roles[0].kind and item.domain == "kind"
     )
-    result = port.invoke_python(
-        (PythonRoleValue("inventory", kind, inventory, partitioned=envelope),)
-    )
+    selected_values = (PythonRoleValue("inventory", kind, inventory, partitioned=envelope),)
+    projected = port._input(selected_values, None)
+    assert set(projected["header"]) == {"source", "selectors", "block_coverage", "coverage"}
+    assert projected["collections"] == {"rows": []}
+    result = port.invoke_python(selected_values)
     value = json.loads(result.outputs[0].content)
     (manifest,) = value["members"]
     assert manifest["body"]["record_type"] == "manifest"
@@ -661,6 +663,7 @@ def test_prepared_canonical_full_source_digest_accepts_authenticated_required_su
         "corpus_structure.semantic.canonical_sentences",
         "corpus_structure.semantic.sentence_partitions",
         "corpus_structure.semantic.data_operation_ports",
+        "corpus_structure.semantic.data_operation_projection_values",
         "corpus_structure.methods.canonical_sentences",
         "extra_original",
     }
