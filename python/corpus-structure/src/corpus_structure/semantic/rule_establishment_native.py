@@ -56,14 +56,9 @@ def _rule_partition(rule, partition, product_id):
     )
 
 
-def _rule_premise(rule, product_id, partition, target_product=None, target_partition=None):
+def _rule_premise(specification, product_id, partition_key, target_product=None, target_partition=None):
     return func.ops.ddo_rule_premise(
-        rule.c.specification,
-        product_id,
-        partition.c.partition_key,
-        target_product,
-        target_partition,
-        type_=Text(),
+        specification, product_id, partition_key, target_product, target_partition, type_=Text()
     )
 
 
@@ -224,16 +219,17 @@ def _settle_attestations(model):
     episode = core_variable("episode", Text())
     release = _request_field(request, "release_id")
     operation = _request_field(request, "operation_id")
-    expected = (
+    # Checker identities govern which assertion can establish a conclusion. The premise
+    # uses the retained data scope and observed facts, which identical rules can share.
+    specification = rules.c.specification.op("-")(
+        array(("id", "fingerprint", "checker_callable", "checker_determinant"), type_=Text())
+    )
+    targets = (
         select(
             rules.c.rule_id,
             rules.c.fingerprint.label("rule_fingerprint"),
-            _with_input_reads(
-                model,
-                _rule_premise(rules, product.c.id, partition),
-                _input_reads(rules.c.specification),
-                episode,
-            ).label("premise"),
+            specification.label("premise_specification"),
+            product.c.id.label("product_id"),
             outputs.c.role,
             outputs.c.position,
             partition.c.partition_key,
@@ -255,6 +251,47 @@ def _settle_attestations(model):
             outputs.c.derivation_id == episode,
             outputs.c.member_id.is_(None),
             _whole_or_partition(rules, partition),
+        )
+        .cte("attestation_targets")
+    )
+    needed = (
+        select(targets.c.product_id, targets.c.partition_key, targets.c.premise_specification)
+        .distinct()
+        .subquery("distinct_attestation_premises")
+    )
+    premises = (
+        select(
+            needed,
+            _with_input_reads(
+                model,
+                _rule_premise(
+                    needed.c.premise_specification, needed.c.product_id, needed.c.partition_key
+                ),
+                _input_reads(needed.c.premise_specification),
+                episode,
+            ).label("premise"),
+        )
+        .cte("attestation_premises")
+        .prefix_with("MATERIALIZED", dialect="postgresql")
+    )
+    expected = (
+        select(
+            targets.c.rule_id,
+            targets.c.rule_fingerprint,
+            premises.c.premise,
+            targets.c.role,
+            targets.c.position,
+            targets.c.partition_key,
+        )
+        .select_from(
+            targets.join(
+                premises,
+                and_(
+                    targets.c.product_id == premises.c.product_id,
+                    targets.c.partition_key.is_not_distinct_from(premises.c.partition_key),
+                    targets.c.premise_specification == premises.c.premise_specification,
+                ),
+            )
         )
         .cte("expected_attestation")
         .prefix_with("MATERIALIZED", dialect="postgresql")
@@ -460,9 +497,18 @@ def _bound_rules(model):
             case(
                 (
                     and_(applicable, pair, target_product.is_not(None)),
-                    _rule_premise(rule, product.c.id, partition, target_product, target_partition),
+                    _rule_premise(
+                        rule.c.specification,
+                        product.c.id,
+                        partition.c.partition_key,
+                        target_product,
+                        target_partition,
+                    ),
                 ),
-                (and_(applicable, ~pair), _rule_premise(rule, product.c.id, partition)),
+                (
+                    and_(applicable, ~pair),
+                    _rule_premise(rule.c.specification, product.c.id, partition.c.partition_key),
+                ),
                 else_=null(),
             ).label("premise"),
         )

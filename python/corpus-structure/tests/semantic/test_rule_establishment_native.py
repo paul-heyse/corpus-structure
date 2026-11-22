@@ -205,7 +205,14 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         collection=None,
         reads=(DataRuleRead("source", "$all", ()),),
     )
-    for checker in (rule, body_rule):
+    independent_body_rule = replace(
+        body_rule,
+        id="independent-body",
+        fingerprint="independent-body-fingerprint",
+        checker_callable="fixture:independent-checker",
+        checker_determinant="independent-checker-determinant",
+    )
+    for checker in (rule, body_rule, independent_body_rule):
         conn.execute(
             insert(model.tables["sem.data_rule"]).values(
                 release_id="release",
@@ -244,7 +251,9 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         ),
     )
     claim(grouped, "a")
-    entries.append(claim(body_rule))
+    entries.extend((claim(body_rule), claim(independent_body_rule)))
+    assert entries[-1]["premise"] == entries[-2]["premise"]
+    assert entries[-1]["rule_fingerprint"] != entries[-2]["rule_fingerprint"]
     producer = {"release_id": "release", "operation_id": "actual-producer"}
     settle = text(
         "SELECT ops.ddo_settle_rule_attestations("
@@ -292,9 +301,9 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
     run_settle(entries, "first")
     run_settle(entries, "first")
     run_settle(entries, "second")
-    assert conn.execute(text("SELECT count(*) FROM kb.data_validity")).scalar_one() == 3
+    assert conn.execute(text("SELECT count(*) FROM kb.data_validity")).scalar_one() == 4
     assert (
-        conn.execute(text("SELECT count(*) FROM kb.data_validity_establishment")).scalar_one() == 6
+        conn.execute(text("SELECT count(*) FROM kb.data_validity_establishment")).scalar_one() == 8
     )
 
     at, xid, snapshot = conn.execute(
@@ -329,6 +338,7 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
 
     run_bind()
     run_bind(required="body")
+    run_bind(required="independent-body")
     source_rule = replace(
         body_rule,
         id="source-dependent",
