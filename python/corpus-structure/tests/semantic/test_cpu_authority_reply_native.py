@@ -243,10 +243,13 @@ def authority_connection(cpu_basis_connection, actual_cpu_fit):
             output_roles=[],
             support_contract={"capabilities": {"forms": ["scalar"]}},
             binding_expression={"operator": "all", "children": []},
+            parameter_definitions={},
             definition_identity="definition:controlled",
             eligibility_identity="eligibility:controlled",
             quantified=False,
-            dependencies=[],
+            validity_families=[],
+            validity_conservative=False,
+            dependencies={"required": [], "potential": []},
         )
     )
     inputs = []
@@ -520,10 +523,13 @@ def original_cpu_connection(cpu_basis_connection):
             output_roles=[],
             support_contract={"capabilities": {"forms": ["batch"]}},
             binding_expression={"operator": "all", "children": []},
+            parameter_definitions={},
             definition_identity="definition:original",
             eligibility_identity="eligibility:original",
             quantified=False,
-            dependencies=[],
+            validity_families=[],
+            validity_conservative=False,
+            dependencies={"required": [], "potential": []},
         )
     )
     connection.execute(

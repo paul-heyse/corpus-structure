@@ -112,16 +112,20 @@ def test_cpu_plans_use_actual_nominal_recipe_identity(actual_nominal_identity, v
     plan.port = port
     value = [7] if variant == "artifact" else 7
     arguments = SimpleNamespace(arguments={input_role.name: value})
-    if variant == "fixture":
-        # The finite fixture's role is explicitly named source.
-        binding = binding.__replace__(roles=(binding.roles[0].__replace__(role="source"),))
-        arguments = SimpleNamespace(arguments={"source": 7})
+    if variant in {"fixture", "named"}:
+        # These plans require explicit role names even at the unadmitted boundary.
+        name = "source" if variant == "fixture" else "annotations"
+        binding = binding.__replace__(roles=(binding.roles[0].__replace__(role=name),))
+        arguments = SimpleNamespace(
+            arguments={name: 7 if variant == "fixture" else {"header": 7, "partitions": []}}
+        )
     execution = plan.plan(
         arguments, binding=binding, check_active=lambda: None, execution_owner=None
     )
     basis = decode_semantic_value(next(execution))
     assert basis["recipe"] == identity.recipe
     assert basis["roles"][0]["body"] == 7
+    assert basis["roles"][0]["role"] == binding.roles[0].role
     assert basis["context"] == context.identity_record
     execution.close()
 
