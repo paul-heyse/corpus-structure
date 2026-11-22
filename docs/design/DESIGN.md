@@ -948,6 +948,14 @@ dependencies conservatively widen the premise. [Shared SBX contracts](../plans/s
 
 > Decision: [ADR-0150](../adr/0150-sbx-empty-development-cutover.md), [ADR-0144](../adr/0144-sbx-partitioned-products.md), [ADR-0146](../adr/0146-sbx-content-validity.md), [ADR-0148](../adr/0148-sbx-kernel-trial.md)
 
+**Accepted discovered formal input target · implementation Proposed · 2026-11-22.** Construction
+binds independently discovered formal-evidence products as a set. More than one eligible report
+can bind for the same source scope. A citation uses the original derivation's role-local input
+address and member key. The consumer authorizes the exact cited input in its current use.
+Producer-local positions and ordered structures inside each formal product retain their meaning.
+
+> Decision: [ADR-0151](../adr/0151-sbx-discovered-formal-inputs.md)
+
 **Accepted validated-carrier target · implementation and qualification Proposed · 2026-11-21.**
 The admitting constructor retains immutable bytes and one frozen interpreted value through the
 process. Workers accept sealed bytes through a named boundary. Derived views are memoized under

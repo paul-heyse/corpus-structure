@@ -103,6 +103,7 @@ The [architecture map](../design/README.md) and its section owners own contracts
 | [ADR-0148](0148-sbx-kernel-trial.md) | Trial set operations on one kernel family | 2026-11-21 | [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 | [ADR-0149](0149-contextual-requests-and-projected-computation.md) | Keep contextual custody separate from projected computation and delivery | 2026-11-21 | [§B1](../design/DESIGN.md#section-b1), [§B4](../design/DESIGN.md#section-b4), [§B5](../design/DESIGN.md#section-b5) | Proposed | [ADR-0100](0100-ddo-contextual-identities.md) |
 | [ADR-0150](0150-sbx-empty-development-cutover.md) | Start SBX development from an empty current-model database | 2026-11-21 | [§B2](../design/DESIGN.md#section-b2), [§B5](../design/DESIGN.md#section-b5) | Proposed | ADR-0143 |
+| [ADR-0151](0151-sbx-discovered-formal-inputs.md) | Bind independent formal-evidence products as a set | 2026-11-22 | [§B5](../design/DESIGN.md#section-b5) | Proposed |  |
 
 ## Superseded, still in the tree
 

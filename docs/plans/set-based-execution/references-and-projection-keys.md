@@ -258,18 +258,20 @@ and contextual dependency rosters include discovered `formal`, `constructions` a
 `supporting` occurrences. Two admitted products can share source scope and a local member ID.
 The current occurrence-bound declaration derives its label from a frozen source set.
 
-**Proposed.** Use the original derivation's role-local input position for discovered roles.
+**Accepted first use · implementation Proposed · 2026-11-22.** The operator selected an
+unordered set for independent formal inputs. Use the original derivation's role-local input
+position for construction's discovered `formal` role.
 `ops.ddo_derivation_input_positions` already derives that address from frozen binding inputs.
 A discovered sequence currently inherits producer output positions. Independent formal products
 can both emit at position zero. Native and Python binding require unique sequence positions and
-native admission checks the actual producer position. Establish whether the consuming role has
-an order across independent producers. For an unordered role, project the existing ledger
-address through authenticated acquisition, with the emitting position retained separately.
+native admission checks the actual producer position. Project the existing ledger address through
+authenticated acquisition, with the emitting position retained separately.
 Resolve the original input at its recorded position, then authorize that role's exact product,
 member and multiplicity in the current selected use.
 A rank change among other members of a current unordered selection does not change the address
 in the original binding. Exercise this case alongside same-member overlap, multiple exact uses
-and unauthorized substitution before retiring the rosters. [Native position owner](../../../python/corpus-structure/src/corpus_structure/semantic/binding_support_native.py)
+and unauthorized substitution before retiring the rosters.
+[ADR-0151](../../adr/0151-sbx-discovered-formal-inputs.md) · [Native position owner](../../../python/corpus-structure/src/corpus_structure/semantic/binding_support_native.py)
 
 **Bound contextual witness outputs · Tested by selected identity · 2026-11-22.** Published
 carrier and cue references address exact admitted contribution members through the frozen
