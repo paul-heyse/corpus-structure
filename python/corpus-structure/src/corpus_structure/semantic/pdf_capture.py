@@ -499,12 +499,11 @@ class PreparedPdfCapturePort:
                 subject_context=binding.subject_context,
                 check_active=check_active,
             ).run(original)
-            self._verify()
             output = next(role for role in self.operation.roles if role.direction == "output")
             body = self.profile.prepared.validate_json("DdoPdfCapture", result.content).model_dump(
                 mode="python", exclude_unset=True
             )
-            return PortCompletion(
+            completion = PortCompletion(
                 self.operation.semantic_id,
                 (
                     RoleValue(
@@ -517,6 +516,9 @@ class PreparedPdfCapturePort:
                 outcome=successful_return_outcome(self.operation),
                 pdf_execution_evidence=result.receipt,
             )
+
+            self._verify()
+            return completion
 
         (result,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
         check_active()

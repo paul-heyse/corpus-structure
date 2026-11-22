@@ -1564,7 +1564,6 @@ class PreparedPdfTransformPort:
                 check_active=check_active,
             )
             result = receiver.run(**typed_inputs, **parameters)
-            self._verify()
             output = next(role for role in self.operation.roles if role.direction == "output")
             schema = {
                 "organized": "DdoPdfOrganizedPublication",
@@ -1575,7 +1574,7 @@ class PreparedPdfTransformPort:
             body = self.profile.prepared.validate_json(schema, result.content).model_dump(
                 mode="python", exclude_unset=True
             )
-            return PortCompletion(
+            completion = PortCompletion(
                 self.operation.semantic_id,
                 (
                     RoleValue(
@@ -1593,6 +1592,9 @@ class PreparedPdfTransformPort:
                 if self.profile.mode == "recognized"
                 else None,
             )
+
+            self._verify()
+            return completion
 
         (result,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
         check_active()

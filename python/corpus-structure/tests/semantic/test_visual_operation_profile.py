@@ -102,8 +102,9 @@ def test_visual_profile_uses_external_native_receipt_and_mechanical_mapping(tmp_
     assert model.operation("source.visual_input/render").dependencies == ("source.pdf/capture",)
 
 
+@pytest.mark.parametrize("mutation", ["function-local-import", "output-encoding"])
 def test_mapping_brackets_work_and_refuses_changed_asset_on_function_local_import(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, mutation
 ):
     from corpus_structure.ingest.chandra_mapping_operation import ChandraMappingOperation
 
@@ -199,7 +200,17 @@ def test_mapping_brackets_work_and_refuses_changed_asset_on_function_local_impor
             assert importlib.import_module(module).mapping_state == "changed during work"
         return real_import(name, globals, locals, fromlist, level)
 
-    monkeypatch.setattr(builtins, "__import__", import_changed_asset)
+    if mutation == "function-local-import":
+        monkeypatch.setattr(builtins, "__import__", import_changed_asset)
+    else:
+        original_encoding = visual_requests.json_bytes
+
+        def encode_changed_asset(value):
+            if "mapping_outcome" in value:
+                asset_path.write_bytes(b"mapping_state = 'changed during encoding'\n")
+            return original_encoding(value)
+
+        monkeypatch.setattr(visual_requests, "json_bytes", encode_changed_asset)
     try:
         with pytest.raises(FileCustodyError, match="acquired file changed"):
             run_mapping()

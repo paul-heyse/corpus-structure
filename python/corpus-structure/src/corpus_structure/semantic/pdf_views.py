@@ -311,8 +311,7 @@ class PreparedPdfViewsPort:
                 check_active=check_active,
             ).run(capture, tuple(parameters["sections"]), parameters["membership"])
             output = next(role for role in self.operation.roles if role.direction == "output")
-            self._verify()
-            return PortCompletion(
+            completion = PortCompletion(
                 self.operation.semantic_id,
                 (
                     RoleValue(
@@ -325,6 +324,9 @@ class PreparedPdfViewsPort:
                 ),
                 outcome=successful_return_outcome(self.operation),
             )
+
+            self._verify()
+            return completion
 
         (completion,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
         check_active()

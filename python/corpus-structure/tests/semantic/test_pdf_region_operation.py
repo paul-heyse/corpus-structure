@@ -1,6 +1,10 @@
 """Declared rendering keeps actual PDF dependencies and typed raster value meaning."""
 
+import sys
+from hashlib import sha256
 from pathlib import Path
+
+import pytest
 
 from corpus_structure.ingest.pdf import PdfRecipe
 from corpus_structure.ingest.pdf_assets import PreparedPdfAssets
@@ -19,7 +23,10 @@ from corpus_structure.semantic.types import (
 )
 
 
-def test_render_profile_has_exact_capture_support_and_no_legacy_publisher(tmp_path):
+@pytest.mark.parametrize("change_during_encoding", [False, True])
+def test_render_profile_has_exact_capture_support_and_no_legacy_publisher(
+    tmp_path, change_during_encoding
+):
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
     bundle = pdf_region_inputs(
         pdf_capture_inputs(SourceBundle("core", (SourceArtifact("core", core.read_bytes()),)))
@@ -99,3 +106,81 @@ def test_render_profile_has_exact_capture_support_and_no_legacy_publisher(tmp_pa
     )
     value = prepared.validate_python("DdoPdfRegion", body).model_dump(mode="python")
     assert value == body
+
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+
+    from corpus_structure.core.work import drive_prepared_work
+    from corpus_structure.orchestrate.data_operations import _PythonWork
+    from corpus_structure.semantic.data_operation_ports import PythonRoleValue
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.file_custody import FileCustodyError, verified_file
+
+    asset = tmp_path / "encoding-premise"
+    asset.write_bytes(b"captured")
+    port._verification.files = (
+        *port._verification.files,
+        verified_file(asset, sha256(asset.read_bytes()).hexdigest()),
+    )
+
+    def validate_capture(kind, _content):
+        assert kind == "DdoPdfPublication"
+        return SimpleNamespace(model_dump=lambda **kwargs: {})
+
+    controlled = SimpleNamespace(
+        model=model,
+        operation=render,
+        prepared=SimpleNamespace(
+            validate_json=validate_capture,
+            validate_python=prepared.validate_python,
+        ),
+        implementation=lambda *args, **kwargs: SimpleNamespace(run=lambda *args, **kwargs: body),
+        verify=port.verify,
+    )
+
+    def observe_encoding(frame, event, _argument):
+        if event == "call" and frame.f_code is canonical_bytes.__code__:
+            value = frame.f_locals["value"]
+            if isinstance(value, dict) and value.get("encoding") == "png":
+                asset.write_bytes(b"changed while encoding reply")
+                sys.setprofile(None)
+
+    incoming = render.roles[0]
+    kind = next(
+        item.key
+        for item in model.identities
+        if (item.owner, item.domain) == (incoming.kind, "kind")
+    )
+
+    def run():
+        with ThreadPoolExecutor(
+            max_workers=1,
+            initializer=lambda: (
+                sys.setprofile(observe_encoding) if change_during_encoding else None
+            ),
+        ) as pool:
+            return drive_prepared_work(
+                type(port).plan_python(
+                    controlled,
+                    (PythonRoleValue(incoming.name, kind, {}),),
+                    binding=SimpleNamespace(
+                        sufficient=True,
+                        operation=render.semantic_id,
+                        parameters=canonical_bytes(
+                            semantic_value({"pointer": "/texts/7", "region_index": 0, "scale": "2"})
+                        ),
+                    ),
+                    execution_owner=SimpleNamespace(
+                        submit_python=lambda work: _PythonWork(pool.submit(work), lambda: None)
+                    ),
+                ),
+                lambda: None,
+            )
+
+    if change_during_encoding:
+        with pytest.raises(FileCustodyError, match="acquired file changed"):
+            run()
+    else:
+        completion = run()
+        assert completion.outputs[0].value() == body
+        assert authorized == [identity] * 4

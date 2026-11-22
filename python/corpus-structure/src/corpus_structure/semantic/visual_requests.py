@@ -357,9 +357,8 @@ class PreparedVisualMappingPort:
             body = self.prepared.validate_python(
                 "DdoVisualMapping", ChandraMappingOperation().run(observation)
             ).model_dump(mode="python", exclude_unset=True)
-            self.verify()
             output = next(role for role in self.operation.roles if role.direction == "output")
-            return PortCompletion(
+            completion = PortCompletion(
                 VISUAL_MAP,
                 (
                     RoleValue(
@@ -371,6 +370,9 @@ class PreparedVisualMappingPort:
                 ),
                 outcome="success",
             )
+
+            self.verify()
+            return completion
 
         (completion,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
         check_active()

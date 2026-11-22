@@ -396,9 +396,8 @@ class PreparedPdfRegionPort:
             body = self.prepared.validate_python(
                 "DdoPdfRegion" if self.operation.semantic_id == TARGET else "DdoVisualInput", body
             ).model_dump(mode="python", exclude_unset=True)
-            self.verify()
             output = next(role for role in self.operation.roles if role.direction == "output")
-            return PortCompletion(
+            completion = PortCompletion(
                 self.operation.semantic_id,
                 (
                     RoleValue(
@@ -410,6 +409,9 @@ class PreparedPdfRegionPort:
                 ),
                 outcome="success",
             )
+
+            self.verify()
+            return completion
 
         (completion,) = yield (PreparedWork(lambda: execution_owner.submit_python(compute)),)
         check_active()
