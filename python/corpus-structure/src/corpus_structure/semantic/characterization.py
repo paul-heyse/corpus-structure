@@ -268,9 +268,9 @@ def admitted_characterization_graph(packets):
     return inventory, members, choice_members, source_facts
 
 
-def validate_inventory_values(data):
-    """Require nonempty literal source extents and exact numeric score values."""
-    for occurrence in data["occurrences"]:
+def verify_inventory_literal_extents(occurrences):
+    """Require nonempty literal source extents."""
+    for occurrence in occurrences:
         for extent in occurrence.get("extents", ()):
             if (
                 not extent.get("synthetic", False)
@@ -278,23 +278,21 @@ def validate_inventory_values(data):
                 and extent["end"] <= extent["start"]
             ):
                 raise ValueError("literal source occurrence requires a nonempty extent")
-    validate_inventory_scores(data)
 
 
-def validate_inventory_scores(data):
-    """Validate scores with the original native numeric source codec."""
-    from .observations import source_python
+def verify_inventory_native_scores(packets):
+    """Check exact native numeric score syntax in the projected member inventory."""
+    from corpus_structure.semantic.observations import native_numeric_source_value
 
-    for name in _INVENTORIES[1:]:
-        for item in data[name]:
-            records = (item, *item["members"]) if name == "choices" else (item,)
-            for record in records:
-                for score in record.get("scores", ()):
-                    value = source_python(score["value"])
-                    if value is not None and type(value) not in {int, float}:
-                        raise ValueError(
-                            "native score requires an exact numeric source value or explicit null"
-                        )
+    for packet in packets:
+        body = packet["body"]
+        tag = body["record_type"]
+        if tag not in {"annotation", "membership", "role", "term", "choice"}:
+            continue
+        records = (body, *body["members"]) if tag == "choice" else (body,)
+        for record in records:
+            for score in _inventory_field(record, "scores", ()):
+                native_numeric_source_value(score["value"])
 
 
 def _inventory_field(record, name, default):

@@ -17,6 +17,16 @@ class ConstructionOperation:
         "id": "text.constructions/source-native",
         "rules": [
             {
+                "id": "text.constructions/native-numeric-scores",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.constructions/source-native",
+                "checker_callable": "corpus_structure.semantic.characterization.verify_inventory_native_scores",
+                "parameters": {"paths": ["members"]},
+            },
+            {
                 "id": "text.constructions/inventory-topology",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "scope": "product",
@@ -225,6 +235,21 @@ class ConstructionOperation:
             ],
         },
         "opaque": [
+            {
+                "reference": "builtins.float",
+                "contract": "characterization/native-number-runtime",
+                "role": "native-namespace",
+            },
+            {
+                "reference": "builtins.float.fromhex",
+                "contract": "characterization/native-number-runtime",
+                "role": "native-codec",
+            },
+            {
+                "reference": "math.isfinite",
+                "contract": "characterization/native-number-runtime",
+                "role": "native-codec",
+            },
             {
                 "reference": "bisect.bisect_left",
                 "contract": "characterization/source-geometry-runtime",

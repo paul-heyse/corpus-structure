@@ -28,7 +28,8 @@ from corpus_structure.semantic.source_products import (
 
 from .characterization import (
     occurrence_id,
-    validate_inventory_values,
+    verify_inventory_literal_extents,
+    verify_inventory_native_scores,
 )
 from .characterization_evidence import validate_formal_normalization, validate_formal_positions
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
@@ -411,7 +412,8 @@ def validate_formal_product(
     verify_formal_lexical_links(indexes["occurrences"], checked["lexicon"])
     validate_formal_positions(indexes)
     validate_formal_normalization(indexes["annotations"])
-    validate_inventory_values(data)
+    verify_inventory_literal_extents(data["occurrences"])
+    verify_inventory_native_scores(packets)
     verify_formal_family_roster(checked["coverage"])
     return FormalEvidenceProduct(canonical_bytes(checked), prepared, model, subject_context)
 
@@ -757,6 +759,7 @@ def _formal_decimal_runtime() -> SourceArtifact:
 
 def formal_operation_sources():
     """Capture the original endpoint plus its explicit immutable parser boundary."""
+    from .observations import native_number_runtime_artifact
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     path = Path(__file__).parents[1] / "methods/formal_evidence.py"
@@ -783,6 +786,7 @@ def formal_operation_sources():
                     "characterization",
                     "characterization_evidence",
                     "formal_evidence",
+                    "observations",
                     "source_products",
                 )
             ),
@@ -791,6 +795,7 @@ def formal_operation_sources():
             formal_profile_assets(),
             formal_execution_custody(),
             _formal_decimal_runtime(),
+            native_number_runtime_artifact(),
         ),
     )
 
@@ -854,6 +859,10 @@ class PreparedFormalEvidencePort:
                 (
                     "corpus_structure.semantic.formal_products.verify_formal_occurrence_origin",
                     verify_formal_occurrence_origin,
+                ),
+                (
+                    "corpus_structure.semantic.characterization.verify_inventory_native_scores",
+                    verify_inventory_native_scores,
                 ),
                 (
                     "corpus_structure.semantic.formal_products.verify_formal_inventory_topology",
@@ -954,6 +963,7 @@ class PreparedFormalEvidencePort:
                 "text.formal_evidence/family-roster": None,
                 "text.formal_evidence/member-local-addresses": None,
                 "text.formal_evidence/inventory-topology": None,
+                "text.formal_evidence/native-numeric-scores": None,
                 "text.formal_evidence/symbolic-inventory-positions": None,
             }
             attestations = tuple(

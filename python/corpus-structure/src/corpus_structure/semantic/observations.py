@@ -8,8 +8,10 @@ read or an observation into a selected fact, and is not the model-facing agent p
 from __future__ import annotations
 
 import math
+from builtins import float as builtin_float
 from collections.abc import Mapping, Sequence
 from hashlib import sha256
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -172,34 +174,51 @@ def source_value(value: Any) -> dict[str, Any]:
     raise TypeError(f"unsupported source report value {type(value).__name__}")
 
 
+def native_number_runtime_artifact() -> SourceArtifact:
+    from .external_runtime import acquire_numeric_runtime
+
+    runtime = acquire_numeric_runtime()
+    if dict(runtime.symbols)["math.isfinite"] is not isfinite or builtin_float is not float:
+        raise ValueError("native numeric source decoder differs from its acquired runtime")
+    return SourceArtifact("characterization/native-number-runtime", bytes.fromhex(runtime.digest))
+
+
+def native_numeric_source_value(value):
+    """Decode a null, integer or exactly spelled finite hexadecimal float."""
+    kind = value["kind"]
+    if kind == "null":
+        return None
+    if kind == "integer":
+        if "integer" not in value or type(value["integer"]) is not int:
+            raise ValueError("source report integer must be an integer")
+        return value["integer"]
+    if kind == "float":
+        if "hexadecimal" not in value or type(value["hexadecimal"]) is not str:
+            raise ValueError("source report float must use hexadecimal text")
+        lexical = value["hexadecimal"]
+        try:
+            result = float(builtin_float.fromhex(lexical))
+        except (ValueError, OverflowError) as exc:
+            raise ValueError("source report contains an invalid hexadecimal float") from exc
+        if not isfinite(result):
+            raise ValueError("source report contains a nonfinite number")
+        if result.hex() != lexical:
+            raise ValueError("source report contains a noncanonical hexadecimal float")
+        return result
+    raise ValueError("native score requires an exact numeric source value or explicit null")
+
+
 def source_python(value: Mapping[str, Any]) -> Any:
     """Decode a source value without conflating null, absence or false."""
     if not isinstance(value, Mapping):
         raise ValueError("source report value must be an object")
     kind = value.get("kind")
-    if kind == "null":
-        return None
+    if kind in ("null", "integer", "float"):
+        return native_numeric_source_value(value)
     if kind == "boolean":
         if type(value.get("boolean")) is not bool:
             raise ValueError("source report boolean must be a Boolean")
         return value["boolean"]
-    if kind == "integer":
-        if type(value.get("integer")) is not int:
-            raise ValueError("source report integer must be an integer")
-        return value["integer"]
-    if kind == "float":
-        lexical = value.get("hexadecimal")
-        if type(lexical) is not str:
-            raise ValueError("source report float must use hexadecimal text")
-        try:
-            result = float.fromhex(lexical)
-        except (ValueError, OverflowError) as exc:
-            raise ValueError("source report contains an invalid hexadecimal float") from exc
-        if not math.isfinite(result):
-            raise ValueError("source report contains a nonfinite number")
-        if result.hex() != lexical:
-            raise ValueError("source report contains a noncanonical hexadecimal float")
-        return result
     if kind == "text":
         if type(value.get("text")) is not str:
             raise ValueError("source report text must be a string")

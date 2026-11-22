@@ -590,7 +590,15 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         selected_rule = prefix + "/selected-source-coverage"
         geometry_rule = prefix + "/positioned-source-geometry"
         topology_rule = prefix + "/inventory-topology"
-        assert set(proofs) == {required, coverage_rule, selected_rule, geometry_rule, topology_rule}
+        numeric_rule = prefix + "/native-numeric-scores"
+        assert set(proofs) == {
+            required,
+            coverage_rule,
+            selected_rule,
+            geometry_rule,
+            topology_rule,
+            numeric_rule,
+        }
         assert all(proof.output_role == "result" for proof in proofs.values())
         assert all(proof.output_position == 0 for proof in proofs.values())
 
@@ -605,6 +613,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         assert changed_proofs[selected_rule].premise != proofs[selected_rule].premise
         assert changed_proofs[geometry_rule].premise != proofs[geometry_rule].premise
         assert changed_proofs[topology_rule].premise == proofs[topology_rule].premise
+        assert changed_proofs[numeric_rule].premise == proofs[numeric_rule].premise
 
     consumer = model.operation("text.contextual_evaluation/source-native")
     (role,) = (role for role in consumer.roles if role.name == "constructions")
@@ -612,6 +621,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         "text.constructions/body-coverage",
         "text.constructions/inventory-topology",
         "text.constructions/literal-source",
+        "text.constructions/native-numeric-scores",
         "text.constructions/positioned-source-geometry",
         "text.constructions/selected-source-coverage",
     )
@@ -691,6 +701,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         "verify_interpreted_body_coverage",
         "verify_interpreted_inventory_topology",
         "verify_interpreted_source_coverage",
+        "verify_inventory_native_scores",
     ):
         monkeypatch.setattr(construction_products, checker, repeated)
     selected_product = construction_products.acquired_construction_product(

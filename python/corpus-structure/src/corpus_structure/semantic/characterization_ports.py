@@ -130,6 +130,8 @@ def _geometry_runtime() -> SourceArtifact:
 
 
 def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
+    from .observations import native_number_runtime_artifact
+
     path = Path(__file__)
     sources = (
         ("semantic.characterization_ports", path),
@@ -141,6 +143,7 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
             ("semantic.construction_products", path.with_name("construction_products.py")),
             ("semantic.source_products", path.with_name("source_products.py")),
             ("semantic.native_source_view", path.with_name("native_source_view.py")),
+            ("semantic.observations", path.with_name("observations.py")),
         )
     return PythonSourceCollection(
         tuple(
@@ -150,7 +153,7 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
         boundary_contracts=(
             _semantic_assets(profile),
             _execution_custody(),
-            *(() if profile == "view" else (_geometry_runtime(),)),
+            *(() if profile == "view" else (_geometry_runtime(), native_number_runtime_artifact())),
         ),
     )
 
@@ -414,6 +417,7 @@ class PreparedCharacterizationPort(ABC):
             (entry, self.kernel),
         )
         if self.family != "view":
+            from .characterization import verify_inventory_native_scores
             from .construction_products import (
                 verify_interpreted_body_coverage,
                 verify_interpreted_inventory_topology,
@@ -424,6 +428,10 @@ class PreparedCharacterizationPort(ABC):
 
             functions = (
                 *functions,
+                (
+                    "corpus_structure.semantic.characterization.verify_inventory_native_scores",
+                    verify_inventory_native_scores,
+                ),
                 (
                     "corpus_structure.semantic.construction_products.verify_interpreted_literal_source",
                     verify_interpreted_literal_source,
@@ -824,6 +832,7 @@ class PreparedCharacterizationPort(ABC):
                 },
                 "corpus_structure.semantic.construction_products.verify_interpreted_body_coverage": None,
                 "corpus_structure.semantic.construction_products.verify_interpreted_inventory_topology": None,
+                "corpus_structure.semantic.characterization.verify_inventory_native_scores": None,
                 "corpus_structure.semantic.construction_products.verify_interpreted_positioned_geometry": {
                     "source": (RuleObservedInput(source.value),)
                 },

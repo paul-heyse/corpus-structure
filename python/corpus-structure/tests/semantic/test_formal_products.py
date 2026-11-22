@@ -929,6 +929,7 @@ def test_prepared_family_completion_preserves_declared_success_outcome(profile):
         "text.formal_evidence/family-roster",
         "text.formal_evidence/member-local-addresses",
         "text.formal_evidence/inventory-topology",
+        "text.formal_evidence/native-numeric-scores",
     }
 
 
@@ -953,6 +954,25 @@ def test_formal_inventory_topology_checks_owned_links_and_cycles():
         verify_formal_inventory_topology((term("x", ("y",)), term("y", ("x",))))
     with pytest.raises(ValueError, match="dangling term/site"):
         verify_formal_inventory_topology((term("x", ("missing",)),))
+
+
+def test_native_inventory_scores_require_the_exact_numeric_source_codec():
+    from corpus_structure.semantic.characterization import verify_inventory_native_scores
+
+    def packet(value):
+        return {"body": {"record_type": "term", "scores": [{"value": value}]}}
+
+    verify_inventory_native_scores(
+        (
+            packet({"kind": "null"}),
+            packet({"kind": "integer", "integer": 1 << 90}),
+            packet({"kind": "float", "hexadecimal": "-0x0.0p+0"}),
+        )
+    )
+    with pytest.raises(ValueError, match="native score requires an exact numeric source"):
+        verify_inventory_native_scores((packet({"kind": "boolean", "boolean": False}),))
+    with pytest.raises(ValueError, match="noncanonical hexadecimal float"):
+        verify_inventory_native_scores((packet({"kind": "float", "hexadecimal": "0x1p+0"}),))
 
 
 def test_formal_family_roster_requires_all_families_in_order():

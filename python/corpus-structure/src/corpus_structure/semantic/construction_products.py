@@ -35,7 +35,7 @@ from .characterization import (
     occurrence_id,
     validate_attachment_basis,
     validate_inventory_role_support,
-    validate_inventory_scores,
+    verify_inventory_native_scores,
 )
 from .characterization_evidence import validate_navigation_evidence
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
@@ -1061,9 +1061,9 @@ def _checked_interpreted_product(
         )
 
     validate_navigation_evidence({**indexes, "annotations": indexes["annotations"] | navigation})
-    validate_inventory_scores(inventory)
     validate_inventory_role_support(inventory["roles"], all_nodes, validate_basis)
     if bound_member is None:
+        verify_inventory_native_scores(packets)
         verify_interpreted_body_coverage(checked["coverage"], checked["outcome"], inventory)
         verify_interpreted_source_coverage(checked["coverage"], selected)
     return product

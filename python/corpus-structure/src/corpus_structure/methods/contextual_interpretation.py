@@ -20,6 +20,16 @@ class ContextualEvaluationOperation:
         "id": "text.contextual_evaluation/source-native",
         "rules": [
             {
+                "id": "text.contextual_evaluation/native-numeric-scores",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.contextual_evaluation/source-native",
+                "checker_callable": "corpus_structure.semantic.characterization.verify_inventory_native_scores",
+                "parameters": {"paths": ["members"]},
+            },
+            {
                 "id": "text.contextual_evaluation/inventory-topology",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
                 "scope": "product",
@@ -152,6 +162,7 @@ class ContextualEvaluationOperation:
                     "text.constructions/inventory-topology",
                     "text.constructions/selected-source-coverage",
                     "text.constructions/literal-source",
+                    "text.constructions/native-numeric-scores",
                     "text.constructions/positioned-source-geometry",
                 ],
                 "minimum": 1,
@@ -229,6 +240,21 @@ class ContextualEvaluationOperation:
             ],
         },
         "opaque": [
+            {
+                "reference": "builtins.float",
+                "contract": "characterization/native-number-runtime",
+                "role": "native-namespace",
+            },
+            {
+                "reference": "builtins.float.fromhex",
+                "contract": "characterization/native-number-runtime",
+                "role": "native-codec",
+            },
+            {
+                "reference": "math.isfinite",
+                "contract": "characterization/native-number-runtime",
+                "role": "native-codec",
+            },
             {
                 "reference": "bisect.bisect_left",
                 "contract": "characterization/source-geometry-runtime",

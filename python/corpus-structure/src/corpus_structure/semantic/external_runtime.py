@@ -68,6 +68,11 @@ def acquire_codec_runtime() -> tuple[ExternalRuntime, ...]:
     return (*(_acquire_native_api(*profile) for profile in _PROFILES), _base64_runtime())
 
 
+def acquire_numeric_runtime() -> ExternalRuntime:
+    """Own the native finite-number predicate used by source decoding."""
+    return _acquire_native_api("math", "math", ("isfinite",), ())
+
+
 def acquire_bisect_runtime() -> ExternalRuntime:
     """Own the native ordered search used by positioned source checking."""
     return _acquire_native_api("bisect", "_bisect", ("bisect_left",), ())

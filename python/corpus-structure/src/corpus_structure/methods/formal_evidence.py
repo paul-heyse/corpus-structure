@@ -19,6 +19,16 @@ class FormalEvidenceOperation:
         "id": "text.formal_evidence/source-native",
         "rules": [
             {
+                "id": "text.formal_evidence/native-numeric-scores",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.formal_evidence/source-native",
+                "checker_callable": "corpus_structure.semantic.characterization.verify_inventory_native_scores",
+                "parameters": {"paths": ["members"]},
+            },
+            {
                 "id": "text.formal_evidence/inventory-topology",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
                 "scope": "product",
@@ -214,6 +224,21 @@ class FormalEvidenceOperation:
         "parameters": {},
         "binding": {"operator": "scan", "roles": ["source"]},
         "opaque": [
+            {
+                "reference": "builtins.float",
+                "contract": "characterization/native-number-runtime",
+                "role": "native-namespace",
+            },
+            {
+                "reference": "builtins.float.fromhex",
+                "contract": "characterization/native-number-runtime",
+                "role": "native-codec",
+            },
+            {
+                "reference": "math.isfinite",
+                "contract": "characterization/native-number-runtime",
+                "role": "native-codec",
+            },
             {
                 "reference": "decimal.Decimal",
                 "contract": "formal/decimal-runtime",
