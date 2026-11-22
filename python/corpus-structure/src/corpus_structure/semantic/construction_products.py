@@ -18,6 +18,10 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+from corpus_structure.semantic.characterization import (
+    admitted_characterization_graph,
+    validate_inventory_topology,
+)
 from corpus_structure.semantic.native_source_view import matches_positioned_source_extent
 from corpus_structure.semantic.source_products import (
     native_selected_ranges,
@@ -27,11 +31,11 @@ from corpus_structure.semantic.source_products import (
 )
 
 from .characterization import (
-    admitted_characterization_graph,
     attachment_policies,
     occurrence_id,
     validate_attachment_basis,
-    validate_inventory_graph,
+    validate_inventory_role_support,
+    validate_inventory_scores,
 )
 from .characterization_evidence import validate_navigation_evidence
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
@@ -877,6 +881,20 @@ def verify_interpreted_body_coverage(coverage, outcome, inventory):
         raise ValueError("complete product contains incomplete family coverage")
 
 
+def _interpreted_inventory(packets):
+    inventory, all_nodes, alternatives, _ = admitted_characterization_graph(packets)
+    indexes = {name: {row["local_id"]: row for row in inventory[name]} for name in inventory}
+    choices = {address: alternatives[address][0] for address in alternatives}
+    return inventory, indexes, all_nodes, choices
+
+
+def verify_interpreted_inventory_topology(packets):
+    """Check exact projected member links and structural cycles for an interpreted output."""
+    inventory, indexes, all_nodes, choices = _interpreted_inventory(packets)
+    validate_inventory_topology(inventory, indexes, all_nodes, choices)
+    return inventory, indexes, all_nodes, choices
+
+
 def verify_interpreted_source_coverage(coverage, source):
     """Check that complete families examine all eligible original ranges and atoms."""
     parents, pages = native_selector_facts(source["items"], source["ancestors"])
@@ -976,7 +994,11 @@ def _checked_interpreted_product(
     if checked.get("dependencies", []) != expected_dependencies:
         raise ValueError("construction product changes selected primary dependencies")
     contracts = interpreted_member_contracts(prepared, model)
-    inventory, all_nodes, alternatives, _ = admitted_characterization_graph(packets)
+    inventory, indexes, all_nodes, _ = (
+        verify_interpreted_inventory_topology(packets)
+        if bound_member is None
+        else _interpreted_inventory(packets)
+    )
     context = dict(
         subject=source_subject(selected["source"]),
         subject_definition="original-source-view",
@@ -989,8 +1011,6 @@ def _checked_interpreted_product(
             or packet["context"] != context
         ):
             raise ValueError("construction packet changes admitted nominal meaning or identity")
-    indexes = {name: {row["local_id"]: row for row in rows} for name, rows in inventory.items()}
-    choices = {address: group for address, (group, _) in alternatives.items()}
     for occurrence in inventory["occurrences"]:
         if occurrence["local_id"] != occurrence_id(selected["source"], occurrence["extents"]):
             raise ValueError("construction occurrence changes original source identity")
@@ -1040,7 +1060,8 @@ def _checked_interpreted_product(
         )
 
     validate_navigation_evidence({**indexes, "annotations": indexes["annotations"] | navigation})
-    validate_inventory_graph(inventory, indexes, all_nodes, choices, validate_basis)
+    validate_inventory_scores(inventory)
+    validate_inventory_role_support(inventory["roles"], all_nodes, validate_basis)
     if bound_member is None:
         verify_interpreted_body_coverage(checked["coverage"], checked["outcome"], inventory)
         verify_interpreted_source_coverage(checked["coverage"], selected)

@@ -20,6 +20,16 @@ class ContextualEvaluationOperation:
         "id": "text.contextual_evaluation/source-native",
         "rules": [
             {
+                "id": "text.contextual_evaluation/inventory-topology",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.contextual_evaluation/source-native",
+                "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_inventory_topology",
+                "parameters": {"paths": ["members"]},
+            },
+            {
                 "id": "text.contextual_evaluation/positioned-source-geometry",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
                 "scope": "product",
@@ -139,6 +149,7 @@ class ContextualEvaluationOperation:
                 "direction": "input",
                 "required_rules": [
                     "text.constructions/body-coverage",
+                    "text.constructions/inventory-topology",
                     "text.constructions/selected-source-coverage",
                     "text.constructions/literal-source",
                     "text.constructions/positioned-source-geometry",

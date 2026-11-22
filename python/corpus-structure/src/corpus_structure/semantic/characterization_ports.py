@@ -133,6 +133,7 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
     )
     if profile in {"construction", "contextual"}:
         sources += (
+            ("semantic.characterization", path.with_name("characterization.py")),
             ("semantic.construction_products", path.with_name("construction_products.py")),
             ("semantic.source_products", path.with_name("source_products.py")),
             ("semantic.native_source_view", path.with_name("native_source_view.py")),
@@ -429,6 +430,7 @@ class PreparedCharacterizationPort(ABC):
         if self.family != "view":
             from .construction_products import (
                 verify_interpreted_body_coverage,
+                verify_interpreted_inventory_topology,
                 verify_interpreted_literal_source,
                 verify_interpreted_positioned_geometry,
                 verify_interpreted_source_coverage,
@@ -439,6 +441,10 @@ class PreparedCharacterizationPort(ABC):
                 (
                     "corpus_structure.semantic.construction_products.verify_interpreted_literal_source",
                     verify_interpreted_literal_source,
+                ),
+                (
+                    "corpus_structure.semantic.construction_products.verify_interpreted_inventory_topology",
+                    verify_interpreted_inventory_topology,
                 ),
                 (
                     "corpus_structure.semantic.construction_products.verify_interpreted_body_coverage",
@@ -832,6 +838,7 @@ class PreparedCharacterizationPort(ABC):
                     "source": (RuleObservedInput(source.value),)
                 },
                 "corpus_structure.semantic.construction_products.verify_interpreted_body_coverage": None,
+                "corpus_structure.semantic.construction_products.verify_interpreted_inventory_topology": None,
                 "corpus_structure.semantic.construction_products.verify_interpreted_positioned_geometry": {
                     "source": (RuleObservedInput(source.value),)
                 },

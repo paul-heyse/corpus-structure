@@ -17,6 +17,16 @@ class ConstructionOperation:
         "id": "text.constructions/source-native",
         "rules": [
             {
+                "id": "text.constructions/inventory-topology",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.constructions/source-native",
+                "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_inventory_topology",
+                "parameters": {"paths": ["members"]},
+            },
+            {
                 "id": "text.constructions/positioned-source-geometry",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "scope": "product",

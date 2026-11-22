@@ -251,7 +251,7 @@ def admitted_characterization_graph(packets):
             if tag == "choice_member":
                 alternatives[address] = body
             else:
-                inventory[names[tag]].append(body)
+                inventory[names[tag]] += [body]
         else:
             source_facts.append(packet)
 
@@ -270,8 +270,6 @@ def admitted_characterization_graph(packets):
 
 def validate_inventory_values(data):
     """Require nonempty literal source extents and exact numeric score values."""
-    from .observations import source_python
-
     for occurrence in data["occurrences"]:
         for extent in occurrence.get("extents", ()):
             if (
@@ -280,6 +278,13 @@ def validate_inventory_values(data):
                 and extent["end"] <= extent["start"]
             ):
                 raise ValueError("literal source occurrence requires a nonempty extent")
+    validate_inventory_scores(data)
+
+
+def validate_inventory_scores(data):
+    """Validate scores with the original native numeric source codec."""
+    from .observations import source_python
+
     for name in _INVENTORIES[1:]:
         for item in data[name]:
             records = (item, *item["members"]) if name == "choices" else (item,)
@@ -360,11 +365,9 @@ def validate_inventory_topology(data, indexes, all_nodes, choice_members):
     _acyclic(choice_edges, "choice dependency")
 
 
-def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_basis):
-    """Validate a full interpreted inventory, including its selected attachment policy."""
-    validate_inventory_values(data)
-    validate_inventory_topology(data, indexes, all_nodes, choice_members)
-    for item in data["roles"]:
+def validate_inventory_role_support(roles, all_nodes, validate_basis):
+    """Check the actual selected attachment policy on interpreted role support."""
+    for item in roles:
         policy = validate_basis(item["basis"])
         if policy and policy.get("support"):
             _validate_construction_support(item, all_nodes, policy["support"])
