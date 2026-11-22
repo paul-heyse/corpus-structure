@@ -1115,6 +1115,7 @@ definitions:
     type: object
     properties:
       binding_authority_changed: {type: boolean}
+      binding_local_input_changed: {type: boolean}
       binding_original_changed: {type: boolean}
       binding_pin_changed: {type: boolean}
       binding_population_changed: {type: boolean}

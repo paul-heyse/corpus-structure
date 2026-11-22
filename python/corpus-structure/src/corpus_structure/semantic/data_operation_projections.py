@@ -1953,20 +1953,42 @@ def _exact_pin_changed(metadata, bounded, latest, wait_read):
     )
 
 
-def _unconstrained_watermark_uses(metadata, bounded):
-    """Wake dependency-free consumers only for eligible same-demand role outputs."""
+def _local_input_changed(metadata, bounded, latest, wait_read):
+    """Detect exact same-demand candidate arrivals and departures since the wait."""
     selection = _var("d.selection", JSONB)
-    selected = _items(selection["operations"], "watermark_unconstrained_operation")
-    definitions = metadata.tables["sem.data_operation_definition"].alias(
-        "watermark_local_definition"
-    )
-    roles = _items(definitions.c.input_roles, "watermark_local_role")
-    uses = metadata.tables["ops.demand_use"].alias("watermark_local_use")
-    later = metadata.tables["ops.demand_use"].alias("watermark_local_later")
-    episodes = metadata.tables["ops.data_derivation"].alias("watermark_local_episode")
-    outputs = metadata.tables["ops.data_derivation_output"].alias("watermark_local_output")
-    products = metadata.tables["kb.data_product"].alias("watermark_local_product")
-    members = metadata.tables["kb.data_product_member"].alias("watermark_local_member")
+    selected = _items(selection["operations"], "local_input_operation")
+    definitions = metadata.tables["sem.data_operation_definition"].alias("local_input_definition")
+    roles = _items(definitions.c.input_roles, "local_input_role")
+    uses = metadata.tables["ops.demand_use"].alias("local_input_use")
+    later = metadata.tables["ops.demand_use"].alias("local_input_later")
+    episodes = metadata.tables["ops.data_derivation"].alias("local_input_episode")
+    outputs = metadata.tables["ops.data_derivation_output"].alias("local_input_output")
+    products = metadata.tables["kb.data_product"].alias("local_input_product")
+    members = metadata.tables["kb.data_product_member"].alias("local_input_member")
+
+    def visible_at_wait(row):
+        return func.ops.ddo_read_visible(
+            row.c.created_at, row.c.created_xid, wait_read.table_valued()
+        )
+
+    def superseded(visible):
+        return (
+            select(1)
+            .select_from(later)
+            .where(
+                later.c.obligation_id == uses.c.obligation_id,
+                or_(
+                    later.c.created_at > uses.c.created_at,
+                    and_(later.c.created_at == uses.c.created_at, later.c.id > uses.c.id),
+                ),
+                visible,
+            )
+            .correlate(uses, wait_read)
+            .exists()
+        )
+
+    was_candidate = and_(visible_at_wait(uses), ~superseded(visible_at_wait(later)))
+    is_candidate = ~superseded(_visible(later))
     projected = union_all(
         select(
             cast(null(), Text).label("member_id"),
@@ -1993,7 +2015,7 @@ def _unconstrained_watermark_uses(metadata, bounded):
             or_(outputs.c.member_id.is_(None), members.c.member_id == outputs.c.member_id),
         )
         .correlate(products, outputs),
-    ).lateral("watermark_local_projection")
+    ).lateral("local_input_projection")
     emitting = _obj(
         member_id=outputs.c.member_id,
         role=outputs.c.role,
@@ -2018,25 +2040,14 @@ def _unconstrained_watermark_uses(metadata, bounded):
         support_evidence=_obj(producer_output=emitting),
     )
     return (
-        select(
-            bounded.c.id.label("obligation_id"),
-            literal("use").label("kind"),
-            uses.c.id.label("identity"),
-            uses.c.created_at,
-        )
+        select(1)
         .select_from(
-            bounded.join(
+            definitions.join(wait_read, wait_read.c.id == latest.c.selection["read_id"].astext)
+            .join(
                 selected,
                 and_(
                     selected.c.value["operation"].astext == bounded.c.operation_id,
                     func.jsonb_array_length(selected.c.value["dependencies"]) == 0,
-                ),
-            )
-            .join(
-                definitions,
-                and_(
-                    definitions.c.release_id == _var("d.release_id", Text),
-                    definitions.c.operation_id == bounded.c.operation_id,
                 ),
             )
             .join(roles, literal(True))
@@ -2047,22 +2058,14 @@ def _unconstrained_watermark_uses(metadata, bounded):
             .join(projected, literal(True))
         )
         .where(
+            definitions.c.release_id == _var("d.release_id", Text),
+            definitions.c.operation_id == bounded.c.operation_id,
+            wait_read.c.demand_id == _var("d.id", Text),
             roles.c.value["support"]["source_set"].astext.is_(None),
             products.c.project_id == _var("d.project_id", Text),
             uses.c.fate == "fulfilled",
             _visible(uses),
-            ~exists(
-                select(1)
-                .select_from(later)
-                .where(
-                    later.c.obligation_id == uses.c.obligation_id,
-                    or_(
-                        later.c.created_at > uses.c.created_at,
-                        and_(later.c.created_at == uses.c.created_at, later.c.id > uses.c.id),
-                    ),
-                    _visible(later),
-                )
-            ),
+            was_candidate.is_distinct_from(is_candidate),
             # Access checks raise on refusal, so unrelated kinds or qualified
             # contexts must be filtered before either authorization executes.
             case(
@@ -2094,6 +2097,8 @@ def _unconstrained_watermark_uses(metadata, bounded):
                 else_=literal(False),
             ),
         )
+        .correlate(bounded, latest)
+        .exists()
     )
 
 
@@ -2184,11 +2189,7 @@ def _inputs_watermarks(metadata, bounded):
     )
     # A use can be visible through several local prerequisites or outputs.
     # Hash its actual identity once, independent of output multiplicity.
-    visible = union(
-        fulfilled,
-        _unconstrained_watermark_uses(metadata, bounded),
-        population_rows,
-    ).cte("watermark_visible")
+    visible = union(fulfilled, population_rows).cte("watermark_visible")
     identities = (
         select(
             visible.c.obligation_id,
@@ -2572,6 +2573,9 @@ def read_page(metadata):
                     ),
                     _obj(
                         binding_authority_changed=func.coalesce(authority_changed, True),
+                        binding_local_input_changed=_local_input_changed(
+                            metadata, bounded, latest, wait_read
+                        ),
                         binding_original_changed=_original_admission_changed(
                             metadata, bounded, latest, wait_read
                         ),

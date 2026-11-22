@@ -1405,6 +1405,7 @@ class WireReadDemandResultRequest(TypedDict):
 class WireResultObligation(TypedDict):
     analyzed_scope: Required[ContextualJsonValue]
     binding_authority_changed: NotRequired[bool]
+    binding_local_input_changed: NotRequired[bool]
     binding_original_changed: NotRequired[bool]
     binding_pin_changed: NotRequired[bool]
     binding_population_changed: NotRequired[bool]

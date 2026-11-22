@@ -398,3 +398,99 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     assert routes(revoked) == ()
     remember_wait(revoked)
     assert recipient(snapshot(demand))["binding_authority_changed"] is False
+
+
+def test_dependency_free_waiter_observes_local_candidate_arrival_and_departure(
+    semantic_bare_engine, tmp_path, monkeypatch
+):
+    admin = semantic_bare_engine
+    target = "urn:ddo-test:consumer"
+    other = "urn:ddo-test:source"
+    capture = capture_target_installation(get_metadata(), logical_sources=native_model_inputs(ROOT))
+    *_, revision_path = install_target_root(admin, capture, tmp_path)
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+    prepared = prepare_kernel(STORAGE, directory=tmp_path / "local-readiness")
+    with admin.begin() as connection:
+        kernel = admit_kernel(connection, STORAGE, engine=admin, preparation=prepared)
+
+    targets = (target, PRODUCER, other)
+    demand, producer, _, matching = attach(kernel, operation=PRODUCER, targets=targets)
+    second, _, _, unrelated = attach(kernel, operation=other, targets=targets)
+    assert demand["demand_id"] == second["demand_id"]
+
+    def snapshot():
+        with admin.begin() as connection:
+            return DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(
+                demand["demand_id"]
+            )
+
+    def candidate(page):
+        return next(row for row in page["obligations"] if row["operation_id"] == target)
+
+    def remember(page, obligation):
+        with admin.begin() as connection:
+            DataOperationStorage(connection).record_data_fate(
+                {
+                    "obligation_id": obligation,
+                    "fate": "awaiting-inputs",
+                    "selection": {
+                        "read_id": page["read_id"],
+                        "inputs_watermark": candidate(page)["inputs_watermark"],
+                        "reasons": [],
+                    },
+                }
+            )
+
+    def target_bindings(page):
+        with admin.begin() as connection:
+            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+            return tuple(
+                request
+                for request in planner.bound_requests(page, authorization=b"{}")
+                if request.operation == target
+            )
+
+    first = snapshot()
+    target_id = candidate(first)["obligation_id"]
+    assert candidate(first)["native_readiness"] is None
+    watermark = candidate(first)["inputs_watermark"]
+    remember(first, target_id)
+    fence = claim(kernel, unrelated)
+    publish(kernel, fence, retain(kernel, fence, outputs=(15,)))
+    unchanged = snapshot()
+    assert candidate(unchanged)["binding_local_input_changed"] is False
+    assert candidate(unchanged)["inputs_watermark"] == watermark
+    assert target_bindings(unchanged) == ()
+
+    sample_kind = kernel.identities[
+        next(
+            role.kind
+            for role in kernel.model.operation(PRODUCER).roles
+            if role.direction == "output"
+        ),
+        "kind",
+    ]
+
+    def sample_output(completion):
+        completion["outputs"][0]["product"].update(
+            kind_contract=sample_kind, body=semantic_value({"value": 15})
+        )
+
+    fence = claim(kernel, matching)
+    published = publish(kernel, fence, retain(kernel, fence, mutate=sample_output))
+    arrived = snapshot()
+    assert candidate(arrived)["binding_local_input_changed"] is True
+    assert candidate(arrived)["inputs_watermark"] == watermark
+    (bound,) = target_bindings(arrived)
+    (member,) = bound.resolved.roles[0].members
+    assert member.support_episodes == (published["derivation_id"],)
+    remember(arrived, target_id)
+    assert candidate(snapshot())["binding_local_input_changed"] is False
+
+    remember(snapshot(), producer["obligation_id"])
+    departed = snapshot()
+    assert candidate(departed)["binding_local_input_changed"] is True
+    assert candidate(departed)["binding_authority_changed"] is False
+    assert candidate(departed)["inputs_watermark"] == watermark
+    assert target_bindings(departed) == ()
+    assert candidate(snapshot())["binding_local_input_changed"] is False

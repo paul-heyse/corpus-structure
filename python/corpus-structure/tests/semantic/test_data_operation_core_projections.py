@@ -42,27 +42,30 @@ def test_core_builders_own_return_shape_and_keep_scoped_native_parameters():
     assert "ops.ddo_episode_provider_identity" in computed
 
 
-def test_dependency_free_waiting_watermark_filters_local_publications_by_actual_role():
+def test_dependency_free_wake_filters_local_candidate_changes_by_actual_role():
     from pglast import ast
     from pglast.visitors import Visitor
 
-    from corpus_structure.semantic.data_operation_projections import _unconstrained_watermark_uses
+    from corpus_structure.semantic.data_operation_projections import _local_input_changed
 
+    metadata = get_metadata()
     query = _compile(
-        _unconstrained_watermark_uses(
-            get_metadata(), get_metadata().tables["ops.data_obligation"].alias("waiting_obligation")
-        )
+        _local_input_changed(
+            metadata,
+            metadata.tables["ops.data_obligation"].alias("waiting_obligation"),
+            metadata.tables["ops.demand_use"].alias("waiting_use"),
+            metadata.tables["ops.data_demand_read"].alias("waiting_read"),
+        ).element
     )
     parsed = pglast.parse_sql(query)
     assert parsed and isinstance(parsed[0].stmt, ast.SelectStmt)
-    assert "watermark_local_use.demand_id = d.id" in query
-    assert "watermark_local_product.project_id = d.project_id" in query
-    assert (
-        "jsonb_array_length(watermark_unconstrained_operation.value['dependencies']) = 0" in query
-    )
+    assert "local_input_use.demand_id = d.id" in query
+    assert "local_input_product.project_id = d.project_id" in query
+    assert "waiting_read.demand_id = d.id" in query
+    assert "jsonb_array_length(local_input_operation.value['dependencies']) = 0" in query
     assert "accepted_kind_contracts" in query and "source_set" in query
     assert "IS NULL" in query and "waiting_obligation.analyzed_scope" in query
-    assert "watermark_local_later.obligation_id = watermark_local_use.obligation_id" in query
+    assert "local_input_later.obligation_id = local_input_use.obligation_id" in query
     # Authorization routines refuse, rather than returning false. Their actual
     # evaluation must stay behind immutable role/context eligibility.
     conditions = parsed[0].stmt.whereClause
@@ -88,7 +91,7 @@ def test_dependency_free_waiting_watermark_filters_local_publications_by_actual_
         ("ops", "ddo_body_access"),
     } <= calls
     page = _compile(read_page(get_metadata()))
-    assert "watermark_local_use" in page and "watermark_prerequisites" in page
+    assert "binding_local_input_changed" in page and "watermark_prerequisites" in page
 
 
 def test_selected_cut_disclosure_is_pinned_before_any_role_reacquisition():
