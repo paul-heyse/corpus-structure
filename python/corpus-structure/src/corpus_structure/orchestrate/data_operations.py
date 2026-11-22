@@ -76,6 +76,7 @@ from corpus_structure.semantic.data_operation_ports import (
 from corpus_structure.semantic.data_operation_runtime import RuntimeBinding
 from corpus_structure.semantic.data_operation_service import (
     DataExecutionBasis,
+    NamedDemandSelection,
 )
 from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_operation_wire import interpret_wire_record
@@ -112,6 +113,14 @@ class _BasisExecution:
         self.cpu = None
         self.prepared_schema = False
         self.admitted_operations = set()
+
+
+@dataclass(frozen=True)
+class NamedFulfilledUse:
+    """An exact origin for one pass against an explicitly selected demand."""
+
+    selection: NamedDemandSelection
+    use_id: str
 
 
 @dataclass(frozen=True)
@@ -1885,14 +1894,23 @@ class NativeDemandExecutor:
             reservation.release()
             physical.release_retired_inputs()
 
-    def _prepare_page(self, snapshot, authorization):
+    def _prepare_page(self, snapshot, authorization, *, fulfilled_use: NamedFulfilledUse | None):
         with self.native_io.transaction() as connection:
             planner = connection.planner(self.model)
-            ready = planner.ready(
-                snapshot,
-                authorization=authorization,
-                excluded_requests=frozenset(self._failed_requests),
-            )
+            if fulfilled_use is None:
+                ready = planner.ready(
+                    snapshot,
+                    authorization=authorization,
+                    excluded_requests=frozenset(self._failed_requests),
+                )
+            else:
+                ready, _ = planner.ready_for_fulfilled_use(
+                    snapshot,
+                    selection_name=fulfilled_use.selection.name,
+                    selection_generation=fulfilled_use.selection.generation,
+                    use_id=fulfilled_use.use_id,
+                    authorization=authorization,
+                )
             selected = tuple(getattr(planner, "selected_population_ids", ()))
             logical_progress = planner.logical_progress
             refusals = planner.refusals
@@ -1903,7 +1921,7 @@ class NativeDemandExecutor:
                 eligible.append(item)
         return tuple(eligible), selected, logical_progress, refusals
 
-    def _drive_sweep(self, pages, authorization, owner):
+    def _drive_sweep(self, pages, authorization, owner, *, fulfilled_use: NamedFulfilledUse | None):
         """One frontier binds bounded compact pages between physical-work ticks."""
         pages = iter(pages)
         pending: deque[ReadyDataRequest | _PreparedReady | _ClaimedReady] = deque()
@@ -1966,7 +1984,9 @@ class NativeDemandExecutor:
                     except StopIteration:
                         exhausted = True
                         break
-                    ready, populations, done, errors = self._prepare_page(snapshot, authorization)
+                    ready, populations, done, errors = self._prepare_page(
+                        snapshot, authorization, fulfilled_use=fulfilled_use
+                    )
                     groups = {}
                     for item in ready:
                         native = _attached_ready_record(item)
@@ -2197,9 +2217,26 @@ class NativeDemandExecutor:
         drive_prepared_work(plan(), owner)
         return tuple(receipts), tuple(selected), logical_progress, tuple(failures)
 
-    def advance(self, demand: str, *, authorization: bytes = b"{}", limit: int = 100):
-        """Advance one complete bounded-page sweep, including later independent work."""
-        return self.run(demand, authorization=authorization, limit=limit, max_rounds=1)
+    def advance(
+        self,
+        demand: str,
+        *,
+        authorization: bytes = b"{}",
+        limit: int = 100,
+        fulfilled_use: NamedFulfilledUse | None = None,
+    ):
+        """Advance one bounded-page sweep, optionally for an exact fulfilled use."""
+        if fulfilled_use is None:
+            return self.run(demand, authorization=authorization, limit=limit, max_rounds=1)
+        if fulfilled_use.selection.demand_id != demand:
+            raise ValueError("fulfilled-use selection belongs to a different exact demand")
+        return self._run_with_host(
+            demand,
+            authorization=authorization,
+            limit=limit,
+            max_rounds=1,
+            fulfilled_use=fulfilled_use,
+        )
 
     def _result(self, demand, snapshot, *, standing="fresh-read"):
         return DemandAdvance(
@@ -2222,9 +2259,26 @@ class NativeDemandExecutor:
     def run(
         self, demand: str, *, authorization: bytes = b"{}", limit: int = 100, max_rounds: int = 100
     ):
+        return self._run_with_host(
+            demand, authorization=authorization, limit=limit, max_rounds=max_rounds
+        )
+
+    def _run_with_host(
+        self,
+        demand: str,
+        *,
+        authorization: bytes,
+        limit: int,
+        max_rounds: int,
+        fulfilled_use: NamedFulfilledUse | None = None,
+    ):
         if self._host_run is not None:
             return self._run(
-                demand, authorization=authorization, limit=limit, max_rounds=max_rounds
+                demand,
+                authorization=authorization,
+                limit=limit,
+                max_rounds=max_rounds,
+                fulfilled_use=fulfilled_use,
             )
         from corpus_structure.orchestrate.execution_host import execution_host_scope
 
@@ -2232,13 +2286,23 @@ class NativeDemandExecutor:
             self._host, self._host_run = host, token
             try:
                 return self._run(
-                    demand, authorization=authorization, limit=limit, max_rounds=max_rounds
+                    demand,
+                    authorization=authorization,
+                    limit=limit,
+                    max_rounds=max_rounds,
+                    fulfilled_use=fulfilled_use,
                 )
             finally:
                 self._host, self._host_run = None, None
 
     def _run(
-        self, demand: str, *, authorization: bytes = b"{}", limit: int = 100, max_rounds: int = 100
+        self,
+        demand: str,
+        *,
+        authorization: bytes = b"{}",
+        limit: int = 100,
+        max_rounds: int = 100,
+        fulfilled_use: NamedFulfilledUse | None = None,
     ):
         """Replenish dependency-ready work until idle or an explicit round bound.
 
@@ -2302,56 +2366,64 @@ class NativeDemandExecutor:
                                     raise PortRefusal(
                                         "execution context differs from native demand custody"
                                     )
+                                if (
+                                    fulfilled_use is not None
+                                    and page["project_id"] != fulfilled_use.selection.project_id
+                                ):
+                                    raise PortRefusal(
+                                        "fulfilled-use selection belongs to a different project"
+                                    )
                                 self._last_snapshot = json_bytes(page)
                                 cancelled = page.get("state") == "cancelled"
                                 if cancelled:
                                     return
-                            with self.native_io.transaction() as connection:
-                                planner = connection.planner(self.model)
-                                obligations = {
-                                    item["obligation_id"]: item for item in page["obligations"]
-                                }
-                                populations = {
-                                    (
-                                        value["name"],
-                                        value["evidence"].get("product_id"),
-                                        value["evidence"].get("derivation_id"),
-                                        value["evidence"].get("member_role"),
-                                    )
-                                    for value in page["populations"]
-                                }
-                                for use in page["uses"]:
-                                    if use["fate"] != "fulfilled":
-                                        continue
-                                    obligation = obligations[use["obligation_id"]]
-                                    for relation in page["intent"]["discovery"]:
-                                        if relation["producer"] != obligation["operation_id"]:
+                            if fulfilled_use is None:
+                                with self.native_io.transaction() as connection:
+                                    planner = connection.planner(self.model)
+                                    obligations = {
+                                        item["obligation_id"]: item for item in page["obligations"]
+                                    }
+                                    populations = {
+                                        (
+                                            value["name"],
+                                            value["evidence"].get("product_id"),
+                                            value["evidence"].get("derivation_id"),
+                                            value["evidence"].get("member_role"),
+                                        )
+                                        for value in page["populations"]
+                                    }
+                                    for use in page["uses"]:
+                                        if use["fate"] != "fulfilled":
                                             continue
-                                        for product in use["products"]:
-                                            if product["role"] != relation["output_role"]:
+                                        obligation = obligations[use["obligation_id"]]
+                                        for relation in page["intent"]["discovery"]:
+                                            if relation["producer"] != obligation["operation_id"]:
                                                 continue
-                                            derivation = use["derivation_id"]
-                                            if derivation is None:
-                                                raise ValueError(
-                                                    "discovery product lacks a producing episode"
+                                            for product in use["products"]:
+                                                if product["role"] != relation["output_role"]:
+                                                    continue
+                                                derivation = use["derivation_id"]
+                                                if derivation is None:
+                                                    raise ValueError(
+                                                        "discovery product lacks a producing episode"
+                                                    )
+                                                identity = (
+                                                    relation["population"],
+                                                    product["product_id"],
+                                                    derivation,
                                                 )
-                                            identity = (
-                                                relation["population"],
-                                                product["product_id"],
-                                                derivation,
-                                            )
-                                            witness = (*identity, relation["output_role"])
-                                            if witness not in populations:
-                                                planner.expand_discovery(
-                                                    page,
-                                                    population=identity[0],
-                                                    product=identity[1],
-                                                    derivation=identity[2],
-                                                )
-                                                # A new empty closure can enable an existing
-                                                # universal/absence binding without new obligations.
-                                                progress = True
-                                                populations.add(witness)
+                                                witness = (*identity, relation["output_role"])
+                                                if witness not in populations:
+                                                    planner.expand_discovery(
+                                                        page,
+                                                        population=identity[0],
+                                                        product=identity[1],
+                                                        derivation=identity[2],
+                                                    )
+                                                    # A new empty closure can enable an existing
+                                                    # universal/absence binding without new obligations.
+                                                    progress = True
+                                                    populations.add(witness)
                             intent = page["selection"]
                             if intent["version"] != "data-demand-intent-v2":
                                 raise ValueError(
@@ -2366,7 +2438,7 @@ class NativeDemandExecutor:
                                 return
 
                     settled, selected, logical_progress, errors = self._drive_sweep(
-                        pages(), authorization, owner
+                        pages(), authorization, owner, fulfilled_use=fulfilled_use
                     )
                     self._member_failures.extend(errors)
                     if cancelled:

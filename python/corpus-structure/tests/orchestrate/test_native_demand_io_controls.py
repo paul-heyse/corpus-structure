@@ -188,3 +188,88 @@ def test_authored_claim_reply_missing_lease_is_rejected_at_wire_boundary(monkeyp
         messages.append(current.message)
         pending.extend(current.context)
     assert "'lease_until' is a required property" in messages
+
+
+def test_named_fulfilled_use_advances_only_its_routed_hydrated_request(monkeypatch):
+    from corpus_structure.orchestrate.data_operations import NamedFulfilledUse
+    from corpus_structure.semantic.data_operation_service import NamedDemandSelection
+
+    preparation = executor_preparation()
+    computations, hydration, routed = [], [], []
+
+    def scalar(value, **options):
+        computations.append(value)
+        if False:
+            yield
+        return value
+
+    executor, observed = execution_case(
+        monkeypatch,
+        preparation.prepared,
+        policy_for(preparation.prepared),
+        ("scalar", "scalar"),
+        {"scalar": SimpleNamespace(native_selections=(), plan_python=scalar)},
+    )
+    planner = executor.native_io.planner(executor.model)
+    page = {
+        **planner.resume("controlled-demand"),
+        "project_id": "controlled-project",
+        "read_id": "controlled-read",
+        "obligations": [
+            {"obligation_id": "0", "operation_id": "scalar"},
+            {"obligation_id": "1", "operation_id": "scalar"},
+        ],
+        "uses": [
+            {
+                "obligation_id": "0",
+                "fate": "fulfilled",
+                "derivation_id": "derivation:0",
+                "products": [{"role": "result", "product_id": "product:0"}],
+            }
+        ],
+        "intent": {
+            "discovery": [
+                {"producer": "scalar", "output_role": "result", "population": "unrelated"}
+            ],
+        },
+    }
+    origin = NamedFulfilledUse(
+        NamedDemandSelection("controlled-project", "governed", "controlled-demand", 3),
+        "use:origin",
+    )
+    authorization = b'{"caller":"approved"}'
+
+    def route(snapshot, **options):
+        assert snapshot is page
+        routed.append(options)
+        return (executor._ready_items[1],), ()
+
+    def forbidden(*_args, **_options):
+        pytest.fail("named advance expanded discovery or bound the unfiltered page")
+
+    planner.resume = lambda *_args, **_options: page
+    planner.ready_for_fulfilled_use = route
+    planner.ready = planner.expand_discovery = forbidden
+    executor.native_io.plan = lambda _model: planner
+    hydrate = executor.native_io.hydrate_inputs
+
+    def observe_hydration(model, selected, **options):
+        hydration.append(selected.subject)
+        return hydrate(model, selected, **options)
+
+    executor.native_io.hydrate_inputs = observe_hydration
+    result = executor.advance(
+        "controlled-demand", authorization=authorization, fulfilled_use=origin
+    )
+    assert routed == [
+        {
+            "selection_name": "governed",
+            "selection_generation": 3,
+            "use_id": "use:origin",
+            "authorization": authorization,
+        }
+    ]
+    assert observed.claim_sets == [("1",)]
+    assert hydration == ["1"]
+    assert computations == [1] and observed.receipts == [("1", 1)]
+    assert result.receipt_count == 1
