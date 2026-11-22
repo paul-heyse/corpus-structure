@@ -166,7 +166,7 @@ def candidate_fixture_inputs(source, cfg, *, check_active=lambda: None):
     from corpus_structure.semantic.data_operation_model import SubjectContext
     from corpus_structure.semantic.m1_products import NativeCandidateData
     from corpus_structure.semantic.source_products import FrozenNativeSource
-    from methods.declared_primary_fixture import retained_products
+    from methods.declared_primary_fixture import profiles, retained_products
 
     check_active()
     if (
@@ -194,7 +194,11 @@ def candidate_fixture_inputs(source, cfg, *, check_active=lambda: None):
         subject_definition=pin["subject_definition"],
     )
     native, primary = retained_products(
-        FrozenNativeSource(source.source_content.encode()), source, context, annotations, profile
+        FrozenNativeSource.acquire(profiles()[0].prepared, source.value),
+        source,
+        context,
+        annotations,
+        profile,
     )
     population = context_population(source)
     prepared_source = prepare_source(

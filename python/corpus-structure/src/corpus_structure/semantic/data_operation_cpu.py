@@ -172,7 +172,6 @@ def plan_cpu_call(descriptor, bound, signature, *, verify, execution_owner, chec
     cpu = execution_owner.cpu
 
     def submit():
-        verify()
         check_active()
         admission = cpu.try_admit(
             check_active, reservation=execution_owner.reservation, packet_bytes=len(packet)
@@ -180,6 +179,8 @@ def plan_cpu_call(descriptor, bound, signature, *, verify, execution_owner, chec
         if admission is None:
             return None
         try:
+            verify()
+            check_active()
             return cpu.submit_closed_python(admission, packet, check_active)
         except BaseException:
             if not admission.submitted:
@@ -421,10 +422,23 @@ def _bound_arguments(call, signature, check_active, prepared_releases, *, adapte
         from .data_operation_ports import PortAdapters
 
         adapters = PortAdapters()
-    arguments = {
-        name: adapters.get(signature.parameters[name].annotation).validate_json(value, strict=True)
-        for name, value in call.arguments.items()
-    }
+    from .source_products import FrozenNativeSource
+
+    def accepted_argument(name, value):
+        if signature.parameters[name].annotation is FrozenNativeSource:
+            import json
+
+            source = json.loads(value)
+            if (
+                type(source) is not dict
+                or set(source) != {"content"}
+                or type(source["content"]) is not str
+            ):
+                raise ValueError("CPU native source differs from its sealed carrier shape")
+            return FrozenNativeSource._accept_parent_validated(source["content"].encode())
+        return adapters.get(signature.parameters[name].annotation).validate_json(value, strict=True)
+
+    arguments = {name: accepted_argument(name, value) for name, value in call.arguments.items()}
     if call.control_parameter is not None:
         arguments[call.control_parameter] = check_active
     if call.prepared_parameter is not None:

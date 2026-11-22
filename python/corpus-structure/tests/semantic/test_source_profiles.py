@@ -6,7 +6,10 @@ from pathlib import Path
 
 import pytest
 
-from corpus_structure.semantic.composed import data_operation_dependencies
+from corpus_structure.semantic.composed import (
+    data_operation_dependencies,
+    read_data_operation_inputs,
+)
 from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
 from corpus_structure.semantic.data_operation_ports import (
     PythonRoleValue,
@@ -42,7 +45,9 @@ def acquired():
         ResolvedDependencies(), (source_profile_declarations(),), python_sources=sources
     )
     prepared = prepare_release(bundle, dependencies, PreparationProfile(version="semantic-2"))
-    return bundle, sources, prepared, bound_data_operation_model(prepared)
+    captured = read_data_operation_inputs(dependencies)
+    assert captured is not None and captured[1] is not None
+    return bundle, captured[1], prepared, bound_data_operation_model(prepared)
 
 
 def original(prepared, selectors=None):
@@ -108,6 +113,36 @@ def test_exact_full_and_overlapping_selected_interval_metrics(acquired):
     prepared.validate_json("DdoSourceProfile", canonical_bytes(pointed))
 
 
+def test_acquired_native_source_keeps_validation_and_selector_identity(acquired, monkeypatch):
+    from corpus_structure.semantic.data_operation_ports import _validated_python_input
+
+    prepared = acquired[2]
+    source = original(prepared)
+    another = original(prepared)
+    assert another is not source and another._value is source._value
+    with pytest.raises(TypeError, match="validating acquisition"):
+        FrozenNativeSource(source.content)
+
+    validate = type(prepared).validate_json
+
+    def require_existing(self, name, content):
+        if name == "DdoSelectedNativeSource":
+            pytest.fail("an acquired same-contract source was validated again")
+        return validate(self, name, content)
+
+    monkeypatch.setattr(type(prepared), "validate_json", require_existing)
+    assert FrozenNativeSource.acquire(prepared, source) is source
+    assert _validated_python_input(FrozenNativeSource, source) is source
+    assert source.selector_index() is source.selector_index()
+    first = source.value
+    first["items"].clear()
+    assert source.value["items"]
+    forged = object.__new__(FrozenNativeSource)
+    object.__setattr__(forged, "content", source.content)
+    with pytest.raises(TypeError, match="validating acquisition"):
+        _validated_python_input(FrozenNativeSource, forged)
+
+
 def test_unknown_ancestry_and_missing_math_parent_do_not_become_false_absence(acquired):
     value = original(acquired[2]).value
     value["items"][1]["parent"] = "#/unavailable"
@@ -153,7 +188,12 @@ def test_original_profile_callable_is_statically_complete_and_nominal(acquired):
     )
     assert implementation.complete, implementation.unknowns
     identity = python_port_identity(
-        model, sources, operation.semantic_id, schema=bundle, prepared=prepared
+        model,
+        sources,
+        operation.semantic_id,
+        schema=bundle,
+        prepared=prepared,
+        declarations=(source_profile_declarations(),),
     )
     port = resolve_python_port(
         model,
@@ -162,6 +202,10 @@ def test_original_profile_callable_is_statically_complete_and_nominal(acquired):
         authorize=lambda actual: None,
         schema=bundle,
         prepared=prepared,
+        declarations=(source_profile_declarations(),),
+        runtime_locations={
+            item.module: Path(item.filename) for item in source_profile_operation_sources().sources
+        },
     )
     assert port.identity == identity
     role = next(role for role in operation.roles if role.direction == "input")

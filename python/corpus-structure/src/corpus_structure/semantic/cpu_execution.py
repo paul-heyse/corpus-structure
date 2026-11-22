@@ -338,7 +338,7 @@ def _compute_formal(
         raise ValueError("CPU formal packet differs from captured implementation/grammar assets")
     # This is private owned transport from an acquired parent, not external ingress.
     # Schema/source/model admission and full typed result validation stay there.
-    source = FrozenNativeSource(packet["source"].encode())
+    source = FrozenNativeSource._accept_parent_validated(packet["source"].encode())
     options = FormalEvidenceOptions.model_validate_json(packet["options"])
     _apply_native_thread_limits()
     content_value = formal_product_values(

@@ -279,12 +279,12 @@ def test_current_annotation_consumer_reuses_columns_and_refuses_profile_or_sourc
         source_annotation_rows,
     )
     from corpus_structure.semantic.source_products import FrozenNativeSource
-    from methods.declared_primary_fixture import source_readings
+    from methods.declared_primary_fixture import profiles, source_readings
 
     source, products, _primary, native = source_readings("Mean is average.", AnnotationProfile())
     monkeypatch.setattr(annotations, "pipeline", lambda *_: pytest.fail("replay ran inference"))
     restored = retained_source_annotation_products(
-        FrozenNativeSource(source.source_content.encode()), native
+        FrozenNativeSource.acquire(profiles()[0].prepared, source.value), native
     )
     assert restored == products
     assert restored[0].tokens[0].start == 0 and restored[0].sentences[-1].end == 16

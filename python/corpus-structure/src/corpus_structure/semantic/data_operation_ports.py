@@ -1056,6 +1056,13 @@ class ResolvedPythonPort:
 
 
 def _validated_python_input(annotation: Any, value: Any, *, adapters=None) -> Any:
+    from .source_products import FrozenNativeSource
+
+    if annotation is FrozenNativeSource:
+        if type(value) is not FrozenNativeSource:
+            raise PortRefusal("native source ingress requires its exact acquired carrier")
+        value._require_acquired()
+        return value
     adapters = adapters or PortAdapters()
     if isinstance(annotation, type) and dataclasses.is_dataclass(annotation):
         if type(value) is not annotation:

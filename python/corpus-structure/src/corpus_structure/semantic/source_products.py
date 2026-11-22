@@ -9,10 +9,12 @@ from functools import cached_property
 from hashlib import sha256
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import Any, ClassVar
 
 import yaml
 from pydantic import BaseModel
+
+from corpus_structure.caches import declare
 
 from .identity import canonical_bytes
 from .original_documents import original_document_subject
@@ -327,64 +329,129 @@ def _projection_body(
     )
 
 
+@declare("native-source-decoder", "model_entries", key=lambda prepared: prepared.release_id)
+def _native_source_decoder(prepared):
+    return sha256(
+        canonical_bytes(prepared.adapter("DdoSelectedNativeSource").json_schema())
+    ).digest()
+
+
 @dataclass(frozen=True)
+class _NativeSourcePayload:
+    content: bytes
+    value: Mapping[str, Any]
+
+
+@declare(
+    "native-source-payloads",
+    "runtime_bytes",
+    key=lambda content, decoder, prepared=None: (sha256(content).digest(), decoder),
+    weight=lambda payload: len(payload.content),
+)
+def _native_source_payload(content, decoder, prepared=None):
+    """Retain immutable interpretation only; occurrence indexes stay invocation-owned."""
+    from .native_source_view import freeze_native
+
+    if prepared is None:
+        return _NativeSourcePayload(content, freeze_native(json.loads(content)))
+    checked = _values(prepared.validate_json("DdoSelectedNativeSource", content))
+    if "document_subject" in checked["source"] and checked["source"][
+        "document_subject"
+    ] != original_document_subject(checked["source"]["document"]):
+        raise ValueError("selected source document address differs from its original key")
+    text, pieces, items = checked["text"], checked.get("pieces", []), checked.get("items", [])
+    ancestors = checked.get("ancestors", [])
+    if len({item["self_ref"] for item in ancestors}) != len(ancestors):
+        raise ValueError("selected native source repeats an ancestor")
+    shared = {item["self_ref"]: item for item in items}
+    if any(
+        item["self_ref"] in shared and shared[item["self_ref"]] != item for item in ancestors
+    ):
+        raise ValueError("selected native ancestor differs from original atom")
+    checked["ancestors"] = ancestors
+    pointers = {item["self_ref"] for item in items}
+    if len(pointers) != len(items):
+        raise ValueError("selected native source repeats a native atom")
+    checked["pieces"], checked["items"] = pieces, items
+    previous = 0
+    for piece in pieces:
+        if not previous == piece["start"] < piece["end"] <= len(text):
+            raise ValueError("selected native source pieces overlap or exceed text")
+        previous = piece["end"]
+        if piece["kind"] == "native_text" and (
+            piece.get("item_ref") not in pointers or not piece.get("source_field")
+        ):
+            raise ValueError("selected native native piece requires its original atom/field")
+    if previous != len(text):
+        raise ValueError("selected native pieces do not partition the original text")
+    recognition = checked.get("recognition", [])
+    if len({row["pointer"] for row in recognition}) != len(recognition) or any(
+        row["pointer"] not in pointers for row in recognition
+    ):
+        raise ValueError("selected native recognition must name distinct original atoms")
+    checked["recognition"] = recognition
+    projection = native_projection_identity(text, pieces, items, recognition, ancestors)
+    if checked["source"]["projection"] != projection:
+        raise ValueError("selected native projection differs from actual source meaning")
+    ancestry = NativeSourceSelectorIndex.from_value(checked)
+    for selector in checked["selectors"]:
+        if selector["projection"] != projection:
+            raise ValueError("selected native scope has another projection")
+        if not 0 <= selector.get("start", 0) <= selector.get("end", len(text)) <= len(text):
+            raise ValueError("selected native scope exceeds original text")
+        if "native_pointer" in selector and not any(
+            ancestry.matches(selector, pointer) is True for pointer in pointers
+        ):
+            raise ValueError("selected native scope names no captured atom/ancestor descendant")
+    return _NativeSourcePayload(canonical_bytes(checked), freeze_native(checked))
+
+
+@dataclass(frozen=True, init=False)
 class FrozenNativeSource:
     """Owned source bytes validated against the acquired nominal declaration."""
 
     content: bytes
+    _validation: ClassVar[tuple[bytes, bytes | None]]
+    _payload: ClassVar[_NativeSourcePayload]
+
+    def __init__(self, *args, **kwargs):
+        raise TypeError("native sources require validating acquisition or sealed worker acceptance")
 
     @classmethod
-    def acquire(cls, prepared: PreparedRelease, value: Mapping[str, Any]) -> FrozenNativeSource:
-        checked = _values(prepared.validate_json("DdoSelectedNativeSource", canonical_bytes(value)))
-        if "document_subject" in checked["source"] and checked["source"][
-            "document_subject"
-        ] != original_document_subject(checked["source"]["document"]):
-            raise ValueError("selected source document address differs from its original key")
-        text, pieces, items = checked["text"], checked.get("pieces", []), checked.get("items", [])
-        ancestors = checked.get("ancestors", [])
-        if len({item["self_ref"] for item in ancestors}) != len(ancestors):
-            raise ValueError("selected native source repeats an ancestor")
-        shared = {item["self_ref"]: item for item in items}
-        if any(
-            item["self_ref"] in shared and shared[item["self_ref"]] != item for item in ancestors
+    def _from_payload(cls, payload, decoder):
+        source = object.__new__(cls)
+        object.__setattr__(source, "content", payload.content)
+        object.__setattr__(source, "_validation", (payload.content, decoder))
+        object.__setattr__(source, "_payload", payload)
+        return source
+
+    @classmethod
+    def _accept_parent_validated(cls, content):
+        """Accept source bytes only within an authenticated parent CPU packet."""
+        if type(content) is not bytes:
+            raise TypeError("sealed native source requires bytes")
+        return cls._from_payload(_native_source_payload(content, None), None)
+
+    def _require_acquired(self):
+        if (
+            type(self) is not FrozenNativeSource
+            or "_validation" not in vars(self)
+            or self._validation[0] is not self.content
         ):
-            raise ValueError("selected native ancestor differs from original atom")
-        checked["ancestors"] = ancestors
-        pointers = {item["self_ref"] for item in items}
-        if len(pointers) != len(items):
-            raise ValueError("selected native source repeats a native atom")
-        checked["pieces"], checked["items"] = pieces, items
-        previous = 0
-        for piece in pieces:
-            if not previous == piece["start"] < piece["end"] <= len(text):
-                raise ValueError("selected native source pieces overlap or exceed text")
-            previous = piece["end"]
-            if piece["kind"] == "native_text" and (
-                piece.get("item_ref") not in pointers or not piece.get("source_field")
-            ):
-                raise ValueError("selected native native piece requires its original atom/field")
-        if previous != len(text):
-            raise ValueError("selected native pieces do not partition the original text")
-        recognition = checked.get("recognition", [])
-        if len({row["pointer"] for row in recognition}) != len(recognition) or any(
-            row["pointer"] not in pointers for row in recognition
-        ):
-            raise ValueError("selected native recognition must name distinct original atoms")
-        checked["recognition"] = recognition
-        projection = native_projection_identity(text, pieces, items, recognition, ancestors)
-        if checked["source"]["projection"] != projection:
-            raise ValueError("selected native projection differs from actual source meaning")
-        ancestry = NativeSourceSelectorIndex.from_value(checked)
-        for selector in checked["selectors"]:
-            if selector["projection"] != projection:
-                raise ValueError("selected native scope has another projection")
-            if not 0 <= selector.get("start", 0) <= selector.get("end", len(text)) <= len(text):
-                raise ValueError("selected native scope exceeds original text")
-            if "native_pointer" in selector and not any(
-                ancestry.matches(selector, pointer) is True for pointer in pointers
-            ):
-                raise ValueError("selected native scope names no captured atom/ancestor descendant")
-        return cls(canonical_bytes(checked))
+            raise TypeError("native source lacks its validating acquisition")
+
+    @classmethod
+    def acquire(
+        cls, prepared: PreparedRelease, value: Mapping[str, Any] | FrozenNativeSource
+    ) -> FrozenNativeSource:
+        decoder = _native_source_decoder(prepared)
+        if isinstance(value, FrozenNativeSource):
+            value._require_acquired()
+            if value._validation[1] == decoder:
+                return value
+            value = value.value
+        payload = _native_source_payload(canonical_bytes(value), decoder, prepared)
+        return cls._from_payload(payload, decoder)
 
     @classmethod
     def from_projection(
@@ -424,7 +491,11 @@ class FrozenNativeSource:
         return cls.acquire(prepared, value)
 
     def selector_index(self) -> NativeSourceSelectorIndex:
-        return NativeSourceSelectorIndex.from_value(self.value)
+        return self._selector_index
+
+    @cached_property
+    def _selector_index(self) -> NativeSourceSelectorIndex:
+        return NativeSourceSelectorIndex.from_value(self._value)
 
     def native_items(self) -> tuple[dict[str, Any], ...]:
         """Exact retained original items/ancestor context for pure native owners."""
@@ -450,11 +521,9 @@ class FrozenNativeSource:
             rows.append(restored)
         return tuple(rows)
 
-    @cached_property
+    @property
     def _value(self):
-        from .native_source_view import freeze_native
-
-        return freeze_native(json.loads(self.content))
+        return self._payload.value
 
     @cached_property
     def view(self):
