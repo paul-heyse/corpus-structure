@@ -293,7 +293,11 @@ def test_selected_clause_requires_the_original_predicate_member(monkeypatch):
         inspected_frames=(choice,),
         unprojectable_frames=(choice,),
     )
-    report = SimpleNamespace(condition_qualification=None, clause_classification=clause)
+    report = SimpleNamespace(
+        condition_qualification=None,
+        clause_classification=clause,
+        predicate_input={"variant": "product", "role": "predicates"},
+    )
     monkeypatch.setattr(
         selected_structural_projection,
         "read_nonrich_root",
@@ -308,6 +312,7 @@ def test_selected_clause_requires_the_original_predicate_member(monkeypatch):
         "variant": "member",
         "input_kind": "predicates-report",
     }
+    parent_target = {**target, "path": "/predicate_input", "variant": "product"}
     original = {"role": "predicates", "product_id": "original", "position": 0, "multiplicity": 1}
     inputs = [original]
     actual_body = {
@@ -326,10 +331,15 @@ def test_selected_clause_requires_the_original_predicate_member(monkeypatch):
         },
         "ops.data_derivation": {"episode": {"release_id": "release"}},
         "sem.data_operation_definition": {
-            ("release", operation): {"support_contract": {"reference_targets": [target]}},
+            ("release", operation): {
+                "support_contract": {"reference_targets": [parent_target, target]}
+            },
         },
         "kb.data_product": {
-            "original": {"project_id": "project", "kind_contract": "kind:predicates"}
+            "original": {
+                "project_id": "project",
+                "kind_contract": "kind:predicates",
+            }
         },
         "kb.data_product_member": members,
         "kb.data_product_partition": {},
@@ -359,6 +369,12 @@ def test_selected_clause_requires_the_original_predicate_member(monkeypatch):
     )
     with pytest.raises(ValueError, match="does not resolve its predicate contribution"):
         selected_structural_projection.structural_report(scope, selected)
+
+    # An empty frame inventory still carries the actual inspection's selected input.
+    report.clause_classification = DeclaredClauseClassificationProduct(
+        context_policy="exact_focus", readings=()
+    )
+    assert selected_structural_projection.structural_report(scope, selected) is report
 
     inputs[0] = {**original, "product_id": "equal-content-substitute"}
     with pytest.raises(ValueError, match="unavailable in the exact selected use"):

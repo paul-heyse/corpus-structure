@@ -164,8 +164,8 @@ class LiveReferenceAccess:
         )
 
 
-def require_selected_output_reference(scope, selected, reference, *, path):
-    """Resolve one declared output reference from its acquired selected-use closure."""
+def require_selected_output_reference(scope, selected, reference, *, path, metadata_only=False):
+    """Resolve a declared reference or authenticate its exact whole-product binding."""
     from .detached_reference_resolution import IndexedReferenceAccess, reference_input_occurrence
 
     def row_map(relation, *fields):
@@ -246,6 +246,11 @@ def require_selected_output_reference(scope, selected, reference, *, path):
         raise ValueError("original reference parent is unavailable in the exact selected use")
     producing = ProducingReferenceBindings(selected.derivation_id, tuple(bindings))
     binding = producing.resolve(reference, occurrence_field=occurrence_field)
+    if metadata_only:
+        if reference.variant != "product" or binding.member_id is not None:
+            raise ValueError("reference metadata requires its exact whole producing input")
+        access.authorize(binding)
+        return binding
     return ReferenceResolver(producing, access).resolve(
         reference,
         ReferenceTarget(

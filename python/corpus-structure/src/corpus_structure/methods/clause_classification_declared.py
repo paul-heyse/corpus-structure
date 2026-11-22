@@ -27,6 +27,12 @@ class ClauseClassificationOperation:
         "reference_targets": [
             {
                 "output_role": "result",
+                "path": "/predicate_input",
+                "input_role": "predicates",
+                "variant": "product",
+            },
+            {
+                "output_role": "result",
                 "path": "/clause_classification/readings/*/primary_context/*",
                 "input_role": "canonical",
                 "variant": "partition-item",
@@ -312,85 +318,6 @@ class ClauseClassificationOperation:
                         "output_field": "analyzed_scope_meaning",
                         "input": {
                             "role": "source",
-                            "projection": "selected-input",
-                            "field": "analyzed_scope",
-                        },
-                        "encoding": "context-meaning-json",
-                    },
-                ],
-            },
-            {
-                "output_role": "result",
-                "records": "/reports_input/*",
-                "input_role": "predicates",
-                "comparisons": [
-                    {
-                        "output_field": "product_id",
-                        "input": {
-                            "role": "predicates",
-                            "projection": "selected-input",
-                            "field": "product",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "reference",
-                        "input": {
-                            "role": "predicates",
-                            "projection": "selected-input",
-                            "field": "reference",
-                        },
-                        "encoding": "json",
-                    },
-                    {
-                        "output_field": "kind_contract",
-                        "input": {
-                            "role": "predicates",
-                            "projection": "selected-input",
-                            "field": "kind_contract",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "project_id",
-                        "input": {
-                            "role": "predicates",
-                            "projection": "selected-input",
-                            "field": "project_id",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject",
-                        "input": {
-                            "role": "predicates",
-                            "projection": "selected-input",
-                            "field": "subject",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject_definition",
-                        "input": {
-                            "role": "predicates",
-                            "projection": "selected-input",
-                            "field": "subject_definition",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "original_source",
-                        "input": {
-                            "role": "predicates",
-                            "projection": "selected-input",
-                            "field": "original_source",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "analyzed_scope_meaning",
-                        "input": {
-                            "role": "predicates",
                             "projection": "selected-input",
                             "field": "analyzed_scope",
                         },

@@ -160,6 +160,7 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
     assert preparation.version == "semantic-2"
 
     clause = operations["structure.clause_classification/declared"]
+    assert all(group.input_role != "predicates" for group in clause.output_witnesses)
     predicate_links = {
         (target.output_role, target.path, target.variant, target.input_kind)
         for target in clause.reference_targets
@@ -170,6 +171,7 @@ def test_public_learned_math_downstream_profile_has_complete_captured_factories(
         "DdoPredicateInspectionReport"
     )
     assert predicate_links == {
+        ("result", "/predicate_input", "product", predicate_kind),
         ("result", "/clause_classification/readings/*/selection/frame", "member", predicate_kind),
         ("result", "/clause_classification/inspected_frames/*", "member", predicate_kind),
         ("result", "/clause_classification/unprojectable_frames/*", "member", predicate_kind),

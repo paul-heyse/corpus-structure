@@ -644,7 +644,7 @@ def execute_clause_classification(
             unprojectable_frames=tuple(unavailable),
         ),
         sources_input=(exact.reference("source"),),
-        reports_input=(exact.reference("predicates"),),
+        predicate_input=SemanticReference.whole("predicates").whole_value(),
     )
     profile.check_active()
     return result.model_dump(mode="json", exclude_none=True)

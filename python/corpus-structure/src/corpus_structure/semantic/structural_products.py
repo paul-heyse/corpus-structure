@@ -27,6 +27,7 @@ from .artifact_identity import (
 from .data_product_reference import (
     SemanticMemberReference,
     SemanticPartitionReference,
+    SemanticWholeReference,
     read_semantic_reference,
 )
 from .declared_structural_references import (
@@ -950,7 +951,7 @@ class DeclaredClauseReport(DeclaredStructuralProductReport):
     kind: Literal["clause_classification"] = "clause_classification"
     clause_classification: DeclaredClauseClassificationProduct
     sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
-    reports_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
+    predicate_input: SemanticWholeReference
 
 
 def _definition_component_invariants(value: Any) -> Any:

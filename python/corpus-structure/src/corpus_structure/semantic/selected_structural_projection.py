@@ -1,6 +1,7 @@
 """Deterministic structural reports and dossier pages over acquired typed support."""
 
 from collections import defaultdict
+from typing import cast
 
 from .data_operation_json import json_bytes, json_loads
 from .nonrich_contribution_facets import read_nonrich_root
@@ -41,6 +42,7 @@ def structural_report(scope, selected):
         raise ValueError("selected output has no current structural report contract")
     from .data_product_reference import read_semantic_reference
     from .live_reference_resolution import require_selected_output_reference
+    from .structural_products import DeclaredClauseReport
 
     condition = root.structural.condition_qualification
     if condition is not None:
@@ -59,6 +61,14 @@ def structural_report(scope, selected):
             raise ValueError("selected condition attachment does not resolve its qualification")
     clause = root.structural.clause_classification
     if clause is not None:
+        clause_report = cast(DeclaredClauseReport, root.structural)
+        require_selected_output_reference(
+            scope,
+            selected,
+            read_semantic_reference(clause_report.predicate_input),
+            path="/predicate_input",
+            metadata_only=True,
+        )
         # The report constructor ensures that every focus or unprojectable
         # frame is in the inspected inventory.
         for value in clause.inspected_frames:
