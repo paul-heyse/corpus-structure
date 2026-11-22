@@ -121,7 +121,10 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
         ("methods." + module, path.parents[1] / "methods" / (module + ".py")),
     )
     if profile in {"construction", "contextual"}:
-        sources += (("semantic.construction_products", path.with_name("construction_products.py")),)
+        sources += (
+            ("semantic.construction_products", path.with_name("construction_products.py")),
+            ("semantic.source_products", path.with_name("source_products.py")),
+        )
     return PythonSourceCollection(
         tuple(
             PythonSource("corpus_structure." + name, file.read_bytes(), str(file))
@@ -396,6 +399,7 @@ class PreparedCharacterizationPort(ABC):
             from .construction_products import (
                 verify_interpreted_body_coverage,
                 verify_interpreted_literal_source,
+                verify_interpreted_source_coverage,
             )
 
             functions = (
@@ -413,6 +417,10 @@ class PreparedCharacterizationPort(ABC):
                 (
                     "corpus_structure.semantic.construction_products.verify_interpreted_body_coverage",
                     verify_interpreted_body_coverage,
+                ),
+                (
+                    "corpus_structure.semantic.construction_products.verify_interpreted_source_coverage",
+                    verify_interpreted_source_coverage,
                 ),
             )
         verify_prepared_product(
@@ -755,6 +763,9 @@ class PreparedCharacterizationPort(ABC):
                     "source": (RuleObservedInput(source.value),)
                 },
                 "corpus_structure.semantic.construction_products.verify_interpreted_body_coverage": None,
+                "corpus_structure.semantic.construction_products.verify_interpreted_source_coverage": {
+                    "source": (RuleObservedInput(source.value),)
+                },
             }
             owner_kind = next(item for item in self.model.kinds if item.semantic_id == output.kind)
             packet: WireOutputMember = {

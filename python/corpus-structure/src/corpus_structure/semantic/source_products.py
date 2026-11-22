@@ -233,11 +233,19 @@ class NativeSourceSelectorIndex:
 
 
 def selected_source_ranges(value, selectors, *, selector_index=None, include_unknown=False):
-    """Merge exact selected projection intervals under captured pointer/page membership."""
+    """Merge selected projection intervals under captured pointer/page membership."""
     ancestry = selector_index or NativeSourceSelectorIndex.from_value(value)
+    return native_selected_ranges(
+        value, selectors, ancestry.parents, ancestry.pages, include_unknown=include_unknown
+    )
+
+
+def native_selected_ranges(value, selectors, parents, pages, *, include_unknown=False):
+    """Lower selectors against exact original parent, page and projected-piece facts."""
     intervals = []
     for selector in selectors:
-        start, end = selector.get("start", 0), selector.get("end", len(value["text"]))
+        start = _record_field(selector, "start", 0)
+        end = _record_field(selector, "end", len(value["text"]))
         if selector["projection"] != value["source"]["projection"] or not 0 <= start <= end <= len(
             value["text"]
         ):
@@ -248,9 +256,12 @@ def selected_source_ranges(value, selectors, *, selector_index=None, include_unk
         for piece in value["pieces"]:
             if piece["kind"] != "native_text":
                 continue
-            match = ancestry.matches(selector, piece["item_ref"])
+            pointer = piece["item_ref"]
+            if pointer not in pages:
+                raise ValueError("native selector candidate is outside captured selected items")
+            match = _native_selector_matches_ptr(parents, selector, pointer)
             if (match is not True and not (include_unknown and match is None)) or (
-                "page" in selector and ancestry.pages[piece["item_ref"]] != {selector["page"]}
+                "page" in selector and pages[pointer] != {selector["page"]}
             ):
                 continue
             intervals.append((max(start, piece["start"]), min(end, piece["end"])))
@@ -264,25 +275,40 @@ def selected_source_ranges(value, selectors, *, selector_index=None, include_unk
 
 
 def selected_source_unprojected_atoms(value, selectors, *, selector_index, include_unknown=False):
-    """Preserve the formal owner's selected formula atoms without projected characters."""
+    """Preserve selected formula atoms without projected characters."""
+    return native_selected_unprojected_atoms(
+        value,
+        selectors,
+        selector_index.parents,
+        selector_index.pages,
+        include_unknown=include_unknown,
+    )
+
+
+def native_selected_unprojected_atoms(value, selectors, parents, pages, *, include_unknown=False):
+    """Lower whole-source selectors to exact original unprojected formula atoms."""
     projected = {piece["item_ref"] for piece in value["pieces"] if piece["kind"] == "native_text"}
     unprojected = {
-        item["self_ref"] for item in value["items"] if item.get("label") == "formula"
+        item["self_ref"]
+        for item in value["items"]
+        if _record_field(item, "label", None) == "formula"
     } - projected
     selected = set()
     for selector in selectors:
         # The formal owner cannot locate an unprojected atom in a partial text range.
-        if "start" in selector and (selector["start"], selector.get("end")) != (
+        if "start" in selector and (selector["start"], _record_field(selector, "end", None)) != (
             0,
             len(value["text"]),
         ):
             continue
         for pointer in unprojected:
-            match = selector_index.matches(selector, pointer)
+            if pointer not in pages:
+                raise ValueError("native selector candidate is outside captured selected items")
+            match = _native_selector_matches_ptr(parents, selector, pointer)
             if (match is True or (include_unknown and match is None)) and (
-                "page" not in selector or selector["page"] in selector_index.pages[pointer]
+                "page" not in selector or selector["page"] in pages[pointer]
             ):
-                selected.add(pointer)
+                selected |= {pointer}
     return frozenset(selected)
 
 
@@ -364,9 +390,7 @@ def _native_source_payload(content, decoder, prepared=None):
     if len({item["self_ref"] for item in ancestors}) != len(ancestors):
         raise ValueError("selected native source repeats an ancestor")
     shared = {item["self_ref"]: item for item in items}
-    if any(
-        item["self_ref"] in shared and shared[item["self_ref"]] != item for item in ancestors
-    ):
+    if any(item["self_ref"] in shared and shared[item["self_ref"]] != item for item in ancestors):
         raise ValueError("selected native ancestor differs from original atom")
     checked["ancestors"] = ancestors
     pointers = {item["self_ref"] for item in items}

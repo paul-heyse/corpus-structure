@@ -27,7 +27,7 @@ class GraphSource:
 def selected_graph(text="all", *, selectors=None, **kwargs):
     selected, _frame, context = selected_source(text, **kwargs)
     if selectors is not None:
-        value = selected.value
+        value = dict(selected.value)
         value["selectors"] = [
             dict(projection=value["source"]["projection"], **row) for row in selectors
         ]
@@ -117,12 +117,15 @@ def literal_inventory(case) -> dict[str, Any]:
 
 def product_value(case, facts, dependencies=()) -> dict[str, Any]:
     profile = profiles()[1]
-    return interpreted_product_value(
-        case.source,
-        facts,
-        interpreted_member_contracts(profile.prepared, profile.model),
-        dependencies,
-    )
+    return {
+        **interpreted_product_value(
+            case.source,
+            facts,
+            interpreted_member_contracts(profile.prepared, profile.model),
+            dependencies,
+        ),
+        "annotation_support": [],
+    }
 
 
 def validate_product(case, value, dependencies=()):

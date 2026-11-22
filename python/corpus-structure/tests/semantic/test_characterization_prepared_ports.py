@@ -529,11 +529,12 @@ def test_interpreted_body_coverage_refuses_empty_family_with_analytical_members(
         verify_interpreted_body_coverage(coverage, "complete", inventory)
 
 
-def test_interpreted_completions_attest_body_coverage_and_exact_literal_source(acquired):
+def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired):
     from corpus_structure.semantic.construction_products import (
         PreparedConstructionProfile,
         PreparedContextualProfile,
         verify_interpreted_literal_source,
+        verify_interpreted_source_coverage,
     )
 
     _, _, prepared, model, formal = acquired
@@ -563,8 +564,10 @@ def test_interpreted_completions_attest_body_coverage_and_exact_literal_source(a
         port = admitted(acquired, operation, resolver)
         result = port._completion(product, SimpleNamespace(subject_context=context), source=source)
         proofs = {proof.rule_id: proof for proof in result.rule_attestations}
-        coverage_rule = operation.partition("/")[0] + "/body-coverage"
-        assert set(proofs) == {required, coverage_rule}
+        prefix = operation.partition("/")[0]
+        coverage_rule = prefix + "/body-coverage"
+        selected_rule = prefix + "/selected-source-coverage"
+        assert set(proofs) == {required, coverage_rule, selected_rule}
         assert all(proof.output_role == "result" for proof in proofs.values())
         assert all(proof.output_position == 0 for proof in proofs.values())
 
@@ -576,12 +579,14 @@ def test_interpreted_completions_attest_body_coverage_and_exact_literal_source(a
         changed_proofs = {proof.rule_id: proof for proof in changed.rule_attestations}
         assert changed_proofs[coverage_rule].premise == proofs[coverage_rule].premise
         assert changed_proofs[required].premise != proofs[required].premise
+        assert changed_proofs[selected_rule].premise != proofs[selected_rule].premise
 
     consumer = model.operation("text.contextual_evaluation/source-native")
     (role,) = (role for role in consumer.roles if role.name == "constructions")
     assert role.required_rules == (
         "text.constructions/body-coverage",
         "text.constructions/literal-source",
+        "text.constructions/selected-source-coverage",
     )
     (reference_target,) = model.operation("text.constructions/source-native").reference_targets
     assert (reference_target.path, reference_target.input_role, reference_target.collection) == (
@@ -607,6 +612,15 @@ def test_interpreted_completions_attest_body_coverage_and_exact_literal_source(a
         verify_interpreted_literal_source(
             product, {**source.value, "text": "Few samples are finite."}
         )
+
+    covered = {
+        "outcome": "complete",
+        "eligible": source.value["selectors"],
+        "examined": source.value["selectors"],
+    }
+    verify_interpreted_source_coverage((covered,), source.value)
+    with pytest.raises(ValueError, match="leaves eligible source scope unexamined"):
+        verify_interpreted_source_coverage(({**covered, "examined": ()},), source.value)
 
 
 def test_primary_support_uses_real_annotation_rows_and_preserves_formal_premises():

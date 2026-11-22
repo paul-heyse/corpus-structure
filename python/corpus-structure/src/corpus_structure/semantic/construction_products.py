@@ -18,6 +18,11 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
+from corpus_structure.semantic.source_products import (
+    native_selected_ranges,
+    native_selected_unprojected_atoms,
+    native_selector_facts,
+)
 
 from .characterization import (
     admitted_characterization_graph,
@@ -51,8 +56,6 @@ from .sentence_products import (
 )
 from .source_products import (
     FrozenNativeSource,
-    selected_source_ranges,
-    selected_source_unprojected_atoms,
     source_extent_selected,
     source_subject,
 )
@@ -873,6 +876,26 @@ def verify_interpreted_body_coverage(coverage, outcome, inventory):
         raise ValueError("complete product contains incomplete family coverage")
 
 
+def verify_interpreted_source_coverage(coverage, source):
+    """Check that complete families examine all eligible original ranges and atoms."""
+    parents, pages = native_selector_facts(source["items"], source["ancestors"])
+    for row in coverage:
+        if row["outcome"] not in {"complete", "empty"}:
+            continue
+        eligible = native_selected_ranges(
+            source, row["eligible"], parents, pages, include_unknown=True
+        )
+        examined = native_selected_ranges(source, row["examined"], parents, pages)
+        eligible_atoms = native_selected_unprojected_atoms(
+            source, row["eligible"], parents, pages, include_unknown=True
+        )
+        examined_atoms = native_selected_unprojected_atoms(source, row["examined"], parents, pages)
+        if not eligible_atoms <= examined_atoms or any(
+            not any(c <= a and b <= d for c, d in examined) for a, b in eligible
+        ):
+            raise ValueError("complete or empty family leaves eligible source scope unexamined")
+
+
 def validate_interpreted_product(
     prepared,
     model,
@@ -967,24 +990,7 @@ def validate_interpreted_product(
     validate_navigation_evidence({**indexes, "annotations": indexes["annotations"] | navigation})
     validate_inventory_graph(inventory, indexes, all_nodes, choices, validate_basis)
     verify_interpreted_body_coverage(checked["coverage"], checked["outcome"], inventory)
-    for row in checked["coverage"]:
-        if row["outcome"] in {"complete", "empty"}:
-            eligible = selected_source_ranges(
-                selected, row["eligible"], selector_index=selector_index, include_unknown=True
-            )
-            examined = selected_source_ranges(
-                selected, row["examined"], selector_index=selector_index
-            )
-            eligible_atoms = selected_source_unprojected_atoms(
-                selected, row["eligible"], selector_index=selector_index, include_unknown=True
-            )
-            examined_atoms = selected_source_unprojected_atoms(
-                selected, row["examined"], selector_index=selector_index
-            )
-            if not eligible_atoms <= examined_atoms or any(
-                not any(c <= a and b <= d for c, d in examined) for a, b in eligible
-            ):
-                raise ValueError("complete or empty family leaves eligible source scope unexamined")
+    verify_interpreted_source_coverage(checked["coverage"], selected)
     return product_type(canonical_bytes(checked), prepared, model, subject_context)
 
 

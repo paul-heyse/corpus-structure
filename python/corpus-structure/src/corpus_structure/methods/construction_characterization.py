@@ -17,6 +17,21 @@ class ConstructionOperation:
         "id": "text.constructions/source-native",
         "rules": [
             {
+                "id": "text.constructions/selected-source-coverage",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.constructions/source-native",
+                "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_source_coverage",
+                "parameters": {
+                    "paths": ["coverage"],
+                    "input_reads": {
+                        "source": ["source.projection", "text", "items", "ancestors", "pieces"]
+                    },
+                },
+            },
+            {
                 "id": "text.constructions/body-coverage",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "scope": "product",
