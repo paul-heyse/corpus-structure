@@ -106,11 +106,12 @@ def structural_call_assets():
     )
 
 
-def structural_operation_sources():
+def structural_operation_sources(*, include_formal=True):
+    """Capture structural execution and the rule owner for optional formal inputs."""
     from .python_operation_sources import PythonSource, PythonSourceCollection
 
     root = Path(__file__).parents[1]
-    return PythonSourceCollection(
+    own = PythonSourceCollection(
         tuple(
             PythonSource(
                 "corpus_structure." + name.removesuffix(".py").replace("/", "."),
@@ -125,6 +126,13 @@ def structural_operation_sources():
         ),
         boundary_contracts=(structural_call_assets(),),
     )
+
+    if not include_formal:
+        return own
+    from .formal_products import formal_operation_sources
+    from .primary_operations import combine_primary_sources
+
+    return combine_primary_sources(formal_operation_sources(), own)
 
 
 def structural_inputs(bundle):
@@ -510,7 +518,7 @@ class StructuralCallPlan:
             prepared=self.prepared,
             check_active=check_active,
         )
-        captured = structural_operation_sources()
+        captured = structural_operation_sources(include_formal=False)
         return (
             yield from self.port.plan_cpu(
                 self.kernel,
@@ -533,7 +541,7 @@ def resolve_structural_call(
     selected = model.operation(operation)
     if selected.semantic_id != receiver.__data_operation__["id"]:
         raise PortRefusal("structural factory differs from its governing producer")
-    captured = structural_operation_sources()
+    captured = structural_operation_sources(include_formal=False)
     plan = StructuralCallPlan(prepared, kernel, sources)
     port = PreparedOriginalCallPort(
         identity,

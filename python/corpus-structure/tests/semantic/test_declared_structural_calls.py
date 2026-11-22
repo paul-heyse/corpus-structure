@@ -51,19 +51,36 @@ def compiled():
 
 def test_structural_current_producers_have_closed_original_callable_and_nominal_witnesses():
     model, bundle, sources = compiled()
-    assert {operation.semantic_id for operation in model.operations} == {
+    operations = {operation.semantic_id: operation for operation in model.operations}
+    assert set(operations) == {
         "structure.compare/declared",
         "structure.condition_qualification/declared",
+        "text.formal_evidence/source-native",
     }
     assert all(implementation.complete for implementation in model.implementation_slices)
-    for operation in model.operations:
-        identity = python_port_identity(model, sources, operation.semantic_id, schema=bundle)
+    for name in ("structure.compare/declared", "structure.condition_qualification/declared"):
+        operation = operations[name]
+        identity = python_port_identity(model, sources, name, schema=bundle)
         assert identity.recipe
         assert operation.consumer_selection is not None
         assert operation.dependencies == ()
-        assert len(operation.output_witnesses) == (
-            4 if operation.semantic_id == "structure.compare/declared" else 2
-        )
+        assert len(operation.output_witnesses) == (4 if name == "structure.compare/declared" else 2)
+
+    (formal,) = (
+        role for role in operations["structure.compare/declared"].roles if role.name == "formal"
+    )
+    assert formal.minimum == 0 and formal.presence == "optional"
+    assert set(formal.required_rules) == {
+        "text.formal_evidence/examined-scope",
+        "text.formal_evidence/lexical-inventory-links",
+        "text.formal_evidence/literal-source-geometry",
+        "text.formal_evidence/member-local-addresses",
+        "text.formal_evidence/occurrence-origin",
+        "text.formal_evidence/symbolic-inventory-positions",
+    }
+    assert {rule.checker_operation for rule in model.rules if rule.id in formal.required_rules} == {
+        "text.formal_evidence/source-native"
+    }
     condition = model.operation("structure.condition_qualification/declared")
     (attachment,) = condition.reference_targets
     assert (attachment.path, attachment.input_role, attachment.variant) == (
