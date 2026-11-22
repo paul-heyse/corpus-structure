@@ -7,7 +7,8 @@ Physical cohort receipts remain execution evidence; they do not enter semantic b
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, field
 from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from corpus_structure.methods.pm2_source import D1SourceField, MappedSource, SourceMapRefused
 
     from .model_characterization import ModelScope, QuestionRequest
+    from .runtime_slice import AuthenticatedSlice
 
 from .identity import canonical_bytes
 from .python_module_projection import admitted_operation_module_meaning
@@ -1167,14 +1169,35 @@ class PreparedLearnedPrimaryPort:
     sources: Any
     endpoint: Any
     selections: Any
+    _verification: AuthenticatedSlice = field(init=False, compare=False, repr=False)
 
     @property
     def native_selections(self):
         return (self.profile.selection,)
 
-    def _verify(self):
-        from .data_operation_prepared_products import verify_prepared_product
+    def __post_init__(self):
+        from .data_operation_prepared_products import (
+            authenticated_prepared_product,
+            verify_prepared_product,
+        )
+        from .file_custody import verified_file
 
+        assets = learned_profile_assets(
+            self.selections,
+            threshold=self.profile.threshold,
+            max_context_chars=self.profile.max_context_chars,
+        )
+        functions = (
+            (self.operation.callable_surfaces[0].declaration, self.endpoint.run),
+            (
+                "corpus_structure.semantic.learned_primary.execute_learned_primary",
+                execute_learned_primary,
+            ),
+            (
+                "corpus_structure.semantic.learned_primary.PreparedLearnedPrimary.run",
+                PreparedLearnedPrimary.run,
+            ),
+        )
         verify_prepared_product(
             self.identity,
             self.profile.model,
@@ -1182,31 +1205,35 @@ class PreparedLearnedPrimaryPort:
             self.sources,
             self.custody,
             assets=(
-                learned_profile_assets(
-                    self.selections,
-                    threshold=self.profile.threshold,
-                    max_context_chars=self.profile.max_context_chars,
-                ),
+                assets,
                 learned_execution_custody(
                     self.selections,
                     threshold=self.profile.threshold,
                     max_context_chars=self.profile.max_context_chars,
                 ),
             ),
-            functions=(
-                (self.operation.callable_surfaces[0].declaration, self.endpoint.run),
-                (
-                    "corpus_structure.semantic.learned_primary.execute_learned_primary",
-                    execute_learned_primary,
-                ),
-                (
-                    "corpus_structure.semantic.learned_primary.PreparedLearnedPrimary.run",
-                    PreparedLearnedPrimary.run,
-                ),
-            ),
+            functions=functions,
             authorize=self.authorize,
             required_sources=self.sources,
         )
+        verification = authenticated_prepared_product(
+            self.sources, functions, required_sources=self.sources
+        )
+        record = json.loads(assets.content)
+        registered = {file.path.resolve(): file for file in verification.files}
+        for name, content in (
+            *record["files"],
+            ("model/semantic/characterization-questions.yaml", record["questions"]),
+        ):
+            path = (_ROOT / name).resolve()
+            if path not in registered:
+                registered[path] = verified_file(path, sha256(bytes.fromhex(content)).hexdigest())
+        verification.files = tuple(registered.values())
+        object.__setattr__(self, "_verification", verification)
+
+    def _verify(self):
+        self._verification.check()
+        self.authorize(self.identity)
 
     def plan_python(self, values, *, binding=None, check_active=lambda: None, execution_owner):
         from corpus_structure.semantic.input_values import _untrusted_value
@@ -1223,7 +1250,6 @@ class PreparedLearnedPrimaryPort:
         from .sentence_products import acquired_source_annotations
         from .source_products import FrozenNativeSource
 
-        self._verify()
         if (
             binding is None
             or not binding.sufficient
@@ -1235,25 +1261,30 @@ class PreparedLearnedPrimaryPort:
             for identity in self.profile.model.identities
         }
         role_values = {value.role: value for value in values}
+        declared_inputs = tuple(role for role in self.operation.roles if role.direction == "input")
+        if len(role_values) != len(values) or role_values.keys() != {
+            role.name for role in declared_inputs
+        }:
+            raise PortRefusal("learned profile requires its exact declared input roles")
         inputs = {}
-        for role in self.operation.roles:
-            if role.direction != "input":
-                continue
-            value = role_values.get(role.name)
-            if value is None or value.kind_contract != ids[role.kind, "kind"]:
+        for role in declared_inputs:
+            value = role_values[role.name]
+            if value.kind_contract != ids[role.kind, "kind"]:
                 raise PortRefusal("learned profile input differs from its exact nominal role")
+            if role.name in {"source", "annotations"}:
+                continue
             definition = next(
                 kind.name for kind in self.profile.model.kinds if kind.semantic_id == role.kind
             )
-            if role.name == "annotations" and value.partitioned is not None:
-                inputs[role.name] = _untrusted_value(value.value)
-                continue
             body = self.profile.prepared.validate_json(
                 definition, canonical_bytes(_untrusted_value(value.value))
             ).model_dump(mode="python", exclude_unset=True)
             inputs[role.name] = body
-        source = FrozenNativeSource.acquire(self.profile.prepared, inputs.pop("source"))
-        if "annotations" in inputs:
+        source_value = role_values["source"].value
+        if not isinstance(source_value, (Mapping, FrozenNativeSource)):
+            source_value = _untrusted_value(source_value)
+        source = FrozenNativeSource.acquire(self.profile.prepared, source_value)
+        if "annotations" in role_values:
             partitioned = role_values["annotations"].partitioned
             if partitioned is None or binding.subject_context is None:
                 raise PortRefusal("learned profile requires its selected annotation row partitions")
@@ -1306,6 +1337,7 @@ class PreparedLearnedPrimaryPort:
         elif parameters:
             raise PortRefusal("learned producer does not declare authored parameters")
         check_active()
+        self._verify()
         products = yield from self.endpoint(
             self.profile, binding, execution_owner, check_active
         ).run(source, **inputs)
@@ -1360,11 +1392,9 @@ def resolve_learned_primary_port(
         )
     except (KeyError, TypeError, ValueError) as error:
         raise PortRefusal("learned profile lacks exact captured provider custody") from error
-    port = PreparedLearnedPrimaryPort(
+    return PreparedLearnedPrimaryPort(
         identity, selected, profile, authorize, custody, sources, endpoint, selections
     )
-    port._verify()
-    return port
 
 
 def resolve_learned_selections(custody):
