@@ -188,9 +188,12 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
         "binding": {"inputs": [{"role": "inventory", "product_id": admitted}]},
     }
 
-    def check(reference, *, original=request):
-        value = reference.values() if isinstance(reference, SemanticReference) else reference
-        packet = partition_packet("rows", "output", 0, 0, 5, [{"annotation": value}])
+    def check(*references, original=request):
+        rows = [
+            {"annotation": ref.values() if isinstance(ref, SemanticReference) else ref}
+            for ref in references
+        ]
+        packet = partition_packet("rows", "output", 0, 0, 5, rows)
         conn.execute(
             text(
                 "SELECT ops.ddo_assert_output_references("
@@ -208,6 +211,36 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
 
     ref = SemanticReference.item("inventory", "tokens", "b", (0, 2))
     check(ref)
+    # Construction references follow output occurrence order, so another block can
+    # interrupt two visits to the same partition.
+    other = SemanticReference.item("inventory", "tokens", "a", (0, 1))
+    conn.exec_driver_sql("CREATE TEMP SEQUENCE reference_partition_reads")
+    conn.exec_driver_sql(
+        "ALTER FUNCTION ops.ddo_acquired_product_partition(text,text,text,text) "
+        "RENAME TO fixture_acquired_product_partition"
+    )
+    conn.exec_driver_sql(
+        """
+        CREATE FUNCTION ops.ddo_acquired_product_partition(text,text,text,text)
+        RETURNS jsonb LANGUAGE plpgsql AS $body$
+        BEGIN
+            PERFORM nextval('pg_temp.reference_partition_reads');
+            RETURN ops.fixture_acquired_product_partition($1,$2,$3,$4);
+        END
+        $body$
+        """
+    )
+    reads = text("SELECT last_value FROM pg_temp.reference_partition_reads")
+    check(ref, other, ref)
+    assert conn.scalar(reads) == 2
+    check(ref, other, ref)
+    assert conn.scalar(reads) == 4
+    with (
+        pytest.raises(DBAPIError, match='"integer": 777'),
+        conn.begin_nested(),
+    ):
+        check(ref, other, replace(ref, item_key=(0, 777)), replace(other, item_key=(0, 999)))
+
     for bad in (
         replace(ref, item_key=(0, 3)),
         replace(ref, role="other"),

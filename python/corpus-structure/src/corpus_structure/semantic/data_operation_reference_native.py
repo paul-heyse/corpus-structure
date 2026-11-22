@@ -45,8 +45,8 @@ def reference_native_programs(model):
         core_variable(name, Text()) for name in ("target_role", "target_product", "bound_member")
     )
     count = core_variable("target_count", Integer())
-    previous_partition, address_index = (
-        core_variable(name, JSONB()) for name in ("previous_partition", "address_index")
+    partition_indexes, address_index = (
+        core_variable(name, JSONB()) for name in ("partition_indexes", "address_index")
     )
     request = model.tables["ops.data_request"]
 
@@ -57,6 +57,7 @@ def reference_native_programs(model):
         return func.data.ddo_json(func.data.ddo_normalize(value), type_=JSONB())
 
     empty = cast(literal("[]"), JSONB())
+    empty_index = cast(literal("{}"), JSONB())
     targets = _rows(
         func.coalesce(definitions.c.support_contract["reference_targets"], empty),
         "reference_targets",
@@ -165,7 +166,9 @@ def reference_native_programs(model):
     partition_index = select(
         func.jsonb_object_agg(multiplicities.c.address, multiplicities.c.multiplicity)
     ).scalar_subquery()
-    partition_address = func.jsonb_build_array(product, collection, ref["partition_key"].astext)
+    partition_address = cast(
+        func.jsonb_build_array(product, collection, ref["partition_key"].astext), Text()
+    )
     keys = _rows(ref["item_key"], "submitted_address_fields")
     key_part = keys.c.value
     part_kind = key_part["kind"].astext
@@ -253,8 +256,11 @@ def reference_native_programs(model):
                     detail,
                 ),
                 _reject(or_(func.jsonb_array_length(ref["item_key"]) == 0, bad_key_field), detail),
+                # The request's authorization and exact input occurrence are checked
+                # above even when this invocation already indexed the immutable body.
+                Assign("address_index", partition_indexes[partition_address]),
                 If(
-                    previous_partition.is_distinct_from(partition_address),
+                    address_index.is_(None),
                     (
                         Assign(
                             "partition_body",
@@ -266,8 +272,13 @@ def reference_native_programs(model):
                                 type_=JSONB(),
                             )["body"],
                         ),
-                        Assign("address_index", partition_index),
-                        Assign("previous_partition", partition_address),
+                        Assign("address_index", func.coalesce(partition_index, empty_index)),
+                        Assign(
+                            "partition_indexes",
+                            partition_indexes.op("||")(
+                                func.jsonb_build_object(partition_address, address_index)
+                            ),
+                        ),
                     ),
                 ),
                 _reject(
@@ -295,7 +306,7 @@ def reference_native_programs(model):
     def at_path(body, name):
         return (
             func.data.ddo_witness_records(body, target["path"].astext)
-            .table_valued(column("value", JSONB()))
+            .table_valued(column("value", JSONB()), with_ordinality="ordinality")
             .render_derived(name=name)
         )
 
@@ -303,7 +314,13 @@ def reference_native_programs(model):
     item_refs = at_path(partition_items.c.value, "item_refs").lateral()
     check_output = If(
         target["output_collection"].astext.is_(None),
-        (ForQuery(("ref",), select(header_refs.c.value), check_reference),),
+        (
+            ForQuery(
+                ("ref",),
+                select(header_refs.c.value).order_by(header_refs.c.ordinality),
+                check_reference,
+            ),
+        ),
         (
             ForQuery(
                 ("ref",),
@@ -316,6 +333,11 @@ def reference_native_programs(model):
                 .where(
                     output_partitions.c.value["collection"].astext
                     == target["output_collection"].astext
+                )
+                .order_by(
+                    output_partitions.c.ordinality,
+                    partition_items.c.ordinality,
+                    item_refs.c.ordinality,
                 ),
                 check_reference,
             ),
@@ -344,14 +366,17 @@ def reference_native_programs(model):
                         .where(
                             definitions.c.release_id == request_field("release_id"),
                             definitions.c.operation_id == request_field("operation_id"),
-                        ),
+                        )
+                        .order_by(targets.c.ordinality),
                         (
                             Assign("target_role", target["input_role"].astext),
                             ForQuery(
                                 ("output",),
-                                select(outputs.c.value).where(
+                                select(outputs.c.value)
+                                .where(
                                     outputs.c.value["role"].astext == target["output_role"].astext
-                                ),
+                                )
+                                .order_by(outputs.c.ordinality),
                                 (check_output,),
                             ),
                         ),
@@ -366,10 +391,10 @@ def reference_native_programs(model):
                             "output",
                             "ref",
                             "partition_body",
-                            "previous_partition",
                             "address_index",
                         )
                     ),
+                    Local("partition_indexes", pg_type("jsonb"), empty_index),
                     *(
                         Local(name, pg_type("text"))
                         for name in ("target_role", "target_product", "bound_member")
