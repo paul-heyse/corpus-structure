@@ -1269,6 +1269,18 @@ class WireOperationEventFrameSelectedOperationEventFrame(TypedDict):
     version: NotRequired[Literal["selected-operation-event-frame-1"]]
 
 
+class WireOriginalObligationReadinessIdentityVariant2(TypedDict):
+    admission_ids: Required[list[WireIdentifier]]
+    product_id: Required[WireIdentifier]
+
+
+class WireOriginalObligationReadiness(TypedDict):
+    identity: Required[WireOriginalObligationReadinessIdentityVariant2 | None]
+    input_role: Required[WireIdentifier]
+    ready: Required[bool]
+    state: Required[Literal["ready", "missing", "ambiguous"]]
+
+
 class WireOriginalSourceAdmissionResult(TypedDict):
     admission_id: Required[WireAdmissionId]
     analyzed_scope: Required[ContextualJsonValue]
@@ -1384,10 +1396,11 @@ class WireResultObligation(TypedDict):
     generation: Required[WireGeneration | None]
     historical_fate: Required[WireHistoricalFate | None]
     id: Required[WireIdentifier]
-    inputs_watermark: Required[str]
+    inputs_watermark: NotRequired[str]
     intent_id: Required[WireCompletionIntentId | None]
     obligation_id: Required[WireObligationId]
     operation_id: Required[WireOperationId]
+    original_readiness: NotRequired[WireOriginalObligationReadiness | None]
     original_source: Required[WireOriginalSourceId | None]
     parameters: Required[WireParameterMap]
     request_id: Required[WireRequestId | None]

@@ -2015,7 +2015,11 @@ def _unconstrained_watermark_uses(metadata, bounded):
 
 
 def _inputs_watermarks(metadata, bounded):
-    """A set-wise readiness fingerprint; waiting fates do not advance it."""
+    """Retain the fingerprint only for readiness origins without a native owner."""
+    owner = bounded
+    bounded = (
+        select(bounded).where(bounded.c.original_readiness.is_(None)).cte("watermark_obligations")
+    )
     uses = metadata.tables["ops.demand_use"]
     obligations = metadata.tables["ops.data_obligation"].alias("prerequisite_obligation")
     populations = metadata.tables["ops.data_population"]
@@ -2132,8 +2136,8 @@ def _inputs_watermarks(metadata, bounded):
     )
     facts = (
         select(identities.c.identities)
-        .where(identities.c.obligation_id == bounded.c.id)
-        .correlate(bounded)
+        .where(identities.c.obligation_id == owner.c.id)
+        .correlate(owner)
         .scalar_subquery()
     )
     return func.ops.ddo_digest(
@@ -2171,6 +2175,16 @@ def read_page(metadata):
         )
         .order_by(obligations.c.id)
         .limit(_var("lim", BigInteger))
+        .cte("bounded_obligations")
+        .prefix_with("MATERIALIZED")
+    )
+    bounded = (
+        select(
+            bounded,
+            func.ops.ddo_original_obligation_readiness(
+                bounded.c.id, _var("boundary.id", Text), type_=JSONB()
+            ).label("original_readiness"),
+        )
         .cte("bounded")
         .prefix_with("MATERIALIZED")
     )
@@ -2405,7 +2419,6 @@ def read_page(metadata):
         .op("||")(
             _obj(
                 obligation_id=bounded.c.id,
-                inputs_watermark=inputs_watermark,
                 subject_definition=select(definitions.c.subject_definition)
                 .where(
                     definitions.c.release_id == _var("d.release_id", Text),
@@ -2422,11 +2435,25 @@ def read_page(metadata):
                         literal("unavailable"),
                     ),
                     (awaiting_external(latest), literal("awaiting-external")),
+                    (
+                        and_(
+                            latest.c.id.is_(None),
+                            bounded.c.original_readiness.is_not(None),
+                            bounded.c.original_readiness["ready"].astext == "false",
+                        ),
+                        literal("awaiting-inputs"),
+                    ),
                     else_=func.coalesce(latest.c.fate, literal("waiting")),
                 ),
                 request_id=latest.c.request_id,
                 generation=latest.c.generation,
                 intent_id=latest_intent,
+            )
+        )
+        .op("||")(
+            case(
+                (bounded.c.original_readiness.is_not(None), _json({})),
+                else_=_obj(inputs_watermark=inputs_watermark),
             )
         )
     )

@@ -1076,9 +1076,31 @@ definitions:
     - populations
     - read_id
     additionalProperties: false
+  original_obligation_readiness:
+    type: object
+    additionalProperties: false
+    properties:
+      ready: {type: boolean}
+      state: {type: string, enum: [ready, missing, ambiguous]}
+      input_role: {$ref: '#/definitions/identifier'}
+      identity:
+        anyOf:
+        - type: 'null'
+        - type: object
+          additionalProperties: false
+          properties:
+            product_id: {$ref: '#/definitions/identifier'}
+            admission_ids:
+              type: array
+              minItems: 1
+              items: {$ref: '#/definitions/identifier'}
+          required: [product_id, admission_ids]
+    required: [ready, state, input_role, identity]
   result_obligation:
     type: object
     properties:
+      original_readiness:
+        anyOf: [{$ref: '#/definitions/original_obligation_readiness'}, {type: 'null'}]
       inputs_watermark: {type: string, minLength: 1}
       id:
         $ref: '#/definitions/identifier'
@@ -1116,7 +1138,6 @@ definitions:
         - $ref: '#/definitions/identifier'
         - type: 'null'
     required:
-    - inputs_watermark
     - id
     - obligation_id
     - demand_id
