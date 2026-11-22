@@ -114,10 +114,7 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
             ).occurrence_member_value(),
         )
     carrier_key = canonical_bytes(carrier.model_dump(mode="json"))
-    if (
-        carrier_key not in cues
-        or cues[carrier_key][0]["occurrence_id"] != query["occurrence_id"]
-    ):
+    if carrier_key not in cues or cues[carrier_key][0]["occurrence_id"] != query["occurrence_id"]:
         raise ValueError(
             "witness binding lacks the exact query carrier, including same-span role identity"
         )

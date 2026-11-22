@@ -147,7 +147,9 @@ def test_condition_facet_requires_the_exact_original_attachment_in_current_suppo
     )
     value.operation_id = operation
     value.derivation_id = "selected-episode"
-    attachment = read_semantic_reference(report.condition_qualification.attachment)
+    qualification = report.condition_qualification
+    assert qualification is not None
+    attachment = read_semantic_reference(qualification.attachment)
     assert attachment.member_id is not None
     original = {"role": "report", "product_id": "original", "position": 0, "multiplicity": 1}
     current = [original]

@@ -779,11 +779,11 @@ def _selected_annotation_blocks(selected):
 
     native = []
     for product in selected:
-        if type(product) is SourceAnnotations or (
-            type(product) is RetainedCharacterizationProduct
-            and product.partition_blocks is not None
-        ):
+        if type(product) is SourceAnnotations:
             native.append((product.value, product.partition_blocks))
+        elif type(product) is RetainedCharacterizationProduct:
+            if (blocks := product.partition_blocks) is not None:
+                native.append((product.value, blocks))
     return native
 
 
