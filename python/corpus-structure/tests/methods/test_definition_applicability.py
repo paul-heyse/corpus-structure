@@ -17,7 +17,6 @@ from corpus_structure.methods.definition_applicability import (
 )
 from corpus_structure.methods.gliner import GlinerRefused
 from corpus_structure.semantic.declared_structural_references import (
-    DeclaredProductRef,
     DeclaredRelationshipRef,
 )
 from corpus_structure.semantic.definition_applicability_products import (
@@ -236,9 +235,7 @@ def test_named_roles_use_bindings_not_surface_order():
     )
     scope = DefinitionScope(1, "positive", "supported")
     witness = DeclaredDefinitionBasisWitness(
-        annotation_product=DeclaredProductRef.model_validate(
-            reference().model_dump(exclude={"structural_id", "component_id"})
-        ),
+        annotation_product={"variant": "product", "role": "annotations"},
         block_id="#/texts/17",
         dependency_digest="f" * 64,
         rule="call",
@@ -246,15 +243,16 @@ def test_named_roles_use_bindings_not_surface_order():
         nodes=(1, 5, 2),
     )
     options = dict(scopes={match: scope}, term_role="term", content_role="content")
+    recorded = {}
     (found,) = components_from_named_matches(
-        passage, (match,), **options, witnesses={match: witness}
+        passage, (match,), **options, witnesses={match: witness}, witnesses_by_component=recorded
     )
     assert found.term.text == "variance"
-    assert found.witness == witness
+    assert recorded == {found.component_id: witness}
     (unqualified,) = components_from_named_matches(passage, (match,), **options, witnesses={})
     assert unqualified.basis == "unqualified"
     assert unqualified.interpretation == "unresolved"
-    assert unqualified.witness is None and unqualified.component_id != found.component_id
+    assert unqualified.component_id != found.component_id
     unavailable = replace(match, roles=(replace(term, status="unavailable"), content, cue))
     assert (
         components_from_named_matches(

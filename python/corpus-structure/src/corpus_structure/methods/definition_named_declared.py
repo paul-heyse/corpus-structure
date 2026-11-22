@@ -21,6 +21,26 @@ class NamedDefinitionComponentsOperation:
         "discovery_relation": "subject-population",
         "context": ["original-source", "selected-scope", "paired-located-definition-products"],
         "entrypoints": ["run"],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/witnesses/*/basis/annotation_product",
+                "input_role": "annotations",
+                "variant": "product",
+            },
+            {
+                "output_role": "result",
+                "path": "/witnesses/*/basis/primary_match",
+                "input_role": "constructions",
+                "variant": "member",
+            },
+            {
+                "output_role": "result",
+                "path": "/witnesses/*/basis/primary_scope/*",
+                "input_role": "constructions",
+                "variant": "member",
+            },
+        ],
         "roles": [
             {
                 "name": "source",
@@ -72,7 +92,7 @@ class NamedDefinitionComponentsOperation:
             },
             {
                 "name": "result",
-                "kind": "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+                "kind": "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport",
                 "direction": "output",
                 "minimum": 1,
                 "maximum": 1,

@@ -412,7 +412,12 @@ def validate_structural_report_support(
         actual != value.report
         or product["project_id"] != conclusion["project_id"]
         or kind is None
-        or kind["kind"] != nominal
+        or kind["kind"]
+        not in (
+            {nominal, "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport"}
+            if variant == "definition_components"
+            else {nominal}
+        )
         or kind["universe"] != "ordinary"
         or len(selected_outputs) != 1
         or any(
@@ -458,7 +463,13 @@ def validate_structural_report_support(
         or len(actual_receipts) != 1
     ):
         raise ValueError("structural report support lacks its actual captured producer/CPU receipt")
-    report = report_type.model_validate(decode_semantic_value(product["canonical_body"]))
+    decoded = decode_semantic_value(product["canonical_body"])
+    if variant == "definition_components":
+        from .structural_products import read_definition_components_report
+
+        report = read_definition_components_report(decoded)
+    else:
+        report = report_type.model_validate(decoded)
     if (
         value.statement_meaning_json
         != canonical_bytes(

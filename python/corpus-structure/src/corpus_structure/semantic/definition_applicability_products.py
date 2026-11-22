@@ -380,9 +380,9 @@ def execute_definition_applicability(
     from .declared_structural_references import DeclaredComponentRef, DeclaredRelationshipRef
     from .structural_products import (
         DeclaredDefinitionApplicabilityReport,
-        DeclaredDefinitionComponentsReport,
         DeclaredDefinitionProduct,
         DeclaredStructuralInput,
+        read_definition_components_report,
     )
 
     profile = receiver.inputs
@@ -400,7 +400,7 @@ def execute_definition_applicability(
         version=effective_version,
         parent=parent,
     )
-    report = DeclaredDefinitionComponentsReport.model_validate(components)
+    report = read_definition_components_report(components)
     member = exact.member("components")
     component_reference = DeclaredComponentRef.from_bound(
         member,

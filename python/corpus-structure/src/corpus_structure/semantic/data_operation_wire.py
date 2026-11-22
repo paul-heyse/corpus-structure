@@ -802,12 +802,13 @@ def json_schema_field_type(
         return nominal_namespace + root["$ref"].removeprefix("#/definitions/"), False
     alternatives = root.get("oneOf", root.get("anyOf"))
     if alternatives:
+        nonnull = [item for item in alternatives if item != {"type": "null"}]
         projected = {
             json_schema_field_type(
                 schema_closure(item, schema.get("definitions", {})),
                 nominal_namespace=nominal_namespace,
             )
-            for item in alternatives
+            for item in nonnull
         }
         if len(projected) == 1:
             return projected.pop()

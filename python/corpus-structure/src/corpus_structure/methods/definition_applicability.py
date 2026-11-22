@@ -410,6 +410,7 @@ def components_from_named_matches(
     content_role: str,
     antecedents: Mapping[AnnotationRuleMatch, LocatedDefinitionSpan] | None = None,
     witnesses: Mapping[AnnotationRuleMatch, DeclaredDefinitionBasisWitness] | None = None,
+    witnesses_by_component: dict[str, DeclaredDefinitionBasisWitness] | None = None,
 ) -> tuple[DeclaredLocatedDefinitionComponent, ...]:
     """Consume WCE03 named role expansions; never infer a role from node order.
 
@@ -473,7 +474,6 @@ def components_from_named_matches(
                 else "unresolved"
             ),
             basis="matched_cue" if qualified else "unqualified",
-            witness=witnesses[match] if qualified and witnesses is not None else None,
             scope=passage.scope,
             effective_version=passage.effective_version,
             evidence=(passage.passage_id,),
@@ -489,6 +489,10 @@ def components_from_named_matches(
                 )
             ),
         )
+        if qualified and witnesses is not None and witnesses_by_component is not None:
+            witness = witnesses[match]
+            if witnesses_by_component.setdefault(component.component_id, witness) != witness:
+                raise ValueError("one named component has conflicting producing witnesses")
         components[component.component_id] = component
     return tuple(components[key] for key in sorted(components))
 
@@ -501,6 +505,7 @@ def components_from_following_display(
     scopes: Mapping[AnnotationRuleMatch, DefinitionScope],
     term_role: str,
     witnesses: Mapping[AnnotationRuleMatch, DeclaredDefinitionBasisWitness] | None = None,
+    witnesses_by_component: dict[str, DeclaredDefinitionBasisWitness] | None = None,
 ) -> tuple[DeclaredLocatedDefinitionComponent, ...]:
     """Join an explicit named following-content cue to its adjacent native display.
 
@@ -587,7 +592,6 @@ def components_from_following_display(
                         else "unresolved"
                     ),
                     basis="native_geometry" if qualified else "unqualified",
-                    witness=witness,
                     scope=passage.scope,
                     effective_version=passage.effective_version,
                     evidence=(passage.passage_id,),
@@ -598,6 +602,12 @@ def components_from_following_display(
                     ),
                 )
             )
+            if (
+                witness is not None
+                and witnesses_by_component is not None
+                and witnesses_by_component.setdefault(found[-1].component_id, witness) != witness
+            ):
+                raise ValueError("one named component has conflicting producing witnesses")
             break
     return tuple(found)
 

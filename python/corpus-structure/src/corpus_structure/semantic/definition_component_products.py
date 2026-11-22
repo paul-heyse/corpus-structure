@@ -432,15 +432,14 @@ def project_named_definition_components(
     from .data_product_reference import DataProductMemberReference, SemanticReference
     from .declared_record_sources import DeclaredNativeFrameSource
     from .declared_structural_calls import _passage
-    from .declared_structural_references import DeclaredProductRef
     from .reference_resolution import require_selected_whole_reference
     from .sentence_products import retained_source_annotation_products
     from .source_products import FrozenNativeSource
     from .structural_products import (
         DeclaredDefinitionBasisWitness,
         DeclaredDefinitionComponentsProduct,
-        DeclaredDefinitionComponentsReport,
-        DeclaredPrimaryReference,
+        DeclaredNamedDefinitionComponentsReport,
+        DeclaredNamedDefinitionWitness,
         DeclaredStructuralInput,
         DeclaredStructuralInputPin,
         DefinitionStage,
@@ -492,6 +491,7 @@ def project_named_definition_components(
     term_role, content_role = policy["term_role"], policy["content_role"]
     sources, passages, stages, limits = [], [], [], []
     found: dict[str, Any] = {}
+    recorded_witnesses = {}
     for product in products:
         check_active()
         reference, passage = _passage(
@@ -556,25 +556,29 @@ def project_named_definition_components(
                 continue
             primary_scope = []
             for ref in scope.primary_scope:
-                if not isinstance(ref, DataProductMemberReference):
+                if (
+                    not isinstance(ref, DataProductMemberReference)
+                    or ref.product.product_id != construction_member.product
+                ):
                     raise ValueError(
                         "declared definition scope has a nonsemantic primary reference"
                     )
                 primary_scope.append(
-                    DeclaredPrimaryReference(
-                        product_id=ref.product.product_id, member_id=ref.member_id
-                    )
+                    SemanticReference.member("constructions", ref.member_id).values()
                 )
+            match_ref = references[match]
+            if match_ref.product.product_id != construction_member.product:
+                raise ValueError("named definition match differs from its producing construction")
             witnesses[match] = DeclaredDefinitionBasisWitness(
-                annotation_product=DeclaredProductRef.from_bound(
-                    member("annotations"), project=context.project_id
-                ),
+                annotation_product=SemanticReference.whole("annotations").values(),
                 block_id=product.block_id,
                 dependency_digest=product.dependency_digest,
                 rule=match.rule,
                 variant=match.variant,
                 nodes=match.nodes,
-                primary_match=references[match],
+                primary_match=SemanticReference.member(
+                    "constructions", match_ref.member_id
+                ).values(),
                 primary_scope=tuple(primary_scope),
             )
         components = (
@@ -586,6 +590,7 @@ def project_named_definition_components(
                 content_role=content_role,
                 antecedents=antecedents,
                 witnesses=witnesses,
+                witnesses_by_component=recorded_witnesses,
             ),
             *components_from_following_display(
                 passage,
@@ -594,6 +599,7 @@ def project_named_definition_components(
                 scopes=scopes,
                 term_role=term_role,
                 witnesses=witnesses,
+                witnesses_by_component=recorded_witnesses,
             ),
         )
         found.update((component.component_id, component) for component in components)
@@ -626,7 +632,7 @@ def project_named_definition_components(
                 ),
             )
         )
-    report = DeclaredDefinitionComponentsReport(
+    report = DeclaredNamedDefinitionComponentsReport(
         inputs=DeclaredStructuralInput(
             question="Which retained named cues explicitly bind terms and defining text or native displays?",
             scope="selected-native-blocks",
@@ -638,7 +644,14 @@ def project_named_definition_components(
             coverage_limits=tuple(limits),
         ),
         definition_components=DeclaredDefinitionComponentsProduct(
-            components=tuple(found[key] for key in sorted(found)), stages=tuple(stages)
+            components=tuple(found[key] for key in sorted(found)),
+            stages=tuple(stages),
+        ),
+        witnesses=tuple(
+            DeclaredNamedDefinitionWitness(
+                component_id=identity, basis=recorded_witnesses[identity]
+            )
+            for identity in sorted(recorded_witnesses)
         ),
         sources_input=(
             DeclaredStructuralInputPin.from_bound(member("source"), project=context.project_id),

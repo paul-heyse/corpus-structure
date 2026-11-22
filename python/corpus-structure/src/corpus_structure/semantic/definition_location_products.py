@@ -109,9 +109,9 @@ def definition_location_values(frame, report, reference, selection, *, check_act
     from .contributions import contribution_identity, occurrence_identity, operation_identity
     from .observations import source_value
     from .source_contexts import NativeSourceContext, PreparedNativeSources, source_slice
-    from .structural_products import DeclaredDefinitionComponentsReport
+    from .structural_products import read_definition_components_report
 
-    report = DeclaredDefinitionComponentsReport.model_validate(report)
+    report = read_definition_components_report(report)
     component_ids = tuple(selection["component_ids"])
     roles = tuple((row["role"], row["envelope"], row["index"]) for row in selection["roles"])
     if (

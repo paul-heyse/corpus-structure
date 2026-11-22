@@ -181,8 +181,12 @@ def definition_admission_native_programs(
                         .select_from(kind)
                         .where(
                             kind.c.kind_contract == field(selected, "kind_contract")[1].astext,
-                            kind.c.kind
-                            == "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+                            kind.c.kind.in_(
+                                (
+                                    "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+                                    "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport",
+                                )
+                            ),
                         )
                     ),
                 ),

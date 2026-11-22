@@ -277,7 +277,12 @@ class PreparedDossierInputs:
 
         def retain(member, raw, report_type):
             self.check_active()
-            report = report_type.model_validate(raw)
+            if report_type is DeclaredDefinitionComponentsReport:
+                from .structural_products import read_definition_components_report
+
+                report = read_definition_components_report(raw)
+            else:
+                report = report_type.model_validate(raw)
             reference = DeclaredStructuralRef.from_bound(
                 member, project=self.context.project_id, structural_id=report.product_id
             )

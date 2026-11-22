@@ -95,6 +95,7 @@ classes:
       acquired_by: {range: SemanticText}
   OperationKind:
     attributes:
+      is_a: {range: SemanticText}
       id: {range: SemanticText, required: true}
       name: {range: SemanticText}
       python: {range: SemanticText}

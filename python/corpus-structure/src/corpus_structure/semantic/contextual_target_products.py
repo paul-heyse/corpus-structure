@@ -106,9 +106,9 @@ def curated_target_population(selection, *, kind_contract):
 
 
 def component_target_population(report, *, original_source, kind_contract):
-    from .structural_products import DeclaredDefinitionComponentsReport
+    from .structural_products import read_definition_components_report
 
-    selected = DeclaredDefinitionComponentsReport.model_validate(report)
+    selected = read_definition_components_report(report)
     if not original_source or any(
         source.original_source != original_source for source in selected.sources_input
     ):

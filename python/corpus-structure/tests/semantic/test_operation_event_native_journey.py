@@ -100,7 +100,7 @@ def framed_operation_event(published_pdf_source_factory, tmp_path_factory):
             selected_for_source(
                 kernel,
                 products,
-                "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+                "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport",
                 original,
             )[0]
             for original in originals

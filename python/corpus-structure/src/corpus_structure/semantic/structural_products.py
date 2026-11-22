@@ -569,17 +569,17 @@ class DeclaredPrimaryReference(StructuralValue):
 
 
 class DeclaredDefinitionBasisWitness(StructuralValue):
-    annotation_product: DeclaredProductRef
+    annotation_product: SemanticWholeReference
     block_id: Nonempty
     dependency_digest: Digest
     rule: Nonempty
     variant: Nonempty
     nodes: tuple[Annotated[int, Field(strict=True, ge=0)], ...] = Field(min_length=1)
     label_nodes: tuple[Annotated[int, Field(strict=True, ge=0)], ...] | None = None
-    primary_match: DeclaredPrimaryReference | None = Field(
+    primary_match: SemanticMemberReference | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
-    primary_scope: tuple[DeclaredPrimaryReference, ...] = Field(
+    primary_scope: tuple[SemanticMemberReference, ...] = Field(
         default=(), exclude_if=lambda value: not value
     )
 
@@ -616,7 +616,6 @@ class DeclaredLocatedDefinitionComponent(StructuralValue):
         "model_reading",
         "unqualified",
     ]
-    witness: DeclaredDefinitionBasisWitness | None = None
     declaration_chain: DeclaredDeclarationChainWitness | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
@@ -890,6 +889,10 @@ class DeclaredStructuralInputPin(DeclaredProductRef):
 
 
 class DeclaredComparisonReport(DeclaredStructuralProductReport):
+    artifact_identity: None = None
+    clause_classification: None = None
+    definition: None = None
+    definition_components: None = None
     formal_input: tuple[DeclaredStructuralInputPin, ...] = ()
     kind: Literal["qualified_comparison"] = "qualified_comparison"
     comparison: DeclaredComparisonProduct
@@ -900,6 +903,10 @@ class DeclaredComparisonReport(DeclaredStructuralProductReport):
 
 
 class DeclaredDossierReport(DeclaredStructuralProductReport):
+    artifact_identity: None = None
+    clause_classification: None = None
+    definition: None = None
+    definition_components: None = None
     kind: Literal["dossier"] = "dossier"
     dossier: DeclaredDossierProduct
     comparison: None = None
@@ -914,6 +921,10 @@ class DeclaredDossierReport(DeclaredStructuralProductReport):
 
 
 class DeclaredConditionReport(DeclaredStructuralProductReport):
+    artifact_identity: None = None
+    clause_classification: None = None
+    definition: None = None
+    definition_components: None = None
     kind: Literal["condition_qualification"] = "condition_qualification"
     condition_qualification: DeclaredConditionQualificationProduct
     comparison: None = None
@@ -922,6 +933,12 @@ class DeclaredConditionReport(DeclaredStructuralProductReport):
 
 
 class DeclaredDefinitionComponentsReport(DeclaredStructuralProductReport):
+    artifact_identity: None = None
+    clause_classification: None = None
+    comparison: None = None
+    condition_qualification: None = None
+    definition: None = None
+    dossier: None = None
     model_config = ConfigDict(json_schema_extra={"x-ddo-definition-variant": "components"})
     kind: Literal["definition_components"] = "definition_components"
     definition_components: DeclaredDefinitionComponentsProduct
@@ -929,7 +946,46 @@ class DeclaredDefinitionComponentsReport(DeclaredStructuralProductReport):
     reports_input: tuple[DeclaredStructuralInputPin, ...] = ()
 
 
+class DeclaredNamedDefinitionWitness(StructuralValue):
+    component_id: Digest
+    basis: DeclaredDefinitionBasisWitness
+
+
+class DeclaredNamedDefinitionComponentsReport(DeclaredDefinitionComponentsReport):
+    witnesses: tuple[DeclaredNamedDefinitionWitness, ...]
+
+    @model_validator(mode="after")
+    def witness_membership(self) -> Self:
+        components = {row.component_id: row for row in self.definition_components.components}
+        ids = [row.component_id for row in self.witnesses]
+        if len(ids) != len(set(ids)) or any(identity not in components for identity in ids):
+            raise ValueError("named witness requires a unique report component")
+        required = {
+            identity
+            for identity, component in components.items()
+            if component.basis in {"matched_cue", "native_geometry"}
+        }
+        if set(ids) != required:
+            raise ValueError("qualified named components require exact producing witnesses")
+        return self
+
+
+def read_definition_components_report(value):
+    report = (
+        DeclaredNamedDefinitionComponentsReport
+        if "witnesses" in value
+        else DeclaredDefinitionComponentsReport
+    )
+    return report.model_validate(value)
+
+
 class DeclaredDefinitionApplicabilityReport(DeclaredStructuralProductReport):
+    artifact_identity: None = None
+    clause_classification: None = None
+    comparison: None = None
+    condition_qualification: None = None
+    definition_components: None = None
+    dossier: None = None
     model_config = ConfigDict(json_schema_extra={"x-ddo-definition-variant": "applicability"})
     """Current usage result with independently bound exact component/relationship pins."""
 
@@ -941,6 +997,12 @@ class DeclaredDefinitionApplicabilityReport(DeclaredStructuralProductReport):
 
 
 class DeclaredArtifactReport(DeclaredStructuralProductReport):
+    clause_classification: None = None
+    comparison: None = None
+    condition_qualification: None = None
+    definition: None = None
+    definition_components: None = None
+    dossier: None = None
     kind: Literal["artifact_identity"] = "artifact_identity"
     artifact_identity: DeclaredArtifactIdentityProduct
     sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
@@ -948,6 +1010,12 @@ class DeclaredArtifactReport(DeclaredStructuralProductReport):
 
 
 class DeclaredClauseReport(DeclaredStructuralProductReport):
+    artifact_identity: None = None
+    comparison: None = None
+    condition_qualification: None = None
+    definition: None = None
+    definition_components: None = None
+    dossier: None = None
     kind: Literal["clause_classification"] = "clause_classification"
     clause_classification: DeclaredClauseClassificationProduct
     sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
@@ -957,8 +1025,6 @@ class DeclaredClauseReport(DeclaredStructuralProductReport):
 def _definition_component_invariants(value: Any) -> Any:
     if value.basis == "unqualified" and value.interpretation != "unresolved":
         raise ValueError("unqualified definition candidates have unresolved interpretation")
-    if value.witness is not None and value.basis not in {"matched_cue", "native_geometry"}:
-        raise ValueError("definition annotation witness belongs to a named or geometry basis")
     if (value.declaration_chain is not None) != (value.basis == "declaration_chain") or (
         value.declaration_chain is not None
         and (
@@ -1291,6 +1357,8 @@ def read_structural_product_report(value):
     """Read the declared discriminated report without task/run protocol alternatives."""
     if isinstance(value, DeclaredStructuralProductReport):
         return value
+    if value.get("kind") == "definition_components":
+        return read_definition_components_report(value)
     return _DECLARED_STRUCTURAL_REPORT.validate_python(value)
 
 

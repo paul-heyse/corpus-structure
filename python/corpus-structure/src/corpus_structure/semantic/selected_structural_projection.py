@@ -42,7 +42,7 @@ def structural_report(scope, selected):
         raise ValueError("selected output has no current structural report contract")
     from .data_product_reference import read_semantic_reference
     from .live_reference_resolution import require_selected_output_reference
-    from .structural_products import DeclaredClauseReport
+    from .structural_products import DeclaredClauseReport, DeclaredNamedDefinitionComponentsReport
 
     condition = root.structural.condition_qualification
     if condition is not None:
@@ -59,6 +59,28 @@ def structural_report(scope, selected):
             or attachment.member_id != "contribution:" + identifier
         ):
             raise ValueError("selected condition attachment does not resolve its qualification")
+    if root.nominal == "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport":
+        for recorded in cast(DeclaredNamedDefinitionComponentsReport, root.structural).witnesses:
+            witness = recorded.basis
+            prefix = "/witnesses/*/basis/"
+            require_selected_output_reference(
+                scope,
+                selected,
+                read_semantic_reference(witness.annotation_product),
+                path=prefix + "annotation_product",
+                metadata_only=True,
+            )
+            for field, values in (
+                ("primary_match", (witness.primary_match,) if witness.primary_match else ()),
+                ("primary_scope/*", witness.primary_scope),
+            ):
+                for value in values:
+                    require_selected_output_reference(
+                        scope,
+                        selected,
+                        read_semantic_reference(value),
+                        path=prefix + field,
+                    )
     clause = root.structural.clause_classification
     if clause is not None:
         clause_report = cast(DeclaredClauseReport, root.structural)

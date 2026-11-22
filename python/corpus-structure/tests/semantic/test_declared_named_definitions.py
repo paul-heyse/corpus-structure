@@ -270,7 +270,70 @@ def test_named_definition_acquisition_compiles_without_model_provider_dependenci
     assert "structure.definition_named_components/declared" in names
     assert "structure.definition_components/declared" not in names
     assert "text.gliner_definitions/source-native" not in names
-    assert set(model.operation("structure.definition_named_components/declared").dependencies) == {
+    operation = model.operation("structure.definition_named_components/declared")
+    assert (
+        next(role.kind for role in operation.roles if role.direction == "output")
+        == "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport"
+    )
+    assert {
+        (target.path, target.input_role, target.variant) for target in operation.reference_targets
+    } == {
+        (
+            "/witnesses/*/basis/annotation_product",
+            "annotations",
+            "product",
+        ),
+        ("/witnesses/*/basis/primary_match", "constructions", "member"),
+        ("/witnesses/*/basis/primary_scope/*", "constructions", "member"),
+    }
+    from corpus_structure.semantic.data_operation_kind_refinements import input_kind_refinements
+
+    assert (
+        "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport"
+        in input_kind_refinements(
+            model, ("urn:corpus:structural:DeclaredDefinitionComponentsReport",)
+        )["urn:corpus:structural:DeclaredDefinitionComponentsReport"]
+    )
+    assert set(operation.dependencies) == {
         "segment.sentences/source-native",
         "text.constructions/source-native",
     }
+
+
+def test_named_witness_uses_only_producing_roles_and_generic_component_refuses_it():
+    from pydantic import ValidationError
+
+    from corpus_structure.semantic.structural_products import (
+        DeclaredDefinitionBasisWitness,
+        DeclaredLocatedDefinitionComponent,
+        declared_definition_component,
+    )
+
+    witness = DeclaredDefinitionBasisWitness(
+        annotation_product={"variant": "product", "role": "annotations"},
+        block_id="block",
+        dependency_digest="a" * 64,
+        rule="define",
+        variant="active",
+        nodes=(1,),
+        primary_match={"variant": "member", "role": "constructions", "member_id": "match"},
+        primary_scope=({"variant": "member", "role": "constructions", "member_id": "scope"},),
+    )
+    component = declared_definition_component(
+        term=dict(passage_id="p", start=0, end=1, text="x"),
+        content=dict(passage_id="p", start=2, end=3, text="y"),
+        interpretation="definition",
+        basis="matched_cue",
+        scope="selected",
+        evidence=("p",),
+        reason="retained named binding",
+    )
+    assert witness.primary_match == {
+        "variant": "member",
+        "role": "constructions",
+        "member_id": "match",
+    }
+    with pytest.raises(ValidationError):
+        DeclaredLocatedDefinitionComponent.model_validate(
+            {**component.model_dump(mode="python"), "witness": witness}
+        )

@@ -123,6 +123,8 @@ def test_definition_wrappers_bind_actual_values_parameters_and_support_before_di
         )
     )
     arguments.update(parameters)
+    if variant == "named":
+        arguments["annotations"] = {"header": arguments["annotations"], "partitions": []}
     basis = cpu_input_basis_from_roles(
         "unadmitted:definition-control",
         context,
@@ -297,11 +299,50 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
         )
         for role in raw_roles
     )
+    if variant == "named":
+        from corpus_structure.semantic.producer_requirements import SelectedProducerContract
+        from corpus_structure.semantic.reference_resolution import ProducingReferenceInput
+
+        annotation = next(role.members[0] for role in roles if role.role == "annotations")
+        construction = next(role.members[0] for role in roles if role.role == "constructions")
+        # This unadmitted CPU control supplies the original role mapping explicitly;
+        # false receipt fields confer no native publication or provider authority.
+        contract = SelectedProducerContract(
+            version="selected-producer-contract-v1",
+            derivation_id=construction.support_episodes[0],
+            release_id="unadmitted:release",
+            runtime_id="unadmitted:runtime",
+            publication_receipt=False,
+            cpu_receipt=False,
+            admitted_effects=(),
+            validity_families=(),
+            reference_inputs=(
+                ProducingReferenceInput("sentences", annotation.product, annotation.kind_contract),
+            ),
+        )
+        roles = tuple(
+            replace(
+                role,
+                members=(
+                    replace(
+                        role.members[0],
+                        support_evidence=canonical_bytes(
+                            {"producer_contract": contract.model_dump(mode="json")}
+                        ),
+                    ),
+                ),
+            )
+            if role.role == "constructions"
+            else role
+            for role in roles
+        )
     # An explicitly empty, unadmitted primary inventory reaches the real domain
     # refusal after source custody. It cannot stand in for learned annotations.
     primary = {"source": source["source"], "selectors": source["selectors"], "blocks": []}
     if variant == "named":
-        arguments = dict(source=source, annotations=primary, constructions=primary)
+        arguments = dict(
+            source=source, annotations={"header": primary, "partitions": []}, constructions=primary
+        )
     else:
         from corpus_structure.semantic.declared_record_sources import DeclaredRecordSource
         from corpus_structure.semantic.source_products import FrozenNativeSource
@@ -349,7 +390,10 @@ def test_component_cpu_retains_selected_source_member_and_requires_whole_primary
             "unadmitted:named-source-boundary",
             context,
             selected_roles,
-            {name: (body,) for name, body in arguments.items()},
+            {
+                name: (body["header"] if name == "annotations" else body,)
+                for name, body in arguments.items()
+            },
             parameters=canonical_bytes(semantic_value({})),
             replicate=None,
         )

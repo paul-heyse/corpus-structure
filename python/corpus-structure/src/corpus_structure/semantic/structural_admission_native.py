@@ -5,6 +5,7 @@ from sqlalchemy import (
     Boolean,
     Integer,
     Text,
+    and_,
     cast,
     column,
     exists,
@@ -1428,7 +1429,11 @@ def _structural_issuance_completion(model):
     for kind, tag, role, policy in reversed(variants):
         select_variant = (
             If(
-                report_kind == kind,
+                report_kind.in_(
+                    (kind, "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport")
+                    if tag == "definition_components"
+                    else (kind,)
+                ),
                 (
                     Assign("variant", literal(tag)),
                     Assign("report_role", literal(role)),
@@ -1709,7 +1714,7 @@ def structural_admission_native_sql(model) -> str:
 
 def _structural_report_support(model):
     """Authenticate the selectively disclosed report using the actual local cut."""
-    from sqlalchemy import Boolean, Text, and_, case, cast, func, literal, select
+    from sqlalchemy import Boolean, Text, case, cast, func, literal, select
     from sqlalchemy.dialects.postgresql import JSONB
     from sqlalchemy.types import NullType
 
@@ -1968,7 +1973,15 @@ def _structural_report_support(model):
                             and_(
                                 products.c.id == input_("product_id"),
                                 products.c.project_id == d("project_id"),
-                                kinds.c.kind == nominal,
+                                or_(
+                                    kinds.c.kind == nominal,
+                                    and_(
+                                        nominal
+                                        == "urn:corpus:structural:DeclaredDefinitionComponentsReport",
+                                        kinds.c.kind
+                                        == "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport",
+                                    ),
+                                ),
                                 kinds.c.universe == "ordinary",
                                 requested.has_key(products.c.id),
                                 func.ops.ddo_body_access(

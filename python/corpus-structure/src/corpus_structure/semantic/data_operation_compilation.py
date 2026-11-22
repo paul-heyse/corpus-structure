@@ -1011,6 +1011,8 @@ def compile_data_operations(
             aliases[semantic_id] = semantic_id
             for target in record.get("references", []):
                 edges.append(SemanticEdge(semantic_id, target, "type_reference"))
+            if parent := record.get("is_a"):
+                edges.append(SemanticEdge(semantic_id, parent, "inherits"))
     # Python and schema authoring share the same property graph. Annotation text
     # remains evidence; only this closed type vocabulary acquires a resolved range.
     python_types = {

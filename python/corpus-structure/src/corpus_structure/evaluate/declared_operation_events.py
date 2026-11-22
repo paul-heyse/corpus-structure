@@ -226,7 +226,7 @@ def execute_frame_kernel(
     )
     from corpus_structure.semantic.data_operation_json import json_bytes
     from corpus_structure.semantic.source_products import FrozenNativeSource
-    from corpus_structure.semantic.structural_products import DeclaredDefinitionComponentsReport
+    from corpus_structure.semantic.structural_products import read_definition_components_report
 
     grouped, context = cpu_basis_values(
         input_basis, scalar_roles=("question",), set_roles=("reports", "sources")
@@ -252,7 +252,7 @@ def execute_frame_kernel(
         analyzed_scope_meaning=json_context_meaning(question_role.context.analyzed_scope).decode(),
     )
     reports_by_id = {
-        row.product_id: DeclaredDefinitionComponentsReport.model_validate_json(json_bytes(row.body))
+        row.product_id: read_definition_components_report(row.body)
         for row in grouped["reports"]
     }
     source_values = {

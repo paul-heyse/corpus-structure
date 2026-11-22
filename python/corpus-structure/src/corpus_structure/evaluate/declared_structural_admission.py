@@ -142,12 +142,17 @@ def structural_admission_value(report, passes, *, references=None):
     """Compute a permitted conclusion; native completion authenticates its authority."""
     from corpus_structure.semantic.declared_structural_admission import DdoStructuralAdmission
 
+    report_for_validation = report
+    if isinstance(report, dict) and report.get("kind") == "definition_components":
+        from corpus_structure.semantic.structural_products import read_definition_components_report
+
+        report_for_validation = read_definition_components_report(report)
     checked = TypeAdapter(
         Annotated[
             DeclaredComparisonReport | DeclaredConditionReport | DeclaredDefinitionComponentsReport,
             Field(discriminator="kind"),
         ]
-    ).validate_python(report)
+    ).validate_python(report_for_validation)
     typed = tuple(DdoStructuralReferencePass.model_validate(value) for value in passes)
     by_kind = {value.pass_kind: value for value in typed}
     if len(typed) != 3 or set(by_kind) != {"A", "B", "C"}:

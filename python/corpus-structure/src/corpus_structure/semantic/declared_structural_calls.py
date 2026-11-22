@@ -58,6 +58,7 @@ def structural_operation_declarations():
         DeclaredDefinitionApplicabilityReport,
         DeclaredDefinitionComponentsReport,
         DeclaredDossierReport,
+        DeclaredNamedDefinitionComponentsReport,
     )
 
     schema = TypeAdapter(
@@ -65,16 +66,21 @@ def structural_operation_declarations():
         | DeclaredConditionReport
         | DeclaredDossierReport
         | DeclaredDefinitionComponentsReport
+        | DeclaredNamedDefinitionComponentsReport
         | DeclaredDefinitionApplicabilityReport
         | DeclaredArtifactReport
         | DeclaredClauseReport
     ).json_schema()
+    kinds = nominal_schema_kinds(schema, namespace=NAMESPACE, root_name="Products")
+    for kind in kinds:
+        if kind["id"] == NAMESPACE + "DeclaredNamedDefinitionComponentsReport":
+            kind["is_a"] = NAMESPACE + "DeclaredDefinitionComponentsReport"
     return SourceArtifact(
         "structural/nominal-kinds.json",
         canonical_bytes(
             {
                 "version": MODEL_VERSION,
-                "kinds": nominal_schema_kinds(schema, namespace=NAMESPACE, root_name="Products"),
+                "kinds": kinds,
             }
         ),
     )
