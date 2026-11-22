@@ -13,6 +13,8 @@ from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import TypeAdapter
+from sqlalchemy import Text, bindparam, func, select
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
 from corpus_structure.semantic._data_operation_wire import (
     WireAdmitAuthoredDataRequest,
@@ -620,12 +622,55 @@ class DemandPlanner:
         # Returning them lets the execution owner settle uncertainty without inference.
         return {**snapshot, "completion_inspections": inspections}
 
+    def ready_for_fulfilled_use(
+        self,
+        snapshot: ResumedDataDemand,
+        *,
+        selection_name: str,
+        selection_generation: int,
+        use_id: str,
+        authorization: bytes,
+    ) -> tuple[tuple[ReadyDataRequest, ...], tuple[dict, ...]]:
+        """Prepare one admitted hop and return its distinct candidate reasons.
+
+        The exact use may have come from publication or reuse attachment. A
+        candidate permits a binding check. It does not settle the origin.
+        """
+        page = [row["obligation_id"] for row in snapshot["obligations"]]
+        if not page:
+            return (), ()
+        query = select(
+            func.ops.ddo_fulfilled_use_recipients(
+                snapshot["project_id"],
+                selection_name,
+                selection_generation,
+                snapshot["read_id"],
+                use_id,
+                bindparam("dispatch_page", page, type_=ARRAY(Text())),
+                type_=JSONB(),
+            )
+        )
+        reasons = tuple(self.storage.connection.scalars(query))
+        if not reasons:
+            return (), ()
+        return (
+            self.ready(
+                snapshot,
+                authorization=authorization,
+                recipient_obligations=frozenset(
+                    reason["recipient_obligation"] for reason in reasons
+                ),
+            ),
+            reasons,
+        )
+
     def ready(
         self,
         snapshot: Mapping[str, Any],
         *,
         authorization: bytes,
         excluded_requests: frozenset[tuple[str, int]] = frozenset(),
+        recipient_obligations: frozenset[str] | None = None,
     ) -> tuple[ReadyDataRequest, ...]:
         from .refusal_types import SemanticRefusal
 
@@ -642,7 +687,10 @@ class DemandPlanner:
                 )
         bounds = tuple(
             self.bound_requests(
-                snapshot, authorization=authorization, excluded_requests=excluded_requests
+                snapshot,
+                authorization=authorization,
+                excluded_requests=excluded_requests,
+                recipient_obligations=recipient_obligations,
             )
         )
         items = []
@@ -712,6 +760,7 @@ class DemandPlanner:
         authorization: bytes,
         retained: bool = False,
         excluded_requests: frozenset[tuple[str, int]] = frozenset(),
+        recipient_obligations: frozenset[str] | None = None,
     ):
         self.selected_population_ids = ()
         self.fulfilled_request_ids = ()
@@ -738,6 +787,11 @@ class DemandPlanner:
         source_sets = frozen.get("source_sets", {})
         latest_uses = {use["obligation_id"]: use for use in snapshot.get("uses", ())}
         for obligation in snapshot["obligations"]:
+            if (
+                recipient_obligations is not None
+                and obligation["obligation_id"] not in recipient_obligations
+            ):
+                continue
             if (obligation.get("request_id"), obligation.get("generation")) in excluded_requests:
                 continue
             if obligation["fate"] in {"fulfilled", "closed", "cancelled", "failed"}:
@@ -745,6 +799,7 @@ class DemandPlanner:
             previous = latest_uses.get(obligation["obligation_id"])
             if (
                 not retained
+                and recipient_obligations is None
                 and previous is not None
                 and previous["fate"]
                 in {"awaiting-inputs", "awaiting-population", "awaiting-discovery"}

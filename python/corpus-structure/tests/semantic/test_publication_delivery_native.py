@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from corpus_structure.schema.model_change import native_model_inputs
 from corpus_structure.semantic import migrations
 from corpus_structure.semantic._data_operation_wire import WirePublishDataDerivationRequest
+from corpus_structure.semantic.data_operation_demands import DemandPlanner
 from corpus_structure.semantic.data_operation_service import advance_demand_selection
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_values import semantic_value
@@ -182,3 +183,81 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
         with admin.begin() as connection:
             assert deliveries(connection, scope, token.generation) == [receipt]
             assert unreconciled(connection, scope, token.generation) == []
+
+    uses = physical.tables["ops.demand_use"]
+
+    def snapshot(demand):
+        with admin.begin() as connection:
+            return DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
+
+    def recipient(frontier):
+        return next(row for row in frontier["obligations"] if row["operation_id"] == CONSUMER)
+
+    def dispatch(frontier, selection, use_id):
+        with admin.begin() as connection:
+            connection.exec_driver_sql("SET LOCAL ROLE corpus_sem_writer")
+            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+            return planner.ready_for_fulfilled_use(
+                frontier,
+                selection_name=selection.name,
+                selection_generation=selection.generation,
+                use_id=use_id,
+                authorization=b"{}",
+            )
+
+    with admin.begin() as connection:
+        use_a = connection.scalar(
+            select(fulfillments.c.use_id).where(fulfillments.c.receipt_id == receipt_a)
+        )
+        assert use_a is not None
+    frontier_a = snapshot(a)
+    frontier_b = snapshot(b)
+    target_a = recipient(frontier_a)
+    assert target_a.get("request_id") is None
+    assert dispatch(frontier_a, generation_a, use_a) == ((), ())
+    assert dispatch(frontier_b, generation_b, use_a) == ((), ())
+    ready, reasons = dispatch(frontier_a, restored_a, use_a)
+    assert [item.operation for item in ready] == [CONSUMER]
+    assert [item.obligation for item in ready] == [target_a["obligation_id"]]
+    assert len(reasons) == 1
+    reason = reasons[0]
+    assert reason["use_id"] == use_a
+    assert reason["producer_operation"] == PRODUCER
+    assert reason["output_role"] == "result" and reason["output_position"] == 0
+    assert reason["input_role"] == "source"
+    assert reason["subject"] == "subject:a"
+    assert reason["original_source"] == "source:test"
+    assert reason["analyzed_scope"] == {"page": 1}
+    assert recipient(snapshot(b)).get("request_id") is None
+
+    extra = "urn:ddo-test:source"
+    reusable, source, _, attached = attach(
+        kernel, subject="subject:a", operation=PRODUCER, targets=(CONSUMER, extra)
+    )
+    reused = reusable["demand_id"]
+    assert reused != a
+    assert attached["fate"] == "fulfilled"
+    reused_selection = advance("reused", reused)
+    with admin.begin() as connection:
+        reuse_id = connection.scalar(
+            select(uses.c.id).where(
+                uses.c.obligation_id == source["obligation_id"], uses.c.fate == "fulfilled"
+            )
+        )
+        assert reuse_id is not None
+        assert (
+            connection.scalar(
+                select(fulfillments.c.receipt_id).where(fulfillments.c.use_id == reuse_id)
+            )
+            is None
+        )
+    frontier_reused = snapshot(reused)
+    assert recipient(frontier_reused).get("request_id") is None
+    ready, reasons = dispatch(frontier_reused, reused_selection, reuse_id)
+    assert [item.operation for item in ready] == [CONSUMER]
+    assert len(reasons) == 1 and reasons[0]["use_id"] == reuse_id
+    current_reused = snapshot(reused)
+    extra_obligation = next(
+        row for row in current_reused["obligations"] if row["operation_id"] == extra
+    )
+    assert extra_obligation.get("request_id") is None

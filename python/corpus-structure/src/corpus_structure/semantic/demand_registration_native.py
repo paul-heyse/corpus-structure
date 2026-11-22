@@ -46,6 +46,7 @@ from .native_program import (
 )
 from .native_program_registry import ProgramDeclaration
 from .publication_delivery_native import (
+    fulfilled_use_recipients,
     reconcile_publication_delivery,
     unreconciled_publication_origins,
 )
@@ -1244,6 +1245,12 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
     )
     return (
         *commands,
+        ProgramDeclaration(
+            fulfilled_use_recipients(model),
+            source="data-operations:forward",
+            owner=role_name("publisher"),
+            access=NativeProgramAccess(purposes=("write",)),
+        ),
         ProgramDeclaration(
             _advance_demand_selection(model),
             source="data-operations:forward",
