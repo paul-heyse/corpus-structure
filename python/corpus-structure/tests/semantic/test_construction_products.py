@@ -676,6 +676,26 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
         row["family"] == "construction.named_rules" and row["outcome"] == "complete"
         for row in json.loads(product.content)["coverage"]
     )
+    from corpus_structure.semantic.enriched_document_products import RetainedCharacterizationProduct
+
+    retained = RetainedCharacterizationProduct.acquire(
+        construction.prepared,
+        construction.model,
+        construction.prepared.index.definitions["DdoSourceAnnotations"].iri,
+        annotations.content,
+        partitions=annotations.partitions,
+        subject_context=context,
+    )
+    for original_annotations in (annotations, retained):
+        restored = validate_construction_product(
+            construction.prepared,
+            construction.model,
+            json.loads(product.content),
+            source,
+            (primary, original_annotations),
+            subject_context=context,
+        )
+        assert restored.content == product.content
     forged = json.loads(product.content)
     for packet in forged["members"]:
         if packet["body"].get("kind") == "construction.named_binding":

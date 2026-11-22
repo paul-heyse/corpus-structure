@@ -95,6 +95,79 @@ and retire the displaced path and mechanism-specific tests with the replacement.
 and integration before cold-root authoring. [SBX-09
 cutover](cutover-and-qualification.md#development-reset-through-sbx-09)
 
+### Pilot implementation and evidence
+
+**Implemented · 2026-11-22.** Primary construction now uses the immutable row blocks already
+acquired with `SourceAnnotations`. The support check still verifies graph slots, item addresses
+and layout correspondence. Contextual reads also supply an exact nominal retained annotation;
+that path acquires its row blocks against the retained collection commitment. This removes the
+second header and packet parse from primary construction without introducing another carrier.
+
+The [provider comparison](../../../python/corpus-structure/tests/semantic/test_sentence_partition_chain_native.py)
+uses one captured source for both branches. Its candidates consume packets disclosed by the real
+publication, and its read assertions follow exact producing inputs. The Arrow comparison reconstructs
+canonical publication bytes from model-derived batches, including through a spawned pilot dispatch.
+The PostgreSQL comparison checks geometry and membership after authority has supplied the tagged
+packet. These candidate calls compare against actual published results. Each still has a different
+publication and transport question from the ordinary provider journey.
+
+**Tested · 2026-11-22.** The eight Arrow parity and real worker transport controls passed
+(`uv run ci test`, `bed9d007ed4244868e5d560421167d71`). They cover exact canonical bytes over the
+controlled input, explicit projection and schema matching, full-frame admission, malformed input,
+stop and clean subsequent work. `uv run ci check --only types` passed for the integrated changes
+(`48ea288fe4654ddeb4d68477bd35fa6f`). The first provider captures observed a source change while
+running (`8c16fd2637e04037b9196f3e0c6827cc`, `02048ae2f2c64b5da0fa86707e9b646f`). A stable shared
+fork then exposed an eager type-annotation import failure in reference resolution
+(`43f5f0207ea946b1bc00f3bffb06a715`). Reference resolution now postpones those annotations so
+runtime code can import the module under the existing captured contract.
+
+**Tested · 2026-11-22.** The 39 selected `uv run ci test --native-host private` controls passed
+(`2237d95ede954a5fac223057c1e9fa35`). They cover the retained annotation carrier, block placement,
+memo and split/merge cases, exact selected references, native typed geometry and membership, and
+ADBC borrowing and cleanup. The ADBC control used a committed publication pin and the granted
+companion projection, exact decimal and UTC time values, and SQL null versus JSON null. A second
+scan held the imported cut across a concurrent commit. An earlier attempt reached the expected
+privilege refusal when the experiment called the private pin helper directly
+(`2722c01cc422465d9720b71b6335e4fb`). That failure informed the use of the granted projection.
+
+The shared provider run `8456c96758dc4ef0bcfb4b4a29751bd4` reached ordinary publication of both
+branches, compared the spawned typed canonical output to the published bytes, and compared actual
+selected annotation rows from the exact-snapshot ADBC adapter to the ordinary acquired rows.
+Its final construction reference acquisition exceeded the existing 8 MiB examined-closure
+limit. The fixture now requests the larger supported bound for that scoped read. The default
+still bounds temporary indexing and read-transaction work for ordinary requests. SBX-11/12 own
+the underlying structural preparation and textbook timeout.
+
+The managed provider cohort `90493eda42ba42ecb7ce700513ee4670` passed four selected identities.
+They exercised actual CUDA annotation to canonical publication, HanLP and declaration, primary
+construction, and equivalent canonical computation under a distinct current support. The latter
+case revoked one support and verified that the unaffected use remained readable. The combined
+fixture was the cohort's sole failure at the earlier closure bound.
+
+**Tested · 2026-11-22.** The shared-source rerun `52f96d62df8945858ebdbb3cddae97b2` passed using
+`uv run ci test --native-host private --providers-only` for the exact fork test. Both branches
+published on a private root built from the captured source. The test verified their producing
+inputs, canonical byte parity from the spawned Arrow dispatch, exact ADBC row equality, the
+selected construction addresses and the authorized missing-item refusal. The unchanged demand
+produced zero new execution receipts. The structural request admitted the examined scope under
+the explicit 64 MiB request limit. The output and record limits and global defaults still apply
+through their existing owners.
+
+**Pilot decision · 2026-11-22.** Keep the existing immutable carrier for the annotation fork
+and use its acquired blocks at primary construction validation. That removes the second parse
+and commitment reconstruction on the actual hot path. The model-derived Arrow trial removes the
+tagged projection intermediate, while acquiring an Arrow table from tagged rows, framing IPC and
+reconstructing Python rows for canonical publication. Its alternate dispatch established
+transport and byte parity. The ordinary provider route established installed publication and
+selected use. These candidates give no reason to introduce a second ordinary worker format in
+this slice. The PostgreSQL membership route extracts and materializes tagged fields to answer a
+lookup that can use the already admitted in-process rows. Its ADBC projection crosses the wire
+with typed columns, while the protected native routine still constructs each tagged packet before
+extraction. The DuckDB connector trial was `not_run` because this pilot exposed no additional
+transfer work it could remove through that same guarded source. Keep these scoped findings for
+the later SBX-18/19 placement decision. Qualify the selected carrier on the final SBX-09 root
+with its remaining consumers.
+
 <a id="postgresql-placement-and-transfer"></a>
 ## PostgreSQL placement and transfer
 

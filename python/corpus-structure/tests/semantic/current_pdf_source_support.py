@@ -515,7 +515,7 @@ def current_pdf_source_factory(scenario_seeds, tmp_path):
     return acquire
 
 
-def section_content(rows):
+def section_content(rows, *, one_section=False):
     from docling_core.types.doc import (
         BoundingBox,
         DocItemLabel,
@@ -531,8 +531,10 @@ def section_content(rows):
     from corpus_structure.ingest.pdf_health import FormulaOutcome
 
     outcomes = []
+    group = None
     for i, (label, text, original, outcome) in enumerate(rows):
-        group = document.add_group(label=GroupLabel.SECTION, name="Selected section " + str(i))
+        if group is None or not one_section:
+            group = document.add_group(label=GroupLabel.SECTION, name="Selected section " + str(i))
         if text or original:
             item = document.add_text(
                 label=DocItemLabel(label),

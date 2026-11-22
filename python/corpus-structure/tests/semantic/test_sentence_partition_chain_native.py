@@ -37,6 +37,7 @@ from semantic.current_pdf_source_support import (
     PdfSourceScenario,
     admit_current_target,
     build_pdf_source,
+    current_consumer_request,
     current_pdf_recipe,
     section_content,
 )
@@ -45,6 +46,7 @@ from semantic.data_operation_kernel_support import (
     execute_captured_kernel_demand,
     split_captured_operations,
 )
+from semantic.structural_admission_native_support import execute
 from semantic.structural_production_native_support import (
     produce_source_reports,
     selected_for_source,
@@ -53,11 +55,11 @@ from semantic.test_target_installation_native import install_target_root
 
 
 def _recipe(directory, *, target="canonical", sentence_configuration=None):
-    original = current_pdf_recipe(directory)
+    original = current_pdf_recipe(directory, math_context=target == "fork")
     captured = original.captured_inputs
     assert captured is not None
     dependencies, declarations, sources = split_captured_operations(captured)
-    if target == "declaration":
+    if target in ("declaration", "fork"):
         from corpus_structure.semantic.declaration_products import (
             declaration_inputs,
             declaration_operation_sources,
@@ -71,6 +73,17 @@ def _recipe(directory, *, target="canonical", sentence_configuration=None):
         operations = combine_primary_sources(
             hanlp_operation_sources(prepare_hanlp_selection()), declaration_operation_sources()
         )
+        if target == "fork":
+            from corpus_structure.semantic.characterization_ports import (
+                construction_operation_sources,
+            )
+            from corpus_structure.semantic.formal_products import formal_operation_sources
+
+            operations = combine_primary_sources(
+                operations,
+                formal_operation_sources(),
+                construction_operation_sources(include_dependencies=False),
+            )
     elif target == "construction":
         from corpus_structure.ingest.sentences import SentenceConfig
         from corpus_structure.semantic.characterization_ports import construction_operation_sources
@@ -99,18 +112,21 @@ def _recipe(directory, *, target="canonical", sentence_configuration=None):
 
 
 @contextmanager
-def _private_source(admin, native_settings, tmp_path, monkeypatch, text, *other_texts):
+def _private_source(
+    admin, native_settings, tmp_path, monkeypatch, text, *other_texts, scenario=None
+):
     epoch = capture_target_installation(get_metadata(), logical_sources=native_model_inputs(ROOT))
     *_, revision_path = install_target_root(admin, epoch, tmp_path)
     monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
     inputs = tmp_path / "capture"
     inputs.mkdir()
-    texts = (text, *other_texts)
-    scenario = PdfSourceScenario(
-        section_content(tuple(("text", value, value, None) for value in texts)),
-        tuple(f"#/groups/{index}" for index in range(len(texts))),
-        False,
-    )
+    if scenario is None:
+        texts = (text, *other_texts)
+        scenario = PdfSourceScenario(
+            section_content(tuple(("text", value, value, None) for value in texts)),
+            tuple(f"#/groups/{index}" for index in range(len(texts))),
+            False,
+        )
     with ExitStack() as resources:
         purposes = {}
 
@@ -332,6 +348,7 @@ def test_actual_canonical_adopts_equal_projection_from_another_annotation_captur
     semantic_bare_engine, native_settings, tmp_path, monkeypatch
 ):
     from corpus_structure.ingest.sentences import SentenceConfig
+    from corpus_structure.semantic._data_operation_wire import WireRevokeDataSupportRequest
 
     text = "Ada acts. Bob waits."
     operation = "segment.sentences/canonical-projection"
@@ -466,6 +483,25 @@ def test_actual_canonical_adopts_equal_projection_from_another_annotation_captur
         assert (True, False) in population_support
         assert all(stale is False for _, stale in population_support)
 
+        with second.purpose("write").begin() as connection:
+            DataOperationStorage(connection).revoke_data_support(
+                cast(
+                    WireRevokeDataSupportRequest,
+                    {
+                        "project_id": PROJECT,
+                        "original_source": revised.row["original_source"],
+                        "selector_kind": "derivation",
+                        "selector": revised.row["derivation_id"],
+                        "reason": "selected annotation support was withdrawn in the pilot",
+                    },
+                )
+            )
+        with first.purpose("read").begin() as connection:
+            unaffected = read_demand_result(connection, first_demand, project_id=PROJECT)
+            affected = read_demand_result(connection, second_demand, project_id=PROJECT)
+            assert any(row["use_id"] == published["use_id"] for row in unaffected.members())
+            assert all(row["use_id"] != adopted["use_id"] for row in affected.members())
+
 
 @pytest.mark.gpu
 @pytest.mark.provider_evidence
@@ -544,3 +580,211 @@ def test_actual_construction_names_admitted_annotation_rows(
         assert (key[0]["text"], key[1]["integer"]) in {
             (row["record_type"], row["ordinal"]) for row in selected
         }
+
+
+@pytest.mark.gpu
+@pytest.mark.provider_evidence
+def test_actual_annotation_fork_shares_admitted_source_and_formal_input(
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch
+):
+    from corpus_structure.semantic.canonical_sentences import (
+        PreparedCanonicalProfile,
+        canonical_projection_spec,
+    )
+    from corpus_structure.semantic.constructions.retained_declarations import DECLARATION_FAMILY
+    from corpus_structure.semantic.data_product_reference import read_semantic_reference
+    from corpus_structure.semantic.demand_results import selected_read_snapshot
+    from corpus_structure.semantic.identity import canonical_bytes
+    from corpus_structure.semantic.live_reference_resolution import (
+        require_selected_output_reference,
+    )
+    from corpus_structure.serve.contribution_facets import ContributionFacetsRequest
+    from corpus_structure.serve.selected_contributions import selected_contribution_scope
+    from semantic.companion_export_native_support import read_settings
+    from semantic.sbx_pilot_arrow import (
+        canonical_values,
+        missing_annotation_items,
+        project_annotation_rows,
+    )
+    from semantic.sbx_pilot_postgresql import annotation_geometry, annotation_membership
+    from semantic.test_sbx_pilot_ipc import spawned_canonical_values
+    from semantic.test_sbx_pilot_postgresql import snapshot_annotation_rows
+
+    declaration = "The mean is 2."
+    condition = "If it rains, Ada waits."
+    rows = (
+        ("text", declaration, declaration, None),
+        ("text", condition, condition, None),
+        ("formula", "x=1", "x=1", "succeeded"),
+        ("text", condition, condition, None),
+    )
+    scenario = PdfSourceScenario(section_content(rows, one_section=True), ("#/groups/0",), True)
+    targets = ("text.declaration_syntax/source-native", "text.constructions/source-native")
+    with _private_source(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch, declaration, scenario=scenario
+    ) as source:
+        kernel = admit_current_target(
+            source, _recipe(tmp_path / "recipe", target="fork"), tmp_path / "target"
+        )
+        pending = current_consumer_request(source, kernel, targets, discover=True)
+        retained, execution = execute(kernel, pending, selection_name="typed-population-pilot")
+        assert execution.receipt_count > 0
+        demand_id = retained["demand_id"]
+        with kernel.purpose("read").begin() as connection:
+            page = read_demand_result(connection, demand_id, project_id=PROJECT, limit=1000)
+            support = tuple(stream_selected_support(connection, page, whole_read=True))
+
+        def rows_for(relation):
+            return tuple(row["record"] for row in support if row["relation"] == relation)
+
+        selected = page.members()
+
+        def one(name):
+            kind = kernel.prepared.index.definitions[name].iri
+            contract = kernel.identities[kind, "kind"]
+            (result,) = [row for row in selected if row["kind_contract"] == contract]
+            return result
+
+        annotation = one("DdoSourceAnnotations")
+        canonical = one("DdoCanonicalSentences")
+        hanlp = one("DdoHanlpInventory")
+        syntax = one("DdoDeclarationSyntaxProduct")
+        construction = one("DdoPrimaryConstructionProduct")
+        formal = one("DdoFormalProduct")
+        original = one("DdoSelectedNativeSource")
+        assert original["body"]["text"].count(condition) == 2
+        assert "x=1" in original["body"]["text"]
+        assert syntax["body"]["outcome"] == "complete"
+        assert any(row["family"] == DECLARATION_FAMILY for row in syntax["body"]["coverage"])
+        assert hanlp["body"]["outcome"] == "complete"
+
+        inputs = rows_for("ops.data_derivation_input")
+
+        def require_input(output, role, expected):
+            (bound,) = [
+                row
+                for row in inputs
+                if row["derivation_id"] == output["derivation_id"] and row["role"] == role
+            ]
+            assert bound["product_id"] == expected["product_id"]
+            assert bound["member_id"] == expected["member_id"]
+
+        require_input(canonical, "inventory", annotation)
+        require_input(construction, "sentences", annotation)
+        require_input(construction, "formal", formal)
+        require_input(hanlp, "canonical", canonical)
+        require_input(syntax, "canonical", canonical)
+        require_input(syntax, "hanlp", hanlp)
+
+        partitions = rows_for("kb.data_product_partition")
+        admitted = {
+            row["partition_key"]: row
+            for row in partitions
+            if row["product_id"] == annotation["product_id"]
+        }
+        published = {
+            row["partition_key"]: row
+            for row in partitions
+            if row["product_id"] == canonical["product_id"]
+        }
+        assert admitted and admitted.keys() == published.keys()
+        operation = kernel.model.operation("segment.sentences/canonical-projection")
+        (inventory,) = [role for role in operation.roles if role.direction == "input"]
+        (output,) = [role for role in operation.roles if role.direction == "output"]
+        assert inventory.read_projection is not None
+        kind = next(kind for kind in kernel.model.kinds if kind.semantic_id == inventory.kind)
+        spec = canonical_projection_spec(kernel.model, output.kind)
+        profile = PreparedCanonicalProfile(
+            kernel.prepared,
+            kernel.model,
+            operation,
+            canonical_bytes(spec),
+            output.kind,
+            inventory.read_projection,
+            canonical_bytes(json.loads(kind.facts)["collections"]),
+        )
+        projected = project_annotation_rows(profile, annotation["body"], admitted.values())
+        candidate = spawned_canonical_values(kernel.prepared, projected, spec, monkeypatch)
+        assert canonical_bytes(candidate) == canonical_bytes(canonical_values(projected, spec))
+        assert profile.output(candidate).content == canonical_bytes(canonical["body"])
+        for partition in candidate["partitions"]:
+            observed = published[partition["partition_key"]]
+            assert all(partition[field] == observed[field] for field in partition)
+
+        fields = ("partition_key", "record_type", "ordinal", "start", "end")
+        expected_rows = [
+            {"partition_key": part["partition_key"], **{name: row[name] for name in fields[1:]}}
+            for part in sorted(admitted.values(), key=lambda row: row["ordinal"])
+            for row in decode_semantic_value(part["body"])
+        ]
+        with selected_read_snapshot(kernel.purpose("read")) as connection:
+            read = admitted_data_read(
+                connection,
+                demand_id,
+                operation.semantic_id,
+                page.cut.record["trust_snapshot"],
+                kernel.model,
+                read_id=page.cut.record["read_id"],
+                subject=annotation["subject"],
+                original_source=annotation["original_source"],
+                analyzed_scope=annotation["analyzed_scope"],
+                selected_pins=[{"product_id": annotation["product_id"], "member_id": None}],
+            )
+            snapshot = connection.scalar(select(func.pg_catalog.pg_export_snapshot()))
+            assert (
+                snapshot_annotation_rows(
+                    read_settings(native_settings, kernel.engine),
+                    snapshot,
+                    read.binding_arguments,
+                )
+                == expected_rows
+            )
+
+        references = tuple(
+            read_semantic_reference(row["target"])
+            for row in construction["body"]["annotation_support"]
+        )
+        assert references
+        addresses = []
+        for reference in references:
+            assert reference.partition_key is not None and reference.item_key is not None
+            record_type, ordinal = reference.item_key
+            assert isinstance(record_type, str) and isinstance(ordinal, int)
+            addresses.append((reference.partition_key, record_type, ordinal))
+        assert missing_annotation_items(projected, addresses) == ()
+        with kernel.purpose("read").begin() as connection:
+            for key, part in admitted.items():
+                constraints = [
+                    reference.item_key for reference in references if reference.partition_key == key
+                ]
+                assert annotation_membership(connection, part["body"], constraints) == ()
+                assert (
+                    annotation_geometry(
+                        connection,
+                        part["body"],
+                        part["placement"]["end"] - part["placement"]["start"],
+                    )
+                    == ()
+                )
+            with selected_contribution_scope(
+                connection,
+                ContributionFacetsRequest(
+                    demand_id=demand_id,
+                    project_id=PROJECT,
+                    max_graph_bytes=67_108_864,
+                ),
+                product_ids=[construction["product_id"]],
+            ) as scope:
+                (selected_construction,) = scope.products(product_id=construction["product_id"])
+                for reference in references:
+                    item = require_selected_output_reference(
+                        scope, selected_construction, reference, path="/annotation_support/*/target"
+                    )
+                    assert isinstance(item, dict)
+                    assert (item["record_type"], item["ordinal"]) == reference.item_key
+                missing = replace(references[0], item_key=("token", 10_000))
+                with pytest.raises(ValueError, match="reference does not resolve"):
+                    require_selected_output_reference(
+                        scope, selected_construction, missing, path="/annotation_support/*/target"
+                    )
+        assert execute_captured_kernel_demand(kernel, demand_id).receipt_count == 0

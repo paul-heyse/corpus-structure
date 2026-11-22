@@ -89,9 +89,13 @@ class SourceAnnotations:
     def __post_init__(self):
         from .sentence_partitions import sentence_product_payload
 
-        if type(self.execution_receipts) is not tuple or any(type(receipt) is not bytes for receipt in self.execution_receipts):
+        if type(self.execution_receipts) is not tuple or any(
+            type(receipt) is not bytes for receipt in self.execution_receipts
+        ):
             raise TypeError("annotation execution custody requires immutable receipt bytes")
-        payload = sentence_product_payload(self.content, self.partitions, self.prepared, "DdoSourceAnnotations")
+        payload = sentence_product_payload(
+            self.content, self.partitions, self.prepared, "DdoSourceAnnotations"
+        )
         object.__setattr__(self, "content", payload.content)
         object.__setattr__(self, "partitions", payload.partitions)
         object.__setattr__(self, "_payload", payload)
@@ -99,7 +103,14 @@ class SourceAnnotations:
     def with_context(self, context):
         _ = self.value
         result = object.__new__(SourceAnnotations)
-        for name in ("content", "prepared", "model", "partitions", "execution_receipts", "_payload"):
+        for name in (
+            "content",
+            "prepared",
+            "model",
+            "partitions",
+            "execution_receipts",
+            "_payload",
+        ):
             object.__setattr__(result, name, getattr(self, name))
         object.__setattr__(result, "subject_context", context)
         if "_blocks" in vars(self):
@@ -137,16 +148,32 @@ class SourceAnnotations:
 
     @property
     def value(self) -> Mapping[str, Any]:
-        if "_payload" not in vars(self) or self.content is not self._payload.content or self.partitions is not self._payload.partitions:
+        return self._acquired_payload().value
+
+    @property
+    def partition_blocks(self):
+        """Return the immutable row blocks already admitted with this header."""
+        return self._acquired_payload().blocks
+
+    def _acquired_payload(self):
+        if (
+            "_payload" not in vars(self)
+            or self.content is not self._payload.content
+            or self.partitions is not self._payload.partitions
+        ):
             raise TypeError("source annotations lack their validating acquisition")
-        return self._payload.value
+        return self._payload
 
     @cached_property
     def _blocks(self):
         from .native_source_view import freeze_native
 
-        return tuple(freeze_native(_annotation_block(layout, block)) for layout, block in
-                     zip(self.value["block_layouts"], self._payload.blocks, strict=True))
+        return tuple(
+            freeze_native(_annotation_block(layout, block))
+            for layout, block in zip(
+                self.value["block_layouts"], self.partition_blocks, strict=True
+            )
+        )
 
     def inventory(self, kind: str) -> tuple[dict[str, Any], ...]:
         if kind not in {"sentence", "token"}:
@@ -301,8 +328,9 @@ def _restore_selected_annotation_rows(source, value, rows):
 def retained_source_annotation_products(source, native):
     """Restore captured blocks once from an authenticated nominal annotation input."""
     return _restore_selected_annotation_rows(
-        source, native.value if type(native) is SourceAnnotations else json.loads(native.content),
-        source_annotation_rows(native)
+        source,
+        native.value if type(native) is SourceAnnotations else json.loads(native.content),
+        source_annotation_rows(native),
     )
 
 
@@ -432,7 +460,9 @@ def validate_source_annotations(
         raw = dict(raw["header"])
     if partitions is None or "rows" not in raw:
         raise ValueError("source annotations require an admitted header and row partitions")
-    result = SourceAnnotations(canonical_bytes(raw), prepared, model, partitions, receipts, subject_context)
+    result = SourceAnnotations(
+        canonical_bytes(raw), prepared, model, partitions, receipts, subject_context
+    )
     checked = thaw_native(result.value)
     selected = source.value
     frozen_configuration = result.configuration
@@ -1380,6 +1410,7 @@ class PreparedSentencePort:
         attestations = ()
         if binding is not None and binding.subject_context is not None:
             from .native_source_view import thaw_native
+
             selected_source = {"source": (RuleObservedInput(source.value),)}
             observed = {
                 "segment.sentences/exact-source-scope": selected_source,
@@ -1414,7 +1445,9 @@ class PreparedSentencePort:
                 )
                 for rule in self.profile.model.rules
                 if rule.id in observed
-                for partition in (product._payload.packets if rule.scope == "partition" else (None,))
+                for partition in (
+                    product._payload.packets if rule.scope == "partition" else (None,)
+                )
             )
         return PortCompletion(
             self.operation.semantic_id,

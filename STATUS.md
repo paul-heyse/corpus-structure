@@ -12,6 +12,7 @@ _Updated 2026-11-22. The SBX hard cutover is in progress through SBX-09. All dev
 
 ## Last verified · 2026-11-22
 
+- **Passed.** The real shared-source annotation fork passed its private `uv run ci test --native-host private --providers-only` rerun (`52f96d62df8945858ebdbb3cddae97b2`). The pilot selected the immutable carrier with direct admitted row reuse in construction. [Pilot decision and scoped evidence](docs/plans/set-based-execution/common-analytical-basis.md#pilot-implementation-and-evidence)
 - **Passed.** The 20 selected `uv run ci test` annotation and partition controls exercised immutable body sharing between differently placed uses, rejection of altered content under a retained digest, and reacquisition after cache clear (`3db106fc6ad84c29889413846a39f95f`). [Carrier owner](docs/plans/set-based-execution/validated-values-and-handoff.md#sbx-08)
 - **Passed.** The isolated current-root `uv run ci test --native-host private` exact-pin control verified one ordinary binding wake for a new matching use with stable computational inputs (`b7ae512c07654fbda060d649e43d17e1`). [Readiness owner](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-06)
 - **Passed.** A private `uv run ci test --native-host private` control verified that each late original admission wakes its matching collection obligation while the unrelated waiter and legacy watermark stay stable (`33feb2a48a674b6a810484b3862f4d5b`). [Readiness owner](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-06)
@@ -45,7 +46,7 @@ this documentation change and remains with the linked SBX packages.
 
 ## Remaining acceptance
 
-- Run the [annotation-fork pilot](docs/plans/set-based-execution/common-analytical-basis.md#typed-population-pilot) from the runnable proof, reference and carrier slices. Decide and integrate the affected route before authoring the SBX-09 cold root. Native settlement and executable custody can proceed in parallel.
+- Carry the [selected annotation route](docs/plans/set-based-execution/common-analytical-basis.md#pilot-implementation-and-evidence) into final SBX-09 qualification. Finish the remaining native settlement and executable custody acceptance before authoring and qualifying the cold root.
 - Finish native move and reconversion coverage, qualify the remaining readiness origins and scoped joins, and remove the remaining stored scheduling watermark. [Readiness and settlement](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-06)
 - Finish the cross-product proofs and remaining reference families. Run the joined native-to-detached journey and installed provider and execution paths on the final root. The textbook MCP closure watchdog belongs to SBX-11/12. [SBX queue](docs/plans/set-based-execution_2026-11-21.md#execution-queue) · [Read evidence](docs/plans/set-based-execution/references-and-projection-keys.md#sbx-05)
 - **Not run.** Complete-scope `uv run ci test` and `uv run ci check`, cold registration and replacement of development await the integrated acceptance above. The registered chain still contains the superseded revisions. [Development reset](docs/plans/set-based-execution/cutover-and-qualification.md#development-reset-through-sbx-09)

@@ -406,6 +406,11 @@ The pilot and later trial use the [existing decision routes](set-based-execution
 The full scoped-relations trial and archive work keep their downstream dependencies. The development
 cutover remains empty and stage installation remains with SBX-20.
 
+**Pilot decided · 2026-11-22.** SBX-03/08 retain the acquired immutable annotation carrier.
+Primary construction now uses its admitted row blocks directly. The combined real provider
+fork passed on a private current-source root. The final registered root and remaining SBX-09
+acceptance stay with the cutover owner. [Pilot evidence and decision](set-based-execution/common-analytical-basis.md#pilot-implementation-and-evidence)
+
 ## Completion
 
 The series is complete when revision A, B and C are registered and deployed on the stage target;

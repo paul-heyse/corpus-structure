@@ -231,7 +231,9 @@ class InterpretedProduct:
     _source: ClassVar[FrozenNativeSource]
 
     def __init__(self, *args, **kwargs):
-        raise TypeError("interpreted evidence requires validated production or exact native acquisition")
+        raise TypeError(
+            "interpreted evidence requires validated production or exact native acquisition"
+        )
 
     @classmethod
     def _from_payload(cls, payload, source, prepared, model, subject_context):
@@ -774,8 +776,8 @@ def _annotation_dependency(body):
 
 def _validated_annotation_support(value, selected, inventory, nodes):
     """Authenticate the local evidence slots using the selected annotation population."""
-    from .data_operation_partitions import partition_header
-    from .sentence_partitions import blocks_from_packets
+    from .enriched_document_products import RetainedCharacterizationProduct
+    from .sentence_partitions import acquire_sentence_partitions
 
     support = annotation_support_index(value)
     annotations = inventory["annotations"]
@@ -786,26 +788,25 @@ def _validated_annotation_support(value, selected, inventory, nodes):
         return {}
     native = []
     for product in selected:
-        retained = getattr(product, "partitions", None)
-        if retained is None:
-            continue
-        body = json.loads(product.content)
-        if _annotation_dependency(body) and "block_layouts" in body:
-            native.append((body, retained))
+        if type(product) is SourceAnnotations:
+            native.append((product.value, product.partition_blocks))
+        elif (
+            type(product) is RetainedCharacterizationProduct
+            and product.prepared.index.by_iri[product.kind].name == "DdoSourceAnnotations"
+            and product.partitions is not None
+        ):
+            header = product.value
+            _, blocks = acquire_sentence_partitions(product.partitions, header["rows"])
+            native.append((header, blocks))
     if len(native) != 1:
         raise ValueError("construction requires its exact selected annotation partitions")
-    ((body, retained),) = native
-    packets = tuple(json.loads(packet) for packet in retained)
-    if partition_header(packets) != body["rows"]:
-        raise ValueError("construction annotation support differs from selected rows")
+    ((header, blocks),) = native
     items = {
-        (block.key, (row["record_type"], row["ordinal"]))
-        for block in blocks_from_packets(packets)
-        for row in block.rows
+        (block.key, (row["record_type"], row["ordinal"])) for block in blocks for row in block.rows
     }
     layouts = {
         row["annotation"]["block_id"]: row["annotation"]["dependency_digest"]
-        for row in body["block_layouts"]
+        for row in header["block_layouts"]
     }
     for (owner, use, binding), rows in support.items():
         node = nodes.get(owner)
@@ -1087,9 +1088,7 @@ def _checked_interpreted_product(
     typed_value = typed.model_dump(mode="python", exclude_unset=True)
     kind = prepared.index.definitions[product_type.kind_name].iri
     kind_contract = next(
-        item.key
-        for item in model.identities
-        if (item.owner, item.domain) == (kind, "kind")
+        item.key for item in model.identities if (item.owner, item.domain) == (kind, "kind")
     )
     body_digest = body_identity(typed_value).key
     packets = analytical_packets(
@@ -1104,7 +1103,8 @@ def _checked_interpreted_product(
         or bound_member.member is not None
         or contextual_product_identity(
             kind=kind_contract, context=subject_context, body=body_digest
-        ).key != bound_member.product
+        ).key
+        != bound_member.product
         or checked["source"] != selected["source"]
         or tuple(checked["selectors"]) != tuple(selected["selectors"])
     ):
