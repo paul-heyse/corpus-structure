@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "id": "sbx09.remaining-boundaries",
+  "title": "Occurrence, selected reference and projected custody controls",
+  "group": "sbx09-review",
+  "package": "SBX-09",
+  "finalized": "2026-11-22",
+  "status": "current",
+  "supersedes": [],
+  "superseded_by": null,
+  "question": "Which exact occurrence, authorization and payload facts survive the proposed library boundaries?",
+  "answers": [
+    "I03",
+    "I04",
+    "I05"
+  ],
+  "method": "Exercise a pinned DuckDB finite relation, the production resolver with a fixture access port, and projected reads over two payloads from the production Arrow writer.",
+  "commands": [
+    "uv run --no-sync python docs/design_review/evidence/2026-11-22_sbx09-review/probe.py"
+  ],
+  "agents": [],
+  "inputs": [
+    {
+      "path": "probe.py",
+      "role": "reproducible source",
+      "sha256": "79653c3d65471b4f014bb27e68090a40ee17b7587f8fb00d756fa28cd8271f65"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "raw/probe.json",
+      "role": "normalized probe observations",
+      "sha256": "f6fb8a1091e5c088060d84054d72a8100fe73e65546d523052e0fa32d8b4b19e"
+    }
+  ],
+  "depends_on": [],
+  "results": [
+    {
+      "name": "Arms retained by the compound recursion key",
+      "value": 2,
+      "of": 2,
+      "unit": null,
+      "note": "The key with node only retained one arm. Bag difference retained the expected duplicate occurrence."
+    },
+    {
+      "name": "Fixture partition acquisitions",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": "The resolver requested authorization five times, including the stand-in refusal. The control used no native access."
+    },
+    {
+      "name": "Equal projected payloads with different byte and logical digests",
+      "value": 1,
+      "of": null,
+      "unit": null,
+      "note": "The fixture changes one omitted flag."
+    }
+  ],
+  "outcome": "passed",
+  "conclusion": "Preserve distinct role arms and multiplicity in finite analyses. Resolver reuse still checks authority per lookup. Projected IPC needs established full-byte custody and cannot identify omitted logical fields.",
+  "consumed_by": [
+    "SBX-05",
+    "SBX-06",
+    "SBX-09",
+    "SBX-16"
+  ]
+}

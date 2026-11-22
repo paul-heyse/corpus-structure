@@ -41,6 +41,11 @@ performs no review and changes no implementation plan.
 
 ## Published reviews
 
+- [Set-based execution through SBX-09 after the typed-population pilot](set-based-execution-through-sbx09_2026-11-22.md).
+  Recommends an installed successor, reusable construction premises, bounded selected reads,
+  native settlement and registered-root qualification. Assesses broader Arrow, DuckDB and
+  PostgreSQL placement against the remaining consumers.
+
 - [A common analytical basis for Set-based Execution](set-based-execution-common-analytics_2026-11-22.md).
   Recommends an early typed-population pilot, comparison of captured SQL with typed expressions,
   and Parquet for frozen selected-review replay. Reassesses PostgreSQL placement and integration.
