@@ -221,10 +221,11 @@ def test_custody_output_keeps_exact_disclosure_and_pinned_nested_universes():
         "ops.ddo_body_kind_contracts",
         "ops.ddo_policy_authority_leaf",
         "ops.ddo_valid_closure",
-        "selected_uses.id = p_use",
+        "latest.id = p_use",
         "kb.data_product.project_id = d.project_id",
         "ops.data_derivation_output.member_id IS NULL",
         "support_closure.kind IN ('episode', 'authority')",
+        "reached_output_validity.kind = 'episode'",
         "coalesce(boundary.access_universes ? sem.data_kind_contract.universe, false)",
     ):
         assert required in source

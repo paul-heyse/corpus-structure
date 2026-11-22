@@ -33,6 +33,29 @@ SOURCE_PROOF_CASE = pytest.mark.parametrize(
 )
 
 
+@pytest.fixture
+def ddo_kernel(request, semantic_bare_engine, tmp_path, monkeypatch):
+    from pathlib import Path
+
+    from corpus_structure.schema.model_change import native_model_inputs
+    from corpus_structure.semantic import migrations
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.target_installation import capture_target_installation
+    from semantic.data_operation_kernel_support import admit_kernel, prepare_kernel
+    from semantic.test_target_installation_native import install_target_root
+
+    admin = semantic_bare_engine
+    epoch = capture_target_installation(
+        get_metadata(), logical_sources=native_model_inputs(Path(__file__).resolve().parents[4])
+    )
+    *_, revision_path = install_target_root(admin, epoch, tmp_path)
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+    recipe = request.param
+    preparation = prepare_kernel(recipe, directory=tmp_path / "source-acquisition-kernel")
+    with admin.begin() as connection:
+        return admit_kernel(connection, recipe, engine=admin, preparation=preparation)
+
+
 def selected(kernel, demand, *, member_id=None):
     with kernel["engine"].begin() as connection:
         page = read_demand_result(connection, demand["demand_id"], project_id="ddo-test")
@@ -76,6 +99,21 @@ def test_native_selected_source_basis_preserves_two_producers_and_refuses_forged
     )
     assert first_selection.entry == second_selection.entry
     assert first_selection.proof.output.member_id is None
+    with ddo_kernel["engine"].connect() as connection:
+        # The value use is valid under its own support without its historical episode.
+        # The exact output proof must independently reach and validate that episode.
+        validity = connection.execute(
+            text(
+                "SELECT closure.kind, closure.id, closure.valid FROM ops.data_demand_read boundary "
+                "CROSS JOIN LATERAL ops.ddo_valid_closure(ARRAY[:use]::text[], "
+                "'{}'::text[], boundary, '{}'::text[]) AS closure WHERE boundary.id=:read"
+            ),
+            {"use": first_selection.proof.anchor_use_id, "read": first_selection.read.read_id},
+        ).all()
+    assert ("use", first_selection.proof.anchor_use_id, True) in validity
+    assert all(
+        (kind, identity) != ("episode", first["derivation_id"]) for kind, identity, _ in validity
+    )
     keys = []
     for source_selection in (first_selection, second_selection):
         demand = register(

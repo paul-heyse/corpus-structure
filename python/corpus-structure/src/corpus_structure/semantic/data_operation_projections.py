@@ -185,7 +185,7 @@ def _validity_rows(
     empty = cast(literal("{}"), ARRAY(Text))
     rows = (
         func.ops.ddo_valid_closure(
-            seed_uses,
+            empty if seed_uses is None else seed_uses,
             empty if seed_episodes is None else seed_episodes,
             core_reference("boundary", type_=NullType()) if boundary is None else boundary,
             empty if seed_populations is None else seed_populations,
@@ -1602,24 +1602,39 @@ def _selected_support_output_rows(
     )
     latest = _latest_read_use(metadata, obligations)
     selected = (
-        select(latest).select_from(obligations.join(latest, literal(True))).cte("selected_uses")
+        select(latest)
+        .select_from(obligations.join(latest, literal(True)))
+        .where(
+            *([latest.c.id == _var("p_use", Text)] if one_use else []),
+            latest.c.fate == "fulfilled",
+        )
+        .cte("selected_uses")
     )
     selected_validity = _validity_rows(
-        select(func.array_agg(selected.c.id))
-        .where(selected.c.fate == "fulfilled")
-        .scalar_subquery(),
+        select(func.array_agg(selected.c.id)).scalar_subquery(),
         name="selected_output_validity",
     )
     seed = (
         _node("use", selected.c.id)
-        .where(
-            *([selected.c.id == _var("p_use", Text)] if one_use else []),
-            selected.c.fate == "fulfilled",
-            _set_valid(selected_validity, "use", selected.c.id),
-        )
+        .where(_set_valid(selected_validity, "use", selected.c.id))
         .cte("selected_output_seed")
     )
     nodes = _support_walk(metadata, seed, public=purpose in {"read", "custody"})
+    # A selected value use can remain valid without its historical episode.
+    # Exact output authority still requires validity of the reached episode.
+    reached_episodes = (
+        select(func.array_agg(nodes.c.id))
+        .where(nodes.c.kind.in_(("episode", "authority")))
+        .scalar_subquery()
+    )
+    reached_uses = (
+        select(func.array_agg(nodes.c.id)).where(nodes.c.kind == "use").scalar_subquery()
+        if member_aware
+        else None
+    )
+    reached_validity = _validity_rows(
+        reached_uses, reached_episodes, name="reached_output_validity"
+    )
     outputs = metadata.tables["ops.data_derivation_output"]
     episodes = metadata.tables["ops.data_derivation"]
     products = metadata.tables["kb.data_product"]
@@ -1665,7 +1680,7 @@ def _selected_support_output_rows(
         producing_reached = and_(
             producing.c.fate == "fulfilled",
             _visible(producing),
-            _set_valid(selected_validity, "use", producing.c.id),
+            _set_valid(reached_validity, "use", producing.c.id),
             exists(
                 select(1)
                 .select_from(nodes)
@@ -1683,7 +1698,7 @@ def _selected_support_output_rows(
                         producing_reached,
                         literal(True) if member_aware else outputs.c.member_id.is_(None),
                         products.c.project_id == _var("d.project_id", Text),
-                        _set_valid(selected_validity, "episode", episodes.c.id),
+                        _set_valid(reached_validity, "episode", episodes.c.id),
                     ),
                     access,
                 ),
