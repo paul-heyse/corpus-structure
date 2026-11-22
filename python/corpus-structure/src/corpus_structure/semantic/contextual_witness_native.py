@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, Column, Text, and_, any_, func, or_, select
 from sqlalchemy.dialects.postgresql import ARRAY, array
 
 from .contextual_admission_native import (
+    _contextual_producer_allowed,
     _ContextualPrograms,
     _field,
     _items,
@@ -133,22 +134,16 @@ def contextual_witness_native_programs(*, target_metadata=None) -> tuple[Program
 
     def producer(target, selected, *, query_role=False):
         support = _items(_plain(_field(selected, "support")), "selected_support")
+        release = p.row("r", "ops.data_request", "release_id")
+        operation = p.row("r", "ops.data_request", "operation_id")
         conditions = [
             outputs.c.product_id == _text(selected, "product_id"),
             outputs.c.member_id.is_(None),
-            or_(
-                operation_field(
-                    p.model,
-                    p.row("r", "ops.data_request", "release_id"),
-                    p.row("r", "ops.data_request", "operation_id"),
-                    "dependencies",
-                )["required"].contains(func.jsonb_build_array(requests.c.operation_id)),
-                operation_field(
-                    p.model,
-                    p.row("r", "ops.data_request", "release_id"),
-                    p.row("r", "ops.data_request", "operation_id"),
-                    "dependencies",
-                )["potential"].contains(func.jsonb_build_array(requests.c.operation_id)),
+            _contextual_producer_allowed(
+                operation_field(p.model, release, operation, "input_roles"),
+                operation_field(p.model, release, operation, "dependencies"),
+                "query" if query_role else "inventory",
+                requests.c.operation_id,
             ),
             select(1)
             .select_from(support)
