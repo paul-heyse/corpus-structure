@@ -269,6 +269,7 @@ def test_native_condition_target_requires_the_actual_bound_report_member(product
     from sqlalchemy.exc import DBAPIError
     from sqlalchemy.schema import CreateTable
 
+    from corpus_structure.semantic.binding_support_native import binding_support_native_programs
     from corpus_structure.semantic.data_completion_settlement_native import (
         completion_settlement_native_programs,
     )
@@ -300,6 +301,7 @@ def test_native_condition_target_requires_the_actual_bound_report_member(product
         "(release_id text, operation_id text, support_contract jsonb, input_roles jsonb)"
     )
     programs = (
+        *(item.routine for item in binding_support_native_programs(metadata)),
         *completion_settlement_native_programs(metadata),
         *(item.routine for item in read_native_programs(metadata)),
         *reference_native_programs(metadata),
@@ -308,6 +310,7 @@ def test_native_condition_target_requires_the_actual_bound_report_member(product
         "ddo_witness_path",
         "ddo_witness_records",
         "ddo_binding_body_access",
+        "ddo_derivation_input_positions",
         "ddo_assert_output_references",
     ):
         execute_native_sql(

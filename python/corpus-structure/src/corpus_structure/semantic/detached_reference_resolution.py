@@ -127,6 +127,7 @@ def require_detached_output_references(
         bindings = []
         occurrence_field = target.get("occurrence_field")
         occurrence_binding = target.get("occurrence_binding", False)
+        occurrence_position = target.get("occurrence_position", False)
         for row in captured:
             if row["role"] != target["input_role"]:
                 continue
@@ -152,10 +153,13 @@ def require_detached_output_references(
                     member_id,
                     row.get("occurrence_label")
                     if occurrence_binding
+                    else str(row["position"])
+                    if occurrence_position
                     else reference_input_occurrence(access, provisional, occurrence_field),
                     row["multiplicity"],
                     occurrence_field,
                     occurrence_binding,
+                    occurrence_position,
                 )
             )
         original = ProducingReferenceBindings(derivation_id, tuple(bindings))
@@ -170,6 +174,7 @@ def require_detached_output_references(
                         reference,
                         occurrence_field=occurrence_field,
                         occurrence_binding=occurrence_binding,
+                        occurrence_position=occurrence_position,
                     )
                     resolver.resolve(
                         reference,
@@ -180,5 +185,6 @@ def require_detached_output_references(
                             target.get("collection"),
                             occurrence_field,
                             occurrence_binding,
+                            occurrence_position,
                         ),
                     )

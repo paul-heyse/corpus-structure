@@ -1031,6 +1031,54 @@ def _attachment_program(model, protocol: bytes):
     def project(field):
         return row("project", projects, field)
 
+    retained_definition = definitions.alias("reference_position_definition")
+    position_targets = _elements(
+        retained_definition.c.support_contract["reference_targets"], "reference_position_targets"
+    )
+    positioned_roles = (
+        select(position_targets.c.value["input_role"].astext)
+        .select_from(retained_definition.join(position_targets, literal(True)))
+        .where(
+            retained_definition.c.release_id == r("release_id"),
+            retained_definition.c.operation_id == r("operation_id"),
+            position_targets.c.value["occurrence_position"].astext == "true",
+        )
+        .distinct()
+        .subquery("positioned_roles")
+    )
+    ledger = func.ops.ddo_derivation_input_positions(
+        r("binding")["inputs"], retained_definition.c.input_roles
+    ).table_valued(
+        column("input_record", JSONB()), column("physical_position", Integer())
+    ).lateral("reference_position_ledger")
+    address_role = ledger.c.input_record["role"].astext
+    reference_positions = (
+        select(
+            func.jsonb_agg(
+                aggregate_order_by(
+                    _object(
+                        role=address_role,
+                        product_id=ledger.c.input_record["product_id"].astext,
+                        member_id=ledger.c.input_record["member_id"].astext,
+                        reference_position=ledger.c.physical_position,
+                    ),
+                    address_role,
+                    ledger.c.physical_position,
+                )
+            )
+        )
+        .select_from(
+            retained_definition.join(ledger, literal(True)).join(
+                positioned_roles, address_role == positioned_roles.c[0]
+            )
+        )
+        .where(
+            retained_definition.c.release_id == r("release_id"),
+            retained_definition.c.operation_id == r("operation_id"),
+        )
+        .scalar_subquery()
+    )
+
     j = {
         name: _value(name, JSONB()) for name in ("p", "snapshot", "read_trust", "item", "declared")
     }
@@ -2021,6 +2069,14 @@ def _attachment_program(model, protocol: bytes):
                         else_="compute",
                     ),
                     retained_intent_id=retained_id,
+                ).op("||")(
+                    case(
+                        (
+                            and_(episode.is_(None), retained_id.is_(None)),
+                            func.jsonb_strip_nulls(_object(reference_positions=reference_positions)),
+                        ),
+                        else_=_json("{}"),
+                    )
                 )
             )
         ),

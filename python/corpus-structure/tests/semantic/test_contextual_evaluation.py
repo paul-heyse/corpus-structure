@@ -137,6 +137,7 @@ def controlled_product(release, facts, *, dependencies=None, source=None):
         dependencies,
     )
     value["annotation_support"] = []
+    value["formal_atom_support"] = []
     return validate_interpreted_product(
         release.prepared,
         release.model,

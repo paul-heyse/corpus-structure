@@ -14,7 +14,7 @@ from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from contextvars import copy_context
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
@@ -1016,7 +1016,39 @@ class NativeDemandExecutor:
             original, _ = self._generation_ready(
                 ready, native["request_id"], native, context, authorization
             )
-        return original
+        operation = context.model.operation(ready.operation)
+        positioned = {
+            target.input_role for target in operation.reference_targets if target.occurrence_position
+        }
+        if not positioned:
+            return original
+        positions = {}
+        addresses = set()
+        for row in native.get("reference_positions", ()):
+            key = (row["role"], row["product_id"], row.get("member_id"))
+            address = row["role"], row["reference_position"]
+            if key in positions or address in addresses:
+                raise PortRefusal("native reference positions repeat an input or ledger address")
+            positions[key] = address[1]
+            addresses.add(address)
+        roles = []
+        for role in original.binding_result.roles:
+            if role.role in positioned:
+                members = []
+                for member in role.members:
+                    position = positions.pop((role.role, member.product, member.member), None)
+                    if position is None:
+                        raise PortRefusal("native reference positions lack an exact bound input")
+                    members.append(replace(member, reference_position=position))
+                role = replace(role, members=tuple(members))
+            roles.append(role)
+        if positions:
+            raise PortRefusal("native reference positions include an unselected input")
+        return replace(
+            original,
+            binding_result=replace(original.binding_result, roles=tuple(roles)),
+            resolved=replace(original.resolved, roles=tuple(roles)),
+        )
 
     def _hydrate(self, ready: ReadyDataRequest, execution_owner=None, *, context=None):
         context = self._target_context if context is None else context

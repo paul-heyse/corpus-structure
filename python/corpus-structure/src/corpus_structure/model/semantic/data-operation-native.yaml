@@ -1475,6 +1475,20 @@ definitions:
       release_id: {$ref: '#/definitions/identifier'}
       runtime_id: {$ref: '#/definitions/identifier'}
       binding: {$ref: '#/definitions/binding'}
+      reference_positions:
+        type: array
+        items:
+          type: object
+          properties:
+            role: {$ref: '#/definitions/identifier'}
+            product_id: {$ref: '#/definitions/identifier'}
+            member_id:
+              anyOf:
+              - $ref: '#/definitions/identifier'
+              - type: 'null'
+            reference_position: {$ref: '#/definitions/nonnegative_integer'}
+          required: [role, product_id, reference_position]
+          additionalProperties: false
       binding_demand_id: {$ref: '#/definitions/identifier'}
       binding_obligation_id: {$ref: '#/definitions/identifier'}
       generation:

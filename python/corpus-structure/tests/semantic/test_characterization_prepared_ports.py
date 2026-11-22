@@ -727,12 +727,16 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         "text.constructions/selected-primary-members",
         "text.constructions/selected-source-coverage",
     )
-    (reference_target,) = model.operation("text.constructions/source-native").reference_targets
+    targets = model.operation("text.constructions/source-native").reference_targets
+    reference_target = next(target for target in targets if target.input_role == "sentences")
     assert (reference_target.path, reference_target.input_role, reference_target.collection) == (
         "/annotation_support/*/target",
         "sentences",
         "rows",
     )
+    formal_target = next(target for target in targets if target.input_role == "formal")
+    assert formal_target.path == "/formal_atom_support/*/target"
+    assert formal_target.occurrence_position
     assert not consumer.reference_targets
     product = {
         "source": source.value["source"],

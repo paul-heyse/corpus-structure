@@ -556,6 +556,13 @@ class OutputReferenceTarget:
     output_collection: str | None = None
     occurrence_field: str | None = None
     occurrence_binding: bool = False
+    occurrence_position: bool = False
+
+    def record(self):
+        value = asdict(self)
+        if not self.occurrence_position:
+            value.pop("occurrence_position")
+        return value
 
 
 @dataclass(frozen=True)
@@ -633,7 +640,7 @@ class EffectiveOperation:
                     else {}
                 ),
                 **(
-                    {"reference_targets": [asdict(target) for target in self.reference_targets]}
+                    {"reference_targets": [target.record() for target in self.reference_targets]}
                     if self.reference_targets
                     else {}
                 ),
@@ -1161,6 +1168,10 @@ class EffectiveDataOperationModel:
                 operation.pop("output_witnesses")
             if not operation["reference_targets"]:
                 operation.pop("reference_targets")
+            else:
+                for target in operation["reference_targets"]:
+                    if not target["occurrence_position"]:
+                        target.pop("occurrence_position")
             if not operation["result_fields"]:
                 operation.pop("result_fields")
         if any(type(identity) is not EffectiveIdentity for identity in self.identities):
@@ -1189,6 +1200,7 @@ class BoundRoleMember:
     support_references: tuple[SupportReference, ...] = field(kw_only=True)
     producer_output: ProducerOutputOccurrence | None = field(kw_only=True, default=None)
     occurrence_label: str | None = field(kw_only=True, default=None)
+    reference_position: int | None = field(kw_only=True, default=None)
 
     def __post_init__(self) -> None:
         computed = tuple(
@@ -1414,6 +1426,8 @@ def _effective_model_structure():
         def structure(value, _):
             if cls is BindingOperand and isinstance(value, dict):
                 value = {"population_projection": "member", **value}
+            if cls is OutputReferenceTarget and isinstance(value, dict):
+                value = {"occurrence_position": False, **value}
             if cls is InputSupport and isinstance(value, dict):
                 value = {
                     "source_set": None,

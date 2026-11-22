@@ -24,6 +24,7 @@ class ReferenceTarget:
     collection: str | None = None
     occurrence_field: str | None = None
     occurrence_binding: bool = False
+    occurrence_position: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +37,7 @@ class ProducingReferenceInput:
     multiplicity: int = 1
     occurrence_field: str | None = None
     occurrence_binding: bool = False
+    occurrence_position: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,14 +51,15 @@ class ProducingReferenceBindings:
         *,
         occurrence_field: str | None = None,
         occurrence_binding: bool = False,
+        occurrence_position: bool = False,
     ) -> ProducingReferenceInput:
         candidates = tuple(
             item
             for item in self.inputs
-            if (item.role, item.occurrence_field, item.occurrence_binding)
-            == (reference.role, occurrence_field, occurrence_binding)
+            if (item.role, item.occurrence_field, item.occurrence_binding, item.occurrence_position)
+            == (reference.role, occurrence_field, occurrence_binding, occurrence_position)
         )
-        if (occurrence_field is not None or occurrence_binding) and any(
+        if (occurrence_field is not None or occurrence_binding or occurrence_position) and any(
             not item.occurrence for item in candidates
         ):
             raise ValueError("producing input lacks its declared reference occurrence")
@@ -154,13 +157,16 @@ class ReferenceResolver:
             target.variant,
             target.collection,
         ) or (reference.occurrence is not None) != (
-            target.occurrence_field is not None or target.occurrence_binding
+            target.occurrence_field is not None
+            or target.occurrence_binding
+            or target.occurrence_position
         ):
             raise ValueError("reference differs from its declared slot target")
         binding = self.producing.resolve(
             reference,
             occurrence_field=target.occurrence_field,
             occurrence_binding=target.occurrence_binding,
+            occurrence_position=target.occurrence_position,
         )
         if binding.kind_contract != target.kind_contract:
             raise ValueError("reference has the wrong producing input kind")

@@ -14,7 +14,7 @@ from .data_operation_json import json_bytes
 from .data_operation_values import decode_semantic_value, semantic_value
 from .identity import canonical_bytes
 
-PACKET_VERSION = "contextual-encoder-packet-2"
+PACKET_VERSION = "contextual-encoder-packet-3"
 MEMBER_FAILURE_VERSION = "contextual-encoder-member-failure-1"
 MEMBER_FAILURE_CODES = frozenset(
     {
@@ -64,8 +64,8 @@ def encoder_packet(members, operation, *, member_metadata=None):
     bodies, frames, population = {}, {}, []
     members = _batch_members(members)
     if member_metadata is None:
-        member_metadata = ({},) * len(members)
-    for member, learned_dependencies in zip(members, member_metadata, strict=True):
+        member_metadata = (dict(learned_dependencies={}, formal_atom_parents={}),) * len(members)
+    for member, metadata in zip(members, member_metadata, strict=True):
         basis = decode_semantic_value(member["input_basis"])
         frame = None
         for row in basis["roles"]:
@@ -84,7 +84,8 @@ def encoder_packet(members, operation, *, member_metadata=None):
                 input_basis=semantic_value(basis),
                 input_basis_digest=_digest(member["input_basis"]),
                 frame=frame,
-                learned_dependencies=learned_dependencies,
+                learned_dependencies=metadata["learned_dependencies"],
+                formal_atom_parents=metadata["formal_atom_parents"],
             )
         )
     return dict(
@@ -136,10 +137,12 @@ def unpack_encoder_packet(packet):
             "input_basis_digest",
             "frame",
             "learned_dependencies",
+            "formal_atom_parents",
         }:
             raise ValueError("encoder packet member contract changed")
         basis = decode_semantic_value(member["input_basis"])
         dependencies = member["learned_dependencies"]
+        formal = member["formal_atom_parents"]
         if not isinstance(dependencies, dict) or any(
             type(product) is not str
             or not product
@@ -153,6 +156,18 @@ def unpack_encoder_packet(packet):
             for product, targets in dependencies.items()
         ):
             raise ValueError("encoder packet learned dependencies differ from its member contract")
+        if not isinstance(formal, dict) or any(
+            type(product) is not str
+            or not isinstance(parents, (tuple, list))
+            or any(
+                not isinstance(parent, (tuple, list))
+                or len(parent) != 2
+                or any(type(value) is not str or not value for value in parent)
+                for parent in parents
+            )
+            for product, parents in formal.items()
+        ):
+            raise ValueError("encoder packet formal atom addresses differ from its member contract")
         frame = None
         for row in basis["roles"]:
             reference = row["body"]
@@ -172,7 +187,7 @@ def unpack_encoder_packet(packet):
             _digest(restored) != member["input_basis_digest"]
             or frame != member["frame"]
             or (frame is not None and frame not in packet["frames"])
-            or dependencies.keys() - {
+            or (dependencies.keys() | formal.keys()) - {
                 row["product_id"] for row in basis["roles"] if row["role"] == "primary"
             }
         ):
@@ -283,6 +298,7 @@ def prepare_encoder_members(packet, members, *, check_active=lambda: None):
                     member["input_basis"],
                     frame,
                     learned_dependencies=packet["members"][position]["learned_dependencies"],
+                    formal_atom_parents=packet["members"][position]["formal_atom_parents"],
                 )
             except SelectedQueryContextUnavailable as error:
                 failures[position] = member_failure("selected-context-unavailable", error)

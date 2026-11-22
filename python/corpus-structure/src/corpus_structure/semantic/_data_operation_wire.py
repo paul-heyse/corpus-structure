@@ -412,6 +412,13 @@ class WireAttachDataRequestRequest(TypedDict):
     request_meaning: Required[WireRequestMeaning]
 
 
+class WireAttachDataRequestResultReferencePositionsItem(TypedDict):
+    member_id: NotRequired[WireIdentifier | None]
+    product_id: Required[WireIdentifier]
+    reference_position: Required[WireNonnegativeInteger]
+    role: Required[WireIdentifier]
+
+
 class WireAttachDataRequestResult(TypedDict):
     action: Required[Literal["compute", "reconcile", "reuse"]]
     binding: Required[WireBinding]
@@ -420,6 +427,7 @@ class WireAttachDataRequestResult(TypedDict):
     derivation_id: Required[WireDerivationId | None]
     fate: Required[Literal["attached", "fulfilled"]]
     generation: Required[WireGeneration]
+    reference_positions: NotRequired[list[WireAttachDataRequestResultReferencePositionsItem]]
     release_id: Required[WireIdentifier]
     request_id: Required[WireRequestId]
     retained_intent_id: Required[WireCompletionIntentId | None]
@@ -427,6 +435,13 @@ class WireAttachDataRequestResult(TypedDict):
     task_id: Required[TaskId | None]
     trust_snapshot: Required[WireTrustSnapshot]
     use_id: Required[WireIdentifier]
+
+
+class WireAttachDataRequestsAttachedResultReferencePositionsItem(TypedDict):
+    member_id: NotRequired[WireIdentifier | None]
+    product_id: Required[WireIdentifier]
+    reference_position: Required[WireNonnegativeInteger]
+    role: Required[WireIdentifier]
 
 
 class WireAttachDataRequestsAttachedResult(TypedDict):
@@ -437,6 +452,9 @@ class WireAttachDataRequestsAttachedResult(TypedDict):
     derivation_id: Required[WireDerivationId | None]
     fate: Required[Literal["attached"]]
     generation: Required[WireGeneration]
+    reference_positions: NotRequired[
+        list[WireAttachDataRequestsAttachedResultReferencePositionsItem]
+    ]
     release_id: Required[WireIdentifier]
     request_id: Required[WireRequestId]
     retained_intent_id: Required[WireCompletionIntentId | None]
@@ -444,6 +462,13 @@ class WireAttachDataRequestsAttachedResult(TypedDict):
     task_id: Required[TaskId | None]
     trust_snapshot: Required[WireTrustSnapshot]
     use_id: Required[WireIdentifier]
+
+
+class WireAttachDataRequestsFulfilledResultReferencePositionsItem(TypedDict):
+    member_id: NotRequired[WireIdentifier | None]
+    product_id: Required[WireIdentifier]
+    reference_position: Required[WireNonnegativeInteger]
+    role: Required[WireIdentifier]
 
 
 class WireAttachDataRequestsFulfilledResult(TypedDict):
@@ -454,6 +479,9 @@ class WireAttachDataRequestsFulfilledResult(TypedDict):
     derivation_id: Required[WireDerivationId | None]
     fate: Required[Literal["fulfilled"]]
     generation: Required[WireGeneration]
+    reference_positions: NotRequired[
+        list[WireAttachDataRequestsFulfilledResultReferencePositionsItem]
+    ]
     release_id: Required[WireIdentifier]
     request_id: Required[WireRequestId]
     retained_intent_id: Required[WireCompletionIntentId | None]

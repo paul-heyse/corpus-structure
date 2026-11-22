@@ -623,7 +623,7 @@ def data_operation_definition_projection(
                     **(
                         {
                             "reference_targets": [
-                                asdict(target) for target in operation.reference_targets
+                                target.record() for target in operation.reference_targets
                             ]
                         }
                         if operation.reference_targets

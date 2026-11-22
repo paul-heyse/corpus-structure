@@ -63,7 +63,7 @@ class ConstructionOperation:
                 "checker_operation": "text.constructions/source-native",
                 "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_dependency_members",
                 "parameters": {
-                    "paths": ["dependencies", "members"],
+                    "paths": ["dependencies", "formal_atom_support", "members"],
                     "input_reads": {
                         "formal": ["members"],
                         "sentences": ["execution_profile", "block_coverage"],
@@ -206,7 +206,7 @@ class ConstructionOperation:
                 ],
                 "minimum": 1,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "required",
                 "parameter": "formal",
                 "support": {
@@ -273,6 +273,13 @@ class ConstructionOperation:
         "reference_targets": [
             {
                 "output_role": "result",
+                "path": "/formal_atom_support/*/target",
+                "input_role": "formal",
+                "variant": "member",
+                "occurrence_position": True,
+            },
+            {
+                "output_role": "result",
                 "path": "/annotation_support/*/target",
                 "input_role": "sentences",
                 "variant": "partition-item",
@@ -294,7 +301,7 @@ class ConstructionOperation:
             "operator": "all",
             "children": [
                 {"operator": "scan", "roles": ["source"]},
-                {"operator": "collection", "roles": ["formal"], "collection": "sequence"},
+                {"operator": "collection", "roles": ["formal"], "collection": "set"},
                 {"operator": "scan", "roles": ["sentences"]},
             ],
         },

@@ -55,7 +55,6 @@ from .data_operation_model import BoundRoleMember, EffectiveDataOperationModel, 
 from .data_product_reference import (
     DataProductReference,
     SemanticReference,
-    member_reference,
     read_semantic_reference,
     reference_inputs,
 )
@@ -218,6 +217,7 @@ class _InterpretedPayload:
     members: tuple[bytes, ...]
     body_digest: str
     kind_contract: str
+    formal_atom_parents: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True, init=False)
@@ -316,6 +316,11 @@ class ConstructionProduct(InterpretedProduct):
     kind_name: ClassVar[str] = "DdoPrimaryConstructionProduct"
     manifest_name: ClassVar[str] = "DdoConstructionManifest"
 
+    @property
+    def formal_atom_parents(self):
+        self._require_acquired()
+        return self._payload.formal_atom_parents
+
 
 @dataclass(frozen=True)
 class CharacterizationSnapshot:
@@ -324,6 +329,7 @@ class CharacterizationSnapshot:
     product_id: str
     content: bytes
     partitions: tuple[bytes, ...] | None = None
+    formal_atom_parents: tuple[tuple[str, str], ...] = ()
 
     @property
     def semantic_id(self):
@@ -335,7 +341,10 @@ class CharacterizationSnapshot:
 
     @classmethod
     def from_product(cls, product):
-        snapshot = cls(product.semantic_id, product.content, getattr(product, "partitions", None))
+        positions = getattr(product, "formal_atom_parents", ())
+        snapshot = cls(
+            product.semantic_id, product.content, getattr(product, "partitions", None), positions
+        )
         object.__setattr__(snapshot, "value", product.value)
         return snapshot
 
@@ -436,14 +445,15 @@ def construction_product_values(
         ),
     )
     atom_references = {}
-    for product in formal:
+    for position, product in enumerate(formal):
         for packet in product.value["members"]:
             if packet["body"]["record_type"] == "occurrence":
                 atom_references.setdefault(packet["member_id"], []).append(
-                    member_reference(
-                        DataProductReference(product.semantic_id), packet["member_id"]
+                    SemanticReference.member(
+                        "formal", packet["member_id"], occurrence=str(position)
                     ).values()
                 )
+    formal_atom_support = {}
     attempted = set()
     requested, unknown = _requested_regions(source)
     for selector in unknown:
@@ -518,11 +528,11 @@ def construction_product_values(
                         for atom in atoms
                         if (atom.start + start, atom.end + start) == (node["start"], node["end"])
                     ]
-                    builder.annotations[key]["external_premises"] = [
+                    formal_atom_support[key] = tuple(
                         ref
                         for atom in supporting
                         for ref in atom_references.get(atom.occurrence, ())
-                    ]
+                    )
     vocab = None
     if native is not None:
         from .constructions.matching import (
@@ -640,7 +650,15 @@ def construction_product_values(
         member_contracts,
         (*formal, *((native,) if native is not None else ())),
     )
-    return {**value, "annotation_support": support}
+    return {
+        **value,
+        "annotation_support": support,
+        "formal_atom_support": [
+            {"owner": owner, "target": ref}
+            for owner, references in sorted(formal_atom_support.items())
+            for ref in references
+        ],
+    }
 
 
 _BINDING_USES = {
@@ -1127,6 +1145,20 @@ def _checked_interpreted_product(
     )
     body_digest = body_identity(typed_value).key
     graph_value = checked
+    parents = ()
+    if product_type is ConstructionProduct and checked.get("formal_atom_support"):
+        from .construction_formal_references import formal_atom_parents, project_formal_atom_support
+
+        parents = (
+            tuple(
+                (str(position), item.semantic_id)
+                for position, item in enumerate(formal)
+                if not _annotation_dependency(item.value)
+            )
+            if bound_member is None
+            else formal_atom_parents(bound_member)
+        )
+        graph_value = project_formal_atom_support(checked, parents)
     if contextual_proxy_inputs is not None:
         from .contextual_proxy_references import project_contextual_proxy_graph
 
@@ -1216,6 +1248,7 @@ def _checked_interpreted_product(
         project_product_members(model, kind, typed_value),
         body_digest,
         kind_contract,
+        parents,
     )
     return product_type._from_payload(payload, source, prepared, model, subject_context)
 
@@ -1294,7 +1327,7 @@ class PreparedConstructionProfile:
         FormalSourceReadings.from_products(formal, source, prepared=self.prepared, model=self.model)
         return self._construct(
             source,
-            formal,
+            tuple(sorted(formal, key=lambda product: product.semantic_id)),
             options,
             sentences=sentences,
             check_active=check_active,

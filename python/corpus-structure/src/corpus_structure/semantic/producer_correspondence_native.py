@@ -123,6 +123,7 @@ def _selected_reference_inputs(
         select(
             target["occurrence_field"].astext.label("occurrence_field"),
             (target["occurrence_binding"].astext == "true").label("occurrence_binding"),
+            (target["occurrence_position"].astext == "true").label("occurrence_position"),
         )
         .select_from(targets)
         .where(
@@ -141,6 +142,7 @@ def _selected_reference_inputs(
             pin["role"].astext == inputs.c.role,
             or_(
                 declared.c.occurrence_binding,
+                declared.c.occurrence_position,
                 pin["position"].astext == inputs.c.position.cast(Text()),
             ),
             pin["product_id"].astext == inputs.c.product_id,
@@ -155,6 +157,7 @@ def _selected_reference_inputs(
     body = func.coalesce(members.c.body, products.c.canonical_body)
     field = declared.c.occurrence_field
     binding_label = declared.c.occurrence_binding
+    ledger_position = declared.c.occurrence_position
     disclosed = case(
         (
             and_(exact, or_(inputs.c.member_id.is_(None), members.c.member_id.is_not(None))),
@@ -196,6 +199,12 @@ def _selected_reference_inputs(
                 binding_label,
                 func.jsonb_build_object("occurrence_binding", True, "occurrence", occurrence),
             ),
+            (
+                ledger_position,
+                func.jsonb_build_object(
+                    "occurrence_position", True, "occurrence", inputs.c.position.cast(Text())
+                ),
+            ),
             (field.is_(None), literal("{}").cast(JSONB)),
             else_=func.jsonb_build_object("occurrence_field", field, "occurrence", occurrence),
         )
@@ -205,7 +214,7 @@ def _selected_reference_inputs(
             func.coalesce(
                 func.jsonb_agg(
                     aggregate_order_by(
-                        record, inputs.c.role, inputs.c.position, field, binding_label
+                        record, inputs.c.role, inputs.c.position, field, binding_label, ledger_position
                     )
                 ),
                 empty,

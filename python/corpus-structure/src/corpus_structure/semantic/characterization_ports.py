@@ -85,6 +85,7 @@ def _execution_custody() -> SourceArtifact:
         "established_validity.py",
         "characterization_ports.py",
         "construction_products.py",
+        "construction_formal_references.py",
         "enriched_document_products.py",
         "formal_readings.py",
         "formal_products.py",
@@ -750,6 +751,19 @@ class PreparedCharacterizationPort(ABC):
         if self.family == "construction":
             from .sentence_products import acquired_source_annotations, validate_source_annotations
 
+            if binding is None:
+                formal = tuple(sorted(formal, key=lambda product: product.semantic_id))
+            else:
+                (formal_role,) = (role for role in binding.roles if role.role == "formal")
+                positioned = {}
+                for product, member in zip(formal, formal_role.members, strict=True):
+                    position = member.reference_position
+                    if position is None or position in positioned:
+                        raise PortRefusal("formal evidence lacks an exact original ledger position")
+                    positioned[position] = product
+                if set(positioned) != set(range(len(formal))):
+                    raise PortRefusal("formal evidence has an incomplete original ledger")
+                formal = tuple(positioned[position] for position in range(len(formal)))
             selected = next(value for value in values if value.role == "sentences")
             supplied = roles["sentences"]
             if binding is not None:
@@ -819,7 +833,13 @@ class PreparedCharacterizationPort(ABC):
             selected = next(role for role in binding.roles if role.role == name)
             position = 0
             observed = []
-            for member in selected.members:
+            ordered = selected.members
+            if isinstance(inputs, _ConstructionInputs) and name == "formal":
+                actual = {member.product: member for member in ordered}
+                if len(actual) != len(values):
+                    raise ValueError("formal evidence attestation changes the selected population")
+                ordered = tuple(actual[value.semantic_id] for value in values)
+            for member in ordered:
                 retained = values[position]
                 if retained.semantic_id != member.product:
                     raise ValueError("dependency attestation requires its exact producing input")
@@ -1018,9 +1038,7 @@ class PreparedCharacterizationPort(ABC):
             arguments = dict(
                 source=inputs.source,
                 products=tuple(
-                    CharacterizationSnapshot(
-                        product.semantic_id, product.content, getattr(product, "partitions", None)
-                    )
+                    CharacterizationSnapshot.from_product(product)
                     for product in products
                 ),
                 symbolic=tuple(product.reference for product in constructions),

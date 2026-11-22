@@ -165,10 +165,10 @@ class LiveReferenceAccess:
         )
 
 
-def reference_input_address(pin, *, occurrence_binding=False):
+def reference_input_address(pin, *, occurrence_binding=False, occurrence_position=False):
     """The use address an original producing input must still match."""
     return (
-        None if occurrence_binding else pin["position"],
+        None if occurrence_binding or occurrence_position else pin["position"],
         pin["product_id"],
         pin.get("member_id"),
         pin["multiplicity"],
@@ -184,11 +184,19 @@ def require_selected_output_reference(
 
 @overload
 def require_selected_output_reference(
+    scope, selected, reference, *, path, with_binding: Literal[True]
+) -> tuple[ProducingReferenceInput, object]: ...
+
+
+@overload
+def require_selected_output_reference(
     scope, selected, reference, *, path, metadata_only: bool = False
 ) -> object: ...
 
 
-def require_selected_output_reference(scope, selected, reference, *, path, metadata_only=False):
+def require_selected_output_reference(
+    scope, selected, reference, *, path, metadata_only=False, with_binding=False
+):
     """Resolve a declared reference or authenticate its exact whole-product binding."""
     from .detached_reference_resolution import (
         IndexedReferenceAccess,
@@ -223,9 +231,12 @@ def require_selected_output_reference(scope, selected, reference, *, path, metad
     role = target["input_role"]
     occurrence_field = target.get("occurrence_field")
     occurrence_binding = target.get("occurrence_binding", False)
-    uses_occurrence = occurrence_field is not None or occurrence_binding
+    occurrence_position = target.get("occurrence_position", False)
+    uses_occurrence = occurrence_field is not None or occurrence_binding or occurrence_position
     current_support = {
-        reference_input_address(pin, occurrence_binding=occurrence_binding)
+        reference_input_address(
+            pin, occurrence_binding=occurrence_binding, occurrence_position=occurrence_position
+        )
         for pin in selection["inputs"]
         if pin["role"] == role
     }
@@ -248,7 +259,11 @@ def require_selected_output_reference(scope, selected, reference, *, path, metad
     for original in originals:
         product_id, member_id = original["product_id"], original.get("member_id")
         label = original.get("occurrence_label")
-        address = reference_input_address(original, occurrence_binding=occurrence_binding)
+        address = reference_input_address(
+            original,
+            occurrence_binding=occurrence_binding,
+            occurrence_position=occurrence_position,
+        )
         if address not in current_support:
             continue
         parent = access.products.get(product_id)
@@ -265,6 +280,10 @@ def require_selected_output_reference(scope, selected, reference, *, path, metad
         )
         if occurrence_binding:
             binding = replace(binding, occurrence=label, occurrence_binding=True)
+        elif occurrence_position:
+            binding = replace(
+                binding, occurrence=str(original["position"]), occurrence_position=True
+            )
         elif occurrence_field is not None:
             body_field = "canonical_body" if member_id is None else "body"
             if bound_packet.get(body_field) is None:
@@ -280,14 +299,17 @@ def require_selected_output_reference(scope, selected, reference, *, path, metad
         raise ValueError("original reference parent is unavailable in the exact selected use")
     producing = ProducingReferenceBindings(selected.derivation_id, tuple(bindings))
     binding = producing.resolve(
-        reference, occurrence_field=occurrence_field, occurrence_binding=occurrence_binding
+        reference,
+        occurrence_field=occurrence_field,
+        occurrence_binding=occurrence_binding,
+        occurrence_position=occurrence_position,
     )
     if metadata_only:
         if reference.variant != "product" or binding.member_id is not None:
             raise ValueError("reference metadata requires its exact whole producing input")
         access.authorize(binding)
         return binding
-    return ReferenceResolver(producing, access).resolve(
+    value = ReferenceResolver(producing, access).resolve(
         reference,
         ReferenceTarget(
             role,
@@ -296,5 +318,7 @@ def require_selected_output_reference(scope, selected, reference, *, path, metad
             target.get("collection"),
             occurrence_field,
             occurrence_binding,
+            occurrence_position,
         ),
     )
+    return (binding, value) if with_binding else value

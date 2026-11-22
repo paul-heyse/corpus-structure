@@ -108,6 +108,10 @@ class ContextualEvaluator:
         alternatives = {}
         for product in products:
             body = product.value
+            if body.get("formal_atom_support"):
+                from ..construction_formal_references import project_formal_atom_support
+
+                body = project_formal_atom_support(body, product.formal_atom_parents)
             if body["source"] != coordinate:
                 raise ValueError("contextual inputs belong to another original source")
             pin = DataProductReference(product.semantic_id)

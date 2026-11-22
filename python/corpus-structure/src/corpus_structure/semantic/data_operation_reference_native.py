@@ -75,12 +75,33 @@ def reference_native_programs(model):
     )
     contracts = core_variable("target_contracts", JSONB())
     outputs = _rows(completion["outputs"], "reference_outputs")
-    bindings = _rows(request_field("binding")["inputs"], "reference_inputs")
+    request_inputs = request_field("binding")["inputs"]
+    selected_bindings = core_variable("selected_bindings", JSONB())
+    bindings = _rows(selected_bindings, "reference_inputs")
     bound = bindings.c.value
     variant = target["variant"].astext
     occurrence = target["occurrence_field"].astext
     binding_label = target["occurrence_binding"].astext == "true"
-    uses_occurrence = or_(occurrence.is_not(None), binding_label)
+    ledger_position = target["occurrence_position"].astext == "true"
+    uses_occurrence = or_(occurrence.is_not(None), binding_label, ledger_position)
+    captured_roles = core_variable("captured_roles", JSONB())
+    ledger = func.ops.ddo_derivation_input_positions(
+        request_inputs, captured_roles
+    ).table_valued(column("input_record", JSONB()), column("physical_position", Integer()))
+    positioned_bindings = (
+        select(
+            func.coalesce(
+                func.jsonb_agg(
+                    ledger.c.input_record.op("||")(
+                        func.jsonb_build_object("reference_position", ledger.c.physical_position)
+                    )
+                ),
+                empty,
+            )
+        )
+        .where(ledger.c.input_record["role"].astext == role)
+        .scalar_subquery()
+    )
     member_id = ref["member_id"].astext
     collection = ref["collection"].astext
     role_paths = array(["variant", "role"], type_=Text())
@@ -127,6 +148,10 @@ def reference_native_programs(model):
             or_(bound["member_id"].astext.is_(None), members.c.member_id.is_not(None)),
             case(
                 (binding_label, bound["occurrence_label"].astext == ref["occurrence"].astext),
+                (
+                    ledger_position,
+                    bound["reference_position"].astext == ref["occurrence"].astext,
+                ),
                 (occurrence.is_(None), literal(True)),
                 else_=decoded(func.coalesce(members.c.body, products.c.canonical_body)).op(
                     "#>>", return_type=Text()
@@ -360,8 +385,8 @@ def reference_native_programs(model):
                         )
                     ),
                     ForQuery(
-                        ("target", "target_contracts"),
-                        select(targets.c.value, admitted_contracts)
+                        ("target", "target_contracts", "captured_roles"),
+                        select(targets.c.value, admitted_contracts, definitions.c.input_roles)
                         .select_from(definitions.join(targets, literal(True)))
                         .where(
                             definitions.c.release_id == request_field("release_id"),
@@ -370,6 +395,10 @@ def reference_native_programs(model):
                         .order_by(targets.c.ordinality),
                         (
                             Assign("target_role", target["input_role"].astext),
+                            Assign(
+                                "selected_bindings",
+                                case((ledger_position, positioned_bindings), else_=request_inputs),
+                            ),
                             ForQuery(
                                 ("output",),
                                 select(outputs.c.value)
@@ -388,6 +417,8 @@ def reference_native_programs(model):
                         for name in (
                             "target",
                             "target_contracts",
+                            "captured_roles",
+                            "selected_bindings",
                             "output",
                             "ref",
                             "partition_body",

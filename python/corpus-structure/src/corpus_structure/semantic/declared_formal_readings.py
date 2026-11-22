@@ -67,10 +67,11 @@ def formal_member_reference(product: DataProductReference, identifier):
 class SelectedCharacterizationInventories(Mapping):
     """Lazy pinned native product inventories; disk owns the full required closure."""
 
-    def __init__(self, products, *, index=None, cut=None):
+    def __init__(self, products, *, index=None, cut=None, formal_atom_parents=None):
         self.products = products
         self.index = index
         self.cut = cut
+        self.formal_atom_parents = formal_atom_parents or {}
 
     def __getitem__(self, reference):
         if not isinstance(reference, DataProductReference):
@@ -80,10 +81,20 @@ class SelectedCharacterizationInventories(Mapping):
         if not isinstance(body, dict) or not {"source", "selectors", "members"} <= body.keys():
             raise ValueError("selected primary dependency is not a declared characterization")
         if self.index is not None:
+            from .construction_formal_references import expand_selected_formal_atom_support
             from .contextual_proxy_references import expand_selected_contextual_proxies
 
             body = expand_selected_contextual_proxies(
                 body, self.index, self.cut, reference.product_id
+            )
+            body = expand_selected_formal_atom_support(
+                body, self.index, self.cut, reference.product_id
+            )
+        elif body.get("formal_atom_support"):
+            from .construction_formal_references import project_formal_atom_support
+
+            body = project_formal_atom_support(
+                body, self.formal_atom_parents.get(reference.product_id, ())
             )
         names = dict(
             occurrence="occurrences",

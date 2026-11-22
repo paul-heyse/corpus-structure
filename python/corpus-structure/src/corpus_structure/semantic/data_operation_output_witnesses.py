@@ -166,7 +166,13 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
         raise ValueError("reference targets require an array")
     role_map = {role.name: role for role in roles}
     required = {"output_role", "path", "input_role", "variant"}
-    additional = {"collection", "output_collection", "occurrence_field", "occurrence_binding"}
+    additional = {
+        "collection",
+        "output_collection",
+        "occurrence_field",
+        "occurrence_binding",
+        "occurrence_position",
+    }
     targets = []
     seen = set()
 
@@ -190,6 +196,7 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
         output_collection = target.get("output_collection")
         occurrence_field = target.get("occurrence_field")
         occurrence_binding = target.get("occurrence_binding", False)
+        occurrence_position = target.get("occurrence_position", False)
         if type(occurrence_binding) is not bool or (
             occurrence_binding
             and (
@@ -199,7 +206,16 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
             )
         ):
             raise ValueError("reference binding label requires a frozen source-set input")
-        uses_occurrence = occurrence_field is not None or occurrence_binding
+        if type(occurrence_position) is not bool or (
+            occurrence_position
+            and (
+                occurrence_field is not None
+                or occurrence_binding
+                or source.collection != "set"
+            )
+        ):
+            raise ValueError("reference ledger position requires an unordered set input")
+        uses_occurrence = occurrence_field is not None or occurrence_binding or occurrence_position
         if variant not in {"product", "member", "partition-item"} or (
             (variant == "partition-item") != (collection is not None)
         ):
@@ -273,6 +289,7 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
                 output_collection,
                 occurrence_field,
                 occurrence_binding,
+                occurrence_position,
             )
         )
     for output in roles:

@@ -155,6 +155,7 @@ def test_constructed_separator_and_epsilon_extents_preserve_projection_authority
         (),
     )
     body["annotation_support"] = []
+    body["formal_atom_support"] = []
     checked = validate_construction_product(
         construction.prepared,
         construction.model,
@@ -874,7 +875,13 @@ def test_target_source_owned_atoms_preserve_exact_inline_formula_extent(profiles
     )
     context = publication_context(source)
     primary = formal.run(source, FormalEvidenceOptions(), subject_context=context)
-    product = construction.run(source, (primary,), subject_context=context)
+    independent = formal.run(
+        source, FormalEvidenceOptions(math_start="relation"), subject_context=context
+    )
+    assert primary.semantic_id != independent.semantic_id
+    product = construction.run(source, (primary, independent), subject_context=context)
+    reordered = construction.run(source, (independent, primary), subject_context=context)
+    assert product.content == reordered.content
     inventory = product.inventory()
     atoms = [
         row
@@ -882,6 +889,20 @@ def test_target_source_owned_atoms_preserve_exact_inline_formula_extent(profiles
         if row["kind"] == "grammar.terminal" and row.get("native_label") == "ATOM"
     ]
     assert atoms
+    edges = atoms[0]["external_premises"]
+    assert {edge["product_id"] for edge in edges} == {primary.semantic_id, independent.semantic_id}
+    (retained_atom,) = {edge["member_id"] for edge in edges}
+    assert [row["target"]["occurrence"] for row in product.value["formal_atom_support"]] == [
+        "0", "1"
+    ]
+    assert all(
+        row["target"]["member_id"] == retained_atom for row in product.value["formal_atom_support"]
+    )
+    assert not any(
+        packet["body"].get("external_premises")
+        for packet in product.value["members"]
+        if packet["member_id"] == atoms[0]["local_id"]
+    )
     by_id = {row["local_id"]: row for row in inventory["occurrences"]}
     assert any(
         [

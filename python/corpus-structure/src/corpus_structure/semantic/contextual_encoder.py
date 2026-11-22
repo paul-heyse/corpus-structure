@@ -31,6 +31,7 @@ _FILES = (
     "methods/contextual_query.py",
     "methods/pm2_dipo_products.py",
     "semantic/declared_formal_readings.py",
+    "semantic/construction_formal_references.py",
     "semantic/contextual_target_products.py",
     "semantic/contextual_cpu.py",
     "semantic/characterization.py",
@@ -259,7 +260,7 @@ def prepare_selected_query_context(frame, occurrence, primary, *, binding, recip
 
 
 def prepare_primary_query_context(
-    frame, occurrence, rows, *, recipe, evidence, learned_dependencies=None
+    frame, occurrence, rows, *, recipe, evidence, learned_dependencies=None, formal_atom_parents=None
 ):
     """Shared query12 projection over actual CPU/native primary role facts."""
     from corpus_structure.methods.contextual_query import (
@@ -332,7 +333,9 @@ def prepare_primary_query_context(
         )
     if observed_learned != learned_dependencies.keys():
         raise ValueError("query context includes unselected learned dependency inputs")
-    inventories = SelectedCharacterizationInventories(products)
+    inventories = SelectedCharacterizationInventories(
+        products, formal_atom_parents=formal_atom_parents
+    )
     reachable, pending = set(), [selected.product]
     while pending:
         product = pending.pop()
@@ -449,7 +452,9 @@ class SelectedQueryContextUnavailable(ValueError):
     """An exact selected primary population cannot supply the requested context."""
 
 
-def prepare_query_encoder_member(input_basis, frame, *, learned_dependencies=None):
+def prepare_query_encoder_member(
+    input_basis, frame, *, learned_dependencies=None, formal_atom_parents=None
+):
     from .data_operation_cpu_basis import cpu_basis_values
     from .data_operation_model import json_context_meaning
     from .data_operation_values import decode_semantic_value
@@ -478,6 +483,7 @@ def prepare_query_encoder_member(input_basis, frame, *, learned_dependencies=Non
                 recipe=selection["recipe"],
                 evidence=selection["evidence"],
                 learned_dependencies=learned_dependencies,
+                formal_atom_parents=formal_atom_parents,
             )
         except ValueError as error:
             raise SelectedQueryContextUnavailable(str(error)) from error
@@ -562,6 +568,7 @@ class ContextualEncoderBatchPlan:
             is_learned_observation,
             learned_dependency_products,
         )
+        from .construction_formal_references import formal_atom_parents
         from .data_operation_values import decode_semantic_value
 
         kinds = {
@@ -576,6 +583,7 @@ class ContextualEncoderBatchPlan:
             )
             actual = {} if binding is None else {item.product: item for item in binding.members}
             dependencies: dict[str, tuple[str, ...] | None] = {}
+            formal_inputs = {}
             for row in decode_semantic_value(declared["input_basis"])["roles"]:
                 if row["role"] != "primary":
                     continue
@@ -587,7 +595,16 @@ class ContextualEncoderBatchPlan:
                         )
                     except (KeyError, ValueError):
                         dependencies[row["product_id"]] = None
-            result.append(dependencies)
+                if row["body"].get("formal_atom_support"):
+                    try:
+                        formal_inputs[row["product_id"]] = formal_atom_parents(
+                            actual[row["product_id"]]
+                        )
+                    except (KeyError, ValueError):
+                        formal_inputs[row["product_id"]] = ()
+            result.append(
+                dict(learned_dependencies=dependencies, formal_atom_parents=formal_inputs)
+            )
         return tuple(result)
 
     def plan(self, members, *, check_active, execution_owner, member_metadata):

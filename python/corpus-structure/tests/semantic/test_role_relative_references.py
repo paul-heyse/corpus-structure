@@ -130,6 +130,8 @@ def test_resolve_exact_producing_occurrence_and_authorize_even_on_cache_hit(monk
 
 
 def test_native_declared_partition_reference_requires_actual_bound_item(product_connection):
+    from corpus_structure.semantic.binding_support_native import binding_support_native_programs
+
     conn = product_connection
     metadata = get_metadata()
     context, product, _, _ = partition_fixture(conn)
@@ -142,6 +144,7 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
         "(release_id text, operation_id text, support_contract jsonb, input_roles jsonb)"
     )
     native = (
+        *(item.routine for item in binding_support_native_programs(metadata)),
         *completion_settlement_native_programs(metadata),
         *(item.routine for item in read_native_programs(metadata)),
         *reference_native_programs(metadata),
@@ -150,6 +153,7 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
         "ddo_witness_path",
         "ddo_witness_records",
         "ddo_binding_body_access",
+        "ddo_derivation_input_positions",
         "ddo_assert_output_references",
     ):
         execute_native_sql(
@@ -402,6 +406,81 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
         replay(wrong)
     with pytest.raises(ValueError, match="exactly one producing input occurrence"):
         replay(first, ambiguous["binding"]["inputs"])
+
+    target = {key: value for key, value in target.items() if key != "occurrence_binding"}
+    target.update(occurrence_position=True)
+    admitted_roles = [{**admitted_roles[0], "collection": "set"}]
+    conn.execute(
+        text(
+            "UPDATE sem.data_operation_definition SET support_contract=:contract, input_roles=:roles"
+        ).bindparams(bindparam("contract", type_=JSONB()), bindparam("roles", type_=JSONB())),
+        {"contract": {"reference_targets": [target]}, "roles": admitted_roles},
+    )
+    persisted = dict.fromkeys((existing_parent, sibling_parent))
+    expected = {
+        product: position for position, product in enumerate(sorted(persisted))
+    }
+    pins = [
+        dict(role="inventory", product_id=product, position=0, multiplicity=1)
+        for product in (sibling_parent, existing_parent)
+    ]
+    captured = [
+        {**pin, "position": expected[pin["product_id"]], "derivation_id": "captured-artifact"}
+        for pin in pins
+    ]
+    left = SemanticReference.member("inventory", "one", occurrence=str(expected[existing_parent]))
+    right = SemanticReference.member("inventory", "one", occurrence=str(expected[sibling_parent]))
+    only_sibling = replace(right, member_id="two")
+    wrong_parent = replace(left, member_id="two")
+    for ordered in (pins, pins[::-1]):
+        frozen = {**request, "binding": {"inputs": ordered}}
+        check(left, right, only_sibling, original=frozen)
+        with pytest.raises(DBAPIError, match="does not resolve address"), conn.begin_nested():
+            check(wrong_parent, original=frozen)
+    replay(left, captured)
+    replay(right, captured[::-1])
+    with pytest.raises(ValueError, match="does not resolve"):
+        replay(wrong_parent, captured)
+
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.live_reference_resolution import (
+        require_selected_output_reference,
+    )
+
+    header_target = {key: value for key, value in target.items() if key != "output_collection"}
+    current = dict(id="current", fate="fulfilled", derivation_id="captured-artifact")
+    output = dict(role="result")
+    selected = SimpleNamespace(
+        use_id="current", derivation_id="captured-artifact", operation_id="derive", output=output
+    )
+    records = {
+        "ops.data_derivation": {"captured-artifact": {"release_id": "release"}},
+        "ops.demand_use": {"current": current},
+        "sem.data_operation_definition": {
+            ("release", "derive"): dict(
+                input_roles=admitted_roles, support_contract={"reference_targets": [header_target]}
+            )
+        },
+    }
+    index = SimpleNamespace(
+        mapping=lambda relation, columns: (
+            records[relation] if relation in records else row_map(relation, *columns)
+        ),
+        rows_for=lambda _relation, **_keys: captured,
+    )
+    scope = SimpleNamespace(index=index, cut=SimpleNamespace(record={"project_id": context["project_id"]}))
+    unrelated = {**pins[0], "product_id": admitted}
+    for input_order in (pins, pins[::-1], [unrelated, *pins]):
+        current["selection"] = {"inputs": input_order}
+        for reference, parent in ((left, existing_parent), (right, sibling_parent)):
+            binding, _ = require_selected_output_reference(
+                scope, selected, reference, path="/annotation", with_binding=True
+            )
+            assert binding.product_id == parent
+    current["selection"] = {"inputs": [unrelated, pins[0]]}
+    with pytest.raises(ValueError, match="exactly one producing input occurrence"):
+        require_selected_output_reference(scope, selected, left, path="/annotation")
 
 
 def test_nominal_occurrence_member_compiles_only_with_its_declared_required_input_field():
