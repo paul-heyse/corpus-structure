@@ -185,7 +185,9 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
             readings=(
                 DeclaredStructuralDefinitionReading(
                     target_id=root.component_id,
-                    component_ref=root_ref,
+                    component_ref=dict(
+                        variant="member", role="components", member_id=root.component_id
+                    ),
                     link_ref=selected[0].relationship_ref,
                     component=root,
                     outcome="applicable_definition",

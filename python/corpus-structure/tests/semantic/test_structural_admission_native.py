@@ -18,9 +18,6 @@ from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
 from semantic.current_pdf_source_support import admit_current_target
-from semantic.current_pdf_source_support import (
-    published_pdf_source_factory as published_pdf_source_factory,
-)
 from semantic.structural_admission_native_support import (
     COMPARE,
     DOSSIER,
@@ -38,6 +35,7 @@ from semantic.structural_admission_native_support import (
     source_products,
 )
 from semantic.structural_native_fixture import TEXT
+from semantic.test_sentence_partition_chain_native import _private_source
 
 
 def test_controlled_structural_fixture_has_complete_checked_source_and_independent_expectation(
@@ -214,13 +212,27 @@ def _passes(kernel, report, expected):
 
 
 @pytest.fixture
-def structural_native_journey(published_pdf_source_factory, tmp_path):
+def structural_native_journey(semantic_bare_engine, native_settings, tmp_path, monkeypatch):
+    from corpus_structure.ingest.pdf_worker import PdfWorker
+    from corpus_structure.semantic.effect_policy import ApprovedEffect
     from corpus_structure.serve.interpretation_authoring import author_interpretations
 
-    with published_pdf_source_factory(
-        (("text", TEXT, TEXT, None), ("text", TEXT, TEXT, None))
+    def unexpected_conversion(*_args, **_kwargs):
+        raise AssertionError("structural admission consumer reached its captured PDF converter")
+
+    with _private_source(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch, TEXT, TEXT
     ) as source:
-        kernel = admit_current_target(source, recipe(tmp_path), tmp_path / "consumer")
+        monkeypatch.setattr(PdfWorker, "stream", unexpected_conversion)
+        target = recipe(tmp_path)
+        target = replace(
+            target,
+            effect_approvals=(
+                *target.effect_approvals,
+                ApprovedEffect(ISSUER, "native-evaluator-structural-admission"),
+            ),
+        )
+        kernel = admit_current_target(source, target, tmp_path / "consumer")
         originals = source_products(source)
         inventories = tuple(build_inventory(kernel, item) for item in originals)
         predicates = tuple(item[0] for item in inventories)

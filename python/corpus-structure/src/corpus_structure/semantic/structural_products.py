@@ -521,7 +521,7 @@ class DeclaredDossierMember(StructuralValue):
 
 class DeclaredDossierProduct(StructuralValue):
     root_id: Nonempty
-    root_component: DeclaredComponentRef
+    root_component: SemanticMemberReference
     members: tuple[DeclaredDossierMember, ...]
     predecessors: tuple[DeclaredStructuralRef, ...] = ()
     contribution_predecessors: tuple[DeclaredContributionRef, ...] = ()
@@ -646,7 +646,7 @@ class DeclaredDefinitionComponentsProduct(StructuralValue):
 
 class DeclaredStructuralDefinitionReading(StructuralValue):
     target_id: Nonempty
-    component_ref: DeclaredComponentRef
+    component_ref: SemanticMemberReference
     link_ref: DeclaredRelationshipRef
     component: DeclaredLocatedDefinitionComponent
     outcome: DefinitionOutcome
@@ -1121,7 +1121,9 @@ def _definition_components_invariants(value: Any) -> Any:
 
 
 def _definition_reading_invariants(value: Any) -> Any:
-    if value.component_ref.component_id != value.component.component_id:
+    if value.component_ref["role"] != "components" or (
+        value.component_ref["member_id"] != value.component.component_id
+    ):
         raise ValueError("applicability reading substitutes its component")
     if {p.dimension for p in value.premises} != {
         "sense",
@@ -1149,7 +1151,7 @@ def _definition_membership_invariants(value: Any) -> Any:
         raise ValueError("duplicate eligible target or candidate")
     if not set(value.candidate_targets) <= set(value.eligible_targets):
         raise ValueError("candidate is outside eligible inventory")
-    if len({(r.target_id, r.component_ref.identity) for r in value.readings}) != len(
+    if len({(r.target_id, r.component_ref["member_id"]) for r in value.readings}) != len(
         value.readings
     ):
         raise ValueError("duplicate target component reading")
@@ -1280,8 +1282,6 @@ def _structural_report_invariants(value: Any) -> Any:
             cited.update(reading.evidence)
             for premise in reading.premises:
                 cited.update(premise.evidence)
-            if reading.component_ref.product_id not in value.inputs.dependencies:
-                raise ValueError("applicability component is not a declared dependency")
     if value.comparison:
         by_id = {p.passage_id: p for p in value.inputs.passages}
 
@@ -1594,13 +1594,13 @@ def _dossier_member_invariants(value: Any) -> Any:
 
 def _dossier_product_invariants(value: Any) -> Any:
     if value.root_component is not None and (
-        value.root_id != value.root_component.component_id
-        or not any(p.product_id == value.root_component.product_id for p in value.predecessors)
+        value.root_component["role"] != "components"
+        or value.root_id != value.root_component["member_id"]
         or any(member.sense != value.root_id for member in value.members)
     ):
         raise ValueError("dossier membership differs from its exact root sense")
     if any(
-        binding.root != value.root_component
+        binding.root.component_id != value.root_component["member_id"]
         or binding.comparison_ref not in value.predecessors
         or DeclaredDossierComparisonSelection(
             comparison_product_id=binding.comparison_ref.product_id,

@@ -832,6 +832,7 @@ def select_dossier(
 ):
     """Represent an already authenticated membership; this never grants support."""
 
+    from corpus_structure.semantic.data_product_reference import SemanticReference
     from corpus_structure.semantic.structural_products import (
         DeclaredDossierProduct,
         DeclaredStructuralProductReport,
@@ -906,7 +907,11 @@ def select_dossier(
         inputs=inputs,
         dossier=DeclaredDossierProduct(
             root_id=root_id,
-            root_component=root_component,
+            root_component=(
+                SemanticReference.member("components", root_component.component_id).member_value()
+                if root_component is not None
+                else None
+            ),
             members=ordered,
             predecessors=tuple(predecessors),
             contribution_predecessors=tuple(contribution_predecessors),
@@ -1006,7 +1011,10 @@ def _comparison_member_roles(
                 or not focus.start <= usage.start < usage.end <= focus.end
                 or (usage.start, usage.end) != (occurrence[0].start, occurrence[-1].end)
                 or not any(
-                    reading.component_ref == root_ref
+                    reading.component_ref["role"] == "components"
+                    and reading.component_ref["member_id"] == root_ref.component_id
+                    and reading.component == root
+                    and root_ref.product_id in predecessor.inputs.dependencies
                     and (
                         reading.link_ref == selection.relationship_ref or relation == "specializes"
                     )

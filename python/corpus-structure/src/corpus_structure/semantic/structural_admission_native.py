@@ -927,6 +927,39 @@ def _completion_program(name, requests, steps, locals_):
     )
 
 
+def _dossier_component_origins(model, applicability_id, component_product, support_episodes):
+    """Count actual selected applicability episodes with their original whole components."""
+    episodes, outputs, original_inputs = (
+        model.tables[name]
+        for name in (
+            "ops.data_derivation",
+            "ops.data_derivation_output",
+            "ops.data_derivation_input",
+        )
+    )
+    return (
+        select(func.count(episodes.c.id.distinct()))
+        .select_from(
+            episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(
+                original_inputs, original_inputs.c.derivation_id == episodes.c.id
+            )
+        )
+        .where(
+            episodes.c.outcome == "success",
+            episodes.c.id.in_(support_episodes),
+            outputs.c.product_id == applicability_id,
+            outputs.c.member_id.is_(None),
+            outputs.c.role == "result",
+            outputs.c.position == 0,
+            outputs.c.multiplicity == 1,
+            original_inputs.c.role == "components",
+            original_inputs.c.product_id == component_product,
+            original_inputs.c.member_id.is_(None),
+            original_inputs.c.multiplicity == 1,
+        )
+    )
+
+
 def _structural_dossier_completion(model):
     from .declared_structural_admission import ADMISSION_KIND
 
@@ -960,6 +993,7 @@ def _structural_dossier_completion(model):
     selected = core_variable("selected", JSONB())
     admission = core_variable("admission_value", JSONB())
     count = core_variable("actual_count", BigInteger())
+    applicability_id = core_variable("applicability_id", Text())
     support_contract = d("support_contract")
     factory = support_contract["capabilities"]["prepared_factory"]
     inputs = _items(completion["inputs"], "inputs_")
@@ -1017,6 +1051,28 @@ def _structural_dossier_completion(model):
         )
     )
     declared_output = _items(definitions.c.output_roles, "dossier_output")
+    output_values = _items(completion["outputs"], "dossier_payload")
+    dossier = func.data.ddo_json(output_values.c.value["product"]["body"], type_=JSONB())["dossier"]
+    dossier_members = _items(dossier["members"], "dossier_member")
+    binding = dossier_members.c.value["comparison_binding"]
+    predecessor = binding["applicability_ref"]["product_id"].astext
+    dossier_components = _items(completion["inputs"], "dossier_components")
+    component_product = (
+        select(dossier_components.c.value["product_id"].astext)
+        .where(
+            dossier_components.c.value["role"].astext == "components",
+            dossier_components.c.value["member_id"].astext.is_(None),
+        )
+        .scalar_subquery()
+    )
+    applicable_origin = _dossier_component_origins(
+        model,
+        applicability_id,
+        component_product,
+        select(supports.c.value["derivation_id"].astext).where(
+            func.coalesce(supports.c.value["kind"].astext, "computation") == "computation"
+        ),
+    )
     is_dossier = (
         select(1)
         .select_from(
@@ -1051,6 +1107,43 @@ def _structural_dossier_completion(model):
                     d("implementation_revision").like("implementation-slice:%").is_not(True),
                 ),
                 "structural dossier requires its actual captured preparation factory",
+            ),
+            _completion_refusal(
+                exists(
+                    select(1)
+                    .select_from(output_values.join(dossier_members, literal(True)))
+                    .where(
+                        binding["root"]["product_id"].astext.is_not(None),
+                        binding["root"]["product_id"].astext.is_distinct_from(component_product),
+                    )
+                ),
+                "dossier comparison root differs from its actual producing components",
+            ),
+            ForQuery(
+                ("applicability_id",),
+                select(predecessor)
+                .select_from(output_values.join(dossier_members, literal(True)))
+                .where(predecessor.is_not(None))
+                .distinct(),
+                (
+                    SelectInto(
+                        select(inputs.c.value).where(
+                            inputs.c.value["role"].astext == "definitions",
+                            inputs.c.value["product_id"].astext == applicability_id,
+                            inputs.c.value["member_id"].astext.is_(None),
+                        ),
+                        ("selected",),
+                        strict=True,
+                    ),
+                    SelectInto(applicable_origin, ("actual_count",)),
+                    _completion_refusal(
+                        or_(
+                            count == 0,
+                            count != func.jsonb_array_length(selected["support_derivation_ids"]),
+                        ),
+                        "dossier applicability requires its exact original components input",
+                    ),
+                ),
             ),
             ForQuery(
                 ("selected",),
@@ -1132,6 +1225,7 @@ def _structural_dossier_completion(model):
             Local("comparison_product", products),
             Local("admission_value", pg_type("jsonb")),
             Local("actual_count", pg_type("int8")),
+            Local("applicability_id", pg_type("text")),
         ),
     )
 

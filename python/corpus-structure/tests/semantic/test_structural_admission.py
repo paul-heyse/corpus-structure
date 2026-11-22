@@ -139,7 +139,7 @@ def test_applicability_claim_excludes_nomination_and_component_derivation():
     meaning.update(basis="matched_cue", reason="Separate source-supported producer basis")
     revised = declared_definition_component(**meaning)
     first["component"] = revised.model_dump(mode="json")
-    first["component_ref"]["component_id"] = revised.component_id
+    first["component_ref"]["member_id"] = revised.component_id
     first["target_id"] = revised.component_id
     changed["definition"].update(
         candidate_targets=[revised.component_id],

@@ -47,6 +47,7 @@ def structural_report(scope, selected):
         DeclaredClauseReport,
         DeclaredDefinitionApplicabilityReport,
         DeclaredDossierReport,
+        DeclaredLocatedDefinitionComponent,
         DeclaredNamedDefinitionComponentsReport,
     )
 
@@ -106,7 +107,7 @@ def structural_report(scope, selected):
                     )
     if isinstance(root.structural, DeclaredDefinitionApplicabilityReport):
         applicability = root.structural
-        components = require_selected_output_reference(
+        require_selected_output_reference(
             scope,
             selected,
             read_semantic_reference(applicability.components_input),
@@ -121,30 +122,39 @@ def structural_report(scope, selected):
             metadata_only=True,
         )
         for reading in applicability.definition.readings:
-            for link, original in (
-                (reading.component_ref, components),
-                (reading.link_ref, relationship),
+            component = require_selected_output_reference(
+                scope,
+                selected,
+                read_semantic_reference(reading.component_ref),
+                path="/definition/readings/*/component_ref",
+            )
+            if DeclaredLocatedDefinitionComponent.model_validate(component) != reading.component:
+                raise ValueError("selected applicability component differs from its original input")
+            link = reading.link_ref
+            if (link.product_id, link.kind_contract, link.member_id) != (
+                relationship.product_id,
+                relationship.kind_contract,
+                relationship.member_id,
             ):
-                if (link.product_id, link.kind_contract, link.member_id) != (
-                    original.product_id,
-                    original.kind_contract,
-                    original.member_id,
-                ):
-                    raise ValueError("selected applicability link differs from its original input")
+                raise ValueError("selected applicability link differs from its original input")
     if isinstance(root.structural, DeclaredDossierReport):
         dossier = root.structural
-        components = require_selected_output_reference(
+        require_selected_output_reference(
             scope,
             selected,
             read_semantic_reference(dossier.components_input),
             path="/components_input",
             metadata_only=True,
         )
-        root_component = dossier.dossier.root_component
-        if (root_component.product_id, root_component.kind_contract, root_component.member_id) != (
-            components.product_id,
-            components.kind_contract,
-            components.member_id,
+        component = require_selected_output_reference(
+            scope,
+            selected,
+            read_semantic_reference(dossier.dossier.root_component),
+            path="/dossier/root_component",
+        )
+        if (
+            DeclaredLocatedDefinitionComponent.model_validate(component).component_id
+            != dossier.dossier.root_id
         ):
             raise ValueError("selected dossier root differs from its original components input")
     clause = root.structural.clause_classification

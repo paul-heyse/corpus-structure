@@ -43,10 +43,10 @@ def test_current_definition_workflow_has_actual_source_and_consumer_contracts(pr
         for target in applicability.reference_targets
     } == {
         ("result", "/components_input", "components", "product"),
+        ("result", "/definition/readings/*/component_ref", "components", "member"),
         ("result", "/relationship_input", "relationship", "product"),
     }
     assert {item.input_role: item.records for item in applicability.output_witnesses} == {
-        "components": "/definition/readings/*/component_ref",
         "relationship": "/definition/readings/*/link_ref",
     }
     for operation in (
@@ -82,9 +82,10 @@ def test_selected_applicability_resolves_original_whole_inputs(prepared_workflow
     from pydantic import ValidationError
 
     from corpus_structure.semantic.data_operation_admission import bound_data_operation_model
+    from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.selected_structural_projection import structural_report
     from corpus_structure.semantic.structural_products import DeclaredDefinitionApplicabilityReport
-    from semantic.dossier_semantic_states_support import applicability
+    from semantic.dossier_semantic_states_support import applicability, report_input_pin
 
     operation = "structure.definition_applicability/declared"
     nominal = "urn:corpus:structural:DeclaredDefinitionApplicabilityReport"
@@ -93,11 +94,12 @@ def test_selected_applicability_resolves_original_whole_inputs(prepared_workflow
         item.key for item in model.identities if item.owner == nominal and item.domain == "kind"
     )
     targets = model.operation(operation).reference_targets
-    _, reports = applicability()
+    components, reports = applicability()
     report = reports[0]
     body = report.model_dump(mode="json", exclude_none=True)
     (reading,) = report.definition.readings
-    references = {"components": reading.component_ref, "relationship": reading.link_ref}
+    component_report = report_input_pin(components)
+    references = {"components": component_report, "relationship": reading.link_ref}
     originals = {
         role: {"role": role, "product_id": ref.product_id, "position": 0, "multiplicity": 1}
         for role, ref in references.items()
@@ -115,11 +117,13 @@ def test_selected_applicability_resolves_original_whole_inputs(prepared_workflow
                 "support_contract": {"reference_targets": [asdict(target) for target in targets]},
                 "input_roles": [
                     {
-                        "name": target.input_role,
-                        "kind": target.input_kind,
-                        "accepted_kind_contracts": [references[target.input_role].kind_contract],
+                        "name": role,
+                        "kind": next(
+                            target.input_kind for target in targets if target.input_role == role
+                        ),
+                        "accepted_kind_contracts": [ref.kind_contract],
                     }
-                    for target in targets
+                    for role, ref in references.items()
                 ],
             },
         },
@@ -128,10 +132,14 @@ def test_selected_applicability_resolves_original_whole_inputs(prepared_workflow
             item.product_id: {"project_id": item.project_id, "kind_contract": item.kind_contract}
             for item in references.values()
         },
-        "kb.data_product_member": {},
+        "kb.data_product_member": {
+            (component_report.product_id, reading.component.component_id): {
+                "body": semantic_value(reading.component.model_dump(mode="python")),
+            },
+        },
         "kb.data_product_partition": {},
         "sem.data_kind_contract": {
-            reading.component_ref.kind_contract: {
+            component_report.kind_contract: {
                 "kind": "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport"
             },
             reading.link_ref.kind_contract: {

@@ -232,7 +232,7 @@ def supported_comparison_gap_rows(
                     admission=value.model_dump(mode="python"),
                     authority=leaf.model_dump(mode="python"),
                 ),
-                root=dossier.root_component.model_dump(mode="python"),
+                root=dossier.root_component,
                 binding_product_id=binding_report.product_id,
                 binding_status="inspected_no_binding",
                 assessment_scope="comparison_statement",

@@ -154,87 +154,14 @@ class DefinitionApplicabilityOperation:
                 "input_role": "relationship",
                 "variant": "product",
             },
-        ],
-        "output_witnesses": [
             {
                 "output_role": "result",
-                "records": "/definition/readings/*/component_ref",
+                "path": "/definition/readings/*/component_ref",
                 "input_role": "components",
-                "comparisons": [
-                    {
-                        "output_field": "product_id",
-                        "input": {
-                            "role": "components",
-                            "projection": "selected-input",
-                            "field": "product",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "member_id",
-                        "input": {
-                            "role": "components",
-                            "projection": "selected-input",
-                            "field": "member",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "kind_contract",
-                        "input": {
-                            "role": "components",
-                            "projection": "selected-input",
-                            "field": "kind_contract",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "project_id",
-                        "input": {
-                            "role": "components",
-                            "projection": "selected-input",
-                            "field": "project_id",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject",
-                        "input": {
-                            "role": "components",
-                            "projection": "selected-input",
-                            "field": "subject",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject_definition",
-                        "input": {
-                            "role": "components",
-                            "projection": "selected-input",
-                            "field": "subject_definition",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "original_source",
-                        "input": {
-                            "role": "components",
-                            "projection": "selected-input",
-                            "field": "original_source",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "analyzed_scope_meaning",
-                        "input": {
-                            "role": "components",
-                            "projection": "selected-input",
-                            "field": "analyzed_scope",
-                        },
-                        "encoding": "context-meaning-json",
-                    },
-                ],
+                "variant": "member",
             },
+        ],
+        "output_witnesses": [
             {
                 "output_role": "result",
                 "records": "/definition/readings/*/link_ref",

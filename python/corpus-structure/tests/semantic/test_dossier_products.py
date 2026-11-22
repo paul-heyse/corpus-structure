@@ -115,7 +115,11 @@ def test_declared_dossier_uses_real_root_report_and_preserves_proposed_membershi
         relationships={},
     )
     assert result.dossier is not None
-    assert result.dossier.root_component == root
+    assert result.dossier.root_component == {
+        "variant": "member",
+        "role": "components",
+        "member_id": root.component_id,
+    }
     assert {row.role for row in result.dossier.members} == {"terminology", "unresolved_sense"}
     assert all(
         row.qualification == "proposed" and row.assessment_id is None
@@ -342,11 +346,14 @@ def test_dossier_authenticates_source_pins_without_relabelling_derived_output_co
     with pytest.raises(ValidationError, match="sources_input"):
         DeclaredDossierReport.model_validate({**raw, "sources_input": [source_pin.model_dump()]})
     assert report.components_input == {"variant": "product", "role": "components"}
-    assert report.dossier.root_component.product_id == output.product
-    assert report.dossier.root_component.member_id is None
-    assert report.dossier.root_component.subject_definition == "actual-focus-source"
+    assert report.dossier.root_component == {
+        "variant": "member",
+        "role": "components",
+        "member_id": report.dossier.root_id,
+    }
+    assert report.dossier.predecessors[0].product_id == output.product
     assert report.dossier.predecessors[0].subject_definition == "actual-focus-source"
-    absolute = report.dossier.root_component.model_dump(exclude={"component_id", "structural_id"})
+    absolute = report.dossier.predecessors[0].model_dump(exclude={"structural_id"})
     absolute["reference"] = canonical_bytes([output.product, None]).decode()
     with pytest.raises(ValidationError, match="components_input"):
         DeclaredDossierReport.model_validate({**raw, "components_input": absolute})

@@ -388,26 +388,19 @@ def test_actual_dossier_contract_binds_ordinary_admission_and_exact_output_pins(
         sources,
     )
     operation = model.operation("structure.dossier/declared")
-    (target,) = operation.reference_targets
-    assert (target.path, target.input_role, target.variant) == (
-        "/components_input",
-        "components",
-        "product",
-    )
-    (components,) = (
-        witness for witness in operation.output_witnesses if witness.input_role == "components"
-    )
-    assert components.records == "/dossier/root_component"
+    assert {
+        (target.path, target.input_role, target.variant) for target in operation.reference_targets
+    } == {
+        ("/components_input", "components", "product"),
+        ("/dossier/root_component", "components", "member"),
+    }
     admissions = next(role for role in operation.roles if role.name == "admissions")
     assert admissions.direction == "input" and admissions.minimum == 0
     assert admissions.support is not None and admissions.support.identity_requirements == (
         "episode",
     )
     witnesses = {witness.input_role: witness.records for witness in operation.output_witnesses}
-    assert witnesses == {
-        "components": "/dossier/root_component",
-        "sources": "/inputs/sources/*",
-    }
+    assert witnesses == {"sources": "/inputs/sources/*"}
     assert python_port_identity(model, sources, operation.semantic_id, schema=bundle).recipe
 
 
@@ -439,7 +432,11 @@ def test_supported_gap_examines_complete_membership_and_exact_native_predecessor
         )
     )
     reference = DeclaredStructuralRef(**value.report.model_dump(), structural_id=report.product_id)
-    dossier = SimpleNamespace(predecessors=(reference,), members=[], root_component=reference)
+    dossier = SimpleNamespace(
+        predecessors=(reference,),
+        members=[],
+        root_component=dict(variant="member", role="components", member_id="root"),
+    )
     binding = SimpleNamespace(dossier=dossier, product_id="structural:dossier")
     request = SimpleNamespace(scope="selected")
     row = supported_comparison_gap_rows(request, report, (value, leaf), binding)[0]

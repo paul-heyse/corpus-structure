@@ -349,7 +349,9 @@ def selected_definition_applicability(
     )
     return DeclaredStructuralDefinitionReading(
         target_id=candidate.target_id,
-        component_ref=candidate.reference,
+        component_ref=SemanticReference.member(
+            "components", candidate.component.component_id
+        ).member_value(),
         link_ref=candidate.link_ref,
         component=candidate.component,
         outcome=assessment.outcome,

@@ -608,7 +608,12 @@ def test_declared_applicability_preserves_unknown_transfer_and_explicit_introduc
         defining_occurrence=True,
     )
     assert introduced.outcome == "applicable_definition"
-    assert introduced.component_ref == component and introduced.link_ref == relationship
+    assert introduced.component_ref == {
+        "variant": "member",
+        "role": "components",
+        "member_id": component.component_id,
+    }
+    assert introduced.link_ref == relationship
     assert all(row.state in {"compatible", "inapplicable"} for row in introduced.premises)
 
 

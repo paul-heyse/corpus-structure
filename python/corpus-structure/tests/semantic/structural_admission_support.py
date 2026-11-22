@@ -73,7 +73,11 @@ def definition():
             readings=(
                 DeclaredStructuralDefinitionReading(
                     target_id=fixture_component().component_id,
-                    component_ref=component_reference(),
+                    component_ref=dict(
+                        variant="member",
+                        role="components",
+                        member_id=fixture_component().component_id,
+                    ),
                     link_ref=relationship_reference(),
                     component=fixture_component(),
                     premises=tuple(

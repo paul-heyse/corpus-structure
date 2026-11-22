@@ -194,7 +194,9 @@ def applicability():
         component = by_state["explanation" if outcome == "applicable_explanation" else "definition"]
         reading = DeclaredStructuralDefinitionReading(
             target_id=component.component_id,
-            component_ref=component_reference(originals, component),
+            component_ref=dict(
+                variant="member", role="components", member_id=component.component_id
+            ),
             link_ref=relationship,
             component=component,
             outcome=outcome,

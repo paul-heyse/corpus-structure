@@ -10,8 +10,9 @@ import pytest
 from sqlalchemy import text
 
 from corpus_structure.semantic.contextual_selection import ContextualVectorSelection
+from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.data_operation_service import DemandOperationSelection
-from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
+from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet, source_sets_record
 from corpus_structure.semantic.observations import source_python, source_value
 from semantic.contextual_native_fixture import COMPONENTS, CUES, TEXT
 from semantic.current_contextual_support import (
@@ -26,7 +27,9 @@ from semantic.current_contextual_support import (
 )
 from semantic.current_pdf_source_support import (
     PROJECT,
+    CurrentPdfSource,
     admit_current_target,
+    current_consumer_request,
 )
 from semantic.data_operation_kernel_support import Kernel
 from semantic.structural_admission_native_support import Product, execute, request, selected
@@ -38,6 +41,7 @@ COMPONENT_KIND = "urn:corpus:structural:DeclaredDefinitionComponentsReport"
 @dataclass(frozen=True)
 class WorkflowCase:
     kernel: Kernel
+    source: CurrentPdfSource
     original: Product
     components: Product
     component_id: str
@@ -115,7 +119,6 @@ def component_inventory(kernel, query, population):
 def current_workflow_case(native_server, native_settings, tmp_path_factory):
     from corpus_structure.semantic.contextual_selection import freeze_contextual_target_demand
     from corpus_structure.semantic.data_operation_demands import RootSubject
-    from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.semantic.selected_support import SelectedReadReference
 
@@ -295,6 +298,7 @@ def current_workflow_case(native_server, native_settings, tmp_path_factory):
         (relationship,) = relationships
         yield WorkflowCase(
             kernel,
+            source,
             original,
             components,
             component["component_id"],
@@ -315,37 +319,48 @@ def current_workflow_case(native_server, native_settings, tmp_path_factory):
 def applicability_request(case, *, introduction, components=None):
     decision = source_python(case.relationship.body["relationship_decision"])
     (edge,) = [row for row in decision["selected_edges"] if row["relation"] == "defined-by"]
-    return request(
+    pending = current_consumer_request(
+        case.source,
         case.kernel,
         (APPLICABILITY,),
-        case.original.context,
-        source_sets=(
+        discover=True,
+        discovered_entries=(case.original.entry(),),
+    )
+    sources = source_sets_record(
+        (
             FrozenSourceSet.from_selected(
                 "definition-components",
                 ((case.components if components is None else components).entry(),),
             ),
             FrozenSourceSet.from_selected("definition-relationships", (case.relationship.entry(),)),
+        )
+    )
+    selection = DemandOperationSelection(
+        operation=APPLICABILITY,
+        parameters=dict(
+            component_id=case.component_id,
+            decision_id=decision["decision_id"],
+            edge_id=edge["edge_id"],
+            usage_id="count-usage",
+            start=2,
+            end=7,
+            scope="selected",
+            effective_version="",
+            parent="",
+            defining_occurrence=introduction,
         ),
-        selections=(
-            DemandOperationSelection(
-                operation=APPLICABILITY,
-                parameters=dict(
-                    component_id=case.component_id,
-                    decision_id=decision["decision_id"],
-                    edge_id=edge["edge_id"],
-                    usage_id="count-usage",
-                    start=2,
-                    end=7,
-                    scope="selected",
-                    effective_version="",
-                    parent="",
-                    defining_occurrence=introduction,
-                ),
+    )
+    return pending.model_copy(
+        update={
+            "source_sets": {**pending.source_sets, **sources},
+            "selections": (
+                *(value for value in pending.selections if value.operation != APPLICABILITY),
+                selection,
             ),
-        ),
-        inference="same-defining-occurrence"
-        if introduction
-        else "unestablished-contextual-transfer",
+            "inference": "same-defining-occurrence"
+            if introduction
+            else "unestablished-contextual-transfer",
+        }
     )
 
 
@@ -419,7 +434,11 @@ def test_current_component_applicability_preserves_independent_transfer_unknowns
     )
     (reading,) = report.body["definition"]["readings"]
     assert reading["outcome"] == expected
-    assert reading["component_ref"]["product_id"] == case.components.row["product_id"]
+    assert reading["component_ref"] == {
+        "variant": "member",
+        "role": "components",
+        "member_id": case.component_id,
+    }
     assert reading["link_ref"]["product_id"] == case.relationship.row["product_id"]
     assert report.body["relationship_input"] == {"variant": "product", "role": "relationship"}
     assert report.body["components_input"] == {"variant": "product", "role": "components"}
@@ -451,15 +470,52 @@ def test_current_component_applicability_preserves_independent_transfer_unknowns
 def test_native_applicability_refuses_same_component_from_a_different_actual_report_origin(
     current_workflow_case,
 ):
+    from sqlalchemy import literal, select
+
     from corpus_structure.orchestrate.data_operations import NativeDemandExecutionError
+    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.semantic.structural_admission_native import _dossier_component_origins
 
     case = current_workflow_case
+    produced, execution = execute(case.kernel, applicability_request(case, introduction=True))
+    reports = selected(
+        case.kernel,
+        produced["demand_id"],
+        kind="urn:corpus:structural:DeclaredDefinitionApplicabilityReport",
+    )
+    snapshot = json_loads(execution.snapshot)
+    assert len(reports) == 1, [
+        (use["fate"], use["selection"].get("reasons", ())) for use in snapshot["uses"]
+    ]
+    (applicability,) = reports
     retained, _ = execute(
         case.kernel, component_request(case.kernel, case.original, "introduction")
     )
     (other,) = selected(case.kernel, retained["demand_id"], kind=COMPONENT_KIND)
     assert other.row["product_id"] != case.components.row["product_id"]
     assert other.body["definition_components"] == case.components.body["definition_components"]
+    assert [packet["body"] for packet in other.body["members"]] == [
+        packet["body"] for packet in case.components.body["members"]
+    ]
+    # A dossier prospectively names the same selected applicability publication in
+    # each case. The original native component product is the discriminating fact.
+    supported_applicability = select(literal(applicability.row["derivation_id"]))
+    with case.kernel.engine.connect() as connection:
+        for component_product, expected in (
+            (case.components.row["product_id"], 1),
+            (other.row["product_id"], 0),
+        ):
+            assert (
+                connection.scalar(
+                    _dossier_component_origins(
+                        get_metadata(),
+                        applicability.row["product_id"],
+                        component_product,
+                        supported_applicability,
+                    )
+                )
+                == expected
+            )
     counts = text(
         "SELECT (SELECT count(*) FROM ops.data_completion_intent),(SELECT count(*) FROM kb.data_product),"
         "(SELECT count(*) FROM ops.data_derivation),(SELECT count(*) FROM ops.data_publication_receipt)"
