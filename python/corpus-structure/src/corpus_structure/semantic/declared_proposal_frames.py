@@ -10,9 +10,18 @@ from .declared_record_sources import DeclaredNativeFrameSource
 from .proposals import ProposalSentence, native_address
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class DeclaredProposalSource(DeclaredNativeFrameSource):
     sentence_values: tuple[ProposalSentence, ...] = ()
+
+    @classmethod
+    def from_frame(cls, frame, sentence_values=()):
+        return cls._from_acquired(
+            frame._acquired_source,
+            frame.pin_content,
+            frame.version,
+            state=(("sentence_values", tuple(sentence_values)),),
+        )
 
     @property
     def sentences(self):
@@ -67,9 +76,21 @@ class DeclaredProposalSource(DeclaredNativeFrameSource):
         }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class DeclaredProposalFrame(DeclaredProposalSource):
     context_sources: tuple[DeclaredProposalSource, ...] = ()
+
+    @classmethod
+    def compose(cls, primary, context_sources=()):
+        return cls._from_acquired(
+            primary._acquired_source,
+            primary.pin_content,
+            primary.version,
+            state=(
+                ("sentence_values", primary.sentences),
+                ("context_sources", tuple(context_sources)),
+            ),
+        )
 
     def __post_init__(self):
         super().__post_init__()
@@ -99,18 +120,14 @@ class DeclaredProposalFrame(DeclaredProposalSource):
         }
 
 
-def declared_proposal_frame_from_dict(value):
+def declared_proposal_frame_from_dict(value, acquire_frame):
     def source(raw):
-        return {
-            "source_content": raw["source_content"],
-            "pin_content": raw["pin_content"],
-            "version": raw["version"],
-            "sentence_values": tuple(ProposalSentence(**sentence) for sentence in raw["sentences"]),
-        }
+        return DeclaredProposalSource.from_frame(
+            acquire_frame(raw["source_content"], raw["pin_content"], raw["version"]),
+            tuple(ProposalSentence(**sentence) for sentence in raw["sentences"]),
+        )
 
-    return DeclaredProposalFrame(
-        **source(value),
-        context_sources=tuple(
-            DeclaredProposalSource(**source(raw)) for raw in value["context_sources"]
-        ),
+    return DeclaredProposalFrame.compose(
+        source(value),
+        tuple(source(raw) for raw in value["context_sources"]),
     )

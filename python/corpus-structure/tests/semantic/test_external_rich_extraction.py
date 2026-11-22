@@ -11,7 +11,10 @@ from corpus_structure.methods.llm.cascade import PlacementPolicy
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_model import ExternalExecutorContract
 from corpus_structure.semantic.data_operation_values import semantic_value
-from corpus_structure.semantic.declared_proposal_frames import DeclaredProposalFrame
+from corpus_structure.semantic.declared_proposal_frames import (
+    DeclaredProposalFrame,
+    DeclaredProposalSource,
+)
 from corpus_structure.semantic.external_extraction import (
     external_extraction_inputs,
     external_extraction_operation_sources,
@@ -131,7 +134,10 @@ def frame():
                 "end": 29,
             },
         ],
-        "items": [{"self_ref": "#/texts/0"}, {"self_ref": "#/texts/1"}],
+        "items": [
+            {"self_ref": "#/texts/0", "label": "text"},
+            {"self_ref": "#/texts/1", "label": "text"},
+        ],
         "ancestors": [],
         "recognition": [],
         "selectors": [],
@@ -158,14 +164,14 @@ def frame():
         "section_pointer": "#/groups/0",
         "membership": "descendants",
     }
-    base = DeclaredNativeFrameSource(canonical_bytes(value).decode(), canonical_bytes(pin).decode())
+    base = DeclaredNativeFrameSource.from_retained_record(canonical_bytes(value).decode(), canonical_bytes(pin).decode())
     sentences = tuple(
         ProposalSentence(
             "native_evidence:" + str(index), native_address(base, start=start, end=end), start, end
         )
         for index, start, end in ((0, 0, 14), (2, 15, 29))
     )
-    return DeclaredProposalFrame(base.source_content, base.pin_content, sentence_values=sentences)
+    return DeclaredProposalFrame.compose(DeclaredProposalSource.from_frame(base, sentences))
 
 
 def packet():
@@ -341,6 +347,6 @@ def test_declared_frame_refuses_counterfeit_projection_even_when_pin_agrees():
         semantic_value(dict(source=value["source"], selectors=value["selectors"]))
     ).decode()
     with pytest.raises(ValueError, match="declared native projection differs"):
-        _ = DeclaredNativeFrameSource(
+        _ = DeclaredNativeFrameSource.from_retained_record(
             canonical_bytes(value).decode(), canonical_bytes(pin).decode()
         ).view

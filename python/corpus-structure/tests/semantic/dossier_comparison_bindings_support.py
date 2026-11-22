@@ -166,7 +166,7 @@ def fixture(value=None, *, exception=True, root_on_left=False, primary_layers=No
         from semantic.formal_products_support import released_profile
 
         frozen = native_source(released_profile().prepared, value, source)
-        frame = DeclaredNativeFrameSource(
+        frame = DeclaredNativeFrameSource.from_retained_record(
             frozen.content.decode(),
             canonical_bytes(source.model_dump(mode="json", exclude_none=True)).decode(),
         )

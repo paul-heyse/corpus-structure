@@ -1,6 +1,5 @@
 """Independent source/attachment expectations for retained definition location."""
 
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -221,7 +220,9 @@ def test_declared_definition_location_refuses_unbound_source_span_or_selection(p
         pin["source"] = '["native:another-source","member:section"]'
         from corpus_structure.semantic.identity import canonical_bytes
 
-        frame = replace(frame, pin_content=canonical_bytes(pin).decode())
+        frame = DeclaredNativeFrameSource.from_retained_record(
+            frame.source_content, canonical_bytes(pin).decode()
+        )
     elif change == "wrong-span":
         body = report.model_dump(mode="json")
         body["inputs"]["passages"][0]["text"] = "torm def other"

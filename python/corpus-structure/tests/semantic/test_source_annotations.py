@@ -71,7 +71,7 @@ def test_one_annotation_population_preserves_existing_payload_and_compact_manife
         prepared, model, value, source, configuration=configuration
     )
     rows = source_annotation_rows(product)
-    frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
+    frame = DeclaredNativeFrameSource.from_source(source, rows[0]["source"]["content"])
     restored = annotations.restore_annotations(
         rows,
         source=frame,

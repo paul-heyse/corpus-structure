@@ -47,7 +47,7 @@ def source(text=TEXT):
         "member:source",
         "kind:source",
     )
-    return DeclaredNativeFrameSource(
+    return DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(
             dict(source=coordinate, selectors=selectors, text=text, items=items, pieces=pieces)
         ).decode(),

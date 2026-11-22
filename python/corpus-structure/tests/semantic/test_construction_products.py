@@ -620,7 +620,7 @@ def test_target_named_rules_reuse_actual_native_units_and_reject_foreign_block(
     )
 
     rows = source_annotation_rows(annotations)
-    frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
+    frame = DeclaredNativeFrameSource.from_source(source, rows[0]["source"]["content"])
     native_context = NativeSourceContext(
         frame,
         (),

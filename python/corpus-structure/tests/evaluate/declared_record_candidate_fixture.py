@@ -22,7 +22,7 @@ def native_cell_coordinate(source, pin, *, item_pointer, cell_index):
     from corpus_structure.semantic.proposals import native_address
     from corpus_structure.semantic.source_contexts import NativeSpanEvidence, PreparedNativeSource
 
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(source).decode(), canonical_bytes(pin).decode()
     )
     prepared = PreparedNativeSource(frame)
@@ -220,7 +220,7 @@ def execute_kernel(
 
     if question["source_pin_json"] != canonical_bytes(pin).decode():
         raise ValueError("controlled extraction question differs from exact selected source pin")
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(source).decode(), canonical_bytes(pin).decode()
     )
     rows, coordinates = candidate_values(

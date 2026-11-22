@@ -42,7 +42,7 @@ def source_values(prepared, model, source, pin, context, source_input):
     (piece,) = [row for row in source["pieces"] if row["kind"] == "native_text"]
     if (piece["start"], piece["end"]) != (0, len(TEXT)):
         raise ValueError("controlled count matcher requires the actual complete source piece")
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(source).decode(), canonical_bytes(pin).decode()
     )
     source_ref = DeclaredStructuralSource.model_validate(pin)
@@ -217,7 +217,7 @@ def _matched_source_values(input_basis: list, *, prepared, check_active) -> dict
         actual.member_id,
         actual.kind_contract,
     )
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(source).decode(), canonical_bytes(address.pin()).decode()
     )
     source_input = DeclaredStructuralInputPin(

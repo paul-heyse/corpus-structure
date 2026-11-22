@@ -1,8 +1,5 @@
 """Independent original-coordinate navigation expectations for declared products."""
 
-from hashlib import sha256
-from types import SimpleNamespace
-
 import pytest
 
 from corpus_structure.semantic.construction_products import CharacterizationSnapshot
@@ -13,14 +10,14 @@ from corpus_structure.semantic.constructions.navigation import (
     populate_navigation_products,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.original_documents import original_document_subject
+from corpus_structure.semantic.source_products import FrozenNativeSource, native_projection_identity
 
 
 def source(text="Table 2.1 (aliases: none).", label="caption"):
-    projection = sha256(text.encode()).hexdigest()
     coordinate = {
         "document": "book",
-        "document_subject": "original-document:book",
-        "projection": projection,
+        "document_subject": original_document_subject("book"),
         "section_pointer": "#/groups/0",
         "membership": "direct",
     }
@@ -38,9 +35,11 @@ def source(text="Table 2.1 (aliases: none).", label="caption"):
         ],
         "items": [{"self_ref": "#/texts/0", "label": label, "text": text, "content_layer": "body"}],
         "ancestors": [],
-        "selectors": [{"projection": projection}],
     }
-    return SimpleNamespace(value=value, content=canonical_bytes(value))
+    projection = native_projection_identity(text, value["pieces"], value["items"])
+    coordinate["projection"] = projection
+    value["selectors"] = [{"projection": projection}]
+    return FrozenNativeSource._accept_retained_projection(canonical_bytes(value))
 
 
 def product(selected):
@@ -131,18 +130,13 @@ def artifact_case(text="Table 2.1 (aliases: none)."):
         DeclaredRecordSource,
     )
     from corpus_structure.semantic.declared_structural_references import DeclaredStructuralSource
-    from corpus_structure.semantic.source_products import native_projection_identity, source_subject
+    from corpus_structure.semantic.source_products import source_subject
     from corpus_structure.semantic.structural_products import (
         DeclaredStructuralInput,
         StructuralPassage,
     )
 
     selected = source(text)
-    selected.value["source"]["projection"] = native_projection_identity(
-        text, selected.value["pieces"], selected.value["items"]
-    )
-    selected.value["selectors"][0]["projection"] = selected.value["source"]["projection"]
-    selected.content = canonical_bytes(selected.value)
     context = SubjectContext(
         "p",
         source_subject(selected.value["source"]),
@@ -162,7 +156,7 @@ def artifact_case(text="Table 2.1 (aliases: none)."):
         None,
         "kind:source",
     ).pin()
-    frame = DeclaredNativeFrameSource(selected.content.decode(), canonical_bytes(pin).decode())
+    frame = DeclaredNativeFrameSource.from_source(selected, canonical_bytes(pin).decode())
     original = DeclaredStructuralSource.model_validate(pin)
     passage = StructuralPassage(
         passage_id="caption",

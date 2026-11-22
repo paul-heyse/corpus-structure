@@ -147,7 +147,7 @@ def native_language_items(items):
     return result
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class DeclaredNativeFrameSource:
     """Native language frame over an admitted semantic member, never a fake view row."""
 
@@ -157,11 +157,14 @@ class DeclaredNativeFrameSource:
     _text: str = field(init=False, repr=False, compare=False)
     _context: str = field(init=False, repr=False, compare=False)
     _coordinate: tuple[str, str, str] = field(init=False, repr=False, compare=False)
-    _acquired_source: ClassVar[Any]
+    _acquired_source: ClassVar[FrozenNativeSource]
     _columns: ClassVar[Any]
 
+    def __init__(self, *args, **kwargs):
+        raise TypeError("declared native frames require an acquired or verified retained source")
+
     def __post_init__(self):
-        value = self._source_value
+        value = self._acquired_source.value
         coordinate = value["source"]
         pin = self.pin.values()
         if (
@@ -216,23 +219,47 @@ class DeclaredNativeFrameSource:
     @classmethod
     def from_source(cls, source, pin_content):
         """Bind an acquired source payload to this occurrence's exact declared pin."""
+        return cls._from_acquired(source, pin_content)
+
+    @classmethod
+    def from_retained_record(cls, source_content: str, pin_content: str, version: int = 4):
+        """Re-establish projection facts at an authorized retained-read boundary."""
+        from .source_products import FrozenNativeSource
+
+        source = FrozenNativeSource._accept_retained_projection(source_content.encode())
+        return cls._from_acquired(source, pin_content, version)
+
+    @classmethod
+    def acquire_record(cls, prepared, source_content: str, pin_content: str, version: int = 4):
+        """Validate a detached record under its caller's acquired source declaration."""
+        from .data_operation_json import wire_json_loads
+        from .source_products import FrozenNativeSource
+
+        source = FrozenNativeSource.acquire(prepared, wire_json_loads(source_content))
+        return cls._from_acquired(source, pin_content, version)
+
+    @classmethod
+    def _from_worker_record(cls, source_content: str, pin_content: str, version: int = 4):
+        """Use source bytes from an already authenticated, parent-validated worker packet."""
+        from .source_products import FrozenNativeSource
+
+        source = FrozenNativeSource._accept_parent_validated(source_content.encode())
+        return cls._from_acquired(source, pin_content, version)
+
+    @classmethod
+    def _from_acquired(cls, source, pin_content, version=4, *, state=()):
         from .source_products import FrozenNativeSource
 
         FrozenNativeSource._require_acquired(source)
         result = object.__new__(cls)
         object.__setattr__(result, "source_content", source.content.decode())
         object.__setattr__(result, "pin_content", pin_content)
-        object.__setattr__(result, "version", 4)
-        object.__setattr__(result, "_source_value", source.value)
+        object.__setattr__(result, "version", version)
         object.__setattr__(result, "_acquired_source", source)
+        for name, value in state:
+            object.__setattr__(result, name, value)
         result.__post_init__()
         return result
-
-    @cached_property
-    def _source_value(self):
-        from .source_products import _native_source_payload
-
-        return _native_source_payload(self.source_content.encode(), None).value
 
     @property
     def value(self):
@@ -282,9 +309,7 @@ class DeclaredNativeFrameSource:
     def view(self):
         from .native_source_view import NativeSourceView
 
-        if "_acquired_source" in vars(self):
-            return NativeSourceView.from_acquired(self._acquired_source, self._columns)
-        return NativeSourceView(self._source_value, self._columns)
+        return NativeSourceView.from_acquired(self._acquired_source, self._columns)
 
     @property
     def pieces(self):

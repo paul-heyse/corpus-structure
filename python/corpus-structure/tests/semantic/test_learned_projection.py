@@ -31,7 +31,7 @@ def test_declared_maverick_mapping_retains_original_contributions_and_context_hy
     product = partition_controlled_annotations(
         prepared, model, annotation, source, configuration=configuration
     )
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         source.content.decode(), source_annotation_rows(product)[0]["source"]["content"]
     )
     (block,), _ = _blocks(source)

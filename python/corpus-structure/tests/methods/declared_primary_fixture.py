@@ -122,7 +122,7 @@ def selected_source(
         "unadmitted:source-member",
         "unadmitted:original-source-kind",
     )
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         source.content.decode(), canonical_bytes(address.pin()).decode()
     )
     return source, frame, context

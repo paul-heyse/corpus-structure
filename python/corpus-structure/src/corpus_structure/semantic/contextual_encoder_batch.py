@@ -216,7 +216,7 @@ def prepare_encoder_members(packet, members, *, check_active=lambda: None):
     for digest, record in packet["frames"].items():
         check_active()
         try:
-            frames[digest] = DeclaredNativeFrameSource(
+            frames[digest] = DeclaredNativeFrameSource._from_worker_record(
                 json_bytes(decode_semantic_value(packet["bodies"][record["body"]])).decode(),
                 json_bytes(decode_semantic_value(record["pin"])).decode(),
                 record["version"],

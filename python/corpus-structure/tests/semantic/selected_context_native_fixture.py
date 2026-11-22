@@ -33,7 +33,7 @@ def execute_kernel(
     from semantic.selected_context_support import case
 
     check_active()
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(source).decode(), canonical_bytes(pin).decode()
     )
     _, premise_occurrence, primary, _, _, _ = case(recipe, frame=frame)

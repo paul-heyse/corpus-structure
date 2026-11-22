@@ -25,7 +25,7 @@ def projection_inputs(prepared, source, pin, mode):
 
     if mode not in {"empty", "mixed", "literal"}:
         raise ValueError("controlled PM2 projection has no such finite case")
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(source).decode(), canonical_bytes(pin).decode()
     )
     piece = next(row for row in source["pieces"] if row["kind"] == "native_text")

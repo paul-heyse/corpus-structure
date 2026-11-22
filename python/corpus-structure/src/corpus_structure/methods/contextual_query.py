@@ -121,11 +121,13 @@ class _PrimaryContext:
         product = reference.product
         if layer.reference != product:
             raise ValueError("query context primary product differs from its exact reference")
+        selectors = self.body.get("selectors")
         if (
             not isinstance(reference, DataProductMemberReference)
             or not isinstance(source, DeclaredNativeFrameSource)
             or self.body.get("source") != source.value["source"]
-            or self.body.get("selectors") != source.value["selectors"]
+            or not isinstance(selectors, (tuple, list))
+            or tuple(selectors) != tuple(source.value["selectors"])
         ):
             raise ValueError(
                 "query context primary product differs from exact original source/scope"

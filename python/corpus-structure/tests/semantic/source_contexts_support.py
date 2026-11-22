@@ -65,7 +65,7 @@ def source(
         None,
         "kind:fixture-native-source",
     )
-    return DeclaredNativeFrameSource(
+    return DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(value).decode(), canonical_bytes(address.pin()).decode()
     )
 

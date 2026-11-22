@@ -214,7 +214,7 @@ def unadmitted_frame(text):
         "unadmitted:member",
         "unadmitted:source-kind",
     )
-    return DeclaredNativeFrameSource(
+    return DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(
             dict(source=coordinate, selectors=selectors, text=text, pieces=pieces, items=items)
         ).decode(),

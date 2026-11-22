@@ -5,7 +5,10 @@ from dataclasses import replace
 import pytest
 from semantic.source_contexts_support import source
 
-from corpus_structure.semantic.declared_proposal_frames import DeclaredProposalFrame
+from corpus_structure.semantic.declared_proposal_frames import (
+    DeclaredProposalFrame,
+    DeclaredProposalSource,
+)
 from corpus_structure.semantic.proposals import (
     ProposalRefused,
     ProposalSentence,
@@ -16,10 +19,10 @@ from corpus_structure.semantic.proposals import (
 
 def frame():
     selected = source(1, "x is positive.")
-    return DeclaredProposalFrame(
-        selected.source_content,
-        selected.pin_content,
-        sentence_values=(ProposalSentence("s1", native_address(selected, start=0, end=14), 0, 14),),
+    return DeclaredProposalFrame.compose(
+        DeclaredProposalSource.from_frame(
+            selected, (ProposalSentence("s1", native_address(selected, start=0, end=14), 0, 14),)
+        ),
     )
 
 
@@ -40,6 +43,8 @@ def test_native_statement_handles_resolve_only_inside_qualified_frame():
 def test_native_sentence_cannot_change_projection_coordinates():
     selected = frame()
     with pytest.raises(ValueError, match="exact selected source extent"):
-        replace(selected, sentence_values=(replace(selected.sentences[0], end=13),))
+        DeclaredProposalSource.from_frame(selected, (replace(selected.sentences[0], end=13),))
     with pytest.raises(ValueError, match="exact selected source extent"):
-        replace(selected, sentence_values=(replace(selected.sentences[0], locator="pdf:foreign"),))
+        DeclaredProposalSource.from_frame(
+            selected, (replace(selected.sentences[0], locator="pdf:foreign"),)
+        )

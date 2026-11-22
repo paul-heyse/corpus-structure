@@ -334,9 +334,7 @@ def _proposal_source(prepared, source, annotations: RichAnnotationsInput, pin):
         and piece.get("item_ref")
         and base.contains_span(piece["start"], piece["end"])
     )
-    return DeclaredProposalSource(
-        base.source_content, base.pin_content, sentence_values=tuple(sentences)
-    )
+    return DeclaredProposalSource.from_frame(base, sentences)
 
 
 def prepare_external_packet(prepared, values, source_pins, *, check_active):
@@ -407,12 +405,7 @@ def prepare_external_packet(prepared, values, source_pins, *, check_active):
         if annotation is None:
             raise ValueError("explicit ancestor lacks its separately admitted retained sentences")
         contexts.append(_proposal_source(prepared, value, annotation, pin))
-    frame = DeclaredProposalFrame(
-        primary.source_content,
-        primary.pin_content,
-        sentence_values=primary.sentences,
-        context_sources=tuple(contexts),
-    )
+    frame = DeclaredProposalFrame.compose(primary, contexts)
     scopes = values["scopes"]
     if (policy["scope_standing"] == "explicitly-none") != (not scopes):
         raise ValueError("scope context standing differs from actual supplied scope products")
@@ -446,10 +439,13 @@ def prepare_external_packet(prepared, values, source_pins, *, check_active):
 def external_extraction_prompt(packet):
     """Derive a readable view once; retain only the exact original frame in the product."""
     from .declared_proposal_frames import declared_proposal_frame_from_dict
+    from .declared_record_sources import DeclaredNativeFrameSource
     from .observations import source_python
     from .proposals import native_evidence_entries, native_frame_entries
 
-    frame = declared_proposal_frame_from_dict(source_python(packet["frame"]))
+    frame = declared_proposal_frame_from_dict(
+        source_python(packet["frame"]), DeclaredNativeFrameSource.from_retained_record
+    )
     entries = native_frame_entries(frame)
     aliases = {
         id(source): {entry["handle"]: entry for entry in native_evidence_entries(source)}
@@ -491,13 +487,17 @@ def locate_external_extraction(
     from corpus_structure.core.evidence import MacroDef
 
     from .declared_proposal_frames import declared_proposal_frame_from_dict
+    from .declared_record_sources import DeclaredNativeFrameSource
     from .observations import source_python
     from .proposals import locate_proposal
 
     packet = prepared.validate_json("DdoExternalExtractionPacket", json_bytes(packet)).model_dump(
         mode="python", exclude_unset=True
     )
-    frame = declared_proposal_frame_from_dict(source_python(packet["frame"]))
+    def acquire_frame(content, pin, version):
+        return DeclaredNativeFrameSource.acquire_record(prepared, content, pin, version)
+
+    frame = declared_proposal_frame_from_dict(source_python(packet["frame"]), acquire_frame)
     if frame.pin.values() != packet["source_pin"] or frame.unit_ref != packet["unit_ref"]:
         raise ValueError("rich placement packet changed its selected source frame")
     check_active()

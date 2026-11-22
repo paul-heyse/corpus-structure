@@ -98,7 +98,7 @@ def inspect_demand_context(connection, request: DemandContextRequest):
             request.source_member_id,
             source_row["kind_contract"],
         )
-        source = DeclaredNativeFrameSource(
+        source = DeclaredNativeFrameSource.from_retained_record(
             json_bytes(source_body).decode(), json_bytes(address.pin()).decode()
         )
         if (

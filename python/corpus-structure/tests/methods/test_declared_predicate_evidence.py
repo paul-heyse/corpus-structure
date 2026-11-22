@@ -40,7 +40,7 @@ def declared_frame():
         None,
         "source-kind",
     )
-    return DeclaredNativeFrameSource(
+    return DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(
             {
                 "source": {

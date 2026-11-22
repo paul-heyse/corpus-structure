@@ -52,7 +52,7 @@ def test_native_scoped_kernel_keeps_actual_artifact_source_and_formal_addresses(
         None,
         "kind:source",
     ).pin()
-    frame = DeclaredNativeFrameSource(source.content.decode(), canonical_bytes(pin).decode())
+    frame = DeclaredNativeFrameSource.from_source(source, canonical_bytes(pin).decode())
     layer = ConstructionLayer(
         coordinate,
         {"selectors": source.value["selectors"]},

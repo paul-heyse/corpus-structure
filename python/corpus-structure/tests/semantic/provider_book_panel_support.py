@@ -197,7 +197,7 @@ def book_panel(prepared):
             None,
             "unadmitted:native-source-kind",
         ).pin()
-        frame = DeclaredNativeFrameSource(
+        frame = DeclaredNativeFrameSource.from_retained_record(
             canonical_bytes(native.value).decode(), canonical_bytes(pin).decode()
         )
         scope = prepare_model_scope(frame, (0, len(text)), (0, len(text)))

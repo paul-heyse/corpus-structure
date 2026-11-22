@@ -441,6 +441,17 @@ class FrozenNativeSource:
             raise TypeError("sealed native source requires bytes")
         return cls._from_payload(_native_source_payload(content, None), None)
 
+    @classmethod
+    def _accept_retained_projection(cls, content):
+        """Check exact projection facts when an authorized retained read has no decoder."""
+        from .native_source_view import NativeSourceView
+
+        if type(content) is not bytes:
+            raise TypeError("retained native projection requires immutable bytes")
+        payload = _native_source_payload(content, None)
+        NativeSourceView(payload.value)
+        return cls._from_payload(payload, None)
+
     def _require_acquired(self):
         if (
             type(self) is not FrozenNativeSource

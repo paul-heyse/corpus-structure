@@ -9,7 +9,8 @@ def checked_frame_source(frame_record, source):
     """One exact actual source header/body projection for contextual CPU consumers."""
     from .declared_record_sources import DeclaredNativeFrameSource
 
-    return checked_native_frame(DeclaredNativeFrameSource(**frame_record), source)
+    frame = DeclaredNativeFrameSource._from_worker_record(**frame_record)
+    return checked_native_frame(frame, source)
 
 
 def checked_native_frame(frame, source):

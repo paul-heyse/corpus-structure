@@ -42,7 +42,7 @@ def source_values(prepared, model, source, pin, context, source_input):
     (piece,) = [item for item in source["pieces"] if item["kind"] == "native_text"]
     if (piece["start"], piece["end"]) != (0, len(TEXT)):
         raise ValueError("controlled grammar requires the actual complete native piece")
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(source).decode(), canonical_bytes(pin).decode()
     )
     source_ref = DeclaredStructuralSource.model_validate(pin)

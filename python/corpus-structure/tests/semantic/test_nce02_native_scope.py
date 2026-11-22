@@ -100,7 +100,7 @@ def actual_basis(kernel, original, products):
         original.row["member_id"],
         original.row["kind_contract"],
     )
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(original.body).decode(), canonical_bytes(address.pin()).decode()
     )
     (sentences,) = selected_for_source(

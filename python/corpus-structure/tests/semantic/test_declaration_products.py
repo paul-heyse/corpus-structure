@@ -295,7 +295,7 @@ def produce(source, native_products, canonical, hanlp):
     )
     from corpus_structure.semantic.declared_record_sources import DeclaredNativeFrameSource
 
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         source.content.decode(), canonical_bytes(native_products[0].source.values()).decode()
     )
     term_support = populate_declaration_products(
@@ -460,7 +460,7 @@ def applicability_case():
 
     source, native, canonical, hanlp = case()
     product = produce(source, native, canonical, hanlp)
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         source.content.decode(), canonical_bytes(native[0].source.values()).decode()
     )
     source_ref = DeclaredStructuralSource.model_validate(frame.pin.values())

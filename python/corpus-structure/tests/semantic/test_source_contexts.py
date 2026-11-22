@@ -315,9 +315,9 @@ def test_relationship_reason_and_individual_kind_pins_participate_in_dependency_
     result = context(
         primary, (DeclaredSourceSlice(A, 0, 1), DeclaredSourceSlice(B, 0, 1)), related=(entry,)
     )
-    changed_source = replace(
-        neighbor,
-        pin_content=canonical_bytes(
+    changed_source = type(neighbor).from_retained_record(
+        neighbor.source_content,
+        canonical_bytes(
             {**neighbor.pin.values(), "kind_contract": "kind:another-current-contract"}
         ).decode(),
     )
@@ -379,12 +379,9 @@ def test_invalid_retrieval_contract_refuses(kwargs):
 def test_current_proposal_ancestor_rule_and_neighbor_context_remain_distinct():
     primary, neighbor = source(1, "X"), source(2, "X")
     with pytest.raises(ValueError, match="separately pinned direct ancestor"):
-        DeclaredProposalFrame(
-            primary.source_content,
-            primary.pin_content,
-            context_sources=(
-                DeclaredProposalSource(neighbor.source_content, neighbor.pin_content),
-            ),
+        DeclaredProposalFrame.compose(
+            DeclaredProposalSource.from_frame(primary),
+            (DeclaredProposalSource.from_frame(neighbor),),
         )
     result = context(
         primary,
@@ -419,12 +416,10 @@ def test_explicit_ancestor_relationship_uses_existing_direct_ancestor_rule():
 
 def test_stale_projection_and_incompatible_product_refuse():
     primary = source(1, "X")
-    with pytest.raises(ContextRefused, match="selected source"):
-        context(
-            replace(
-                primary, source_content=canonical_bytes({**primary.value, "text": "Z"}).decode()
-            ),
-            (DeclaredSourceSlice(A, 0, 1),),
+    with pytest.raises(ValueError, match="selected source"):
+        type(primary).from_retained_record(
+            canonical_bytes({**primary.value, "text": "Z"}).decode(),
+            primary.pin_content,
         )
     incompatible = source(2, "Y", document="document:foreign")
     with pytest.raises(ContextRefused, match="same pinned product"):
@@ -440,15 +435,31 @@ def test_stale_projection_and_incompatible_product_refuse():
 def test_current_frame_validates_qualified_sentence_addresses():
     primary = source(1, "X")
     sentence = ProposalSentence("s1", native_address(primary, start=0, end=1), 0, 1)
-    frame = DeclaredProposalFrame(
-        primary.source_content, primary.pin_content, sentence_values=(sentence,)
-    )
+    frame = DeclaredProposalFrame.compose(DeclaredProposalSource.from_frame(primary, (sentence,)))
     (anchor,) = context(frame, (DeclaredSourceSlice(A, 0, 1),)).map_span(0, 1)
     assert anchor.locator == sentence.locator
     with pytest.raises(ValueError, match="exact selected source extent"):
-        replace(frame, sentence_values=(replace(sentence, locator="wrong"),))
+        DeclaredProposalSource.from_frame(frame, (replace(sentence, locator="wrong"),))
     with pytest.raises(ValueError, match="declared frame pin"):
-        replace(frame, version=3)
+        type(primary).from_retained_record(primary.source_content, primary.pin_content, version=3)
+
+
+def test_current_frame_shares_acquired_projection_with_its_proposal_view(monkeypatch):
+    from corpus_structure.semantic import source_products
+
+    primary = source(1, "X")
+    monkeypatch.setattr(
+        source_products,
+        "native_projection_identity",
+        lambda *args: pytest.fail("acquired frame repeated original projection validation"),
+    )
+    proposal = DeclaredProposalSource.from_frame(primary)
+    assert proposal.value is primary.value
+    assert proposal.pin_content == primary.pin_content
+    worker = type(primary)._from_worker_record(primary.source_content, primary.pin_content)
+    assert worker.value is primary.value
+    with pytest.raises(TypeError, match="require an acquired or verified retained source"):
+        type(primary)(primary.source_content, primary.pin_content)
 
 
 def test_lossy_mapping_other_coordinate_spaces_and_outside_source_ranges_refuse():
@@ -478,11 +489,8 @@ def test_synthetic_only_context_and_unconsumed_selected_source_refuse():
 
 
 def test_unsupported_native_projection_mapping_refuses_even_with_valid_digest():
-    primary = source(
-        1, "X", pieces=[dict(kind="normalized_text", item_ref="#/texts/1", start=0, end=1)]
-    )
-    with pytest.raises(ContextRefused, match="lossy native projection"):
-        context(primary, (DeclaredSourceSlice(A, 0, 1),))
+    with pytest.raises(ValueError, match="lossy native projection"):
+        source(1, "X", pieces=[dict(kind="normalized_text", item_ref="#/texts/1", start=0, end=1)])
 
 
 def test_literal_model_text_mismatch_refuses_without_searching_or_normalizing():
@@ -587,6 +595,5 @@ def test_prepared_source_view_is_shared_recursively_immutable_and_ordered():
 def test_prepared_view_refuses_nonpartitioned_source_pieces(pieces):
     # The fixture independently authenticates these actual bytes, so this exercises
     # ordering/partition admission rather than only a stale projection digest.
-    primary = source(1, "abc", pieces=pieces)
     with pytest.raises(ValueError, match="partition"):
-        _ = primary.pieces
+        source(1, "abc", pieces=pieces)

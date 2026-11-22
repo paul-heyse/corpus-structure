@@ -138,7 +138,7 @@ def scope(text="may may", focal=None):
     source = DeclaredRecordSource(
         "book", projection, "#/groups/0", "direct", context, "product:source", None, "kind:source"
     )
-    frame = DeclaredNativeFrameSource(
+    frame = DeclaredNativeFrameSource.from_retained_record(
         canonical_bytes(
             dict(
                 source=coordinate,
