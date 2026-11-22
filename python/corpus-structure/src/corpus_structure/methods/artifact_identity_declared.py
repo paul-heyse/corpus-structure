@@ -141,6 +141,15 @@ class ArtifactIdentityOperation:
                 {"operator": "collection", "roles": ["nominations"], "collection": "set"},
             ],
         },
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/artifact_identity/external_nominations/*/relationship",
+                "input_role": "nominations",
+                "variant": "member",
+                "occurrence_binding": True,
+            }
+        ],
         "output_witnesses": [
             {
                 "output_role": "result",

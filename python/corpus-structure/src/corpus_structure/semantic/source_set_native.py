@@ -66,7 +66,9 @@ def _source_set_native_routines():
     empty_array = cast(literal("[]", Text()), JSONB())
     selected_kind = SelectedSupportAcquisition.model_fields["kind"].default
     all_kind = AllAdmissibleAcquisition.model_fields["kind"].default
-    entry_fields = tuple(field.name for field in fields(SourceSetEntry))
+    entry_fields = tuple(
+        field.name for field in fields(SourceSetEntry) if field.name != "occurrence_label"
+    )
     entry_types = get_type_hints(SourceSetEntry)
     required_strings = tuple(name for name in entry_fields if entry_types[name] is str)
     product_keys = tuple(
@@ -348,11 +350,27 @@ def _source_set_native_routines():
                         ),
                         "duplicate qualified source-set product/member",
                     ),
+                    check(
+                        exists(
+                            select(1)
+                            .select_from(entries)
+                            .where(entries.c.value["occurrence_label"].astext.is_not(None))
+                            .group_by(entries.c.value["occurrence_label"].astext)
+                            .having(func.count() != 1)
+                        ),
+                        "duplicate source-set occurrence label",
+                    ),
                     ForQuery(
                         ("entry",),
                         select(entries.c.value),
                         (
-                            fields_check(entry, entry_fields),
+                            Perform(
+                                func.ops.ddo_fields(
+                                    entry,
+                                    array(list(entry_fields), type_=Text()),
+                                    array(["occurrence_label"], type_=Text()),
+                                )
+                            ),
                             check(
                                 or_(
                                     exists(
@@ -367,6 +385,11 @@ def _source_set_native_routines():
                                         )
                                     ),
                                     ~kind(entry["member"]).in_(("string", "null")),
+                                    entry.has_key("occurrence_label")
+                                    & or_(
+                                        kind(entry["occurrence_label"]).is_distinct_from("string"),
+                                        entry["occurrence_label"].astext == "",
+                                    ),
                                     entry["project_id"].astext.is_distinct_from(project),
                                     ~kind(entry["original_source"]).in_(("string", "null")),
                                     *(

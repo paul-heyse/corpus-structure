@@ -1,6 +1,6 @@
 """Bare-schema SQL basis controls; synthetic metadata grants no native admission."""
 
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 import pytest
 from sqlalchemy import cast, literal, text
@@ -53,6 +53,7 @@ class _Role(TypedDict):
     multiplicity: int
     product_id: str
     member_id: str | None
+    occurrence_label: NotRequired[str]
     kind_contract: str
     context: _Context
     body: DdoJsonValue
@@ -80,9 +81,12 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
             output_roles=[],
             support_contract={},
             binding_expression={"operator": "all", "children": []},
+            parameter_definitions={},
             definition_identity="definition:controlled",
             eligibility_identity="eligibility:controlled",
             quantified=False,
+            validity_families=[],
+            validity_conservative=True,
             dependencies=[],
         )
     )
@@ -152,6 +156,7 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
         "original_source": None,
         "analyzed_scope": {"number": Decimal("1")},
     }
+    rows[0]["occurrence_label"] = "records:second"
     # Null set positions are genuine. The flat binding repeats a support when
     # several rows share it; exact product correspondence keeps unrelated
     # episodes out and support-set normalization removes repeated references.
@@ -171,6 +176,7 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
             "support_derivation_ids": sorted(
                 reference["derivation_id"] for reference in row["support"]
             ),
+            **({"occurrence_label": row["occurrence_label"]} if "occurrence_label" in row else {}),
         }
         for row in rows
     ]
@@ -230,6 +236,7 @@ def test_basis_reads_exact_products_contexts_and_origin_support_sets(cpu_basis_c
                 ComputationalSupportReference(**ref) for ref in (*row["support"], *row["support"])
             ),
             producer_output=ProducerOutputOccurrence(**row["producer_output"]),
+            occurrence_label=row.get("occurrence_label"),
         )
         for row in rows
     )

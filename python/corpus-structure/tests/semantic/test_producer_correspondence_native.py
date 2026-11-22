@@ -147,13 +147,14 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
     def relation(name, fields, rows):
         return values(*(column(field, kind) for field, kind in fields)).data(rows).cte(name)
 
-    def pin(role, product, *, position=0, member=None, multiplicity=1):
+    def pin(role, product, *, position=0, member=None, multiplicity=1, occurrence_label=None):
         return {
             "role": role,
             "position": position,
             "product_id": product,
             "member_id": member,
             "multiplicity": multiplicity,
+            "occurrence_label": occurrence_label,
         }
 
     hidden_and_unrelated = [pin("protected", "protected-parent"), pin("other", "unrelated-parent")]
@@ -173,6 +174,9 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
                 {
                     "inputs": [
                         pin("source", "original-parent"),
+                        pin("nominations", "left-report", occurrence_label="selected-report"),
+                        pin("nominations", "hidden-report", occurrence_label="hidden-report"),
+                        pin("nominations", "right-report", occurrence_label="changed-label"),
                         *hidden_and_unrelated,
                         left,
                         right,
@@ -206,16 +210,20 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
             ("multiplicity", Integer),
             ("product_id", Text),
             ("member_id", Text),
+            ("occurrence_label", Text),
         ),
         [
-            ("historical-derivation", "source", 0, 1, "original-parent", None),
-            ("historical-derivation", "protected", 0, 1, "protected-parent", None),
-            ("historical-derivation", "other", 0, 1, "unrelated-parent", None),
-            ("historical-derivation", "reports", 0, 1, "left-report", None),
-            ("historical-derivation", "reports", 1, 1, "right-report", "right-member"),
-            ("historical-derivation", "reports", 2, 1, "hidden-report", None),
-            ("historical-derivation", "reports", 3, 1, "unmatched-report", None),
-            ("historical-derivation", "reports", 4, 1, "repeated-report", None),
+            ("historical-derivation", "source", 0, 1, "original-parent", None, None),
+            ("historical-derivation", "protected", 0, 1, "protected-parent", None, None),
+            ("historical-derivation", "other", 0, 1, "unrelated-parent", None, None),
+            ("historical-derivation", "reports", 0, 1, "left-report", None, None),
+            ("historical-derivation", "reports", 1, 1, "right-report", "right-member", None),
+            ("historical-derivation", "reports", 2, 1, "hidden-report", None, None),
+            ("historical-derivation", "reports", 3, 1, "unmatched-report", None, None),
+            ("historical-derivation", "reports", 4, 1, "repeated-report", None, None),
+            ("historical-derivation", "nominations", 4, 1, "left-report", None, "selected-report"),
+            ("historical-derivation", "nominations", 5, 1, "hidden-report", None, "hidden-report"),
+            ("historical-derivation", "nominations", 6, 1, "right-report", None, "right-report"),
         ],
     )
     products = relation(
@@ -275,6 +283,11 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
                         {"output_role": "result", "input_role": "protected"},
                         {
                             "output_role": "result",
+                            "input_role": "nominations",
+                            "occurrence_binding": True,
+                        },
+                        {
+                            "output_role": "result",
                             "input_role": "reports",
                             "occurrence_field": "/local",
                         },
@@ -328,7 +341,16 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
     ).all()
     observations = dict(rows)
     authentic = observations["authentic-use"]
-    assert len(authentic) == 5
+    assert len(authentic) == 6
+    assert authentic[0] == {
+        "role": "nominations",
+        "product_id": "left-report",
+        "kind_contract": "source-kind",
+        "member_id": None,
+        "multiplicity": 1,
+        "occurrence_binding": True,
+        "occurrence": "selected-report",
+    }
     assert authentic[-1] == {
         "role": "source",
         "product_id": "original-parent",
@@ -339,7 +361,7 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
     assert observations["substituted-use"] == []
     assert [
         (row["product_id"], row["member_id"], row["occurrence_field"], row["occurrence"])
-        for row in authentic[:-1]
+        for row in authentic[1:-1]
     ] == [
         ("left-report", None, "/local", "left"),
         ("left-report", None, "/source/key", "L"),
@@ -368,6 +390,15 @@ def test_reference_metadata_requires_exact_original_edge_in_the_selected_use(nat
     assert (
         producing("authentic-use")
         .resolve(SemanticReference.whole("reports", occurrence="L"), occurrence_field="/source/key")
+        .product_id
+        == "left-report"
+    )
+    assert (
+        producing("authentic-use")
+        .resolve(
+            SemanticReference.member("nominations", "target", occurrence="selected-report"),
+            occurrence_binding=True,
+        )
         .product_id
         == "left-report"
     )

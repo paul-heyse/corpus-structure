@@ -211,18 +211,13 @@ class ArtifactRecordValue(Protocol):
     def explicit_reference(self) -> ArtifactDesignatorValue | None: ...
 
 
-class ArtifactRelationshipValue(Protocol):
-    @property
-    def contribution_id(self) -> str: ...
-
-
 class ArtifactNominationValue(Protocol):
     @property
     def left(self) -> str: ...
     @property
     def right(self) -> str: ...
     @property
-    def relationship(self) -> ArtifactRelationshipValue: ...
+    def contribution_id(self) -> str: ...
 
 
 class ArtifactDeclaredEndpointValue(Protocol):
@@ -313,7 +308,7 @@ def pair_candidates(
     external: dict[tuple[str, str], set[str]] = {}
     for nomination in external_nominations:
         key = (min(nomination.left, nomination.right), max(nomination.left, nomination.right))
-        external.setdefault(key, set()).add(nomination.relationship.contribution_id)
+        external.setdefault(key, set()).add(nomination.contribution_id)
     for declaration in declared_relationships:
         for target in declaration.targets:
             left, right = sorted((declaration.source_id, target.record_id))
@@ -709,7 +704,7 @@ def artifact_identity_invariants(value: Any) -> Any:
     nomination_ids = set()
     nominated = set()
     for nomination in value.external_nominations:
-        relation_id = nomination.relationship.contribution_id
+        relation_id = nomination.contribution_id
         key = (nomination.left, nomination.right)
         pair = by_pair.get(key)
         if (

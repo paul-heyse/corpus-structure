@@ -259,6 +259,7 @@ class WireProducerOutputOccurrence(TypedDict):
 class WireInputMember(TypedDict):
     member_id: NotRequired[WireMemberId | None]
     multiplicity: Required[WirePositiveInteger]
+    occurrence_label: NotRequired[WireIdentifier]
     position: Required[WireNonnegativeInteger]
     producer_output: Required[WireProducerOutputOccurrence | None]
     product_id: Required[WireProductId]
@@ -871,6 +872,7 @@ class WireSemanticSourceReference(TypedDict):
 class WireSourceSetEntry(TypedDict):
     analyzed_scope: Required[ContextualJsonValue]
     member: Required[WireIdentifier | None]
+    occurrence_label: NotRequired[WireIdentifier]
     original_source: Required[WireOriginalSourceId | None]
     product: Required[WireIdentifier]
     project_id: Required[ProjectId]

@@ -46,8 +46,13 @@ class CPUInputRole:
     body: Any
     support: tuple[SupportReference, ...]
     producer_output: ProducerOutputOccurrence | None = field(kw_only=True)
+    occurrence_label: str | None = field(kw_only=True, default=None)
 
     def __post_init__(self) -> None:
+        if self.occurrence_label is not None and (
+            type(self.occurrence_label) is not str or not self.occurrence_label
+        ):
+            raise ValueError("CPU input occurrence label must be a nonempty string")
         computed = any(isinstance(item, ComputationalSupportReference) for item in self.support)
         if computed != (self.producer_output is not None):
             raise ValueError("CPU computational input requires its exact emitting occurrence")
@@ -88,6 +93,7 @@ def cpu_input_basis(
                 "multiplicity": role.multiplicity,
                 "product_id": role.product_id,
                 "member_id": role.member_id,
+                **({"occurrence_label": role.occurrence_label} if role.occurrence_label else {}),
                 "kind_contract": role.kind_contract,
                 "context": role.context.identity_record,
                 "body": role.body,
@@ -106,6 +112,7 @@ def cpu_input_basis(
             item["product_id"],
             (item["member_id"] is not None, item["member_id"]),
             item["kind_contract"],
+            (item.get("occurrence_label") is not None, item.get("occurrence_label")),
             canonical_bytes(semantic_value(item["support"])),
             canonical_bytes(semantic_value(item["producer_output"])),
         )
@@ -179,6 +186,7 @@ def cpu_input_basis_from_roles(
                     body,
                     member.support_references,
                     producer_output=member.producer_output,
+                    occurrence_label=member.occurrence_label,
                 )
             )
     return cpu_input_basis(
@@ -239,7 +247,7 @@ def cpu_basis_values(
     for row in basis["roles"]:
         if (
             not isinstance(row, dict)
-            or set(row)
+            or set(row) - {"occurrence_label"}
             != {
                 "role",
                 "position",
@@ -256,6 +264,10 @@ def cpu_basis_values(
             or row["role"] not in grouped
             or type(row["multiplicity"]) is not int
             or row["multiplicity"] != 1
+            or (
+                "occurrence_label" in row
+                and (type(row["occurrence_label"]) is not str or not row["occurrence_label"])
+            )
         ):
             raise ValueError("CPU inputs differ from their exact finite scalar/set roles")
         if (
@@ -295,6 +307,7 @@ def cpu_basis_values(
                     if row["producer_output"] is None
                     else ProducerOutputOccurrence.model_validate(row["producer_output"])
                 ),
+                occurrence_label=row.get("occurrence_label"),
             )
         )
     if any(len(grouped[name]) != 1 for name in scalar_roles):
@@ -654,6 +667,7 @@ def cpu_input_basis_native_programs(*, target_metadata=None) -> tuple[ProgramDec
         field(value, "product_id")[1].astext.collate("C"),
         field(value, "member_id")[1].astext.collate("C").nulls_first(),
         field(value, "kind_contract")[1].astext.collate("C"),
+        field(value, "occurrence_label")[1].astext.collate("C").nulls_first(),
         *(
             func.convert_to(func.data.canonical_json(normalize(field(value, name))), "UTF8")
             for name in ("support", "producer_output")
@@ -789,6 +803,27 @@ def cpu_input_basis_native_programs(*, target_metadata=None) -> tuple[ProgramDec
                             ("body", func.coalesce(mf("body"), pf("canonical_body"))),
                             ("support", json_meaning(support_refs)),
                             ("producer_output", output_meaning),
+                        ),
+                    ),
+                    If(
+                        selected.has_key("occurrence_label"),
+                        (
+                            Assign(
+                                "meaning",
+                                array_(
+                                    "mapping",
+                                    meaning[1].op("||")(
+                                        array_(
+                                            array_(
+                                                "occurrence_label",
+                                                array_(
+                                                    "string", selected["occurrence_label"].astext
+                                                ),
+                                            )
+                                        )
+                                    ),
+                                ),
+                            ),
                         ),
                     ),
                     Assign("roles", roles.op("||")(array_(meaning))),

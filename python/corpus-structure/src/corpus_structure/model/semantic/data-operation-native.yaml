@@ -340,6 +340,7 @@ definitions:
         - type: 'null'
       source_reference: {$ref: '#/definitions/identifier'}
       reference: {$ref: '#/definitions/semantic_source_reference'}
+      occurrence_label: {$ref: '#/definitions/identifier'}
     required: [project_id, original_source, subject, subject_definition, analyzed_scope, product, member, source_reference, reference]
     additionalProperties: false
   root_subject:
@@ -529,6 +530,8 @@ definitions:
         $ref: '#/definitions/nonnegative_integer'
       multiplicity:
         $ref: '#/definitions/positive_integer'
+      occurrence_label:
+        $ref: '#/definitions/identifier'
       product_id:
         $ref: '#/definitions/identifier'
       member_id:

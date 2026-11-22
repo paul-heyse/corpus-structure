@@ -472,6 +472,7 @@ def _publish_derivation(model: MetaData) -> NativeRoutine:
                             ),
                             product_id=item["product_id"].astext,
                             member_id=item["member_id"].astext,
+                            occurrence_label=item["occurrence_label"].astext,
                         )
                     ),
                 ),

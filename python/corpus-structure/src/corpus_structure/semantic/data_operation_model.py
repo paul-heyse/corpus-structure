@@ -555,6 +555,7 @@ class OutputReferenceTarget:
     collection: str | None = None
     output_collection: str | None = None
     occurrence_field: str | None = None
+    occurrence_binding: bool = False
 
 
 @dataclass(frozen=True)
@@ -1187,6 +1188,7 @@ class BoundRoleMember:
     alternative_identity: str | None = None
     support_references: tuple[SupportReference, ...] = field(kw_only=True)
     producer_output: ProducerOutputOccurrence | None = field(kw_only=True, default=None)
+    occurrence_label: str | None = field(kw_only=True, default=None)
 
     def __post_init__(self) -> None:
         computed = tuple(

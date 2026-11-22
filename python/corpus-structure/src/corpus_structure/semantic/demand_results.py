@@ -936,6 +936,7 @@ def verify_detached_result(
                     row["role"],
                     row["product_id"],
                     row.get("member_id"),
+                    row.get("occurrence_label"),
                     row["multiplicity"],
                     row["position"] if collections.get(row["role"]) == "sequence" else None,
                 )
@@ -1017,7 +1018,7 @@ def verify_detached_result(
                         )
                     }
                 )
-                if kind == "computation":
+                if "derivation_id" in reference:
                     expected["support_derivation_id"] = reference["derivation_id"]
                 if any(edge[name] != value for name, value in expected.items()):
                     raise ValueError("detached support edge differs from the sealed completion")

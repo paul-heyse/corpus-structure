@@ -363,14 +363,33 @@ def test_native_source_set_authenticates_exact_original_pins(binding_native_conn
             b'{"page":1}',
             subject_definition="original-occurrence",
         ),
+        occurrence_label="selected:report",
     )
     scopes = source_sets_record((FrozenSourceSet.unqualified("inputs", (pin,)),))
-    binding_native_connection.execute(
-        text(
-            "SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"
-        ),
-        {"sets": json.dumps(scopes)},
+    validate = text(
+        "SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"
     )
+    binding_native_connection.execute(validate, {"sets": json.dumps(scopes)})
+    entry = scopes["inputs"]["entries"][0]
+    sibling = SourceSetEntry.from_semantic_source(
+        DataProductReference("product:sibling"),
+        context=SubjectContext(
+            pin.project_id,
+            pin.subject,
+            pin.original_source,
+            pin.analyzed_scope,
+            subject_definition=pin.subject_definition,
+        ),
+        occurrence_label="selected:report",
+    )
+    with pytest.raises(ValueError, match="unique occurrence labels"):
+        FrozenSourceSet.unqualified("inputs", (pin, sibling))
+    duplicate = {"inputs": {**scopes["inputs"], "entries": [entry, sibling.record()]}}
+    with (
+        pytest.raises(DBAPIError, match="duplicate source-set occurrence label"),
+        binding_native_connection.begin_nested(),
+    ):
+        binding_native_connection.execute(validate, {"sets": json.dumps(duplicate)})
     actual = {
         "product": pin.product,
         "member": pin.member,
@@ -402,12 +421,7 @@ def test_native_source_set_authenticates_exact_original_pins(binding_native_conn
     forged = json.loads(json.dumps(scopes))
     forged["inputs"]["entries"][0]["source_reference"] = "0" * 64
     with pytest.raises(DBAPIError, match="semantic reference"):
-        binding_native_connection.execute(
-            text(
-                "SELECT ops.ddo_validate_source_sets(CAST(:sets AS jsonb),'project',jsonb_build_object('original-occurrence','original-source'))"
-            ),
-            {"sets": json.dumps(forged)},
-        )
+        binding_native_connection.execute(validate, {"sets": json.dumps(forged)})
 
 
 def test_native_population_local_member_collision_cannot_satisfy_closed_scope(

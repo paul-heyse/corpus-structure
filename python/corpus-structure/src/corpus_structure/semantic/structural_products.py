@@ -786,7 +786,7 @@ class DeclaredArtifactNominationEndpoint(StructuralValue):
 
 class DeclaredArtifactNomination(StructuralValue):
     kind: Literal["artifact_reference_target"] = "artifact_reference_target"
-    relationship: DeclaredContributionRef
+    relationship: SemanticOccurrenceMemberReference
     endpoints: tuple[DeclaredArtifactNominationEndpoint, DeclaredArtifactNominationEndpoint]
     origin_cue: ArtifactAliasSpan
     primary_node: DeclaredPrimaryReference | None = Field(
@@ -796,8 +796,21 @@ class DeclaredArtifactNomination(StructuralValue):
     left: str = Field(min_length=1)
     right: str = Field(min_length=1)
 
+    @property
+    def contribution_id(self) -> str:
+        return self.relationship["member_id"].removeprefix("contribution:")
+
     @model_validator(mode="after")
     def direction(self) -> Self:
+        from .declared_candidate_products import candidate_member_id
+
+        if (
+            self.relationship["role"] != "nominations"
+            or not self.contribution_id.startswith("source-contribution:")
+            or self.relationship["member_id"]
+            != candidate_member_id("contribution", {"contribution_id": self.contribution_id})
+        ):
+            raise ValueError("artifact nomination requires a selected contribution member")
         return artifact_nomination_invariants(self)
 
 

@@ -507,6 +507,7 @@ classes:
       multiplicity: {range: integer, required: true}
       product_id: {range: string, required: true}
       member_id: {range: string, required: false}
+      occurrence_label: {range: string, required: false}
     unique_keys:
       primary_key: {unique_key_slots: [derivation_id, role, position]}
     annotations:

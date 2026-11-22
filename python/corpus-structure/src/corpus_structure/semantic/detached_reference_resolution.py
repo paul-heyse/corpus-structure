@@ -126,6 +126,7 @@ def require_detached_output_references(
         contracts = reference_role_contracts(input_roles, target)
         bindings = []
         occurrence_field = target.get("occurrence_field")
+        occurrence_binding = target.get("occurrence_binding", False)
         for row in captured:
             if row["role"] != target["input_role"]:
                 continue
@@ -149,9 +150,12 @@ def require_detached_output_references(
                     row["product_id"],
                     kind,
                     member_id,
-                    reference_input_occurrence(access, provisional, occurrence_field),
+                    row.get("occurrence_label")
+                    if occurrence_binding
+                    else reference_input_occurrence(access, provisional, occurrence_field),
                     row["multiplicity"],
                     occurrence_field,
+                    occurrence_binding,
                 )
             )
         original = ProducingReferenceBindings(derivation_id, tuple(bindings))
@@ -162,7 +166,11 @@ def require_detached_output_references(
             for body in _output_bodies(output, target.get("output_collection")):
                 for value in _reference_values(body, target["path"]):
                     reference = read_semantic_reference(value)
-                    binding = original.resolve(reference, occurrence_field=occurrence_field)
+                    binding = original.resolve(
+                        reference,
+                        occurrence_field=occurrence_field,
+                        occurrence_binding=occurrence_binding,
+                    )
                     resolver.resolve(
                         reference,
                         ReferenceTarget(
@@ -171,5 +179,6 @@ def require_detached_output_references(
                             binding.kind_contract,
                             target.get("collection"),
                             occurrence_field,
+                            occurrence_binding,
                         ),
                     )

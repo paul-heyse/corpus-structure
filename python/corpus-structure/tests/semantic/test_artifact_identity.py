@@ -132,7 +132,7 @@ def test_shared_generators_are_one_pair_with_complete_provenance():
         "b",
         "product:source:a",
         "product:source:b",
-        *(n.relationship.contribution_id for n in external),
+        *(n.contribution_id for n in external),
     )
     assert pair.model_probability is None and pair.standing == "candidate_relative_private"
     assert pair_candidates(

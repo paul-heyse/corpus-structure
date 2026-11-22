@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-PROTOCOL_SHA256 = "d3d6e059e128dd68f530fe0997ec3fb4614dde8608392ccf4ad64868b11fe47b"
+PROTOCOL_SHA256 = "86a06892b130964cd72df2be392fccee560cae69829b38d16515108a2f75274c"
 
 type DataTaskState = Literal["pending", "running", "done", "empty", "failed", "cancelled"]
 

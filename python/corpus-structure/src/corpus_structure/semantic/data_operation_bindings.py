@@ -38,7 +38,7 @@ from sqlalchemy.sql.visitors import replacement_traverse
 
 from ._data_operation_fates import RecordableFate
 from .binding_primitives import BINDING_PRIMITIVE_ALIASES, BINDING_VALUE_TYPES
-from .data_operation_json import json_bytes, native_json_loads, scope_identity
+from .data_operation_json import json_bytes, json_loads, native_json_loads, scope_identity
 from .data_operation_jsonb import ContextJSONB, json_context_equal
 from .data_operation_kind_refinements import input_kind_contracts
 from .data_operation_model import (
@@ -1361,13 +1361,25 @@ def decode_binding_rows(
             reasons.append(check.reason)
             statuses.append("unknown" if valid is None else check.failure_status)
     population_for_role = dict(compiled.population_roles)
+    frozen_sources = json_loads(compiled.source_sets)
+    labelled_roles = {
+        target.input_role for target in op.reference_targets if target.occurrence_binding
+    }
     bound = []
     for role in op.roles:
         if role.direction != "input":
             continue
         members = []
         raw_invalid = False
+        scope_name = role.support.source_set if role.support else None
+        labels = {
+            (entry["product"], entry["member"]): entry.get("occurrence_label")
+            for entry in frozen_sources.get(scope_name, {}).get("entries", ())
+        }
         for row in rows.get(role.name, ()):
+            label = labels.get((row["product"], row["member"]))
+            if role.name in labelled_roles and label is None:
+                raw_invalid = True
             episodes = row["support_episodes"]
             if not isinstance(episodes, (tuple, list)) or any(
                 not isinstance(item, str) or not item for item in episodes
@@ -1424,6 +1436,7 @@ def decode_binding_rows(
                     support_references=references,
                     subject_definition=row["subject_definition"],
                     producer_output=output,
+                    occurrence_label=label,
                 )
             )
         accepted = input_kind_contracts(compiled.model, (role.kind,))[role.kind] if members else ()

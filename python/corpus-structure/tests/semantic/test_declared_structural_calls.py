@@ -184,7 +184,7 @@ def test_selected_reference_resolves_only_one_exact_declared_occurrence():
         ("right", "right-member"): {"kind_contract": "member-kind", "body": semantic_value(body)},
     }
     path = "/report"
-    target = {
+    target: dict[str, str | bool] = {
         "output_role": "result",
         "path": path,
         "input_role": "reports",
@@ -249,6 +249,17 @@ def test_selected_reference_resolves_only_one_exact_declared_occurrence():
 
     members["left", "left-member"]["body"] = semantic_value({"location": {}})
     with pytest.raises(ValueError, match="lacks its declared occurrence"):
+        require_selected_output_reference(scope, selected, reference, path=path)
+
+    target.pop("occurrence_field")
+    target["occurrence_binding"] = True
+    left["occurrence_label"] = "other"
+    right["occurrence_label"] = "selected"
+    inputs[:] = [{**right, "position": 0}, left]
+    # An unordered binding has an exact label even when storage assigns another ordinal.
+    assert require_selected_output_reference(scope, selected, reference, path=path) == body
+    inputs[0]["occurrence_label"] = "relabeled"
+    with pytest.raises(ValueError, match="exactly one producing input occurrence"):
         require_selected_output_reference(scope, selected, reference, path=path)
 
 

@@ -166,7 +166,7 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
         raise ValueError("reference targets require an array")
     role_map = {role.name: role for role in roles}
     required = {"output_role", "path", "input_role", "variant"}
-    additional = {"collection", "output_collection", "occurrence_field"}
+    additional = {"collection", "output_collection", "occurrence_field", "occurrence_binding"}
     targets = []
     seen = set()
 
@@ -189,6 +189,17 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
         collection = target.get("collection")
         output_collection = target.get("output_collection")
         occurrence_field = target.get("occurrence_field")
+        occurrence_binding = target.get("occurrence_binding", False)
+        if type(occurrence_binding) is not bool or (
+            occurrence_binding
+            and (
+                occurrence_field is not None
+                or source.support is None
+                or not source.support.source_set
+            )
+        ):
+            raise ValueError("reference binding label requires a frozen source-set input")
+        uses_occurrence = occurrence_field is not None or occurrence_binding
         if variant not in {"product", "member", "partition-item"} or (
             (variant == "partition-item") != (collection is not None)
         ):
@@ -214,20 +225,20 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
                 .get("json_schema", {})
                 .get("x-ddo-reference-occurrence", False)
             )
-            if occurrence_carrier and occurrence_field is None:
+            if occurrence_carrier and not uses_occurrence:
                 raise ValueError(
                     "occurrence member reference requires its declared occurrence field"
                 )
-            if not occurrence_carrier and occurrence_field is not None:
+            if not occurrence_carrier and uses_occurrence:
                 raise ValueError(
                     "scalar nominal reference cannot include an occurrence discriminator"
                 )
-        if occurrence_field is None:
+        if not uses_occurrence:
             if source.maximum != 1:
                 raise ValueError(
                     "multivalued reference target role requires a stable occurrence field"
                 )
-        else:
+        elif occurrence_field is not None:
             occurrence_path = subject_field_path(occurrence_field)
             container = occurrence_field.rsplit("/", 1)[0]
             owner_id = _record_kind(kinds, source.kind, container)
@@ -261,6 +272,7 @@ def compile_reference_targets(raw, roles, kinds, output_paths):
                 collection,
                 output_collection,
                 occurrence_field,
+                occurrence_binding,
             )
         )
     for output in roles:
@@ -425,10 +437,12 @@ def validate_output_witnesses(operation, outputs, selected_inputs):
                             except ValueError:
                                 return False
                         if comparison.encoding == "context-meaning-json":
-                            expected = json.loads(json_context_meaning(json_bytes(thaw_native(expected))))
-                        if json_context_meaning(json_bytes(thaw_native(actual))) != json_context_meaning(
-                            json_bytes(thaw_native(expected))
-                        ):
+                            expected = json.loads(
+                                json_context_meaning(json_bytes(thaw_native(expected)))
+                            )
+                        if json_context_meaning(
+                            json_bytes(thaw_native(actual))
+                        ) != json_context_meaning(json_bytes(thaw_native(expected))):
                             return False
                     return True
 

@@ -278,11 +278,12 @@ def artifact_nomination(
     sources,
     indexes,
 ) -> DeclaredArtifactNomination:
-    """Join original source origins through their declared product address."""
-    if reference.contribution_id not in inputs.dependencies:
+    """Join independent origin extents through the selected contribution address."""
+    contribution_id = reference["member_id"].removeprefix("contribution:")
+    if contribution_id not in inputs.dependencies:
         raise ValueError("artifact nomination outside declared dependencies")
     rows = {row["contribution_id"]: row for row in contributions}
-    relation = rows.get(reference.contribution_id)
+    relation = rows.get(contribution_id)
     if (
         relation is None
         or relation["semantic_type"] != "structural.scoped_attachment"

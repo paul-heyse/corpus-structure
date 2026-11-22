@@ -82,6 +82,8 @@ def test_actual_artifact_profile_has_complete_current_inputs_and_scalar_factory(
         "analyzed_scope_meaning",
     }
     assert artifact_preparation.model.operation("text.constructions/source-native").recipe
+    (nomination,) = operation.reference_targets
+    assert nomination.input_role == "nominations" and nomination.occurrence_binding
 
 
 def test_artifact_native_helper_declares_exact_private_completion_and_validity_signatures():
@@ -135,6 +137,10 @@ def test_artifact_wrapper_binds_complete_role_values_support_and_typed_policy(
     from corpus_structure.semantic.artifact_products import artifact_kernel
 
     context, roles, bodies = selected_roles(("sources", "constructions", "nominations"))
+    nominations = replace(
+        roles[2], members=(replace(roles[2].members[0], occurrence_label="scoped:retained"),)
+    )
+    roles = (*roles[:2], nominations)
     parameters = dict(
         selections=[],
         nomination_selections=[],
@@ -193,6 +199,18 @@ def test_artifact_wrapper_binds_complete_role_values_support_and_typed_policy(
         artifact_kernel(
             arguments,
             (altered, *roles[1:]),
+            context,
+            basis,
+            prepared=artifact_schema,
+            check_active=lambda: None,
+        )
+    relabelled = replace(
+        nominations, members=(replace(nominations.members[0], occurrence_label="scoped:other"),)
+    )
+    with pytest.raises(ValueError, match="exact input basis"):
+        artifact_kernel(
+            arguments,
+            (*roles[:2], relabelled),
             context,
             basis,
             prepared=artifact_schema,

@@ -7,8 +7,11 @@ import pytest
 from corpus_structure.methods.artifact_identity import artifact_nomination
 from corpus_structure.semantic.constructions.navigation import NavigationRecord
 from corpus_structure.semantic.contributions import contribution_identity, occurrence_identity
-from corpus_structure.semantic.data_product_reference import DataProductReference, member_reference
-from corpus_structure.semantic.declared_structural_references import DeclaredContributionRef
+from corpus_structure.semantic.data_product_reference import (
+    DataProductReference,
+    SemanticReference,
+    member_reference,
+)
 from corpus_structure.semantic.identity import canonical_bytes
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.record_contracts import anchor_identity
@@ -76,16 +79,9 @@ def nomination_case():
         ),
     )
     relation["contribution_id"] = contribution_identity(relation)
-    reference = DeclaredContributionRef(
-        product_id="product:scoped",
-        kind_contract="kind:scoped",
-        project_id="p",
-        subject="native:source",
-        original_source="book",
-        analyzed_scope_meaning="{}",
-        contribution_id=relation["contribution_id"],
-        subject_definition="original-source-view",
-    )
+    reference = SemanticReference.member(
+        "nominations", "contribution:" + relation["contribution_id"], occurrence="scoped:table"
+    ).occurrence_member_value()
     occurrences = {
         "subject": {"extents": [dict(start=first, end=first + len("Table 2.1"), text="Table 2.1")]},
         "cue": {"extents": [dict(start=0, end=3, text="see")]},
@@ -102,7 +98,7 @@ def nomination_case():
         occurrences,
     )
     sources = {pin["source"]: {"pin": pin, "projection": {"text": text, "pieces": pieces}}}
-    inputs = SimpleNamespace(dependencies=(reference.contribution_id,))
+    inputs = SimpleNamespace(dependencies=(relation["contribution_id"],))
     return inputs, records, reference, (*rows, relation), sources, navigation
 
 
@@ -133,7 +129,12 @@ def test_native_artifact_nomination_keeps_directed_origins_cue_and_real_semantic
         result.origin_cue.text == "see" and result.primary_node.product_id == "product:navigation"
     )
     assert all(endpoint.origin_source == '["product:source",null]' for endpoint in result.endpoints)
-    assert result.relationship.product_id == "product:scoped"
+    assert result.relationship == {
+        "variant": "member",
+        "role": "nominations",
+        "occurrence": "scoped:table",
+        "member_id": "contribution:" + result.contribution_id,
+    }
     assert b"source_view_id" not in canonical_bytes(result.model_dump(mode="json"))
     assert b"task_id" not in canonical_bytes(result.model_dump(mode="json"))
 

@@ -2,13 +2,15 @@
 
 import json
 from dataclasses import replace
+from typing import cast
 
 import pytest
-from sqlalchemy import bindparam, text
+from sqlalchemy import bindparam, select, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
+from corpus_structure.semantic._data_operation_wire import WireOutputMember
 from corpus_structure.semantic.data_completion_settlement_native import (
     completion_settlement_native_programs,
 )
@@ -279,6 +281,95 @@ def test_native_declared_partition_reference_requires_actual_bound_item(product_
     )
     check(ref, original=occupied)
 
+    # Scoped reports can carry an overlapping member and a member unique to one report.
+    context, sibling_packet = product_packet(("one", "two"))
+    sibling_parent = realize(conn, context, sibling_packet)
+    target = {
+        "output_role": "result",
+        "output_collection": "rows",
+        "path": "/annotation",
+        "input_role": "inventory",
+        "input_kind": "urn:admitted-container-family",
+        "variant": "member",
+        "occurrence_binding": True,
+    }
+    admitted_roles = roles(target["input_kind"], container["kind_contract"])
+    conn.execute(
+        text(
+            "UPDATE sem.data_operation_definition SET support_contract=:contract, input_roles=:roles"
+        ).bindparams(bindparam("contract", type_=JSONB()), bindparam("roles", type_=JSONB())),
+        {"contract": {"reference_targets": [target]}, "roles": admitted_roles},
+    )
+    inputs = [
+        dict(
+            role="inventory", product_id=existing_parent, occurrence_label="first", multiplicity=1
+        ),
+        dict(
+            role="inventory", product_id=sibling_parent, occurrence_label="second", multiplicity=1
+        ),
+    ]
+    labelled = {**request, "binding": {"inputs": inputs}}
+    first = SemanticReference.member("inventory", "one", occurrence="first")
+    second = SemanticReference.member("inventory", "two", occurrence="second")
+    wrong = replace(second, occurrence="first")
+    check(first, original=labelled)
+    check(second, original=labelled)
+    with pytest.raises(DBAPIError, match="does not resolve address"), conn.begin_nested():
+        check(wrong, original=labelled)
+    ambiguous = {
+        **labelled,
+        "binding": {"inputs": [inputs[0], {**inputs[1], "occurrence_label": "first"}]},
+    }
+    with pytest.raises(DBAPIError, match="does not resolve address"), conn.begin_nested():
+        check(first, original=ambiguous)
+
+    from corpus_structure.semantic.detached_reference_resolution import (
+        require_detached_output_references,
+    )
+
+    def row_map(relation, *columns):
+        return {
+            (
+                row[columns[0]] if len(columns) == 1 else tuple(row[column] for column in columns)
+            ): row
+            for row in conn.execute(select(metadata.tables[relation])).mappings()
+        }
+
+    def replay(reference, captured=inputs):
+        require_detached_output_references(
+            row_map=row_map,
+            rows_for=lambda *_args, **_keys: captured,
+            derivation_id="captured-artifact",
+            project_id=context["project_id"],
+            targets=[target],
+            input_roles=admitted_roles,
+            outputs=[
+                cast(
+                    WireOutputMember,
+                    {
+                        "role": "result",
+                        "position": 0,
+                        "multiplicity": 1,
+                        "product": {
+                            **container,
+                            "partitions": [
+                                partition_packet(
+                                    "rows", "output", 0, 0, 5, [{"annotation": reference.values()}]
+                                )
+                            ],
+                        },
+                    },
+                )
+            ],
+        )
+
+    replay(first)
+    replay(second)
+    with pytest.raises(ValueError, match="does not resolve"):
+        replay(wrong)
+    with pytest.raises(ValueError, match="exactly one producing input occurrence"):
+        replay(first, ambiguous["binding"]["inputs"])
+
 
 def test_nominal_occurrence_member_compiles_only_with_its_declared_required_input_field():
     from pydantic import BaseModel, ConfigDict, TypeAdapter
@@ -341,3 +432,10 @@ def test_nominal_occurrence_member_compiles_only_with_its_declared_required_inpu
     value["reference_targets"][0].pop("occurrence_field")
     with pytest.raises(PreparationError, match="requires its declared occurrence field"):
         compile_data_operations(declarations=(*declarations(value), artifact))
+    value["reference_targets"] = [{**value["reference_targets"][0], "occurrence_binding": True}]
+    with pytest.raises(PreparationError, match="requires a frozen source-set input"):
+        compile_data_operations(declarations=(*declarations(value), artifact))
+    value["roles"][0]["support"].update(source="frozen-source-set", source_set="frozen-candidates")
+    value["roles"][0]["subject_target"] = "source-set"
+    model = compile_data_operations(declarations=(*declarations(value), artifact))
+    assert model.operations[0].reference_targets[0].occurrence_binding is True

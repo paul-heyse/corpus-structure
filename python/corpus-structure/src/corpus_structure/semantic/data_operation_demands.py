@@ -1142,6 +1142,11 @@ class DemandPlanner:
                             "multiplicity": member.multiplicity,
                             "product_id": member.product,
                             "member_id": member.member,
+                            **(
+                                {"occurrence_label": member.occurrence_label}
+                                if member.occurrence_label is not None
+                                else {}
+                            ),
                             "support_derivation_ids": sorted(member.support_episodes),
                             "producer_output": (
                                 member.producer_output.model_dump(mode="python")

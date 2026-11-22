@@ -43,11 +43,29 @@ def structural_report(scope, selected):
     from .data_product_reference import read_semantic_reference
     from .live_reference_resolution import require_selected_output_reference
     from .structural_products import (
+        DeclaredArtifactReport,
         DeclaredClauseReport,
         DeclaredDefinitionApplicabilityReport,
         DeclaredDossierReport,
         DeclaredNamedDefinitionComponentsReport,
     )
+
+    if isinstance(root.structural, DeclaredArtifactReport):
+        for nomination in root.structural.artifact_identity.external_nominations:
+            relation = require_selected_output_reference(
+                scope,
+                selected,
+                read_semantic_reference(nomination.relationship),
+                path="/artifact_identity/external_nominations/*/relationship",
+            )
+            if (
+                not isinstance(relation, dict)
+                or relation.get("candidate_type") != "contribution"
+                or relation.get("contribution_id") != nomination.contribution_id
+                or relation.get("semantic_type") != "structural.scoped_attachment"
+                or source_python(relation["value"]).get("relation") != "artifact_reference_target"
+            ):
+                raise ValueError("selected artifact nomination does not resolve its relationship")
 
     condition = root.structural.condition_qualification
     if condition is not None:
@@ -139,8 +157,6 @@ def structural_report(scope, selected):
             path="/predicate_input",
             metadata_only=True,
         )
-        from .observations import source_python
-
         for reading in clause.readings:
             for field, values, semantic_type in (
                 (

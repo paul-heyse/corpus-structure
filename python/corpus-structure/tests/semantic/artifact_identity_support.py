@@ -91,14 +91,10 @@ def nomination(left, right, ordinal=1):
         left=left,
         right=right,
         relationship=dict(
-            contribution_id="source-contribution:" + format(ordinal, "064x"),
-            project_id="controlled",
-            product_id="product:scoped",
-            kind_contract="kind:scoped",
-            subject="native:controlled",
-            subject_definition="original-source-view",
-            original_source="book",
-            analyzed_scope_meaning="{}",
+            variant="member",
+            role="nominations",
+            occurrence="scoped:fixture",
+            member_id="contribution:source-contribution:" + format(ordinal, "064x"),
         ),
         endpoints=tuple(
             dict(

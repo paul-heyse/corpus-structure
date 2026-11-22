@@ -78,11 +78,13 @@ def reference_native_programs(model):
     bound = bindings.c.value
     variant = target["variant"].astext
     occurrence = target["occurrence_field"].astext
+    binding_label = target["occurrence_binding"].astext == "true"
+    uses_occurrence = or_(occurrence.is_not(None), binding_label)
     member_id = ref["member_id"].astext
     collection = ref["collection"].astext
     role_paths = array(["variant", "role"], type_=Text())
     occurrence_paths = case(
-        (occurrence.is_not(None), array(["occurrence"], type_=Text())),
+        (uses_occurrence, array(["occurrence"], type_=Text())),
         else_=array([], type_=Text()),
     )
     fields = role_paths.concat(occurrence_paths).concat(
@@ -123,6 +125,7 @@ def reference_native_programs(model):
             contracts.bool_op("?")(kinds.c.kind_contract),
             or_(bound["member_id"].astext.is_(None), members.c.member_id.is_not(None)),
             case(
+                (binding_label, bound["occurrence_label"].astext == ref["occurrence"].astext),
                 (occurrence.is_(None), literal(True)),
                 else_=decoded(func.coalesce(members.c.body, products.c.canonical_body)).op(
                     "#>>", return_type=Text()
@@ -207,7 +210,7 @@ def reference_native_programs(model):
                 func.jsonb_typeof(ref["variant"]).is_distinct_from("string"),
                 func.jsonb_typeof(ref["role"]).is_distinct_from("string"),
                 and_(
-                    occurrence.is_not(None),
+                    uses_occurrence,
                     or_(
                         func.jsonb_typeof(ref["occurrence"]).is_distinct_from("string"),
                         ref["occurrence"].astext == "",

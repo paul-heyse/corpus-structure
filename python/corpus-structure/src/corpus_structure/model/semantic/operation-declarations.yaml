@@ -263,6 +263,7 @@ classes:
       collection: {range: SemanticText}
       output_collection: {range: SemanticText}
       occurrence_field: {range: SemanticText}
+      occurrence_binding: {range: boolean}
   OperationOutputWitness:
     attributes:
       output_role: {range: SemanticText, required: true}

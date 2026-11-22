@@ -60,7 +60,7 @@ class ArtifactSourceSelection(BaseModel):
 
 class ArtifactNominationSelection(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    report_reference: str = Field(min_length=1)
+    report_occurrence: str = Field(min_length=1)
     contribution_id: str = Field(
         min_length=84, max_length=84, pattern=r"^source-contribution:[0-9a-f]{64}$"
     )
@@ -239,10 +239,10 @@ def execute_artifact_identity(
     from .constructions.navigation import NativeNavigationIndex
     from .contributions import contribution_identity
     from .data_operation_json import json_bytes
-    from .declared_candidate_products import candidate_member_values
+    from .data_product_reference import SemanticReference
+    from .declared_candidate_products import candidate_member_id, candidate_member_values
     from .declared_record_sources import DeclaredNativeFrameSource
     from .declared_structural_calls import PreparedStructuralInputs, _passage
-    from .declared_structural_references import DeclaredContributionRef
     from .source_products import FrozenNativeSource
     from .structural_products import (
         DeclaredArtifactIdentityProduct,
@@ -316,9 +316,8 @@ def execute_artifact_identity(
                 member.analyzed_scope,
             ):
                 continue
-            if (
-                primary["source"] != source.value["source"]
-                or tuple(primary["selectors"]) != tuple(source.value["selectors"])
+            if primary["source"] != source.value["source"] or tuple(primary["selectors"]) != tuple(
+                source.value["selectors"]
             ):
                 raise ValueError(
                     "artifact navigation differs from its exact original source and analyzed scope"
@@ -339,20 +338,26 @@ def execute_artifact_identity(
     )
     nomination_members = next(role.members for role in profile.roles if role.role == "nominations")
     if len(nominations) != len(nomination_members) or any(
-        member.member is not None or member.multiplicity != 1 for member in nomination_members
+        member.member is not None or member.multiplicity != 1 or member.occurrence_label is None
+        for member in nomination_members
     ):
         raise ValueError("artifact nominations require their exact whole native scoped reports")
-    expected_nominations = {
-        canonical_bytes([member.product, member.member]).decode() for member in nomination_members
+    nominated_reports = {
+        member.occurrence_label: report
+        for member, report in zip(nomination_members, nominations, strict=True)
     }
-    if {
-        selection.report_reference for selection in chosen_nominations
-    } != expected_nominations or len(
-        {
-            (selection.report_reference, selection.contribution_id)
-            for selection in chosen_nominations
-        }
-    ) != len(chosen_nominations):
+    if (
+        len(nominated_reports) != len(nomination_members)
+        or {selection.report_occurrence for selection in chosen_nominations}
+        != set(nominated_reports)
+        or len(
+            {
+                (selection.report_occurrence, selection.contribution_id)
+                for selection in chosen_nominations
+            }
+        )
+        != len(chosen_nominations)
+    ):
         raise ValueError(
             "artifact nomination selections differ from the actual bound native report population"
         )
@@ -400,9 +405,8 @@ def execute_artifact_identity(
         frame.pin.values()["source"]: indexes[reference] for reference, frame in frames.items()
     }
     for selection in chosen_nominations:
-        member, raw = exact.selected("nominations", nominations, selection.report_reference)
         report = profile.prepared.validate_json(
-            "DdoScopedRelationsReport", json_bytes(raw)
+            "DdoScopedRelationsReport", json_bytes(nominated_reports[selection.report_occurrence])
         ).model_dump(mode="json", exclude_unset=True)
         if (
             report["source_pin"]["source"] not in by_source
@@ -418,9 +422,11 @@ def execute_artifact_identity(
             for row in rows
         ):
             raise ValueError("artifact nomination changes its authentic source-bound contributions")
-        reference = DeclaredContributionRef.from_bound(
-            member, project=profile.context.project_id, contribution_id=selection.contribution_id
-        )
+        reference = SemanticReference.member(
+            "nominations",
+            candidate_member_id("contribution", {"contribution_id": selection.contribution_id}),
+            occurrence=selection.report_occurrence,
+        ).occurrence_member_value()
         retained_nominations.append(
             artifact_nomination(
                 inputs,

@@ -42,6 +42,7 @@ class SourceSetEntry:
     member: str | None
     source_reference: str
     reference: bytes
+    occurrence_label: str | None = field(kw_only=True, default=None)
 
     def __post_init__(self) -> None:
         if (
@@ -67,6 +68,10 @@ class SourceSetEntry:
             )
         if self.member is not None and type(self.member) is not str:
             raise TypeError("source-set member must be an original string identifier")
+        if self.occurrence_label is not None and (
+            type(self.occurrence_label) is not str or not self.occurrence_label
+        ):
+            raise ValueError("source-set occurrence label must be a nonempty string")
         raw = json.loads(self.reference)
         if not is_semantic_source_reference(raw):
             raise ValueError("source sets require exact semantic product/member references")
@@ -101,7 +106,7 @@ class SourceSetEntry:
             raise ValueError("source-set original reference must be canonical")
 
     @classmethod
-    def from_semantic_source(cls, reference, *, context):
+    def from_semantic_source(cls, reference, *, context, occurrence_label=None):
         from .data_product_reference import DataProductMemberReference, DataProductReference
 
         if isinstance(reference, DataProductMemberReference):
@@ -126,6 +131,7 @@ class SourceSetEntry:
             identity,
             canonical_bytes(reference.values()),
             subject_definition=context.subject_definition,
+            occurrence_label=occurrence_label,
         )
 
     def record(self) -> dict:
@@ -139,6 +145,7 @@ class SourceSetEntry:
             "member": self.member,
             "source_reference": self.source_reference,
             "reference": json.loads(self.reference),
+            **({"occurrence_label": self.occurrence_label} if self.occurrence_label else {}),
         }
 
 
@@ -157,7 +164,7 @@ class SelectedSourceSetEntry:
             raise ValueError("selected source proof differs from semantic entry/project")
 
     @classmethod
-    def from_selected_header(cls, header, cut, *, anchor_use_id=None):
+    def from_selected_header(cls, header, cut, *, anchor_use_id=None, occurrence_label=None):
         from .data_operation_model import SubjectContext
         from .data_operation_support import ComputationalSupportReference
         from .data_product_reference import DataProductMemberReference, DataProductReference
@@ -178,6 +185,7 @@ class SelectedSourceSetEntry:
                 json_bytes(header["analyzed_scope"]),
                 subject_definition=header["subject_definition"],
             ),
+            occurrence_label=occurrence_label,
         )
         return cls(
             entry,
@@ -219,6 +227,9 @@ class FrozenSourceSet:
         identities = set(by_address)
         if len(identities) != len(self.entries):
             raise ValueError("source sets require unique qualified product/member pins")
+        labels = [entry.occurrence_label for entry in self.entries if entry.occurrence_label]
+        if len(labels) != len(set(labels)):
+            raise ValueError("source sets require unique occurrence labels")
 
         if isinstance(self.acquisition, SelectedSupportAcquisition):
             acquired = {
@@ -310,6 +321,7 @@ def read_source_sets(record: dict) -> tuple[FrozenSourceSet, ...]:
                 entry["source_reference"],
                 canonical_bytes(entry["reference"]),
                 subject_definition=entry["subject_definition"],
+                occurrence_label=entry.get("occurrence_label"),
             )
             for entry in scope["entries"]
         )

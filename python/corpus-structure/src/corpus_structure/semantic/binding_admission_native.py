@@ -148,6 +148,28 @@ def _binding_admission_native_routine(model):
         .render_derived(name="discovery_reference")
     )
     source_sets = func.coalesce(demand("selection")["source_sets"], _json("{}"))
+    source_entries = _elements(
+        source_sets[roledef["support"]["source_set"].astext]["entries"], "bound_source_entry"
+    )
+    entry = source_entries.c.value
+    frozen_label = (
+        select(entry["occurrence_label"])
+        .where(
+            entry["product"].astext == item["product_id"].astext,
+            entry["member"].astext.is_not_distinct_from(item["member_id"].astext),
+        )
+        .scalar_subquery()
+    )
+    reference_targets = _elements(
+        compiled["support_contract"]["reference_targets"], "binding_reference_target"
+    )
+    target = reference_targets.c.value
+    requires_label = (
+        select(1)
+        .select_from(reference_targets)
+        .where(target["input_role"].astext == role, target["occurrence_binding"] == _json("true"))
+        .exists()
+    )
     nodes = select(expression.label("n")).cte("nodes", recursive=True)
     descendants = _elements(
         func.coalesce(nodes.c.n["children"], _json("[]")), "descendant"
@@ -310,6 +332,8 @@ def _binding_admission_native_routine(model):
         ),
         value["position"].astext.is_not_distinct_from(item["position"].astext),
         value["multiplicity"].astext == item["multiplicity"].astext,
+        item["occurrence_label"].is_not_distinct_from(frozen_label),
+        or_(~requires_label, item["occurrence_label"].astext.is_not(None)),
         value["support_evidence"]["producer_output"].is_not_distinct_from(
             func.nullif(item["producer_output"], _json("null"))
         ),
