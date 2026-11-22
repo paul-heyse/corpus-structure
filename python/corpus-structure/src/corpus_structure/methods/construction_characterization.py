@@ -17,6 +17,19 @@ class ConstructionOperation:
         "id": "text.constructions/source-native",
         "rules": [
             {
+                "id": "text.constructions/released-attachment-witnesses",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.constructions/source-native",
+                "checker_callable": "corpus_structure.semantic.characterization.verify_interpreted_attachment_witnesses",
+                "parameters": {
+                    "paths": ["members"],
+                    "schema_reads": ["CharacterizationAttachmentBasis"],
+                },
+            },
+            {
                 "id": "text.constructions/selected-primary-members",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "scope": "product",

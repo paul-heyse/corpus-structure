@@ -625,6 +625,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         numeric_rule = prefix + "/native-numeric-scores"
         address_rule = prefix + "/canonical-occurrence-addresses"
         members_rule = prefix + "/selected-primary-members"
+        attachment_rule = prefix + "/released-attachment-witnesses"
         assert set(proofs) == {
             required,
             coverage_rule,
@@ -634,6 +635,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
             numeric_rule,
             address_rule,
             members_rule,
+            attachment_rule,
         }
         assert all(proof.output_role == "result" for proof in proofs.values())
         assert all(proof.output_position == 0 for proof in proofs.values())
@@ -664,6 +666,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         "text.constructions/literal-source",
         "text.constructions/native-numeric-scores",
         "text.constructions/positioned-source-geometry",
+        "text.constructions/released-attachment-witnesses",
         "text.constructions/selected-source-coverage",
     )
     (reference_target,) = model.operation("text.constructions/source-native").reference_targets
@@ -744,6 +747,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         "verify_interpreted_source_coverage",
         "verify_inventory_native_scores",
         "verify_inventory_occurrence_ids",
+        "verify_interpreted_attachment_witnesses",
     ):
         monkeypatch.setattr(construction_products, checker, repeated)
     selected_product = construction_products.acquired_construction_product(

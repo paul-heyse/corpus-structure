@@ -182,7 +182,7 @@ def _normal_expression(expression: PhysicalExpression, bind) -> dict:
     return value
 
 
-def compile_data_rule(raw, kinds, aliases, frontend, boundaries=()):
+def compile_data_rule(raw, kinds, aliases, frontend, boundaries=(), *, schema_graph=None):
     """Return a canonical rule draft and outgoing edges to observed model facts."""
     rule_id = raw["id"]
     kind = aliases.get(raw["kind"], raw["kind"])
@@ -282,7 +282,7 @@ def compile_data_rule(raw, kinds, aliases, frontend, boundaries=()):
             )
         if scope == "partition-pair":
             raise ValueError("attested rules require a partition or product checker scope")
-        fields(set(), optional={"paths", "input_reads"})
+        fields(set(), optional={"paths", "input_reads", "schema_reads"})
         if "paths" in parameters:
             values = paths(parameters["paths"], required=False, placement=True)
             normalized = {"paths": [name for name, _ in values]}
@@ -309,6 +309,42 @@ def compile_data_rule(raw, kinds, aliases, frontend, boundaries=()):
                     raise ValueError("attestation input observations overlap")
                 input_reads[name] = sorted(names)
             normalized["input_reads"] = input_reads
+        if "schema_reads" in parameters:
+            from .data_operation_identity import kind_fingerprint
+
+            roots = parameters["schema_reads"]
+            if (
+                schema_graph is None
+                or not isinstance(roots, list)
+                or not roots
+                or not all(isinstance(name, str) for name in roots)
+            ):
+                raise ValueError("attestation schema observations require declared class families")
+            schema_reads = {}
+            for name in roots:
+                root = aliases.get(name, name)
+                if root in schema_reads or root not in kinds or kinds[root].category != "class":
+                    raise ValueError(
+                        "attestation schema observation repeats or lacks a class family"
+                    )
+                family = {root}
+                # Effective model inheritance names every transitive ancestor.
+                family.update(
+                    edge.source
+                    for edge in schema_graph.edges
+                    if edge.relation == "inherits" and edge.target == root
+                )
+                if any(
+                    not kinds[owner].complete
+                    for member in family
+                    for owner in schema_graph.closure((member,))
+                ):
+                    raise ValueError("attestation schema family has incomplete meaning")
+                schema_reads[root] = {
+                    member: kind_fingerprint(schema_graph, member).key for member in sorted(family)
+                }
+                observed.update(family)
+            normalized["schema_reads"] = schema_reads
         determinant = _callable_determinant(frontend, callable_, boundaries)
     else:
         if role is not None or callable_ is not None or form == "attested":

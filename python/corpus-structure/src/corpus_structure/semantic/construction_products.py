@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
 from corpus_structure.semantic.characterization import (
+    _inventory_field,
     admitted_characterization_graph,
     validate_inventory_topology,
 )
@@ -33,7 +34,7 @@ from corpus_structure.semantic.source_products import (
 from .characterization import (
     attachment_policies,
     validate_attachment_basis,
-    validate_inventory_role_support,
+    verify_interpreted_attachment_witnesses,
     verify_inventory_native_scores,
     verify_inventory_occurrence_ids,
 )
@@ -944,7 +945,7 @@ def verify_interpreted_positioned_geometry(packets, source):
 
 def verify_interpreted_dependency_members(product, nodes, dependencies, *, include_annotations):
     """Bind external graph premises and alternative choices to actual primary members."""
-    if (product["dependencies"] if "dependencies" in product else []) != [
+    if _inventory_field(product, "dependencies", []) != [
         {"product_id": key} for key, _ in dependencies
     ]:
         raise ValueError("construction product changes selected primary dependencies")
@@ -959,16 +960,16 @@ def verify_interpreted_dependency_members(product, nodes, dependencies, *, inclu
     }
     for address in nodes:
         node = nodes[address]
-        basis = node["basis"] if "basis" in node else {}
+        basis = _inventory_field(node, "basis", {})
         for ref in (
-            *(node["external_premises"] if "external_premises" in node else ()),
-            *(basis["external_premises"] if "external_premises" in basis else ()),
+            *_inventory_field(node, "external_premises", ()),
+            *_inventory_field(basis, "external_premises", ()),
         ):
             if (ref["product_id"], ref["member_id"]) not in external:
                 raise ValueError("construction has dangling primary semantic member premise")
         for ref in (
-            *(node["required_external_choices"] if "required_external_choices" in node else ()),
-            *(basis["required_external_choices"] if "required_external_choices" in basis else ()),
+            *_inventory_field(node, "required_external_choices", ()),
+            *_inventory_field(basis, "required_external_choices", ()),
         ):
             if (ref["product_id"], ref["member_id"]) not in external_choices:
                 raise ValueError("construction requires an actual primary choice alternative")
@@ -1057,20 +1058,17 @@ def _checked_interpreted_product(
     )
     policies = attachment_policies(prepared)
 
-    def validate_basis(basis):
+    for role in inventory["roles"]:
         validate_attachment_basis(
-            basis,
+            role["basis"],
             policies,
             lambda name, body: prepared.validate_json(
                 "DdoSemantic" + name.removeprefix("Characterization"), canonical_bytes(body)
             ),
         )
-        return (
-            policies.get("released_construction", {}).get("rules", {}).get(basis.get("rule_id"), {})
-        )
-
     validate_navigation_evidence({**indexes, "annotations": indexes["annotations"] | navigation})
-    validate_inventory_role_support(inventory["roles"], all_nodes, validate_basis)
+    if bound_member is None:
+        verify_interpreted_attachment_witnesses(inventory["roles"], all_nodes, policies)
     if bound_member is None:
         verify_inventory_native_scores(packets)
         verify_interpreted_body_coverage(checked["coverage"], checked["outcome"], inventory)

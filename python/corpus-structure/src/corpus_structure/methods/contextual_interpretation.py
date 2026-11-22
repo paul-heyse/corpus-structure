@@ -20,6 +20,19 @@ class ContextualEvaluationOperation:
         "id": "text.contextual_evaluation/source-native",
         "rules": [
             {
+                "id": "text.contextual_evaluation/released-attachment-witnesses",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.contextual_evaluation/source-native",
+                "checker_callable": "corpus_structure.semantic.characterization.verify_interpreted_attachment_witnesses",
+                "parameters": {
+                    "paths": ["members"],
+                    "schema_reads": ["CharacterizationAttachmentBasis"],
+                },
+            },
+            {
                 "id": "text.contextual_evaluation/selected-primary-members",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
                 "scope": "product",
@@ -193,6 +206,7 @@ class ContextualEvaluationOperation:
                     "text.constructions/literal-source",
                     "text.constructions/native-numeric-scores",
                     "text.constructions/positioned-source-geometry",
+                    "text.constructions/released-attachment-witnesses",
                 ],
                 "minimum": 1,
                 "maximum": None,

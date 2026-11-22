@@ -10,8 +10,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic.characterization import (
-    validate_inventory_role_support,
     validate_inventory_topology,
+    verify_interpreted_attachment_witnesses,
 )
 from corpus_structure.semantic.characterization_evidence import (
     validate_formal_normalization,
@@ -649,22 +649,16 @@ def test_current_shared_witness_kernel_preserves_source_and_choice_conservation(
         nodes = {key: row for index in indexes.values() for key, row in index.items()}
         nodes["reading"] = value["choices"][0]["members"][0]
 
-        def basis(row):
+        for role in value["roles"]:
             validate_attachment_basis(
-                row,
+                role["basis"],
                 policies,
                 lambda name, item: acquired.prepared.validate_json(
                     "DdoSemantic" + name.removeprefix("Characterization"), canonical_bytes(item)
                 ),
             )
-            return (
-                policies.get("released_construction", {})
-                .get("rules", {})
-                .get(row.get("rule_id"), {})
-            )
-
         validate_inventory_topology(value, indexes, nodes, {"reading": value["choices"][0]})
-        validate_inventory_role_support(value["roles"], nodes, basis)
+        verify_interpreted_attachment_witnesses(value["roles"], nodes, policies)
 
     check(body)
     invalid = deepcopy(body)

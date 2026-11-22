@@ -399,11 +399,20 @@ def validate_inventory_topology(data, indexes, all_nodes, choice_members):
     _acyclic(choice_edges, "choice dependency")
 
 
-def validate_inventory_role_support(roles, all_nodes, validate_basis):
-    """Check the actual selected attachment policy on interpreted role support."""
+def verify_interpreted_attachment_witnesses(roles, all_nodes, policies):
+    """Bind interpreted attachment witnesses to the actual released policy family."""
     for item in roles:
-        policy = validate_basis(item["basis"])
-        if policy and policy.get("support"):
+        basis = item["basis"]
+        kind = basis["kind"]
+        if kind not in policies:
+            raise ValueError("undeclared attachment basis")
+        if kind != "released_construction":
+            continue
+        rules = policies[kind]["rules"]
+        if "rule_id" not in basis or basis["rule_id"] not in rules:
+            raise ValueError("witnessed construction requires a released attachment rule")
+        policy = rules[basis["rule_id"]]
+        if "support" in policy:
             _validate_construction_support(item, all_nodes, policy["support"])
 
 
@@ -581,50 +590,56 @@ def _validate_construction_support(role, nodes, support):
     if support["codec"] != "construction-membership-v1":
         raise ValueError("unsupported released construction support codec")
     basis = role["basis"]
-    construction = nodes.get(basis["construction"], {})
-    binding = nodes.get(basis["binding"], {})
-    production = nodes.get(basis["production"], {})
+    construction = _inventory_field(nodes, basis["construction"], {})
+    binding = _inventory_field(nodes, basis["binding"], {})
+    production = _inventory_field(nodes, basis["production"], {})
     required = {basis["construction"], basis["binding"], basis["production"]}
-    member = nodes.get(role["member"], {})
+    member = _inventory_field(nodes, role["member"], {})
     choice_requirements = set().union(
         *(
-            set(node.get("required_choices", ()))
+            set(_inventory_field(node, "required_choices", ()))
             for node in (construction, binding, production, member, basis)
         )
     )
     external_requirements = {
-        canonical_bytes(ref)
+        canonical_json_bytes(ref)
         for node in (construction, binding, production, member, basis)
-        for ref in node.get("required_external_choices", ())
+        for ref in _inventory_field(node, "required_external_choices", ())
     }
     if not (
-        required <= set(basis.get("premises", ()))
-        and construction.get("kind") == "construction"
-        and construction.get("rule_id") == basis["rule_id"]
+        required <= set(_inventory_field(basis, "premises", ()))
+        and _inventory_field(construction, "kind", None) == "construction"
+        and _inventory_field(construction, "rule_id", None) == basis["rule_id"]
         and role["owner"] == basis["construction"]
-        and binding.get("group") == basis["construction"]
-        and binding.get("member") == role["member"]
-        and binding.get("role") == role["role"]
+        and _inventory_field(binding, "group", None) == basis["construction"]
+        and _inventory_field(binding, "member", None) == role["member"]
+        and _inventory_field(binding, "role", None) == role["role"]
         and role["role"] in support["roles"]
-        and basis["production"] in construction.get("premises", ())
-        and production.get("kind") == "grammar.production"
-        and production.get("native_label") == support["production"]
-        and role.get("occurrences", ()) == binding.get("occurrences", ())
-        and set(binding.get("occurrences", ())) <= set(member.get("occurrences", ()))
-        and choice_requirements <= set(role.get("required_choices", ()))
-        and set(role.get("required_choices", ())) == set(basis.get("choice_refs", ()))
+        and basis["production"] in _inventory_field(construction, "premises", ())
+        and _inventory_field(production, "kind", None) == "grammar.production"
+        and _inventory_field(production, "native_label", None) == support["production"]
+        and _inventory_field(role, "occurrences", ())
+        == _inventory_field(binding, "occurrences", ())
+        and set(_inventory_field(binding, "occurrences", ()))
+        <= set(_inventory_field(member, "occurrences", ()))
+        and choice_requirements <= set(_inventory_field(role, "required_choices", ()))
+        and set(_inventory_field(role, "required_choices", ()))
+        == set(_inventory_field(basis, "choice_refs", ()))
         and external_requirements
-        <= {canonical_bytes(ref) for ref in role.get("required_external_choices", ())}
+        <= {
+            canonical_json_bytes(ref)
+            for ref in _inventory_field(role, "required_external_choices", ())
+        }
     ):
         raise ValueError("attachment endpoints differ from released construction witness")
     reached = set()
-    pending = list(production.get("premises", ()))
+    pending = list(_inventory_field(production, "premises", ()))
     while pending:
         key = pending.pop()
         if key in reached:
             continue
-        reached.add(key)
-        pending.extend(nodes.get(key, {}).get("premises", ()))
+        reached |= {key}
+        pending.extend(_inventory_field(_inventory_field(nodes, key, {}), "premises", ()))
     if role["member"] not in reached:
         raise ValueError("attachment member is outside witnessed production")
 

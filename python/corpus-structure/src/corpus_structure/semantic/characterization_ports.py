@@ -431,6 +431,7 @@ class PreparedCharacterizationPort(ABC):
         if self.family != "view":
             from .characterization import (
                 occurrence_identity_runtime,
+                verify_interpreted_attachment_witnesses,
                 verify_inventory_native_scores,
                 verify_inventory_occurrence_ids,
             )
@@ -448,6 +449,10 @@ class PreparedCharacterizationPort(ABC):
 
             functions = (
                 *functions,
+                (
+                    "corpus_structure.semantic.characterization.verify_interpreted_attachment_witnesses",
+                    verify_interpreted_attachment_witnesses,
+                ),
                 (
                     "corpus_structure.semantic.characterization.verify_inventory_native_scores",
                     verify_inventory_native_scores,
@@ -890,6 +895,7 @@ class PreparedCharacterizationPort(ABC):
                 raise ValueError("interpreted attestation requires its selected source and subject")
             source = inputs.source
             checked = {
+                "corpus_structure.semantic.characterization.verify_interpreted_attachment_witnesses": None,
                 "corpus_structure.semantic.construction_products.verify_interpreted_dependency_members": self._observed_dependency_members(
                     binding, inputs
                 ),

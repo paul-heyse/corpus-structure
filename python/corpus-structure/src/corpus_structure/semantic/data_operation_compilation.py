@@ -9,6 +9,7 @@ from __future__ import annotations
 import ast
 import json
 from dataclasses import asdict, fields, replace
+from functools import cache
 from typing import TYPE_CHECKING, Any, Never, cast, get_args
 
 import yaml
@@ -1119,6 +1120,22 @@ def compile_data_operations(
         observed_body_path,
     )
 
+    @cache
+    def kind_graph():
+        from .data_operation_identity import SemanticGraph
+
+        return SemanticGraph(
+            {
+                "nodes": [
+                    SemanticNode(owner, "kind:" + fact.category, fact.facts).record()
+                    for owner, fact in kinds.items()
+                ],
+                "edges": [
+                    asdict(edge) for edge in edges if edge.source in kinds and edge.target in kinds
+                ],
+            }
+        )
+
     rules: dict[str, EffectiveDataRule] = {}
     boundaries_by_root = {part.root: part.boundaries for part in slices}
     rule_boundaries = {
@@ -1143,6 +1160,7 @@ def compile_data_operations(
                 aliases,
                 frontend,
                 rule_boundaries.get(record.get("checker_operation"), ()),
+                schema_graph=kind_graph() if "schema_reads" in record["parameters"] else None,
             )
         except (TypeError, ValueError) as exc:
             _fail(identifier, str(exc))
@@ -1161,7 +1179,6 @@ def compile_data_operations(
     operations = []
     subject_definitions = {}
     bindings = []
-    projection_kind_graph = None
     for raw, surfaces, origins, implementation_root in authored:
         raw = _mapping(raw, "operation")
         semantic_id = _text(raw.get("id"), "operation/id")
@@ -1343,26 +1360,11 @@ def compile_data_operations(
                 location = semantic_id + "/" + name + "/read_projection"
                 if direction != "input":
                     _fail(location, "read projections belong to input roles")
-                from .data_operation_identity import SemanticGraph
                 from .data_operation_read_projections import compile_read_projection
 
-                if projection_kind_graph is None:
-                    projection_kind_graph = SemanticGraph(
-                        {
-                            "nodes": [
-                                SemanticNode(owner, "kind:" + fact.category, fact.facts).record()
-                                for owner, fact in kinds.items()
-                            ],
-                            "edges": [
-                                asdict(edge)
-                                for edge in edges
-                                if edge.source in kinds and edge.target in kinds
-                            ],
-                        }
-                    )
                 try:
                     read_projection, observations = compile_read_projection(
-                        record["read_projection"], kind, kinds, projection_kind_graph
+                        record["read_projection"], kind, kinds, kind_graph()
                     )
                 except ValueError as error:
                     _fail(location, str(error))
