@@ -29,10 +29,8 @@ from semantic.current_pdf_source_support import (
     admit_current_target,
     current_consumer_request,
 )
-from semantic.current_pdf_source_support import (
-    current_pdf_source_factory as current_pdf_source_factory,
-)
 from semantic.data_operation_kernel_support import CapturedKernelInputs, KernelRecipe
+from semantic.test_sentence_partition_chain_native import _private_source
 
 ROOT = Path(__file__).resolve().parents[4]
 TEXT = "A dispatch token is a short identifier assigned to a submitted support request."
@@ -86,9 +84,11 @@ def _field_names(value) -> set[str]:
 @pytest.mark.provider_evidence
 @pytest.mark.prerequisite("pm2_native_assets")
 def test_actual_definition_demand_retains_provider_pair_and_exact_component_source(
-    current_pdf_source_factory, tmp_path
+    semantic_bare_engine, native_settings, tmp_path, monkeypatch
 ):
-    with current_pdf_source_factory((("text", TEXT, TEXT, None),)) as source:
+    with _private_source(
+        semantic_bare_engine, native_settings, tmp_path, monkeypatch, TEXT
+    ) as source:
         kernel = admit_current_target(
             source,
             _captured_definition_recipe(Path(os.environ["CORPUS_PM2_NATIVE_TEST_ASSETS"])),
