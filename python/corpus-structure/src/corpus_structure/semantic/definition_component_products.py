@@ -457,11 +457,13 @@ def project_named_definition_components(
     check_active()
     selected = FrozenNativeSource.acquire(prepared, source)
     frame = DeclaredNativeFrameSource.acquire(
-        prepared, source, member("source"), project=context.project_id
+        prepared, selected, member("source"), project=context.project_id
     )
     annotation_header = annotations["header"]
     for body in (annotation_header, constructions):
-        if body["source"] != source["source"] or body["selectors"] != source["selectors"]:
+        if body["source"] != source["source"] or tuple(body["selectors"]) != tuple(
+            source["selectors"]
+        ):
             raise ValueError("named definition input differs from its exact original source/scope")
     annotation_member = member("annotations")
     construction_member = member("constructions")

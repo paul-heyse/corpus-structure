@@ -188,7 +188,7 @@ def extract_definition_products(
         member for role in binding.roles if role.role == "source" for member in role.members
     )
     frame = DeclaredNativeFrameSource.acquire(
-        profile.prepared, source.value, selected, project=binding.subject_context.project_id
+        profile.prepared, source, selected, project=binding.subject_context.project_id
     )
     values = dict(profile.selection.native.parameters["gliner_profile"])
     values["artifact_hashes"] = tuple(tuple(row) for row in values["artifact_hashes"])
