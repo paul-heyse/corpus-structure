@@ -65,7 +65,8 @@ def witness_case():
         "unadmitted:other-report",
         other_body,
         member="unrelated",
-        position=1,
+        # Distinct retained member addresses can share a producer output position.
+        position=0,
         selected=source_context,
     )
 
@@ -171,7 +172,6 @@ def test_binding_refuses_custody_substitution_without_promoting_absence(change, 
         hypotheses[0]["cue_refs"] = [other]
     elif change == "missing-carrier":
         roles.pop(4)
-        roles[4] = replace(roles[4], position=0)
     elif change == "foreign-target":
         hypotheses[0]["target_id"] = "foreign"
     elif change == "duplicate-assertion":

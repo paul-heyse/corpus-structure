@@ -119,7 +119,7 @@ class ContextualWitnessOperation:
                 "direction": "input",
                 "minimum": 1,
                 "maximum": None,
-                "collection": "sequence",
+                "collection": "set",
                 "presence": "required",
                 "support": {
                     "provenance": "exact",

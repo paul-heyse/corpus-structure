@@ -57,8 +57,7 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
     roles, context = cpu_basis_values(
         input_basis,
         scalar_roles=("source", "query", "inventory", "hypotheses"),
-        set_roles=(),
-        sequence_roles=("cues",),
+        set_roles=("cues",),
     )
     if not roles["cues"]:
         raise ValueError(
@@ -102,9 +101,9 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
         )
         if len(products) != 1 or any(anchor["precision"] != "exact" for anchor in body["anchors"]):
             raise ValueError("witness cue lacks its actual exact source anchors")
-        cues[key] = (ref, body)
+        cues[key] = body
     carrier_key = canonical_bytes(carrier.model_dump(mode="json"))
-    if carrier_key not in cues or cues[carrier_key][1]["occurrence_id"] != query["occurrence_id"]:
+    if carrier_key not in cues or cues[carrier_key]["occurrence_id"] != query["occurrence_id"]:
         raise ValueError(
             "witness binding lacks the exact query carrier, including same-span role identity"
         )
