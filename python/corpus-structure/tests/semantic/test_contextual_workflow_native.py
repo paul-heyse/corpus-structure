@@ -115,6 +115,7 @@ def component_inventory(kernel, query, population):
 def current_workflow_case(native_server, native_settings, tmp_path_factory):
     from corpus_structure.semantic.contextual_selection import freeze_contextual_target_demand
     from corpus_structure.semantic.data_operation_demands import RootSubject
+    from corpus_structure.semantic.data_operation_json import json_loads
     from corpus_structure.semantic.demand_results import read_demand_result
     from corpus_structure.semantic.selected_support import SelectedReadReference
 
@@ -255,7 +256,7 @@ def current_workflow_case(native_server, native_settings, tmp_path_factory):
             )
             for relation in relations
         ]
-        relationship_demand, _ = run_intent(
+        relationship_demand, relationship_result = run_intent(
             kernel,
             witnessed_retrieval_intent(
                 kernel,
@@ -269,9 +270,29 @@ def current_workflow_case(native_server, native_settings, tmp_path_factory):
                 constraints=constraints,
             ),
         )
-        (relationship,) = retained_products(
+        relationships = retained_products(
             kernel, relationship_demand, "DdoContextualWitnessedRetrievalProduct"
         )
+        if len(relationships) != 1:
+            snapshot = json_loads(relationship_result.snapshot)
+            operations = {
+                row["obligation_id"]: row["operation_id"] for row in snapshot["obligations"]
+            }
+            pytest.fail(
+                "expected one witnessed retrieval product; selected outcomes "
+                + repr(
+                    [
+                        (
+                            operations[use["obligation_id"]],
+                            use["fate"],
+                            use["selection"].get("reasons", ()),
+                        )
+                        for use in snapshot["uses"]
+                        if use["fate"] != "fulfilled"
+                    ][:10]
+                )
+            )
+        (relationship,) = relationships
         yield WorkflowCase(
             kernel,
             original,

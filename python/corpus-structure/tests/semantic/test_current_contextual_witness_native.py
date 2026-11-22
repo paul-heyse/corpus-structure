@@ -44,7 +44,7 @@ def hypotheses(case, targets, *, relation="denotes"):
     [((), "insufficient_evidence"), (("one",), "selected"), (("one", "two"), "ambiguous")],
 )
 def test_actual_private_source_binding_retains_authorship_and_competing_alternatives(
-    current_contextual_case, targets, outcome
+    current_contextual_case, targets, outcome, tmp_path
 ):
     case = current_contextual_case
     submitted = hypotheses(case, targets)
@@ -78,6 +78,34 @@ def test_actual_private_source_binding_retains_authorship_and_competing_alternat
         assert edge["witnesses"][0]["evidence_ids"] == [
             case.query.body["carrier"]["contribution_id"]
         ]
+        from corpus_structure.serve.demand_export import (
+            export_demand_result,
+            verified_demand_export,
+        )
+        from semantic.current_pdf_source_support import PROJECT
+
+        destination = tmp_path / "selected-witnessed-retrieval"
+        with case.kernel.purpose("read").begin() as connection:
+            receipt = export_demand_result(
+                connection,
+                demand,
+                project_id=PROJECT,
+                destination=destination,
+                format="jsonl",
+                scope={"product_ids": [product.row["product_id"]]},
+            )
+        digest = receipt.manifest_digest
+        assert isinstance(digest, str)
+        with verified_demand_export(destination, manifest_digest=digest) as (
+            _manifest,
+            _prepared,
+            _models,
+            index,
+        ):
+            rows = index.mapping("kb.data_product", ("id",))
+            for retained, field in ((binding, "query_input"), (product, "witness_input")):
+                body = decode_semantic_value(rows[retained.row["product_id"]]["canonical_body"])
+                assert body[field] == retained.body[field]
     elif outcome == "ambiguous":
         assert decision["selected_edges"] == []
         assert {
