@@ -17,6 +17,16 @@ class ConstructionOperation:
         "id": "text.constructions/source-native",
         "rules": [
             {
+                "id": "text.constructions/canonical-occurrence-addresses",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.constructions/source-native",
+                "checker_callable": "corpus_structure.semantic.characterization.verify_inventory_occurrence_ids",
+                "parameters": {"paths": ["source", "members"]},
+            },
+            {
                 "id": "text.constructions/native-numeric-scores",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "scope": "product",
@@ -235,6 +245,21 @@ class ConstructionOperation:
             ],
         },
         "opaque": [
+            {
+                "reference": "json",
+                "contract": "characterization/occurrence-identity-runtime",
+                "role": "native-namespace",
+            },
+            {
+                "reference": "json.dumps",
+                "contract": "characterization/occurrence-identity-runtime",
+                "role": "native-codec",
+            },
+            {
+                "reference": "hashlib.sha256",
+                "contract": "characterization/occurrence-identity-runtime",
+                "role": "native-codec",
+            },
             {
                 "reference": "builtins.float",
                 "contract": "characterization/native-number-runtime",

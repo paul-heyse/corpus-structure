@@ -221,7 +221,7 @@ _RESULT_HELPERS = {
     "canonical_sentences": ("_canonical_local_rows", "CanonicalProduct.from_projection"),
     "characterization_manifests": ("append_manifest", "compact_manifest"),
     "data_operation_identity": ("canonical_identity", "CanonicalIdentity.__post_init__"),
-    "data_operation_json": ("json_bytes",),
+    "data_operation_json": ("json_bytes", "canonical_json_bytes"),
     "data_operation_partitions": ("partition_packet", "partition_header"),
     "data_operation_projection_values": ("_whole_input", "materialize_whole_input_projection"),
     "data_operation_value_codec": (

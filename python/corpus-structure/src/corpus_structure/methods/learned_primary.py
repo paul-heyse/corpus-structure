@@ -3242,6 +3242,7 @@ class ContextualNativePrimaryOperation:
                 "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
                 "direction": "input",
                 "required_rules": [
+                    "text.formal_evidence/canonical-occurrence-addresses",
                     "text.formal_evidence/examined-scope",
                     "text.formal_evidence/family-roster",
                     "text.formal_evidence/lexical-inventory-links",
@@ -3267,6 +3268,7 @@ class ContextualNativePrimaryOperation:
                 "parameter": "constructions",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "direction": "input",
+                "required_rules": ["text.constructions/canonical-occurrence-addresses"],
                 "minimum": 1,
                 "maximum": 1,
                 "collection": "scalar",

@@ -19,6 +19,16 @@ class FormalEvidenceOperation:
         "id": "text.formal_evidence/source-native",
         "rules": [
             {
+                "id": "text.formal_evidence/canonical-occurrence-addresses",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.formal_evidence/source-native",
+                "checker_callable": "corpus_structure.semantic.characterization.verify_inventory_occurrence_ids",
+                "parameters": {"paths": ["source", "members"]},
+            },
+            {
                 "id": "text.formal_evidence/native-numeric-scores",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
                 "scope": "product",
@@ -224,6 +234,21 @@ class FormalEvidenceOperation:
         "parameters": {},
         "binding": {"operator": "scan", "roles": ["source"]},
         "opaque": [
+            {
+                "reference": "json",
+                "contract": "characterization/occurrence-identity-runtime",
+                "role": "native-namespace",
+            },
+            {
+                "reference": "json.dumps",
+                "contract": "characterization/occurrence-identity-runtime",
+                "role": "native-codec",
+            },
+            {
+                "reference": "hashlib.sha256",
+                "contract": "characterization/occurrence-identity-runtime",
+                "role": "native-codec",
+            },
             {
                 "reference": "builtins.float",
                 "contract": "characterization/native-number-runtime",

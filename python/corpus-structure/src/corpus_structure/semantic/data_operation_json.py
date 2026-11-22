@@ -66,7 +66,7 @@ def finite_json_loads(content: str | bytes) -> Any:
 def finite_json_bytes(value: Any) -> bytes:
     """Encode owned finite JSON; identity and retained original bytes have separate owners."""
     try:
-        return _encode_finite_json(_own_finite_json(value))
+        return canonical_json_bytes(_own_finite_json(value))
     except (TypeError, ValueError, RecursionError) as error:
         raise JsonBoundaryError("unsupported finite JSON value") from error
 
@@ -81,12 +81,18 @@ def finite_result_record(value: dict[str, Any]) -> dict[str, FiniteJsonValue]:
 
 def finite_result_bytes(value: dict[str, Any]) -> bytes:
     """Encode the projected result for text delivery."""
-    return _encode_finite_json(finite_result_record(value))
+    return canonical_json_bytes(finite_result_record(value))
 
 
-def _encode_finite_json(value: FiniteJsonValue) -> bytes:
+def canonical_json_bytes(value, *, default=None) -> bytes:
+    """Encode canonical UTF-8 JSON under the selected stdlib spelling."""
     return json.dumps(
-        value, allow_nan=False, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        value,
+        default=default,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
     ).encode("utf-8")
 
 

@@ -20,6 +20,16 @@ class ContextualEvaluationOperation:
         "id": "text.contextual_evaluation/source-native",
         "rules": [
             {
+                "id": "text.contextual_evaluation/canonical-occurrence-addresses",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.contextual_evaluation/source-native",
+                "checker_callable": "corpus_structure.semantic.characterization.verify_inventory_occurrence_ids",
+                "parameters": {"paths": ["source", "members"]},
+            },
+            {
                 "id": "text.contextual_evaluation/native-numeric-scores",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoContextualMeaningProduct",
                 "scope": "product",
@@ -133,6 +143,7 @@ class ContextualEvaluationOperation:
                 "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
                 "direction": "input",
                 "required_rules": [
+                    "text.formal_evidence/canonical-occurrence-addresses",
                     "text.formal_evidence/examined-scope",
                     "text.formal_evidence/lexical-inventory-links",
                     "text.formal_evidence/literal-source-geometry",
@@ -159,6 +170,7 @@ class ContextualEvaluationOperation:
                 "direction": "input",
                 "required_rules": [
                     "text.constructions/body-coverage",
+                    "text.constructions/canonical-occurrence-addresses",
                     "text.constructions/inventory-topology",
                     "text.constructions/selected-source-coverage",
                     "text.constructions/literal-source",
@@ -240,6 +252,21 @@ class ContextualEvaluationOperation:
             ],
         },
         "opaque": [
+            {
+                "reference": "json",
+                "contract": "characterization/occurrence-identity-runtime",
+                "role": "native-namespace",
+            },
+            {
+                "reference": "json.dumps",
+                "contract": "characterization/occurrence-identity-runtime",
+                "role": "native-codec",
+            },
+            {
+                "reference": "hashlib.sha256",
+                "contract": "characterization/occurrence-identity-runtime",
+                "role": "native-codec",
+            },
             {
                 "reference": "builtins.float",
                 "contract": "characterization/native-number-runtime",

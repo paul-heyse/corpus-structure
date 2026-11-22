@@ -130,6 +130,7 @@ def _geometry_runtime() -> SourceArtifact:
 
 
 def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
+    from .characterization import occurrence_identity_runtime_artifact
     from .observations import native_number_runtime_artifact
 
     path = Path(__file__)
@@ -141,6 +142,7 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
         sources += (
             ("semantic.characterization", path.with_name("characterization.py")),
             ("semantic.construction_products", path.with_name("construction_products.py")),
+            ("semantic.data_operation_json", path.with_name("data_operation_json.py")),
             ("semantic.source_products", path.with_name("source_products.py")),
             ("semantic.native_source_view", path.with_name("native_source_view.py")),
             ("semantic.observations", path.with_name("observations.py")),
@@ -153,7 +155,15 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
         boundary_contracts=(
             _semantic_assets(profile),
             _execution_custody(),
-            *(() if profile == "view" else (_geometry_runtime(), native_number_runtime_artifact())),
+            *(
+                ()
+                if profile == "view"
+                else (
+                    _geometry_runtime(),
+                    native_number_runtime_artifact(),
+                    occurrence_identity_runtime_artifact(),
+                )
+            ),
         ),
     )
 
@@ -364,6 +374,7 @@ class PreparedCharacterizationPort(ABC):
     authorize: Callable
     custody: tuple[SourceArtifact, ...]
     sources: PythonSourceCollection
+    _occurrence_runtime: tuple[Any, ...] = field(init=False, repr=False, compare=False)
     _verification: Any = field(init=False, repr=False, compare=False)
     _descriptor: Any = field(init=False, repr=False, compare=False)
     _signature: inspect.Signature = field(init=False, repr=False, compare=False)
@@ -416,8 +427,16 @@ class PreparedCharacterizationPort(ABC):
             ("corpus_structure.semantic.characterization_ports." + bridge_name, self.bridge),
             (entry, self.kernel),
         )
+        occurrence_runtime = ()
         if self.family != "view":
-            from .characterization import verify_inventory_native_scores
+            from .characterization import (
+                occurrence_identity_runtime,
+                verify_inventory_native_scores,
+                verify_inventory_occurrence_ids,
+            )
+            from .data_operation_json import canonical_json_bytes
+
+            occurrence_runtime = occurrence_identity_runtime()
             from .construction_products import (
                 verify_interpreted_body_coverage,
                 verify_interpreted_inventory_topology,
@@ -431,6 +450,14 @@ class PreparedCharacterizationPort(ABC):
                 (
                     "corpus_structure.semantic.characterization.verify_inventory_native_scores",
                     verify_inventory_native_scores,
+                ),
+                (
+                    "corpus_structure.semantic.characterization.verify_inventory_occurrence_ids",
+                    verify_inventory_occurrence_ids,
+                ),
+                (
+                    "corpus_structure.semantic.data_operation_json.canonical_json_bytes",
+                    canonical_json_bytes,
                 ),
                 (
                     "corpus_structure.semantic.construction_products.verify_interpreted_literal_source",
@@ -497,6 +524,7 @@ class PreparedCharacterizationPort(ABC):
             {file.path: file for file in (*verification.files, *files)}.values()
         )
         object.__setattr__(self, "_verification", verification)
+        object.__setattr__(self, "_occurrence_runtime", occurrence_runtime)
         object.__setattr__(self, "_signature", inspect.signature(self.kernel, eval_str=True))
         object.__setattr__(self, "_asset_digest", semantic.digest)
         object.__setattr__(
@@ -509,6 +537,8 @@ class PreparedCharacterizationPort(ABC):
 
     def _verify(self):
         self._verification.check()
+        for runtime in self._occurrence_runtime:
+            runtime.check()
         self.authorize(self.identity)
 
     def _roles(self, values, binding):
@@ -651,9 +681,7 @@ class PreparedCharacterizationPort(ABC):
                 self.prepared,
                 self.model,
                 kind,
-                canonical_bytes(
-                    value["header"] if partitioned else _body(value)
-                ),
+                canonical_bytes(value["header"] if partitioned else _body(value)),
                 partitions=tuple(map(canonical_bytes, value["partitions"]))
                 if partitioned
                 else None,
@@ -689,8 +717,7 @@ class PreparedCharacterizationPort(ABC):
                     "heterogeneous view inputs require exact native member kind lineage"
                 )
             sources = tuple(
-                FrozenNativeSource.acquire(self.prepared, value)
-                for value in roles["sources"]
+                FrozenNativeSource.acquire(self.prepared, value) for value in roles["sources"]
             )
             if not sources and not getattr(self, "allow_empty", False):
                 raise PortRefusal("view requires its explicitly bound original source population")
@@ -833,6 +860,7 @@ class PreparedCharacterizationPort(ABC):
                 "corpus_structure.semantic.construction_products.verify_interpreted_body_coverage": None,
                 "corpus_structure.semantic.construction_products.verify_interpreted_inventory_topology": None,
                 "corpus_structure.semantic.characterization.verify_inventory_native_scores": None,
+                "corpus_structure.semantic.characterization.verify_inventory_occurrence_ids": None,
                 "corpus_structure.semantic.construction_products.verify_interpreted_positioned_geometry": {
                     "source": (RuleObservedInput(source.value),)
                 },

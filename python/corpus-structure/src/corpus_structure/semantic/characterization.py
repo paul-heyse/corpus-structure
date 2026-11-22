@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
+from corpus_structure.semantic.data_operation_json import canonical_json_bytes
+
 from .identity import canonical_bytes
 from .types import (
     PreparationProfile,
@@ -196,11 +198,45 @@ def attachment_policies(prepared: PreparedRelease) -> dict[str, Any]:
     return json.loads(artifact.content)
 
 
-def occurrence_id(source: Mapping[str, Any], extents: Sequence[Mapping[str, Any]]) -> str:
-    """Stable across analyses and database placement, different at repeated native addresses."""
-    return sha256(
-        canonical_bytes({"base_document": dict(source), "extents": list(extents)})
-    ).hexdigest()
+def occurrence_id(source, extents) -> str:
+    """Address the exact nominal coordinate and ordered flat native extents."""
+    body = {"base_document": dict(source), "extents": [dict(extent) for extent in extents]}
+    return sha256(canonical_json_bytes(body)).hexdigest()
+
+
+def verify_inventory_occurrence_ids(product):
+    """Establish original-coordinate addresses for the actual nominal member rows."""
+    for packet in product["members"]:
+        record = packet["body"]
+        if record["record_type"] == "occurrence" and record["local_id"] != occurrence_id(
+            product["source"], record["extents"]
+        ):
+            raise ValueError("occurrence changes original source identity")
+
+
+def occurrence_identity_runtime():
+    from .data_operation_json import json as encoder_json
+    from .external_runtime import acquire_codec_runtime
+
+    runtimes = {
+        runtime.reference: runtime
+        for runtime in acquire_codec_runtime(standard_json_io=True)
+        if runtime.reference in {"json", "hashlib"}
+    }
+    if (
+        dict(runtimes["hashlib"].symbols)["hashlib.sha256"] is not sha256
+        or dict(runtimes["json"].symbols)["json.dumps"] is not encoder_json.dumps
+        or dict(runtimes["json"].modules)["json"] is not encoder_json
+    ):
+        raise ValueError("original occurrence address differs from its acquired codecs")
+    return runtimes["json"], runtimes["hashlib"]
+
+
+def occurrence_identity_runtime_artifact() -> SourceArtifact:
+    return SourceArtifact(
+        "characterization/occurrence-identity-runtime",
+        b"".join(bytes.fromhex(runtime.digest) for runtime in occurrence_identity_runtime()),
+    )
 
 
 def _acyclic(edges, label: str):

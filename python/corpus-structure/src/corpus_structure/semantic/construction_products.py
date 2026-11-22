@@ -32,10 +32,10 @@ from corpus_structure.semantic.source_products import (
 
 from .characterization import (
     attachment_policies,
-    occurrence_id,
     validate_attachment_basis,
     validate_inventory_role_support,
     verify_inventory_native_scores,
+    verify_inventory_occurrence_ids,
 )
 from .characterization_evidence import validate_navigation_evidence
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
@@ -842,7 +842,9 @@ def interpreted_product_value(source, facts, member_contracts, dependencies):
 
 def verify_interpreted_literal_source(product, source):
     """Check interpreted occurrences against the selected source and examined scope."""
-    if product["source"] != source["source"] or tuple(product["selectors"]) != tuple(source["selectors"]):
+    if product["source"] != source["source"] or tuple(product["selectors"]) != tuple(
+        source["selectors"]
+    ):
         raise ValueError("construction product changes its exact original source/scope")
     text = source["text"]
     for packet in product["members"]:
@@ -1012,10 +1014,8 @@ def _checked_interpreted_product(
             or packet["context"] != context
         ):
             raise ValueError("construction packet changes admitted nominal meaning or identity")
-    for occurrence in inventory["occurrences"]:
-        if occurrence["local_id"] != occurrence_id(selected["source"], occurrence["extents"]):
-            raise ValueError("construction occurrence changes original source identity")
     if bound_member is None:
+        verify_inventory_occurrence_ids(checked)
         verify_interpreted_positioned_geometry(packets, selected)
     dependencies = {product_id: json.loads(content) for product_id, content in selected_products}
     external = {

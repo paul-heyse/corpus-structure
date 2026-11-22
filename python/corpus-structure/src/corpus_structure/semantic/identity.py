@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Mapping
 from decimal import Decimal
 from hashlib import sha256
 from typing import Any
 
+from .data_operation_json import canonical_json_bytes
 from .value_codec import decimal_text, value_meaning
 
 
@@ -21,14 +21,7 @@ def canonical_bytes(value: Any) -> bytes:
             return dict(obj)
         raise TypeError(f"unsupported semantic value: {type(obj).__name__}")
 
-    return json.dumps(
-        value,
-        default=exact,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    ).encode()
+    return canonical_json_bytes(value, default=exact)
 
 
 def claim_source_item(index: int) -> str:

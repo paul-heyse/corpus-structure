@@ -126,7 +126,15 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
         "text.contextual_native/source-native",
     ):
         (formal,) = (role for role in model.operation(operation_id).roles if role.name == "formal")
-        assert set(formal.required_rules) == formal_rules
+        required = (
+            {"text.formal_evidence/canonical-occurrence-addresses"}
+            if operation_id == "text.contextual_native/source-native"
+            else set()
+        )
+        assert set(formal.required_rules) == formal_rules | required
+    contextual_native = model.operation("text.contextual_native/source-native")
+    (constructions,) = (role for role in contextual_native.roles if role.name == "constructions")
+    assert constructions.required_rules == ("text.constructions/canonical-occurrence-addresses",)
     frozen = json.loads(
         next(
             artifact.content

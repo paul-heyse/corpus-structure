@@ -675,7 +675,7 @@ def test_family_coverage_has_one_row_and_accounts_for_every_analytical_family(
 ):
     body = literal_inventory(graph_source)
     if corruption == "duplicate":
-        body["coverage"].append(copy.deepcopy(body["coverage"][0]))
+        body["coverage"].append(dict(body["coverage"][0]))
         match = "repeats family coverage"
     else:
         body["coverage"][0]["family"] = "another_family"

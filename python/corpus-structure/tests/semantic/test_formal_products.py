@@ -930,6 +930,7 @@ def test_prepared_family_completion_preserves_declared_success_outcome(profile):
         "text.formal_evidence/member-local-addresses",
         "text.formal_evidence/inventory-topology",
         "text.formal_evidence/native-numeric-scores",
+        "text.formal_evidence/canonical-occurrence-addresses",
     }
 
 
@@ -973,6 +974,32 @@ def test_native_inventory_scores_require_the_exact_numeric_source_codec():
         verify_inventory_native_scores((packet({"kind": "boolean", "boolean": False}),))
     with pytest.raises(ValueError, match="noncanonical hexadecimal float"):
         verify_inventory_native_scores((packet({"kind": "float", "hexadecimal": "0x1p+0"}),))
+
+
+def test_occurrence_address_conserves_canonical_bytes_and_order():
+    from hashlib import sha256
+
+    from corpus_structure.semantic.characterization import (
+        occurrence_id,
+        verify_inventory_occurrence_ids,
+    )
+    from corpus_structure.semantic.native_source_view import freeze_native
+
+    source = freeze_native({"document": "é"})
+    first = {"text": "\x1f", "start": 0, "end": 1, "synthetic": False}
+    second = {"text": "x", "start": 2, "end": 3, "synthetic": False}
+    extents = freeze_native((first, second))
+    expected = sha256(
+        b'{"base_document":{"document":"\xc3\xa9"},"extents":['
+        b'{"end":1,"start":0,"synthetic":false,"text":"\\u001f"},'
+        b'{"end":3,"start":2,"synthetic":false,"text":"x"}]}'
+    ).hexdigest()
+    assert occurrence_id(source, extents) == expected
+    member = {"record_type": "occurrence", "local_id": expected, "extents": extents}
+    verify_inventory_occurrence_ids({"source": source, "members": [{"body": member}]})
+    member["extents"] = tuple(reversed(extents))
+    with pytest.raises(ValueError, match="changes original source identity"):
+        verify_inventory_occurrence_ids({"source": source, "members": [{"body": member}]})
 
 
 def test_formal_family_roster_requires_all_families_in_order():
@@ -1228,7 +1255,9 @@ def test_formal_port_retains_one_correspondence_and_two_actual_cpu_checks(profil
     monkeypatch.setattr(port._verification, "check", checked)
     role = next(role for role in port.operation.roles if role.direction == "input")
     contract = next(
-        item.key for item in profile.model.identities if (item.owner, item.domain) == (role.kind, "kind")
+        item.key
+        for item in profile.model.identities
+        if (item.owner, item.domain) == (role.kind, "kind")
     )
     values = (PythonRoleValue(role.name, contract, selected(profile, "Quantity: 2 kg")),)
     cpu = CPUExecutionScope(profile.prepared, CharacterizationExecutionPolicy(workers=1))
@@ -1247,13 +1276,18 @@ def test_formal_port_retains_one_correspondence_and_two_actual_cpu_checks(profil
         )
         assert len(checks) == 2 and len(admissions) == 1
         assert len(attempts) >= 2
-        assert json.loads(completion.outputs[0].content)["source"]["document"] == "document:original-content"
+        assert (
+            json.loads(completion.outputs[0].content)["source"]["document"]
+            == "document:original-content"
+        )
         assert json.loads(completion.cpu_execution_evidence)["request_digest"]
     finally:
         cpu.close()
 
 
-def test_formal_port_checks_the_acquired_grammar_asset_after_admission(profile, tmp_path, monkeypatch):
+def test_formal_port_checks_the_acquired_grammar_asset_after_admission(
+    profile, tmp_path, monkeypatch
+):
     from corpus_structure.methods.math import grammar
     from corpus_structure.semantic.data_operation_ports import PortRefusal
 

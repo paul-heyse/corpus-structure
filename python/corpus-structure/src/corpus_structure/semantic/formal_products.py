@@ -28,12 +28,15 @@ from corpus_structure.semantic.source_products import (
 )
 
 from .characterization import (
-    occurrence_id,
+    occurrence_identity_runtime,
+    occurrence_identity_runtime_artifact,
     verify_inventory_literal_extents,
     verify_inventory_native_scores,
+    verify_inventory_occurrence_ids,
 )
 from .characterization_evidence import validate_formal_normalization, validate_formal_positions
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
+from .data_operation_json import canonical_json_bytes
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, SubjectContext
 from .data_operation_outcomes import successful_return_outcome
 from .formal_evidence import (
@@ -406,9 +409,7 @@ def validate_formal_product(
     verify_formal_literal_geometry(
         selected["text"], selected["pieces"], packets, checked["lexicon"]
     )
-    for occurrence in data["occurrences"]:
-        if occurrence["local_id"] != occurrence_id(checked["source"], occurrence["extents"]):
-            raise ValueError("formal occurrence differs from original semantic source address")
+    verify_inventory_occurrence_ids(checked)
     verify_formal_occurrence_origin(data["occurrences"], selected)
     verify_formal_lexical_links(indexes["occurrences"], checked["lexicon"])
     validate_formal_positions(indexes)
@@ -790,6 +791,7 @@ def formal_operation_sources():
                 for module in (
                     "characterization",
                     "characterization_evidence",
+                    "data_operation_json",
                     "formal_evidence",
                     "observations",
                     "source_products",
@@ -801,6 +803,7 @@ def formal_operation_sources():
             formal_execution_custody(),
             _formal_decimal_runtime(),
             native_number_runtime_artifact(),
+            occurrence_identity_runtime_artifact(),
         ),
     )
 
@@ -817,6 +820,7 @@ class PreparedFormalEvidencePort:
     authorize: Callable[[PreparedCapabilityIdentity], None]
     custody: tuple[SourceArtifact, ...]
     sources: PythonSourceCollection | None = None
+    _occurrence_runtime: tuple[Any, ...] = field(init=False, repr=False, compare=False)
     _verification: Any = field(init=False, repr=False, compare=False)
     _basis: tuple = field(init=False, repr=False, compare=False)
     _asset_paths: tuple = field(init=False, repr=False, compare=False)
@@ -852,73 +856,89 @@ class PreparedFormalEvidencePort:
         required = formal_operation_sources()
         sources = required if self.sources is None else self.sources
         functions = (
-                (
-                    "corpus_structure.methods.formal_evidence.FormalEvidenceOperation.run",
-                    endpoint.FormalEvidenceOperation.run,
-                ),
-                (
-                    "corpus_structure.semantic.formal_products.execute_formal_profile",
-                    execute_formal_profile,
-                ),
-                (
-                    "corpus_structure.semantic.formal_products.PreparedFormalEvidence.run",
-                    self.profile.run.__func__,
-                ),
-                (
-                    "corpus_structure.semantic.formal_products.verify_formal_occurrence_origin",
-                    verify_formal_occurrence_origin,
-                ),
-                (
-                    "corpus_structure.semantic.characterization.verify_inventory_native_scores",
-                    verify_inventory_native_scores,
-                ),
-                (
-                    "corpus_structure.semantic.formal_products.verify_formal_inventory_topology",
-                    verify_formal_inventory_topology,
-                ),
-                (
-                    "corpus_structure.semantic.formal_products.verify_formal_family_roster",
-                    verify_formal_family_roster,
-                ),
-                (
-                    "corpus_structure.semantic.formal_products.verify_formal_member_local_addresses",
-                    verify_formal_member_local_addresses,
-                ),
-                (
-                    "corpus_structure.semantic.source_products.native_selector_covers_extent",
-                    native_selector_covers_extent,
-                ),
-                (
-                    "corpus_structure.semantic.source_products.native_selector_facts",
-                    native_selector_facts,
-                ),
-                (
-                    "corpus_structure.semantic.formal_evidence.extract_formal_facts",
-                    extract_formal_facts,
-                ),
-                (
-                    "corpus_structure.semantic.characterization_evidence.validate_formal_normalization",
-                    validate_formal_normalization,
-                ),
-                (
-                    "corpus_structure.semantic.formal_products.PreparedFormalEvidencePort.__post_init__",
-                    type(self).__post_init__,
-                ),
-                (
-                    "corpus_structure.semantic.formal_products.PreparedFormalEvidencePort.plan_python",
-                    type(self).plan_python,
-                ),
-                (
-                    "corpus_structure.semantic.formal_products.PreparedFormalEvidencePort.invoke_python",
-                    type(self).invoke_python,
-                ),
-            )
-        verify_prepared_product(
-            self.identity, self.profile.model, self.operation, sources, self.custody,
-            assets=required.boundary_contracts, functions=functions,
-            authorize=self.authorize, required_sources=required,
+            (
+                "corpus_structure.methods.formal_evidence.FormalEvidenceOperation.run",
+                endpoint.FormalEvidenceOperation.run,
+            ),
+            (
+                "corpus_structure.semantic.formal_products.execute_formal_profile",
+                execute_formal_profile,
+            ),
+            (
+                "corpus_structure.semantic.formal_products.PreparedFormalEvidence.run",
+                self.profile.run.__func__,
+            ),
+            (
+                "corpus_structure.semantic.formal_products.verify_formal_occurrence_origin",
+                verify_formal_occurrence_origin,
+            ),
+            (
+                "corpus_structure.semantic.characterization.verify_inventory_native_scores",
+                verify_inventory_native_scores,
+            ),
+            (
+                "corpus_structure.semantic.characterization.verify_inventory_occurrence_ids",
+                verify_inventory_occurrence_ids,
+            ),
+            (
+                "corpus_structure.semantic.data_operation_json.canonical_json_bytes",
+                canonical_json_bytes,
+            ),
+            (
+                "corpus_structure.semantic.formal_products.verify_formal_inventory_topology",
+                verify_formal_inventory_topology,
+            ),
+            (
+                "corpus_structure.semantic.formal_products.verify_formal_family_roster",
+                verify_formal_family_roster,
+            ),
+            (
+                "corpus_structure.semantic.formal_products.verify_formal_member_local_addresses",
+                verify_formal_member_local_addresses,
+            ),
+            (
+                "corpus_structure.semantic.source_products.native_selector_covers_extent",
+                native_selector_covers_extent,
+            ),
+            (
+                "corpus_structure.semantic.source_products.native_selector_facts",
+                native_selector_facts,
+            ),
+            (
+                "corpus_structure.semantic.formal_evidence.extract_formal_facts",
+                extract_formal_facts,
+            ),
+            (
+                "corpus_structure.semantic.characterization_evidence.validate_formal_normalization",
+                validate_formal_normalization,
+            ),
+            (
+                "corpus_structure.semantic.formal_products.PreparedFormalEvidencePort.__post_init__",
+                type(self).__post_init__,
+            ),
+            (
+                "corpus_structure.semantic.formal_products.PreparedFormalEvidencePort.plan_python",
+                type(self).plan_python,
+            ),
+            (
+                "corpus_structure.semantic.formal_products.PreparedFormalEvidencePort.invoke_python",
+                type(self).invoke_python,
+            ),
         )
-        member_contracts = tuple(formal_member_contracts(self.profile.prepared, self.profile.model).items())
+        verify_prepared_product(
+            self.identity,
+            self.profile.model,
+            self.operation,
+            sources,
+            self.custody,
+            assets=required.boundary_contracts,
+            functions=functions,
+            authorize=self.authorize,
+            required_sources=required,
+        )
+        member_contracts = tuple(
+            formal_member_contracts(self.profile.prepared, self.profile.model).items()
+        )
         options_json = FormalEvidenceOptions().model_dump_json()
         verification = authenticated_prepared_product(sources, functions, required_sources=required)
         captured = {asset.name: asset for asset in required.boundary_contracts}
@@ -938,18 +958,33 @@ class PreparedFormalEvidencePort:
             record = verified_file(path, sha256(encoded).hexdigest())
             files[record.path.resolve()] = record
         verification.files = tuple(files.values())
+        object.__setattr__(self, "_occurrence_runtime", occurrence_identity_runtime())
         object.__setattr__(self, "_verification", verification)
         object.__setattr__(self, "_asset_paths", asset_paths)
         object.__setattr__(self, "_assets_digest", profile_assets.digest)
         object.__setattr__(self, "_member_contracts", member_contracts)
         object.__setattr__(self, "_options_json", options_json)
-        object.__setattr__(self, "_basis", tuple(
-            (name, getattr(self, name))
-            for name in (
-                "identity", "operation", "profile", "authorize", "custody", "sources",
-                "_verification", "_asset_paths", "_assets_digest", "_member_contracts", "_options_json",
-            )
-        ))
+        object.__setattr__(
+            self,
+            "_basis",
+            tuple(
+                (name, getattr(self, name))
+                for name in (
+                    "_occurrence_runtime",
+                    "identity",
+                    "operation",
+                    "profile",
+                    "authorize",
+                    "custody",
+                    "sources",
+                    "_verification",
+                    "_asset_paths",
+                    "_assets_digest",
+                    "_member_contracts",
+                    "_options_json",
+                )
+            ),
+        )
 
     def _verify(self) -> None:
         from .data_operation_ports import PortRefusal
@@ -960,8 +995,12 @@ class PreparedFormalEvidencePort:
             raise PortRefusal("formal resources differ from acquired asset locations")
         try:
             self._verification.check()
+            for runtime in self._occurrence_runtime:
+                runtime.check()
         except ValueError as error:
-            raise PortRefusal("formal resources differ from acquired custody/runtime slice: " + str(error)) from error
+            raise PortRefusal(
+                "formal resources differ from acquired custody/runtime slice: " + str(error)
+            ) from error
         self.authorize(self.identity)
 
     def _source(self, values, binding):
@@ -1039,6 +1078,7 @@ class PreparedFormalEvidencePort:
                 "text.formal_evidence/member-local-addresses": None,
                 "text.formal_evidence/inventory-topology": None,
                 "text.formal_evidence/native-numeric-scores": None,
+                "text.formal_evidence/canonical-occurrence-addresses": None,
                 "text.formal_evidence/symbolic-inventory-positions": None,
             }
             attestations = tuple(
