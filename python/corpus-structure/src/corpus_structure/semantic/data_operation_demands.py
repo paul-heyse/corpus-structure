@@ -799,6 +799,7 @@ class DemandPlanner:
                 and not obligation.get("binding_authority_changed")
                 and not obligation.get("binding_original_changed")
                 and not obligation.get("binding_pin_changed")
+                and not obligation.get("binding_population_changed")
                 and previous is not None
                 and previous["fate"]
                 in {"awaiting-inputs", "awaiting-population", "awaiting-discovery"}

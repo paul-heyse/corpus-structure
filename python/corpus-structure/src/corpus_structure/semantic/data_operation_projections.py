@@ -1824,6 +1824,27 @@ def _original_admission_changed(metadata, bounded, latest, wait_read):
     )
 
 
+def _selected_population_changed(metadata, bounded, latest, wait_read, validity):
+    """Observe a newly visible valid selection owned by the exact waiting obligation."""
+    populations = metadata.tables["ops.data_population"].alias("selected_population_event")
+    return (
+        select(1)
+        .select_from(wait_read.join(populations, populations.c.demand_id == wait_read.c.demand_id))
+        .where(
+            wait_read.c.id == latest.c.selection["read_id"].astext,
+            wait_read.c.demand_id == _var("d.id", Text),
+            populations.c.selected_obligation_id == bounded.c.id,
+            _visible(populations),
+            ~func.ops.ddo_read_visible(
+                populations.c.created_at, populations.c.created_xid, wait_read.table_valued()
+            ),
+            _set_valid(validity, "population", populations.c.id),
+        )
+        .correlate(bounded, latest)
+        .exists()
+    )
+
+
 def _exact_pin_changed(metadata, bounded, latest, wait_read):
     """Match newly visible fulfilled uses to an exact pin at the waiting read."""
     selection = _var("d.selection", JSONB)
@@ -2129,26 +2150,23 @@ def _inputs_watermarks(metadata, bounded):
         .where(uses.c.fate == "fulfilled", _visible(uses))
     )
     discovery = _items(_var("d.selection", JSONB)["discovery"], "watermark_discovery")
-    relevant_population = or_(
-        populations.c.selected_obligation_id == bounded.c.id,
-        exists(
-            select(1)
-            .select_from(discovery)
-            .where(
-                discovery.c.value["population"].astext == populations.c.name,
-                or_(
-                    discovery.c.value["target"].astext == bounded.c.operation_id,
-                    exists(
-                        select(1)
-                        .select_from(prerequisites)
-                        .where(
-                            prerequisites.c.obligation_id == bounded.c.id,
-                            prerequisites.c.operation_id == discovery.c.value["target"].astext,
-                        )
-                    ),
+    relevant_population = exists(
+        select(1)
+        .select_from(discovery)
+        .where(
+            discovery.c.value["population"].astext == populations.c.name,
+            or_(
+                discovery.c.value["target"].astext == bounded.c.operation_id,
+                exists(
+                    select(1)
+                    .select_from(prerequisites)
+                    .where(
+                        prerequisites.c.obligation_id == bounded.c.id,
+                        prerequisites.c.operation_id == discovery.c.value["target"].astext,
+                    )
                 ),
-            )
-        ),
+            ),
+        )
     )
     population_rows = (
         select(
@@ -2158,7 +2176,11 @@ def _inputs_watermarks(metadata, bounded):
             populations.c.created_at,
         )
         .select_from(bounded.join(populations, populations.c.demand_id == _var("d.id", Text)))
-        .where(relevant_population, _visible(populations))
+        .where(
+            populations.c.selected_obligation_id.is_(None),
+            relevant_population,
+            _visible(populations),
+        )
     )
     # A use can be visible through several local prerequisites or outputs.
     # Hash its actual identity once, independent of output multiplicity.
@@ -2555,6 +2577,9 @@ def read_page(metadata):
                         ),
                         binding_pin_changed=_exact_pin_changed(
                             metadata, bounded, latest, wait_read
+                        ),
+                        binding_population_changed=_selected_population_changed(
+                            metadata, bounded, latest, wait_read, validity
                         ),
                     ),
                 ),
