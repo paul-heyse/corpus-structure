@@ -230,6 +230,10 @@ def test_current_artifact_numeric_policy_exact_witness_and_atomic_cpu_output_ref
         (report,) = selected(
             kernel, demand["demand_id"], kind="urn:corpus:structural:DeclaredArtifactReport"
         )
+        assert {"sources_input", "reports_input"}.isdisjoint(report.body)
+        assert {source["source"] for source in report.body["inputs"]["sources"]} == {
+            selection["source_reference"] for selection in parameters["selections"]
+        }
         product = report.body["artifact_identity"]
         assert product["standing"] == "candidate_relative_private"
         assert product["policy"] == parameters["policy"]

@@ -467,8 +467,6 @@ def execute_artifact_identity(
             unbound_sources=tuple(unbound),
             known_anchor_ids=tuple(sorted(known_anchor_ids)),
         ),
-        sources_input=exact.references("sources"),
-        reports_input=exact.references("constructions"),
     )
     profile.check_active()
     return result.model_dump(mode="json", exclude_none=True)

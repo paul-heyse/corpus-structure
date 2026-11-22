@@ -144,11 +144,11 @@ class ArtifactIdentityOperation:
         "output_witnesses": [
             {
                 "output_role": "result",
-                "records": "/sources_input/*",
+                "records": "/inputs/sources/*",
                 "input_role": "sources",
                 "comparisons": [
                     {
-                        "output_field": "product_id",
+                        "output_field": "source_product",
                         "input": {
                             "role": "sources",
                             "projection": "selected-input",
@@ -157,7 +157,7 @@ class ArtifactIdentityOperation:
                         "encoding": "value",
                     },
                     {
-                        "output_field": "reference",
+                        "output_field": "source",
                         "input": {
                             "role": "sources",
                             "projection": "selected-input",
@@ -214,85 +214,6 @@ class ArtifactIdentityOperation:
                         "output_field": "analyzed_scope_meaning",
                         "input": {
                             "role": "sources",
-                            "projection": "selected-input",
-                            "field": "analyzed_scope",
-                        },
-                        "encoding": "context-meaning-json",
-                    },
-                ],
-            },
-            {
-                "output_role": "result",
-                "records": "/reports_input/*",
-                "input_role": "constructions",
-                "comparisons": [
-                    {
-                        "output_field": "product_id",
-                        "input": {
-                            "role": "constructions",
-                            "projection": "selected-input",
-                            "field": "product",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "reference",
-                        "input": {
-                            "role": "constructions",
-                            "projection": "selected-input",
-                            "field": "reference",
-                        },
-                        "encoding": "json",
-                    },
-                    {
-                        "output_field": "kind_contract",
-                        "input": {
-                            "role": "constructions",
-                            "projection": "selected-input",
-                            "field": "kind_contract",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "project_id",
-                        "input": {
-                            "role": "constructions",
-                            "projection": "selected-input",
-                            "field": "project_id",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject",
-                        "input": {
-                            "role": "constructions",
-                            "projection": "selected-input",
-                            "field": "subject",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "subject_definition",
-                        "input": {
-                            "role": "constructions",
-                            "projection": "selected-input",
-                            "field": "subject_definition",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "original_source",
-                        "input": {
-                            "role": "constructions",
-                            "projection": "selected-input",
-                            "field": "original_source",
-                        },
-                        "encoding": "value",
-                    },
-                    {
-                        "output_field": "analyzed_scope_meaning",
-                        "input": {
-                            "role": "constructions",
                             "projection": "selected-input",
                             "field": "analyzed_scope",
                         },

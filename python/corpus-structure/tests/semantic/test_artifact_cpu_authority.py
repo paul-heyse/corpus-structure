@@ -69,6 +69,18 @@ def test_actual_artifact_profile_has_complete_current_inputs_and_scalar_factory(
         "artifact-nominations",
     }
     assert operation.result_fields == ()
+    (witness,) = operation.output_witnesses
+    assert (witness.input_role, witness.records) == ("sources", "/inputs/sources/*")
+    assert {comparison.output_field for comparison in witness.comparisons} == {
+        "source",
+        "source_product",
+        "kind_contract",
+        "project_id",
+        "subject",
+        "subject_definition",
+        "original_source",
+        "analyzed_scope_meaning",
+    }
     assert artifact_preparation.model.operation("text.constructions/source-native").recipe
 
 

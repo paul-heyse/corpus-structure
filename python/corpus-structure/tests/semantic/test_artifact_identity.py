@@ -300,7 +300,6 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
         DeclaredArtifactIdentityProduct,
         DeclaredArtifactReport,
         DeclaredStructuralInput,
-        DeclaredStructuralInputPin,
         StructuralPassage,
     )
 
@@ -347,20 +346,7 @@ def test_released_identity_shapes_retain_empty_unbound_and_singleton_diagnostics
             source_mapping_provenance=("literal-source",) if bound else (),
             unbound_sources=() if bound else (frame.source_key,),
         )
-        pin = DeclaredStructuralInputPin(
-            product_id=reference.source_product,
-            member_id=reference.source_member,
-            kind_contract=reference.kind_contract,
-            project_id=reference.project_id,
-            subject=reference.subject,
-            subject_definition=reference.subject_definition,
-            original_source=reference.original_source,
-            analyzed_scope_meaning=reference.analyzed_scope_meaning,
-            reference=reference.source,
-        )
-        report = DeclaredArtifactReport(
-            inputs=inputs, artifact_identity=product, sources_input=(pin,)
-        )
+        report = DeclaredArtifactReport(inputs=inputs, artifact_identity=product)
         with pytest.raises(SemanticRefusal, match="No public structural policy"):
             structural_statement(report)
         assert DeclaredArtifactReport.model_validate_json(report.model_dump_json()) == report

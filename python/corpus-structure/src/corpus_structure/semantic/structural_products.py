@@ -1002,8 +1002,6 @@ class DeclaredArtifactReport(DeclaredStructuralProductReport):
     dossier: None = None
     kind: Literal["artifact_identity"] = "artifact_identity"
     artifact_identity: DeclaredArtifactIdentityProduct
-    sources_input: tuple[DeclaredStructuralInputPin, ...] = Field(min_length=1)
-    reports_input: tuple[DeclaredStructuralInputPin, ...] = ()
 
 
 class DeclaredClauseReport(DeclaredStructuralProductReport):
