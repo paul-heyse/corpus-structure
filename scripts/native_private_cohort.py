@@ -218,7 +218,7 @@ def finish_private_temporary(directory: Path, process: dict[str, Any]) -> dict[s
 def _remove_owned_empty_tree(
     owner: dict[str, Any], *, recover_selected_scratch: bool = False
 ) -> dict[str, Any]:
-    """Remove empty directories, plus known SQLite scratch only after recovery drain."""
+    """Remove empty directories and recognized scratch only after recovery drain."""
     temporary = Path(owner["temporary"])
     base = ROOT / "build/tmp/private-postgresql"
     if temporary.parent != base or base.is_symlink() or base.stat().st_uid != os.getuid():
@@ -238,7 +238,11 @@ def _remove_owned_empty_tree(
             raise ValueError("private PostgreSQL temporary ownership changed")
 
         def inspect_tree(
-            fd: int, *, selected_scratch: bool = False, top: bool = False
+            fd: int,
+            *,
+            selected_scratch: bool = False,
+            multiprocessing_scratch: bool = False,
+            top: bool = False,
         ) -> _OwnedTree:
             children: _OwnedTree = []
             for name in os.listdir(fd):
@@ -272,6 +276,18 @@ def _remove_owned_empty_tree(
                     children.append((name, found, None))
                     continue
                 if (
+                    multiprocessing_scratch
+                    and re.fullmatch(r"sock-[0-9a-f]{12}", name)
+                    and stat.S_ISSOCK(found.st_mode)
+                    and found.st_uid == owner["uid"]
+                    and found.st_dev == identity.st_dev
+                    and found.st_nlink == 1
+                ):
+                    # Python 3.14 multiprocessing leaves this Unix socket when
+                    # its per-process temporary-directory finalizer is interrupted.
+                    children.append((name, found, None))
+                    continue
+                if (
                     selected_scratch
                     and name in {"support.sqlite", "support.sqlite-journal"}
                     and stat.S_ISREG(found.st_mode)
@@ -298,7 +314,23 @@ def _remove_owned_empty_tree(
                         and top
                         and re.fullmatch(r"selected-read-[a-z0-9_]{8}", name)
                     )
-                    children.append((name, found, inspect_tree(child, selected_scratch=scratch)))
+                    multiprocessing = bool(
+                        recover_selected_scratch
+                        and top
+                        and re.fullmatch(r"pymp-[a-z0-9_]{8}", name)
+                        and stat.S_IMODE(found.st_mode) == 0o700
+                    )
+                    children.append(
+                        (
+                            name,
+                            found,
+                            inspect_tree(
+                                child,
+                                selected_scratch=scratch,
+                                multiprocessing_scratch=multiprocessing,
+                            ),
+                        )
+                    )
                 finally:
                     os.close(child)
             return children
@@ -308,7 +340,8 @@ def _remove_owned_empty_tree(
                 if descendants is None:
                     actual = os.stat(name, dir_fd=fd, follow_symlinks=False)
                     if (
-                        not stat.S_ISREG(actual.st_mode)
+                        stat.S_IFMT(actual.st_mode) != stat.S_IFMT(found.st_mode)
+                        or not (stat.S_ISREG(actual.st_mode) or stat.S_ISSOCK(actual.st_mode))
                         or actual.st_nlink != 1
                         or (actual.st_dev, actual.st_ino, actual.st_uid)
                         != (found.st_dev, found.st_ino, found.st_uid)

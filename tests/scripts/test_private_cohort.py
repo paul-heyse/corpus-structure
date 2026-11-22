@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import pwd
+import socket
 import sys
 from pathlib import Path
 
@@ -501,6 +502,123 @@ def test_recovery_removes_selected_sqlite_scratch_after_drain(owned_private_resi
     assert groups == [(101, 0), (102, 0)]
     assert recovery["cleanup"] == {"state": "removed"} and not temporary.exists()
     assert all((receipt / name).read_bytes() == body for name, body in before.items())
+
+
+def _orphan_multiprocessing_socket(temporary, monkeypatch):
+    directory = temporary / "pymp-j79u9dde"
+    directory.mkdir(mode=0o700)
+    name = "sock-c0335e110294"
+    # Bind a relative pathname so the test also works under long checkout paths.
+    with monkeypatch.context() as local:
+        local.chdir(directory)
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+            listener.bind(name)
+    return directory, directory / name
+
+
+def test_recovery_removes_owned_multiprocessing_socket_only_after_drain(
+    owned_private_residue, monkeypatch
+):
+    from native_private_cohort import recover_private_temporary
+
+    receipt, temporary = owned_private_residue
+    _orphan_multiprocessing_socket(temporary, monkeypatch)
+    (temporary / "torchinductor_paul").mkdir()
+    _interrupted_private_receipts(receipt)
+    assert finish_private_temporary(receipt, {"returncode": 0})["state"] == "retained"
+    before = {path.name: path.read_bytes() for path in receipt.iterdir()}
+    groups = []
+
+    def absent(group, sig):
+        groups.append((group, sig))
+        raise ProcessLookupError()
+
+    monkeypatch.setattr(os, "killpg", absent)
+    recovery = recover_private_temporary(receipt)
+    assert groups == [(101, 0), (102, 0)]
+    assert recovery["cleanup"] == {"state": "removed"} and not temporary.exists()
+    assert all((receipt / name).read_bytes() == body for name, body in before.items())
+
+
+@pytest.mark.parametrize(
+    "residue",
+    (
+        "regular_file",
+        "unknown_socket",
+        "unknown_directory",
+        "nested_directory",
+        "nonprivate_directory",
+        "socket_symlink",
+        "directory_symlink",
+        "foreign_socket",
+        "foreign_directory",
+        "hardlink",
+        "changed_inode",
+        "active_group",
+    ),
+)
+def test_multiprocessing_recovery_refuses_uncertain_socket_custody(
+    owned_private_residue, monkeypatch, residue
+):
+    import native_private_cohort as owner
+
+    receipt, temporary = owned_private_residue
+    directory, address = _orphan_multiprocessing_socket(temporary, monkeypatch)
+    empty = temporary / "other_empty"
+    empty.mkdir()
+    _interrupted_private_receipts(receipt)
+
+    def absent(group, sig):
+        raise ProcessLookupError()
+
+    monkeypatch.setattr(
+        os, "killpg", (lambda group, sig: None) if residue == "active_group" else absent
+    )
+    if residue == "regular_file":
+        address.unlink()
+        address.write_bytes(b"retain operator data even with a recognized name")
+    elif residue == "unknown_socket":
+        address.rename(directory / "other.sock")
+    elif residue == "unknown_directory":
+        directory.rename(temporary / "other-directory")
+    elif residue == "nested_directory":
+        nested = temporary / "nested"
+        nested.mkdir()
+        directory.rename(nested / directory.name)
+    elif residue == "nonprivate_directory":
+        directory.chmod(0o755)
+    elif residue == "socket_symlink":
+        address.unlink()
+        address.symlink_to(receipt / "private-cohort.process.json")
+    elif residue == "directory_symlink":
+        moved = temporary / "other-directory"
+        directory.rename(moved)
+        directory.symlink_to(moved, target_is_directory=True)
+    elif residue == "hardlink":
+        os.link(address, receipt / "outside-socket")
+    elif residue in {"foreign_socket", "foreign_directory", "changed_inode"}:
+        original_stat = os.stat
+        selected = directory.name if residue == "foreign_directory" else address.name
+        calls = 0
+
+        def changed_stat(path, *args, **kwargs):
+            nonlocal calls
+            found = original_stat(path, *args, **kwargs)
+            if path == selected and kwargs.get("dir_fd") is not None:
+                calls += 1
+                if residue != "changed_inode" or calls == 2:
+                    fields = list(found)
+                    fields[1 if residue == "changed_inode" else 4] += 1
+                    return os.stat_result(fields)
+            return found
+
+        monkeypatch.setattr(owner.os, "stat", changed_stat)
+    before = {path.name: path.read_bytes() for path in receipt.iterdir() if path.is_file()}
+    with pytest.raises(ValueError):
+        owner.recover_private_temporary(receipt)
+    assert temporary.is_dir() and empty.is_dir()
+    assert all((receipt / name).read_bytes() == body for name, body in before.items())
+    assert not (receipt / "private-host-cleanup-recovery.json").exists()
 
 
 @pytest.mark.parametrize("valid", (True, False))
