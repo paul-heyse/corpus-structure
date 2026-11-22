@@ -52,7 +52,7 @@ class NativeExecutionEvidenceLeaf(BaseModel):
     @classmethod
     def projected_completion(cls, value):
         from .data_operation_cpu_basis import _producer_fence
-        from .data_operation_wire import schema_closure, validate_wire_schema, wire_contracts
+        from .data_operation_wire import validate_wire_schema, wire_record_schema
 
         if not isinstance(value, dict):
             raise ValueError("execution leaf requires its explicitly projected completion")
@@ -64,10 +64,7 @@ class NativeExecutionEvidenceLeaf(BaseModel):
             raise ValueError(
                 "selected execution projection must not disclose physical cohort replies"
             )
-        native = wire_contracts()["retain_data_completion_intent"]["input"]
-        validate_wire_schema(
-            schema_closure({"$ref": "#/definitions/completion"}, native["definitions"]), completion
-        )
+        validate_wire_schema(wire_record_schema("completion"), completion)
         return value
 
     @field_validator("cpu_receipt", mode="before")
@@ -98,10 +95,17 @@ class NativeExecutionEvidenceLeaf(BaseModel):
 
 
 def execution_evidence_leaf_schema():
-    """Use the dialect of the selected native completion nested in the leaf."""
-    from .data_operation_wire import NativeJsonSchema
+    """Compose the leaf with the exact native contract of its selected completion."""
+    from .data_operation_wire import NativeJsonSchema, schema_closure, wire_record_schema
 
-    return NativeExecutionEvidenceLeaf.model_json_schema(schema_generator=NativeJsonSchema)
+    leaf = NativeExecutionEvidenceLeaf.model_json_schema(schema_generator=NativeJsonSchema)
+    completion = wire_record_schema("completion")
+    leaf["properties"]["selected_completion"] = {"$ref": completion["$ref"]}
+    local = leaf.pop("definitions")
+    native = completion["definitions"]
+    if any(local[name] != native[name] for name in local.keys() & native.keys()):
+        raise ValueError("execution leaf schema conflicts with a native completion definition")
+    return schema_closure(leaf, {**local, **native})
 
 
 def validate_execution_evidence_leaf(

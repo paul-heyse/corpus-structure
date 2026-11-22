@@ -138,6 +138,7 @@ def test_projection_keeps_selected_completion_facts_and_explicit_hidden_cohort()
 def test_detached_execution_contract_validates_its_explicit_schema_dialect():
     from jsonschema import Draft7Validator, ValidationError
 
+    from corpus_structure.semantic.data_operation_wire import wire_record_schema
     from corpus_structure.semantic.selected_support_contract import (
         SelectedSupportReader,
         ambient_support_contract,
@@ -145,6 +146,11 @@ def test_detached_execution_contract_validates_its_explicit_schema_dialect():
 
     schema = execution_evidence_leaf_schema()
     assert schema["$schema"] == "http://json-schema.org/draft-07/schema#"
+    completion = wire_record_schema("completion")
+    assert schema["properties"]["selected_completion"] == {"$ref": completion["$ref"]}
+    assert all(
+        schema["definitions"][name] == value for name, value in completion["definitions"].items()
+    )
     Draft7Validator.check_schema(schema)
     relation = "ops.data_execution_evidence_leaf"
     contract = json.loads(ambient_support_contract(relation))
@@ -158,9 +164,12 @@ def test_detached_execution_contract_validates_its_explicit_schema_dialect():
         Draft7Validator(work_member).validate(["member", 0, 1, 2])
     value, _ = protocol_example()
     reader = SelectedSupportReader({relation: contract})
-    assert reader.record({"key": "example", "relation": relation, "record": value})[
-        "record"
-    ]["producer"] == value["producer"]
+    assert (
+        reader.record({"key": "example", "relation": relation, "record": value})["record"][
+            "producer"
+        ]
+        == value["producer"]
+    )
     validator = Draft7Validator(schema)
     validator.validate(value)
     value["member_ordinal"] = -1
