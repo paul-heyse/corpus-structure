@@ -303,8 +303,9 @@ def test_judgment_source_reopens_exact_original_cut_scope_before_linking(monkeyp
     from contextlib import contextmanager
     from types import SimpleNamespace
 
+    from corpus_structure.semantic import selected_contribution_input
     from corpus_structure.semantic.interpretations import metadata_binding
-    from corpus_structure.serve import interpretation_authoring, selected_contributions
+    from corpus_structure.serve import interpretation_authoring
 
     prepared, model, product, group, body = judgment_fixture()
     body["metadata_digest"] = metadata_binding(prepared)[0]
@@ -325,9 +326,9 @@ def test_judgment_source_reopens_exact_original_cut_scope_before_linking(monkeyp
         lambda value: model,
     )
     monkeypatch.setattr(
-        selected_contributions,
+        selected_contribution_input,
         "SelectedContributionScope",
-        lambda *args: SimpleNamespace(
+        lambda *args, **kwargs: SimpleNamespace(
             prepared=prepared, model=model, cut=cut(), products=lambda **kwargs: iter((product,))
         ),
     )

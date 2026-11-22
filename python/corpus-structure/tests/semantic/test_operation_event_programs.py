@@ -6,7 +6,8 @@ from dataclasses import asdict
 
 import pytest
 from pglast import ast
-from sqlalchemy import Column, MetaData, Table, text
+from sqlalchemy import Column, MetaData, Table, Text, select, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.schema import CreateTable
 
@@ -17,7 +18,10 @@ from corpus_structure.evaluate.declared_operation_events import (
 )
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql, native_owner
-from corpus_structure.semantic.operation_event_native import operation_event_native_sql
+from corpus_structure.semantic.operation_event_native import (
+    _event_component_present,
+    operation_event_native_sql,
+)
 from corpus_structure.semantic.prepared_sql import prepare_sql
 
 
@@ -115,6 +119,81 @@ def test_generated_operation_event_guards_bind_and_keep_exact_eligibility(native
                 text("SELECT ops.ddo_operation_event_dependencies_valid('missing-event-episode')")
             )
         assert getattr(refusal.value.orig, "sqlstate", None) == "42501"
+
+
+def test_event_component_selection_uses_exact_nominal_report_member(infrastructure_rollback):
+    from corpus_structure.semantic.data_operation_value_native import data_operation_value_programs
+    from corpus_structure.semantic.data_operation_values import semantic_value
+
+    # Controlled native rows test member selection only; the frame owner still
+    # authenticates the whole report's actual CPU basis and selected episode.
+    connection = infrastructure_rollback
+    for schema in ("kb", "sem", "data"):
+        connection.exec_driver_sql(f"CREATE SCHEMA {schema}")
+    metadata = MetaData()
+    members = Table(
+        "data_product_member",
+        metadata,
+        Column("product_id", Text, primary_key=True),
+        Column("member_id", Text, primary_key=True),
+        Column("kind_contract", Text, nullable=False),
+        Column("body", JSONB, nullable=False),
+        schema="kb",
+    )
+    kinds = Table(
+        "data_kind_contract",
+        metadata,
+        Column("kind_contract", Text, primary_key=True),
+        Column("kind", Text, nullable=False),
+        Column("universe", Text, nullable=False),
+        schema="sem",
+    )
+    for relation in (members, kinds):
+        connection.execute(CreateTable(relation))
+    field_projection = next(
+        declaration
+        for declaration in data_operation_value_programs()
+        if declaration.identity.name == "ddo_field"
+    )
+    execute_native_sql(connection, field_projection.routine.render())
+    component_kind = "urn:corpus:structural:DeclaredLocatedDefinitionComponent"
+    connection.execute(
+        kinds.insert(),
+        [
+            dict(kind_contract="component", kind=component_kind, universe="ordinary"),
+            dict(kind_contract="other", kind="urn:fixture:OtherMember", universe="ordinary"),
+            dict(kind_contract="protected", kind=component_kind, universe="evaluator"),
+        ],
+    )
+    connection.execute(
+        members.insert(),
+        [
+            dict(
+                product_id=product,
+                member_id=member,
+                kind_contract=kind,
+                body=semantic_value(dict(component_id=body_id)),
+            )
+            for product, member, kind, body_id in (
+                ("actual-report", "shared", "component", "shared"),
+                ("another-report", "shared", "component", "shared"),
+                ("another-report", "foreign", "component", "foreign"),
+                ("actual-report", "wrong-kind", "other", "wrong-kind"),
+                ("actual-report", "wrong-body", "component", "different-component"),
+                ("actual-report", "protected", "protected", "protected"),
+            )
+        ],
+    )
+
+    def present(product, member):
+        return connection.scalar(select(_event_component_present(get_metadata(), product, member)))
+
+    assert present("actual-report", "shared") is True
+    assert present("another-report", "shared") is True
+    assert present("actual-report", "foreign") is False
+    assert present("missing-report", "shared") is False
+    for member in ("absent", "wrong-kind", "wrong-body", "protected"):
+        assert present("actual-report", member) is False
 
 
 @pytest.fixture

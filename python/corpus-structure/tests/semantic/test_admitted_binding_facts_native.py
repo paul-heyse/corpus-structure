@@ -20,7 +20,12 @@ def test_full_proof_compares_admitted_facts_to_authenticated_sources(
     connection.exec_driver_sql("CREATE SCHEMA sem")
     model = get_metadata()
     controls = MetaData()
-    for name in ("sem.artifact", "sem.data_operation_definition", "sem.data_operation_release"):
+    for name in (
+        "sem.artifact",
+        "sem.data_operation_definition",
+        "sem.data_operation_release",
+        "sem.data_rule",
+    ):
         relation = model.tables[name]
         Table(relation.name, controls, *(Column(c.name, c.type) for c in relation.c), schema="sem")
     controls.create_all(connection)

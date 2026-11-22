@@ -58,15 +58,21 @@ def test_native_binding_unknown_column_and_real_role(
 ):
     import sys
 
-    from corpus_structure.semantic.metadata import get_metadata
+    from corpus_structure.schema.integrity import role_name
 
     monkeypatch.setitem(sys.modules, "corpus_structure.semantic._operation_calls", None)
+    md = declared()
+    with commit_db_engine.begin() as conn:
+        # The old production entity table is retired. Catalog admission still
+        # exercises an actual declared table owned separately from the reader.
+        md.tables["data.entity"].create(conn)
+        conn.exec_driver_sql(f'GRANT SELECT ON data.entity TO "{role_name("reader")}"')
     with commit_reader_engine.connect() as conn:
         artifact = admit_sql(
             conn,
             "SELECT entity_id FROM data.entity",
             release_id="r",
-            metadata=get_metadata(),
+            metadata=md,
             physical_id="p",
         )
         assert artifact.relations == ("data.entity",)
@@ -75,14 +81,14 @@ def test_native_binding_unknown_column_and_real_role(
                 conn,
                 "SELECT does_not_exist FROM data.entity",
                 release_id="r",
-                metadata=get_metadata(),
+                metadata=md,
                 physical_id="p",
             )
     with (
         commit_db_engine.connect() as owner,
         pytest.raises(SQLAdmissionError, match="actual restricted"),
     ):
-        admit_sql(owner, "SELECT 1", release_id="r", metadata=get_metadata(), physical_id="p")
+        admit_sql(owner, "SELECT 1", release_id="r", metadata=md, physical_id="p")
 
 
 def test_side_effecting_function_never_reaches_planner(commit_db_engine, commit_reader_engine):

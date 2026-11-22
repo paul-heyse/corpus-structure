@@ -2,7 +2,6 @@
 
 import json
 from copy import deepcopy
-from dataclasses import replace
 
 import pytest
 
@@ -162,7 +161,7 @@ def test_many_contexts_reuse_one_prepared_index_without_reparsing(monkeypatch):
     def refuse(_):
         raise AssertionError("source was prepared again")
 
-    monkeypatch.setattr(owner, "_source_context", refuse)
+    monkeypatch.setattr(owner.PreparedNativeSource, "__post_init__", refuse)
     for start, end in ((0, 1), (2, 5)):
         result = NativeSourceContext(
             primary,
@@ -174,12 +173,13 @@ def test_many_contexts_reuse_one_prepared_index_without_reparsing(monkeypatch):
             version=2,
             preparation=prepared,
         )
+        assert result._native_sources[A] is prepared.by_id[A]
         assert result.map_span(0, end - start)[0].start == start
     with pytest.raises(ContextRefused, match="exact invocation"):
         NativeSourceContext(
-            replace(
-                primary,
-                pin_content=json.dumps({**primary.pin.values(), "kind_contract": "kind:changed"}),
+            type(primary).from_source(
+                primary.acquired_source,
+                json.dumps({**primary.pin.values(), "kind_contract": "kind:changed"}),
             ),
             (),
             (DeclaredSourceSlice(A, 0, 1),),

@@ -13,8 +13,10 @@ import pytest
 from corpus_structure.semantic.characterization_ports import (
     construction_operation_sources,
     contextual_operation_sources,
+    document_view_operation_sources,
     resolve_construction_port,
     resolve_contextual_port,
+    resolve_document_view_port,
 )
 from corpus_structure.semantic.composed import data_operation_dependencies
 from corpus_structure.semantic.construction_products import construction_product_inputs
@@ -46,6 +48,10 @@ from semantic.formal_products_support import selected
 def acquired(tmp_path_factory):
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.methods.native_profiles import NativeProfile, NativeSelection
+    from corpus_structure.semantic.source_discovery import (
+        source_discovery_inputs,
+        source_discovery_operation_sources,
+    )
 
     configuration = SentenceConfig(exclude=("ner",))
     selection = NativeSelection(
@@ -62,8 +68,10 @@ def acquired(tmp_path_factory):
         tmp_path_factory.mktemp("controlled-sentence-custody"),
     )
     core = Path(__file__).parents[2] / "src/corpus_structure/model/semantic/core.yaml"
-    bundle = construction_product_inputs(
-        SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+    bundle = source_discovery_inputs(
+        construction_product_inputs(
+            SourceBundle("core", (SourceArtifact("core", core.read_bytes()),))
+        )
     )
     collections = (
         formal_operation_sources(),
@@ -71,6 +79,8 @@ def acquired(tmp_path_factory):
             sentence_configuration=configuration, sentence_selection=selection
         ),
         contextual_operation_sources(include_dependencies=False),
+        document_view_operation_sources(),
+        source_discovery_operation_sources(),
     )
     from corpus_structure.semantic.primary_operations import combine_primary_sources
 
@@ -504,6 +514,93 @@ def test_actual_contextual_kernel_uses_same_retained_symbols_and_no_schema_capsu
         assert cpu._capsule_bytes == 0
     finally:
         cpu.close()
+
+
+def test_acquired_composition_kernel_restores_each_source_in_spawned_worker(acquired):
+    from corpus_structure.core.execution_policy import CharacterizationExecutionPolicy
+    from corpus_structure.core.work import drive_prepared_work
+    from corpus_structure.semantic.cpu_execution import CPUExecutionScope
+    from corpus_structure.semantic.data_operation_model import SubjectContext
+    from corpus_structure.semantic.data_operation_values import semantic_value
+
+    _, _, prepared, _, formal = acquired
+    source_values = []
+    for index, text in enumerate(("The trial is finite.", "L'essai est terminé.")):
+        pointer = f"#/texts/{index}"
+        source_values.append(
+            selected(
+                formal,
+                text,
+                source=dict(
+                    document="document:composition-control",
+                    section_pointer=f"#/groups/{index}",
+                    membership="descendants",
+                    projection="pending",
+                ),
+                pieces=[
+                    dict(
+                        kind="native_text",
+                        start=0,
+                        end=len(text),
+                        item_ref=pointer,
+                        source_field="text",
+                    )
+                ],
+                items=[dict(self_ref=pointer, label="text", text=text, orig=text, prov=[])],
+                selectors=[
+                    dict(projection="pending", native_pointer=pointer, start=0, end=len(text))
+                ],
+            )
+        )
+    port = admitted(acquired, "text.compose_view/source-native", resolve_document_view_port)
+    coordinate = source_values[0].value["source"]
+    context = SubjectContext(
+        "family-test",
+        coordinate["document_subject"],
+        coordinate["document"],
+        b"{}",
+        subject_definition="original-document",
+    )
+    binding = SimpleNamespace(
+        operation=port.operation.semantic_id,
+        sufficient=True,
+        subject=context.subject,
+        subject_context=context,
+        parameters=canonical_bytes(semantic_value(dict(profile="source_only"))),
+    )
+    inputs = values(
+        port, sources=tuple(source.value for source in source_values), products=(), active=()
+    )
+    expected = port.invoke_python(inputs, binding=binding)
+    cpu = CPUExecutionScope(
+        prepared,
+        CharacterizationExecutionPolicy(
+            workers=1, max_submissions=1, max_packet_bytes=8 * 1024**2, max_reply_bytes=8 * 1024**2
+        ),
+        retain_schema=False,
+    )
+    try:
+        actual = drive_prepared_work(
+            port.plan_python(
+                inputs, binding=binding, execution_owner=SimpleNamespace(cpu=cpu, reservation=None)
+            ),
+            lambda: None,
+        )
+        assert actual.outputs[0].content == expected.outputs[0].content
+        body = json.loads(actual.outputs[0].content)
+        assert [source["text"] for source in body["sources"]] == [
+            "The trial is finite.",
+            "L'essai est terminé.",
+        ]
+        assert [source["source"]["section_pointer"] for source in body["sources"]] == [
+            "#/groups/0",
+            "#/groups/1",
+        ]
+        assert json.loads(actual.cpu_execution_evidence)["pid"] != os.getpid()
+        assert cpu._capsule_bytes == 0
+    finally:
+        cpu.close()
+    assert cpu.budget.used_bytes == 0
 
 
 def _publication_context(source, *, document=False):

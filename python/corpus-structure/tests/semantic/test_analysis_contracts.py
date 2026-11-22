@@ -183,7 +183,7 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
         require_scientific_policy,
         scientific_policy_recipe,
     )
-    from corpus_structure.semantic.types import PreparedArtifact, SourceArtifact, SourceBundle
+    from corpus_structure.semantic.types import ResolvedDependencies, SourceArtifact, SourceBundle
 
     current = acquire_analysis_context_profile()
     profile = replace(
@@ -198,6 +198,7 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
             ),
         ),
     )
+    recipe_content = canonical_bytes(scientific_policy_recipe(context_profile=profile))
     prepared = prepare_release(
         SourceBundle(
             "scientific",
@@ -206,12 +207,12 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
                     "scientific", b"id: urn:scientific\nname: scientific\nclasses: {Thing: {}}\n"
                 ),
             ),
-        )
+        ),
+        dependencies=ResolvedDependencies(
+            artifacts=(SourceArtifact(SCIENTIFIC_POLICY_INPUT, recipe_content),)
+        ),
     )
-    recipe = PreparedArtifact(
-        SCIENTIFIC_POLICY_INPUT, canonical_bytes(scientific_policy_recipe(context_profile=profile))
-    )
-    prepared = replace(prepared, artifacts=(*prepared.artifacts, recipe))
+    recipe = next(item for item in prepared.artifacts if item.kind == SCIENTIFIC_POLICY_INPUT)
     decoded = json.loads(recipe.content)
     assert decoded["consolidation"]["minimum_valid_points"] == 7
     assert decoded["computation_profiles"][0]["minimum_valid_points"] == 7
@@ -223,6 +224,7 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
     )
     require_scientific_policy(prepared, context_profile=profile)
     decoded["consolidation"]["minimum_valid_points"] = 6
+    decoded["computation_profiles"][0]["minimum_valid_points"] = 6
     altered = replace(
         prepared,
         artifacts=tuple(
@@ -230,7 +232,7 @@ def test_candidate_scientific_parameters_rebind_supplied_recipe_without_ambient_
             for item in prepared.artifacts
         ),
     )
-    with pytest.raises(ValueError, match="recipe is unsupported"):
+    with pytest.raises(ValueError, match="computation profiles differ from the archived policy"):
         require_scientific_policy(altered, context_profile=profile)
 
 

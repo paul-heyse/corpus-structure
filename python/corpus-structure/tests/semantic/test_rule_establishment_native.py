@@ -21,12 +21,14 @@ from corpus_structure.semantic.data_operation_model import (
 from corpus_structure.semantic.data_operation_partitions import partition_header, partition_packet
 from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.data_read_boundary_native import read_boundary_native_programs
+from corpus_structure.semantic.demand_authority_native import demand_authority_programs
 from corpus_structure.semantic.established_validity import (
     RuleObservedInput,
     successful_rule_attestation,
 )
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import execute_native_sql
+from corpus_structure.semantic.obligation_wake_native import obligation_wake_programs
 from corpus_structure.semantic.rule_establishment_native import rule_establishment_native_programs
 from semantic.test_data_product_admission_programs import (
     partition_fixture,
@@ -115,9 +117,23 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         "ops.data_derivation_output",
         "ops.data_derivation_input",
         "ops.data_demand_read",
+        "ops.data_demand",
+        "ops.data_demand_cancellation",
+        "ops.data_obligation",
+        "ops.data_binding_origin",
+        "ops.data_obligation_wake",
+        "sem.data_operation_definition",
         "kb.data_validity_establishment",
     ):
         conn.execute(CreateTable(model.tables[name], include_foreign_key_constraints=[]))
+    # Settlement retains the real wake writer; this isolated proof fixture has
+    # no demands, so the native writer records the origin without recipients.
+    for declaration in (
+        *demand_authority_programs(model, subject_scopes=("project", "original-source")),
+        *obligation_wake_programs(model),
+    ):
+        if declaration.identity.name in {"ddo_demand_active", "ddo_record_scope_wakes"}:
+            execute_native_sql(conn, declaration.render())
     # The isolation fixture supplies the support owner's decisions explicitly.
     # The actual partition premise, cutoff, settlement and binding routines run unchanged.
     conn.exec_driver_sql(
@@ -211,6 +227,7 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         fingerprint="independent-body-fingerprint",
         checker_callable="fixture:independent-checker",
         checker_determinant="independent-checker-determinant",
+        parameters=b'{"schema_reads":{"fixture-policy":"independent"}}',
     )
     for checker in (rule, body_rule, independent_body_rule):
         conn.execute(
@@ -254,7 +271,23 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
     entries.extend((claim(body_rule), claim(independent_body_rule)))
     assert entries[-1]["premise"] == entries[-2]["premise"]
     assert entries[-1]["rule_fingerprint"] != entries[-2]["rule_fingerprint"]
-    producer = {"release_id": "release", "operation_id": "actual-producer"}
+    conn.exec_driver_sql("CREATE TEMP SEQUENCE rule_base_evaluations")
+    conn.exec_driver_sql(
+        "ALTER FUNCTION ops.ddo_rule_premise(jsonb,text,text,text,text) "
+        "RENAME TO fixture_rule_premise"
+    )
+    conn.exec_driver_sql(
+        "CREATE FUNCTION ops.ddo_rule_premise(jsonb,text,text,text,text) RETURNS text "
+        "LANGUAGE plpgsql AS $$ BEGIN "
+        "PERFORM nextval('pg_temp.rule_base_evaluations'); "
+        "RETURN ops.fixture_rule_premise($1,$2,$3,$4,$5); END $$"
+    )
+    producer = {
+        "release_id": "release",
+        "operation_id": "actual-producer",
+        "project_id": context["project_id"],
+        "original_source": context["original_source"],
+    }
     settle = text(
         "SELECT ops.ddo_settle_rule_attestations("
         "jsonb_populate_record(NULL::ops.data_request,:request),:completion,:episode)"
@@ -298,7 +331,9 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
     with pytest.raises(DBAPIError, match="undeclared rule attestation"), conn.begin_nested():
         run_settle(entries, "first", {**producer, "operation_id": "adopter"})
     assert conn.execute(text("SELECT count(*) FROM kb.data_validity")).scalar_one() == 0
+    before = conn.scalar(text("SELECT last_value FROM pg_temp.rule_base_evaluations"))
     run_settle(entries, "first")
+    assert conn.scalar(text("SELECT last_value FROM pg_temp.rule_base_evaluations")) - before == 4
     run_settle(entries, "first")
     run_settle(entries, "second")
     assert conn.execute(text("SELECT count(*) FROM kb.data_validity")).scalar_one() == 4
@@ -345,6 +380,13 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         fingerprint="source-dependent-fingerprint",
         parameters=b'{"input_reads":{"source":["tokens.placement_root","tokens.root"]}}',
     )
+    independent_source_rule = replace(
+        source_rule,
+        id="independent-source-dependent",
+        fingerprint="independent-source-fingerprint",
+        checker_callable="fixture:independent-source-checker",
+        parameters=b'{"input_reads":{"source":["tokens.placement_root","tokens.root"]},"schema_reads":{"other-policy":"independent"}}',
+    )
     conn.execute(
         insert(model.tables["sem.data_rule"]),
         [
@@ -355,7 +397,7 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
                 fingerprint=checker.fingerprint,
                 specification=checker.record,
             )
-            for checker in (body_rule, source_rule)
+            for checker in (body_rule, source_rule, independent_source_rule)
         ],
     )
     conn.execute(
@@ -368,9 +410,9 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         )
     )
 
-    def source_claim(value):
+    def source_claim(value, checker=source_rule):
         return successful_rule_attestation(
-            source_rule,
+            checker,
             kind,
             "actual-producer",
             result,
@@ -384,15 +426,34 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         run_bind(required="source-dependent", release="source-release")
     actual_source = decode_semantic_value(result["product"]["body"])
     declared_claim = source_claim(actual_source)
+    independent_claim = source_claim(actual_source, independent_source_rule)
+    assert independent_claim["premise"] == declared_claim["premise"]
+    assert independent_claim["rule_fingerprint"] != declared_claim["rule_fingerprint"]
     assert source_claim({**actual_source, "unobserved": "different"}) == declared_claim
     tokens = actual_source["tokens"]
-    assert source_claim({**actual_source, "tokens": {**tokens, "item_count": 800}}) == declared_claim
+    assert (
+        source_claim({**actual_source, "tokens": {**tokens, "item_count": 800}}) == declared_claim
+    )
     for field in ("placement_root", "root"):
         changed = source_claim({**actual_source, "tokens": {**tokens, field: "wrong"}})
         assert changed != declared_claim
         with pytest.raises(DBAPIError, match="missing or conflicting"), conn.begin_nested():
-            run_settle([claim(body_rule), changed], "second", source_request)
-    run_settle([claim(body_rule), declared_claim], "second", source_request)
+            run_settle([claim(body_rule), changed, independent_claim], "second", source_request)
+    conn.exec_driver_sql("CREATE TEMP SEQUENCE observed_field_evaluations")
+    conn.exec_driver_sql(
+        "ALTER FUNCTION ops.ddo_partition_field(jsonb,text) RENAME TO fixture_partition_field"
+    )
+    conn.exec_driver_sql(
+        "CREATE FUNCTION ops.ddo_partition_field(jsonb,text) RETURNS jsonb LANGUAGE plpgsql AS $$ "
+        "BEGIN PERFORM nextval('pg_temp.observed_field_evaluations'); "
+        "RETURN ops.fixture_partition_field($1,$2); END $$"
+    )
+    conn.exec_driver_sql("DISCARD PLANS")
+    assertions = [claim(body_rule), declared_claim, independent_claim]
+    before = conn.scalar(text("SELECT last_value FROM pg_temp.rule_base_evaluations"))
+    run_settle(assertions, "second", source_request)
+    assert conn.scalar(text("SELECT last_value FROM pg_temp.rule_base_evaluations")) - before == 1
+    assert conn.scalar(text("SELECT last_value FROM pg_temp.observed_field_evaluations")) == 2
     observed_at = conn.execute(text("SELECT clock_timestamp()")).scalar_one()
     run_bind(
         required="source-dependent",

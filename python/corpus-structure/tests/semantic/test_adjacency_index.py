@@ -1,33 +1,34 @@
 """Trusted physical index lowering preserves the query's collation and covering columns."""
 
-from linkml_runtime.utils.schemaview import SchemaView
+import yaml
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateIndex
 
-from corpus_structure.schema.relational import compile_metadata
+from corpus_structure.model.compiled import compiled_model, running_model
 
 
 def test_collated_covering_index_lowers_from_trusted_declaration():
-    schema = """
-id: https://corpus-structure.org/model/semantic/physical
-name: physical
-prefixes:
-  linkml: https://w3id.org/linkml/
-imports: [linkml:types]
-subsets: {data: {}}
-classes:
-  edge:
+    model = running_model()
+    physical = yaml.safe_load(model.sources["physical.yaml"])
+    physical["classes"]["edge"] = yaml.safe_load(
+        """
     in_subset: [data]
     attributes:
       subject: {range: string}
       fact_id: {range: string}
       property_id: {range: string}
     annotations:
-      ph:indexes: >-
-        [{"name":"ix_edge_adjacency","columns":["subject","fact_id"],
-          "collations":{"fact_id":"C"},"include":["property_id"]}]
+      ph:indexes:
+        tag: ph:indexes
+        value:
+          - name: ix_edge_adjacency
+            columns: [subject, fact_id]
+            collations: {fact_id: C}
+            include: [property_id]
 """
-    metadata = compile_metadata(SchemaView(schema), target="semantic")
+    )
+    sources = {**model.sources, "physical.yaml": yaml.safe_dump(physical).encode()}
+    metadata = compiled_model(sources).physical()
     (index,) = metadata.tables["data.edge"].indexes
     sql = str(CreateIndex(index).compile(dialect=postgresql.dialect()))
     assert sql == (

@@ -37,7 +37,7 @@ def test_evaluator_authored_reference_allowed_and_ordinary_writer_refused(ddo_ke
         "reference:one",
         "source:independent-reference",
         b"{}",
-        subject_definition="original-occurrence",
+        subject_definition="document",
     )
     kind = kernel.identities["urn:authored-reference:evaluator-integer", "kind"]
     authored = authored_fact_selection(

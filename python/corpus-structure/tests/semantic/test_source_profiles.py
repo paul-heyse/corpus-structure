@@ -146,6 +146,13 @@ def test_acquired_native_source_keeps_validation_and_selector_identity(acquired,
     object.__setattr__(forged, "content", source.content)
     with pytest.raises(TypeError, match="validating acquisition"):
         _validated_python_input(FrozenNativeSource, forged)
+    # A copied validation marker does not restore a payload discarded by a
+    # generic dataclass reconstruction.
+    object.__setattr__(forged, "_validation", source._validation)
+    with pytest.raises(TypeError, match="validating acquisition"):
+        _validated_python_input(FrozenNativeSource, forged)
+    with pytest.raises(TypeError, match="validating acquisition"):
+        _ = forged.value
 
 
 @pytest.mark.parametrize("changed_meaning", ["text", "integer_as_boolean"])
@@ -199,14 +206,18 @@ def test_hydrated_source_refuses_relabelled_value_kind_partition_and_binding(acq
     role = hydrated_source(original(acquired[2]), "kind:controlled-source")
     selected = role._require_selected()
     mutations: tuple[dict[str, Any], ...] = (
-        {"value": {}}, {"kind_contract": "another-kind"},
+        {"value": {}},
         {"partitioned": PartitionedInput(selected.content, ())},
     )
     for changes in mutations:
         with pytest.raises(PortRefusal, match="selected nominal member"):
             replace(role, **changes)
+    with pytest.raises(PortRefusal, match="differs from its nominal role"):
+        replace(role, kind_contract="another-kind")
     with pytest.raises(PortRefusal, match="bound role member"):
-        role._require_selected(SimpleNamespace(roles=(SimpleNamespace(role="another", members=()),)))
+        role._require_selected(
+            SimpleNamespace(roles=(SimpleNamespace(role="another", members=()),))
+        )
     repeated = SelectedConsumerValue.acquire(
         replace(selected.member, multiplicity=2), selected.content, selected.meaning
     )
@@ -364,7 +375,10 @@ def test_spawned_kernel_accepts_the_sealed_acquired_source(acquired, tmp_path, m
     signature = inspect.signature(importlib.import_module(name).run)
     source_path = Path(source_products.__file__).resolve()
     descriptor = PythonCPUDescriptor(
-        ((name, str(path), content), (source_products.__name__, str(source_path), source_path.read_bytes())),
+        (
+            (name, str(path), content),
+            (source_products.__name__, str(source_path), source_path.read_bytes()),
+        ),
         name + ".run",
         (),
         verification="prepared-kernel",

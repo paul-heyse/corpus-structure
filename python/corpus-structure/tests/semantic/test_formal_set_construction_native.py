@@ -147,15 +147,33 @@ def test_actual_construction_binds_two_formal_configurations(
             and row["record"]["derivation_id"] == construction["derivation_id"]
             and row["record"]["role"] == "formal"
         ]
+        expected_origins = {
+            report["product_id"]: (report["derivation_id"], report["use_id"]) for report in reports
+        }
+        assert {
+            (row["support_derivation_id"], row["admission_use_id"]) for row in consumed_support
+        } == set(expected_origins.values())
+        # Unordered input ledger positions address the consumer's two reports.
+        # Support positions retain each producer's original output position zero.
+        emitted_products = {
+            row["record"]["derivation_id"]: row["record"]["product_id"]
+            for row in support_records
+            if row["relation"] == "ops.data_derivation_output"
+            and row["record"]["role"] == "result"
+            and row["record"]["position"] == 0
+            and row["record"]["member_id"] is None
+            and row["record"]["derivation_id"] in {report["derivation_id"] for report in reports}
+        }
+        assert emitted_products == {
+            report["derivation_id"]: report["product_id"] for report in reports
+        }
+        assert all(row["position"] == 0 for row in consumed_support)
         for item in inputs:
-            original = next(
-                report for report in reports if report["product_id"] == item["product_id"]
-            )
             assert {
                 (row["support_derivation_id"], row["admission_use_id"])
                 for row in consumed_support
-                if row["position"] == item["position"]
-            } == {(original["derivation_id"], original["use_id"])}
+                if emitted_products[row["support_derivation_id"]] == item["product_id"]
+            } == {expected_origins[item["product_id"]]}
         targets = [item["target"] for item in construction["body"]["formal_support"]]
         by_occurrence = {str(item["position"]): item["product_id"] for item in inputs}
         assert set(by_occurrence) == {"0", "1"}
@@ -197,6 +215,11 @@ def test_actual_construction_binds_two_formal_configurations(
             assert {row["product_id"] for row in detached_inputs} == {
                 report["product_id"] for report in reports
             }
+            assert {
+                (row["support_derivation_id"], row["admission_use_id"])
+                for row in index.rows("ops.data_derivation_support")
+                if row["derivation_id"] == construction["derivation_id"] and row["role"] == "formal"
+            } == set(expected_origins.values())
         empty_scopes = {
             **request.source_sets,
             **source_sets_record(

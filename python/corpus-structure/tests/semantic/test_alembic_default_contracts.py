@@ -25,6 +25,7 @@ def declaration(*, increment=1, multiline=False):
         Column("input", Integer),
         Column("computed", Integer, Computed(expression, persisted=True)),
         schema="default_control",
+        info={"read_roles": []},
     )
 
 

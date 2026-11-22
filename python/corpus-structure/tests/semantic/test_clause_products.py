@@ -343,7 +343,14 @@ def test_selected_clause_requires_the_original_predicate_member(monkeypatch):
         "ops.data_derivation": {"episode": {"release_id": "release"}},
         "sem.data_operation_definition": {
             ("release", operation): {
-                "support_contract": {"reference_targets": [parent_target, target]}
+                "support_contract": {"reference_targets": [parent_target, target]},
+                "input_roles": [
+                    {
+                        "name": "predicates",
+                        "kind": target["input_kind"],
+                        "accepted_kind_contracts": ["kind:predicates"],
+                    }
+                ],
             },
         },
         "kb.data_product": {

@@ -1,4 +1,4 @@
-"""Trusted imported physical tables compile while imported payload types stay values."""
+"""Characterization uses the common indexed product relation and nominal payload values."""
 
 from corpus_structure.schema.physical import compile_physical, physical_source_closure
 from corpus_structure.semantic.metadata import PHYSICAL_MODEL
@@ -10,18 +10,20 @@ def test_imported_physical_projection_owns_indexed_characterization_relations():
     )
     model = compile_physical(sources)
     assert {
-        "ops.characterization_product",
-        "kb.characterization_membership",
-        "kb.characterization_extent",
+        "kb.data_product",
+        "kb.data_product_member",
+        "kb.data_product_partition",
+        "sem.data_rule",
+        "kb.data_validity",
     } <= set(model.tables)
     assert "kb.CharacterizationExtent" not in model.tables
-    assert tuple(model.tables["kb.characterization_membership"].primary_key.columns.keys()) == (
-        "task_id",
-        "product_key",
-        "content_digest",
-        "local_id",
+    assert "kb.characterization_membership" not in model.tables
+    assert tuple(model.tables["kb.data_product_partition"].primary_key.columns.keys()) == (
+        "product_id",
+        "collection",
+        "partition_key",
     )
     assert any(
-        tuple(index.columns.keys()) == ("task_id", "product_key", "content_digest", "owner_id")
-        for index in model.tables["kb.characterization_membership"].indexes
+        tuple(index.columns.keys()) == ("product_id", "collection", "ordinal")
+        for index in model.tables["kb.data_product_partition"].indexes
     )

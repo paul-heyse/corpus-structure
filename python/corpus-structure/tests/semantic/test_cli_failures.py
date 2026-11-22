@@ -355,7 +355,7 @@ def test_explicit_native_release_proof_reports_admission_acl_drift(
             .all()
         )
     assert {row["kind_contract"]: dict(row) for row in physical_kinds} == {
-        row["kind_contract"]: row for row in expected_kinds
+        row["kind_contract"]: {"collections": {}, **row} for row in expected_kinds
     }
     checked = cli(*args, settings=lambda: settings)
     assert checked.exit_code == 0, checked.output

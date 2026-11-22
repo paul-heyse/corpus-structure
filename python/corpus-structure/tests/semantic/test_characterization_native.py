@@ -480,7 +480,18 @@ def test_current_construction_validator_refuses_relabelled_or_unreleased_witness
     if mutation == "nominal":
         body["members"][0]["kind_contract"] = "another-contract"
     elif mutation == "dependency":
-        body["dependencies"][0]["product_id"] = "another-primary"
+        owner = next(
+            row["member_id"] for row in body["members"] if row["body"]["record_type"] == "term"
+        )
+        body["formal_support"].append(
+            dict(
+                owner=owner, use="external_premise", position=0,
+                target=dict(
+                    variant="member", role="formal", occurrence="99",
+                    member_id=primary.value["members"][0]["member_id"],
+                ),
+            )
+        )
     elif mutation == "dangling":
         term = next(row["body"] for row in body["members"] if row["body"]["record_type"] == "term")
         term["children"] = [{"role": "body", "target": "missing", "structural": True}]
@@ -491,7 +502,9 @@ def test_current_construction_validator_refuses_relabelled_or_unreleased_witness
         body["members"] = [
             row for row in body["members"] if row["body"]["record_type"] != "choice_member"
         ]
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="original formal input" if mutation == "dependency" else None
+    ):
         validate_construction_product(
             acquired.prepared, acquired.model, body, source, (primary,), subject_context=context
         )

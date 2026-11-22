@@ -155,7 +155,11 @@ def test_archive_native_consumes_exact_supplied_model_for_columns_keys_and_scrat
     for relation in (*archive_tables(), get_metadata().tables["sem.release_finalization"]):
         relation.to_metadata(target)
     target.tables["sem.input"].append_column(Column("quoted payload", Text()))
-    monkeypatch.setattr(archive_transport, "metadata", MetaData())
+
+    def refuse_ambient_metadata():
+        raise AssertionError("explicit archive model must not acquire ambient metadata")
+
+    monkeypatch.setattr(archive_transport, "get_metadata", refuse_ambient_metadata)
     sql = archive_native_sql(target_metadata=target)
     assert len(parse_plpgsql(sql)) == 3
     body = function_bodies(sql)["sem.publish_release_archive"]
