@@ -4,13 +4,31 @@ The model is a real small untrained BERT/mean-pooling implementation. It exercis
 captured assets, tokenizer and owned CPU execution; it is not provider evidence.
 """
 
+from contextlib import contextmanager
 from hashlib import sha256
+
+import pytest
 
 from corpus_structure.semantic.declared_structural_calls import structural_operation_declarations
 from semantic.data_operation_kernel_support import (
     execute_captured_kernel_demand,
     split_captured_operations,
 )
+
+
+@contextmanager
+def contextual_target_source(native_server, native_settings, directory, *texts):
+    """Publish fixture sources against the captured current native target."""
+    from native_test_support import database_name
+    from semantic.test_sentence_partition_chain_native import _private_source
+
+    native_server.semantic_ready()
+    with (
+        native_server.database(database_name("bare").name, native_server.template) as admin,
+        pytest.MonkeyPatch.context() as monkeypatch,
+        _private_source(admin, native_settings, directory, monkeypatch, *texts) as source,
+    ):
+        yield source
 
 
 def controlled_encoder(directory):

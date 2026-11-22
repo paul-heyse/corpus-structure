@@ -4,7 +4,7 @@ prefixes:
   contextual: https://corpus-structure.dev/semantic/data-operation-contextual/
 default_prefix: contextual
 default_range: string
-imports: [data_operation_candidate_inspection]
+imports: [data_operation_candidate_inspection, data_operation_references]
 classes:
   DdoContextualTargetSelection:
     is_a: SourceRecordProduct
@@ -150,16 +150,6 @@ classes:
       channel_budget: {range: integer, required: true, minimum_value: 1}
       constraints: {range: SourceValue, inlined: true, required: true}
       exclusions: {range: SourceValue, inlined: true, required: true}
-  DdoContextualProductInput:
-    is_a: DdoSemanticProductReference
-    attributes:
-      member_id: {annotations: {cs:nullable: true}}
-      kind_contract: {required: true}
-      project_id: {required: true}
-      subject_definition: {required: true}
-      subject: {required: true}
-      original_source: {value_presence: PRESENT, annotations: {cs:nullable: true}}
-      analyzed_scope_meaning: {required: true}
   DdoContextualWitnessHypothesis:
     is_a: SourceRecordProduct
     attributes:
@@ -180,11 +170,8 @@ classes:
       support_state: {required: true, equals_string: unassessed}
       author_assertion: {required: true}
       authored_support: {range: SourceValue, inlined: true, required: true}
-      query_input: {range: DdoContextualProductInput, inlined: true, required: true}
-      inventory_input: {range: DdoContextualProductInput, inlined: true, required: true}
-      source_input: {range: DdoContextualProductInput, inlined: true, required: true}
-      hypotheses_input: {range: DdoContextualProductInput, inlined: true, required: true}
-      cues_input: {range: DdoContextualCarrierInput, inlined_as_list: true, multivalued: true, required: true, minimum_cardinality: 1}
+      query_input: {range: DdoSemanticReference, inlined: true, required: true}
+      inventory_input: {range: DdoSemanticReference, inlined: true, required: true}
       hypotheses: {range: DdoContextualWitnessHypothesis, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       witnesses: {range: SourceValue, inlined: true, required: true}
   DdoContextualNativeScoreHit:
@@ -228,7 +215,7 @@ classes:
   DdoContextualWitnessedRetrievalProduct:
     is_a: DdoContextualRetrievalProduct
     attributes:
-      witness_input: {range: DdoContextualProductInput, inlined: true, required: true}
+      witness_input: {range: DdoSemanticReference, inlined: true, required: true}
       witness_standing: {required: true, equals_string: private_authored_source_binding_hypotheses}
       support_state: {required: true, equals_string: unassessed}
 

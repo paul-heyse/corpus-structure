@@ -109,6 +109,19 @@ def test_contextual_retrieval_captures_factory_and_source_witness():
     operation = model.operation("retrieve.contextual/declared")
     assert operation.capabilities.prepared_factory is not None
     assert len(operation.output_witnesses) == 1
+    witness = model.operation("retrieve.contextual_witnesses/declared")
+    assert {
+        (target.path, target.input_role, target.variant) for target in witness.reference_targets
+    } == {
+        ("/query_input", "query", "product"),
+        ("/inventory_input", "inventory", "product"),
+    }
+    (target,) = model.operation("retrieve.contextual/with-witnesses").reference_targets
+    assert (target.path, target.input_role, target.variant) == (
+        "/witness_input",
+        "witnesses",
+        "product",
+    )
     assert all(item.complete for item in model.implementation_slices), [
         (value.root, value.unknowns) for value in model.implementation_slices if not value.complete
     ]

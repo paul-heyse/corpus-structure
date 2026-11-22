@@ -163,8 +163,9 @@ def execute_contextual_retrieval_kernel(
 ) -> dict:
     from .contextual_numerics import RetrievalNumericalPolicy
     from .contextual_operations import finish_contextual_retrieval, prepare_contextual_retrieval
-    from .contextual_witnesses import STANDING, contextual_input_reference
+    from .contextual_witnesses import STANDING
     from .data_operation_cpu_basis import cpu_authority_reply, cpu_basis_values
+    from .data_product_reference import SemanticReference, read_semantic_reference
 
     expected_roles = {"query", "inventory", "vectors", "policy", "scores"} | (
         {"witnesses"} if witnessed else set()
@@ -191,17 +192,15 @@ def execute_contextual_retrieval_kernel(
         from pydantic import TypeAdapter
 
         from .contextual_links import RelationshipWitness
-        from .declared_structural_references import DeclaredProductRef
         from .observations import source_python
 
         if (
             binding["standing"] != STANDING
             or binding["support_state"] != "unassessed"
-            or (
-                DeclaredProductRef.model_validate(binding["query_input"])
-                != contextual_input_reference(roles["query"][0])
-                or DeclaredProductRef.model_validate(binding["inventory_input"])
-                != contextual_input_reference(roles["inventory"][0])
+            or any(
+                read_semantic_reference(binding[name + "_input"])
+                != SemanticReference.whole(name)
+                for name in ("query", "inventory")
             )
         ):
             raise ValueError(
@@ -222,9 +221,7 @@ def execute_contextual_retrieval_kernel(
     product = finish_contextual_retrieval(inputs, candidates, query, check_active=check_active)
     if binding is not None:
         product.update(
-            witness_input=contextual_input_reference(roles["witnesses"][0]).model_dump(
-                mode="python", exclude_none=True
-            ),
+            witness_input=SemanticReference.whole("witnesses").whole_value(),
             witness_standing=STANDING,
             support_state="unassessed",
         )

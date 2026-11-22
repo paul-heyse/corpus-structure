@@ -188,6 +188,20 @@ class ContextualWitnessOperation:
             "roles": ["source", "query", "inventory", "hypotheses", "cues"],
         },
         "output_witnesses": [],
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/query_input",
+                "input_role": "query",
+                "variant": "product",
+            },
+            {
+                "output_role": "result",
+                "path": "/inventory_input",
+                "input_role": "inventory",
+                "variant": "product",
+            },
+        ],
         "opaque": [
             {
                 "reference": "corpus_structure.semantic.contextual_witnesses.execute_witness_profile",
@@ -415,6 +429,14 @@ class ContextualWitnessedRetrievalOperation:
             "operator": "scan",
             "roles": ["query", "inventory", "vectors", "policy", "witnesses"],
         },
+        "reference_targets": [
+            {
+                "output_role": "result",
+                "path": "/witness_input",
+                "input_role": "witnesses",
+                "variant": "product",
+            }
+        ],
         "output_witnesses": [
             {
                 "output_role": "result",

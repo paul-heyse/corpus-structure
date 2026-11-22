@@ -48,6 +48,8 @@ _FILES = (
     "semantic/contextual_scores.py",
     "semantic/contextual_scoring_native.py",
     "semantic/structural_products.py",
+    "semantic/data_product_reference.py",
+    "semantic/reference_resolution.py",
     "semantic/declared_structural_references.py",
     "semantic/declared_record_sources.py",
     "semantic/source_contexts.py",
@@ -68,9 +70,10 @@ _TARGETS = TypeAdapter(tuple[TargetRepresentation, ...])
 def contextual_inputs(bundle):
     import yaml
 
+    from .data_product_reference import reference_inputs
     from .declared_candidate_products import candidate_inspection_inputs
 
-    bundle = candidate_inspection_inputs(bundle)
+    bundle = candidate_inspection_inputs(reference_inputs(bundle))
     name, root = "data_operation_contextual", "data_operation_contextual_root"
     existing = {source.name: source.content for source in bundle.sources}
     if name in existing:
@@ -410,6 +413,22 @@ class ContextualRetrievalPlan:
             ).model_dump(mode="python", exclude_unset=True)
             for name, kind in classes.items()
         }
+        if self.witnessed:
+            from .data_product_reference import read_semantic_reference
+            from .reference_resolution import require_selected_whole_reference
+
+            members = {
+                role.role: role.members[0]
+                for role in binding.roles
+                if role.role in {"witnesses", "query", "inventory"}
+            }
+            for name in ("query", "inventory"):
+                require_selected_whole_reference(
+                    read_semantic_reference(values["witnesses"][name + "_input"]),
+                    role=name,
+                    producing=members["witnesses"],
+                    selected=members[name],
+                )
         basis = cpu_input_basis_from_binding(
             self.port.identity.recipe, binding, {name: (value,) for name, value in values.items()}
         )

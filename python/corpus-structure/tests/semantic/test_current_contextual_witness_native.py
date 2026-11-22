@@ -66,6 +66,9 @@ def test_actual_private_source_binding_retains_authorship_and_competing_alternat
     assert binding.body["hypotheses"] == submitted
     assert binding.body["support_state"] == product.body["support_state"] == "unassessed"
     assert product.body["witness_standing"] == "private_authored_source_binding_hypotheses"
+    assert binding.body["query_input"] == {"variant": "product", "role": "query"}
+    assert binding.body["inventory_input"] == {"variant": "product", "role": "inventory"}
+    assert product.body["witness_input"] == {"variant": "product", "role": "witnesses"}
     assert source_python(binding.body["authored_support"])
     decision = source_python(product.body["relationship_decision"])
     assert decision["outcome"] == outcome
@@ -109,7 +112,9 @@ def test_native_binding_refuses_changed_claims_atomically_with_original_cpu_rece
             elif corruption == "invent-author":
                 body["author_assertion"] = "invented independent provider"
             else:
-                body["cues_input"][0]["contribution_id"] = "source-contribution:" + "f" * 64
+                body["hypotheses"][0]["cue_refs"][0]["contribution_id"] = (
+                    "source-contribution:" + "f" * 64
+                )
             bad["completion"]["outputs"][0]["product"]["body"] = semantic_value(body)
             assert (
                 bad["completion"]["execution_evidence"]

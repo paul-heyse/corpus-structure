@@ -18,6 +18,7 @@ from corpus_structure.semantic.data_operation_support import (
 )
 from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.observations import source_python, source_value
 from corpus_structure.semantic.selected_support import ProducerOutputOccurrence
 from semantic.test_contextual_selected_encoder import case
@@ -46,7 +47,7 @@ def witness_case():
             member,
             "unadmitted:" + name,
             selected,
-            body,
+            thaw_native(body),
             evidence,
             producer_output=ProducerOutputOccurrence(
                 member_id=None, role="result", position=0, multiplicity=1
@@ -140,8 +141,13 @@ def test_private_binding_preserves_competing_authored_assertions_and_exact_carri
         ("two", "unassessed", "explicit_source_cue"),
     ]
     assert all(row["evidence_ids"] == ["source-contribution:" + "a" * 64] for row in witnesses)
-    assert other in result["cues_input"]
+    assert result["query_input"] == {"variant": "product", "role": "query"}
+    assert result["inventory_input"] == {"variant": "product", "role": "inventory"}
+    assert other not in result["hypotheses"][0]["cue_refs"]
     assert result["hypotheses"] == roles[3].body["hypotheses"]
+    roles[1] = replace(roles[1], product_id="unadmitted:equivalent-query")
+    roles[2] = replace(roles[2], product_id="unadmitted:equivalent-inventory")
+    assert project(frame, context, roles) == result
 
 
 @pytest.mark.parametrize(

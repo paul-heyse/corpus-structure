@@ -25,6 +25,7 @@ from corpus_structure.semantic.data_operation_values import decode_semantic_valu
 from corpus_structure.semantic.observations import source_python, source_value
 from semantic.current_contextual_support import (
     contextual_recipe,
+    contextual_target_source,
     controlled_encoder,
     final_selection,
     inventory_intent,
@@ -37,10 +38,8 @@ from semantic.current_contextual_support import (
 from semantic.current_pdf_source_support import (
     PROJECT,
     CurrentPdfSource,
-    _current_pdf_source,
     admit_current_target,
     current_consumer_request,
-    section_content,
 )
 from semantic.data_operation_kernel_support import Kernel
 from semantic.structural_admission_native_support import (
@@ -70,15 +69,11 @@ class ContextualCase:
 
 
 @pytest.fixture(scope="module")
-def current_contextual_case(scenario_seeds, tmp_path_factory):
+def current_contextual_case(native_server, native_settings, tmp_path_factory):
     directory = tmp_path_factory.mktemp("current-contextual")
-    rows = (("text", TEXT, TEXT, None), ("text", TEXT, TEXT, None))
 
-    with _current_pdf_source(
-        scenario_seeds,
-        directory,
-        content=section_content(rows),
-        sections=("#/groups/0", "#/groups/1"),
+    with contextual_target_source(
+        native_server, native_settings, directory, TEXT, TEXT
     ) as source:
         encoder = controlled_encoder(directory / "encoder")
         kernel = admit_current_target(

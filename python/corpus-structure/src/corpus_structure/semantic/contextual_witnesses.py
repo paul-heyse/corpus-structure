@@ -49,6 +49,7 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
         ComputationalSupportReference,
         support_reference_records,
     )
+    from .data_product_reference import SemanticReference
     from .declared_structural_references import DeclaredContributionRef
     from .observations import source_value
 
@@ -167,21 +168,8 @@ def project_contextual_witnesses(input_basis, frame_record, *, check_active):
         support_state="unassessed",
         author_assertion=hypotheses["author_assertion"],
         authored_support=source_value(authored),
-        query_input=contextual_input_reference(roles["query"][0]).model_dump(
-            mode="python", exclude_none=True
-        ),
-        inventory_input=contextual_input_reference(roles["inventory"][0]).model_dump(
-            mode="python", exclude_none=True
-        ),
-        source_input=contextual_input_reference(roles["source"][0]).model_dump(
-            mode="python", exclude_none=True
-        ),
-        hypotheses_input=contextual_input_reference(roles["hypotheses"][0]).model_dump(
-            mode="python", exclude_none=True
-        ),
-        cues_input=[
-            cues[key][0].model_dump(mode="python", exclude_none=True) for key in sorted(cues)
-        ],
+        query_input=SemanticReference.whole("query").whole_value(),
+        inventory_input=SemanticReference.whole("inventory").whole_value(),
         hypotheses=hypotheses["hypotheses"],
         witnesses=source_value(selected),
     )

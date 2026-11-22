@@ -15,6 +15,7 @@ from corpus_structure.semantic.data_operation_source_sets import FrozenSourceSet
 from corpus_structure.semantic.observations import source_python, source_value
 from semantic.contextual_native_fixture import COMPONENTS, CUES, TEXT
 from semantic.current_contextual_support import (
+    contextual_target_source,
     contextual_workflow_recipe,
     controlled_encoder,
     final_selection,
@@ -25,9 +26,7 @@ from semantic.current_contextual_support import (
 )
 from semantic.current_pdf_source_support import (
     PROJECT,
-    _current_pdf_source,
     admit_current_target,
-    section_content,
 )
 from semantic.data_operation_kernel_support import Kernel
 from semantic.structural_admission_native_support import Product, execute, request, selected
@@ -113,7 +112,7 @@ def component_inventory(kernel, query, population):
 
 
 @pytest.fixture(scope="module")
-def current_workflow_case(scenario_seeds, tmp_path_factory):
+def current_workflow_case(native_server, native_settings, tmp_path_factory):
     from corpus_structure.semantic.contextual_selection import freeze_contextual_target_demand
     from corpus_structure.semantic.data_operation_demands import RootSubject
     from corpus_structure.semantic.demand_results import read_demand_result
@@ -121,12 +120,7 @@ def current_workflow_case(scenario_seeds, tmp_path_factory):
 
     directory = tmp_path_factory.mktemp("current-contextual-workflow")
 
-    with _current_pdf_source(
-        scenario_seeds,
-        directory,
-        content=section_content((("text", TEXT, TEXT, None),)),
-        sections=("#/groups/0",),
-    ) as source:
+    with contextual_target_source(native_server, native_settings, directory, TEXT) as source:
         encoder = controlled_encoder(directory / "encoder")
         kernel = admit_current_target(
             source,
@@ -381,6 +375,7 @@ def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_e
         detached = decode_semantic_value(product["canonical_body"])
         assert detached["support_state"] == "unassessed"
         assert detached["witness_standing"] == "private_authored_source_binding_hypotheses"
+        assert detached["witness_input"] == {"variant": "product", "role": "witnesses"}
         assert (
             source_python(detached["relationship_decision"])["selected_edges"]
             == decision["selected_edges"]
