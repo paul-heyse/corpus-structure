@@ -117,6 +117,7 @@ class ConstructionOperation:
                     "text.formal_evidence/member-local-addresses",
                     "text.formal_evidence/numeric-normalization",
                     "text.formal_evidence/occurrence-origin",
+                    "text.formal_evidence/inventory-topology",
                     "text.formal_evidence/symbolic-inventory-positions",
                 ],
                 "minimum": 1,

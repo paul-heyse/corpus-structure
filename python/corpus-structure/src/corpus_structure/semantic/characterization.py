@@ -203,16 +203,22 @@ def occurrence_id(source: Mapping[str, Any], extents: Sequence[Mapping[str, Any]
     ).hexdigest()
 
 
-def _acyclic(edges: Mapping[str, Sequence[str]], label: str) -> None:
-    from .graph_runtime import nx
-    from .graph_topology import cyclic_components
-
-    graph = nx.DiGraph(backend="networkx")
-    graph.add_nodes_from(edges)
-    graph.add_edges_from(
-        (source, target) for source, targets in edges.items() for target in targets
-    )
-    if cyclic_components(graph):
+def _acyclic(edges, label: str):
+    """Test structural acyclicity using the already owned adjacency rows."""
+    incoming = {node: 0 for node in edges}
+    for node in edges:
+        for target in edges[node]:
+            incoming[target] += 1
+    pending = [node for node in incoming if incoming[node] == 0]
+    visited = 0
+    while pending:
+        node = pending.pop()
+        visited += 1
+        for target in edges[node]:
+            incoming[target] -= 1
+            if incoming[target] == 0:
+                pending.append(target)
+    if visited != len(edges):
         raise ValueError(f"{label} structural cycle")
 
 
@@ -262,8 +268,8 @@ def admitted_characterization_graph(packets):
     return inventory, members, choice_members, source_facts
 
 
-def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_basis):
-    """Local source, score, structural and choice invariants for current inventories."""
+def validate_inventory_values(data):
+    """Require nonempty literal source extents and exact numeric score values."""
     from .observations import source_python
 
     for occurrence in data["occurrences"]:
@@ -285,6 +291,16 @@ def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_
                             "native score requires an exact numeric source value or explicit null"
                         )
 
+
+def _inventory_field(record, name, default):
+    if name not in record:
+        return default
+    return record[name]
+
+
+def validate_inventory_topology(data, indexes, all_nodes, choice_members):
+    """Check local graph links and cycles independently of score and policy."""
+
     def refs(values, index, label):
         if any(value not in index for value in values):
             raise ValueError(f"dangling {label} reference")
@@ -292,27 +308,26 @@ def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_
     structural = {key: [] for key in all_nodes}
     for name in ("annotations", "memberships", "roles", "terms"):
         for item in data[name]:
-            refs(item.get("occurrences", ()), indexes["occurrences"], "occurrence")
-            refs(item.get("premises", ()), all_nodes, "premise")
-            refs(item.get("required_choices", ()), choice_members, "required choice")
+            refs(_inventory_field(item, "occurrences", ()), indexes["occurrences"], "occurrence")
+            refs(_inventory_field(item, "premises", ()), all_nodes, "premise")
+            refs(_inventory_field(item, "required_choices", ()), choice_members, "required choice")
             if name == "memberships":
                 refs((item["group"], item["member"]), all_nodes, "membership")
                 if item["structural"]:
-                    structural[item["group"]].append(item["member"])
+                    structural[item["group"]] += [item["member"]]
             elif name == "roles":
                 refs((item["owner"], item["member"]), all_nodes, "role")
                 basis = item["basis"]
-                policy = validate_basis(basis)
-                if policy and policy.get("support"):
-                    _validate_construction_support(item, all_nodes, policy["support"])
-                refs(basis.get("premises", ()), all_nodes, "attachment premise")
-                refs(basis.get("choice_refs", ()), choice_members, "attachment choice")
+                refs(_inventory_field(basis, "premises", ()), all_nodes, "attachment premise")
+                refs(
+                    _inventory_field(basis, "choice_refs", ()), choice_members, "attachment choice"
+                )
             elif name == "terms":
-                refs(item.get("required_choices", ()), choice_members, "term choice")
-                for edge in item.get("children", ()):
+                refs(_inventory_field(item, "required_choices", ()), choice_members, "term choice")
+                for edge in _inventory_field(item, "children", ()):
                     if ("target" in edge) == ("choice_group" in edge):
                         raise ValueError("term child requires exactly one target or choice site")
-                    target = edge.get("target", edge.get("choice_group"))
+                    target = edge["target"] if "target" in edge else edge["choice_group"]
                     refs(
                         (target,),
                         indexes["terms"] if "target" in edge else indexes["choices"],
@@ -323,22 +338,36 @@ def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_
                             "semantic term children must be structural; "
                             "use role assertions for referential relations"
                         )
-                    structural[item["local_id"]].append(target)
+                    structural[item["local_id"]] += [target]
                 if item["kind"] == "binder" and not {"variable", "restrictor", "body"} <= {
-                    e["role"] for e in item.get("children", ())
+                    e["role"] for e in _inventory_field(item, "children", ())
                 }:
                     raise ValueError("binder requires explicit variable, restrictor and body")
     for group in data["choices"]:
         for member in group["members"]:
             refs((member["root"],), indexes["terms"], "choice root")
-            refs(member.get("premises", ()), all_nodes, "choice premise")
-            refs(member.get("required_choices", ()), choice_members, "required choice")
-            structural[group["local_id"]].append(member["root"])
+            refs(_inventory_field(member, "premises", ()), all_nodes, "choice premise")
+            refs(
+                _inventory_field(member, "required_choices", ()), choice_members, "required choice"
+            )
+            structural[group["local_id"]] += [member["root"]]
     _acyclic(structural, "term/containment")
     choice_edges = {
-        m["local_id"]: m.get("required_choices", ()) for g in data["choices"] for m in g["members"]
+        m["local_id"]: _inventory_field(m, "required_choices", ())
+        for g in data["choices"]
+        for m in g["members"]
     }
     _acyclic(choice_edges, "choice dependency")
+
+
+def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_basis):
+    """Validate a full interpreted inventory, including its selected attachment policy."""
+    validate_inventory_values(data)
+    validate_inventory_topology(data, indexes, all_nodes, choice_members)
+    for item in data["roles"]:
+        policy = validate_basis(item["basis"])
+        if policy and policy.get("support"):
+            _validate_construction_support(item, all_nodes, policy["support"])
 
 
 def _reading_product(value: Mapping[str, Any]) -> DataProductReference:

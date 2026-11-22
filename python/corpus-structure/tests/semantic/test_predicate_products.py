@@ -72,6 +72,7 @@ def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses
         witness.input_role == "source" for witness in operation.output_witnesses
     )
     retained_syntax = {
+        "text.formal_evidence/inventory-topology",
         "text.formal_evidence/literal-source-geometry",
         "text.formal_evidence/symbolic-inventory-positions",
     }
@@ -81,7 +82,10 @@ def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses
         "text.formal_evidence/unique-coverage-family",
     }
     for semantic_id, rules in (
-        ("structure.predicate_evidence/declared", retained_syntax),
+        (
+            "structure.predicate_evidence/declared",
+            retained_syntax | {"text.formal_evidence/numeric-normalization"},
+        ),
         ("structure.scoped_relations/declared", retained_syntax),
         (
             "text.constructions/source-native",
@@ -90,6 +94,7 @@ def test_predicate_capability_has_real_primary_inputs_and_exact_source_witnesses
                 "text.formal_evidence/occurrence-origin",
                 "text.formal_evidence/family-roster",
                 "text.formal_evidence/member-local-addresses",
+                "text.formal_evidence/numeric-normalization",
             },
         ),
         ("text.contextual_evaluation/source-native", lexical_reading),

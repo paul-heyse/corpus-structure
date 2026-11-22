@@ -64,6 +64,7 @@ class ScopedRelationsOperation:
                 "direction": "input",
                 "required_rules": [
                     "text.formal_evidence/literal-source-geometry",
+                    "text.formal_evidence/inventory-topology",
                     "text.formal_evidence/symbolic-inventory-positions",
                 ],
                 "minimum": 1,

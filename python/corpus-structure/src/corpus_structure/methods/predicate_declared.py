@@ -83,7 +83,9 @@ class PredicateEvidenceOperation:
                 "direction": "input",
                 "required_rules": [
                     "text.formal_evidence/literal-source-geometry",
+                    "text.formal_evidence/inventory-topology",
                     "text.formal_evidence/symbolic-inventory-positions",
+                    "text.formal_evidence/numeric-normalization",
                 ],
                 "minimum": 1,
                 "maximum": None,

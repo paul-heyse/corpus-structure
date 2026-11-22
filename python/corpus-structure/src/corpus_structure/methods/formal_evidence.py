@@ -19,6 +19,16 @@ class FormalEvidenceOperation:
         "id": "text.formal_evidence/source-native",
         "rules": [
             {
+                "id": "text.formal_evidence/inventory-topology",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.formal_evidence/source-native",
+                "checker_callable": "corpus_structure.semantic.formal_products.verify_formal_inventory_topology",
+                "parameters": {"paths": ["members"]},
+            },
+            {
                 "id": "text.formal_evidence/family-roster",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
                 "scope": "product",

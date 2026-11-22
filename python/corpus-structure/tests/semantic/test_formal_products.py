@@ -927,7 +927,31 @@ def test_prepared_family_completion_preserves_declared_success_outcome(profile):
         "text.formal_evidence/occurrence-origin",
         "text.formal_evidence/family-roster",
         "text.formal_evidence/member-local-addresses",
+        "text.formal_evidence/inventory-topology",
     }
+
+
+def test_formal_inventory_topology_checks_owned_links_and_cycles():
+    from corpus_structure.semantic.formal_products import verify_formal_inventory_topology
+
+    def term(id_, children):
+        return {
+            "member_id": id_,
+            "body": {
+                "record_type": "term",
+                "local_id": id_,
+                "kind": "operator",
+                "children": [
+                    {"target": target, "structural": True, "role": "operand"} for target in children
+                ],
+            },
+        }
+
+    verify_formal_inventory_topology((term("x", ("y",)), term("y", ())))
+    with pytest.raises(ValueError, match="term/containment structural cycle"):
+        verify_formal_inventory_topology((term("x", ("y",)), term("y", ("x",))))
+    with pytest.raises(ValueError, match="dangling term/site"):
+        verify_formal_inventory_topology((term("x", ("missing",)),))
 
 
 def test_formal_family_roster_requires_all_families_in_order():

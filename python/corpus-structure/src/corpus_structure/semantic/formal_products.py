@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from corpus_structure.core.evidence import MacroDef
 from corpus_structure.methods.math import grammar as math_grammar
+from corpus_structure.semantic.characterization import validate_inventory_topology
 from corpus_structure.semantic.formal_evidence import FAMILIES
 from corpus_structure.semantic.source_products import (
     native_selector_covers_extent,
@@ -27,7 +28,7 @@ from corpus_structure.semantic.source_products import (
 
 from .characterization import (
     occurrence_id,
-    validate_inventory_graph,
+    validate_inventory_values,
 )
 from .characterization_evidence import validate_formal_normalization, validate_formal_positions
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
@@ -266,6 +267,13 @@ def verify_formal_member_local_addresses(packets):
     return data, indexes, all_nodes, choices
 
 
+def verify_formal_inventory_topology(packets):
+    """Check exact closed member topology and return the checked inventory indexes."""
+    data, indexes, all_nodes, choices = verify_formal_member_local_addresses(packets)
+    validate_inventory_topology(data, indexes, all_nodes, choices)
+    return data, indexes
+
+
 def verify_formal_family_roster(coverage):
     """Require every declared formal family in its canonical order."""
     if tuple(row["family"] for row in coverage) != FAMILIES:
@@ -379,7 +387,7 @@ def validate_formal_product(
     member_contracts = formal_member_contracts(prepared, model)
     packets = analytical_packets(checked, member_contracts["manifest"])
     verify_formal_examined_scope(checked, selected)
-    data, indexes, all_nodes, choices = verify_formal_member_local_addresses(packets)
+    data, indexes = verify_formal_inventory_topology(packets)
     subject = source_subject(checked["source"])
     context = dict(
         subject=subject,
@@ -403,7 +411,7 @@ def validate_formal_product(
     verify_formal_lexical_links(indexes["occurrences"], checked["lexicon"])
     validate_formal_positions(indexes)
     validate_formal_normalization(indexes["annotations"])
-    validate_inventory_graph(data, indexes, all_nodes, choices, lambda _: None)
+    validate_inventory_values(data)
     verify_formal_family_roster(checked["coverage"])
     return FormalEvidenceProduct(canonical_bytes(checked), prepared, model, subject_context)
 
@@ -760,7 +768,12 @@ def formal_operation_sources():
                     (semantic / (module + ".py")).read_bytes(),
                     str(semantic / (module + ".py")),
                 )
-                for module in ("characterization_evidence", "formal_evidence", "source_products")
+                for module in (
+                    "characterization",
+                    "characterization_evidence",
+                    "formal_evidence",
+                    "source_products",
+                )
             ),
         ),
         boundary_contracts=(
@@ -830,6 +843,10 @@ class PreparedFormalEvidencePort:
                 (
                     "corpus_structure.semantic.formal_products.verify_formal_occurrence_origin",
                     verify_formal_occurrence_origin,
+                ),
+                (
+                    "corpus_structure.semantic.formal_products.verify_formal_inventory_topology",
+                    verify_formal_inventory_topology,
                 ),
                 (
                     "corpus_structure.semantic.formal_products.verify_formal_family_roster",
@@ -925,6 +942,7 @@ class PreparedFormalEvidencePort:
                 "text.formal_evidence/lexical-inventory-links": None,
                 "text.formal_evidence/family-roster": None,
                 "text.formal_evidence/member-local-addresses": None,
+                "text.formal_evidence/inventory-topology": None,
                 "text.formal_evidence/symbolic-inventory-positions": None,
             }
             attestations = tuple(
