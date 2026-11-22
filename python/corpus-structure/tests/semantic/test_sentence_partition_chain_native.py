@@ -12,12 +12,13 @@ from corpus_structure.schema.model_change import native_model_inputs
 from corpus_structure.semantic import migrations
 from corpus_structure.semantic.canonical_sentences import canonical_sentence_operation_sources
 from corpus_structure.semantic.composed import data_operation_dependencies
+from corpus_structure.semantic.data_operation_identity import projected_computation_identity
 from corpus_structure.semantic.data_operation_partitions import partition_group_digests
 from corpus_structure.semantic.data_operation_projection_values import input_projection_digest
 from corpus_structure.semantic.data_operation_storage import admitted_data_read
 from corpus_structure.semantic.data_operation_values import decode_semantic_value
 from corpus_structure.semantic.demand_results import read_demand_result, stream_selected_support
-from corpus_structure.semantic.metadata import get_metadata
+from corpus_structure.semantic.metadata import get_metadata, table
 from corpus_structure.semantic.primary_operations import combine_primary_sources
 from corpus_structure.semantic.sentence_products import sentence_product_inputs
 from corpus_structure.semantic.target_installation import capture_target_installation
@@ -188,6 +189,34 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                 )
             )
             assert native_digest == expected_digest
+            outputs = table("ops.data_derivation_output")
+            episodes = table("ops.data_derivation")
+            requests = table("ops.data_request")
+            computations = table("ops.data_request_computation")
+            current = connection.execute(
+                select(requests.c.recipe, requests.c.binding, computations.c.computation_key)
+                .select_from(
+                    outputs.join(episodes, episodes.c.id == outputs.c.derivation_id)
+                    .join(requests, requests.c.id == episodes.c.request_id)
+                    .join(
+                        computations,
+                        (computations.c.request_id == episodes.c.request_id)
+                        & (computations.c.generation == episodes.c.generation),
+                    )
+                )
+                .where(outputs.c.product_id == canonical.row["product_id"])
+            ).one()
+            assert (
+                current.computation_key
+                == projected_computation_identity(
+                    project=PROJECT,
+                    recipe=current.recipe,
+                    role=input_role.name,
+                    projection_digest=expected_digest,
+                    parameters=decode_semantic_value(current.binding["parameters"]),
+                    inference=current.binding["inference"],
+                ).key
+            )
         start = annotated["placement"]["start"]
         sentences = [row for row in annotation_rows if row["record_type"] == "sentence"]
         assert [text[start + row["start"] : start + row["end"]] for row in sentences] == [

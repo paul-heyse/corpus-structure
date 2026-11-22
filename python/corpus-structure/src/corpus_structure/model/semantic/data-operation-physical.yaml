@@ -257,6 +257,20 @@ classes:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["request_id"],"target":"ops.data_request.id"},{"columns":["task_id"],"target":"ops.task.id"}]}
+  data_request_computation:
+    in_subset: [ops]
+    attributes:
+      request_id: {range: string, required: true}
+      generation: {range: integer, required: true}
+      project_id: {range: string, required: true}
+      computation_key: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [request_id, generation]}
+    annotations:
+      ph:indexes: {"tag":"ph:indexes","value":[["project_id","computation_key"]]}
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["request_id","generation"],"target":"ops.data_request_generation.request_id,generation"}]}
   data_product:
     in_subset: [kb]
     attributes:

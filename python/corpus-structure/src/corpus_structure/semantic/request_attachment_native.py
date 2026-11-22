@@ -909,6 +909,48 @@ def _binding_validation_program(model):
     )
 
 
+def _computation_identity_program():
+    project, recipe, role, digest, inference = (
+        _value(name) for name in ("p_project", "p_recipe", "p_role", "p_digest", "p_inference")
+    )
+    parameters = tuple(
+        Parameter(name, pg_type(kind))
+        for name, kind in (
+            ("p_project", "text"),
+            ("p_recipe", "text"),
+            ("p_role", "text"),
+            ("p_digest", "text"),
+            ("p_parameters", "jsonb"),
+            ("p_inference", "text"),
+        )
+    )
+    fields = func.data.ddo_json_meaning(
+        _object(
+            project=project,
+            recipe=recipe,
+            inference=inference,
+            inputs=func.jsonb_build_object(role, digest),
+        ),
+        type_=JSONB(),
+    )
+    # Parameters are already tagged. Preserve decimal, collection and optional
+    # distinctions through native normalization instead of decoding to JSONB.
+    parameter_field = func.jsonb_build_array(
+        func.jsonb_build_array("parameters", _value("p_parameters", JSONB()))
+    )
+    meaning = func.jsonb_build_array("mapping", fields[1].concat(parameter_field))
+    return NativeRoutine(
+        "ops",
+        "ddo_projected_computation_key",
+        parameters=parameters,
+        returns=pg_type("text"),
+        body=select(func.data.ddo_identity("projected-computation", meaning)),
+        volatility="immutable",
+        strict=True,
+        search_path=("pg_catalog", "pg_temp"),
+    )
+
+
 def _attachment_program(model, protocol: bytes):
     import yaml
 
@@ -931,6 +973,7 @@ def _attachment_program(model, protocol: bytes):
         intents,
         receipts,
         generations,
+        computations,
         uses,
         projects,
     ) = (
@@ -953,6 +996,7 @@ def _attachment_program(model, protocol: bytes):
             "ops.data_completion_intent",
             "ops.data_publication_receipt",
             "ops.data_request_generation",
+            "ops.data_request_computation",
             "ops.demand_use",
             "data.project",
         )
@@ -998,6 +1042,7 @@ def _attachment_program(model, protocol: bytes):
         _value(name, Boolean()) for name in ("invalid_current", "invalid_retained")
     )
     replace_capture = _value("replace_capture", Boolean())
+    projection_digest = _value("projection_digest")
     lifecycle = wire["data_task_state"]["x-ddo-lifecycle"]
     pending, running, terminal = (lifecycle[name] for name in ("initial", "running", "terminal"))
 
@@ -1391,6 +1436,60 @@ def _attachment_program(model, protocol: bytes):
             ),
         ),
     )
+    projected_role = defn("input_roles")[0]
+    # Only this prepared port presently enforces the whole-input envelope.
+    # Declaring an observation alone does not make an implementation use it.
+    record_computation_basis = If(
+        and_(
+            task.is_not(None),
+            o("operation_id") == "segment.sentences/canonical-projection",
+            func.jsonb_array_length(defn("input_roles")) == 1,
+            projected_role["collection"].astext == "scalar",
+            projected_role["minimum"].astext == "1",
+            projected_role["maximum"].astext == "1",
+            projected_role["read_projection"]["scope"].astext == "whole",
+            projected_role["read_projection"]["version"].astext == "1",
+            func.jsonb_array_length(binding["inputs"]) == 1,
+            binding["inputs"][0]["role"].astext == projected_role["name"].astext,
+            binding["inputs"][0]["member_id"].astext.is_(None),
+        ),
+        (
+            Assign(
+                "projection_digest",
+                func.ops.ddo_binding_input_projection_digest(
+                    d("id"),
+                    o("operation_id"),
+                    j["read_trust"],
+                    binding["read_id"].astext,
+                    o("subject"),
+                    func.coalesce(func.to_jsonb(o("original_source")), _json("null")),
+                    o("analyzed_scope"),
+                    binding["inputs"],
+                    projected_role["name"].astext,
+                ),
+            ),
+            If(
+                projection_digest.is_not(None),
+                (
+                    Sql(
+                        insert(computations).values(
+                            request_id=r("id"),
+                            generation=r("generation"),
+                            project_id=d("project_id"),
+                            computation_key=func.ops.ddo_projected_computation_key(
+                                d("project_id"),
+                                defn("recipe"),
+                                projected_role["name"].astext,
+                                projection_digest,
+                                binding["parameters"],
+                                binding["inference"].astext,
+                            ),
+                        )
+                    ),
+                ),
+            ),
+        ),
+    )
     state = case((episode.is_(None), "attached"), else_="fulfilled")
     existing_use = uses.alias("original_use")
     steps = (
@@ -1767,6 +1866,7 @@ def _attachment_program(model, protocol: bytes):
                 ),
             ),
         ),
+        record_computation_basis,
         SelectInto(
             select(intents.c.id).where(
                 intents.c.request_id == r("id"),
@@ -1861,7 +1961,16 @@ def _attachment_program(model, protocol: bytes):
             Local(name, pg_type("jsonb"), _value("p_payload", JSONB()) if name == "p" else None)
             for name in j
         ),
-        *(Local(name, pg_type("text")) for name in ("key", "episode", "usekey", "retained_id")),
+        *(
+            Local(name, pg_type("text"))
+            for name in (
+                "key",
+                "episode",
+                "usekey",
+                "retained_id",
+                "projection_digest",
+            )
+        ),
         Local("task", pg_type("bigint")),
         Local("cnt", pg_type("bigint")),
         Local("invalid_current", pg_type("boolean")),
@@ -2061,6 +2170,7 @@ def _attachment_batch_program(model):
 def request_attachment_native_programs(model, protocol: bytes) -> tuple[NativeRoutine, ...]:
     return (
         _binding_validation_program(model),
+        _computation_identity_program(),
         _attachment_program(model, protocol),
         _attachment_batch_program(model),
     )

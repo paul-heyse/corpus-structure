@@ -474,6 +474,32 @@ class SemanticRequestKey:
         )
 
 
+def projected_computation_identity(
+    *,
+    project: str,
+    recipe: str,
+    role: str,
+    projection_digest: str,
+    parameters: Any,
+    inference: str,
+) -> CanonicalIdentity:
+    """Result determinant for one enforced scalar whole-input projection."""
+    return canonical_identity(
+        "projected-computation",
+        {
+            "project": _identifier(project, "computation project"),
+            "recipe": _identifier(recipe, "computation recipe"),
+            "inputs": {
+                _identifier(role, "computation role"): _identifier(
+                    projection_digest, "input projection digest"
+                )
+            },
+            "parameters": parameters,
+            "inference": _identifier(inference, "computation inference policy"),
+        },
+    )
+
+
 @dataclass(frozen=True)
 class AdmissionManifest:
     request_key: str

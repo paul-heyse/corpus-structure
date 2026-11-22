@@ -1,25 +1,38 @@
 """Admitted partition metadata and body-free projection key parity."""
 
-from dataclasses import asdict
+import json
+from dataclasses import asdict, replace
 from decimal import Decimal
+from hashlib import sha256
+from typing import Any
 
 import pytest
-from sqlalchemy import bindparam, text
+from sqlalchemy import bindparam, insert, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic import migrations
+from corpus_structure.semantic.data_operation_demands import DemandPlanner
+from corpus_structure.semantic.data_operation_identity import projected_computation_identity
 from corpus_structure.semantic.data_operation_model import InputReadProjection, ProjectedCollection
 from corpus_structure.semantic.data_operation_partitions import partition_group_digests
 from corpus_structure.semantic.data_operation_projection_values import input_projection_digest
 from corpus_structure.semantic.data_operation_read_native import read_native_programs
+from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
-from corpus_structure.semantic.metadata import get_metadata
+from corpus_structure.semantic.metadata import get_metadata, table
 from corpus_structure.semantic.native_objects import execute_native_sql
+from corpus_structure.semantic.request_attachment_native import _computation_identity_program
+from corpus_structure.semantic.target_installation import capture_target_installation
+from native_test_support import principal_engine
+from semantic.data_operation_demand_support import attach, claim, publish, retain
+from semantic.data_operation_kernel_support import STORAGE, admit_kernel, prepare_kernel
 from semantic.test_data_product_admission_programs import (
     partition_fixture,
     realize,
 )
 from semantic.test_data_product_admission_programs import product_connection as product_connection
+from semantic.test_target_installation_native import install_target_root
 
 
 def test_selected_whole_projection_digest_never_reads_partition_bodies(product_connection):
@@ -124,3 +137,178 @@ def test_selected_whole_projection_digest_never_reads_partition_bodies(product_c
             read,
             dict(read="read", pins=[{"product_id": admitted, "member_id": "m"}], role="inventory"),
         )
+
+
+def test_native_computation_key_preserves_typed_parameters(product_connection):
+    routine = _computation_identity_program()
+    execute_native_sql(product_connection, routine.render())
+    parameters = {"parameters": {"cutoff": Decimal("1.2")}, "replicate": None}
+    values: dict[str, Any] = {
+        "project": "project:one",
+        "recipe": "recipe:one",
+        "role": "inventory",
+        "projection_digest": "input-projection-value:selected",
+        "parameters": parameters,
+        "inference": "inference:one",
+    }
+    literal = (
+        b'["ddo","projected-computation","1",["mapping",'
+        b'[["inference",["string","inference:one"]],'
+        b'["inputs",["mapping",[["inventory",["string","input-projection-value:selected"]]]]],'
+        b'["parameters",["mapping",[["parameters",["mapping",[["cutoff",["decimal","1.2"]]]]],'
+        b'["replicate",["null"]]]]],'
+        b'["project",["string","project:one"]],["recipe",["string","recipe:one"]]]]]'
+    )
+    actual = projected_computation_identity(**values)
+    assert actual.canonical_input == literal
+    assert actual.key == "projected-computation:" + sha256(literal).hexdigest()
+    query = text(
+        "SELECT ops.ddo_projected_computation_key("
+        ":project,:recipe,:role,:projection_digest,:parameters,:inference)"
+    ).bindparams(bindparam("parameters", type_=JSONB()))
+    assert (
+        product_connection.scalar(query, values | {"parameters": semantic_value(parameters)})
+        == actual.key
+    )
+    variants: dict[str, Any] = {
+        "project": "project:two",
+        "recipe": "recipe:two",
+        "role": "different",
+        "projection_digest": "input-projection-value:changed",
+        "parameters": {"parameters": {"cutoff": "1.2"}, "replicate": None},
+        "inference": "inference:two",
+    }
+    for field, value in variants.items():
+        changed = values | {field: value}
+        compared = product_connection.scalar(
+            query, changed | {"parameters": semantic_value(changed["parameters"])}
+        )
+        assert compared == projected_computation_identity(**changed).key
+        assert compared != actual.key
+
+
+_CANONICAL = "segment.sentences/canonical-projection"
+_PRODUCER = "urn:ddo-test:sample"
+
+
+def _projected_storage_recipe():
+    assert STORAGE.declaration_content is not None
+    declaration = json.loads(STORAGE.declaration_content)
+    consumer = next(
+        row for row in declaration["operations"] if row["id"] == "urn:ddo-test:value-consumer"
+    )
+    # Exercise the enforced port's attachment contract independently of a live
+    # parser. The test supplies a synthetic producer and publishes native values.
+    consumer["id"] = _CANONICAL
+    consumer["roles"][0]["read_projection"] = {"scope": "whole", "header": ["value"]}
+    return replace(
+        STORAGE,
+        name="projected-computation-attachment",
+        declaration_content=json.dumps(declaration).encode(),
+    )
+
+
+@pytest.fixture
+def projected_kernel(semantic_bare_engine, native_settings, tmp_path, monkeypatch):
+    admin = semantic_bare_engine
+    target = capture_target_installation(get_metadata())
+    *_, revision_path = install_target_root(admin, target, tmp_path)
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", revision_path)
+    recipe = _projected_storage_recipe()
+    preparation = prepare_kernel(recipe, directory=tmp_path / "kernel")
+    with admin.begin() as connection:
+        kernel = admit_kernel(connection, recipe, preparation=preparation)
+    writer = principal_engine(native_settings, "write", admin.url.database)
+    try:
+        yield replace(kernel, engine=writer)
+    finally:
+        writer.dispose()
+
+
+def test_native_projected_basis_preserves_distinct_request_custody(
+    projected_kernel, semantic_bare_engine
+):
+    engine = projected_kernel.engine
+    model = projected_kernel.model
+    source_kind = next(kind for kind in model.kinds if kind.name == "Sample")
+    sample_kind = projected_kernel.identities[source_kind.semantic_id, "kind"]
+    operation = model.operation(_CANONICAL)
+    role = next(role for role in operation.roles if role.direction == "input")
+    assert role.read_projection is not None
+    body = {"value": 15}
+    digest = input_projection_digest(role.read_projection, body, [])
+
+    def sample_output(completion):
+        completion["outputs"][0]["product"].update(
+            kind_contract=sample_kind, body=semantic_value(body)
+        )
+
+    with semantic_bare_engine.begin() as connection:
+        connection.execute(insert(table("data.project")).values(project_id="ddo-other"))
+
+    destinations = (("ddo-test", 1), ("ddo-test", 2), ("ddo-other", 1))
+    requests = []
+    keys = []
+    for project, page in destinations:
+        demand, _, _, producer = attach(
+            projected_kernel,
+            operation=_PRODUCER,
+            targets=(_CANONICAL,),
+            analyzed_scope={"page": page},
+            project_id=project,
+        )
+        fence = claim(projected_kernel, producer)
+        publish(projected_kernel, fence, retain(projected_kernel, fence, mutate=sample_output))
+        with engine.begin() as connection:
+            planner = DemandPlanner(model, DataOperationStorage(connection))
+            snapshot = planner.resume(demand["demand_id"])
+        with engine.begin() as connection:
+            planner = DemandPlanner(model, DataOperationStorage(connection))
+            (ready,) = planner.ready(snapshot, authorization=b"{}")
+        native = json.loads(ready.native)
+        current = json.loads(ready.binding)
+        assert ready.operation == _CANONICAL
+        assert native["action"] == "compute"
+        with semantic_bare_engine.connect() as connection:
+            row = connection.execute(
+                text(
+                    "SELECT r.request_key, c.computation_key, r.analyzed_scope, r.project_id "
+                    "FROM ops.data_request r "
+                    "JOIN ops.data_request_computation c ON c.request_id=r.id "
+                    "AND c.generation=r.generation WHERE r.id=:id"
+                ),
+                {"id": native["request_id"]},
+            ).one()
+        assert row.project_id == project
+        assert row.analyzed_scope == {"page": page}
+        assert row.request_key == native["request_id"]
+        assert (
+            row.computation_key
+            == projected_computation_identity(
+                project=project,
+                recipe=projected_kernel.identities[_CANONICAL, "recipe"],
+                role=role.name,
+                projection_digest=digest,
+                parameters=decode_semantic_value(current["parameters"]),
+                inference=current["inference"],
+            ).key
+        )
+        requests.append(native["request_id"])
+        keys.append(row.computation_key)
+
+        # Publish the first contextual output. Equal computation on the next
+        # context alone does not authorize use of this output occurrence.
+        if page == 1 and project == "ddo-test":
+            fence = claim(projected_kernel, native)
+            intent = retain(
+                projected_kernel,
+                fence,
+                mutate=lambda completion, selected=current: completion.update(
+                    inputs=selected["inputs"], support=selected["support"]
+                ),
+            )
+            publish(projected_kernel, fence, intent)
+
+    assert len(set(requests)) == 3
+    assert keys[0] == keys[1]
+    assert keys[0] != keys[2]
