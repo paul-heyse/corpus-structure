@@ -774,18 +774,10 @@ def _annotation_dependency(body):
     return "execution_profile" in body and "block_coverage" in body
 
 
-def _validated_annotation_support(value, selected, inventory, nodes):
-    """Authenticate the local evidence slots using the selected annotation population."""
+def _selected_annotation_blocks(selected):
     from .enriched_document_products import RetainedCharacterizationProduct
     from .sentence_partitions import acquire_sentence_partitions
 
-    support = annotation_support_index(value)
-    annotations = inventory["annotations"]
-    if not support and not any(
-        "named_match" in row or row.get("navigation", {}).get("native_tokens")
-        for row in annotations
-    ):
-        return {}
     native = []
     for product in selected:
         if type(product) is SourceAnnotations:
@@ -798,63 +790,105 @@ def _validated_annotation_support(value, selected, inventory, nodes):
             header = product.value
             _, blocks = acquire_sentence_partitions(product.partitions, header["rows"])
             native.append((header, blocks))
+    return native
+
+
+def verify_interpreted_annotation_support(support, items, layouts, annotations, nodes):
+    """Authenticate graph slots against addresses and layouts from the admitted annotation."""
+    for owner, use, binding in support:
+        rows = support[owner, use, binding]
+        node = _inventory_field(nodes, owner, None)
+        if node is None or any(address not in items for _, address in rows):
+            raise ValueError(
+                "construction annotation support does not resolve an exact graph/item address"
+            )
+        named = _inventory_field(node, "named_match", None)
+        if use in {"external_premise", "basis_external_premise"}:
+            record = node if use == "external_premise" else _inventory_field(node, "basis", None)
+            if record is None or any(
+                position >= len(rows) + len(_inventory_field(record, "external_premises", ()))
+                for position, _ in rows
+            ):
+                raise ValueError("construction annotation premise leaves its graph slot")
+        elif use == "navigation_token":
+            navigation = _inventory_field(node, "navigation", {})
+            block = _inventory_field(navigation, "block", None)
+            tokens = _inventory_field(navigation, "native_tokens", ())
+            layout = _inventory_field(layouts, block, None)
+            if (
+                layout is None
+                or _inventory_field(navigation, "annotation", None) != "annotation:" + layout
+            ):
+                raise ValueError("construction navigation lacks its exact original native block")
+            if tuple(position for position, _ in rows) != tuple(range(len(tokens))) or any(
+                address != (block, ("token", token["index"]))
+                for (_, address), token in zip(rows, tokens, strict=True)
+            ):
+                raise ValueError("construction navigation support changes its native token layout")
+        elif (
+            named is None
+            or (binding is not None and binding >= len(_inventory_field(named, "bindings", ())))
+            or tuple(position for position, _ in rows) != tuple(range(len(rows)))
+            or any(address[0] != named["block_id"] for _, address in rows)
+        ):
+            raise ValueError("named rule token leaves its exact original native block")
+
+    for node in annotations:
+        owner = node["local_id"]
+        if named := _inventory_field(node, "named_match", None):
+            if _inventory_field(layouts, named["block_id"], None) != named["dependency_digest"]:
+                raise ValueError("named rule lacks its exact original native block")
+            node_refs = _inventory_field(support, (owner, "named_node", None), ())
+            if tuple(address[1] for _, address in node_refs) != tuple(
+                ("token", row["token_index"]) for row in _inventory_field(named, "sentences", ())
+            ) or any(
+                len(_inventory_field(support, (owner, "named_binding_head", position), ())) != 1
+                for position in range(len(_inventory_field(named, "bindings", ())))
+            ):
+                raise ValueError("named rule lacks its exact native node or binding head")
+        tokens = _inventory_field(_inventory_field(node, "navigation", {}), "native_tokens", ())
+        references = _inventory_field(support, (owner, "navigation_token", None), ())
+        if len(references) != len(tokens):
+            raise ValueError("construction navigation lacks its exact selected tokens")
+
+
+def _validated_annotation_support(value, selected, annotations, nodes):
+    support = annotation_support_index(value)
+    if not support and not any(
+        "named_match" in row or row.get("navigation", {}).get("native_tokens")
+        for row in annotations
+    ):
+        return {}
+    native = _selected_annotation_blocks(selected)
     if len(native) != 1:
         raise ValueError("construction requires its exact selected annotation partitions")
     ((header, blocks),) = native
+    requested = {ref.partition_key for rows in support.values() for _, ref in rows}
     items = {
-        (block.key, (row["record_type"], row["ordinal"])) for block in blocks for row in block.rows
+        (block.key, (row["record_type"], row["ordinal"]))
+        for block in blocks
+        if block.key in requested
+        for row in block.rows
     }
     layouts = {
         row["annotation"]["block_id"]: row["annotation"]["dependency_digest"]
         for row in header["block_layouts"]
     }
-    for (owner, use, binding), rows in support.items():
-        node = nodes.get(owner)
-        if node is None or any((ref.partition_key, ref.item_key) not in items for _, ref in rows):
-            raise ValueError(
-                "construction annotation support does not resolve an exact graph/item address"
-            )
-        named = node.get("named_match")
-        if use in {"external_premise", "basis_external_premise"}:
-            record = node if use == "external_premise" else node.get("basis")
-            if record is None or any(
-                position >= len(rows) + len(record.get("external_premises", ()))
-                for position, _ in rows
-            ):
-                raise ValueError("construction annotation premise leaves its graph slot")
-        elif use == "navigation_token":
-            tokens = node.get("navigation", {}).get("native_tokens", ())
-            if tuple(position for position, _ in rows) != tuple(range(len(tokens))) or any(
-                ref.item_key != ("token", token["index"])
-                for (_, ref), token in zip(rows, tokens, strict=True)
-            ):
-                raise ValueError("construction navigation support changes its native token layout")
-        elif (
-            named is None
-            or (binding is not None and binding >= len(named.get("bindings", ())))
-            or tuple(position for position, _ in rows) != tuple(range(len(rows)))
-            or any(ref.partition_key != named["block_id"] for _, ref in rows)
-        ):
-            raise ValueError("named rule token leaves its exact original native block")
-
+    verify_interpreted_annotation_support(
+        {
+            key: tuple((position, (ref.partition_key, ref.item_key)) for position, ref in rows)
+            for key, rows in support.items()
+        },
+        items,
+        layouts,
+        annotations,
+        nodes,
+    )
     navigation = {}
     for node in annotations:
         owner = node["local_id"]
-        if named := node.get("named_match"):
-            if layouts.get(named["block_id"]) != named["dependency_digest"]:
-                raise ValueError("named rule lacks its exact original native block")
-            node_refs = support.get((owner, "named_node", None), ())
-            if tuple(ref.item_key for _, ref in node_refs) != tuple(
-                ("token", row["token_index"]) for row in named.get("sentences", ())
-            ) or any(
-                len(support.get((owner, "named_binding_head", position), ())) != 1
-                for position in range(len(named.get("bindings", ())))
-            ):
-                raise ValueError("named rule lacks its exact native node or binding head")
         if tokens := node.get("navigation", {}).get("native_tokens"):
             references = support.get((owner, "navigation_token", None), ())
-            if len(references) != len(tokens):
-                raise ValueError("construction navigation lacks its exact selected tokens")
             navigation[owner] = {
                 **node,
                 "external_premises": [
@@ -1139,7 +1173,7 @@ def _checked_interpreted_product(
             include_annotations=product_type is not ConstructionProduct,
         )
     navigation = (
-        _validated_annotation_support(checked, formal, inventory, all_nodes)
+        _validated_annotation_support(checked, formal, inventory["annotations"], all_nodes)
         if product_type is ConstructionProduct
         else {}
     )

@@ -40,6 +40,21 @@ class ConstructionOperation:
                 },
             },
             {
+                "id": "text.constructions/selected-annotation-support",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.constructions/source-native",
+                "checker_callable": "corpus_structure.semantic.construction_products.verify_interpreted_annotation_support",
+                "parameters": {
+                    "paths": ["annotation_support", "members"],
+                    "input_reads": {
+                        "sentences": ["rows", "block_layouts"],
+                    },
+                },
+            },
+            {
                 "id": "text.constructions/selected-primary-members",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-constructions/DdoPrimaryConstructionProduct",
                 "scope": "product",

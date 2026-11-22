@@ -443,6 +443,7 @@ class PreparedCharacterizationPort(ABC):
 
             occurrence_runtime = occurrence_identity_runtime()
             from .construction_products import (
+                verify_interpreted_annotation_support,
                 verify_interpreted_body_coverage,
                 verify_interpreted_dependency_members,
                 verify_interpreted_inventory_topology,
@@ -498,6 +499,14 @@ class PreparedCharacterizationPort(ABC):
                     verify_interpreted_source_coverage,
                 ),
             )
+            if self.family == "construction":
+                functions = (
+                    *functions,
+                    (
+                        "corpus_structure.semantic.construction_products.verify_interpreted_annotation_support",
+                        verify_interpreted_annotation_support,
+                    ),
+                )
         required = self.operation_sources(
             include_dependencies=False,
             **(
@@ -887,6 +896,10 @@ class PreparedCharacterizationPort(ABC):
                     "source": (RuleObservedInput(source.value),)
                 },
             }
+            if isinstance(inputs, _ConstructionInputs):
+                checked[
+                    "corpus_structure.semantic.construction_products.verify_interpreted_annotation_support"
+                ] = {"sentences": (RuleObservedInput(inputs.native.value),)}
             owner_kind = next(item for item in self.model.kinds if item.semantic_id == output.kind)
             packet: WireOutputMember = {
                 "role": output.name,

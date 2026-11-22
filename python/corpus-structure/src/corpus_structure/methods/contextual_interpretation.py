@@ -203,6 +203,7 @@ class ContextualEvaluationOperation:
                     "text.constructions/canonical-occurrence-addresses",
                     "text.constructions/inventory-topology",
                     "text.constructions/navigation-source-fields",
+                    "text.constructions/selected-annotation-support",
                     "text.constructions/selected-source-coverage",
                     "text.constructions/literal-source",
                     "text.constructions/native-numeric-scores",

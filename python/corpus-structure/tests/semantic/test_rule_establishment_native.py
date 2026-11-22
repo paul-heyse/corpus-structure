@@ -333,7 +333,7 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
         body_rule,
         id="source-dependent",
         fingerprint="source-dependent-fingerprint",
-        parameters=b'{"input_reads":{"source":["tokens"]}}',
+        parameters=b'{"input_reads":{"source":["tokens.placement_root","tokens.root"]}}',
     )
     conn.execute(
         insert(model.tables["sem.data_rule"]),
@@ -372,11 +372,16 @@ def test_producer_attestations_require_exact_target_and_live_establishment(
     run_bind(required="body", release="source-release")
     with pytest.raises(DBAPIError, match="rule"), conn.begin_nested():
         run_bind(required="source-dependent", release="source-release")
-    with pytest.raises(DBAPIError, match="missing or conflicting"), conn.begin_nested():
-        run_settle([claim(body_rule), source_claim({"tokens": []})], "second", source_request)
     actual_source = decode_semantic_value(result["product"]["body"])
     declared_claim = source_claim(actual_source)
     assert source_claim({**actual_source, "unobserved": "different"}) == declared_claim
+    tokens = actual_source["tokens"]
+    assert source_claim({**actual_source, "tokens": {**tokens, "item_count": 800}}) == declared_claim
+    for field in ("placement_root", "root"):
+        changed = source_claim({**actual_source, "tokens": {**tokens, field: "wrong"}})
+        assert changed != declared_claim
+        with pytest.raises(DBAPIError, match="missing or conflicting"), conn.begin_nested():
+            run_settle([claim(body_rule), changed], "second", source_request)
     run_settle([claim(body_rule), declared_claim], "second", source_request)
     observed_at = conn.execute(text("SELECT clock_timestamp()")).scalar_one()
     run_bind(

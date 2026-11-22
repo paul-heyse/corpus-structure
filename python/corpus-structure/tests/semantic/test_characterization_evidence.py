@@ -92,7 +92,16 @@ def navigation_product():
         if packet["body"].get("navigation", {}).get("source_labels")
     )
     reference = construction_annotation_reference(token["block_id"], "token", token["ordinal"])
-    navigation["navigation"]["native_tokens"] = [dict(name="subject", index=0)]
+    (layout,) = (
+        row["annotation"]
+        for row in native.value["block_layouts"]
+        if row["annotation"]["block_id"] == token["block_id"]
+    )
+    navigation["navigation"].update(
+        block=token["block_id"],
+        annotation="annotation:" + layout["dependency_digest"],
+        native_tokens=[dict(name="subject", index=token["ordinal"])],
+    )
     navigation["external_premises"] = []
     body["annotation_support"].extend(
         dict(owner=navigation["local_id"], use=use, position=0, target=reference)

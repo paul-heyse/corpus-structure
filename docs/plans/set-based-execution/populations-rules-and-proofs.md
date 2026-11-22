@@ -613,6 +613,18 @@ establishments and body-only binding on the final root. Publication and adoption
 atomic when any required reference or proof refuses. Retain independent expected addresses and
 coverage facts in the tests. [Shared scenarios](cutover-and-qualification.md#change-scenarios)
 
+**Cross-input construction proof · Tested by selected identity · 2026-11-22.** The construction
+producer emits `text.constructions/selected-annotation-support` against observed navigation
+and the exact selected annotation header. The compact `rows` header supplies the body and
+placement commitments. Its terminal path works with the existing compiler, which rejects
+dotted traversal through the logical multivalued collection. The binding requires this proof on contextual construction inputs.
+The normalized checker compares the actual block and token together and verifies the released
+layout digest. A token ordinal valid in a different block is refused. The three focused
+prepared, navigation and actual named-construction identities passed (`4719e52fcc664084ac7ef000bc7e81f7`).
+Native establishment parity passed (`93d2544f51cd4b9981c4f7d0d75e22d4`). The current contextual
+`supporting` acquisition still checks exact input custody. Migration of the remaining external
+premises and family addresses and final registered-root qualification stay open.
+
 **Construction rule uptake · Tested by selected identity · 2026-11-22.** Contextual
 interpretation requires the construction selected-primary-members establishment. Predicate and
 scoped-relation construction inputs require the declared geometry, topology and coverage their

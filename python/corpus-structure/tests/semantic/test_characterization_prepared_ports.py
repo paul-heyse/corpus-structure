@@ -546,6 +546,34 @@ def test_interpreted_body_coverage_refuses_empty_family_with_analytical_members(
         verify_interpreted_body_coverage(coverage, "complete", inventory)
 
 
+def test_navigation_proof_requires_the_declared_block_and_exact_token():
+    from corpus_structure.semantic.construction_products import (
+        verify_interpreted_annotation_support,
+    )
+
+    node = {
+        "local_id": "navigation",
+        "navigation": {
+            "block": "selected",
+            "annotation": "annotation:layout-a",
+            "native_tokens": [{"index": 1}],
+        },
+    }
+    selected = ("selected", ("token", 1))
+    other = ("other", ("token", 1))
+    slot = ("navigation", "navigation_token", None)
+    items = {selected, other}
+    layouts = {"selected": "layout-a", "other": "layout-b"}
+    graph = {"navigation": node}
+    verify_interpreted_annotation_support({slot: ((0, selected),)}, items, layouts, [node], graph)
+    with pytest.raises(ValueError, match="native token layout"):
+        verify_interpreted_annotation_support({slot: ((0, other),)}, items, layouts, [node], graph)
+    with pytest.raises(ValueError, match="exact original native block"):
+        verify_interpreted_annotation_support(
+            {slot: ((0, selected),)}, items, {"selected": "layout-b"}, [node], graph
+        )
+
+
 def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired, monkeypatch):
     from corpus_structure.ingest.sentences import SentenceConfig
     from corpus_structure.semantic import construction_products
@@ -653,6 +681,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         }
         if isinstance(inputs, _ConstructionInputs):
             expected.add("text.constructions/navigation-source-fields")
+            expected.add("text.constructions/selected-annotation-support")
         assert set(proofs) == expected
         assert all(proof.output_role == "result" for proof in proofs.values())
         assert all(proof.output_position == 0 for proof in proofs.values())
@@ -676,6 +705,12 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
             assert changed_proofs[navigation_rule].premise == proofs[navigation_rule].premise
 
     consumer = model.operation("text.contextual_evaluation/source-native")
+    (annotation_rule,) = (
+        rule for rule in model.rules if rule.id == "text.constructions/selected-annotation-support"
+    )
+    assert json.loads(annotation_rule.parameters)["input_reads"] == {
+        "sentences": ["block_layouts", "rows"]
+    }
     (formal_role,) = (role for role in consumer.roles if role.name == "formal")
     assert "text.formal_evidence/canonical-occurrence-addresses" in formal_role.required_rules
     (role,) = (role for role in consumer.roles if role.name == "constructions")
@@ -688,6 +723,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         "text.constructions/navigation-source-fields",
         "text.constructions/positioned-source-geometry",
         "text.constructions/released-attachment-witnesses",
+        "text.constructions/selected-annotation-support",
         "text.constructions/selected-primary-members",
         "text.constructions/selected-source-coverage",
     )
