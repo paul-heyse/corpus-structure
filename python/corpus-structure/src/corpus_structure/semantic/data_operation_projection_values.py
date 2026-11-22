@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
-from .data_operation_identity import canonical_identity
-from .data_operation_model import InputReadProjection, ProjectedCollection
 from .identity import canonical_bytes
+
+if TYPE_CHECKING:
+    from .data_operation_model import InputReadProjection, ProjectedCollection
 
 
 def _path_tree(paths):
@@ -129,6 +131,7 @@ def input_projection_digest(projection: InputReadProjection, header, partitions)
     Partition metadata has collection, selected address/ordinal/placement facts,
     and group digests. This helper neither needs nor consults partition bodies.
     """
+    from .data_operation_identity import canonical_identity
 
     def project_partition(packet, selection):
         if not selection.groups:
