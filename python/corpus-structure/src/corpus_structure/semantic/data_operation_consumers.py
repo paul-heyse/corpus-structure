@@ -7,10 +7,14 @@ It grants no native publication, hydration or effect permission.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
+from functools import cached_property
 from hashlib import sha256
+from types import MappingProxyType
 from typing import Any
+
+from corpus_structure.caches import declare
 
 from .data_operation_bindings import BindingResult
 from .data_operation_model import BoundRoleMember, ResolvedRoleBinding
@@ -56,22 +60,69 @@ class BoundConsumerSelection:
 
 
 @dataclass(frozen=True)
+class _ConsumerPayload:
+    content: bytes
+    meaning: bytes | None
+    value: Any
+
+
+def _freeze_consumer(value):
+    from .data_operation_values import CollectionValue, OptionalValue
+    from .native_source_view import FrozenJsonArray
+
+    if isinstance(value, CollectionValue):
+        return CollectionValue(value.kind, tuple(_freeze_consumer(item) for item in value.members))
+    if isinstance(value, OptionalValue):
+        return OptionalValue(value.state, _freeze_consumer(value.value))
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _freeze_consumer(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return FrozenJsonArray(_freeze_consumer(item) for item in value)
+    return value
+
+
+@declare(
+    "selected-consumer-payloads",
+    "runtime_bytes",
+    key=lambda content, meaning, decoder: (
+        sha256(content).digest(),
+        None if meaning is None else sha256(meaning).digest(),
+        decoder,
+    ),
+    weight=lambda payload: len(payload.content) + len(payload.meaning or b""),
+)
+def _consumer_payload(content, meaning, decoder):
+    import json
+
+    from .data_operation_values import decode_semantic_value
+
+    value = (
+        decode_semantic_value(json.loads(meaning))
+        if meaning is not None
+        else json.loads(content)
+    )
+    return _ConsumerPayload(content, meaning, _freeze_consumer(value))
+
+
+@dataclass(frozen=True)
 class SelectedConsumerValue:
-    """Exact selected native member plus detached, already admitted semantic body."""
+    """Exact selected occurrence over one bounded immutable admitted payload."""
 
     member: BoundRoleMember
     content: bytes
     meaning: bytes | None = None
     partitioned: PartitionedInput | None = None
 
+    @cached_property
+    def _payload(self):
+        from .value_codec import decimal_digit_limit
+
+        return _consumer_payload(
+            self.content, self.meaning, (MODEL_VERSION, self.member.kind_contract, decimal_digit_limit())
+        )
+
     def value(self):
-        import json
-
-        if self.meaning is not None:
-            from .data_operation_values import decode_semantic_value
-
-            return decode_semantic_value(json.loads(self.meaning))
-        return json.loads(self.content)
+        return self._payload.value
 
 
 @dataclass(frozen=True)

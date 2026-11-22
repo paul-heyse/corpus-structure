@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from decimal import Decimal
 from hashlib import sha256
 from typing import Any
@@ -16,6 +17,8 @@ def canonical_bytes(value: Any) -> bytes:
     def exact(obj: Any) -> Any:
         if isinstance(obj, Decimal):
             return {"decimal": decimal_text(obj)}
+        if isinstance(obj, Mapping):
+            return dict(obj)
         raise TypeError(f"unsupported semantic value: {type(obj).__name__}")
 
     return json.dumps(

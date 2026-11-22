@@ -296,7 +296,7 @@ def _proposal_source(prepared, source, annotations: RichAnnotationsInput, pin):
     header = annotations.header
     if (
         header["source"] != native.value["source"]
-        or header["selectors"] != native.value["selectors"]
+        or tuple(header["selectors"]) != tuple(native.value["selectors"])
     ):
         raise ValueError("source annotations differ from exact original source/scope")
     sentences = []

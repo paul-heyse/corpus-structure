@@ -248,11 +248,11 @@ def _restore_selected_annotation_rows(source, value, rows):
     from .declared_record_sources import DeclaredNativeFrameSource
 
     selected = source.value
-    if value["source"] != selected["source"] or value["selectors"] != selected["selectors"]:
+    if value["source"] != selected["source"] or tuple(value["selectors"]) != tuple(selected["selectors"]):
         raise ValueError("retained annotations differ from their exact original source/scope")
     if not rows:
         return ()
-    frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
+    frame = DeclaredNativeFrameSource.from_source(source, rows[0]["source"]["content"])
     return restore_annotations(
         rows,
         source=frame,
@@ -296,7 +296,7 @@ def verify_annotation_block_source(
         not expected_pieces
         or start != expected_pieces[0]["start"]
         or piece_offset != expected_offset
-        or pieces != expected_pieces
+        or tuple(pieces) != tuple(expected_pieces)
     ):
         raise ValueError("annotations differ from original selected native pieces")
 
@@ -309,7 +309,7 @@ def _validate_annotation_blocks(blocks, checked, source, configuration):
     if not blocks:
         return
     rows = tuple(_annotation_row(block) for block in blocks)
-    frame = DeclaredNativeFrameSource(source.content.decode(), rows[0]["source"]["content"])
+    frame = DeclaredNativeFrameSource.from_source(source, rows[0]["source"]["content"])
     products = restore_annotations(
         rows,
         source=frame,
@@ -361,7 +361,7 @@ def verify_annotation_coverage(checked, selectors, manifest):
         row["family"] for row in checked["coverage"]
     } != set(SPACY_FAMILIES):
         raise ValueError("native family coverage omits or repeats a declared spaCy family")
-    if any(row["eligible"] != selectors for row in checked["coverage"]):
+    if any(tuple(row["eligible"]) != tuple(selectors) for row in checked["coverage"]):
         raise ValueError("native family coverage differs from frozen eligible source")
     if checked["outcome"] != (
         "complete"
@@ -731,7 +731,7 @@ class PreparedSentenceProfile:
         from corpus_structure.settings import Settings
 
         check_active()
-        source = FrozenNativeSource.acquire(self.prepared, source.value)
+        source = FrozenNativeSource.acquire(self.prepared, source)
         selected = source.value
         blocks, coverage = _blocks(source)
         records, receipts, annotation_columns = [], [], []
@@ -1217,7 +1217,7 @@ class PreparedSentencePort:
             raise PortRefusal("sentence source role has another nominal contract")
         actual = value.value
         if isinstance(actual, FrozenNativeSource):
-            source = FrozenNativeSource.acquire(self.profile.prepared, actual.value)
+            source = FrozenNativeSource.acquire(self.profile.prepared, actual)
         elif isinstance(actual, BaseModel):
             source = FrozenNativeSource.acquire(
                 self.profile.prepared, actual.model_dump(mode="json", exclude_unset=True)

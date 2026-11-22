@@ -488,7 +488,7 @@ def retained_math_scope_products(products, source, *, binders, rules=()):
     value = source.value
     for product in products:
         body = json.loads(product.content)
-        if body["source"] != value["source"] or body["selectors"] != value["selectors"]:
+        if body["source"] != value["source"] or tuple(body["selectors"]) != tuple(value["selectors"]):
             raise ValueError("math source product differs from its exact original source/scope")
         inventory = {name: [] for name in names.values()}
         for packet in body["members"]:

@@ -112,7 +112,7 @@ class PreparedDefinitionInputs:
         for member, body in zip(self.members(role), values, strict=True):
             if (
                 body["source"] != source.value["source"]
-                or body["selectors"] != source.value["selectors"]
+                or tuple(body["selectors"]) != tuple(source.value["selectors"])
             ):
                 raise ValueError(
                     "definition primary product differs from exact source and analyzed scope"

@@ -11,6 +11,8 @@ from corpus_structure.semantic.construction_products import (
 from corpus_structure.semantic.formal_products import (
     FormalEvidenceOptions,
 )
+from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from semantic.construction_products_test_support import (
     profiles as profiles,
 )
@@ -317,7 +319,7 @@ def test_multi_source_view_keeps_each_projection_local_coordinate(profiles):
 
     formal, construction = profiles
     left = selected(formal, "All samples are finite.")
-    changed = selected(formal, "Every trial succeeds.").value
+    changed = thaw_native(selected(formal, "Every trial succeeds.").value)
     changed["source"]["section_pointer"] = "#/groups/1"
     right = FrozenNativeSource.acquire(construction.prepared, changed)
     products = tuple(
@@ -355,7 +357,7 @@ def test_captured_composition_canonicalizes_sets_without_reordering_explicit_seq
 
     formal, construction = profiles
     left = selected(formal, "All samples are finite.")
-    changed = selected(formal, "Every trial succeeds.").value
+    changed = thaw_native(selected(formal, "Every trial succeeds.").value)
     changed["source"]["section_pointer"] = "#/groups/1"
     right = FrozenNativeSource.acquire(construction.prepared, changed)
     products = tuple(
@@ -380,7 +382,7 @@ def test_captured_composition_canonicalizes_sets_without_reordering_explicit_seq
         product.semantic_id for product in products
     }
     explicit = execute_view_profile(receiver, (right, left), products[::-1], (), "selected_layers")
-    assert explicit.value.model_dump(mode="json")["sources"] == [right.value, left.value]
+    assert canonical_bytes(explicit.value.model_dump(mode="json")["sources"]) == canonical_bytes([right.value, left.value])
 
 
 def test_retained_working_doc_uses_native_lexeme_values_without_source_getters(monkeypatch):

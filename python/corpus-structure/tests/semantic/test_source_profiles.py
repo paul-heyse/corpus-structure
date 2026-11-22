@@ -17,6 +17,7 @@ from corpus_structure.semantic.data_operation_ports import (
     resolve_python_port,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.original_documents import original_document_subject
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_products import FrozenNativeSource, native_projection_identity
@@ -134,9 +135,12 @@ def test_acquired_native_source_keeps_validation_and_selector_identity(acquired,
     assert FrozenNativeSource.acquire(prepared, source) is source
     assert _validated_python_input(FrozenNativeSource, source) is source
     assert source.selector_index() is source.selector_index()
-    first = source.value
-    first["items"].clear()
-    assert source.value["items"]
+    assert source.value is source.value
+    assert source.native_items() is source.native_items()
+    with pytest.raises(TypeError):
+        source.value["text"] = "caller mutation"
+    with pytest.raises(AttributeError):
+        source.value["items"].clear()
     forged = object.__new__(FrozenNativeSource)
     object.__setattr__(forged, "content", source.content)
     with pytest.raises(TypeError, match="validating acquisition"):
@@ -144,7 +148,7 @@ def test_acquired_native_source_keeps_validation_and_selector_identity(acquired,
 
 
 def test_unknown_ancestry_and_missing_math_parent_do_not_become_false_absence(acquired):
-    value = original(acquired[2]).value
+    value = thaw_native(original(acquired[2]).value)
     value["items"][1]["parent"] = "#/unavailable"
     with pytest.raises(ValueError, match="parent is unavailable"):
         source_profile_values(value)
@@ -268,3 +272,52 @@ def test_native_admission_roles_preserve_exact_archived_defaults(acquired):
                     }
                 )
             assert operation[direction + "_roles"] == expected
+
+
+def test_spawned_kernel_accepts_the_sealed_acquired_source(acquired, tmp_path, monkeypatch):
+    import importlib
+    import inspect
+    from types import SimpleNamespace
+
+    from corpus_structure.core.work import drive_prepared_work
+    from corpus_structure.semantic import source_products
+    from corpus_structure.semantic.data_operation_cpu import PythonCPUDescriptor, plan_cpu_call
+    from semantic.data_operation_port_support import scope
+
+    name = "source_kernel_" + tmp_path.name.replace("-", "_")
+    content = (
+        b"from collections.abc import Callable\n"
+        b"from corpus_structure.semantic.source_products import FrozenNativeSource\n"
+        b"def run(source: FrozenNativeSource, *, check_active: Callable[[], None]) -> str:\n"
+        b"    check_active()\n    return source.value['text']\n"
+    )
+    path = tmp_path / (name + ".py")
+    path.write_bytes(content)
+    monkeypatch.syspath_prepend(str(tmp_path))
+    signature = inspect.signature(importlib.import_module(name).run)
+    source_path = Path(source_products.__file__).resolve()
+    descriptor = PythonCPUDescriptor(
+        ((name, str(path), content), (source_products.__name__, str(source_path), source_path.read_bytes())),
+        name + ".run",
+        (),
+        verification="prepared-kernel",
+        control_parameter="check_active",
+    )
+    source = original(acquired[2])
+    cpu = scope()
+    try:
+        reply = drive_prepared_work(
+            plan_cpu_call(
+                descriptor,
+                signature.bind(source=source, check_active=lambda: None),
+                signature,
+                verify=lambda: None,
+                execution_owner=SimpleNamespace(cpu=cpu, reservation=None),
+                check_active=lambda: None,
+            ),
+            lambda: None,
+        )
+        assert json.loads(reply.content) == source.value["text"]
+        assert reply.execution_receipt.request_digest
+    finally:
+        cpu.close()

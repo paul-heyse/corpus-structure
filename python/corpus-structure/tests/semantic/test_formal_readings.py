@@ -12,6 +12,7 @@ from corpus_structure.semantic.formal_readings import (
     lexical_fact_readings,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.structural_products import LocatedDefinitionSpan, StructuralPassage
 from semantic.formal_products_support import profile as profile
 from semantic.formal_products_support import publication_context, selected_rows
@@ -108,7 +109,7 @@ def test_whole_normalized_fields_and_lexical_basis_are_consumed_without_parsing(
 
 def test_distinct_examined_scopes_and_invalid_domains_do_not_become_known_absence(profile):
     native, product, source, passage, primary = case(profile, "X > 2 kg\nDate: 2025-02-30")
-    narrowed = native.value
+    narrowed = thaw_native(native.value)
     narrowed["selectors"] = [dict(projection=source.projection_digest, start=0, end=8)]
     selected = FrozenFormalSource.acquire(profile.prepared, narrowed)
     other = profile.run(

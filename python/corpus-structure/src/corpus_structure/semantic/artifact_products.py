@@ -318,7 +318,7 @@ def execute_artifact_identity(
                 continue
             if (
                 primary["source"] != source.value["source"]
-                or primary["selectors"] != source.value["selectors"]
+                or tuple(primary["selectors"]) != tuple(source.value["selectors"])
             ):
                 raise ValueError(
                     "artifact navigation differs from its exact original source and analyzed scope"

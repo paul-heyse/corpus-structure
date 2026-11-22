@@ -14,6 +14,7 @@ from corpus_structure.semantic.constructions.math_scope import (
     retained_math_scope_products,
 )
 from corpus_structure.semantic.formal_products import FormalEvidenceOptions
+from corpus_structure.semantic.native_source_view import thaw_native
 from methods.declared_primary_fixture import profiles, retained_products, selected_source
 
 
@@ -178,7 +179,7 @@ def test_primary_math_scope_refuses_foreign_original_even_with_equal_projection(
     sibling, sibling_product = produce(
         monkeypatch, "Let x." if equal_text else "Suppose z follows.", binders=binders
     )
-    value = sibling.value
+    value = thaw_native(sibling.value)
     value["source"] = {
         **value["source"],
         "document": "unadmitted:another-original",

@@ -226,7 +226,7 @@ class PreparedM1Inputs:
             self.model,
             partitions=tuple(canonical_bytes(packet) for packet in annotations["partitions"]),
         )
-        if checked["source"] != primary["source"] or checked["selectors"] != primary["selectors"]:
+        if checked["source"] != primary["source"] or tuple(checked["selectors"]) != tuple(primary["selectors"]):
             raise ValueError("M1 annotations belong to another exact source/scope")
         from corpus_structure.ingest.sentences import SentenceConfig
 

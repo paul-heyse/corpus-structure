@@ -852,7 +852,7 @@ class ResolvedPythonPort:
                 length = len(checked)
                 if length < role.minimum or (role.maximum is not None and length > role.maximum):
                     raise PortRefusal("input role cardinality differs: " + name)
-            arguments[role.parameter] = copy.deepcopy(checked)
+            arguments[role.parameter] = checked
         # Semantic parameters come from the same frozen binding that determines
         # the native request. Never silently execute a different original default.
         semantic_parameters = {}
@@ -1080,7 +1080,7 @@ def _validated_python_input(annotation: Any, value: Any, *, adapters=None) -> An
                 object.__getattribute__(value, field.name),
                 adapters=adapters,
             )
-            object.__setattr__(result, field.name, copy.deepcopy(checked))
+            object.__setattr__(result, field.name, checked)
         return result
     checked = adapters.get(annotation).validate_python(_untrusted_value(value), strict=True)
 

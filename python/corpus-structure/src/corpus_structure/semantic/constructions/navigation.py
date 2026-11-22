@@ -831,7 +831,7 @@ def populate_navigation_products(
         )
         coordinate = source.value["source"]
         body = json.loads(native.content)
-        if body["source"] != coordinate or body["selectors"] != source.value["selectors"]:
+        if body["source"] != coordinate or tuple(body["selectors"]) != tuple(source.value["selectors"]):
             raise ValueError(
                 "navigation native input differs from its original source and analyzed scope"
             )
@@ -1344,7 +1344,7 @@ class NativeNavigationIndex:
                 raise ValueError("navigation input repeats a declared product")
             seen.add(reference)
             body = json.loads(product.content)
-            if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
+            if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(selected["selectors"]):
                 raise ValueError(
                     "navigation product differs from its exact original source and analyzed scope"
                 )

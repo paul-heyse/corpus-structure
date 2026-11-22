@@ -31,7 +31,7 @@ class DeclaredNamedRules:
         source = json.loads(annotations.content)
         for product in constructions:
             body = json.loads(product.content)
-            if body["source"] != source["source"] or body["selectors"] != source["selectors"]:
+            if body["source"] != source["source"] or tuple(body["selectors"]) != tuple(source["selectors"]):
                 raise ValueError("named products differ from their exact native source and scope")
             support = annotation_support_index(body)
             inventory = product.inventory()

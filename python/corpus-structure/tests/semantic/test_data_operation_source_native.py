@@ -17,6 +17,7 @@ from corpus_structure.semantic.data_operation_source_native import (
 )
 from corpus_structure.semantic.data_operation_values import semantic_value
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.prepared_sql import prepare_sql
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_product_inputs
@@ -181,7 +182,7 @@ def test_native_source_builder_matches_source_owner_without_legacy_diagnostic_sa
         ancestors=view.ancestors,
         recognition=view.health.get("formula_outcomes", ()),
     )
-    value = expected.value
+    value = thaw_native(expected.value)
     value["selectors"] = [{**row, "projection": value["source"]["projection"]} for row in selectors]
     expected = FrozenNativeSource.acquire(source_prepared, value)
     actual = build(source_builder_connection, projection, [atom], selectors)
@@ -284,7 +285,7 @@ def test_native_source_retains_ordered_ancestry_links_and_typed_table_context(
         ancestors=view.ancestors,
         recognition=view.health.get("formula_outcomes", ()),
     )
-    value = expected.value
+    value = thaw_native(expected.value)
     value["selectors"] = [{**row, "projection": value["source"]["projection"]} for row in selectors]
     expected = FrozenNativeSource.acquire(source_prepared, value)
     actual = build(source_builder_connection, projection, [ancestor, atom], selectors)
@@ -294,7 +295,7 @@ def test_native_source_retains_ordered_ancestry_links_and_typed_table_context(
     assert actual["items"][0]["data"]["table_cells"][0]["row_span"] == -1
     assert "bbox" not in actual["items"][0]["data"]["table_cells"][0]
     native = {item["self_ref"]: item for item in expected.native_items()}
-    assert native["#/groups/0"]["children"] == [{"$ref": "#/texts/0"}]
+    assert native["#/groups/0"]["children"] == ({"$ref": "#/texts/0"},)
     assert native["#/texts/0"]["data"]["table_cells"][0]["ref"] == {"$ref": "#/texts/cell"}
     index = expected.selector_index()
     assert index.matches({"native_pointer": "#/groups/0"}, "#/texts/0") is True
@@ -352,5 +353,5 @@ def test_computed_projection_uses_same_language_value_without_legacy_source_iden
         selectors=selectors,
     )
     assert native.value["source"]["document"] == "document:semantic"
-    assert native.value["items"][0]["prov"] == [{"page_no": 1}]
+    assert native.value["items"][0]["prov"] == ({"page_no": 1},)
     assert b"task_id" not in native.content and b"bbox" not in native.content

@@ -16,6 +16,7 @@ from corpus_structure.semantic._data_operation_wire import (
 from corpus_structure.semantic.data_operation_demands import DemandPlanner
 from corpus_structure.semantic.data_operation_service import cancel_data_demand
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
+from corpus_structure.semantic.native_source_view import thaw_native
 from semantic.current_pdf_source_support import (
     admit_current_target,
     current_consumer_request,
@@ -45,7 +46,7 @@ def test_partial_original_scope_is_ineligible_for_whole_block_inspection(project
     from corpus_structure.semantic.source_products import FrozenNativeSource
 
     source, _, _ = pure_source(projection_prepared)
-    selected = source.value
+    selected = thaw_native(source.value)
     selected["selectors"] = [{"projection": selected["source"]["projection"], "start": 0, "end": 1}]
     partial = FrozenNativeSource.acquire(projection_prepared.prepared, selected)
     blocks, coverage = _blocks(partial)

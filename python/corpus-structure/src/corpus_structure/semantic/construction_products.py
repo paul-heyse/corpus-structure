@@ -809,16 +809,17 @@ def interpreted_product_value(source, facts, member_contracts, dependencies):
         for group in facts["choices"]
         for member in group["members"]
     ]
-    coordinate = selected["source"]
+    coordinate = dict(selected["source"])
+    selectors = [dict(selector) for selector in selected["selectors"]]
     context = dict(
         subject=source_subject(coordinate),
         subject_definition="original-source-view",
         original_source=coordinate["document"],
-        analyzed_scope=dict(source=coordinate, selectors=selected["selectors"]),
+        analyzed_scope=dict(source=coordinate, selectors=selectors),
     )
     value = dict(
         source=coordinate,
-        selectors=selected["selectors"],
+        selectors=selectors,
         dependencies=[
             DataProductReference(product.semantic_id).values() for product in dependencies
         ],
@@ -841,7 +842,7 @@ def interpreted_product_value(source, facts, member_contracts, dependencies):
 
 def verify_interpreted_literal_source(product, source):
     """Check interpreted occurrences against the selected source and examined scope."""
-    if product["source"] != source["source"] or product["selectors"] != source["selectors"]:
+    if product["source"] != source["source"] or tuple(product["selectors"]) != tuple(source["selectors"]):
         raise ValueError("construction product changes its exact original source/scope")
     text = source["text"]
     for packet in product["members"]:
@@ -1003,7 +1004,7 @@ def _checked_interpreted_product(
         subject=source_subject(selected["source"]),
         subject_definition="original-source-view",
         original_source=selected["source"]["document"],
-        analyzed_scope=dict(source=selected["source"], selectors=selected["selectors"]),
+        analyzed_scope=dict(source=selected["source"], selectors=list(selected["selectors"])),
     )
     for packet in packets:
         if (
@@ -1127,7 +1128,7 @@ class PreparedConstructionProfile:
         subject_context: SubjectContext | None = None,
     ):
         options = ConstructionOptions() if options is None else options
-        source = FrozenNativeSource.acquire(self.prepared, source.value)
+        source = FrozenNativeSource.acquire(self.prepared, source)
         if sentences is not None:
             sentences = validate_source_annotations(
                 self.prepared,
@@ -1209,7 +1210,7 @@ class PreparedContextualProfile:
         subject_context: SubjectContext | None = None,
         max_nodes=20000,
     ):
-        source = FrozenNativeSource.acquire(self.prepared, source.value)
+        source = FrozenNativeSource.acquire(self.prepared, source)
         FormalSourceReadings.from_products(formal, source, prepared=self.prepared, model=self.model)
         checked = tuple(
             validate_construction_product(

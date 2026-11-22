@@ -50,7 +50,7 @@ def contextual_native_values(
     native_complete, native_unexamined = {}, []
     for provider, snapshot in (("maverick", maverick), ("dipo", dipo)):
         body = json.loads(snapshot.content)
-        if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
+        if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(selected["selectors"]):
             raise ValueError("contextual native dependency changes original selected scope")
         native_complete[provider] = all(
             row["outcome"] in {"complete", "empty"}

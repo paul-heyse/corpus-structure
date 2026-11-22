@@ -145,7 +145,7 @@ def declared_model_dependencies(products, source):
         body = json.loads(product.content)
         if (
             body["source"] != source.value["source"]
-            or body["selectors"] != source.value["selectors"]
+            or tuple(body["selectors"]) != tuple(source.value["selectors"])
         ):
             raise ValueError("model dependency belongs to another original source projection")
         reference = DataProductReference(product.semantic_id)

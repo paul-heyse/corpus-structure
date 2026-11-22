@@ -346,7 +346,7 @@ def compose_enriched_document(
     subject_context=None,
 ):
     """Compose exact retained inputs with original local offsets and source identities."""
-    sources = tuple(FrozenNativeSource.acquire(prepared, source.value) for source in sources)
+    sources = tuple(FrozenNativeSource.acquire(prepared, source) for source in sources)
     value = compose_enriched_document_values(
         sources,
         products,

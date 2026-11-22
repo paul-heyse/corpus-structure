@@ -17,6 +17,7 @@ from corpus_structure.semantic.m1_products import (
     m1_operation_inputs,
     m1_profile_assets,
 )
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_products import FrozenNativeSource, source_subject
 from corpus_structure.semantic.source_types import ObservationOutcome
@@ -652,14 +653,14 @@ def test_related_m1_context_consumes_only_related_members_own_selected_span(link
             dict(self_ref="#/texts/2", label="text", text="SECRET", orig="SECRET"),
         ],
     )
-    value = related.value
+    value = thaw_native(related.value)
     value["selectors"] = [
         dict(projection=value["source"]["projection"], native_pointer="#/texts/1")
     ]
     related = FrozenNativeSource.acquire(prepared, value)
 
     def frame(source, ordinal):
-        value = source.value
+        value = thaw_native(source.value)
         member = BoundRoleMember(
             "product:related",
             "kind:source",

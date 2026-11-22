@@ -333,7 +333,7 @@ def _declared_sentences(source, native_products, canonical, hanlp, *, admitted, 
 
     selected = source.value
     body = json.loads(hanlp.content)
-    if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
+    if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(selected["selectors"]):
         raise DeclarationNotQualified(
             "declaration HanLP differs from exact original source and scope"
         )
@@ -660,7 +660,7 @@ def declaration_sentences_products(products, source, passage):
 
     for product in products:
         body = json.loads(product.content)
-        if body["source"] != selected["source"] or body["selectors"] != selected["selectors"]:
+        if body["source"] != selected["source"] or tuple(body["selectors"]) != tuple(selected["selectors"]):
             raise DeclarationNotQualified(
                 "declaration product differs from exact original source and analyzed scope"
             )

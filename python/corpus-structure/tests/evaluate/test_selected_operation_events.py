@@ -27,6 +27,7 @@ from corpus_structure.semantic.declared_structural_references import (
 )
 from corpus_structure.semantic.demand_results import CutSelection
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.structural_products import (
     DeclaredDefinitionComponentsProduct,
     DeclaredDefinitionComponentsReport,
@@ -73,7 +74,7 @@ def event_value(
     """Unadmitted current domain values; no receipt, factory execution or native row is fabricated."""
     native = selected(profile, text)
     if selected_start:
-        value = native.value
+        value = thaw_native(native.value)
         value["selectors"][0]["start"] = selected_start
         native = type(native).acquire(profile.prepared, value)
     coordinate = native.value["source"]

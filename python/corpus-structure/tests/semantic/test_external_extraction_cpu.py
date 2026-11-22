@@ -40,6 +40,7 @@ from corpus_structure.semantic.external_extraction import (
     rich_external_declarations,
 )
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.observations import source_value
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import ResolvedDependencies
@@ -224,7 +225,7 @@ def prepare_basis(prepared, model, *, with_context=False):
             projection=native_projection_identity("", [], [], []),
         )
         parent["selectors"] = [{"projection": parent["source"]["projection"]}]
-        parent = FrozenNativeSource.acquire(prepared, parent).value
+        parent = thaw_native(FrozenNativeSource.acquire(prepared, parent).value)
         parent_annotations = deepcopy(annotations)
         parent_annotations.update(
             source=parent["source"],

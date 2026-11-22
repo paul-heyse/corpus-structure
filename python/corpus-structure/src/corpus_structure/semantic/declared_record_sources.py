@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from pydantic import JsonValue
 
@@ -157,6 +157,8 @@ class DeclaredNativeFrameSource:
     _text: str = field(init=False, repr=False, compare=False)
     _context: str = field(init=False, repr=False, compare=False)
     _coordinate: tuple[str, str, str] = field(init=False, repr=False, compare=False)
+    _acquired_source: ClassVar[Any]
+    _columns: ClassVar[Any]
 
     def __post_init__(self):
         value = self._source_value
@@ -182,18 +184,18 @@ class DeclaredNativeFrameSource:
             "_coordinate",
             (coordinate["section_pointer"], coordinate["membership"], coordinate["projection"]),
         )
-        object.__setattr__(
-            self,
-            "_context",
-            canonical_bytes(
-                {
-                    "items": native_language_items(value["items"]),
-                    "pieces": value["pieces"],
-                    "ancestors": native_language_items(value.get("ancestors", [])),
-                    "health": {"formula_outcomes": value.get("recognition", [])},
-                }
-            ).decode(),
+        from .native_source_view import freeze_native
+
+        columns = freeze_native(
+            {
+                "items": native_language_items(value["items"]),
+                "pieces": value["pieces"],
+                "ancestors": native_language_items(value.get("ancestors", ())),
+                "health": {"formula_outcomes": value.get("recognition", ())},
+            }
         )
+        object.__setattr__(self, "_columns", columns)
+        object.__setattr__(self, "_context", canonical_bytes(columns).decode())
 
     @property
     def record(self) -> dict[str, JsonValue]:
@@ -209,21 +211,34 @@ class DeclaredNativeFrameSource:
 
         source = FrozenNativeSource.acquire(prepared, value)
         address = DeclaredRecordSource.from_bound(source, member, project=project)
-        return cls(source.content.decode(), canonical_bytes(address.pin()).decode())
+        return cls.from_source(source, canonical_bytes(address.pin()).decode())
+
+    @classmethod
+    def from_source(cls, source, pin_content):
+        """Bind an acquired source payload to this occurrence's exact declared pin."""
+        from .source_products import FrozenNativeSource
+
+        FrozenNativeSource._require_acquired(source)
+        result = object.__new__(cls)
+        object.__setattr__(result, "source_content", source.content.decode())
+        object.__setattr__(result, "pin_content", pin_content)
+        object.__setattr__(result, "version", 4)
+        object.__setattr__(result, "_source_value", source.value)
+        object.__setattr__(result, "_acquired_source", source)
+        result.__post_init__()
+        return result
 
     @cached_property
     def _source_value(self):
-        import json
+        from .source_products import _native_source_payload
 
-        return json.loads(self.source_content)
-
-    @property
-    def value(self) -> dict[str, Any]:
-        from .native_source_view import thaw_native
-
-        return thaw_native(self.view.value)
+        return _native_source_payload(self.source_content.encode(), None).value
 
     @property
+    def value(self):
+        return self.view.value
+
+    @cached_property
     def pin(self):
         return DeclaredSourcePin(self.pin_content)
 
@@ -265,11 +280,11 @@ class DeclaredNativeFrameSource:
 
     @cached_property
     def view(self):
-        import json
-
         from .native_source_view import NativeSourceView
 
-        return NativeSourceView(self._source_value, json.loads(self._context))
+        if "_acquired_source" in vars(self):
+            return NativeSourceView.from_acquired(self._acquired_source, self._columns)
+        return NativeSourceView(self._source_value, self._columns)
 
     @property
     def pieces(self):

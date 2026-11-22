@@ -10,6 +10,10 @@ from types import MappingProxyType
 from typing import Any, overload
 
 
+class FrozenJsonArray(tuple):
+    """An immutable JSON array, distinguishable from a caller's Python tuple."""
+
+
 @overload
 def freeze_native(value: Mapping[str, Any]) -> Mapping[str, Any]: ...
 
@@ -26,7 +30,7 @@ def freeze_native(value: Any) -> Any:
     if isinstance(value, Mapping):
         return MappingProxyType({key: freeze_native(item) for key, item in value.items()})
     if isinstance(value, (list, tuple)):
-        return tuple(freeze_native(item) for item in value)
+        return FrozenJsonArray(freeze_native(item) for item in value)
     return value
 
 
@@ -111,6 +115,23 @@ class NativeSourceView:
         frozen = freeze_native(value)
         object.__setattr__(self, "value", frozen)
         object.__setattr__(self, "columns", freeze_native(self.columns) if self.columns else frozen)
+        self._check_columns()
+
+    @classmethod
+    def from_acquired(cls, source, columns=None):
+        """Reuse the source owner's immutable validated payload without a second hash."""
+        from .source_products import FrozenNativeSource
+
+        FrozenNativeSource._require_acquired(source)
+        result = object.__new__(cls)
+        object.__setattr__(result, "value", source.value)
+        object.__setattr__(
+            result, "columns", source.value if columns is None else freeze_native(columns)
+        )
+        result._check_columns()
+        return result
+
+    def _check_columns(self):
         pointers = (
             *self.items_by_ref,
             *(item.get("self_ref", item.get("pointer")) for item in self.ancestors),

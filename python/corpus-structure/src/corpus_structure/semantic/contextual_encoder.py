@@ -296,7 +296,7 @@ def prepare_primary_query_context(frame, occurrence, rows, *, recipe, evidence):
             raise ValueError("query context primary lacks its genuine computational support")
         if (
             row.body.get("source") != frame.value["source"]
-            or row.body.get("selectors") != frame.value["selectors"]
+            or canonical_bytes(row.body.get("selectors")) != canonical_bytes(frame.value["selectors"])
         ):
             raise ValueError("query context primary belongs to another original source/scope")
         products[row.product_id] = dict(canonical_body=semantic_value(row.body))

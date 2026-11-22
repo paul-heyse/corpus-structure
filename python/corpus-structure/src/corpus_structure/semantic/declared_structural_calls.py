@@ -352,7 +352,7 @@ def execute_comparison(receiver, sources, reports, formal, **selection):
             (reference, frame)
             for reference, frame in dict(((a, left), (b, right))).items()
             if raw["source"] == frame.value["source"]
-            and raw["selectors"] == frame.value["selectors"]
+            and tuple(raw["selectors"]) == tuple(frame.value["selectors"])
         ]
         if len(matches) != 1 or member.member is not None:
             raise ValueError(

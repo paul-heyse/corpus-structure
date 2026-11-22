@@ -108,7 +108,7 @@ def _native_atoms(items):
             )
             if name in item
         }
-        if isinstance(item.get("parent"), dict) and "$ref" in item["parent"]:
+        if isinstance(item.get("parent"), Mapping) and "$ref" in item["parent"]:
             atom["parent"] = item["parent"]["$ref"]
         for name in ("children", "captions", "footnotes", "references"):
             if name in item:
@@ -498,8 +498,14 @@ class FrozenNativeSource:
     def _selector_index(self) -> NativeSourceSelectorIndex:
         return NativeSourceSelectorIndex.from_value(self._value)
 
-    def native_items(self) -> tuple[dict[str, Any], ...]:
-        """Exact retained original items/ancestor context for pure native owners."""
+    def native_items(self) -> tuple[Mapping[str, Any], ...]:
+        """Exact immutable original items/ancestor context for pure native owners."""
+        return self._native_items
+
+    @cached_property
+    def _native_items(self) -> tuple[Mapping[str, Any], ...]:
+        from .native_source_view import freeze_native
+
         value = self.value
         by_pointer = {item["self_ref"]: item for item in (*value["items"], *value["ancestors"])}
         rows: list[dict[str, Any]] = []
@@ -520,7 +526,7 @@ class FrozenNativeSource:
                     ],
                 }
             rows.append(restored)
-        return tuple(rows)
+        return freeze_native(rows)
 
     @property
     def _value(self):
@@ -530,10 +536,8 @@ class FrozenNativeSource:
     def view(self):
         from .native_source_view import NativeSourceView
 
-        return NativeSourceView(self._value)
+        return NativeSourceView.from_acquired(self)
 
     @property
-    def value(self) -> dict[str, Any]:
-        from .native_source_view import thaw_native
-
-        return thaw_native(self._value)
+    def value(self) -> Mapping[str, Any]:
+        return self._value

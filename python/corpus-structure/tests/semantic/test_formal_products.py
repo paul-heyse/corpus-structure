@@ -10,6 +10,7 @@ from corpus_structure.semantic.formal_products import (
     FrozenFormalSource,
     formal_product_inputs,
 )
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.original_documents import original_document_subject
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.types import SourceArtifact, SourceBundle
@@ -80,7 +81,7 @@ def test_formal_semantics_do_not_depend_on_execution_limits_or_receipt_placement
 
 def test_formal_source_identity_and_exact_scope_change_meaning(profile):
     full = selected(profile, "Quantity: 2 kg")
-    changed = full.value
+    changed = thaw_native(full.value)
     changed["source"]["document"] = "document:another-original"
     changed["source"]["document_subject"] = original_document_subject("document:another-original")
     other = FrozenFormalSource.acquire(profile.prepared, changed)
@@ -89,7 +90,7 @@ def test_formal_source_identity_and_exact_scope_change_meaning(profile):
         other, FormalEvidenceOptions(), subject_context=_publication_context(other)
     )
     assert {m.member_id for m in first.members}.isdisjoint({m.member_id for m in second.members})
-    scoped = full.value
+    scoped = thaw_native(full.value)
     scoped["selectors"][0]["end"] = 8
     result = profile.run(
         FrozenFormalSource.acquire(profile.prepared, scoped),
@@ -106,14 +107,14 @@ def test_formal_source_identity_and_exact_scope_change_meaning(profile):
 
 def test_selected_source_is_detached_and_refuses_forged_coordinates(profile):
     original = selected(profile, "x ≥ 2")
-    changed = original.value
+    changed = thaw_native(original.value)
     changed["items"][0]["text"] = "caller mutation"
     assert original.value["items"][0]["text"] == "x ≥ 2"
-    changed = original.value
+    changed = thaw_native(original.value)
     changed["selectors"][0]["projection"] = "c" * 64
     with pytest.raises(ValueError, match="another projection"):
         FrozenFormalSource.acquire(profile.prepared, changed)
-    changed = original.value
+    changed = thaw_native(original.value)
     changed["pieces"][0]["item_ref"] = "#/missing"
     with pytest.raises(ValueError, match="original atom"):
         FrozenFormalSource.acquire(profile.prepared, changed)
@@ -208,7 +209,7 @@ def test_source_native_math_readings_refuse_different_original_coordinate(profil
     product = profile.run(
         source, FormalEvidenceOptions(), subject_context=_publication_context(source)
     )
-    changed = source.value
+    changed = thaw_native(source.value)
     changed["source"]["membership"] = "direct"
     other = FrozenFormalSource.acquire(profile.prepared, changed)
     with pytest.raises(ValueError, match="another source"):
@@ -251,7 +252,7 @@ def test_immediate_construction_boundary_reuses_formal_facts_without_parser(prof
     assert fields[0].normalized["unit"] == "kg"
     assert isinstance(fields[0].reference, DataProductMemberReference)
     assert fields[0].reference.product.product_id == product.semantic_id
-    changed = source.value
+    changed = thaw_native(source.value)
     changed["source"]["document"] = "another-original"
     changed["source"]["document_subject"] = original_document_subject("another-original")
     with pytest.raises(ValueError, match="another original source"):
@@ -1072,7 +1073,7 @@ def test_declared_formal_adapter_refuses_scope_substitution_or_duplicate_product
     )
     with pytest.raises(ValueError, match="repeats"):
         declared_formal_layers((product, product), source)
-    changed = source.value
+    changed = thaw_native(source.value)
     changed["selectors"][0]["end"] -= 1
     narrowed = FrozenFormalSource.acquire(profile.prepared, changed)
     with pytest.raises(ValueError, match="analyzed scope"):

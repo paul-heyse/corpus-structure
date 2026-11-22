@@ -10,7 +10,7 @@ from corpus_structure.semantic.source_products import FrozenNativeSource
 
 def verify_annotation_source(annotation_source, annotation_selectors, source, selectors):
     """Check the annotation's declared source coordinate and examined selectors."""
-    if annotation_source != source or annotation_selectors != selectors:
+    if annotation_source != source or tuple(annotation_selectors) != tuple(selectors):
         raise ValueError("source annotations differ from exact original source/scope")
 
 

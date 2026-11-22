@@ -425,7 +425,7 @@ def execute_clause_classification(
     canonical_header = canonical["header"]
     if (
         canonical_header["source"] != frame.value["source"]
-        or canonical_header["selectors"] != frame.value["selectors"]
+        or tuple(canonical_header["selectors"]) != tuple(frame.value["selectors"])
     ):
         raise ValueError("clause canonical units differ from their exact original source and scope")
     (canonical_member,) = profile.members("canonical")

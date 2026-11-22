@@ -12,6 +12,7 @@ from corpus_structure.semantic.declared_proposal_frames import (
 )
 from corpus_structure.semantic.declared_record_sources import DeclaredSourcePin, DeclaredSourceSlice
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.proposals import (
     ProposalSentence,
     native_address,
@@ -568,7 +569,7 @@ def test_prepared_source_view_is_shared_recursively_immutable_and_ordered():
         cast(dict, primary.items[0])["label"] = "changed"
     constructed = ConstructionSource.from_native(primary)
     assert constructed.pieces is constructed.pieces
-    detached = constructed.value
+    detached = thaw_native(constructed.value)
     detached["pieces"][0]["end"] = 100
     assert constructed.pieces[0]["end"] == 3
 

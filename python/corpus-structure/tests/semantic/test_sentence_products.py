@@ -11,6 +11,7 @@ import spacy
 from corpus_structure.ingest.sentences import SentenceConfig
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.identity import canonical_bytes
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.sentence_products import (
     sentence_operation_sources,
     sentence_product_inputs,
@@ -78,14 +79,14 @@ def test_original_source_identity_excludes_legacy_task_recipe_and_diagnostic_sal
             ancestors=view.ancestors,
             recognition=view.health.get("formula_outcomes", ()),
         )
-        value = native.value
+        value = thaw_native(native.value)
         value["selectors"] = [
             {"projection": value["source"]["projection"], "native_pointer": "#/texts/0"}
         ]
         views.append(FrozenNativeSource.acquire(profile.prepared, value))
     assert views[0].content == views[1].content
     assert b"task_id" not in views[0].content and b"recipe_digest" not in views[0].content
-    changed = views[0].value
+    changed = thaw_native(views[0].value)
     changed["text"] = "Forged content."
     with pytest.raises(ValueError, match=r"source meaning|exceed|partition"):
         FrozenNativeSource.acquire(profile.prepared, changed)
@@ -101,7 +102,7 @@ def test_empty_and_partial_block_scope_never_invent_canonical_sentences(profile,
     )
     assert empty.inventory("sentence") == () and empty.value.outcome == "complete"
     source = selected(profile)
-    value = source.value
+    value = thaw_native(source.value)
     value["selectors"][0]["start"] = 4
     partial = profile.run(
         FrozenNativeSource.acquire(profile.prepared, value),
@@ -573,7 +574,7 @@ def test_native_inventory_keeps_original_synthetic_piece_and_block_whitespace(mo
 def test_flat_original_formula_parent_preserves_protected_inline_atom(profile):
     from corpus_structure.semantic.sentence_products import _blocks
 
-    value = selected(profile, "Let x = 2.").value
+    value = thaw_native(selected(profile, "Let x = 2.").value)
     value["items"] = [
         dict(self_ref="#/texts/0", label="text", text="Let x = 2.", orig="Let x = 2."),
         dict(self_ref="#/groups/inline", label="inline", parent="#/texts/0"),
@@ -673,7 +674,7 @@ def test_prepared_canonical_full_source_digest_accepts_authenticated_required_su
 def test_unprojected_requested_native_text_is_unknown_instead_of_empty_language(
     profile, monkeypatch
 ):
-    value = selected(profile, "").value
+    value = thaw_native(selected(profile, "").value)
     value["items"] = [dict(self_ref="#/texts/raw", label="formula", text="", orig="x + 1")]
     projection = native_projection_identity("", [], value["items"], [])
     value["source"]["projection"] = projection

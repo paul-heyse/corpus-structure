@@ -6,6 +6,7 @@ import pytest
 
 from corpus_structure.semantic.data_operation_compilation import compile_data_operations
 from corpus_structure.semantic.data_operation_member_contracts import derive_member_kinds
+from corpus_structure.semantic.native_source_view import thaw_native
 from corpus_structure.semantic.prepare import prepare_release
 from corpus_structure.semantic.source_discovery import (
     PreparedSourceDiscovery,
@@ -87,7 +88,7 @@ def source(profile, *, document="document:one", start=0, end=4):
             "source_field": "text",
         }
     ]
-    value = FrozenNativeSource.from_projection(
+    value = thaw_native(FrozenNativeSource.from_projection(
         profile.prepared,
         document=document,
         section_pointer="#/texts/0",
@@ -95,7 +96,7 @@ def source(profile, *, document="document:one", start=0, end=4):
         text="mean",
         pieces=pieces,
         items=items,
-    ).value
+    ).value)
     value["selectors"] = [{"projection": value["source"]["projection"], "start": start, "end": end}]
     return FrozenNativeSource.acquire(profile.prepared, value).value
 

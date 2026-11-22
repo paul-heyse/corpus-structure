@@ -302,7 +302,7 @@ def verify_formal_packed_members(packets):
 def verify_formal_examined_scope(product, source):
     """Check examined scope and family coverage against the actual selected source."""
     selectors = source["selectors"]
-    if product["source"] != source["source"] or product["selectors"] != selectors:
+    if product["source"] != source["source"] or tuple(product["selectors"]) != tuple(selectors):
         raise ValueError("formal product differs from exact selected source/scope")
     regions = product["lexicon"]
     for selector in selectors:
@@ -319,7 +319,7 @@ def verify_formal_examined_scope(product, source):
         ):
             raise ValueError("primary lexicon differs from exact examined region")
     for row in product["coverage"]:
-        if row["eligible"] != selectors or row["examined"] != selectors:
+        if tuple(row["eligible"]) != tuple(selectors) or tuple(row["examined"]) != tuple(selectors):
             raise ValueError("formal coverage differs from original examined scope")
         if product["outcome"] == "complete" and row["outcome"] not in {"complete", "empty"}:
             raise ValueError("complete formal product contains incomplete family coverage")
@@ -393,7 +393,7 @@ def validate_formal_product(
         subject=subject,
         subject_definition="original-source-view",
         original_source=checked["source"]["document"],
-        analyzed_scope=dict(source=checked["source"], selectors=selected["selectors"]),
+        analyzed_scope=dict(source=checked["source"], selectors=list(selected["selectors"])),
     )
     for packet in packets:
         if packet["kind_contract"] != member_contracts[packet["body"]["record_type"]]:
@@ -454,7 +454,7 @@ class PreparedFormalEvidence:
         subject_context: SubjectContext | None = None,
     ) -> FormalEvidenceProduct:
         # Revalidate owned boundary bytes; model_construct/hand-created wrappers are not authority.
-        source = FrozenFormalSource.acquire(self.prepared, source.value)
+        source = FrozenFormalSource.acquire(self.prepared, source)
         options = FormalEvidenceOptions.model_validate(options.model_dump(mode="python"))
         if self.grammar != grammar_identity():
             raise ValueError("formal capability differs from acquired effective grammar assets")
@@ -893,7 +893,7 @@ class PreparedFormalEvidencePort:
             raise PortRefusal("formal source role has another nominal contract")
         actual = value.value
         if isinstance(actual, FrozenFormalSource):
-            source = FrozenFormalSource.acquire(self.profile.prepared, actual.value)
+            source = FrozenFormalSource.acquire(self.profile.prepared, actual)
         elif isinstance(actual, BaseModel):
             source = FrozenFormalSource.acquire(self.profile.prepared, _values(actual))
         elif isinstance(actual, Mapping):

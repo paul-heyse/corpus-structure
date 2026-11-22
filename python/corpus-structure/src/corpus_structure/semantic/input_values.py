@@ -9,6 +9,15 @@ from pydantic import BaseModel
 
 def _untrusted_value(value: Any, *, model_field: Callable[[BaseModel, str], Any] = getattr) -> Any:
     """Model instances can have bypassed validation; reconstruct their public fields."""
+    from .data_operation_values import CollectionValue, OptionalValue
+    from .native_source_view import FrozenJsonArray
+
+    if isinstance(value, CollectionValue):
+        return CollectionValue(
+            value.kind, tuple(_untrusted_value(item, model_field=model_field) for item in value.members)
+        )
+    if isinstance(value, OptionalValue):
+        return OptionalValue(value.state, _untrusted_value(value.value, model_field=model_field))
     if isinstance(value, BaseModel):
         return {
             name: _untrusted_value(model_field(value, name), model_field=model_field)
@@ -17,6 +26,8 @@ def _untrusted_value(value: Any, *, model_field: Callable[[BaseModel, str], Any]
         }
     if isinstance(value, Mapping):
         return {key: _untrusted_value(item, model_field=model_field) for key, item in value.items()}
+    if isinstance(value, FrozenJsonArray):
+        return [_untrusted_value(item, model_field=model_field) for item in value]
     if isinstance(value, tuple):
         return tuple(_untrusted_value(item, model_field=model_field) for item in value)
     if isinstance(value, list):
