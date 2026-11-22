@@ -960,7 +960,7 @@ class PreparedHanlpPort:
     def _inputs(self, values, binding):
         from corpus_structure.semantic.input_values import _untrusted_value
 
-        from .data_operation_ports import PortRefusal, PythonRoleValue
+        from .data_operation_ports import HydratedRoleValue, PortRefusal, PythonRoleValue
         from .data_operation_values import decode_semantic_value
 
         roles = [role for role in self.operation.roles if role.direction == "input"]
@@ -975,12 +975,18 @@ class PreparedHanlpPort:
         if any(selected[role.name].kind_contract != ids[role.kind, "kind"] for role in roles):
             raise PortRefusal("HanLP input nominal contract differs")
         actual_source = selected["source"].value
-        source = FrozenNativeSource.acquire(
-            self.profile.prepared,
-            actual_source
-            if isinstance(actual_source, (FrozenNativeSource, Mapping))
-            else _untrusted_value(actual_source),
-        )
+        source_role = selected["source"]
+        if type(source_role) is HydratedRoleValue and source_role.selected is not None:
+            source = FrozenNativeSource.acquire_selected(
+                self.profile.prepared, HydratedRoleValue._require_selected(source_role, binding)
+            )
+        else:
+            source = FrozenNativeSource.acquire(
+                self.profile.prepared,
+                actual_source
+                if isinstance(actual_source, (FrozenNativeSource, Mapping))
+                else _untrusted_value(actual_source),
+            )
         supplied = selected["canonical"]
         if supplied.partitioned is None:
             raise PortRefusal("HanLP requires selected canonical partitions")

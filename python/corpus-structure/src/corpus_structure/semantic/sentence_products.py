@@ -1285,7 +1285,7 @@ class PreparedSentencePort:
         return required_sources, sources, actual_assets
 
     def _source(self, values, binding):
-        from .data_operation_ports import PortRefusal, PythonRoleValue
+        from .data_operation_ports import HydratedRoleValue, PortRefusal, PythonRoleValue
         from .data_operation_values import decode_semantic_value
 
         inputs = tuple(role for role in self.operation.roles if role.direction == "input")
@@ -1296,7 +1296,11 @@ class PreparedSentencePort:
         if value.role != inputs[0].name or value.kind_contract != contracts[inputs[0].kind, "kind"]:
             raise PortRefusal("sentence source role has another nominal contract")
         actual = value.value
-        if isinstance(actual, FrozenNativeSource):
+        if type(value) is HydratedRoleValue and value.selected is not None:
+            source = FrozenNativeSource.acquire_selected(
+                self.profile.prepared, HydratedRoleValue._require_selected(value, binding)
+            )
+        elif isinstance(actual, FrozenNativeSource):
             source = FrozenNativeSource.acquire(self.profile.prepared, actual)
         elif isinstance(actual, BaseModel):
             source = FrozenNativeSource.acquire(

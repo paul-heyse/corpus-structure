@@ -394,11 +394,15 @@ def test_actual_cuda_hanlp_retains_all_native_heads_and_semantic_addresses(profi
         return check()
 
     monkeypatch.setattr(port._verification, "check", counted_check)
+    from semantic.source_test_support import hydrated_source
+
     values = tuple(
-        PythonRoleValue(
+        hydrated_source(source, ids[role.kind, "kind"])
+        if role.name == "source"
+        else PythonRoleValue(
             role.name,
             ids[role.kind, "kind"],
-            source.value if role.name == "source" else header,
+            header,
             partitioned=partitioned if role.name == "canonical" else None,
         )
         for role in operation.roles

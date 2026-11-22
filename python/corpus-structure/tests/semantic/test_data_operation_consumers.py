@@ -137,4 +137,6 @@ def test_executor_scalar_handoff_preserves_optional_omission_and_exact_cardinali
         from corpus_structure.semantic.data_operation_ports import HydratedRoleValue
 
         assert all(isinstance(item, HydratedRoleValue) for item in values)
+        if values:
+            assert values[0].selected is selected.one("views")
         assert binding.roles[0].state == "present"

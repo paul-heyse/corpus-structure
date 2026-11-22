@@ -348,16 +348,24 @@ class _NativeSourcePayload:
 @declare(
     "native-source-payloads",
     "runtime_bytes",
-    key=lambda content, decoder, prepared=None: (sha256(content).digest(), decoder),
+    key=lambda content, decoder, prepared=None, selected=None: (
+        sha256(content).digest(), decoder,
+        sha256(selected.meaning).digest() if selected is not None else None,
+    ),
     weight=lambda payload: len(payload.content),
 )
-def _native_source_payload(content, decoder, prepared=None):
+def _native_source_payload(content, decoder, prepared=None, selected=None):
     """Retain immutable interpretation only; occurrence indexes stay invocation-owned."""
     from .native_source_view import freeze_native
 
     if prepared is None:
         return _NativeSourcePayload(content, freeze_native(json.loads(content)))
     checked = _values(prepared.validate_json("DdoSelectedNativeSource", content))
+    if selected is not None:
+        from .data_operation_values import semantic_value
+
+        if canonical_bytes(semantic_value(checked)) != selected.meaning:
+            raise ValueError("selected native source display differs from its typed meaning")
     if "document_subject" in checked["source"] and checked["source"][
         "document_subject"
     ] != original_document_subject(checked["source"]["document"]):
@@ -453,6 +461,21 @@ class FrozenNativeSource:
             value = value.value
         payload = _native_source_payload(canonical_bytes(value), decoder, prepared)
         return cls._from_payload(payload, decoder)
+
+    @classmethod
+    def acquire_selected(cls, prepared: PreparedRelease, selected) -> FrozenNativeSource:
+        """Acquire the exact retained display bytes under their tagged nominal meaning."""
+        from .data_operation_consumers import SelectedConsumerValue
+
+        if type(selected) is not SelectedConsumerValue:
+            raise TypeError("selected native source requires its acquired member carrier")
+        SelectedConsumerValue._require_acquired(selected)
+        if selected.partitioned is not None:
+            raise ValueError("selected native source requires one unpartitioned member")
+        decoder = _native_source_decoder(prepared)
+        return cls._from_payload(
+            _native_source_payload(selected.content, decoder, prepared, selected), decoder
+        )
 
     @classmethod
     def from_projection(

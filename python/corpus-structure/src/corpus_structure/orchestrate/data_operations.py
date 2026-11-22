@@ -1097,6 +1097,7 @@ class NativeDemandExecutor:
                     partitioned=members[0].partitioned
                     if roles[role].collection == "scalar"
                     else None,
+                    selected=members[0] if roles[role].collection == "scalar" else None,
                 )
             )
         return tuple(values)

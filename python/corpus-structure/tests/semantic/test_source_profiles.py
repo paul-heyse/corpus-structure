@@ -148,6 +148,72 @@ def test_acquired_native_source_keeps_validation_and_selector_identity(acquired,
         _validated_python_input(FrozenNativeSource, forged)
 
 
+@pytest.mark.parametrize("changed_meaning", ["text", "integer_as_boolean"])
+def test_hydrated_source_retains_exact_bytes_and_meaning_before_source_memo(
+    acquired, monkeypatch, changed_meaning
+):
+    from corpus_structure.semantic import source_products
+    from corpus_structure.semantic.data_operation_consumers import SelectedConsumerValue
+    from corpus_structure.semantic.data_operation_values import semantic_value
+    from corpus_structure.semantic.native_source_view import thaw_native
+    from semantic.source_test_support import hydrated_source
+
+    prepared = acquired[2]
+    role = hydrated_source(original(prepared), "kind:controlled-source")
+    selected = role._require_selected()
+    canonical = source_products.canonical_bytes
+
+    def forbid_decoded_mapping(value):
+        assert value is not selected.value(), "retained source was serialized before memo lookup"
+        return canonical(value)
+
+    monkeypatch.setattr(source_products, "canonical_bytes", forbid_decoded_mapping)
+    first = FrozenNativeSource.acquire_selected(prepared, selected)
+    second = FrozenNativeSource.acquire_selected(prepared, selected)
+    assert first.value is second.value
+    assert first.content == selected.content
+    assert first.selector_index() is not second.selector_index()
+    changed = thaw_native(selected.value())
+    if changed_meaning == "text":
+        changed["text"] = "different typed meaning"
+    else:
+        # Python equates False with zero; nominal tagged source meaning must not.
+        assert changed["pieces"][0]["start"] == 0
+        changed["pieces"][0]["start"] = False
+    inconsistent = SelectedConsumerValue.acquire(
+        selected.member, selected.content, canonical_bytes(semantic_value(changed))
+    )
+    with pytest.raises(ValueError, match="display differs from its typed meaning"):
+        FrozenNativeSource.acquire_selected(prepared, inconsistent)
+
+
+def test_hydrated_source_refuses_relabelled_value_kind_partition_and_binding(acquired):
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    from corpus_structure.semantic.data_operation_consumers import SelectedConsumerValue
+    from corpus_structure.semantic.data_operation_partitions import PartitionedInput
+    from corpus_structure.semantic.data_operation_ports import PortRefusal
+    from semantic.source_test_support import hydrated_source
+
+    role = hydrated_source(original(acquired[2]), "kind:controlled-source")
+    selected = role._require_selected()
+    mutations: tuple[dict[str, Any], ...] = (
+        {"value": {}}, {"kind_contract": "another-kind"},
+        {"partitioned": PartitionedInput(selected.content, ())},
+    )
+    for changes in mutations:
+        with pytest.raises(PortRefusal, match="selected nominal member"):
+            replace(role, **changes)
+    with pytest.raises(PortRefusal, match="bound role member"):
+        role._require_selected(SimpleNamespace(roles=(SimpleNamespace(role="another", members=()),)))
+    repeated = SelectedConsumerValue.acquire(
+        replace(selected.member, multiplicity=2), selected.content, selected.meaning
+    )
+    with pytest.raises(PortRefusal, match="selected nominal member"):
+        replace(role, selected=repeated)
+
+
 def test_unknown_ancestry_and_missing_math_parent_do_not_become_false_absence(acquired):
     value = thaw_native(original(acquired[2]).value)
     value["items"][1]["parent"] = "#/unavailable"

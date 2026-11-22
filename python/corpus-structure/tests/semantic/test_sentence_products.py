@@ -491,8 +491,6 @@ def test_declared_canonical_projection_has_actual_independent_member_contracts(p
 
 
 def test_prepared_sentence_plan_uses_invocation_work_and_host_owner(profile, monkeypatch):
-    from corpus_structure.semantic.data_operation_ports import PythonRoleValue
-
     port = admitted_port(profile)
     checks = []
     verify = port._verification.check
@@ -512,7 +510,9 @@ def test_prepared_sentence_plan_uses_invocation_work_and_host_owner(profile, mon
     owner = SimpleNamespace(
         native_hosts=object(), submit_python=lambda callback: pending.append(callback)
     )
-    plan = port.plan_python((PythonRoleValue("source", kind, source),), execution_owner=owner)
+    from semantic.source_test_support import hydrated_source
+
+    plan = port.plan_python((hydrated_source(source, kind),), execution_owner=owner)
     (work,) = next(plan)
     work.try_submit()
     assert len(pending) == 1 and not checks
@@ -523,6 +523,31 @@ def test_prepared_sentence_plan_uses_invocation_work_and_host_owner(profile, mon
     assert complete.value.value is result
     assert len(checks) == 2
     assert port.native_selections[0].native.provider == "spacy"
+
+
+def test_sentence_source_uses_owned_carrier_checks_and_preserves_direct_subclass_ingress(profile):
+    from corpus_structure.semantic.data_operation_ports import HydratedRoleValue, PortRefusal
+    from semantic.source_test_support import hydrated_source
+
+    port = admitted_port(profile)
+    source = selected(profile, "")
+    kind = next(
+        item.key for item in profile.model.identities
+        if item.owner == port.operation.roles[0].kind and item.domain == "kind"
+    )
+
+    class CallerValue(HydratedRoleValue):
+        def _require_selected(self, binding=None):
+            pytest.fail("direct caller overrode selected source custody")
+
+    retained = hydrated_source(source, kind)
+    direct = CallerValue("source", kind, retained.value, selected=retained.selected)
+    assert port._source((direct,), None).content == source.content
+    hydrated = hydrated_source(source, kind)
+    object.__setattr__(hydrated, "value", {})
+    object.__setattr__(hydrated, "_require_selected", lambda *_: pytest.fail("caller check override"))
+    with pytest.raises(PortRefusal, match="selected nominal member"):
+        port._source((hydrated,), None)
 
 
 def test_native_inventory_keeps_original_synthetic_piece_and_block_whitespace(monkeypatch):

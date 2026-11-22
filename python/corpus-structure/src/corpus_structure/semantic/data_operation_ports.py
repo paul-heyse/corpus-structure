@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self, get_args, get_or
 
 if TYPE_CHECKING:
     from .data_operation_bindings import BindingResult
+    from .data_operation_consumers import SelectedConsumerValue
     from .data_operation_cpu import PythonCPUDescriptor
     from .types import PreparedRelease
 
@@ -180,6 +181,32 @@ class HydratedRoleValue(PythonRoleValue):
     Python values. Scalar model DTOs use their strict JSON wire interpretation.
     It grants no execution or publication authority.
     """
+
+    selected: SelectedConsumerValue | None = field(default=None, kw_only=True)
+
+    def __post_init__(self):
+        if self.selected is not None:
+            HydratedRoleValue._require_selected(self)
+
+    def _require_selected(self, binding=None):
+        from .data_operation_consumers import SelectedConsumerValue
+
+        selected = self.selected
+        if type(selected) is not SelectedConsumerValue:
+            raise PortRefusal("hydrated scalar lacks its acquired selected member")
+        SelectedConsumerValue._require_acquired(selected)
+        if (
+            selected.member.kind_contract != self.kind_contract
+            or selected.member.multiplicity != 1
+            or selected.value() is not self.value
+            or selected.partitioned is not self.partitioned
+        ):
+            raise PortRefusal("hydrated scalar differs from its selected nominal member")
+        if binding is not None and tuple(
+            role.members for role in binding.roles if role.role == self.role
+        ) != ((selected.member,),):
+            raise PortRefusal("hydrated scalar differs from its bound role member")
+        return selected
 
 
 def _hydrated_container(annotation):
