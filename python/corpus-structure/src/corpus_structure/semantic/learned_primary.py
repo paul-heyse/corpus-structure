@@ -1182,7 +1182,7 @@ class PreparedLearnedPrimaryPort:
         )
         from .file_custody import verified_file
 
-        assets = learned_profile_assets(
+        required = learned_primary_operation_sources(
             self.selections,
             threshold=self.profile.threshold,
             max_context_chars=self.profile.max_context_chars,
@@ -1204,20 +1204,16 @@ class PreparedLearnedPrimaryPort:
             self.operation,
             self.sources,
             self.custody,
-            assets=(
-                assets,
-                learned_execution_custody(
-                    self.selections,
-                    threshold=self.profile.threshold,
-                    max_context_chars=self.profile.max_context_chars,
-                ),
-            ),
+            assets=required.boundary_contracts,
             functions=functions,
             authorize=self.authorize,
-            required_sources=self.sources,
+            required_sources=required,
         )
         verification = authenticated_prepared_product(
-            self.sources, functions, required_sources=self.sources
+            self.sources, functions, required_sources=required
+        )
+        assets = next(
+            asset for asset in required.boundary_contracts if asset.name == "learned/profile-assets"
         )
         record = json.loads(assets.content)
         registered = {file.path.resolve(): file for file in verification.files}
@@ -1241,6 +1237,7 @@ class PreparedLearnedPrimaryPort:
         from .construction_products import CharacterizationSnapshot
         from .data_operation_outcomes import successful_return_outcome
         from .data_operation_ports import (
+            HydratedRoleValue,
             PortCompletion,
             PortRefusal,
             RoleValue,
@@ -1280,10 +1277,16 @@ class PreparedLearnedPrimaryPort:
                 definition, canonical_bytes(_untrusted_value(value.value))
             ).model_dump(mode="python", exclude_unset=True)
             inputs[role.name] = body
-        source_value = role_values["source"].value
-        if not isinstance(source_value, (Mapping, FrozenNativeSource)):
-            source_value = _untrusted_value(source_value)
-        source = FrozenNativeSource.acquire(self.profile.prepared, source_value)
+        source_role = role_values["source"]
+        if type(source_role) is HydratedRoleValue and source_role.selected is not None:
+            source = FrozenNativeSource.acquire_selected(
+                self.profile.prepared, HydratedRoleValue._require_selected(source_role, binding)
+            )
+        else:
+            source_value = source_role.value
+            if not isinstance(source_value, (Mapping, FrozenNativeSource)):
+                source_value = _untrusted_value(source_value)
+            source = FrozenNativeSource.acquire(self.profile.prepared, source_value)
         if "annotations" in role_values:
             partitioned = role_values["annotations"].partitioned
             if partitioned is None or binding.subject_context is None:

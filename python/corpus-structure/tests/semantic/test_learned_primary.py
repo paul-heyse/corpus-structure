@@ -145,6 +145,21 @@ def test_learned_profile_captures_actual_provider_factories_and_private_outputs(
     assert frozen["selections"]["d1"]["profile"]["dtype"] == "bfloat16"
     assert frozen["selections"]["maverick"]["profile"]["dtype"] == "float32"
     assert frozen["selections"]["gliner"]["profile"]["device"] == "cuda"
+    from functools import partial
+
+    from corpus_structure.semantic.learned_primary import resolve_learned_primary_port
+    from semantic.test_characterization_prepared_ports import admitted
+
+    learned = admitted(
+        (inputs.bundle, inputs.sources, prepared, model, None),
+        "text.d1_source/source-native",
+        partial(resolve_learned_primary_port, family="d1_source", provider="d1"),
+    )
+    assert learned.native_selections == (selected["d1"],)
+    assert any(
+        file.path.name == "characterization-questions.yaml" for file in learned._verification.files
+    )
+    learned._verify()
     _assert_contextual_native_cpu_bracket(inputs, prepared, model, monkeypatch)
 
 
