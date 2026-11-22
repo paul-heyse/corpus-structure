@@ -263,6 +263,7 @@ def test_contextual_evaluation_retains_one_group_candidate_per_mention(native_so
         interpreted_member_contracts(prepared, model),
         (snapshot,),
     )
+    value["annotation_support"] = []
     symbolic = validate_interpreted_product(
         prepared,
         model,

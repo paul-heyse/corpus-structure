@@ -27,6 +27,7 @@ from corpus_structure.methods.pm2_source import (
     PM2SourceMap,
     SourceMapSegment,
 )
+from corpus_structure.semantic.characterization import admitted_characterization_graph
 from corpus_structure.semantic.data_product_reference import (
     DataProductMemberReference,
     DataProductReference,
@@ -130,6 +131,8 @@ def _related_member(reference, local_id):
 class DeclaredModelDependency:
     reference: DataProductReference
     payload: dict
+    members: dict
+    choice_members: dict
 
 
 type ModelDependencies = Mapping[DataProductReference, DeclaredModelDependency]
@@ -148,13 +151,12 @@ def declared_model_dependencies(products, source):
         reference = DataProductReference(product.semantic_id)
         if reference in dependencies:
             raise ValueError("model dependency repeats a selected semantic product")
+        inventory, members, choice_members, _ = admitted_characterization_graph(body["members"])
         dependencies[reference] = DeclaredModelDependency(
             reference,
-            {
-                **product.inventory(),
-                "source": body["source"],
-                "coverage": body["coverage"],
-            },
+            {**inventory, "source": body["source"], "coverage": body["coverage"]},
+            members,
+            choice_members,
         )
     return dependencies
 
@@ -170,16 +172,11 @@ def _resolve(
     if layer is None or layer.reference != pin:
         raise ValueError("model candidate is outside its exact selected semantic closure")
     body = layer.payload
-    rows = [
-        row
-        for name in ("annotations", "terms")
-        for row in body.get(name, ())
-        if row["local_id"] == local_id
-    ]
-    if len(rows) != 1:
-        raise ValueError("model candidate is not one exact retained annotation or term")
+    node = layer.members.get(local_id)
+    if node is None or node["record_type"] not in {"annotation", "term"}:
+        raise ValueError("model candidate is not one exact admitted annotation or term")
     occurrences = {row["local_id"]: row for row in body["occurrences"]}
-    return rows[0], [occurrences[key] for key in rows[0].get("occurrences", ())]
+    return node, [occurrences[key] for key in node.get("occurrences", ())]
 
 
 @dataclass(frozen=True, slots=True)

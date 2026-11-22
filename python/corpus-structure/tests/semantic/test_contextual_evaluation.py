@@ -135,6 +135,7 @@ def controlled_product(release, facts, *, dependencies=None, source=None):
         interpreted_member_contracts(release.prepared, release.model),
         dependencies,
     )
+    value["annotation_support"] = []
     return validate_interpreted_product(
         release.prepared,
         release.model,
@@ -177,6 +178,47 @@ def evaluated_product(release, products, roots, env, *, symbolic_products=None, 
         product_type=ContextualMeaningProduct,
         subject_context=publication_context(source),
     )
+
+
+@pytest.mark.parametrize("mutation", ["missing_choice", "changed_choice", "changed_packet_address"])
+def test_context_and_model_consumers_require_actual_admitted_graph_members(release, mutation):
+    from corpus_structure.semantic.model_characterization import declared_model_dependencies
+
+    source = select_source(release, "all x runs")
+    facts = literal_facts(release, source=source)
+    facts["choices"] = [
+        {
+            "local_id": "packed",
+            "family": "symbols",
+            "compatibility": "exclusive",
+            "members": [{"local_id": "option", "root": "p"}],
+        }
+    ]
+    product = controlled_product(release, facts, source=source)
+    snapshot = CharacterizationSnapshot(product.semantic_id, product.content)
+    evaluator = ContextualEvaluator.from_products(source, (snapshot,))
+    (choice,) = evaluator.choices
+    assert choice.member_id == "option"
+    dependency = declared_model_dependencies((snapshot,), source)[product.reference]
+    assert dependency.choice_members["option"][1]["record_type"] == "choice_member"
+
+    body = json.loads(product.content)
+    packet = next(packet for packet in body["members"] if packet["member_id"] == "option")
+    if mutation == "missing_choice":
+        body["members"].remove(packet)
+        expected = "packed choice differs from its admitted choice member"
+    elif mutation == "changed_choice":
+        packet["body"]["root"] = "x"
+        expected = "packed choice differs from its admitted choice member"
+    else:
+        packet["member_id"] = "other-address"
+        expected = "graph identity differs from its admitted member"
+    changed = CharacterizationSnapshot(product.semantic_id, canonical_bytes(body))
+
+    with pytest.raises(ValueError, match=expected):
+        ContextualEvaluator.from_products(source, (changed,))
+    with pytest.raises(ValueError, match=expected):
+        declared_model_dependencies((changed,), source)
 
 
 def test_shared_symbol_evaluates_under_two_bindings_and_reuses_same_environment(release):

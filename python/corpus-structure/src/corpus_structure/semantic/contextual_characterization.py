@@ -395,12 +395,8 @@ class ContextualLayer:
             actual_base = report.payload["source"]
             if actual_base != self.base:
                 raise ValueError("context dependency belongs to another source document")
-            for group in report.payload["choices"]:
-                for member in group["members"]:
-                    self._choice_groups[pin, member["local_id"]] = (
-                        group["local_id"],
-                        group["compatibility"],
-                    )
+            for member_id, (group, _member) in report.choice_members.items():
+                self._choice_groups[pin, member_id] = (group["local_id"], group["compatibility"])
 
     def proxy(self, pin: DataProductReference, local_id: str, *, family: str) -> str:
         identity = (pin, local_id)
@@ -410,15 +406,9 @@ class ContextualLayer:
         if report is None:
             raise ValueError("context endpoint requires its exact retained dependency")
         body = report.payload
-        candidates = [
-            row
-            for name in ("annotations", "terms")
-            for row in body[name]
-            if row["local_id"] == local_id
-        ]
-        if len(candidates) != 1:
-            raise ValueError("context endpoint is absent or ambiguous in its retained layer")
-        source = candidates[0]
+        source = report.members.get(local_id)
+        if source is None or source["record_type"] not in {"annotation", "term"}:
+            raise ValueError("context endpoint is outside its admitted graph member population")
         external = member_reference(pin, local_id).values()
         occurrences = {o["local_id"]: o for o in body["occurrences"]}
         selected = []

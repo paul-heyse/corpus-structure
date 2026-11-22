@@ -13,6 +13,7 @@ from hashlib import sha256
 from typing import Any
 
 from corpus_structure.semantic.characterization import (
+    admitted_characterization_graph,
     validate_reading_choices,
 )
 from corpus_structure.semantic.data_product_reference import (
@@ -104,6 +105,7 @@ class ContextualEvaluator:
         coordinate = source.value["source"]
         inputs = {}
         payloads = {}
+        alternatives = {}
         for product in products:
             body = json.loads(product.content)
             if body["source"] != coordinate:
@@ -112,13 +114,17 @@ class ContextualEvaluator:
             if pin in inputs:
                 raise ValueError("contextual inputs repeat a governed semantic product")
             inputs[pin] = product
-            payloads[pin] = {**product.inventory(), "coverage": body["coverage"]}
+            graph, _, alternatives[pin], source_facts = admitted_characterization_graph(
+                body["members"]
+            )
+            payloads[pin] = {**graph, "source_facts": source_facts, "coverage": body["coverage"]}
         if not inputs:
             raise ValueError("contextual evaluation requires explicit retained symbolic products")
         instance = cls.__new__(cls)
         instance._initialize(
             inputs,
             payloads,
+            alternatives,
             coordinate,
             check_active=check_active,
             max_nodes=max_nodes,
@@ -126,7 +132,9 @@ class ContextualEvaluator:
         )
         return instance
 
-    def _initialize(self, layers, payloads, base, *, check_active, max_nodes, symbolic_layers):
+    def _initialize(
+        self, layers, payloads, alternatives, base, *, check_active, max_nodes, symbolic_layers
+    ):
         self.layers = dict(layers)
         self.payloads = dict(payloads)
         self.base = base
@@ -164,9 +172,10 @@ class ContextualEvaluator:
                 )
             for occurrence in payload["occurrences"]:
                 self.occurrences[occurrence["local_id"]] = occurrence
-            for group in payload["choices"]:
-                for member in group["members"]:
-                    self.choices[member_reference(pin, member["local_id"])] = (group, member)
+            self.choices.update(
+                (member_reference(pin, member_id), choice)
+                for member_id, choice in alternatives[pin].items()
+            )
         self._membership_members = {
             key: frozenset(values) for key, values in membership_members.items()
         }

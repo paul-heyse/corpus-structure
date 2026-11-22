@@ -40,7 +40,7 @@ def canonical_tokens(case, builder):
     return [
         dict(
             text=text[row["start"] : row["end"]],
-            sentence=row["sentence_ref"],
+            sentence=row["sentence"],
             start=row["start"],
             end=row["end"],
             occurrences=[builder.occurrence(case.primary.frame, row["start"], row["end"])],

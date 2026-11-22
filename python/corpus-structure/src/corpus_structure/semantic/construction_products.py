@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from corpus_structure.methods.annotation_rules import AnnotationRule, PreparedAnnotationRules
 
 from .characterization import (
+    admitted_characterization_graph,
     attachment_policies,
     occurrence_id,
     validate_attachment_basis,
@@ -863,48 +864,21 @@ def validate_interpreted_product(
     if checked.get("dependencies", []) != expected_dependencies:
         raise ValueError("construction product changes selected primary dependencies")
     contracts = interpreted_member_contracts(prepared, model)
-    inventory = {name: [] for name, _ in _INVENTORIES}
-    names = {tag: name for name, tag in _INVENTORIES}
+    inventory, all_nodes, alternatives, _ = admitted_characterization_graph(packets)
     context = dict(
         subject=source_subject(selected["source"]),
         subject_definition="original-source-view",
         original_source=selected["source"]["document"],
         analyzed_scope=dict(source=selected["source"], selectors=selected["selectors"]),
     )
-    seen = set()
     for packet in packets:
-        row = packet["body"]
         if (
-            packet["kind_contract"] != contracts[row["record_type"]]
-            or packet["member_id"] != row["local_id"]
+            packet["kind_contract"] != contracts[packet["body"]["record_type"]]
             or packet["context"] != context
-            or packet["member_id"] in seen
         ):
             raise ValueError("construction packet changes admitted nominal meaning or identity")
-        seen.add(packet["member_id"])
-        if row["record_type"] != "choice_member":
-            inventory[names[row["record_type"]]].append(row)
-    expected_alternatives = {
-        member["local_id"]: dict(record_type="choice_member", group_id=group["local_id"], **member)
-        for group in inventory["choices"]
-        for member in group["members"]
-    }
-    actual_alternatives = {
-        packet["member_id"]: packet["body"]
-        for packet in packets
-        if packet["body"]["record_type"] == "choice_member"
-    }
-    if expected_alternatives != actual_alternatives:
-        raise ValueError("alternative member projection differs from owning packed choice group")
     indexes = {name: {row["local_id"]: row for row in rows} for name, rows in inventory.items()}
-    all_nodes = {key: row for index in indexes.values() for key, row in index.items()}
-    choices = {}
-    for group in inventory["choices"]:
-        for member in group["members"]:
-            if member["local_id"] in all_nodes:
-                raise ValueError("construction repeats a packed choice identity")
-            choices[member["local_id"]] = group
-            all_nodes[member["local_id"]] = member
+    choices = {address: group for address, (group, _) in alternatives.items()}
     selector_index = source.selector_index()
     for occurrence in inventory["occurrences"]:
         if occurrence["local_id"] != occurrence_id(selected["source"], occurrence["extents"]):

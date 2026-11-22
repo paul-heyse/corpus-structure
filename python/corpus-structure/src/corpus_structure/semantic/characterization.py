@@ -216,6 +216,52 @@ def _acyclic(edges: Mapping[str, Sequence[str]], label: str) -> None:
         raise ValueError(f"{label} structural cycle")
 
 
+def admitted_characterization_graph(packets):
+    """Index admitted graph packets and check their correspondence to packed choices."""
+    names = {
+        "occurrence": "occurrences",
+        "annotation": "annotations",
+        "membership": "memberships",
+        "role": "roles",
+        "term": "terms",
+        "choice": "choices",
+    }
+    inventory = {name: [] for name in names.values()}
+    source_facts = []
+    members = {}
+    alternatives = {}
+    for packet in packets:
+        body = packet["body"]
+        tag = body["record_type"]
+        if tag == "manifest":
+            continue
+        address = packet["member_id"]
+        if address in members:
+            raise ValueError("characterization repeats an admitted member address")
+        members[address] = body
+        if tag in names or tag == "choice_member":
+            if address != body["local_id"]:
+                raise ValueError("characterization graph identity differs from its admitted member")
+            if tag == "choice_member":
+                alternatives[address] = body
+            else:
+                inventory[names[tag]].append(body)
+        else:
+            source_facts.append(packet)
+
+    choice_members = {}
+    for group in inventory["choices"]:
+        for member in group["members"]:
+            address = member["local_id"]
+            expected = {**member, "record_type": "choice_member", "group_id": group["local_id"]}
+            if address in choice_members or alternatives.get(address) != expected:
+                raise ValueError("packed choice differs from its admitted choice member")
+            choice_members[address] = (group, alternatives[address])
+    if alternatives.keys() != choice_members.keys():
+        raise ValueError("admitted choice member lacks its owning packed group")
+    return inventory, members, choice_members, source_facts
+
+
 def validate_inventory_graph(data, indexes, all_nodes, choice_members, validate_basis):
     """Local source, score, structural and choice invariants for current inventories."""
     from .observations import source_python
