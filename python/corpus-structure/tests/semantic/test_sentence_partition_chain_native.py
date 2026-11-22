@@ -289,6 +289,11 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
             for use in frontier["uses"]
             if use["obligation_id"] == producer["obligation_id"] and use["fate"] == "fulfilled"
         ]
+        (canonical_use,) = [
+            use
+            for use in frontier["uses"]
+            if use["obligation_id"] == consumer["obligation_id"] and use["fate"] == "fulfilled"
+        ]
         with kernel.purpose("write").begin() as connection:
             planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
             ready, reasons = planner.ready_for_fulfilled_use(
@@ -301,6 +306,8 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
         assert ready == ()
         assert reasons == (
             {
+                "selection_name": selection.name,
+                "selection_generation": selection.generation,
                 "use_id": annotation_use["use_id"],
                 "producer_operation": producer["operation_id"],
                 "output_role": "result",
@@ -308,9 +315,15 @@ def test_actual_annotation_partition_proof_and_canonical_chain(
                 "recipient_obligation": consumer["obligation_id"],
                 "recipient_operation": target,
                 "input_role": "inventory",
+                "successor_use_id": canonical_use["use_id"],
+                "successor_fate": "fulfilled",
             },
         )
-        assert reasons[0] in observed_routes
+        assert {
+            **reasons[0],
+            "successor_use_id": None,
+            "successor_fate": "pending",
+        } in observed_routes
         repeated = execute_captured_kernel_demand(kernel, demand_id)
         assert repeated.receipt_count == 0
 

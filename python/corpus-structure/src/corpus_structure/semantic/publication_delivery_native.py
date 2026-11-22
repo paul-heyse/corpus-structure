@@ -1,6 +1,6 @@
 """Record pending receipt origins from the exact uses created by publication."""
 
-from sqlalchemy import Column, Text, and_, any_, cast, column, func, or_, select, true
+from sqlalchemy import Column, Text, and_, any_, case, cast, column, func, or_, select, true
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, insert
 
 from .data_operation_projections import _custody_body_eligible
@@ -207,14 +207,61 @@ def fulfilled_use_recipients(model):
     selected = operations.c.value
     role = input_role.c.value
     emitted = output_role.c.value
+    next_use = uses.alias("recipient_use")
+    successor = (
+        select(next_use.c.id, next_use.c.fate, next_use.c.selection)
+        .where(
+            next_use.c.obligation_id == recipient.c.id,
+            func.ops.ddo_read_visible(next_use.c.created_at, next_use.c.created_xid, boundary),
+        )
+        .order_by(next_use.c.created_at.desc(), next_use.c.id.desc())
+        .limit(1)
+        .correlate(recipient)
+        .lateral("recipient_current_use")
+    )
+    successor_input = occurrence(successor.c.selection["inputs"], "recipient_bound_input")
+    successor_support = occurrence(successor.c.selection["support"], "recipient_bound_support")
+    linked = (
+        select(1)
+        .select_from(successor_input.join(successor_support, true()))
+        .where(
+            successor_input.c.value["role"].astext == role["name"].astext,
+            successor_input.c.value["product_id"].astext == output.c.product_id,
+            successor_input.c.value["member_id"].astext.is_(None),
+            successor_support.c.value["role"].astext == role["name"].astext,
+            successor_support.c.value["position"].astext
+            == successor_input.c.value["position"].astext,
+            successor_support.c.value["admission_use_id"].astext == uses.c.id,
+            successor_support.c.value["derivation_id"].astext == derivations.c.id,
+        )
+        .correlate(successor, input_role, output, uses, derivations)
+        .exists()
+    )
+    successor_fate = case(
+        (linked & (successor.c.fate == "attached"), "attached"),
+        (
+            linked & (successor.c.fate == "fulfilled"),
+            case(
+                (func.ops.ddo_node_valid("use", successor.c.id, boundary), "fulfilled"),
+                else_="pending",
+            ),
+        ),
+        else_="pending",
+    )
     candidate = (
         select(
+            history.c.name.label("selection_name"),
+            history.c.generation.label("selection_generation"),
             uses.c.id.label("origin"),
             recipient.c.id.label("recipient"),
             role["name"].astext.label("input"),
             output.c.role.label("output"),
             output.c.position.label("position"),
             func.jsonb_build_object(
+                "selection_name",
+                history.c.name,
+                "selection_generation",
+                history.c.generation,
                 "use_id",
                 uses.c.id,
                 "producer_operation",
@@ -229,6 +276,10 @@ def fulfilled_use_recipients(model):
                 recipient.c.operation_id,
                 "input_role",
                 role["name"].astext,
+                "successor_use_id",
+                case((linked, successor.c.id), else_=None),
+                "successor_fate",
+                successor_fate,
             ).label("reason"),
         )
         .select_from(
@@ -259,6 +310,7 @@ def fulfilled_use_recipients(model):
             .join(operations, selected["operation"].astext == recipient.c.operation_id)
             .join(input_role, true())
             .join(output_role, emitted["name"].astext == output.c.role)
+            .outerjoin(successor, true())
         )
         .where(
             history.c.project_id == project,
@@ -340,6 +392,8 @@ def fulfilled_use_recipients(model):
                         candidate.c.origin,
                         candidate.c.output,
                         candidate.c.position,
+                        candidate.c.selection_name,
+                        candidate.c.selection_generation,
                     )
                 ),
             ),

@@ -277,7 +277,12 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     assert reason["producer_operation"] == PRODUCER
     assert reason["output_role"] == "result" and reason["output_position"] == 0
     assert reason["input_role"] == "source"
+    assert reason["selection_name"] == restored_a.name
+    assert reason["selection_generation"] == restored_a.generation
+    assert reason["successor_fate"] == "pending" and reason["successor_use_id"] is None
     assert set(reason) == {
+        "selection_name",
+        "selection_generation",
         "use_id",
         "producer_operation",
         "output_role",
@@ -285,6 +290,24 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
         "recipient_obligation",
         "recipient_operation",
         "input_role",
+        "successor_fate",
+        "successor_use_id",
+    }
+    attached_frontier = snapshot(a)
+    attached_use = next(
+        item
+        for item in attached_frontier["uses"]
+        if item["obligation_id"] == target_a["obligation_id"]
+    )
+    with admin.begin() as connection:
+        planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
+        (attached_reason,) = planner._fulfilled_use_recipients(
+            attached_frontier, [target_a["obligation_id"]]
+        )
+    assert attached_reason == {
+        **reason,
+        "successor_fate": "attached",
+        "successor_use_id": attached_use["use_id"],
     }
     assert recipient(snapshot(b)).get("request_id") is None
 

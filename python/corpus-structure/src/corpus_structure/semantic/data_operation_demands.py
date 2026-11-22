@@ -407,6 +407,8 @@ class ReadyDataRequest:
 class FulfilledUseRecipient(TypedDict):
     """A declared output-to-input role occurrence selected by the native routine."""
 
+    selection_name: str
+    selection_generation: int
     use_id: str
     producer_operation: str
     output_role: str
@@ -414,6 +416,8 @@ class FulfilledUseRecipient(TypedDict):
     recipient_obligation: str
     recipient_operation: str
     input_role: str
+    successor_use_id: str | None
+    successor_fate: Literal["pending", "attached", "fulfilled"]
 
 
 def _population_context_matches(
@@ -721,6 +725,7 @@ class DemandPlanner:
                         if obligation["fate"] == "awaiting-inputs"
                     ],
                 )
+                if reason["successor_fate"] == "pending"
             )
         rebindings = {}
         for use in snapshot.get("uses", ()):
