@@ -200,10 +200,11 @@ def test_cancelled_demand_preserves_live_cross_demand_stream_and_original_episod
     second = register(kernel, "urn:ddo-stream:answer", extra_targets=("urn:ddo-stream:broken",))
     assert first != second
     ready = []
-    with kernel.engine.begin() as connection:
-        planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
-        for demand in (first, second):
-            snapshot = planner.resume(demand)
+    for demand in (first, second):
+        with kernel.engine.begin() as connection:
+            snapshot = DemandPlanner(kernel.model, DataOperationStorage(connection)).resume(demand)
+        with kernel.engine.begin() as connection:
+            planner = DemandPlanner(kernel.model, DataOperationStorage(connection))
             selected = planner.ready(snapshot, authorization=b"{}")
             ready.append(
                 next(item for item in selected if item.operation == "urn:ddo-stream:answer")
