@@ -567,6 +567,19 @@ classes:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["intent_id"],"target":"ops.data_completion_intent.id"},{"columns":["derivation_id"],"target":"ops.data_derivation.id"}]}
+  data_publication_fulfillment:
+    description: Exact uses created by a publication receipt, retained independently of named enrollment.
+    in_subset: [ops]
+    attributes:
+      demand_id: {range: string, required: true}
+      receipt_id: {range: string, required: true}
+      use_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [demand_id, receipt_id, use_id]}
+    annotations:
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["demand_id"],"target":"ops.data_demand.id"},{"columns":["receipt_id"],"target":"ops.data_publication_receipt.id"},{"columns":["use_id"],"target":"ops.demand_use.id"}]}
   data_publication_delivery:
     description: Unsettled receipt origins admitted by exact fulfilled demand and named selection generation.
     in_subset: [ops]

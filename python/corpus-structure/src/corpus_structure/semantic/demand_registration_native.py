@@ -45,6 +45,10 @@ from .native_program import (
     pg_type,
 )
 from .native_program_registry import ProgramDeclaration
+from .publication_delivery_native import (
+    reconcile_publication_delivery,
+    unreconciled_publication_origins,
+)
 
 
 def _json(value):
@@ -700,6 +704,10 @@ def _advance_demand_selection(model: MetaData) -> NativeRoutine:
     current_generation = _owned_row("selection_head", history, "generation")
     current_demand = _owned_row("selection_head", history, "demand_id")
     stale = "stale named demand selection token"
+    reconcile = Sql(reconcile_publication_delivery(model, project, name, generation))
+    later_generation = (
+        select(1).select_from(history).where(scope, history.c.generation > generation).exists()
+    )
 
     return NativeRoutine(
         "ops",
@@ -760,6 +768,18 @@ def _advance_demand_selection(model: MetaData) -> NativeRoutine:
                             stale,
                             "40001",
                         ),
+                        If(
+                            ~later_generation,
+                            (
+                                PerformQuery(
+                                    select(1)
+                                    .select_from(demand)
+                                    .where(demand.c.id == successor)
+                                    .with_for_update(read=True)
+                                ),
+                                reconcile,
+                            ),
+                        ),
                         Return(generation),
                     ),
                 ),
@@ -799,6 +819,7 @@ def _advance_demand_selection(model: MetaData) -> NativeRoutine:
                         created_xid=_xid(),
                     )
                 ),
+                reconcile,
                 Return(generation),
             ),
             (
@@ -1210,6 +1231,7 @@ def demand_intent_programs(model: MetaData, *, protocol: bytes) -> tuple[Program
         _cancel_demand(model),
         _record_fate(model, protocol_value_sets(protocol)["RecordableFate"]),
         _close_population(model),
+        unreconciled_publication_origins(model),
     )
     commands = tuple(
         ProgramDeclaration(

@@ -41,6 +41,7 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     sample_kind = kernel.identities[producer_kind, "kind"]
     pending = physical.tables["ops.data_publication_delivery"]
     receipts = physical.tables["ops.data_publication_receipt"]
+    fulfillments = physical.tables["ops.data_publication_fulfillment"]
     requests = physical.tables["ops.data_request"]
 
     def prepare_publication(subject, value):
@@ -57,16 +58,27 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
         intent = retain(kernel, fence, mutate=sample_output)
         return demand["demand_id"], fence, intent
 
+    def enroll(connection, scope, demand, expected_demand=None, expected_generation=0):
+        return advance_demand_selection(
+            connection,
+            PROJECT,
+            scope,
+            demand,
+            expected_demand_id=expected_demand,
+            expected_generation=expected_generation,
+        )
+
     def advance(scope, demand, expected_demand=None, expected_generation=0):
         with admin.begin() as connection:
-            return advance_demand_selection(
-                connection,
-                PROJECT,
-                scope,
-                demand,
-                expected_demand_id=expected_demand,
-                expected_generation=expected_generation,
+            return enroll(connection, scope, demand, expected_demand, expected_generation)
+
+    def publish_in(connection, fence, intent):
+        return DataOperationStorage(connection).publish_data_derivation(
+            cast(
+                WirePublishDataDerivationRequest,
+                {**fence, "intent_id": intent["intent_id"]},
             )
+        )
 
     def deliveries(connection, scope, generation):
         return connection.scalars(
@@ -77,6 +89,11 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
             )
         ).all()
 
+    def unreconciled(connection, scope, generation):
+        return connection.scalars(
+            select(func.ops.ddo_unreconciled_publication_origins(PROJECT, scope, generation))
+        ).all()
+
     a, a_fence, a_intent = prepare_publication("subject:a", 12)
     b, b_fence, b_intent = prepare_publication("subject:b", 14)
     c, c_fence, c_intent = prepare_publication("subject:c", 16)
@@ -85,14 +102,12 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
 
     with admin.connect() as connection:
         active = connection.begin()
-        uncommitted = DataOperationStorage(connection).publish_data_derivation(
-            cast(
-                WirePublishDataDerivationRequest,
-                {**a_fence, "intent_id": a_intent["intent_id"]},
-            )
-        )
+        uncommitted = publish_in(connection, a_fence, a_intent)
         receipt_a = uncommitted["receipt_id"]
         assert deliveries(connection, "a", generation_a.generation) == [receipt_a]
+        assert connection.scalars(
+            select(fulfillments.c.demand_id).where(fulfillments.c.receipt_id == receipt_a)
+        ).all() == [a]
         assert deliveries(connection, "b", generation_b.generation) == []
         assert (
             connection.scalar(
@@ -107,6 +122,12 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     with admin.begin() as connection:
         assert deliveries(connection, "a", generation_a.generation) == []
         assert connection.scalar(select(receipts.c.id).where(receipts.c.id == receipt_a)) is None
+        assert (
+            connection.scalar(
+                select(fulfillments.c.use_id).where(fulfillments.c.receipt_id == receipt_a)
+            )
+            is None
+        )
 
     committed = publish(kernel, a_fence, a_intent)
     assert committed["receipt_id"] == receipt_a and committed["replayed"] is False
@@ -122,8 +143,42 @@ def test_publication_delivery_is_atomic_replayable_and_fenced_by_exact_selection
     with admin.begin() as connection:
         assert deliveries(connection, "a", generation_a.generation) == [receipt_a]
         assert deliveries(connection, "b", generation_b.generation) == [receipt_b]
-        # Late publication by C cannot move the restored A selection or add an
-        # origin to its generation. Empty delivery alone says nothing about
-        # enrollment or coverage of either generation.
+        # The restored generation reconciles the previously published A,
+        # while the late C remains outside either current named scope.
         assert deliveries(connection, "a", generation_c.generation) == []
-        assert deliveries(connection, "a", restored_a.generation) == []
+        assert deliveries(connection, "a", restored_a.generation) == [receipt_a]
+        assert unreconciled(connection, "a", generation_c.generation) == []
+
+    for publication_first in (False, True):
+        scope = "publication-first" if publication_first else "enrollment-first"
+        demand, fence, intent = prepare_publication("subject:" + scope, 18)
+        with admin.connect() as enrolling, admin.connect() as publishing:
+            enrolling.exec_driver_sql("SET LOCAL lock_timeout = '1s'")
+            publishing.exec_driver_sql("SET LOCAL lock_timeout = '1s'")
+            if publication_first:
+                publication = publish_in(publishing, fence, intent)
+                token = enroll(enrolling, scope, demand)
+            else:
+                token = enroll(enrolling, scope, demand)
+                publication = publish_in(publishing, fence, intent)
+
+            # Each statement ran before the other transaction committed.
+            assert deliveries(enrolling, scope, token.generation) == []
+            assert unreconciled(publishing, scope, token.generation) == []
+            receipt = publication["receipt_id"]
+            if publication_first:
+                publishing.commit()
+                enrolling.commit()
+            else:
+                enrolling.commit()
+                publishing.commit()
+
+        with admin.begin() as connection:
+            assert deliveries(connection, scope, token.generation) == []
+            assert unreconciled(connection, scope, token.generation) == [receipt]
+            assert unreconciled(connection, "b", generation_b.generation) == []
+        assert advance(scope, demand) == token
+        assert advance(scope, demand) == token
+        with admin.begin() as connection:
+            assert deliveries(connection, scope, token.generation) == [receipt]
+            assert unreconciled(connection, scope, token.generation) == []
