@@ -43,17 +43,16 @@ def test_generated_closure_receipts_bind_and_keep_mutation_guards(commit_db_engi
                 "guard_finalized_insert",
             }
         )
-        assert (
-            len(
-                prepare_native_authoring(
-                    connection,
-                    tuple(item for item in definitions if item.identity in ordinary),
-                    owned_authoring=True,
-                    check_plpgsql=ordinary,
-                ).desired
-            )
-            == 3
+        authored = prepare_native_authoring(
+            connection,
+            tuple(item for item in definitions if item.identity in ordinary),
+            owned_authoring=True,
+            check_plpgsql=ordinary,
         )
+        assert {item.identity.name for item in authored.desired} == {
+            "activate_release",
+            "record_deployment_admission",
+        }
         for definition in definitions:
             execute_native_sql(connection, definition.sql)
         for name, parameters in (

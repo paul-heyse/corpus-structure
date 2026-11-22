@@ -256,7 +256,7 @@ def test_retrieval_reduction_uses_owned_cpu_with_exact_controlled_score_input():
     bound = signature.bind(
         input_basis=processed,
         numerical_policy=default_retrieval_numerics().model_dump(mode="json"),
-        witnessed=False,
+        relationship_member_contract=None,
         check_active=lambda: None,
     )
     sources = contextual_operation_sources()
