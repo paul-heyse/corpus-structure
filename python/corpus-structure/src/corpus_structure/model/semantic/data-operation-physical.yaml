@@ -183,6 +183,7 @@ classes:
       primary_key: {unique_key_slots: [project_id, name, generation]}
     annotations:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:indexes: {"tag":"ph:indexes","value":[["demand_id"]]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["project_id"],"target":"data.project.project_id"},{"columns":["prior_demand_id"],"target":"ops.data_demand.id"},{"columns":["demand_id"],"target":"ops.data_demand.id"}]}
       ph:checks: {"tag":"ph:checks","value":[{"name":"ck_data_demand_selection_positive_generation","predicate":{"op":"gt","args":[{"field":"generation"},{"value":0}]}}]}
@@ -552,6 +553,22 @@ classes:
       ph:read_roles: {"tag":"ph:read_roles","value":[]}
       ph:immutability: intrinsic
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["intent_id"],"target":"ops.data_completion_intent.id"},{"columns":["derivation_id"],"target":"ops.data_derivation.id"}]}
+  data_publication_delivery:
+    description: Unsettled receipt origins admitted by exact fulfilled demand and named selection generation.
+    in_subset: [ops]
+    attributes:
+      project_id: {range: string, required: true}
+      name: {range: string, required: true}
+      selection_generation: {range: integer, required: true}
+      receipt_id: {range: string, required: true}
+      created_at: {range: timestamp, required: true}
+      created_xid: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [project_id, name, selection_generation, receipt_id]}
+    annotations:
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:immutability: intrinsic
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["project_id","name","selection_generation"],"target":"ops.data_demand_selection.project_id,name,generation"},{"columns":["receipt_id"],"target":"ops.data_publication_receipt.id"}]}
   data_validity_reconfirmation:
     in_subset: [ops]
     attributes:

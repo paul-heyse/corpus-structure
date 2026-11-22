@@ -39,6 +39,7 @@ from .native_program import (
     core_variable,
     pg_type,
 )
+from .publication_delivery_native import record_publication_delivery
 
 
 def _json(value):
@@ -683,7 +684,7 @@ def _publish_derivation(model: MetaData) -> NativeRoutine:
                     error=case((result == "failed", _record(data_operation="failed"))),
                 )
             ),
-            Sql(observe),
+            Sql(record_publication_delivery(model, observe, key, request("project_id"))),
             Return(_record(payload=publication_response(key, episode, False, snapshot))),
         ),
         (

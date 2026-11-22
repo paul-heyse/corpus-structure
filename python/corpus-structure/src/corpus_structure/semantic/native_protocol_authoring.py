@@ -213,6 +213,10 @@ def _native_protocol_sources(
             )
         ),
         SourceArtifact(
+            "native/publication-delivery.py",
+            _captured_module(captured_module_sources, "publication_delivery_native.py"),
+        ),
+        SourceArtifact(
             "native/data-operation-value-identity.py",
             _captured_module(captured_module_sources, "data_operation_identity.py"),
         ),
