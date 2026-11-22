@@ -509,6 +509,21 @@ classes:
     annotations:
       ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["active_release_id"],"target":"sem.release.release_id"}]}
       ph:checks: {"tag":"ph:checks","value":[{"name":"ck_project_physical_8313aadc77","predicate":{"op":"ge","args":[{"field":"generation"},{"value":0}]}}]}
+  project_release_activation:
+    description: Immutable history of successful native project release transitions.
+    in_subset: [data]
+    attributes:
+      project_id: {range: string, required: true}
+      generation: {range: integer, required: true}
+      prior_release_id: {range: string, required: false}
+      release_id: {range: string, required: true}
+    unique_keys:
+      primary_key: {unique_key_slots: [project_id, generation]}
+    annotations:
+      ph:immutability: intrinsic
+      ph:read_roles: {"tag":"ph:read_roles","value":[]}
+      ph:foreign_keys: {"tag":"ph:foreign_keys","value":[{"columns":["project_id"],"target":"data.project.project_id"},{"columns":["prior_release_id"],"target":"sem.release.release_id"},{"columns":["release_id"],"target":"sem.release.release_id"}]}
+      ph:checks: {"tag":"ph:checks","value":[{"name":"ck_project_release_activation_generation","predicate":{"op":"gt","args":[{"field":"generation"},{"value":0}]}}]}
   sql_admission:
     description: Derived authored-SQL admission tied to the frozen dependency and
       physical catalog.

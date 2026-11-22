@@ -454,6 +454,7 @@ def closure_native_parts(target):
     finalized = target.tables["sem.release_finalization"]
     deployments = target.tables["sem.deployment_admission"]
     projects = target.tables["data.project"]
+    activations = target.tables["data.project_release_activation"]
     r = core_variable("r", finalized.c.release_id.type)
 
     def routine(name, statements, parameters=(), *, returns=None, locals_=(), protected=True):
@@ -557,6 +558,7 @@ def closure_native_parts(target):
     project = core_variable("p", projects.c.project_id.type)
     parent = core_variable("parent", projects.c.active_release_id.type)
     generation = core_variable("g", projects.c.generation.type)
+    activation_generation = core_variable("result", projects.c.generation.type)
     activation = routine(
         "activate_release",
         (
@@ -575,7 +577,15 @@ def closure_native_parts(target):
                 ("result",),
             ),
             If(~core_variable("found", Boolean()), (Raise("stale activation token", "40001"),)),
-            Return(core_variable("result", projects.c.generation.type)),
+            Sql(
+                insert(activations).values(
+                    project_id=project,
+                    generation=activation_generation,
+                    prior_release_id=parent,
+                    release_id=r,
+                )
+            ),
+            Return(activation_generation),
         ),
         (
             Parameter("p", column_type(projects.c.project_id)),

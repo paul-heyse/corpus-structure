@@ -265,6 +265,54 @@ def install_target_root(engine, epoch, tmp_path):
     return target, authoring, candidate, admission, revision, location
 
 
+def test_actual_native_activation_retains_exact_transition(
+    semantic_bare_engine, native_settings, fresh_target_epoch, tmp_path, monkeypatch
+):
+    from corpus_structure.semantic import migrations, releases
+    from semantic.data_operation_kernel_support import STORAGE, admit_kernel, prepare_kernel
+
+    engine = semantic_bare_engine
+    *_, location = install_target_root(engine, fresh_target_epoch, tmp_path)
+    monkeypatch.setattr(migrations, "ALEMBIC_DIR", location)
+    preparation = prepare_kernel(STORAGE, directory=tmp_path / "activation-release")
+    with engine.begin() as connection:
+        kernel = admit_kernel(connection, STORAGE, preparation=preparation)
+    project = STORAGE.project_id
+    assert project is not None
+    admitter = principal_engine(native_settings, "admit", engine.url.database)
+    try:
+        with admitter.begin() as connection:
+            assert (
+                releases.activate_release(
+                    connection,
+                    project,
+                    kernel.prepared.release_id,
+                    expected_parent=None,
+                    expected_generation=0,
+                ).generation
+                == 1
+            )
+            with pytest.raises(releases.ActivationConflict):
+                releases.activate_release(
+                    connection,
+                    project,
+                    kernel.prepared.release_id,
+                    expected_parent=None,
+                    expected_generation=0,
+                )
+        with engine.begin() as connection:
+            transitions = connection.execute(
+                text(
+                    "SELECT generation, prior_release_id, release_id "
+                    "FROM data.project_release_activation WHERE project_id = :project"
+                ),
+                {"project": project},
+            ).all()
+            assert transitions == [(1, None, kernel.prepared.release_id)]
+    finally:
+        admitter.dispose()
+
+
 def test_actual_fresh_target_authoring_render_replay_install_and_acl(
     semantic_bare_engine,
     native_settings,
