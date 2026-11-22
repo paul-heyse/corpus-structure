@@ -141,6 +141,7 @@ def _operation_sources(module: str, profile: str) -> PythonSourceCollection:
     if profile in {"construction", "contextual"}:
         sources += (
             ("semantic.characterization", path.with_name("characterization.py")),
+            ("semantic.characterization_evidence", path.with_name("characterization_evidence.py")),
             ("semantic.construction_products", path.with_name("construction_products.py")),
             ("semantic.data_operation_json", path.with_name("data_operation_json.py")),
             ("semantic.source_products", path.with_name("source_products.py")),
@@ -435,6 +436,7 @@ class PreparedCharacterizationPort(ABC):
                 verify_inventory_native_scores,
                 verify_inventory_occurrence_ids,
             )
+            from .characterization_evidence import verify_navigation_source_fields
             from .data_operation_json import canonical_json_bytes
 
             occurrence_runtime = occurrence_identity_runtime()
@@ -449,6 +451,10 @@ class PreparedCharacterizationPort(ABC):
 
             functions = (
                 *functions,
+                (
+                    "corpus_structure.semantic.characterization_evidence.verify_navigation_source_fields",
+                    verify_navigation_source_fields,
+                ),
                 (
                     "corpus_structure.semantic.characterization.verify_interpreted_attachment_witnesses",
                     verify_interpreted_attachment_witnesses,
@@ -891,6 +897,7 @@ class PreparedCharacterizationPort(ABC):
                 raise ValueError("interpreted attestation requires its selected source and subject")
             source = inputs.source
             checked = {
+                "corpus_structure.semantic.characterization_evidence.verify_navigation_source_fields": None,
                 "corpus_structure.semantic.characterization.verify_interpreted_attachment_witnesses": None,
                 "corpus_structure.semantic.construction_products.verify_interpreted_dependency_members": self._observed_dependency_members(
                     binding, inputs

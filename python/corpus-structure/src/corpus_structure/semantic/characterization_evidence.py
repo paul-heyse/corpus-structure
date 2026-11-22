@@ -201,11 +201,12 @@ def validate_formal_normalization(annotations):
                 raise ValueError("formal decimal must be finite")
 
 
-def validate_navigation_evidence(indexes):
+def verify_navigation_source_fields(indexes):
     annotations = indexes["annotations"]
     occurrences = indexes["occurrences"]
-    for annotation in annotations.values():
-        navigation = annotation.get("navigation")
+    for identifier in annotations:
+        annotation = annotations[identifier]
+        navigation = _field(annotation, "navigation", None)
         if annotation["kind"] == "construction.navigation" and navigation is None:
             raise ValueError("navigation annotation requires typed source fields")
         if navigation is not None:
@@ -214,14 +215,14 @@ def validate_navigation_evidence(indexes):
                 or annotation["family"] != "construction.navigation"
             ):
                 raise ValueError("navigation fields require their declared annotation family")
-            roles = navigation.get("roles", ())
+            roles = _field(navigation, "roles", ())
             if len({role["role"] for role in roles}) != len(roles):
                 raise ValueError("navigation role identity repeats")
             refs = [ref for role in roles for ref in role["occurrences"]]
             if (
                 not refs
                 or any(ref not in occurrences for ref in refs)
-                or set(refs) != set(annotation.get("occurrences", ()))
+                or set(refs) != set(_field(annotation, "occurrences", ()))
             ):
                 raise ValueError(
                     "navigation roles must conserve their annotation source occurrences"
@@ -232,7 +233,7 @@ def validate_navigation_evidence(indexes):
                 for e in occurrences[ref]["extents"]
             ):
                 raise ValueError("navigation fields require literal source evidence")
-            for label in navigation.get("source_labels", ()):
+            for label in _field(navigation, "source_labels", ()):
                 if (
                     not label["occurrences"]
                     or any(ref not in refs for ref in label["occurrences"])
@@ -244,8 +245,15 @@ def validate_navigation_evidence(indexes):
                     != label["value"]
                 ):
                     raise ValueError("navigation source label differs from its literal source")
-            if any(
-                token["native_node"] not in annotation.get("external_premises", ())
-                for token in navigation.get("native_tokens", ())
-            ):
-                raise ValueError("navigation native token requires its external premise")
+
+
+def validate_navigation_token_premises(annotations):
+    for annotation in annotations.values():
+        navigation = annotation.get("navigation")
+        if navigation is None:
+            continue
+        if any(
+            token["native_node"] not in annotation.get("external_premises", ())
+            for token in navigation.get("native_tokens", ())
+        ):
+            raise ValueError("navigation native token requires its external premise")

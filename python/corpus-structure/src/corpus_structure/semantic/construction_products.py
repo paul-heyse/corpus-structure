@@ -42,7 +42,10 @@ from .characterization import (
     verify_inventory_native_scores,
     verify_inventory_occurrence_ids,
 )
-from .characterization_evidence import validate_navigation_evidence
+from .characterization_evidence import (
+    validate_navigation_token_premises,
+    verify_navigation_source_fields,
+)
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .constructions.declarations import FAMILIES, GRAMMAR_FAMILIES
 from .constructions.layers import ConstructionLayer, ConstructionSource
@@ -1140,7 +1143,9 @@ def _checked_interpreted_product(
         if product_type is ConstructionProduct
         else {}
     )
-    validate_navigation_evidence({**indexes, "annotations": indexes["annotations"] | navigation})
+    if bound_member is None:
+        verify_navigation_source_fields(indexes)
+    validate_navigation_token_premises(indexes["annotations"] | navigation)
     if bound_member is None:
         policies = attachment_policies(prepared)
 

@@ -202,6 +202,7 @@ class ContextualEvaluationOperation:
                     "text.constructions/body-coverage",
                     "text.constructions/canonical-occurrence-addresses",
                     "text.constructions/inventory-topology",
+                    "text.constructions/navigation-source-fields",
                     "text.constructions/selected-source-coverage",
                     "text.constructions/literal-source",
                     "text.constructions/native-numeric-scores",

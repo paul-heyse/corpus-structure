@@ -640,7 +640,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         address_rule = prefix + "/canonical-occurrence-addresses"
         members_rule = prefix + "/selected-primary-members"
         attachment_rule = prefix + "/released-attachment-witnesses"
-        assert set(proofs) == {
+        expected = {
             required,
             coverage_rule,
             selected_rule,
@@ -651,6 +651,9 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
             members_rule,
             attachment_rule,
         }
+        if isinstance(inputs, _ConstructionInputs):
+            expected.add("text.constructions/navigation-source-fields")
+        assert set(proofs) == expected
         assert all(proof.output_role == "result" for proof in proofs.values())
         assert all(proof.output_position == 0 for proof in proofs.values())
 
@@ -668,6 +671,9 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         assert changed_proofs[numeric_rule].premise == proofs[numeric_rule].premise
         assert changed_proofs[address_rule].premise == proofs[address_rule].premise
         assert changed_proofs[members_rule].premise == proofs[members_rule].premise
+        if isinstance(inputs, _ConstructionInputs):
+            navigation_rule = "text.constructions/navigation-source-fields"
+            assert changed_proofs[navigation_rule].premise == proofs[navigation_rule].premise
 
     consumer = model.operation("text.contextual_evaluation/source-native")
     (formal_role,) = (role for role in consumer.roles if role.name == "formal")
@@ -679,6 +685,7 @@ def test_interpreted_completions_attest_body_coverage_and_exact_source(acquired,
         "text.constructions/inventory-topology",
         "text.constructions/literal-source",
         "text.constructions/native-numeric-scores",
+        "text.constructions/navigation-source-fields",
         "text.constructions/positioned-source-geometry",
         "text.constructions/released-attachment-witnesses",
         "text.constructions/selected-primary-members",
