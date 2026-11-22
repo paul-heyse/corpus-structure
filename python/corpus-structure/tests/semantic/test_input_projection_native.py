@@ -12,7 +12,11 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import DBAPIError
 
 from corpus_structure.semantic import migrations
-from corpus_structure.semantic.data_operation_demands import DemandPlanner
+from corpus_structure.semantic.data_operation_demands import (
+    DemandPlanner,
+    OperationSelection,
+    freeze_demand,
+)
 from corpus_structure.semantic.data_operation_identity import projected_computation_identity
 from corpus_structure.semantic.data_operation_model import InputReadProjection, ProjectedCollection
 from corpus_structure.semantic.data_operation_partitions import partition_group_digests
@@ -25,6 +29,7 @@ from corpus_structure.semantic.native_objects import execute_native_sql
 from corpus_structure.semantic.request_attachment_native import _computation_identity_program
 from corpus_structure.semantic.target_installation import capture_target_installation
 from native_test_support import principal_engine
+from semantic.data_operation_declaration_support import root_subject
 from semantic.data_operation_demand_support import attach, claim, publish, retain
 from semantic.data_operation_kernel_support import STORAGE, admit_kernel, prepare_kernel
 from semantic.test_data_product_admission_programs import (
@@ -201,9 +206,12 @@ def _projected_storage_recipe():
     # parser. The test supplies a synthetic producer and publishes native values.
     consumer["id"] = _CANONICAL
     consumer["roles"][0]["read_projection"] = {"scope": "whole", "header": ["value"]}
+    producer = next(row for row in declaration["operations"] if row["id"] == _PRODUCER)
+    producer["parameters"] = {"lexical_label": {"value_type": "string", "required": False}}
     return replace(
         STORAGE,
         name="projected-computation-attachment",
+        schema_text=STORAGE.schema_text + "      lexical_label: {range: string}\n",
         declaration_content=json.dumps(declaration).encode(),
     )
 
@@ -249,6 +257,7 @@ def test_native_projected_basis_preserves_distinct_request_custody(
     destinations = (("ddo-test", 1), ("ddo-test", 2), ("ddo-other", 1))
     requests = []
     keys = []
+    retained_episode = None
     for project, page in destinations:
         demand, _, _, producer = attach(
             projected_kernel,
@@ -307,8 +316,61 @@ def test_native_projected_basis_preserves_distinct_request_custody(
                     inputs=selected["inputs"], support=selected["support"]
                 ),
             )
-            publish(projected_kernel, fence, intent)
+            retained_episode = publish(projected_kernel, fence, intent)["derivation_id"]
 
     assert len(set(requests)) == 3
     assert keys[0] == keys[1]
     assert keys[0] != keys[2]
+
+    # New lexical output, fixed projected value and the same authorized output occurrence.
+    # The new request has its own custody and selected support, without a new task.
+    assert retained_episode is not None
+    revised = freeze_demand(
+        model,
+        roots=(root_subject(subject="subject:one", source="source:test", scope={"page": 1}),),
+        targets=(_CANONICAL,),
+        selections=(OperationSelection(_PRODUCER, b'{"lexical_label":"revised"}'),),
+        inference="inference:test",
+        execution_profile="execution:test",
+    )
+    with engine.begin() as connection:
+        planner = DemandPlanner(model, DataOperationStorage(connection))
+        current = planner.register(
+            revised,
+            project="ddo-test",
+            release=projected_kernel.prepared.release_id,
+            runtime=projected_kernel["runtime"],
+        )["demand_id"]
+    with engine.begin() as connection:
+        snapshot = DemandPlanner(model, DataOperationStorage(connection)).resume(current)
+    with engine.begin() as connection:
+        planner = DemandPlanner(model, DataOperationStorage(connection))
+        (source,) = planner.ready(snapshot, authorization=b"{}")
+    assert source.operation == _PRODUCER
+    fence = claim(projected_kernel, json.loads(source.native))
+
+    def revised_output(completion):
+        sample_output(completion)
+        completion["outputs"][0]["product"]["body"] = semantic_value(
+            {**body, "lexical_label": "revised"}
+        )
+
+    original = publish(
+        projected_kernel, fence, retain(projected_kernel, fence, mutate=revised_output)
+    )
+    with engine.begin() as connection:
+        snapshot = DemandPlanner(model, DataOperationStorage(connection)).resume(current)
+    with engine.begin() as connection:
+        planner = DemandPlanner(model, DataOperationStorage(connection))
+        assert planner.ready(snapshot, authorization=b"{}") == ()
+        (current_request,) = planner.fulfilled_request_ids
+    assert current_request not in requests
+    with engine.begin() as connection:
+        snapshot = DemandPlanner(model, DataOperationStorage(connection)).resume(current)
+    target = next(row for row in snapshot["obligations"] if row["operation_id"] == _CANONICAL)
+    result = next(
+        use for use in snapshot["uses"] if use["obligation_id"] == target["obligation_id"]
+    )
+    assert result["fate"] == "fulfilled" and result["derivation_id"] == retained_episode
+    assert result["request_id"] == current_request
+    assert result["selection"]["support"][0]["derivation_id"] == original["derivation_id"]

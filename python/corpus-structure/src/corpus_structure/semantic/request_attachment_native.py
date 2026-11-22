@@ -27,7 +27,9 @@ from .native_program import (
     Assign,
     Block,
     CatchCheckViolation,
+    CatchDependencyInvalidity,
     Continue,
+    Exit,
     ForQuery,
     If,
     Local,
@@ -1043,6 +1045,10 @@ def _attachment_program(model, protocol: bytes):
     )
     replace_capture = _value("replace_capture", Boolean())
     projection_digest = _value("projection_digest")
+    computation_key = _value("projected_basis_key")
+    reused_id = _value("reused_id")
+    reused_completion = _value("reused_completion", JSONB())
+    projected_adoption = _value("projected_adoption", Boolean())
     lifecycle = wire["data_task_state"]["x-ddo-lifecycle"]
     pending, running, terminal = (lifecycle[name] for name in ("initial", "running", "terminal"))
 
@@ -1439,9 +1445,8 @@ def _attachment_program(model, protocol: bytes):
     projected_role = defn("input_roles")[0]
     # Only this prepared port presently enforces the whole-input envelope.
     # Declaring an observation alone does not make an implementation use it.
-    record_computation_basis = If(
+    prepare_computation_basis = If(
         and_(
-            task.is_not(None),
             o("operation_id") == "segment.sentences/canonical-projection",
             func.jsonb_array_length(defn("input_roles")) == 1,
             projected_role["collection"].astext == "scalar",
@@ -1471,20 +1476,99 @@ def _attachment_program(model, protocol: bytes):
             If(
                 projection_digest.is_not(None),
                 (
-                    Sql(
-                        insert(computations).values(
-                            request_id=r("id"),
-                            generation=r("generation"),
-                            project_id=d("project_id"),
-                            computation_key=func.ops.ddo_projected_computation_key(
-                                d("project_id"),
-                                defn("recipe"),
-                                projected_role["name"].astext,
-                                projection_digest,
-                                binding["parameters"],
-                                binding["inference"].astext,
+                    Assign(
+                        "projected_basis_key",
+                        func.ops.ddo_projected_computation_key(
+                            d("project_id"),
+                            defn("recipe"),
+                            projected_role["name"].astext,
+                            projection_digest,
+                            binding["parameters"],
+                            binding["inference"].astext,
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    record_computation_basis = If(
+        and_(task.is_not(None), computation_key.is_not(None)),
+        (
+            Sql(
+                insert(computations).values(
+                    request_id=r("id"),
+                    generation=r("generation"),
+                    project_id=d("project_id"),
+                    computation_key=computation_key,
+                )
+            ),
+        ),
+    )
+    prior = requests.alias("projected_producer_request")
+    candidates = (
+        select(episodes.c.id, intents.c.payload)
+        .select_from(
+            computations.join(prior, prior.c.id == computations.c.request_id)
+            .join(
+                episodes,
+                and_(
+                    episodes.c.request_id == computations.c.request_id,
+                    episodes.c.generation == computations.c.generation,
+                ),
+            )
+            .join(intents, intents.c.id == episodes.c.intent_id)
+        )
+        .where(
+            computations.c.project_id == d("project_id"),
+            computations.c.computation_key == computation_key,
+            prior.c.id != r("id"),
+            prior.c.operation_id == o("operation_id"),
+            prior.c.subject == o("subject"),
+            prior.c.original_source.is_not_distinct_from(o("original_source")),
+            prior.c.analyzed_scope == o("analyzed_scope"),
+            episodes.c.release_id == d("release_id"),
+            episodes.c.recipe == defn("recipe"),
+            episodes.c.outcome == "success",
+            func.ops.ddo_validity_direct("producer", episodes.c.id, _value("boundary")),
+        )
+        .order_by(episodes.c.id)
+    )
+    current_request = func.jsonb_populate_record(_value("r"), _object(**request_updates))
+    acquire_projected_computation = If(
+        and_(
+            episode.is_(None),
+            r("live_task_id").is_(None),
+            computation_key.is_not(None),
+            d("strength") == "value",
+            defn("support_contract")["reuse_eligible"].astext == "true",
+            defn("support_contract")["provenance"].astext == "value_substitution",
+            func.coalesce(projected_role["identity_requirements"], _json("[]")) == _json("[]"),
+        ),
+        (
+            ForQuery(
+                ("reused_id", "reused_completion"),
+                candidates,
+                (
+                    CatchDependencyInvalidity(
+                        (
+                            Perform(
+                                func.ops.ddo_require_consuming_episode(reused_id, current_request)
                             ),
-                        )
+                            If(
+                                defn("support_contract").has_key("reference_targets"),
+                                (
+                                    Perform(
+                                        func.ops.ddo_assert_output_references(
+                                            current_request, reused_completion
+                                        )
+                                    ),
+                                ),
+                            ),
+                            Assign("episode", reused_id),
+                            Assign("projected_adoption", literal(True)),
+                            Exit(),
+                        ),
+                        (Continue(),),
                     ),
                 ),
             ),
@@ -1856,13 +1940,15 @@ def _attachment_program(model, protocol: bytes):
         ),
         If(
             episode.is_(None),
+            (prepare_computation_basis, acquire_projected_computation),
+        ),
+        If(
+            episode.is_(None),
             generation_steps,
             (
-                Perform(
-                    func.ops.ddo_require_consuming_episode(
-                        episode,
-                        func.jsonb_populate_record(_value("r"), _object(**request_updates)),
-                    )
+                If(
+                    ~projected_adoption,
+                    (Perform(func.ops.ddo_require_consuming_episode(episode, current_request)),),
                 ),
             ),
         ),
@@ -1969,9 +2055,13 @@ def _attachment_program(model, protocol: bytes):
                 "usekey",
                 "retained_id",
                 "projection_digest",
+                "projected_basis_key",
+                "reused_id",
             )
         ),
         Local("task", pg_type("bigint")),
+        Local("reused_completion", pg_type("jsonb")),
+        Local("projected_adoption", pg_type("boolean"), literal(False)),
         Local("cnt", pg_type("bigint")),
         Local("invalid_current", pg_type("boolean")),
         Local("invalid_retained", pg_type("boolean")),
