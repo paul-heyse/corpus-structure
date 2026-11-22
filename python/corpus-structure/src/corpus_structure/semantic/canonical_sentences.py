@@ -107,7 +107,11 @@ def _canonical_local_rows(key: str, body: bytes) -> bytes:
         row
         | {
             "annotation": SemanticReference.item(
-                "inventory", COLLECTION, key, (row["record_type"], row["ordinal"])
+                "inventory",
+                COLLECTION,
+                key,
+                (row["record_type"], row["ordinal"]),
+                occurrence=None,
             ).values()
         }
         for row in decode_semantic_value(json.loads(body))
@@ -208,8 +212,8 @@ def _canonical_codec_runtime():
 
     return tuple(
         item
-        for item in acquire_codec_runtime()
-        if item.reference in {"datetime", "decimal", "hashlib", "rapidjson"}
+        for item in acquire_codec_runtime(standard_json_io=True)
+        if item.reference in {"datetime", "decimal", "hashlib", "json", "rapidjson"}
     )
 
 
