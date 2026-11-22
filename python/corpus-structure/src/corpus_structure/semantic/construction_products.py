@@ -1307,8 +1307,9 @@ def contextual_product_values(
     ) or any(not isinstance(pin, DataProductReference) for pin in env.context_layers):
         raise ValueError("source-native contextual evaluation requires governed semantic addresses")
     selected = source.value
+    selectors = [dict(selector) for selector in selected["selectors"]]
     facts: dict[str, Any] = evaluator.facts(
-        {"selectors": selected["selectors"]},
+        {"selectors": selectors},
         {"key": "text.contextual_evaluation/source-native"},
         roots,
         env,
@@ -1318,16 +1319,16 @@ def contextual_product_values(
         for group in facts["choices"]
         for member in group["members"]
     ]
-    coordinate = selected["source"]
+    coordinate = dict(selected["source"])
     context = dict(
         subject=source_subject(coordinate),
         subject_definition="original-source-view",
         original_source=coordinate["document"],
-        analyzed_scope=dict(source=coordinate, selectors=selected["selectors"]),
+        analyzed_scope=dict(source=coordinate, selectors=selectors),
     )
     value = dict(
         source=coordinate,
-        selectors=selected["selectors"],
+        selectors=selectors,
         dependencies=[DataProductReference(product.semantic_id).values() for product in products],
         outcome=facts["outcome"],
         coverage=facts["coverage"],

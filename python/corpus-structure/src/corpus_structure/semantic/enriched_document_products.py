@@ -14,6 +14,7 @@ from .data_operation_partitions import partition_header
 from .data_operation_source_sets import FrozenSourceSet, SelectedSourceSetEntry
 from .data_product_reference import DataProductMemberReference, DataProductReference
 from .identity import canonical_bytes
+from .native_source_view import thaw_native
 from .source_products import FrozenNativeSource
 from .types import PreparedRelease
 
@@ -298,7 +299,7 @@ def compose_enriched_document_values(
         )
         coverage.append(
             dict(
-                source=source.value["source"],
+                source=dict(source.value["source"]),
                 family=family,
                 availability="available" if complete else "unknown",
                 outcome=(
@@ -326,7 +327,7 @@ def compose_enriched_document_values(
     )
     return dict(
         original_document=document,
-        sources=[source.value for source in sources],
+        sources=[thaw_native(source.value) for source in sources],
         profile=profile,
         products=[pin.values() for pin in owned],
         active=[pin.values() for pin in active],

@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import json
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from functools import cached_property, lru_cache
 from hashlib import sha256
@@ -321,30 +321,12 @@ def execute_view_profile(receiver, sources, products, active, profile):
     )
 
 
-def _body(prepared, name, value):
-    if isinstance(
-        value,
-        (
-            FormalEvidenceProduct,
-            ConstructionProduct,
-            ContextualMeaningProduct,
-            SourceAnnotations,
-            FrozenNativeSource,
-        ),
-    ):
+def _body(value):
+    if isinstance(value, (FormalEvidenceProduct, ConstructionProduct, ContextualMeaningProduct)):
         value = value.value
     if isinstance(value, BaseModel):
-        value = value.model_dump(mode="python", exclude_unset=True)
-
-    def freeze_sequences(item):
-        if isinstance(item, dict):
-            return {key: freeze_sequences(member) for key, member in item.items()}
-        if isinstance(item, (list, tuple)):
-            return tuple(freeze_sequences(member) for member in item)
-        return item
-
-    checked = prepared.validate_python(name, freeze_sequences(value))
-    return checked.model_dump(mode="json", exclude_unset=True)
+        return value.model_dump(mode="json", exclude_unset=True)
+    return value
 
 
 @dataclass(frozen=True)
@@ -599,7 +581,7 @@ class PreparedCharacterizationPort(ABC):
     def _formal(self, source, values, binding):
         result = []
         for value in values:
-            body = _body(self.prepared, "DdoFormalProduct", value)
+            body = _body(value)
             original = FrozenNativeSource.acquire(
                 self.prepared, {**source.value, "selectors": body["selectors"]}
             )
@@ -656,14 +638,13 @@ class PreparedCharacterizationPort(ABC):
             )
             if kind is None:
                 raise PortRefusal("view member has no admitted concrete nominal kind")
-            definition = next(row for row in self.prepared.definitions if row.iri == kind)
-            partitioned = isinstance(value, dict) and set(value) == {"header", "partitions"}
+            partitioned = isinstance(value, Mapping) and set(value) == {"header", "partitions"}
             product = RetainedCharacterizationProduct.acquire(
                 self.prepared,
                 self.model,
                 kind,
                 canonical_bytes(
-                    value["header"] if partitioned else _body(self.prepared, definition.name, value)
+                    value["header"] if partitioned else _body(value)
                 ),
                 partitions=tuple(map(canonical_bytes, value["partitions"]))
                 if partitioned
@@ -700,9 +681,7 @@ class PreparedCharacterizationPort(ABC):
                     "heterogeneous view inputs require exact native member kind lineage"
                 )
             sources = tuple(
-                FrozenNativeSource.acquire(
-                    self.prepared, _body(self.prepared, "DdoSelectedNativeSource", value)
-                )
+                FrozenNativeSource.acquire(self.prepared, value)
                 for value in roles["sources"]
             )
             if not sources and not getattr(self, "allow_empty", False):
@@ -735,9 +714,7 @@ class PreparedCharacterizationPort(ABC):
                 raise PortRefusal("composition profile is outside its admitted contract")
             return _DocumentInputs(sources, products, active, profile)
 
-        source = FrozenNativeSource.acquire(
-            self.prepared, _body(self.prepared, "DdoSelectedNativeSource", roles["source"])
-        )
+        source = FrozenNativeSource.acquire(self.prepared, roles["source"])
         if binding is not None and binding.subject != source_subject(source.value["source"]):
             raise PortRefusal(
                 "characterization subject differs from exact original source coordinate"
@@ -778,7 +755,7 @@ class PreparedCharacterizationPort(ABC):
         supporting = self._retained(roles["supporting"], binding, "supporting")
         constructions = []
         for index, value in enumerate(roles["constructions"]):
-            body = _body(self.prepared, "DdoPrimaryConstructionProduct", value)
+            body = _body(value)
             context = self._context(binding, "constructions", index, value)
             if binding is None:
                 product = validate_construction_product(
