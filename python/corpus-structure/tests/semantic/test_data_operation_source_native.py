@@ -140,8 +140,12 @@ def test_source_admission_compiler_keeps_producer_and_recursive_lineage_contract
     ]
     lineage = parsed.excerpt(5)
     assert "WITH RECURSIVE lineage" in lineage
-    assert "UNION SELECT ops.data_derivation_support.support_derivation_id" in lineage
-    assert "UNION ALL SELECT ops.data_derivation_support.support_derivation_id" not in lineage
+    assert "ops.ddo_single_input_support_episode(capture) AS id" in lineage
+    assert "UNION SELECT historical_edge.child_id AS id" in lineage
+    assert "FROM lineage JOIN LATERAL" in lineage
+    assert "ops.data_derivation_support.support_derivation_id AS child_id" in lineage
+    assert "ops.data_derivation_support.derivation_id = lineage.id" in lineage
+    assert "ops.ddo_node_valid('episode', lineage.id)" in lineage
     assert "candidate.kind_contract = raw_product.kind_contract" in lineage
     assert "candidate.original_source = consumer.original_source" in lineage
     producing = parsed.excerpt(1)
