@@ -6,7 +6,7 @@ import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import Field, TypeAdapter
 
@@ -324,12 +324,13 @@ class PreparedDossierInputs:
                     )
                 passages[passage.passage_id] = passage
             dependencies.extend((member.product, report.product_id, *report.inputs.dependencies))
-            retained.append((reference, {"report": report}))
+            payload: dict[str, Any] = {"report": report}
+            retained.append((reference, payload))
             declared_reports[key(member)] = reference
-            return report, reference
+            return report, reference, payload
 
         (component_member,) = self.members("components")
-        component_report, _ = retain(
+        component_report, _, _ = retain(
             component_member, components, DeclaredDefinitionComponentsReport
         )
         root_reference = DeclaredComponentRef.from_bound(
@@ -341,8 +342,14 @@ class PreparedDossierInputs:
         root = dossier_root(root_reference, retained)
         if root.scope != scope:
             raise ValueError("dossier scope differs from its actual selected root")
+        definition_members = {}
         for member, raw in pairs("definitions", definitions):
-            retain(member, raw, DeclaredDefinitionApplicabilityReport)
+            report, reference, payload = retain(
+                member, raw, DeclaredDefinitionApplicabilityReport
+            )
+            definition_members[reference] = (
+                member, cast(DeclaredDefinitionApplicabilityReport, report), payload
+            )
         for member, raw in pairs("comparisons", comparisons):
             retain(member, raw, DeclaredComparisonReport)
         apply_structural_admissions(
@@ -477,6 +484,15 @@ class PreparedDossierInputs:
                 if selected.applicability_reference is not None
                 else None
             )
+            if applicability_reference is not None and binding.edge.relation != "specializes":
+                from .data_product_reference import read_semantic_reference
+                from .reference_resolution import selected_producing_reference_bindings
+
+                producer, report, payload = definition_members[applicability_reference]
+                origin = selected_producing_reference_bindings(producer).resolve(
+                    read_semantic_reference(report.relationship_input)
+                )
+                payload["relationship_origin"] = origin
             selections.append(
                 DeclaredDossierComparisonSelection(
                     comparison_product_id=comparison_reference.product_id,

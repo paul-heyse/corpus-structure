@@ -647,7 +647,7 @@ class DeclaredDefinitionComponentsProduct(StructuralValue):
 class DeclaredStructuralDefinitionReading(StructuralValue):
     target_id: Nonempty
     component_ref: SemanticMemberReference
-    link_ref: DeclaredRelationshipRef
+    link_ref: SemanticMemberReference
     component: DeclaredLocatedDefinitionComponent
     outcome: DefinitionOutcome
     evidence: tuple[Nonempty, ...] = Field(min_length=1)
@@ -1125,6 +1125,8 @@ def _definition_reading_invariants(value: Any) -> Any:
         value.component_ref["member_id"] != value.component.component_id
     ):
         raise ValueError("applicability reading substitutes its component")
+    if value.link_ref["role"] != "relationship":
+        raise ValueError("applicability reading requires its selected relationship role")
     if {p.dimension for p in value.premises} != {
         "sense",
         "parameterization",

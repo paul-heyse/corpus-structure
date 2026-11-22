@@ -32,6 +32,11 @@ def test_current_definition_workflow_has_actual_source_and_consumer_contracts(pr
     assert derive_member_kinds(model, component_role.kind) == (
         "urn:corpus:structural:DeclaredLocatedDefinitionComponent",
     )
+    contextual = "https://corpus-structure.dev/semantic/data-operation-contextual/"
+    assert derive_member_kinds(model, contextual + "DdoContextualWitnessedRetrievalProduct") == (
+        contextual + "DdoContextualSelectedRelationship",
+    )
+    assert not derive_member_kinds(model, contextual + "DdoContextualRetrievalProduct")
     applicability = model.operation("structure.definition_applicability/declared")
     assert {role.name for role in applicability.roles if role.direction == "input"} == {
         "source",
@@ -44,11 +49,10 @@ def test_current_definition_workflow_has_actual_source_and_consumer_contracts(pr
     } == {
         ("result", "/components_input", "components", "product"),
         ("result", "/definition/readings/*/component_ref", "components", "member"),
+        ("result", "/definition/readings/*/link_ref", "relationship", "member"),
         ("result", "/relationship_input", "relationship", "product"),
     }
-    assert {item.input_role: item.records for item in applicability.output_witnesses} == {
-        "relationship": "/definition/readings/*/link_ref",
-    }
+    assert not applicability.output_witnesses
     for operation in (
         "retrieve.contextual_query/declared",
         "retrieve.contextual_query/selected-context",
@@ -85,7 +89,11 @@ def test_selected_applicability_resolves_original_whole_inputs(prepared_workflow
     from corpus_structure.semantic.data_operation_values import semantic_value
     from corpus_structure.semantic.selected_structural_projection import structural_report
     from corpus_structure.semantic.structural_products import DeclaredDefinitionApplicabilityReport
-    from semantic.dossier_semantic_states_support import applicability, report_input_pin
+    from semantic.dossier_semantic_states_support import (
+        applicability,
+        relationship_input_pin,
+        report_input_pin,
+    )
 
     operation = "structure.definition_applicability/declared"
     nominal = "urn:corpus:structural:DeclaredDefinitionApplicabilityReport"
@@ -99,7 +107,9 @@ def test_selected_applicability_resolves_original_whole_inputs(prepared_workflow
     body = report.model_dump(mode="json", exclude_none=True)
     (reading,) = report.definition.readings
     component_report = report_input_pin(components)
-    references = {"components": component_report, "relationship": reading.link_ref}
+    relationship_report = relationship_input_pin(components)
+    references = {"components": component_report, "relationship": relationship_report}
+    edge_id = reading.link_ref["member_id"]
     originals = {
         role: {"role": role, "product_id": ref.product_id, "position": 0, "multiplicity": 1}
         for role, ref in references.items()
@@ -136,13 +146,16 @@ def test_selected_applicability_resolves_original_whole_inputs(prepared_workflow
             (component_report.product_id, reading.component.component_id): {
                 "body": semantic_value(reading.component.model_dump(mode="python")),
             },
+            (relationship_report.product_id, edge_id): {
+                "body": semantic_value({"edge_id": edge_id, "target_id": reading.target_id}),
+            },
         },
         "kb.data_product_partition": {},
         "sem.data_kind_contract": {
             component_report.kind_contract: {
                 "kind": "urn:corpus:structural:DeclaredNamedDefinitionComponentsReport"
             },
-            reading.link_ref.kind_contract: {
+            relationship_report.kind_contract: {
                 "kind": next(
                     target.input_kind for target in targets if target.input_role == "relationship"
                 )
@@ -156,7 +169,7 @@ def test_selected_applicability_resolves_original_whole_inputs(prepared_workflow
 
     scope = SimpleNamespace(
         model=model,
-        cut=SimpleNamespace(record={"project_id": reading.link_ref.project_id}),
+        cut=SimpleNamespace(record={"project_id": relationship_report.project_id}),
         index=SimpleNamespace(mapping=lambda relation, _: maps[relation], rows_for=original_edges),
     )
     selected = SimpleNamespace(
@@ -176,6 +189,10 @@ def test_selected_applicability_resolves_original_whole_inputs(prepared_workflow
         ]
         with pytest.raises(ValueError, match="unavailable in the exact selected use"):
             structural_report(scope, selected)
+    use["selection"]["inputs"] = list(originals.values())
+    del maps["kb.data_product_member"][relationship_report.product_id, edge_id]
+    with pytest.raises(ValueError, match="does not resolve its declared target"):
+        structural_report(scope, selected)
 
     from corpus_structure.semantic.identity import canonical_bytes
 

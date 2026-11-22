@@ -115,6 +115,8 @@ def test_contextual_retrieval_captures_factory_and_source_witness():
     } == {
         ("/query_input", "query", "product"),
         ("/inventory_input", "inventory", "product"),
+        ("/carrier_input", "cues", "member"),
+        ("/hypotheses/*/cue_refs/*", "cues", "member"),
     }
     (target,) = model.operation("retrieve.contextual/with-witnesses").reference_targets
     assert (target.path, target.input_role, target.variant) == (
@@ -191,8 +193,11 @@ def test_native_relationship_decoder_preserves_selected_target_carriers_and_reje
     from corpus_structure.semantic.contextual_operations import (
         admitted_contextual_inventory,
         contextual_relationship_binding,
+        contextual_relationship_decision,
+        witnessed_relationship_members,
     )
     from corpus_structure.semantic.contextual_retrieval import ChannelHit, fuse_candidates
+    from corpus_structure.semantic.data_operation_model import SubjectContext
 
     values = inputs()
     inventory = admitted_contextual_inventory(values["inventory"])
@@ -240,6 +245,26 @@ def test_native_relationship_decoder_preserves_selected_target_carriers_and_reje
     assert selected.edge.relation == "denotes"
     assert [value.target_id for value in selected.representations] == ["one"]
     assert selected.source_pin == {"source": "source:original"}
+    context = SubjectContext(
+        "test-project", "test-subject", "test-original", b"{}",
+        subject_definition="original-source-view",
+    )
+    witnessed = witnessed_relationship_members(
+        {**product, "witness_input": {"variant": "product", "role": "witnesses"}},
+        kind_contract="test-edge-kind",
+        context=context,
+    )
+    (packet,) = witnessed["members"]
+    assert packet["member_id"] == packet["body"]["edge_id"] == selected.edge.edge_id
+    assert "selected_edges" not in source_python(witnessed["relationship_decision"])
+    assert contextual_relationship_decision(witnessed) == decision
+    assert contextual_relationship_binding(
+        witnessed, decision_id=decision.decision_id, edge_id=selected.edge.edge_id
+    ) == selected
+    with pytest.raises(ValueError, match="selected edge address"):
+        contextual_relationship_decision(
+            {**witnessed, "members": [{**packet, "member_id": "foreign-edge"}]}
+        )
     with pytest.raises(ValueError, match="actually selected edge"):
         contextual_relationship_binding(
             product, decision_id=decision.decision_id, edge_id="foreign"

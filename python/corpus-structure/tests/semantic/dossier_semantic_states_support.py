@@ -6,7 +6,6 @@ not represent protected native assessments or establish provider evidence.
 
 from corpus_structure.semantic.declared_structural_references import (
     DeclaredComponentRef,
-    DeclaredRelationshipRef,
     DeclaredStructuralRef,
 )
 from corpus_structure.semantic.identity import canonical_bytes
@@ -151,6 +150,16 @@ def retained(report):
     return value, reference, payload
 
 
+def relationship_input_pin(component_report):
+    return report_input_pin(component_report).model_copy(
+        update=dict(
+            product_id="unadmitted:literal-relationship-ledger",
+            kind_contract="unadmitted:relationship-ledger",
+            reference=canonical_bytes(["unadmitted:literal-relationship-ledger", None]).decode(),
+        )
+    )
+
+
 def applicability():
     value = input_from_passages(
         (
@@ -164,16 +173,7 @@ def applicability():
     originals = components(value, passage_id="target")
     by_state = {component.interpretation: component for component in originals.components}
     component_pin = report_input_pin(originals)
-    relationship_pin = component_pin.model_copy(
-        update=dict(
-            product_id="unadmitted:literal-relationship-ledger",
-            kind_contract="unadmitted:relationship-ledger",
-            reference=canonical_bytes(["unadmitted:literal-relationship-ledger", None]).decode(),
-        )
-    )
-    relationship = DeclaredRelationshipRef(
-        **relationship_pin.model_dump(exclude={"reference"}), edge_id="literal:usage-target"
-    )
+    relationship_pin = relationship_input_pin(originals)
     value = value.model_copy(
         update=dict(
             dependencies=tuple(
@@ -197,7 +197,7 @@ def applicability():
             component_ref=dict(
                 variant="member", role="components", member_id=component.component_id
             ),
-            link_ref=relationship,
+            link_ref=dict(variant="member", role="relationship", member_id="literal:usage-target"),
             component=component,
             outcome=outcome,
             evidence=("target",),

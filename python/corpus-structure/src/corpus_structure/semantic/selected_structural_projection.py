@@ -114,7 +114,7 @@ def structural_report(scope, selected):
             path="/components_input",
             metadata_only=True,
         )
-        relationship = require_selected_output_reference(
+        require_selected_output_reference(
             scope,
             selected,
             read_semantic_reference(applicability.relationship_input),
@@ -130,13 +130,15 @@ def structural_report(scope, selected):
             )
             if DeclaredLocatedDefinitionComponent.model_validate(component) != reading.component:
                 raise ValueError("selected applicability component differs from its original input")
-            link = reading.link_ref
-            if (link.product_id, link.kind_contract, link.member_id) != (
-                relationship.product_id,
-                relationship.kind_contract,
-                relationship.member_id,
+            link = read_semantic_reference(reading.link_ref)
+            edge = require_selected_output_reference(
+                scope, selected, link, path="/definition/readings/*/link_ref"
+            )
+            if not isinstance(edge, dict) or (edge.get("edge_id"), edge.get("target_id")) != (
+                link.member_id,
+                reading.target_id,
             ):
-                raise ValueError("selected applicability link differs from its original input")
+                raise ValueError("selected applicability link differs from its original edge")
     if isinstance(root.structural, DeclaredDossierReport):
         dossier = root.structural
         require_selected_output_reference(

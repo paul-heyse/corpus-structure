@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
+from corpus_structure.semantic.contextual_operations import contextual_relationship_decision
 from corpus_structure.semantic.data_operation_storage import DataOperationStorage
 from corpus_structure.semantic.data_operation_values import decode_semantic_value, semantic_value
 from corpus_structure.semantic.observations import source_python
@@ -79,14 +80,14 @@ def test_actual_private_source_binding_retains_authorship_and_competing_alternat
     assert binding.body["inventory_input"] == {"variant": "product", "role": "inventory"}
     assert product.body["witness_input"] == {"variant": "product", "role": "witnesses"}
     assert source_python(binding.body["authored_support"])
-    decision = source_python(product.body["relationship_decision"])
-    assert decision["outcome"] == outcome
+    decision = contextual_relationship_decision(product.body)
+    assert decision.outcome == outcome
     if outcome == "selected":
-        (edge,) = decision["selected_edges"]
-        assert edge["member_target_ids"] == ["one"]
-        assert edge["witnesses"][0]["evidence_ids"] == [
-            case.query.body["carrier"]["contribution_id"]
-        ]
+        (edge,) = decision.selected_edges
+        assert edge.member_target_ids == ("one",)
+        assert edge.witnesses[0].evidence_ids == (
+            case.query.body["carrier"]["contribution_id"],
+        )
         from corpus_structure.serve.demand_export import (
             export_demand_result,
             verified_demand_export,
@@ -120,15 +121,19 @@ def test_actual_private_source_binding_retains_authorship_and_competing_alternat
             ):
                 body = decode_semantic_value(rows[retained.row["product_id"]]["canonical_body"])
                 assert body[field] == retained.body[field]
+            packet = index.mapping("kb.data_product_member", ("product_id", "member_id"))[
+                product.row["product_id"], edge.edge_id
+            ]
+            assert decode_semantic_value(packet["body"]) == product.body["members"][0]["body"]
     elif outcome == "ambiguous":
-        assert decision["selected_edges"] == []
+        assert decision.selected_edges == ()
         assert {
-            edge["member_target_ids"][0]
-            for group in decision["alternative_groups"]
-            for edge in group["edges"]
+            edge.member_target_ids[0]
+            for group in decision.alternative_groups
+            for edge in group.edges
         } == {"one", "two"}
     else:
-        assert decision["selected_edges"] == []
+        assert decision.selected_edges == ()
         assert source_python(binding.body["witnesses"]) == []
 
 

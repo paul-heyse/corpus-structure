@@ -159,14 +159,19 @@ def candidates_from_scores(inputs, scores, query, policy, *, numerical_policy):
 
 
 def execute_contextual_retrieval_kernel(
-    input_basis: list, numerical_policy: dict, *, witnessed: bool, check_active
+    input_basis: list, numerical_policy: dict, *, relationship_member_contract: str | None, check_active
 ) -> dict:
     from .contextual_numerics import RetrievalNumericalPolicy
-    from .contextual_operations import finish_contextual_retrieval, prepare_contextual_retrieval
+    from .contextual_operations import (
+        finish_contextual_retrieval,
+        prepare_contextual_retrieval,
+        witnessed_relationship_members,
+    )
     from .contextual_witnesses import STANDING
     from .data_operation_cpu_basis import cpu_authority_reply, cpu_basis_values
     from .data_product_reference import SemanticReference, read_semantic_reference
 
+    witnessed = relationship_member_contract is not None
     expected_roles = {"query", "inventory", "vectors", "policy", "scores"} | (
         {"witnesses"} if witnessed else set()
     )
@@ -219,7 +224,10 @@ def execute_contextual_retrieval_kernel(
         inputs, scores, query, values["policy"], numerical_policy=numerics
     )
     product = finish_contextual_retrieval(inputs, candidates, query, check_active=check_active)
-    if binding is not None:
+    if relationship_member_contract is not None:
+        product = witnessed_relationship_members(
+            product, kind_contract=relationship_member_contract, context=context
+        )
         product.update(
             witness_input=SemanticReference.whole("witnesses").whole_value(),
             witness_standing=STANDING,

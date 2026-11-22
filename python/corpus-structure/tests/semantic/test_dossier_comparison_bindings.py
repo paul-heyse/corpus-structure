@@ -127,7 +127,8 @@ def test_comparison_root_witness_cannot_bind_another_focus_in_the_same_passage()
         )
 
 
-def test_comparison_conflict_requires_exact_applicability_and_both_authored_readings():
+@pytest.mark.parametrize("side", ["left", "right"])
+def test_comparison_conflict_requires_exact_applicability_and_both_authored_readings(side):
     from corpus_structure.methods.structural_products import _comparison_member_roles
     from corpus_structure.semantic.structural_products import (
         ApplicabilityPremise,
@@ -140,8 +141,10 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
     assert report.comparison is not None
     left, right = value.passages
     left_focus, right_focus = span(left, "Apply measure"), span(right, "Measure is a control rule")
-    located_usage = span(left, "measure")
-    usage = left.model_copy(
+    selected_relationship = next(choice for choice in selected if choice.side == side)
+    passage, term = (left, "measure") if side == "left" else (right, "Measure")
+    located_usage = span(passage, term)
+    usage = passage.model_copy(
         update={
             "passage_id": "exact-usage",
             "start": located_usage.start,
@@ -171,7 +174,7 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
                             *value.dependencies,
                             root.component_id,
                             root_ref.product_id,
-                            selected[0].relationship_ref.edge_id,
+                            selected_relationship.relationship_ref.edge_id,
                         )
                     )
                 ),
@@ -188,7 +191,9 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
                     component_ref=dict(
                         variant="member", role="components", member_id=root.component_id
                     ),
-                    link_ref=selected[0].relationship_ref,
+                    link_ref=dict(
+                        variant="member", role="relationship", member_id=selected_relationship.relationship_ref.edge_id
+                    ),
                     component=root,
                     outcome="applicable_definition",
                     evidence=(left.passage_id,),
@@ -225,14 +230,19 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
             "text": text,
         }
     )
-    choice = selected[0].model_copy(
+    choice = selected_relationship.model_copy(
         update={
             "applicability_ref": premise_ref,
             "conflict_passage_id": proof.passage_id,
         }
     )
 
-    def roles(witness):
+    from corpus_structure.semantic.reference_resolution import ProducingReferenceInput
+
+    link = selected_relationship.relationship_ref
+    origin = ProducingReferenceInput("relationship", link.product_id, link.kind_contract)
+
+    def roles(witness, relationship_origin=origin):
         return tuple(
             _comparison_member_roles(
                 reference,
@@ -242,7 +252,7 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
                 root_ref,
                 root,
                 require_focus=True,
-                applicability_reports={premise_ref: premise},
+                applicability_reports={premise_ref: (premise, relationship_origin)},
                 dossier_passages={proof.passage_id: witness},
             )
         )
@@ -251,6 +261,12 @@ def test_comparison_conflict_requires_exact_applicability_and_both_authored_read
     assert conflict[0] == "conflict" and relationship[0] == "relationship"
     assert conflict[2].conflict_evidence is not None
     assert conflict[2].conflict_evidence.text == text
+    sibling = ProducingReferenceInput("relationship", "equal-content-sibling", link.kind_contract)
+    if side == "left":
+        assert roles(proof, sibling) == roles(proof)
+    else:
+        with pytest.raises(ValueError, match="exact focus, root, or relationship"):
+            roles(proof, sibling)
     with pytest.raises(ValueError, match="explicit contradiction"):
         roles(proof.model_copy(update={"text": text.replace("contradicts", "discusses")}))
 

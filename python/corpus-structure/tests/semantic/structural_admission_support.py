@@ -78,7 +78,9 @@ def definition():
                         role="components",
                         member_id=fixture_component().component_id,
                     ),
-                    link_ref=relationship_reference(),
+                    link_ref=dict(
+                        variant="member", role="relationship", member_id=relationship_reference().edge_id
+                    ),
                     component=fixture_component(),
                     premises=tuple(
                         ApplicabilityPremise(

@@ -65,6 +65,55 @@ _WITNESSES = TypeAdapter(tuple[RelationshipWitness, ...])
 _EXCLUSIONS = TypeAdapter(frozenset[tuple[str, str]])
 _DECISION = TypeAdapter(RelationshipDecision)
 _TARGETS = TypeAdapter(tuple[TargetRepresentation, ...])
+_SELECTED_RELATIONSHIP_KIND = (
+    "https://corpus-structure.dev/semantic/data-operation-contextual/"
+    "DdoContextualSelectedRelationship"
+)
+
+
+def witnessed_relationship_members(
+    product: Mapping[str, Any], *, kind_contract: str, context
+) -> dict[str, Any]:
+    """Put the decision's ordered selected edges in its admitted member population."""
+    from .observations import source_python, source_value
+
+    decision = source_python(product["relationship_decision"])
+    edges = decision.pop("selected_edges")
+    member_context = {key: value for key, value in context.record.items() if key != "project_id"}
+    return {
+        **product,
+        "relationship_decision": source_value(decision),
+        "members": [
+            {
+                "member_id": edge["edge_id"],
+                "kind_contract": kind_contract,
+                "context": member_context,
+                "body": {**edge, "witnesses": source_value(edge["witnesses"])},
+            }
+            for edge in edges
+        ],
+    }
+
+
+def contextual_relationship_decision(product):
+    """Rebuild the existing decision meaning from the admitted selected-edge population."""
+    from .observations import source_python
+
+    decision = source_python(product["relationship_decision"])
+    if "witness_input" in product:
+        if "selected_edges" in decision:
+            raise ValueError("witnessed decision carries selected edges outside its member population")
+        edges = []
+        seen = set()
+        for packet in product["members"]:
+            edge = packet["body"]
+            if packet["member_id"] != edge["edge_id"] or edge["edge_id"] in seen:
+                raise ValueError("witnessed decision repeats or changes its selected edge address")
+            seen.add(edge["edge_id"])
+            edges.append({**edge, "witnesses": source_python(edge["witnesses"])})
+        decision["selected_edges"] = edges
+    return _DECISION.validate_python(decision)
+
 
 
 def contextual_inputs(bundle):
@@ -436,7 +485,15 @@ class ContextualRetrievalPlan:
         bound = inspect.signature(kernel).bind(
             input_basis=basis,
             numerical_policy=self.numerical_policy.model_dump(mode="json"),
-            witnessed=self.witnessed,
+            relationship_member_contract=(
+                next(
+                    identity.key
+                    for identity in self.port.model.identities
+                    if (identity.owner, identity.domain) == (_SELECTED_RELATIONSHIP_KIND, "kind")
+                )
+                if self.witnessed
+                else None
+            ),
             check_active=check_active,
         )
         reply = yield from self.port.plan_cpu_reply(
@@ -665,7 +722,7 @@ def contextual_relationship_binding(product, *, decision_id, edge_id):
         raw_candidates["occurrence_id"],
         tuple(product["anchors"]),
     )
-    decision = _DECISION.validate_python(source_python(product["relationship_decision"]))
+    decision = contextual_relationship_decision(product)
     meaning = {name: value for name, value in asdict(decision).items() if name != "decision_id"}
     if decision.decision_id != decision_id or decision_id != identity(
         "scoped-relationship", meaning

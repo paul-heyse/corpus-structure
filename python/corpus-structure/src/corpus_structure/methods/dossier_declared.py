@@ -135,7 +135,7 @@ class DossierOperation:
             {
                 "name": "relationships",
                 "parameter": "relationships",
-                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualRetrievalProduct",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-contextual/DdoContextualWitnessedRetrievalProduct",
                 "direction": "input",
                 "minimum": 0,
                 "maximum": None,

@@ -221,9 +221,29 @@ classes:
       vectors: {range: SourceValue, inlined: true, required: true}
       neighborhood: {range: SourceValue, inlined: true, required: true}
 
+  DdoContextualSelectedRelationship:
+    is_a: SourceRecordProduct
+    attributes:
+      edge_id: {required: true}
+      constraint_id: {required: true}
+      occurrence_id: {required: true}
+      target_id: {required: true}
+      member_target_ids: {multivalued: true, required: true, minimum_cardinality: 1}
+      relation: {required: true, pattern: '^(denotes|alias-of|defined-by|specializes|compared-with|participates-in|cites-section)$(?![\s\S])'}
+      witnesses: {range: SourceValue, inlined: true, required: true}
+      selection: {required: true, pattern: '^(forced|preferred)$(?![\s\S])'}
+  DdoContextualSelectedRelationshipPacket:
+    is_a: SourceRecordProduct
+    attributes:
+      member_id: {required: true}
+      kind_contract: {required: true}
+      context: {range: DdoSourceViewContext, inlined: true, required: true}
+      body: {range: DdoContextualSelectedRelationship, inlined: true, required: true}
+
   DdoContextualWitnessedRetrievalProduct:
     is_a: DdoContextualRetrievalProduct
     attributes:
+      members: {range: DdoContextualSelectedRelationshipPacket, inlined_as_list: true, multivalued: true, value_presence: PRESENT, minimum_cardinality: 0}
       witness_input: {range: DdoSemanticReference, inlined: true, required: true}
       witness_standing: {required: true, equals_string: private_authored_source_binding_hypotheses}
       support_state: {required: true, equals_string: unassessed}

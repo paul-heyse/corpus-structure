@@ -6,6 +6,7 @@ from sqlalchemy import (
     Integer,
     Text,
     and_,
+    case,
     cast,
     column,
     exists,
@@ -927,8 +928,10 @@ def _completion_program(name, requests, steps, locals_):
     )
 
 
-def _dossier_component_origins(model, applicability_id, component_product, support_episodes):
-    """Count actual selected applicability episodes with their original whole components."""
+def _dossier_component_origins(
+    model, applicability_id, component_product, support_episodes, *, relationship=None
+):
+    """Count selected applicability episodes with the required original dossier inputs."""
     episodes, outputs, original_inputs = (
         model.tables[name]
         for name in (
@@ -937,7 +940,7 @@ def _dossier_component_origins(model, applicability_id, component_product, suppo
             "ops.data_derivation_input",
         )
     )
-    return (
+    statement = (
         select(func.count(episodes.c.id.distinct()))
         .select_from(
             episodes.join(outputs, outputs.c.derivation_id == episodes.c.id).join(
@@ -958,6 +961,41 @@ def _dossier_component_origins(model, applicability_id, component_product, suppo
             original_inputs.c.multiplicity == 1,
         )
     )
+
+    if relationship is not None:
+        relationship_product, edge, component_id = relationship
+        original_relationship = original_inputs.alias("applicability_relationship")
+        reference = (
+            select(1)
+            .where(
+                original_relationship.c.derivation_id == episodes.c.id,
+                original_relationship.c.role == "relationship",
+                original_relationship.c.product_id == relationship_product,
+                original_relationship.c.member_id.is_(None),
+                original_relationship.c.multiplicity == 1,
+            )
+            .correlate(episodes)
+            .exists()
+        )
+        product = model.tables["kb.data_product"].alias("applicability_product")
+        report = func.data.ddo_json(product.c.canonical_body, type_=JSONB())
+        readings = _items(report["definition"]["readings"], "applicability_reading")
+        actual_edge = (
+            select(1)
+            .select_from(product.join(readings, literal(True)))
+            .where(
+                product.c.id == applicability_id,
+                readings.c.value["component_ref"]["member_id"].astext == component_id,
+                readings.c.value["link_ref"]["role"].astext == "relationship",
+                readings.c.value["link_ref"]["member_id"].astext == edge,
+                readings.c.value["outcome"].astext.in_(
+                    ("applicable_definition", "applicable_explanation")
+                ),
+            )
+            .exists()
+        )
+        statement = statement.where(or_(relationship_product.is_(None), and_(reference, actual_edge)))
+    return statement
 
 
 def _structural_dossier_completion(model):
@@ -994,6 +1032,9 @@ def _structural_dossier_completion(model):
     admission = core_variable("admission_value", JSONB())
     count = core_variable("actual_count", BigInteger())
     applicability_id = core_variable("applicability_id", Text())
+    relationship_id = core_variable("relationship_id", Text())
+    relationship_edge = core_variable("relationship_edge", Text())
+    component_id = core_variable("component_id", Text())
     support_contract = d("support_contract")
     factory = support_contract["capabilities"]["prepared_factory"]
     inputs = _items(completion["inputs"], "inputs_")
@@ -1056,6 +1097,24 @@ def _structural_dossier_completion(model):
     dossier_members = _items(dossier["members"], "dossier_member")
     binding = dossier_members.c.value["comparison_binding"]
     predecessor = binding["applicability_ref"]["product_id"].astext
+    selected_relation = binding["relationship_ref"]
+    exact_relationship_needed = binding["relationship"].astext != "specializes"
+    admitted_edges = model.tables["kb.data_product_member"].alias("dossier_relationship_edge")
+    edge_body = func.data.ddo_json(admitted_edges.c.body, type_=JSONB())
+    independently_selected_edge = exists(
+        select(1)
+        .select_from(inputs.join(admitted_edges, literal(True)))
+        .where(
+            inputs.c.value["role"].astext == "relationships",
+            inputs.c.value["product_id"].astext == selected_relation["product_id"].astext,
+            inputs.c.value["member_id"].astext.is_(None),
+            admitted_edges.c.product_id == selected_relation["product_id"].astext,
+            admitted_edges.c.member_id == selected_relation["edge_id"].astext,
+            edge_body["edge_id"].astext == admitted_edges.c.member_id,
+            edge_body["relation"].astext == binding["relationship"].astext,
+        )
+        .correlate(dossier_members)
+    )
     dossier_components = _items(completion["inputs"], "dossier_components")
     component_product = (
         select(dossier_components.c.value["product_id"].astext)
@@ -1072,6 +1131,7 @@ def _structural_dossier_completion(model):
         select(supports.c.value["derivation_id"].astext).where(
             func.coalesce(supports.c.value["kind"].astext, "computation") == "computation"
         ),
+        relationship=(relationship_id, relationship_edge, component_id),
     )
     is_dossier = (
         select(1)
@@ -1119,9 +1179,25 @@ def _structural_dossier_completion(model):
                 ),
                 "dossier comparison root differs from its actual producing components",
             ),
+            _completion_refusal(
+                exists(
+                    select(1)
+                    .select_from(output_values.join(dossier_members, literal(True)))
+                    .where(
+                        selected_relation["product_id"].astext.is_not(None),
+                        ~independently_selected_edge,
+                    )
+                ),
+                "dossier comparison lacks its independently selected relationship edge",
+            ),
             ForQuery(
-                ("applicability_id",),
-                select(predecessor)
+                ("applicability_id", "relationship_id", "relationship_edge", "component_id"),
+                select(
+                    predecessor,
+                    case((exact_relationship_needed, selected_relation["product_id"].astext)),
+                    case((exact_relationship_needed, selected_relation["edge_id"].astext)),
+                    binding["root"]["component_id"].astext,
+                )
                 .select_from(output_values.join(dossier_members, literal(True)))
                 .where(predecessor.is_not(None))
                 .distinct(),
@@ -1141,7 +1217,7 @@ def _structural_dossier_completion(model):
                             count == 0,
                             count != func.jsonb_array_length(selected["support_derivation_ids"]),
                         ),
-                        "dossier applicability requires its exact original components input",
+                        "dossier applicability requires its exact original components input and applicable relationship",
                     ),
                 ),
             ),
@@ -1226,6 +1302,9 @@ def _structural_dossier_completion(model):
             Local("admission_value", pg_type("jsonb")),
             Local("actual_count", pg_type("int8")),
             Local("applicability_id", pg_type("text")),
+            Local("relationship_id", pg_type("text")),
+            Local("relationship_edge", pg_type("text")),
+            Local("component_id", pg_type("text")),
         ),
     )
 

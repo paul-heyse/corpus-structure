@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import pytest
 from sqlalchemy import text
 
+from corpus_structure.semantic.contextual_operations import contextual_relationship_decision
 from corpus_structure.semantic.contextual_selection import ContextualVectorSelection
 from corpus_structure.semantic.data_operation_json import json_loads
 from corpus_structure.semantic.data_operation_service import DemandOperationSelection
@@ -317,8 +318,8 @@ def current_workflow_case(native_server, native_settings, tmp_path_factory):
 
 
 def applicability_request(case, *, introduction, components=None):
-    decision = source_python(case.relationship.body["relationship_decision"])
-    (edge,) = [row for row in decision["selected_edges"] if row["relation"] == "defined-by"]
+    decision = contextual_relationship_decision(case.relationship.body)
+    (edge,) = [row for row in decision.selected_edges if row.relation == "defined-by"]
     pending = current_consumer_request(
         case.source,
         case.kernel,
@@ -339,8 +340,8 @@ def applicability_request(case, *, introduction, components=None):
         operation=APPLICABILITY,
         parameters=dict(
             component_id=case.component_id,
-            decision_id=decision["decision_id"],
-            edge_id=edge["edge_id"],
+            decision_id=decision.decision_id,
+            edge_id=edge.edge_id,
             usage_id="count-usage",
             start=2,
             end=7,
@@ -378,18 +379,18 @@ def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_e
     assert all(
         row.row["original_source"] == case.original.row["original_source"] for row in case.targets
     )
-    decision = source_python(case.relationship.body["relationship_decision"])
-    assert decision["outcome"] == "selected"
-    assert {row["relation"] for row in decision["selected_edges"]} == {
+    decision = contextual_relationship_decision(case.relationship.body)
+    assert decision.outcome == "selected"
+    assert {row.relation for row in decision.selected_edges} == {
         "denotes",
         "compared-with",
         "defined-by",
     }
-    for edge in decision["selected_edges"]:
-        (witness,) = edge["witnesses"]
-        assert witness["evidence_ids"] == [subject["contribution_id"], object_["contribution_id"]]
-        assert unrelated["contribution_id"] not in witness["evidence_ids"]
-        assert witness["support_state"] == "unassessed"
+    for edge in decision.selected_edges:
+        (witness,) = edge.witnesses
+        assert witness.evidence_ids == (subject["contribution_id"], object_["contribution_id"])
+        assert unrelated["contribution_id"] not in witness.evidence_ids
+        assert witness.support_state == "unassessed"
     from corpus_structure.semantic.data_operation_values import decode_semantic_value
     from corpus_structure.serve.demand_export import export_demand_result, verified_demand_export
 
@@ -413,8 +414,8 @@ def test_current_same_span_carriers_keep_original_query_episode_and_qualifying_e
         assert detached["witness_standing"] == "private_authored_source_binding_hypotheses"
         assert detached["witness_input"] == {"variant": "product", "role": "witnesses"}
         assert (
-            source_python(detached["relationship_decision"])["selected_edges"]
-            == decision["selected_edges"]
+            contextual_relationship_decision(detached).selected_edges
+            == decision.selected_edges
         )
         assert manifest.cut["scope"]["product_ids"] == [case.relationship.row["product_id"]]
 
@@ -439,7 +440,13 @@ def test_current_component_applicability_preserves_independent_transfer_unknowns
         "role": "components",
         "member_id": case.component_id,
     }
-    assert reading["link_ref"]["product_id"] == case.relationship.row["product_id"]
+    (edge,) = [
+        row for row in contextual_relationship_decision(case.relationship.body).selected_edges
+        if row.relation == "defined-by"
+    ]
+    assert reading["link_ref"] == {
+        "variant": "member", "role": "relationship", "member_id": edge.edge_id,
+    }
     assert report.body["relationship_input"] == {"variant": "product", "role": "relationship"}
     assert report.body["components_input"] == {"variant": "product", "role": "components"}
     assert "sources_input" not in report.body
@@ -516,6 +523,18 @@ def test_native_applicability_refuses_same_component_from_a_different_actual_rep
                 )
                 == expected
             )
+        relationship_id = case.relationship.row["product_id"]
+        decision = contextual_relationship_decision(case.relationship.body)
+        for edge in decision.selected_edges:
+            assert connection.scalar(
+                _dossier_component_origins(
+                    get_metadata(),
+                    applicability.row["product_id"],
+                    case.components.row["product_id"],
+                    supported_applicability,
+                    relationship=(literal(relationship_id), literal(edge.edge_id), literal(case.component_id)),
+                )
+            ) == int(edge.relation == "defined-by")
     counts = text(
         "SELECT (SELECT count(*) FROM ops.data_completion_intent),(SELECT count(*) FROM kb.data_product),"
         "(SELECT count(*) FROM ops.data_derivation),(SELECT count(*) FROM ops.data_publication_receipt)"

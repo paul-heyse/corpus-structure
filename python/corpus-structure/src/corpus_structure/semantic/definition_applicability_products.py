@@ -352,7 +352,7 @@ def selected_definition_applicability(
         component_ref=SemanticReference.member(
             "components", candidate.component.component_id
         ).member_value(),
-        link_ref=candidate.link_ref,
+        link_ref=SemanticReference.member("relationship", candidate.link_ref.edge_id).member_value(),
         component=candidate.component,
         outcome=assessment.outcome,
         evidence=assessment.evidence,

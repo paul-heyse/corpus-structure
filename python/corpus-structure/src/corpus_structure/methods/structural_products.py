@@ -994,10 +994,19 @@ def _comparison_member_roles(
             raise ValueError("relationship occurrence is outside the exact comparison focus")
         applicability_ref = selection.applicability_ref
         if applicability_ref is not None:
-            predecessor = (applicability_reports or {}).get(applicability_ref)
-            if predecessor is None or focus is None or predecessor.definition is None:
+            applicability = (applicability_reports or {}).get(applicability_ref)
+            if applicability is None or focus is None:
                 raise ValueError("comparison binding lacks its exact applicability predecessor")
+            predecessor, relationship_origin = applicability
             definition = predecessor.definition
+            if definition is None:
+                raise ValueError("comparison binding requires applicability readings")
+            link = selection.relationship_ref
+            exact_relationship = relationship_origin is not None and (
+                relationship_origin.product_id,
+                relationship_origin.kind_contract,
+                relationship_origin.member_id,
+            ) == (link.product_id, link.kind_contract, link.member_id)
             usage = next(
                 p for p in predecessor.inputs.passages if p.passage_id == definition.usage_id
             )
@@ -1016,7 +1025,8 @@ def _comparison_member_roles(
                     and reading.component == root
                     and root_ref.product_id in predecessor.inputs.dependencies
                     and (
-                        reading.link_ref == selection.relationship_ref or relation == "specializes"
+                        relation == "specializes"
+                        or (exact_relationship and reading.link_ref["member_id"] == link.edge_id)
                     )
                     and reading.outcome in {"applicable_definition", "applicable_explanation"}
                     for reading in definition.readings
@@ -1132,7 +1142,9 @@ def derive_dossier_members(
         for ref, payload in retained
     ]
     applicability_reports = {
-        ref: report for ref, _, report in parsed if report.kind == "definition_applicability"
+        ref: (report, payload.get("relationship_origin"))
+        for ref, payload, report in parsed
+        if report.kind == "definition_applicability"
     }
     for reference, payload, report in parsed:
         if report.product_id != reference.structural_id:
