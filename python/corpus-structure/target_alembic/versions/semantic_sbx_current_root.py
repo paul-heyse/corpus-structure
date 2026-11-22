@@ -13,11 +13,11 @@ down_revision = None
 branch_labels = None
 depends_on = None
 NATIVE_UPGRADE_FILE = "semantic_sbx_current_root_upgrade.txt"
-NATIVE_UPGRADE_SHA256 = "e68a38768a7bb9e302373f925b96c8daae64277e9c2823123cfec728abb1dd2c"
+NATIVE_UPGRADE_SHA256 = "42a81389dbeb97728603b0ee77536734624dfdc9622972a13d2e42f37e0be161"
 NATIVE_STATE_FILE = "semantic_sbx_current_root_native.json"
-NATIVE_STATE_SHA256 = "bec6f4c17634fdffb65e229d17df878536069cd3eed03fdb4d70531c35725822"
+NATIVE_STATE_SHA256 = "1d21b64bef784d1f608805496c97e81a7f6b806eaab4e54b6a1b8a6a8d434a0e"
 NATIVE_ADMISSION_FILE = "semantic_sbx_current_root_admission.sql"
-NATIVE_ADMISSION_SHA256 = "7fc4eee3ea26f9fea444dc77de34aa4eb25938ab7ab7579aac6982f6fd1f01f2"
+NATIVE_ADMISSION_SHA256 = "17f3469a273bf2700b7610f92a69da18ca0e1bf834cbca032b22297229430fd5"
 
 
 def _read(name, digest):

@@ -19,6 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB, aggregate_order_by, insert
 
+from .data_operation_value_native import json_observation_identity
 from .native_program import (
     Assign,
     ForQuery,
@@ -329,7 +330,7 @@ def _premise(model, output):
                 ),
                 "rule scope does not identify admitted partition facts",
             ),
-            Return(func.data.ddo_identity("rule-premise", func.data.ddo_json_meaning(datum))),
+            Return(json_observation_identity("rule-premise", datum)),
         ),
         (Local("v_projection", pg_type("jsonb")),),
         returns="text",

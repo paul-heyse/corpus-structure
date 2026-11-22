@@ -7,7 +7,8 @@ from hashlib import sha256
 
 import pytest
 from native_refusals import native_refusal
-from sqlalchemy import text
+from sqlalchemy import bindparam, func, select, text
+from sqlalchemy.dialects.postgresql import JSONB
 
 from corpus_structure.semantic.data_operation_identity import canonical_identity
 from corpus_structure.semantic.data_operation_json import json_bytes
@@ -17,6 +18,7 @@ from semantic.data_operation_identity_vectors import (
     JSON_MEANING_VECTORS,
     REQUEST,
 )
+from semantic.test_data_product_admission_programs import product_connection  # noqa: F401
 
 
 @pytest.mark.db
@@ -159,3 +161,130 @@ def test_current_canonical_json_preserves_array_text_and_nested_object_order(nat
     )
     for payload, expected in vectors:
         assert connection.scalar(query, {"value": payload}) == expected
+
+
+@pytest.mark.db
+def test_current_json_meaning_array_pass_keeps_exact_typed_forms(native_rollback):
+    from corpus_structure.semantic.data_operation_value_native import data_operation_value_sql
+    from semantic.native_program_support import routine_declaration
+
+    connection = native_rollback.connection
+    connection.exec_driver_sql(
+        routine_declaration(data_operation_value_sql(), "data", "ddo_json_meaning")
+    )
+    query = text("SELECT pg_temp.ddo_json_meaning(CAST(:value AS jsonb))")
+    escaped = 'quote " slash \\ brackets [,] whitespace \t\n 雪 Ω 😀 e\u0301'
+    vectors = (
+        (None, None),
+        ("null", ["null"]),
+        ("[]", ["sequence", []]),
+        ("[[],[[]]]", ["sequence", [["sequence", []], ["sequence", [["sequence", []]]]]]),
+        (
+            "[null,true,false,1.200,-0.00,1e3,1e-3]",
+            [
+                "sequence",
+                [
+                    ["null"],
+                    ["boolean", True],
+                    ["boolean", False],
+                    ["decimal", "1.2"],
+                    ["decimal", "0"],
+                    ["decimal", "1000"],
+                    ["decimal", "0.001"],
+                ],
+            ],
+        ),
+        (json.dumps([escaped]), ["sequence", [["string", escaped]]]),
+        (
+            '[[{"z":[],"aa":true}],null]',
+            [
+                "sequence",
+                [
+                    [
+                        "sequence",
+                        [["mapping", [["aa", ["boolean", True]], ["z", ["sequence", []]]]]],
+                    ],
+                    ["null"],
+                ],
+            ],
+        ),
+    )
+    for payload, expected in vectors:
+        actual = connection.scalar(query, {"value": payload})
+        assert actual == expected
+        if expected is not None:
+            encoded = json.dumps(expected, ensure_ascii=False, separators=(",", ":"))
+            canonical, identity = connection.execute(
+                text(
+                    "SELECT data.canonical_json(pg_temp.ddo_json_meaning(CAST(:value AS jsonb))), "
+                    "data.ddo_identity('rule-premise',pg_temp.ddo_json_meaning(CAST(:value AS jsonb)))"
+                ),
+                {"value": payload},
+            ).one()
+            assert canonical == encoded
+            frame = '["ddo","rule-premise","1",' + encoded + "]"
+            assert identity == "rule-premise:" + sha256(frame.encode()).hexdigest()
+
+
+@pytest.mark.db
+def test_current_json_meaning_large_typed_members_keep_literal_shape(product_connection):  # noqa: F811
+    from corpus_structure.semantic.data_operation_value_native import json_observation_identity
+
+    connection = product_connection
+    # A construction-sized output is already encoded as tagged arrays. These
+    # literal expectations describe that fixed shape independently of either codec.
+    members, expected_members = [], []
+    source_text = 'x+1 雪 " quoted \\ source'
+    for ordinal in range(4096):
+        identity = f"member:{ordinal}"
+        members.append(
+            ["mapping", [["local_id", ["string", identity]], ["text", ["string", source_text]]]]
+        )
+        expected_members.append(
+            [
+                "sequence",
+                [
+                    ["string", "mapping"],
+                    [
+                        "sequence",
+                        [
+                            [
+                                "sequence",
+                                [
+                                    ["string", "local_id"],
+                                    ["sequence", [["string", "string"], ["string", identity]]],
+                                ],
+                            ],
+                            [
+                                "sequence",
+                                [
+                                    ["string", "text"],
+                                    ["sequence", [["string", "string"], ["string", source_text]]],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ]
+        )
+    payload = {"members": ["sequence", members], "read": "same"}
+    expected = [
+        "mapping",
+        [
+            ["members", ["sequence", [["string", "sequence"], ["sequence", expected_members]]]],
+            ["read", ["string", "same"]],
+        ],
+    ]
+    encoded = json.dumps(expected, ensure_ascii=False, separators=(",", ":"))
+    connection.exec_driver_sql("SET LOCAL statement_timeout = '60s'")
+    value = bindparam("value", type_=JSONB())
+    actual, identity = connection.execute(
+        select(
+            func.data.canonical_json(func.data.ddo_json_meaning(value)),
+            json_observation_identity("rule-premise", value),
+        ),
+        {"value": payload},
+    ).one()
+    assert actual == encoded
+    frame = '["ddo","rule-premise","1",' + encoded + "]"
+    assert identity == "rule-premise:" + sha256(frame.encode()).hexdigest()

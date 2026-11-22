@@ -60,6 +60,27 @@ def _json(value):
     return cast(literal(value), JSONB())
 
 
+def _meaning_digest(meaning):
+    return func.encode(
+        func.sha256(func.convert_to(func.data.canonical_json(meaning), "UTF8")), "hex"
+    )
+
+
+def _identity_expression(domain, meaning):
+    return domain.op("||")(":").op("||")(
+        _meaning_digest(func.jsonb_build_array("ddo", domain, ENCODING_VERSION, meaning))
+    )
+
+
+def json_observation_identity(domain: str, datum):
+    """Hash native-assembled nonnull JSON facts through their owned meaning codec.
+
+    The codec emits canonical meanings itself, so no caller-supplied preencoded
+    meaning enters this composition and no second normalization is needed.
+    """
+    return _identity_expression(literal(domain), func.data.ddo_json_meaning(datum))
+
+
 def _members(value, *, ordinality=False):
     fn = func.jsonb_array_elements(value)
     field = column("value", JSONB())
@@ -449,6 +470,37 @@ def _json_meaning():
     members = _members(value, ordinality=True)
     mapping = func.jsonb_each(value).table_valued(column("key", Text()), column("value", JSONB()))
     normalized = func.data.ddo_json_meaning
+    # Admitted typed payloads are nested arrays with scalar leaves. Emit their
+    # existing JSON meaning in one ordered pass instead of invoking PL/pgSQL
+    # recursively for every node and rebuilding each enclosing subtree.
+    tokens = (
+        func.regexp_matches(
+            cast(value, Text()).collate("C"),
+            r'"(?:[^"\\]|\\.)*"|\[|\]|,|null|true|false|-?[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?',
+            "g",
+        )
+        .table_valued(column("part", ARRAY(Text())), with_ordinality="ordinal")
+        .render_derived(name="json_meaning_tokens")
+    )
+    token = tokens.c.part[1]
+    fragment = case(
+        (token == "[", '["sequence",['),
+        (token == "]", "]]"),
+        (token == ",", ","),
+        (token == "null", '["null"]'),
+        (token.in_(("true", "false")), literal('["boolean",').concat(token).concat("]")),
+        (func.left(token, 1) == '"', literal('["string",').concat(token).concat("]")),
+        else_=literal('["decimal",')
+        .concat(cast(func.to_json(func.data.decimal_canonical(token)), Text()))
+        .concat("]"),
+    )
+    scalar_array = cast(
+        select(func.string_agg(fragment, aggregate_order_by(literal(""), tokens.c.ordinal)))
+        .select_from(tokens)
+        .scalar_subquery(),
+        JSONB(),
+    )
+    nested_objects = cast(literal('strict $.** ? (@.type() == "object")'), JSONPATH())
     sequence = (
         select(
             func.coalesce(
@@ -491,7 +543,13 @@ def _json_meaning():
                     ),
                 ),
             ),
-            If(kind == "array", (Return(func.jsonb_build_array("sequence", sequence)),)),
+            If(
+                kind == "array",
+                (
+                    If(~func.jsonb_path_exists(value, nested_objects), (Return(scalar_array),)),
+                    Return(func.jsonb_build_array("sequence", sequence)),
+                ),
+            ),
             If(kind == "object", (Return(func.jsonb_build_array("mapping", ordered)),)),
             Raise("unsupported JSON context value", "P0001"),
         ),
@@ -571,11 +629,6 @@ def data_operation_value_programs():
     body = Parameter("v", pg_type("jsonb"))
     members = _members(value[1])
 
-    def digest(meaning):
-        return func.encode(
-            func.sha256(func.convert_to(func.data.canonical_json(meaning), "UTF8")), "hex"
-        )
-
     def native_sql_function(schema, name, params, kind, expression):
         return NativeRoutine(
             schema,
@@ -597,20 +650,9 @@ def data_operation_value_programs():
             "ddo_identity",
             (Parameter("domain", pg_type("text")), body),
             "text",
-            select(
-                domain.op("||")(":").op("||")(
-                    digest(
-                        func.jsonb_build_array(
-                            "ddo",
-                            domain,
-                            ENCODING_VERSION,
-                            func.data.ddo_normalize(value),
-                        )
-                    )
-                ),
-            ),
+            select(_identity_expression(domain, func.data.ddo_normalize(value))),
         ),
-        native_sql_function("ops", "ddo_digest", (body,), "text", select(digest(value))),
+        native_sql_function("ops", "ddo_digest", (body,), "text", select(_meaning_digest(value))),
         native_sql_function(
             "data",
             "ddo_field",

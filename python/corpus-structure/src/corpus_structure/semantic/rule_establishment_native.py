@@ -7,6 +7,7 @@ from sqlalchemy.types import NullType
 from corpus_structure.schema.integrity import role_name
 
 from .binding_recursive_native import _check, _elements, _json, _texts
+from .data_operation_value_native import json_observation_identity
 from .established_validity import RuleAttestation
 from .native_objects import INTERNAL_PROGRAM
 from .native_program import (
@@ -148,10 +149,8 @@ def _observed_input_values(model, reads, episode):
 def _with_observed_input_values(base, reads, observed):
     return case(
         (reads == _json("{}"), base),
-        else_=func.data.ddo_identity(
-            "rule-observed-premise",
-            func.data.ddo_json_meaning(func.jsonb_build_array(base, observed)),
-            type_=Text(),
+        else_=json_observation_identity(
+            "rule-observed-premise", func.jsonb_build_array(base, observed)
         ),
     )
 
