@@ -551,7 +551,6 @@ def _completion_proofs(model, output, routine, row, rf, obj, items, reject, look
         "ddo_require_policy_authorization_completion",
         "ddo_require_structural_admission_completion",
         "ddo_require_structural_dossier_completion",
-        "ddo_require_product_validations",
         "ddo_assert_output_witnesses",
     )
     checks: list[Statement] = [

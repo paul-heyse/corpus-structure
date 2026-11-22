@@ -127,16 +127,21 @@ def observed_body_path(kinds, owner: str, path: str) -> tuple[str, ...]:
     return (*observed, owner)
 
 
-def _callable_determinant(frontend, name: str) -> str:
+def _callable_determinant(frontend, name: str, boundaries=()) -> str:
     if frontend is None:
         raise ValueError("attested rule needs captured Python sources")
     resolved = frontend.resolve(name)
     if not isinstance(resolved, griffe.Function):
         raise ValueError("attested rule checker must name a captured Python function")
     surface = frontend._surface(name, resolved)
-    implementation = frontend.implementation_slice(name, (surface,), (), ())
+    implementation = frontend.implementation_slice(name, (surface,), boundaries, ())
     if not implementation.complete:
-        raise ValueError("attested rule checker has an unresolved code determinant")
+        details = sorted({item.reason for item in implementation.unknowns if item.required})
+        raise ValueError(
+            "attested rule checker has an unresolved code determinant: " + "; ".join(details)
+        )
+    if any(not boundary.reuse_eligible for boundary in implementation.boundaries):
+        raise ValueError("attested rule checker uses a non-reusable code determinant")
     return implementation_slice_fingerprint(
         implementation.semantic_records(), implementation.root
     ).key
@@ -177,7 +182,7 @@ def _normal_expression(expression: PhysicalExpression, bind) -> dict:
     return value
 
 
-def compile_data_rule(raw, kinds, aliases, frontend):
+def compile_data_rule(raw, kinds, aliases, frontend, boundaries=()):
     """Return a canonical rule draft and outgoing edges to observed model facts."""
     rule_id = raw["id"]
     kind = aliases.get(raw["kind"], raw["kind"])
@@ -304,7 +309,7 @@ def compile_data_rule(raw, kinds, aliases, frontend):
                     raise ValueError("attestation input observations overlap")
                 input_reads[name] = sorted(names)
             normalized["input_reads"] = input_reads
-        determinant = _callable_determinant(frontend, callable_)
+        determinant = _callable_determinant(frontend, callable_, boundaries)
     else:
         if role is not None or callable_ is not None or form == "attested":
             raise ValueError("native rules cannot declare a producer checker")

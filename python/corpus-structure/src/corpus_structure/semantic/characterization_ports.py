@@ -533,7 +533,6 @@ class PreparedCharacterizationPort(ABC):
                         model=self.model,
                         subject_context=self._context(binding, "formal", len(result), value),
                         member=self._member(binding, "formal", len(result)),
-                        established_validity=getattr(value, "established_validity", None),
                     ),
                     binding,
                     "formal",
@@ -707,7 +706,6 @@ class PreparedCharacterizationPort(ABC):
                     (*formal, *supporting),
                     subject_context=self._context(binding, "constructions", index, value),
                     member=self._member(binding, "constructions", index),
-                    established_validity=getattr(value, "established_validity", None),
                 ),
                 binding,
                 "constructions",
@@ -734,7 +732,6 @@ class PreparedCharacterizationPort(ABC):
         from .data_operation_ports import PortCompletion, RoleValue, project_product_members
         from .established_validity import (
             RuleObservedInput,
-            bind_product_validation,
             successful_rule_attestation,
         )
 
@@ -745,11 +742,6 @@ class PreparedCharacterizationPort(ABC):
             if item.owner == output.kind and item.domain == "kind"
         )
         value = product.value.model_dump(mode="python", exclude_unset=True)
-        proof = (
-            bind_product_validation(product, product.subject_context)
-            if hasattr(product, "established_validity")
-            else None
-        )
         meaning = semantic_value(value)
         members = project_product_members(self.model, output.kind, value)
         attestations = ()
@@ -800,7 +792,6 @@ class PreparedCharacterizationPort(ABC):
                 ),
             ),
             outcome=successful_return_outcome(self.operation),
-            product_validation_evidence=None if proof is None else proof.model_dump_json().encode(),
             rule_attestations=attestations,
         )
 

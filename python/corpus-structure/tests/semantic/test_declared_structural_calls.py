@@ -77,6 +77,7 @@ def test_structural_current_producers_have_closed_original_callable_and_nominal_
         "text.formal_evidence/member-local-addresses",
         "text.formal_evidence/occurrence-origin",
         "text.formal_evidence/symbolic-inventory-positions",
+        "text.formal_evidence/numeric-normalization",
     }
     assert {rule.checker_operation for rule in model.rules if rule.id in formal.required_rules} == {
         "text.formal_evidence/source-native"

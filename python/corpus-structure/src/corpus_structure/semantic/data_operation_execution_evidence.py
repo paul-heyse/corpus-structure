@@ -13,7 +13,7 @@ from corpus_structure.methods.native_host import NativeExecutionReceipt
 
 from .cpu_receipts import CPUExecutionReceipt
 from .data_operation_json import finite_json_bytes, finite_json_loads
-from .established_validity import ProductValidation, RuleAttestation
+from .established_validity import RuleAttestation
 from .external_receipts import ExternalExecutionReceipt
 from .identity import canonical_bytes
 from .pdf_observations import PdfObservationExecutionReceipt
@@ -38,7 +38,6 @@ class NativeExecutionEvidence(BaseModel):
     host_receipts: tuple[NativeExecutionReceipt, ...]
     cpu_receipts: tuple[CPUExecutionReceipt, ...]
     cpu_replies: tuple[str, ...] = ()
-    product_validations: tuple[ProductValidation, ...] = ()
     rule_attestations: tuple[RuleAttestation, ...] = ()
     pdf_receipts: tuple[PdfExecutionReceipt, ...] = ()
     pdf_observation_receipts: tuple[PdfObservationExecutionReceipt, ...] = ()
@@ -67,7 +66,6 @@ def bind_execution_evidence(
     runtime_id: str,
     cpu_content: bytes | None = None,
     cpu_reply_content: bytes | None = None,
-    product_validation_content: bytes | None = None,
     rule_attestations: tuple[RuleAttestation, ...] = (),
     pdf_content: bytes | None = None,
     pdf_observation_content: bytes | None = None,
@@ -82,9 +80,6 @@ def bind_execution_evidence(
         "host_receipts": finite_json_loads(content) if content is not None else [],
         "cpu_receipts": [finite_json_loads(cpu_content)] if cpu_content is not None else [],
         "cpu_replies": [cpu_reply_content.decode("utf-8")] if cpu_reply_content is not None else [],
-        "product_validations": [finite_json_loads(product_validation_content)]
-        if product_validation_content is not None
-        else [],
         **(
             {
                 "rule_attestations": [

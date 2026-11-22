@@ -115,6 +115,16 @@ class FormalEvidenceOperation:
                 "parameters": {"paths": ["members"]},
             },
             {
+                "id": "text.formal_evidence/numeric-normalization",
+                "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
+                "scope": "product",
+                "form": "attested",
+                "checker": "producer",
+                "checker_operation": "text.formal_evidence/source-native",
+                "checker_callable": "corpus_structure.semantic.characterization_evidence.validate_formal_normalization",
+                "parameters": {"paths": ["members"]},
+            },
+            {
                 "id": "text.formal_evidence/occurrence-origin",
                 "kind": "https://corpus-structure.dev/semantic/data-operation-characterization/DdoFormalProduct",
                 "scope": "product",
@@ -194,6 +204,11 @@ class FormalEvidenceOperation:
         "parameters": {},
         "binding": {"operator": "scan", "roles": ["source"]},
         "opaque": [
+            {
+                "reference": "decimal.Decimal",
+                "contract": "formal/decimal-runtime",
+                "role": "native-decimal-type",
+            },
             {
                 "reference": "corpus_structure.semantic.formal_products.execute_formal_profile",
                 "contract": "formal/profile-assets",

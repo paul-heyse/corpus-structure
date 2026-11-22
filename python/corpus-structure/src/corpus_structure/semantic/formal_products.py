@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from functools import cached_property, lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -33,7 +33,6 @@ from .characterization_evidence import validate_formal_normalization, validate_f
 from .characterization_manifests import analytical_packets, append_manifest, manifest_contract
 from .data_operation_model import EffectiveDataOperationModel, EffectiveOperation, SubjectContext
 from .data_operation_outcomes import successful_return_outcome
-from .established_validity import ProductValidation
 from .formal_evidence import (
     FormalIdentity,
     _LayerBuilder,
@@ -138,7 +137,6 @@ class FormalEvidenceProduct:
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
     subject_context: SubjectContext | None = None
-    established_validity: ProductValidation | None = field(default=None, kw_only=True)
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -407,50 +405,14 @@ def validate_formal_product(
     validate_formal_normalization(indexes["annotations"])
     validate_inventory_graph(data, indexes, all_nodes, choices, lambda _: None)
     verify_formal_family_roster(checked["coverage"])
-    from .established_validity import successful_product_validation
-
-    proof = successful_product_validation(
-        prepared,
-        model,
-        typed.model_dump(mode="python", exclude_unset=True),
-        "formal/profile-assets",
-        formal_profile_assets().digest,
-        subject_context,
-    )
-    return FormalEvidenceProduct(
-        canonical_bytes(checked), prepared, model, subject_context, established_validity=proof
-    )
+    return FormalEvidenceProduct(canonical_bytes(checked), prepared, model, subject_context)
 
 
-def retained_formal_product(
-    prepared, value, source, *, model, subject_context=None, member=None, established_validity=None
-):
+def retained_formal_product(prepared, value, source, *, model, subject_context=None, member=None):
     """Decode every boundary; reuse only the exact native producer's established facts."""
-    from .established_validity import established_product_matches, selected_product_validation
-
-    typed = prepared.validate_json("DdoFormalProduct", canonical_bytes(value))
-    checked = _values(typed)
-    proof = selected_product_validation(member) if member is not None else established_validity
-    if established_product_matches(
-        proof,
-        prepared=prepared,
-        model=model,
-        body=typed.model_dump(mode="python", exclude_unset=True),
-        source=source,
-        context=subject_context,
-        contract="formal/profile-assets",
-    ):
-        product = FormalEvidenceProduct(
-            canonical_bytes(checked),
-            prepared,
-            model,
-            subject_context,
-            established_validity=proof,
-        )
-    else:
-        product = validate_formal_product(
-            prepared, checked, source, model=model, subject_context=subject_context
-        )
+    product = validate_formal_product(
+        prepared, value, source, model=model, subject_context=subject_context
+    )
     if member is not None and product.semantic_id != member.product:
         raise ValueError("formal body differs from its exact selected native product")
     return product
@@ -764,6 +726,16 @@ def formal_profile_assets() -> SourceArtifact:
     )
 
 
+def _formal_decimal_runtime() -> SourceArtifact:
+    from .characterization_evidence import Decimal
+    from .external_runtime import acquire_codec_runtime
+
+    decimal = next(runtime for runtime in acquire_codec_runtime() if runtime.reference == "decimal")
+    if dict(decimal.symbols)["decimal.Decimal"] is not Decimal:
+        raise ValueError("formal numeric checker differs from the acquired decimal runtime")
+    return SourceArtifact("formal/decimal-runtime", bytes.fromhex(decimal.digest))
+
+
 def formal_operation_sources():
     """Capture the original endpoint plus its explicit immutable parser boundary."""
     from .python_operation_sources import PythonSource, PythonSourceCollection
@@ -791,7 +763,11 @@ def formal_operation_sources():
                 for module in ("characterization_evidence", "formal_evidence", "source_products")
             ),
         ),
-        boundary_contracts=(formal_profile_assets(), formal_execution_custody()),
+        boundary_contracts=(
+            formal_profile_assets(),
+            formal_execution_custody(),
+            _formal_decimal_runtime(),
+        ),
     )
 
 
@@ -837,7 +813,7 @@ class PreparedFormalEvidencePort:
             self.operation,
             sources,
             self.custody,
-            assets=(formal_profile_assets(), formal_execution_custody()),
+            assets=required.boundary_contracts,
             functions=(
                 (
                     "corpus_structure.methods.formal_evidence.FormalEvidenceOperation.run",
@@ -913,11 +889,9 @@ class PreparedFormalEvidencePort:
         from .data_operation_values import semantic_value
         from .established_validity import (
             RuleObservedInput,
-            bind_product_validation,
             successful_rule_attestation,
         )
 
-        proof = bind_product_validation(product, product.subject_context)
         model_value = product.value.model_dump(mode="python", exclude_unset=True)
         output = next(role for role in self.operation.roles if role.direction == "output")
         contracts = {(item.owner, item.domain): item.key for item in self.profile.model.identities}
@@ -945,6 +919,7 @@ class PreparedFormalEvidencePort:
             observed = {
                 "text.formal_evidence/literal-source-geometry": selected,
                 "text.formal_evidence/packed-choice-members": None,
+                "text.formal_evidence/numeric-normalization": None,
                 "text.formal_evidence/examined-scope": selected,
                 "text.formal_evidence/occurrence-origin": selected,
                 "text.formal_evidence/lexical-inventory-links": None,
@@ -976,7 +951,6 @@ class PreparedFormalEvidencePort:
                 ),
             ),
             outcome=successful_return_outcome(self.operation),
-            product_validation_evidence=None if proof is None else proof.model_dump_json().encode(),
             rule_attestations=attestations,
         )
 

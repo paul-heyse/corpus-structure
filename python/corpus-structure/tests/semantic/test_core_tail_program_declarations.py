@@ -5,7 +5,6 @@ from dataclasses import replace
 import pytest
 
 from corpus_structure.schema.integrity import role_name
-from corpus_structure.semantic.established_validity import product_validation_native_programs
 from corpus_structure.semantic.metadata import get_metadata
 from corpus_structure.semantic.native_objects import INTERNAL_PROGRAM, NativeProgramAccess
 from corpus_structure.semantic.native_program import NativeRoutine
@@ -35,7 +34,6 @@ def test_independent_guard_producers_do_not_render_and_preserve_restricted_princ
     groups = (
         (structural_admission_native_programs(model), 14, "data-operations:forward"),
         (record_policy_native_programs(target_metadata=model), 6, "data-operations:forward"),
-        (product_validation_native_programs(target_metadata=model), 2, "data-operations:forward"),
         (pdf_completion_native_programs(model), 2, "target-current:PDF publication"),
     )
     for programs, count, source in groups:

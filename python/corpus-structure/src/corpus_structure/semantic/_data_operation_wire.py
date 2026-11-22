@@ -199,23 +199,6 @@ class WirePdfObservationExecutionReceipt(TypedDict):
     version: Required[Literal["pdf-observation-execution-1"]]
 
 
-class WireProductValidation(TypedDict):
-    body_id: Required[str]
-    format: NotRequired[Literal["producer-product-validation-1"]]
-    release_id: Required[str]
-    selectors_json: Required[str]
-    source_json: Required[str]
-    subject_context_json: Required[str | None]
-    validator_contract: Required[
-        Literal[
-            "formal/profile-assets",
-            "characterization/construction-assets",
-            "characterization/contextual-assets",
-        ]
-    ]
-    validator_revision: Required[str]
-
-
 class WireProviderExecutionReceipt(TypedDict):
     cohort_digest: Required[str]
     cohort_members: Required[list[str]]
@@ -258,7 +241,6 @@ class WireNativeExecutionEvidence(TypedDict):
     host_receipts: Required[list[WireNativeExecutionReceipt]]
     pdf_observation_receipts: NotRequired[list[WirePdfObservationExecutionReceipt]]
     pdf_receipts: NotRequired[list[WirePdfExecutionReceipt]]
-    product_validations: NotRequired[list[WireProductValidation]]
     provider_receipts: NotRequired[list[WireProviderExecutionReceipt]]
     request_id: Required[WireRequestId]
     rule_attestations: NotRequired[list[WireRuleAttestation]]

@@ -202,7 +202,6 @@ class FormalSourceReadings:
                 original,
                 model=model or product.model,
                 subject_context=product.subject_context,
-                established_validity=product.established_validity,
             )
             retained.append((DataProductReference(checked.semantic_id), checked.inventory()))
             lexical.extend(body["lexicon"])

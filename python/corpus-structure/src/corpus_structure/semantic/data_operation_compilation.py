@@ -1118,12 +1118,24 @@ def compile_data_operations(
     )
 
     rules: dict[str, EffectiveDataRule] = {}
+    boundaries_by_root = {part.root: part.boundaries for part in slices}
+    rule_boundaries = {
+        raw["id"]: boundaries_by_root.get(root, ())
+        for raw, _, _, root in authored
+        if root is not None
+    }
     for record in rule_documents:
         identifier = record["id"]
         if identifier in rules or identifier in nodes or identifier in kinds:
             _fail(identifier, "duplicate semantic rule identity")
         try:
-            rule, rule_edges = compile_data_rule(record, kinds, aliases, frontend)
+            rule, rule_edges = compile_data_rule(
+                record,
+                kinds,
+                aliases,
+                frontend,
+                rule_boundaries.get(record.get("checker_operation"), ()),
+            )
         except (TypeError, ValueError) as exc:
             _fail(identifier, str(exc))
         else:

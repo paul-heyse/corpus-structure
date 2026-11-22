@@ -91,6 +91,7 @@ class DeclaredStructuralComparison:
                     "text.formal_evidence/member-local-addresses",
                     "text.formal_evidence/occurrence-origin",
                     "text.formal_evidence/symbolic-inventory-positions",
+                    "text.formal_evidence/numeric-normalization",
                 ],
                 "subject_target": "source-set",
                 "support": {

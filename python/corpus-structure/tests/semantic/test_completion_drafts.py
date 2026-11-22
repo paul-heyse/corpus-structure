@@ -169,11 +169,11 @@ def test_executor_acknowledges_before_native_rollback_and_retries_original_reque
         outputs=(),
         outcome="empty",
         execution_evidence=None,
-        product_validation_evidence=None,
         cpu_execution_evidence=None,
         pdf_execution_evidence=None,
         pdf_observation_evidence=None,
         provider_execution_evidence=None,
+        rule_attestations=(),
     )
     port = SimpleNamespace(
         identity=PythonPortIdentity(

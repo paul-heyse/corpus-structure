@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar
@@ -40,7 +40,6 @@ from .data_product_reference import (
     read_semantic_reference,
     reference_inputs,
 )
-from .established_validity import ProductValidation
 from .formal_products import FormalEvidenceProduct, formal_product_inputs
 from .formal_readings import FormalSourceReadings
 from .identity import canonical_bytes
@@ -201,7 +200,6 @@ class InterpretedProduct:
     prepared: PreparedRelease
     model: EffectiveDataOperationModel
     subject_context: SubjectContext | None = None
-    established_validity: ProductValidation | None = field(default=None, kw_only=True)
 
     def _publication_context(self):
         if self.subject_context is None:
@@ -979,24 +977,7 @@ def validate_interpreted_product(
                 not any(c <= a and b <= d for c, d in examined) for a, b in eligible
             ):
                 raise ValueError("complete or empty family leaves eligible source scope unexamined")
-    proof = None
-    if product_type in (ConstructionProduct, ContextualMeaningProduct):
-        from .characterization_ports import _semantic_assets
-        from .established_validity import successful_product_validation
-
-        family = "construction" if product_type is ConstructionProduct else "contextual"
-        asset = _semantic_assets(family)
-        proof = successful_product_validation(
-            prepared,
-            model,
-            typed.model_dump(mode="python", exclude_unset=True),
-            asset.name,
-            asset.digest,
-            subject_context,
-        )
-    return product_type(
-        canonical_bytes(checked), prepared, model, subject_context, established_validity=proof
-    )
+    return product_type(canonical_bytes(checked), prepared, model, subject_context)
 
 
 def validate_construction_product(prepared, model, value, source, formal, *, subject_context=None):
@@ -1019,38 +1000,10 @@ def retained_construction_product(
     *,
     subject_context=None,
     member=None,
-    established_validity=None,
 ):
-    from .established_validity import established_product_matches, selected_product_validation
-
-    typed = prepared.validate_json(ConstructionProduct.kind_name, canonical_bytes(value))
-    checked = typed.model_dump(mode="json", exclude_unset=True)
-    # Dependency availability is a consumer premise even when graph validity is established.
-    available = {product.semantic_id for product in formal}
-    requested = [row["product_id"] for row in checked.get("dependencies", ())]
-    if len(set(requested)) != len(requested) or not set(requested) <= available:
-        raise ValueError("construction lacks its exact retained dependency closure")
-    proof = selected_product_validation(member) if member is not None else established_validity
-    if established_product_matches(
-        proof,
-        prepared=prepared,
-        model=model,
-        body=typed.model_dump(mode="python", exclude_unset=True),
-        source=source,
-        context=subject_context,
-        contract="characterization/construction-assets",
-    ):
-        product = ConstructionProduct(
-            canonical_bytes(checked),
-            prepared,
-            model,
-            subject_context,
-            established_validity=proof,
-        )
-    else:
-        product = validate_construction_product(
-            prepared, model, checked, source, formal, subject_context=subject_context
-        )
+    product = validate_construction_product(
+        prepared, model, value, source, formal, subject_context=subject_context
+    )
     if member is not None and product.semantic_id != member.product:
         raise ValueError("construction body differs from its exact selected native product")
     return product
@@ -1170,7 +1123,6 @@ class PreparedContextualProfile:
                 source,
                 (*formal, *supporting),
                 subject_context=product.subject_context,
-                established_validity=product.established_validity,
             )
             for product in constructions
         )

@@ -3,8 +3,7 @@
 These checks establish representation fidelity, not linguistic or scientific truth.
 """
 
-import re
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 
 def _field(record, name, default):
@@ -155,23 +154,44 @@ def validate_formal_positions(indexes):
             raise ValueError("formal container does not enclose visible extent")
 
 
+def _decimal_digits(value: str) -> bool:
+    return bool(value) and all("0" <= char <= "9" for char in value)
+
+
+def _unsigned(value: str) -> str:
+    return value[1:] if value and value[0] in "+-" else value
+
+
+def _decimal_spelling(value: str) -> bool:
+    mantissa, exponent_mark, exponent = value.lower().partition("e")
+    if exponent_mark and not _decimal_digits(_unsigned(exponent)):
+        return False
+    whole, dot, fractional = str(_unsigned(mantissa)).partition(".")
+    if not dot:
+        return _decimal_digits(whole)
+    return bool(whole or fractional) and (
+        (not whole or _decimal_digits(whole)) and (not fractional or _decimal_digits(fractional))
+    )
+
+
 def validate_formal_normalization(annotations):
     """Check finite numeric meaning for formal normalization assertions."""
-    for annotation in annotations.values():
-        normalized = annotation.get("formal", {}).get("normalized", {})
+    for key in annotations:
+        annotation = annotations[key]
+        normalized = _field(_field(annotation, "formal", {}), "normalized", {})
         if (
-            normalized.get("kind") in {"decimal", "threshold"}
-            and normalized.get("domain_status") == "valid"
+            _field(normalized, "kind", None) in {"decimal", "threshold"}
+            and _field(normalized, "domain_status", None) == "valid"
         ):
-            if not re.fullmatch(
-                r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?",
-                normalized.get("value", ""),
-            ):
+            spelling = _field(normalized, "value", "")
+            if type(spelling) is not str or not _decimal_spelling(spelling):
                 raise ValueError("formal decimal requires exact finite decimal text")
             try:
-                value = Decimal(normalized["value"])
-            except (InvalidOperation, KeyError) as exc:
+                value = Decimal(spelling)
+            except ArithmeticError as exc:
                 raise ValueError("formal decimal requires exact decimal text") from exc
+            if type(value) is not Decimal:
+                raise ValueError("formal decimal must have exact native representation")
             if not value.is_finite():
                 raise ValueError("formal decimal must be finite")
 

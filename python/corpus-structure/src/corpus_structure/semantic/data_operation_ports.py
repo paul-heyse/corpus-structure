@@ -269,7 +269,6 @@ class PortCompletion:
     provider_execution_evidence: bytes | None = None
     cpu_execution_reply: bytes | None = None
     pdf_observation_evidence: bytes | None = None
-    product_validation_evidence: bytes | None = None
     rule_attestations: tuple[RuleAttestation, ...] = ()
 
     def __post_init__(self) -> None:
@@ -279,11 +278,6 @@ class PortCompletion:
             type(assertion) is not RuleAttestation for assertion in self.rule_attestations
         ):
             raise TypeError("rule attestations require an immutable tuple of assertions")
-        if (
-            self.product_validation_evidence is not None
-            and type(self.product_validation_evidence) is not bytes
-        ):
-            raise TypeError("product validation evidence requires owned immutable bytes")
         if self.execution_evidence is not None and type(self.execution_evidence) is not bytes:
             raise TypeError("execution evidence requires owned immutable bytes")
         if (

@@ -438,15 +438,26 @@ def test_asset_contract_resolution_is_explicit_and_changed_bytes_change_recipe(p
     sources = formal_operation_sources()
     with pytest.raises(PreparationError, match="captured semantic asset"):
         compile_data_operations(
-            schema=bundle, python_sources=replace(sources, boundary_contracts=())
+            schema=bundle,
+            python_sources=replace(
+                sources,
+                boundary_contracts=tuple(
+                    asset
+                    for asset in sources.boundary_contracts
+                    if asset.name != "formal/profile-assets"
+                ),
+            ),
         )
     first = compile_data_operations(schema=bundle, python_sources=sources)
     second = compile_data_operations(
         schema=bundle,
         python_sources=replace(
             sources,
-            boundary_contracts=(
-                SourceArtifact("formal/profile-assets", b"different explicitly supplied parser"),
+            boundary_contracts=tuple(
+                SourceArtifact(asset.name, b"different explicitly supplied parser")
+                if asset.name == "formal/profile-assets"
+                else asset
+                for asset in sources.boundary_contracts
             ),
         ),
     )
@@ -753,7 +764,9 @@ def test_physical_custody_changes_do_not_change_formal_semantic_recipe(profile, 
     monkeypatch.setattr(
         formal_products,
         "formal_execution_custody",
-        lambda: SourceArtifact("formal/execution-custody", b"changed physical CPU/receipt code"),
+        lambda: SourceArtifact(
+            "formal/execution-custody", b"changed physical CPU/receipt code", runtime_transport=True
+        ),
     )
     changed = compile_data_operations(
         schema=bundle, python_sources=formal_products.formal_operation_sources()
@@ -910,6 +923,7 @@ def test_prepared_family_completion_preserves_declared_success_outcome(profile):
         "text.formal_evidence/examined-scope",
         "text.formal_evidence/lexical-inventory-links",
         "text.formal_evidence/symbolic-inventory-positions",
+        "text.formal_evidence/numeric-normalization",
         "text.formal_evidence/occurrence-origin",
         "text.formal_evidence/family-roster",
         "text.formal_evidence/member-local-addresses",

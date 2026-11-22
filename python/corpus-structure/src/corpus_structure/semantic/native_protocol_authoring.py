@@ -127,7 +127,6 @@ def _native_protocol_sources(
     from .demand_authority_native import demand_authority_sql
     from .demand_registration_native import demand_intent_sql
     from .demand_result_native import demand_result_sql
-    from .established_validity import product_validation_native_sql
     from .execution_evidence_leaf import (
         execution_evidence_leaf_native_sql,
         execution_evidence_leaf_schema,
@@ -248,14 +247,6 @@ def _native_protocol_sources(
             _captured_module(captured_module_sources, "data_operation_provider_profiles.py"),
         ),
         SourceArtifact(SOURCE, execution_evidence_schema()),
-        SourceArtifact(
-            "native/data-operation-product-validation.sql",
-            product_validation_native_sql(target_metadata=target_metadata).encode(),
-        ),
-        SourceArtifact(
-            "native/data-operation-product-validation.py",
-            _captured_module(captured_module_sources, "established_validity.py"),
-        ),
         SourceArtifact(
             "native/data-operation-rules.sql",
             native_sql_script(
@@ -753,7 +744,6 @@ def _captured(sources) -> dict[str, bytes]:
         "native/data-operation-compiler.sql",
         "native/data-operation-support-scopes.sql",
         "native/contextual-neighborhood.sql",
-        "native/data-operation-product-validation.sql",
         "native/data-operation-physical.yaml",
         "native/data-operation-bindings.sql",
         "native/data-operation-source-admission.sql",
@@ -1191,7 +1181,6 @@ def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_do
     from .demand_authority_native import demand_authority_programs
     from .demand_registration_native import demand_intent_programs
     from .demand_result_native import demand_result_programs
-    from .established_validity import product_validation_native_programs
     from .execution_evidence_leaf import execution_evidence_leaf_native_programs
     from .external_execution_native import external_execution_native_programs
     from .native_objects import INTERNAL_PROGRAM
@@ -1342,9 +1331,6 @@ def data_operation_native_programs(*, target_metadata=None, sources=None, pdf_do
             target_metadata=target_metadata
         ),
         "native/data-operation-support-scopes.sql": support_scope_programs(target_metadata),
-        "native/data-operation-product-validation.sql": product_validation_native_programs(
-            target_metadata=target_metadata
-        ),
         "native/data-operation-rule-establishment.sql": rule_establishment_native_programs(
             target_metadata
         ),
